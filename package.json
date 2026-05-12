@@ -14,7 +14,8 @@
     "db:seed": "tsx src/server/seed.ts",
     "test:e2e": "playwright test",
     "audit:parity": "node scripts/check-backend-frontend-parity.mjs",
-    "audit:self": "pnpm typecheck && pnpm audit:parity && pnpm build"
+    "audit:product-roadmap": "node scripts/check-product-roadmap.mjs",
+    "audit:self": "pnpm typecheck && pnpm audit:parity && pnpm audit:product-roadmap && pnpm build"
   },
   "dependencies": {
     "@ag-grid-community/client-side-row-model": "^32.3.3",
