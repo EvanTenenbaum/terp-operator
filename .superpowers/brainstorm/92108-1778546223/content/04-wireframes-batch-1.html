@@ -1,0 +1,682 @@
+<h2>Wireframe Batch 1 — Shell · Dashboard · Sales/Customer</h2>
+<p class="subtitle">Implementation-grade. Real labels, real columns, real states. Side nav now has 14 routes in 5 groups (Reports added under Decide).</p>
+
+<style>
+  .wf {border:1px solid #d4d4d8;background:#fff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;line-height:1.35;margin-top:8px;}
+  .wf .keel {display:flex;align-items:center;gap:10px;border-bottom:1px solid #d4d4d8;padding:7px 10px;background:#fafafa;}
+  .wf .chip {background:#e5e7eb;padding:2px 8px;display:inline-block;}
+  .wf .chip-active {background:#fde68a;padding:2px 8px;font-weight:600;}
+  .wf .sidenav {width:160px;border-right:1px solid #d4d4d8;background:#fafafa;padding:8px 6px;font-size:10.5px;color:#444;}
+  .wf .nav-group {text-transform:uppercase;color:#888;padding:3px 4px;margin-top:6px;font-size:9px;letter-spacing:.05em;font-weight:600;}
+  .wf .nav-group:first-child{margin-top:2px;}
+  .wf .nav-item {padding:3px 4px;display:flex;justify-content:space-between;align-items:center;}
+  .wf .nav-item-active {background:#fef9e7;border-left:2px solid #f59e0b;font-weight:600;}
+  .wf .kbd {font-size:9px;color:#aaa;}
+  .wf .ribbon {display:flex;align-items:center;gap:10px;border-bottom:1px solid #d4d4d8;padding:5px 10px;background:#fef9e7;font-size:11px;}
+  .wf .selstrip {display:flex;align-items:center;gap:10px;border-bottom:1px solid #d4d4d8;padding:6px 10px;background:#f4f4f5;font-size:11px;}
+  .wf .selstrip-pre {background:#f8f8f7;}
+  .wf .gridhead {display:grid;grid-template-columns:24px 80px 1fr 50px 70px 60px 50px 50px 50px 80px;gap:6px;border-bottom:1px solid #d4d4d8;padding:5px 10px;font-weight:600;color:#555;font-size:10px;text-transform:uppercase;letter-spacing:.04em;}
+  .wf .gridrow {display:grid;grid-template-columns:24px 80px 1fr 50px 70px 60px 50px 50px 50px 80px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;font-size:11px;}
+  .wf .gridrow-sel {background:#fef9e7;}
+  .wf .gridrow-dim {color:#999;}
+  .wf .primary {background:#22c55e;color:#fff;padding:2px 10px;font-weight:600;}
+  .wf .tray {border:1px solid #d4d4d8;padding:2px 8px;color:#444;}
+  .wf .warn {background:#fbbf24;color:#7c2d12;padding:1px 6px;font-size:10px;}
+  .wf .drawer {background:#fafafa;border-left:1px solid #d4d4d8;}
+  .wf .drawer-head {display:flex;align-items:center;gap:6px;border-bottom:1px solid #d4d4d8;padding:5px 10px;background:#f4f4f5;font-size:10px;}
+  .wf .drawer-tabs {display:flex;gap:0;border-bottom:1px solid #d4d4d8;font-size:10.5px;overflow-x:auto;}
+  .wf .drawer-tab {padding:5px 10px;color:#666;white-space:nowrap;}
+  .wf .drawer-tab-active {border-bottom:2px solid #f59e0b;font-weight:600;color:#000;}
+  .wf .label-tag {background:#e5e7eb;color:#444;padding:1px 6px;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;}
+  .annot {font-size:11px;color:#666;background:#fafafa;border-left:2px solid #f59e0b;padding:6px 10px;margin-top:6px;}
+  h3.wf-title{font-size:14px;margin-top:24px;margin-bottom:0;display:flex;align-items:center;gap:10px;}
+  h3.wf-title .num {background:#27272a;color:#fff;padding:1px 8px;font-size:10px;font-weight:600;}
+</style>
+
+<!-- ==================================================
+     WIREFRAME 1 — SHELL · default state (Dashboard)
+==================================================== -->
+<h3 class="wf-title"><span class="num">W1</span>Shell · default state · 14 routes in 5 groups · drawer closed</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span>
+    <span style="color:#aaa;">Search commands · rows · actions</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;display:flex;gap:8px;align-items:center;color:#444;">
+      <span>● Healthy</span><span style="color:#ccc;">·</span><span>Evan</span><span class="chip" style="font-size:9.5px;">Owner</span>
+    </span>
+  </div>
+
+  <div style="display:flex;min-height:380px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div>
+      <div class="nav-item nav-item-active">Dashboard <span class="kbd">⌘1</span></div>
+      <div class="nav-item">Reports</div>
+
+      <div class="nav-group">Procure</div>
+      <div class="nav-item">Purchase Orders</div>
+      <div class="nav-item">Intake <span class="kbd">⌘2</span></div>
+      <div class="nav-item">Inventory <span class="kbd">⌘5</span></div>
+
+      <div class="nav-group">Sell</div>
+      <div class="nav-item">Sales <span class="kbd">⌘3</span></div>
+      <div class="nav-item">Orders</div>
+      <div class="nav-item">Fulfillment</div>
+      <div class="nav-item">Client Ledger <span class="kbd">⌘6</span></div>
+
+      <div class="nav-group">Money</div>
+      <div class="nav-item">Payments <span class="kbd">⌘4</span></div>
+      <div class="nav-item">Vendor Payouts</div>
+
+      <div class="nav-group">Resolve</div>
+      <div class="nav-item">Connectors</div>
+      <div class="nav-item">Recovery</div>
+      <div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;padding:14px 16px;background:#fff;color:#444;">
+      <div style="font-family:system-ui;font-size:13px;color:#999;">→ Dashboard renders here (see W2)</div>
+      <div style="margin-top:6px;color:#bbb;font-size:11px;">No identity ribbon — no entity active.</div>
+      <div style="margin-top:6px;color:#bbb;font-size:11px;">No drawer — closed by default on queue views.</div>
+    </div>
+
+    <!-- drawer nub on right edge -->
+    <div style="width:24px;background:#fafafa;border-left:1px solid #d4d4d8;display:flex;align-items:flex-start;justify-content:center;">
+      <div style="margin-top:60px;writing-mode:vertical-rl;text-align:center;color:#888;font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:8px 0;">Drawer · ]</div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Shell spec</b>: Keel = 44px. SideNav = 160px expanded / 56px collapsed (icons only). Drawer nub = 24px when closed. Identity ribbon (28px) appears only when entity active. Total chrome above grid when no entity: 44px. Reports lane is the second item in <i>Decide</i> group; sits between Dashboard and the Procure group. Group dividers are 9px uppercase headers with 6px top margin — no horizontal rule. Active route gets a 2px amber left border + light amber background.
+</div>
+
+<!-- ==================================================
+     WIREFRAME 2 — DASHBOARD · default state
+==================================================== -->
+<h3 class="wf-title"><span class="num">W2</span>Dashboard · default state · Today focus strip · KPIs · queues · recent · work queue</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span>
+    <span style="color:#aaa;">Search commands · rows · actions</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy &nbsp;·&nbsp; Evan &nbsp;<span class="chip" style="font-size:9.5px;">Owner</span></span>
+  </div>
+
+  <div style="display:flex;min-height:600px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div>
+      <div class="nav-item nav-item-active">Dashboard <span class="kbd">⌘1</span></div>
+      <div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div>
+      <div class="nav-item">Purchase Orders</div>
+      <div class="nav-item">Intake</div>
+      <div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div>
+      <div class="nav-item">Sales</div>
+      <div class="nav-item">Orders</div>
+      <div class="nav-item">Fulfillment</div>
+      <div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div>
+      <div class="nav-item">Payments</div>
+      <div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div>
+      <div class="nav-item">Connectors</div>
+      <div class="nav-item">Recovery</div>
+      <div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;padding:14px 16px;background:#fff;">
+      <!-- Today focus strip -->
+      <div style="display:flex;gap:10px;align-items:center;padding-bottom:10px;border-bottom:1px solid #f3f4f6;">
+        <span class="label-tag" style="background:#fef9c3;color:#854d0e;">Today focus</span>
+        <span style="background:#fff7ed;border:1px solid #fed7aa;padding:4px 10px;font-size:11px;">
+          <b>5</b> POs awaiting receipt &nbsp;<span style="color:#aaa;">→ Procure</span>
+        </span>
+        <span style="background:#fff7ed;border:1px solid #fed7aa;padding:4px 10px;font-size:11px;">
+          <b>$8.4K</b> vendor payouts scheduled today &nbsp;<span style="color:#aaa;">→ Money</span>
+        </span>
+        <span style="background:#fff7ed;border:1px solid #fed7aa;padding:4px 10px;font-size:11px;">
+          <b>3</b> orders need fulfillment allocation &nbsp;<span style="color:#aaa;">→ Sell</span>
+        </span>
+        <span style="margin-left:auto;color:#aaa;font-size:10px;">refreshed 14s ago · <span style="text-decoration:underline;">refresh</span></span>
+      </div>
+
+      <!-- KPI cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;">
+        <div style="border:1px solid #d4d4d8;padding:8px 10px;background:#fafafa;">
+          <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;">Available Files <span style="color:#bbb;cursor:help;">?</span></div>
+          <div style="font-size:18px;font-weight:600;color:#000;margin-top:4px;">$22,140</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">cash on hand $30.5K − scheduled $8.4K</div>
+        </div>
+        <div style="border:1px solid #d4d4d8;padding:8px 10px;background:#fafafa;">
+          <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;">Receivables <span style="color:#bbb;cursor:help;">?</span></div>
+          <div style="font-size:18px;font-weight:600;">$48,210</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">9 open invoices</div>
+        </div>
+        <div style="border:1px solid #d4d4d8;padding:8px 10px;background:#fafafa;">
+          <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;">Payables due <span style="color:#bbb;cursor:help;">?</span></div>
+          <div style="font-size:18px;font-weight:600;">$8,420</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">3 vendors · 2 consigned</div>
+        </div>
+        <div style="border:1px solid #d4d4d8;padding:8px 10px;background:#fafafa;">
+          <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;">Inventory value <span style="color:#bbb;cursor:help;">?</span></div>
+          <div style="font-size:18px;font-weight:600;">$94,820</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">1,840 units · 14 lots aging 30d+</div>
+        </div>
+      </div>
+
+      <!-- Queues + Recent activity -->
+      <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:12px;">
+        <div style="border:1px solid #d4d4d8;background:#fafafa;">
+          <div style="padding:8px 10px;border-bottom:1px solid #d4d4d8;font-size:11px;font-weight:600;">Pending work queues</div>
+          <div style="padding:4px 10px;font-size:11px;display:flex;justify-content:space-between;">Intake needs ready <b>4</b></div>
+          <div style="padding:4px 10px;font-size:11px;display:flex;justify-content:space-between;border-top:1px solid #f3f4f6;">Orders awaiting post <b>3</b></div>
+          <div style="padding:4px 10px;font-size:11px;display:flex;justify-content:space-between;border-top:1px solid #f3f4f6;">Payments unallocated <b>2</b></div>
+          <div style="padding:4px 10px;font-size:11px;display:flex;justify-content:space-between;border-top:1px solid #f3f4f6;">Connector requests <b>1</b></div>
+          <div style="padding:4px 10px;font-size:11px;display:flex;justify-content:space-between;border-top:1px solid #f3f4f6;color:#888;">Closeout safe <span style="color:#16a34a;">✓</span></div>
+        </div>
+        <div style="border:1px solid #d4d4d8;background:#fafafa;">
+          <div style="padding:8px 10px;border-bottom:1px solid #d4d4d8;font-size:11px;font-weight:600;">Recent activity</div>
+          <div style="padding:4px 10px;font-size:10.5px;display:grid;grid-template-columns:1fr 90px 90px;gap:6px;border-bottom:1px solid #f3f4f6;"><span>postPurchaseReceipt PO-001</span><span style="color:#666;">Mara</span><span style="color:#888;">14s</span></div>
+          <div style="padding:4px 10px;font-size:10.5px;display:grid;grid-template-columns:1fr 90px 90px;gap:6px;border-bottom:1px solid #f3f4f6;"><span>logPayment Rich Star $612</span><span style="color:#666;">Evan</span><span style="color:#888;">2m</span></div>
+          <div style="padding:4px 10px;font-size:10.5px;display:grid;grid-template-columns:1fr 90px 90px;gap:6px;border-bottom:1px solid #f3f4f6;"><span>approvePurchaseOrder PO-DEMO-001</span><span style="color:#666;">Owner</span><span style="color:#888;">7m</span></div>
+          <div style="padding:4px 10px;font-size:10.5px;display:grid;grid-template-columns:1fr 90px 90px;gap:6px;"><span>createBatch from receiving drop</span><span style="color:#666;">Jamie</span><span style="color:#888;">11m</span></div>
+        </div>
+      </div>
+
+      <!-- Unified work queue grid -->
+      <div style="border:1px solid #d4d4d8;background:#fff;margin-top:12px;">
+        <div style="padding:8px 10px;border-bottom:1px solid #d4d4d8;display:flex;align-items:center;gap:10px;">
+          <span class="label-tag" style="background:#e5e7eb;color:#444;">Unified work queue</span>
+          <span style="color:#888;font-size:11px;">10 row(s)</span>
+          <input style="margin-left:auto;border:1px solid #d4d4d8;padding:3px 8px;font-size:11px;width:200px;" placeholder="/ filter grid"/>
+        </div>
+        <div style="display:grid;grid-template-columns:110px 200px 130px 1fr 130px;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:10px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;">
+          <span>Lane</span><span>Title</span><span>Status</span><span>Detail</span><span>Created</span>
+        </div>
+        <div style="display:grid;grid-template-columns:110px 200px 130px 1fr 130px;gap:6px;padding:4px 10px;font-size:11px;border-bottom:1px solid #f3f4f6;"><span>Intake</span><span>5 rows · vendor Scott</span><span><span class="chip" style="font-size:9.5px;">needs ready</span></span><span style="color:#666;">2 missing intakeQty · 3 missing cost</span><span style="color:#888;">today 10:14</span></div>
+        <div style="display:grid;grid-template-columns:110px 200px 130px 1fr 130px;gap:6px;padding:4px 10px;font-size:11px;border-bottom:1px solid #f3f4f6;"><span>Orders</span><span>RS-2026-05-11</span><span><span class="chip" style="font-size:9.5px;">draft</span></span><span style="color:#666;">3 lines · Rich Star · $612 total · needs reserve</span><span style="color:#888;">today 09:42</span></div>
+        <div style="display:grid;grid-template-columns:110px 200px 130px 1fr 130px;gap:6px;padding:4px 10px;font-size:11px;border-bottom:1px solid #f3f4f6;"><span>Vendor Payouts</span><span>Scott · 3 bills</span><span><span class="chip" style="font-size:9.5px;background:#fef9c3;color:#854d0e;">scheduled</span></span><span style="color:#666;">$3,240 due today · consigned depleted on B-018</span><span style="color:#888;">today 08:30</span></div>
+        <div style="display:grid;grid-template-columns:110px 200px 130px 1fr 130px;gap:6px;padding:4px 10px;font-size:11px;border-bottom:1px solid #f3f4f6;"><span>Connectors</span><span>VIP request · Riley</span><span><span class="chip" style="font-size:9.5px;">awaiting route</span></span><span style="color:#666;">live-shopping cart 4 items · est. $480</span><span style="color:#888;">today 07:12</span></div>
+        <div style="display:grid;grid-template-columns:110px 200px 130px 1fr 130px;gap:6px;padding:4px 10px;font-size:11px;color:#999;"><span>(8 more rows)</span><span></span><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+    <div style="width:24px;background:#fafafa;border-left:1px solid #d4d4d8;display:flex;align-items:flex-start;justify-content:center;">
+      <div style="margin-top:60px;writing-mode:vertical-rl;text-align:center;color:#888;font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:8px 0;">Drawer · ]</div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Dashboard spec</b>: "Today focus" strip is the new lead surface — 3 ranked actions (procurement, money, fulfillment) computed from queue depth × urgency × dollar weight. Each is a one-click jump to the owning lane with that filter applied. KPI cards drop from 9 (today's count) to 4 primary; <kbd>?</kbd> on any card opens the drawer at a <b>KPI definition</b> tab (replaces today's "Money Definitions and Buckets" inline panel). KPI value click opens the drawer at a <b>Drilldown</b> tab showing source rows. Queues panel and Recent activity stay. Unified Work Queue grid stays as the bottom anchor; selection strip + drawer behave like every other grid (selecting a queue row opens its owning lane's drawer for that entity).
+</div>
+
+<!-- ==================================================
+     WIREFRAME 3 — SALES · customer pick (no customer active)
+==================================================== -->
+<h3 class="wf-title"><span class="num">W3</span>Sales · customer pick · drawer closed · Finder visible on right</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">Search commands · rows · actions</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip-active">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy &nbsp;·&nbsp; Evan &nbsp;<span class="chip" style="font-size:9.5px;">Owner</span></span>
+  </div>
+
+  <div style="display:flex;min-height:560px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div>
+      <div class="nav-item">Dashboard</div>
+      <div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div>
+      <div class="nav-item">Purchase Orders</div>
+      <div class="nav-item">Intake</div>
+      <div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div>
+      <div class="nav-item nav-item-active">Sales <span class="kbd">⌘3</span></div>
+      <div class="nav-item">Orders</div>
+      <div class="nav-item">Fulfillment</div>
+      <div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div>
+      <div class="nav-item">Payments</div>
+      <div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div>
+      <div class="nav-item">Connectors</div>
+      <div class="nav-item">Recovery</div>
+      <div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <!-- pre-selection strip -->
+      <div class="selstrip selstrip-pre">
+        <span class="label-tag">Pre-selection</span>
+        <span>Customer ▾</span>
+        <input style="border:1px solid #d4d4d8;padding:3px 8px;font-size:11px;width:200px;background:#fff;" placeholder="Type customer name or alias"/>
+        <span class="tray">+ New Order</span>
+        <span style="margin-left:auto;color:#aaa;font-size:10px;">Recent: Rich Star · Riley T · Nova H · Kira L</span>
+      </div>
+
+      <!-- empty state in main area -->
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;background:#fff;color:#888;text-align:center;padding:24px;">
+        <div>
+          <div style="font-family:system-ui;font-size:14px;color:#444;">Pick a customer to start a sale.</div>
+          <div style="font-size:11px;color:#888;margin-top:6px;">Or ⌘K → type a customer name. Inventory Finder is open on the right for scanning.</div>
+          <div style="margin-top:14px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;font-family:ui-monospace,monospace;">
+            <span class="chip">Rich Star</span><span class="chip">Riley T</span><span class="chip">Nova H</span><span class="chip">Kira L</span><span class="chip">Maven P</span><span class="chip">Open Sales Queue →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Finder embedded panel -->
+    <div style="width:340px;border-left:1px solid #d4d4d8;background:#fafafa;">
+      <div style="padding:7px 10px;border-bottom:1px solid #d4d4d8;display:flex;justify-content:space-between;align-items:center;">
+        <span class="label-tag">Inventory Finder</span>
+        <span style="font-size:10px;color:#666;">62 / 184 shown · <span style="color:#999;">⌘⇧F for overlay</span></span>
+      </div>
+      <div style="padding:7px 10px;border-bottom:1px solid #d4d4d8;display:flex;flex-wrap:wrap;gap:4px;font-size:10px;">
+        <span class="chip">Aging premium</span><span class="chip">Consignment risk</span><span class="chip">Value buyers</span><span class="chip">Low stock</span><span class="chip">Office owned</span>
+      </div>
+      <div style="padding:7px 10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <input style="flex:1;min-width:140px;border:1px solid #d4d4d8;padding:3px 8px;font-size:11px;background:#fff;" placeholder="code · notes · marker · price hint"/>
+        <select style="font-size:10px;padding:2px;"><option>Category</option></select>
+        <select style="font-size:10px;padding:2px;"><option>Vendor</option></select>
+        <input style="width:70px;border:1px solid #d4d4d8;padding:2px 6px;font-size:10px;background:#fff;" placeholder="Max $"/>
+        <span style="font-size:10px;color:#888;">More filters ▾</span>
+      </div>
+      <div style="padding:0 10px;">
+        <div style="display:grid;grid-template-columns:42px 1fr 50px 60px 26px;gap:6px;padding:4px 0;border-bottom:1px solid #d4d4d8;font-size:10px;color:#555;font-weight:600;">
+          <span>Qty</span><span>Identity · product · source</span><span>Avail</span><span>Tic / $</span><span>+</span>
+        </div>
+        <div style="display:grid;grid-template-columns:42px 1fr 50px 60px 26px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:10px;">
+          <span><input value="1" style="width:34px;border:1px solid #d4d4d8;padding:1px 4px;font-size:10px;"/></span>
+          <span><b>M15</b> · Alien Runts · Scott<br><span style="color:#888;">5/5 · Ins · 25 flex</span></span><span>12</span><span>$0.85<br><span style="color:#888;">$85</span></span><span>⊕</span>
+        </div>
+        <div style="display:grid;grid-template-columns:42px 1fr 50px 60px 26px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:10px;">
+          <span><input value="1" style="width:34px;border:1px solid #d4d4d8;padding:1px 4px;font-size:10px;"/></span>
+          <span><b>J7</b> · Sugar High · Greenline<br><span style="color:#888;">4/28 · Smalls · "rich"</span></span><span>8</span><span>$0.72<br><span style="color:#888;">$72</span></span><span>⊕</span>
+        </div>
+        <div style="display:grid;grid-template-columns:42px 1fr 50px 60px 26px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:10px;">
+          <span><input value="1" style="width:34px;border:1px solid #d4d4d8;padding:1px 4px;font-size:10px;"/></span>
+          <span><b>C2</b> · Black Truffle · Aurora<br><span style="color:#888;">5/2 · Ins · ofc</span></span><span>20</span><span>$0.95<br><span style="color:#888;">$95</span></span><span>⊕</span>
+        </div>
+        <div style="display:grid;grid-template-columns:42px 1fr 50px 60px 26px;gap:6px;padding:4px 0;color:#888;font-size:10px;font-style:italic;">
+          <span colspan="5" style="grid-column:1 / -1;">(59 more rows · scroll)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Sales · customer pick spec</b>: Pre-selection strip has exactly two affordances — <b>Customer ▾</b> typeahead and <b>+ New Order</b>. Recent customers as chips below the empty state for fast click access. Inventory Finder is the right rail, fully usable even before a customer is picked (you can scan and copy a customer-safe offer without committing). <kbd>⌘⇧F</kbd> opens the same finder as a full-screen overlay floating over any view.
+</div>
+
+<!-- ==================================================
+     WIREFRAME 4 — SALES · customer active, draft order, no selection · drawer peek (Balance tab)
+==================================================== -->
+<h3 class="wf-title"><span class="num">W4</span>Sales · customer active · draft order · no row selected · drawer peek (Balance tab) · Finder still visible</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">Rich Star</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip-active">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy &nbsp;·&nbsp; Evan</span>
+  </div>
+
+  <!-- Identity ribbon -->
+  <div class="ribbon">
+    <span class="label-tag" style="background:#fde68a;color:#854d0e;">Customer</span>
+    <b>Rich Star</b>
+    <span style="color:#666;">draft order <b>RS-2026-05-11</b> · 3 lines · $612</span>
+    <span class="chip" style="font-size:9.5px;">draft</span>
+    <span style="color:#aaa;font-size:10px;">tags: priority · candy</span>
+    <span style="margin-left:auto;color:#999;font-size:10px;">[ ⌘← back ] &nbsp; [ ✕ leave ]</span>
+  </div>
+
+  <div style="display:flex;min-height:540px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div>
+      <div class="nav-item">Dashboard</div>
+      <div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div>
+      <div class="nav-item">Purchase Orders</div>
+      <div class="nav-item">Intake</div>
+      <div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div>
+      <div class="nav-item nav-item-active">Sales</div>
+      <div class="nav-item">Orders</div>
+      <div class="nav-item">Fulfillment</div>
+      <div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div>
+      <div class="nav-item">Payments</div>
+      <div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div>
+      <div class="nav-item">Connectors</div>
+      <div class="nav-item">Recovery</div>
+      <div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <!-- pre-selection strip on the line grid -->
+      <div class="selstrip selstrip-pre">
+        <span class="label-tag">Pre-selection</span>
+        <span class="tray">+ Draft Line</span>
+        <input style="border:1px solid #d4d4d8;padding:3px 8px;font-size:11px;width:240px;background:#fff;" placeholder="Type item · source · shorthand"/>
+        <span style="font-size:10px;color:#888;">qty 1 · price auto · add</span>
+        <span style="margin-left:auto;color:#aaa;font-size:10px;">3 lines drafted · ⌘D duplicate · ⌘↵ next primary</span>
+      </div>
+
+      <!-- line grid -->
+      <div style="background:#fff;">
+        <div style="display:grid;grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:10px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;">
+          <span></span><span>Raw</span><span>Item · request</span><span>Source</span><span>Qty</span><span>Price</span><span>Cost</span><span>Rule</span><span>Pkd</span><span>Inv</span><span>Pay</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;font-size:11px;">
+          <span style="color:#bbb;">○</span><span style="color:#888;">P</span><span>Alien Runts</span><span><b>M15</b></span><span>3</span><span>$85</span><span style="color:#888;">$60</span><span style="color:#888;">candy std</span><span>·</span><span>·</span><span>·</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;font-size:11px;">
+          <span style="color:#bbb;">○</span><span style="color:#888;">P</span><span>Sugar High</span><span><b>J7</b></span><span>2</span><span>$72</span><span style="color:#888;">$48</span><span style="color:#888;">candy std</span><span>·</span><span>·</span><span>·</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;font-size:11px;">
+          <span style="color:#bbb;">○</span><span style="color:#888;">P</span><span>Black Truffle</span><span><b>C2</b></span><span>4</span><span>$80 <span class="warn">below floor $85</span></span><span style="color:#888;">$54</span><span style="color:#888;">candy std</span><span>·</span><span>·</span><span>·</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;gap:6px;padding:4px 10px;font-size:11px;color:#999;font-style:italic;">
+          <span></span><span></span><span colspan="9" style="grid-column:3/-1;">+ type a line above to add</span>
+        </div>
+      </div>
+
+      <div style="flex:1;"></div>
+    </div>
+
+    <!-- drawer in PEEK with Balance tab -->
+    <div class="drawer" style="width:280px;">
+      <div class="drawer-head">
+        <span class="label-tag">Drawer · peek</span>
+        <span style="margin-left:auto;color:#666;">peek &nbsp;·&nbsp; <span style="color:#aaa;">expand]</span> &nbsp;·&nbsp; <span style="color:#aaa;">full</span> &nbsp;·&nbsp; ✕</span>
+      </div>
+      <div class="drawer-tabs">
+        <span class="drawer-tab">Profile</span>
+        <span class="drawer-tab drawer-tab-active">Balance</span>
+        <span class="drawer-tab">Purchases</span>
+        <span class="drawer-tab">Pricing</span>
+        <span class="drawer-tab">Fit</span>
+        <span class="drawer-tab">···</span>
+      </div>
+      <div style="padding:8px 10px;font-size:11px;line-height:1.55;">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:4px;">
+          <span style="color:#666;">Balance</span><b>$1,240</b>
+          <span style="color:#666;">Credit limit</span><b>$5,000</b>
+          <span style="color:#666;">Open invoices</span><b>2</b>
+          <span style="color:#666;">Oldest</span><b style="color:#854d0e;">21d (INV-204)</b>
+          <span style="color:#666;">Avg pay days</span><b>7</b>
+        </div>
+        <div style="margin-top:8px;padding-top:6px;border-top:1px solid #f3f4f6;font-size:10px;color:#666;">
+          <b>If this order posts</b><br>
+          Receivable would rise to $1,852.<br>
+          Within credit limit by $3,148.
+        </div>
+        <div style="margin-top:8px;padding:6px;background:#fffbeb;border:1px solid #fed7aa;font-size:10px;color:#854d0e;">
+          ⚠ 1 line below floor on this draft order.<br>
+          <span style="color:#666;">Warning only · not blocking · <span style="text-decoration:underline;cursor:pointer;">turn off</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Sales · active customer spec</b>: Identity ribbon appears the moment a customer is picked. The line grid replaces the customer pick state. Pre-selection strip on the line grid has one affordance: a typeahead "+ Draft Line" input. Typing item / source / shorthand into it creates a row and pre-resolves the source if recognized. Drawer auto-opens to <b>peek</b> on first customer activation (per-route memory after that). Below-floor pricing shows an amber inline pill on the row + a summary on the drawer Balance tab; <i>warning only, dismissible, never blocking</i>. The Inventory Finder is hidden in this state because the drawer occupies the right rail — <kbd>⌘⇧F</kbd> opens the overlay if scanning is needed; <kbd>]</kbd> twice closes the drawer and restores the Finder panel.
+</div>
+
+<!-- ==================================================
+     WIREFRAME 5 — SALES · selection state · drawer expanded with Buyer fit
+==================================================== -->
+<h3 class="wf-title"><span class="num">W5</span>Sales · 3 lines selected · post-selection strip · drawer expanded · Buyer fit tab</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">Rich Star</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip-active">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy &nbsp;·&nbsp; Evan</span>
+  </div>
+
+  <div class="ribbon">
+    <span class="label-tag" style="background:#fde68a;color:#854d0e;">Customer</span>
+    <b>Rich Star</b>
+    <span style="color:#666;">draft order <b>RS-2026-05-11</b> · 3 lines · $612</span>
+    <span class="chip" style="font-size:9.5px;">draft</span>
+    <span style="margin-left:auto;color:#999;font-size:10px;">[ ⌘← back ] &nbsp; [ ✕ leave ]</span>
+  </div>
+
+  <div style="display:flex;min-height:540px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div>
+      <div class="nav-item">Dashboard</div>
+      <div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div>
+      <div class="nav-item">Purchase Orders</div>
+      <div class="nav-item">Intake</div>
+      <div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div>
+      <div class="nav-item nav-item-active">Sales</div>
+      <div class="nav-item">Orders</div>
+      <div class="nav-item">Fulfillment</div>
+      <div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div>
+      <div class="nav-item">Payments</div>
+      <div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div>
+      <div class="nav-item">Connectors</div>
+      <div class="nav-item">Recovery</div>
+      <div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <!-- POST selection strip -->
+      <div class="selstrip">
+        <span class="label-tag" style="background:#27272a;color:#fff;">Selection · 3</span>
+        <span>Σ qty 9</span><span>Σ subtotal $612</span>
+        <span class="warn">1 below floor</span>
+        <span class="primary">▶ Price + Confirm &nbsp;<span style="color:#dcfce7;font-size:9px;">⌘↵</span></span>
+        <span class="tray">More ▾ <span style="color:#888;">Reserve · Reprice · Remove · Mark packed · Mark inv-posted · Mark pay-f/up</span></span>
+        <span style="margin-left:auto;color:#666;">⏱ History &nbsp;·&nbsp; ◇ Relationship &nbsp;·&nbsp; ⚠ Issue &nbsp;·&nbsp; ⬇ Packet</span>
+      </div>
+
+      <!-- line grid, 3 selected -->
+      <div style="background:#fff;">
+        <div style="display:grid;grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:10px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;">
+          <span></span><span>Raw</span><span>Item · request</span><span>Source</span><span>Qty</span><span>Price</span><span>Cost</span><span>Rule</span><span>Pkd</span><span>Inv</span><span>Pay</span>
+        </div>
+        <div class="gridrow gridrow-sel" style="grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;">
+          <span>✓</span><span style="color:#888;">P</span><span>Alien Runts</span><span><b>M15</b></span><span>3</span><span>$85</span><span style="color:#888;">$60</span><span style="color:#888;">candy std</span><span>·</span><span>·</span><span>·</span>
+        </div>
+        <div class="gridrow gridrow-sel" style="grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;">
+          <span>✓</span><span style="color:#888;">P</span><span>Sugar High</span><span><b>J7</b></span><span>2</span><span>$72</span><span style="color:#888;">$48</span><span style="color:#888;">candy std</span><span>·</span><span>·</span><span>·</span>
+        </div>
+        <div class="gridrow gridrow-sel" style="grid-template-columns:24px 70px 1fr 80px 50px 70px 60px 80px 50px 50px 50px;">
+          <span>✓</span><span style="color:#888;">P</span><span>Black Truffle</span><span><b>C2</b></span><span>4</span><span>$80 <span class="warn">↓floor</span></span><span style="color:#888;">$54</span><span style="color:#888;">candy std</span><span>·</span><span>·</span><span>·</span>
+        </div>
+        <div style="padding:4px 10px;color:#999;font-style:italic;font-size:11px;">+ type a line above to add</div>
+      </div>
+
+      <div style="flex:1;"></div>
+    </div>
+
+    <!-- DRAWER expanded — Buyer fit tab -->
+    <div class="drawer" style="width:420px;">
+      <div class="drawer-head">
+        <span class="label-tag">Drawer · expanded</span>
+        <span style="margin-left:auto;color:#666;">peek &nbsp;·&nbsp; <b style="color:#000;">expanded</b> &nbsp;·&nbsp; full &nbsp;·&nbsp; ✕</span>
+      </div>
+      <div class="drawer-tabs">
+        <span class="drawer-tab">Profile</span>
+        <span class="drawer-tab">Balance</span>
+        <span class="drawer-tab">Purchases</span>
+        <span class="drawer-tab">Pricing</span>
+        <span class="drawer-tab drawer-tab-active">Buyer fit</span>
+        <span class="drawer-tab">Notes</span>
+        <span class="drawer-tab">···</span>
+      </div>
+      <div style="padding:8px 10px;font-size:11px;line-height:1.5;">
+        <div style="font-size:10px;color:#666;margin-bottom:6px;">Suggested for Rich Star based on tags · category history · price band · margin fit.</div>
+        <div style="display:grid;grid-template-columns:60px 1fr 40px 50px 22px;gap:6px;padding:4px 0;border-bottom:1px solid #d4d4d8;font-size:10px;color:#555;font-weight:600;">
+          <span>Source</span><span>Item · reason</span><span>Avail</span><span>$</span><span>+</span>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 40px 50px 22px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:10.5px;">
+          <span><b>F2</b></span><span>Gelato 33<br><span style="color:#888;font-size:9.5px;">bought 4/14 · candy tag · margin 28%</span></span><span>14</span><span>$78</span><span>⊕</span>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 40px 50px 22px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:10.5px;">
+          <span><b>A4</b></span><span>Space Rocks<br><span style="color:#888;font-size:9.5px;">bought 3/28 · same vendor · aging 18d</span></span><span>6</span><span>$92</span><span>⊕</span>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 40px 50px 22px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:10.5px;">
+          <span><b>J2</b></span><span>Candy Mediums<br><span style="color:#888;font-size:9.5px;">bought 4/29 · qty 5 · re-stock likely</span></span><span>22</span><span>$64</span><span>⊕</span>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 40px 50px 22px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;font-size:10.5px;">
+          <span><b>K9</b></span><span>Cosmic Bliss<br><span style="color:#888;font-size:9.5px;">tag overlap · ofc · in margin band</span></span><span>11</span><span>$71</span><span>⊕</span>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:#888;">click ⊕ to add at qty 1 · type qty inline before click · ⌘← to send drawer back to peek</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Sales · selection + Buyer fit spec</b>: When ≥1 line is selected, the pre-selection strip swaps out — same physical row. Primary action is status-aware (<b>Price + Confirm</b> here because lines are still draft; would become <b>Post</b> after confirmation). Tray exposes Reserve · Reprice · Remove · the three closeout toggles. Below-floor pill on the line is visible in selected state but no longer styled aggressively (1 below floor still surfaced at strip level). Drawer expanded shows Buyer fit — built from <code>queries.salesSuggestions</code> with reasons inline. Adding from Buyer fit calls <code>addSalesOrderLine</code> with the suggested batch and routes nothing — drawer stays open so the operator can keep scanning.
+</div>
+
+<!-- ==================================================
+     WIREFRAME 6 — SALES · drawer FULL · Purchases tab (deep history)
+==================================================== -->
+<h3 class="wf-title"><span class="num">W6</span>Sales · drawer FULL · Purchases tab · "scan buyer's history while building a sale" (your example)</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">Rich Star</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip-active">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy &nbsp;·&nbsp; Evan</span>
+  </div>
+
+  <div class="ribbon">
+    <span class="label-tag" style="background:#fde68a;color:#854d0e;">Customer</span>
+    <b>Rich Star</b>
+    <span style="color:#666;">draft order <b>RS-2026-05-11</b> · 3 lines · $612</span>
+    <span class="chip" style="font-size:9.5px;">draft</span>
+    <span style="margin-left:auto;color:#999;font-size:10px;">[ ⌘← back ] &nbsp; [ ✕ leave ]</span>
+  </div>
+
+  <div style="display:flex;min-height:560px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div><div class="nav-item">Dashboard</div><div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div><div class="nav-item">Purchase Orders</div><div class="nav-item">Intake</div><div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div><div class="nav-item nav-item-active">Sales</div><div class="nav-item">Orders</div><div class="nav-item">Fulfillment</div><div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div><div class="nav-item">Payments</div><div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div><div class="nav-item">Connectors</div><div class="nav-item">Recovery</div><div class="nav-item">Closeout</div>
+    </div>
+
+    <!-- main work area collapses to 40% -->
+    <div style="width:40%;display:flex;flex-direction:column;border-right:1px solid #d4d4d8;">
+      <div class="selstrip selstrip-pre">
+        <span class="label-tag">Lines · 3</span>
+        <span style="color:#666;">Σ $612</span>
+        <span style="margin-left:auto;color:#999;font-size:10px;">drawer is in full · ⇧] to expand · ] to peek · esc to close</span>
+      </div>
+      <div style="background:#fff;font-size:11px;">
+        <div style="display:grid;grid-template-columns:1fr 60px 50px 60px;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:10px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.04em;">
+          <span>Item</span><span>Source</span><span>Qty</span><span>Price</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 60px 50px 60px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;"><span>Alien Runts</span><span>M15</span><span>3</span><span>$85</span></div>
+        <div style="display:grid;grid-template-columns:1fr 60px 50px 60px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;"><span>Sugar High</span><span>J7</span><span>2</span><span>$72</span></div>
+        <div style="display:grid;grid-template-columns:1fr 60px 50px 60px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;"><span>Black Truffle</span><span>C2</span><span>4</span><span>$80</span></div>
+      </div>
+      <div style="flex:1;background:#fafafa;"></div>
+    </div>
+
+    <!-- DRAWER FULL -->
+    <div class="drawer" style="flex:1;">
+      <div class="drawer-head">
+        <span class="label-tag">Drawer · full</span>
+        <span style="margin-left:auto;color:#666;">peek &nbsp;·&nbsp; expanded &nbsp;·&nbsp; <b style="color:#000;">full</b> &nbsp;·&nbsp; ✕</span>
+      </div>
+      <div class="drawer-tabs">
+        <span class="drawer-tab">Profile</span>
+        <span class="drawer-tab">Balance</span>
+        <span class="drawer-tab drawer-tab-active">Purchases</span>
+        <span class="drawer-tab">Pricing</span>
+        <span class="drawer-tab">Buyer fit</span>
+        <span class="drawer-tab">Notes</span>
+        <span class="drawer-tab">Recent</span>
+        <span class="drawer-tab">Disputes</span>
+        <span class="drawer-tab">History</span>
+      </div>
+      <div style="padding:8px 12px;font-size:11px;">
+        <div style="display:flex;gap:8px;align-items:center;padding-bottom:6px;border-bottom:1px solid #d4d4d8;">
+          <span style="color:#666;">12 orders · 90 days · avg $612 · pays in 7d</span>
+          <input style="margin-left:auto;border:1px solid #d4d4d8;padding:3px 6px;font-size:10px;width:180px;" placeholder="filter purchases"/>
+          <select style="font-size:10px;padding:2px;"><option>90d</option><option>180d</option><option>1y</option></select>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:5px 0;border-bottom:1px solid #d4d4d8;font-size:10px;color:#555;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">
+          <span>Order</span><span>Item · source</span><span>Date</span><span>Qty</span><span>$ line</span><span>Margin</span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><b>RS-204</b></span><span>Candy Mediums · J2</span><span>4/29</span><span>5</span><span>$320</span><span>28%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><b>RS-198</b></span><span>Black Truffle · C2</span><span>4/22</span><span>8</span><span>$760</span><span>32%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><b>RS-189</b></span><span>Alien Runts · M15</span><span>4/14</span><span>6</span><span>$510</span><span>30%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><b>RS-178</b></span><span>Sugar High · J7</span><span>4/02</span><span>4</span><span>$288</span><span>34%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><b>RS-171</b></span><span>Space Rocks · A4</span><span>3/28</span><span>3</span><span>$276</span><span>25%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><b>RS-165</b></span><span>Gelato 33 · F2</span><span>3/21</span><span>4</span><span>$312</span><span>26%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><b>RS-159</b></span><span>Toad Venom · M22</span><span>3/14</span><span>2</span><span>$160</span><span>22%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr 70px 50px 70px 60px;gap:6px;padding:4px 0;color:#999;">
+          <span colspan="6" style="grid-column:1/-1;font-style:italic;">(5 more rows)</span>
+        </div>
+        <div style="margin-top:10px;padding:6px;background:#fafafa;font-size:10px;color:#666;border-top:1px solid #d4d4d8;">
+          Click an order row to open it in the Orders queue. Click an item to add to the current draft (returns drawer to expanded).
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Sales · drawer FULL spec (your example)</b>: Operator presses <kbd>⇧]</kbd> while building the sale to expand the drawer to full. The line grid compresses to 40% so it stays visible. The Purchases tab shows the full 90-day history with filter + period selector + sortable columns. Clicking an item row inside the drawer either (a) routes to that order in Orders queue, OR (b) adds the same item to the current draft order, depending on a small action menu — <i>read-only by default; explicit action required to mutate</i>. <kbd>]</kbd> sends the drawer back to expanded; <kbd>esc</kbd> closes it entirely. Drawer state per route × entity is persisted, so next time Rich Star is active in Sales, the drawer remembers it was last in expanded/Purchases.
+</div>
+
+<!-- Closing summary -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">What this batch establishes (so subsequent batches can build on it)</div>
+  <ul style="margin:6px 0 0 18px;font-size:12px;line-height:1.6;">
+    <li>14-route nav structure in 5 groups. Reports lane added. Group dividers are 9px uppercase headers — no horizontal rules.</li>
+    <li>Keel pattern: ⌘K + 5 launch chips + health + user. Active chip when on its primary view.</li>
+    <li>Identity ribbon pattern: visible only when entity active. Slim. Holds identity + status + key id + leave/back.</li>
+    <li>Band swap pattern: same physical row toggles between pre-selection (start work) and selection (act on rows). Status-aware primary in green; tray in "More ▾"; ⏱◇⚠⬇ icons on the right.</li>
+    <li>Drawer pattern: peek (280px) · expanded (420px) · full (≥60%) · closed (24px nub). State persisted per route × entity.</li>
+    <li>Below-floor warning: amber inline pill on line + drawer Balance summary. Per-customer toggleable. Never blocking.</li>
+    <li>Inventory Finder occupies right rail when drawer is closed (Sales view only). ⌘⇧F opens the global overlay anywhere.</li>
+    <li>Dashboard introduces "Today focus" strip + KPI <kbd>?</kbd> opens drawer for definitions, KPI value click opens drawer for drilldown.</li>
+  </ul>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">If batch 1 reads right, batch 2 is next: <b>Intake / Receiving</b>, <b>Purchase Orders</b> (status-aware header + line-add as first row + drawer tabs), and <b>Inventory Finder</b> (standalone Inventory page Finder mode + ⌘⇧F overlay). Then batch 3: Orders queue, Payments + Quick Ledger, Vendor Payables. Then sketches: Fulfillment, Connectors, Recovery, Closeout, Reports.</p>

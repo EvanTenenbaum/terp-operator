@@ -1,0 +1,243 @@
+<h2>Section 2 — Canvas grammar</h2>
+<p class="subtitle">Every operations screen uses the same 5-zone shape. Section 1 principles get enforced by the grammar, not by ad-hoc per-screen judgement.</p>
+
+<!-- Zone diagram -->
+<div class="section">
+  <div style="border:1px solid var(--line,#d4d4d8);background:#fff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;line-height:1.35;">
+    <!-- Zone A keel -->
+    <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line,#d4d4d8);padding:6px 10px;background:#fafafa;">
+      <span style="background:#e5e7eb;padding:1px 6px;font-weight:600;">A · KEEL</span>
+      <span>⌘K Search commands · rows · actions</span>
+      <span style="color:#888;">│</span>
+      <span>[ Sale ] [ Receive ] [ $ In ] [ $ Out ]</span>
+      <span style="margin-left:auto;color:#666;">● Healthy · Evan / Owner · Sign out</span>
+    </div>
+    <!-- Zone B quick start -->
+    <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line,#d4d4d8);padding:6px 10px;background:#fcfcfc;">
+      <span style="background:#e5e7eb;padding:1px 6px;font-weight:600;">B · QUICK START</span>
+      <span style="background:#fde68a;padding:1px 6px;">▾ Sale</span>
+      <span>Purchase</span><span>Receiving</span><span>Money In</span><span>Money Out</span>
+      <span style="margin-left:14px;color:#666;">Client ▾ Rich Star &nbsp; Request ▢ runtz under $90 &nbsp; [ New Sale ]</span>
+    </div>
+    <!-- Zone C persistent context band -->
+    <div style="display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--line,#d4d4d8);padding:8px 10px;background:#fef9e7;">
+      <span style="background:#fde68a;padding:1px 6px;font-weight:600;">C · PERSISTENT CONTEXT</span>
+      <b>Rich Star</b><span style="border:1px solid #d97706;padding:0 4px;color:#92400e;">draft order · 3 lines</span>
+      <span>Bal $1,240</span><span>Credit $5,000</span><span style="color:#666;">tags: priority · candy</span>
+      <span style="margin-left:auto;color:#666;">[ View profile ] [ Internal sheet ] [ Customer offer ]</span>
+    </div>
+
+    <div style="display:flex;min-height:300px;">
+      <!-- Zone D primary work surface -->
+      <div style="flex:1;border-right:1px solid var(--line,#d4d4d8);">
+        <!-- selection context strip -->
+        <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line,#d4d4d8);padding:6px 10px;background:#f4f4f5;">
+          <span style="background:#e5e7eb;padding:1px 6px;font-weight:600;">D₁ · SELECTION CONTEXT STRIP</span>
+          <span>3 selected</span><span>Σ qty 9</span><span>Σ subtotal $612</span>
+          <span style="background:#22c55e;color:#fff;padding:1px 6px;">▶ Reserve + Confirm</span>
+          <span style="border:1px solid var(--line,#d4d4d8);padding:1px 6px;color:#444;">More ▾</span>
+          <span style="margin-left:auto;color:#666;">⏱ History · ◇ Relationship · ⚠ Issue · ⬇ Packet</span>
+        </div>
+        <!-- grid representation -->
+        <div style="padding:10px 12px;font-size:11px;background:#fff;">
+          <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;border-bottom:1px solid var(--line,#d4d4d8);padding-bottom:4px;font-weight:600;color:#555;">
+            <span></span><span>Source</span><span>Item</span><span>Qty</span><span>Price</span><span>Avail</span><span>Pkd</span><span>Inv</span>
+          </div>
+          <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;padding:3px 0;background:#fef9e7;border-bottom:1px solid #f3f4f6;">
+            <span>✓</span><span>M15</span><span>Alien Runts</span><span>3</span><span>$85</span><span>12</span><span>·</span><span>·</span>
+          </div>
+          <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;padding:3px 0;background:#fef9e7;border-bottom:1px solid #f3f4f6;">
+            <span>✓</span><span>J7</span><span>Sugar High</span><span>2</span><span>$72</span><span>8</span><span>·</span><span>·</span>
+          </div>
+          <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;padding:3px 0;background:#fef9e7;border-bottom:1px solid #f3f4f6;">
+            <span>✓</span><span>C2</span><span>Black Truffle</span><span>4</span><span>$95</span><span>20</span><span>·</span><span>·</span>
+          </div>
+          <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;padding:3px 0;color:#999;border-bottom:1px solid #f3f4f6;">
+            <span> </span><span>F2</span><span>Gelato 33</span><span>—</span><span>—</span><span>14</span><span>·</span><span>·</span>
+          </div>
+          <div style="margin-top:14px;color:#aaa;text-align:center;font-style:italic;">(grid continues — sort/filter/group/paste/fill-down)</div>
+        </div>
+      </div>
+
+      <!-- Zone E context drawer expanded -->
+      <div style="width:340px;background:#fafafa;">
+        <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line,#d4d4d8);padding:6px 10px;background:#f4f4f5;">
+          <span style="background:#e5e7eb;padding:1px 6px;font-weight:600;">E · CONTEXT DRAWER</span>
+          <span style="margin-left:auto;color:#666;">peek · <b style="color:#000;">expanded</b> · full · ✕</span>
+        </div>
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--line,#d4d4d8);font-size:11px;">
+          <span style="padding:6px 10px;border-bottom:2px solid #f59e0b;font-weight:600;">Purchases</span>
+          <span style="padding:6px 10px;color:#666;">Balance</span>
+          <span style="padding:6px 10px;color:#666;">Notes</span>
+          <span style="padding:6px 10px;color:#666;">Recent</span>
+          <span style="padding:6px 10px;color:#666;">Fit</span>
+        </div>
+        <div style="padding:8px 10px;font-size:11px;line-height:1.5;">
+          <div style="display:grid;grid-template-columns:60px 1fr 50px;gap:6px;color:#555;font-weight:600;padding:2px 0;border-bottom:1px solid var(--line,#d4d4d8);">
+            <span>Date</span><span>Item · src</span><span>Qty</span>
+          </div>
+          <div style="display:grid;grid-template-columns:60px 1fr 50px;gap:6px;padding:3px 0;border-bottom:1px solid #f3f4f6;">
+            <span>4/29</span><span>Candy Mediums · J2</span><span>5</span>
+          </div>
+          <div style="display:grid;grid-template-columns:60px 1fr 50px;gap:6px;padding:3px 0;border-bottom:1px solid #f3f4f6;">
+            <span>4/22</span><span>Black Truffle · C2</span><span>8</span>
+          </div>
+          <div style="display:grid;grid-template-columns:60px 1fr 50px;gap:6px;padding:3px 0;border-bottom:1px solid #f3f4f6;">
+            <span>4/14</span><span>Alien Runts · M15</span><span>6</span>
+          </div>
+          <div style="display:grid;grid-template-columns:60px 1fr 50px;gap:6px;padding:3px 0;border-bottom:1px solid #f3f4f6;">
+            <span>4/02</span><span>Sugar High · J7</span><span>4</span>
+          </div>
+          <div style="display:grid;grid-template-columns:60px 1fr 50px;gap:6px;padding:3px 0;border-bottom:1px solid #f3f4f6;">
+            <span>3/28</span><span>Space Rocks · A4</span><span>3</span>
+          </div>
+          <div style="margin-top:8px;color:#666;font-size:10px;">12 orders in last 90 days · avg $612 · pays in 7d</div>
+          <div style="margin-top:8px;color:#888;font-size:10px;">Click any row to open in main grid · ⌘← to send back</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Context Drawer states -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Context Drawer — 4 states (per-route, per-entity, persisted)</div>
+  <div style="display:grid;grid-template-columns:60px 100px 1fr 1fr;gap:14px;margin-top:8px;">
+
+    <div style="border:1px solid var(--line,#d4d4d8);min-height:140px;padding:6px;background:#fff;font-family:ui-monospace,monospace;font-size:10px;">
+      <div style="border:1px solid #888;height:128px;display:flex;">
+        <div style="flex:1;background:#fafafa;"></div>
+        <div style="width:18px;background:#e5e7eb;writing-mode:vertical-rl;text-align:center;padding:4px 0;font-size:9px;">drawer</div>
+      </div>
+      <div style="text-align:center;margin-top:4px;color:#666;">closed (nub)</div>
+    </div>
+
+    <div style="border:1px solid var(--line,#d4d4d8);min-height:140px;padding:6px;background:#fff;font-family:ui-monospace,monospace;font-size:10px;">
+      <div style="border:1px solid #888;height:128px;display:flex;">
+        <div style="flex:1;background:#fafafa;"></div>
+        <div style="width:48px;background:#fef9e7;border-left:1px solid #888;padding:4px;font-size:8px;line-height:1.2;">
+          Purch<br>Bal<br>Notes<br>•••
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:4px;color:#666;">peek (280px)</div>
+    </div>
+
+    <div style="border:1px solid var(--line,#d4d4d8);min-height:140px;padding:6px;background:#fff;font-family:ui-monospace,monospace;font-size:10px;">
+      <div style="border:1px solid #888;height:128px;display:flex;">
+        <div style="flex:1;background:#fafafa;"></div>
+        <div style="width:120px;background:#fef9e7;border-left:1px solid #888;padding:4px;font-size:9px;line-height:1.4;">
+          <div style="border-bottom:2px solid #f59e0b;display:inline-block;margin-bottom:4px;">Purchases</div>
+          <div style="color:#666;">4/29 Candy 5</div>
+          <div style="color:#666;">4/22 Truffle 8</div>
+          <div style="color:#666;">4/14 Runts 6</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:4px;color:#666;">expanded (420px) ✓ default for tabs</div>
+    </div>
+
+    <div style="border:1px solid var(--line,#d4d4d8);min-height:140px;padding:6px;background:#fff;font-family:ui-monospace,monospace;font-size:10px;">
+      <div style="border:1px solid #888;height:128px;display:flex;">
+        <div style="width:40%;background:#fafafa;"></div>
+        <div style="flex:1;background:#fef9e7;border-left:1px solid #888;padding:4px;font-size:9px;line-height:1.4;">
+          <div style="border-bottom:2px solid #f59e0b;display:inline-block;margin-bottom:4px;">Purchases (90d)</div>
+          <div style="color:#444;">Full table view · sortable · filterable · exportable</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:4px;color:#666;">full (≥60% pane) for deep reading</div>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer tab catalog per active entity -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Drawer tab catalog (swaps by active entity)</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;">
+      <tr style="text-align:left;">
+        <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Active entity</th>
+        <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Drawer tabs</th>
+        <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Lives where</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>Customer</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Purchases · Balance · Notes · Recent · Buyer fit · Disputes/credits</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Sales · Orders · Payments · Client Ledger</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>Vendor</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">POs · Open bills · Payouts · Consignment · Scheduled events · Notes</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Purchase Orders · Intake · Vendor Payables</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>Batch / Inventory row</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Movement history · Recent sales · Reservations · Photos · Sourced from PO</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Inventory · Intake · Inventory Finder · Sales</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>Order / Sale</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Lines · Allocation · Customer card · Pricing rules · Validation · Fulfillment status</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Orders · Sales · Fulfillment</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>PO</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Lines · Vendor card · Linked intake · Linked receipts · History</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Purchase Orders · Intake</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>Vendor bill / Payout</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Due reason · Source receipt · Linked PO · Payouts · Consignment trigger</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Vendor Payables · Payments</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>Payment</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Allocations · Customer card · Impact preview · Bucket history</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Payments · Client Ledger</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>Pick / Fulfillment</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Lines · Order card · Bag/label status · Manifest · Tracking · Scan history</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Fulfillment · Orders</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);"><b>None (queue view)</b></td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Drawer is closed by default. Nub on right shows "Open detail" hint.</td><td style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">All</td></tr>
+    </tbody>
+  </table>
+  <div style="margin-top:8px;font-size:11px;color:#666;">Each tab is <b>read-only inside the drawer</b>. Clicking a row inside a tab routes to that surface with the row selected; the drawer's previous state restores when you ⌘← back.</div>
+</div>
+
+<!-- Focus mode revised -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Focus mode — revised</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px;font-size:12px;">
+    <div style="border:1px solid var(--line,#d4d4d8);padding:10px;background:#fef2f2;">
+      <b style="color:#991b1b;">Today (problem)</b>
+      <ul style="margin:6px 0 0 18px;line-height:1.5;">
+        <li>WorkspacePanel focus mode hides ALL siblings via <code>hiddenByFocus</code>.</li>
+        <li>QuickStartBar returns <code>null</code> when <code>focusedPanelId</code> is set.</li>
+        <li>Operator loses orientation, can't start new work without exiting focus.</li>
+      </ul>
+    </div>
+    <div style="border:1px solid #16a34a;padding:10px;background:#f0fdf4;">
+      <b style="color:#166534;">Revised</b>
+      <ul style="margin:6px 0 0 18px;line-height:1.5;">
+        <li>Zone A (Keel) survives focus. ⌘K + 4 launch icons + health stay.</li>
+        <li>Zone B (Quick Start) collapses to a one-line breadcrumb but the chips remain clickable.</li>
+        <li>Zone C (persistent context band) survives — you're still inside the customer/vendor/PO.</li>
+        <li>Zone E (Context Drawer) follows the focused panel — its tabs still address the active entity.</li>
+        <li>Only Zone D (the focused grid) expands. Sibling Zone D panels (e.g. PO lines vs PO grid) collapse to header-only.</li>
+        <li>Esc exits focus and restores.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard model -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Keyboard model (preserves momentum, no Vim chains)</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;">
+      <tr style="text-align:left;"><th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:140px;">Key</th><th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Effect</th></tr>
+    </thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>⌘K</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Open palette — entities + commands (existing). JSON payload editor moves to ⌘⌥K (advanced).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>⌘⇧F</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Global Inventory Finder overlay (search + slice + add to active order if applicable). Esc closes back to where you were.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>/</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Focus the active grid's quick filter input.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>]</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Toggle Context Drawer: closed → peek → expanded → closed.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>⇧]</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Cycle Context Drawer: expanded → full → expanded.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>1..5</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Inside the drawer, switch tab by index.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>⌘↵</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Commit status-aware primary action on selected row(s).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>⌘D</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Duplicate row (existing on Intake; extend to Sales/PO lines).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>F</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Toggle focus mode on the currently active panel (revised — keel survives).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>⌘←</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Navigate back to previous surface; drawer state restores.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><kbd>Esc</kbd></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Close drawer → close palette → exit focus → clear selection. One affordance, descending in scope.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Pre vs post selection -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Pre- vs. post-selection band swap (kills the control-band crush)</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px;font-family:ui-monospace,monospace;font-size:11px;">
+    <div style="border:1px solid var(--line,#d4d4d8);padding:8px;background:#fff;">
+      <div style="font-weight:600;margin-bottom:6px;font-family:system-ui;font-size:12px;">Pre-selection (start work)</div>
+      <div style="background:#f4f4f5;padding:6px;">[ ⊕ Receive Row ] &nbsp; [ ↑ CSV import ] &nbsp; Vendor ▾ Default &nbsp; Lot ▢ &nbsp; Exp ▢ &nbsp; [ Set lot info ] </div>
+      <div style="margin-top:6px;color:#666;">"What do you want to start?" — only start affordances.</div>
+    </div>
+    <div style="border:1px solid var(--line,#d4d4d8);padding:8px;background:#fff;">
+      <div style="font-weight:600;margin-bottom:6px;font-family:system-ui;font-size:12px;">Post-selection (work on these)</div>
+      <div style="background:#fef9e7;padding:6px;">3 selected · Σ qty 14 · Σ subtotal $420 &nbsp; <b>▶ Mark Ready</b> &nbsp; More ▾ &nbsp; ⏱ ◇ ⚠ ⬇</div>
+      <div style="margin-top:6px;color:#666;">Same physical row. Replaces — does not add to — the pre-selection strip.</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">Approve Section 2 in the terminal and I'll move into Section 3 (components — keep / rework / kill) and then start pushing wireframes (batch 1: Shell, Dashboard, Customer Workspace).</p>

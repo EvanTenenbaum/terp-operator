@@ -1,0 +1,232 @@
+<h2>Section 3 — Components · keep / rework / kill / new</h2>
+<p class="subtitle">Every existing component is accounted for. No surface mentioned in the proposed direction is left vague. Backend stays untouched — this is a frontend density/hierarchy pass.</p>
+
+<!-- legend -->
+<div class="section" style="display:flex;gap:14px;font-size:11px;margin-top:6px;align-items:center;">
+  <span style="background:#dcfce7;color:#166534;padding:1px 8px;font-weight:600;">KEEP</span><span style="color:#666;">no behavioral change, may get density tweaks</span>
+  <span style="background:#fef9c3;color:#854d0e;padding:1px 8px;font-weight:600;">REWORK</span><span style="color:#666;">same name/path, behavior shifts</span>
+  <span style="background:#fee2e2;color:#991b1b;padding:1px 8px;font-weight:600;">KILL</span><span style="color:#666;">file deleted, behavior absorbed elsewhere</span>
+  <span style="background:#e0e7ff;color:#3730a3;padding:1px 8px;font-weight:600;">NEW</span><span style="color:#666;">new file/component introduced</span>
+</div>
+
+<!-- Shell + Global -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">Shell + Global Chrome</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:90px;">Disposition</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:280px;">Component / File</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Change</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#dcfce7;color:#166534;padding:1px 8px;">KEEP</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/App.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">No change. Routing logic intact.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/Shell.tsx → SideNav</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Same 13 routes. Add 5 muted section dividers (<i>Decide / Procure / Sell / Money / Resolve</i>). Reorder lanes per Section 1. Role visibility logic in <code>navVisibleForUser</code> unchanged.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/Shell.tsx → TopBar</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Becomes the <b>Keel</b>. Absorbs the 5 nav chips from Quick Start (Sale · Receive · $ In · $ Out · Purchase). ⌘K search stays. Health pill stays. Drawer-toggle icon appears on the right when current view has a drawer.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fee2e2;color:#991b1b;padding:1px 8px;">KILL</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/QuickStartBar.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">File deleted. Launch chips move to <code>TopBar</code>. Inline forms (Client ▾, Request ▢, Vendor ▾, Bill ▾, amounts, methods, FIFO) deleted entirely. <code>App.tsx</code> stops rendering <code>&lt;QuickStartBar /&gt;</code>. <code>focusedPanelId</code> hide-logic in QuickStart is moot (no QuickStart to hide).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/CommandPalette.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Single-pane layout by default (entity search + command list). JSON <i>Context payload</i> editor moves behind <kbd>⌘⌥K</kbd> "Advanced". Aliases stay. <code>globalSearch</code> still routes via <code>viewForEntity</code>.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/Hotkeys.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Adds: <kbd>]</kbd>/<kbd>⇧]</kbd> drawer states, <kbd>1..5</kbd> drawer tab switch, <kbd>⌘↵</kbd> status-aware primary, <kbd>⌘⇧F</kbd> global Finder overlay, <kbd>F</kbd> focus toggle, descending-scope <kbd>Esc</kbd>. Existing hotkeys preserved.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#dcfce7;color:#166534;padding:1px 8px;">KEEP</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/ToastCenter.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">No change.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Grid + Selection -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">Grid + Selection</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:90px;">Disposition</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:280px;">Component / File</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Change</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/OperatorGrid.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Selection-aware behavior: when 0 rows selected, renders <i>pre-selection strip</i> (passed by view). When ≥1 selected, renders <i>selection-context strip</i> (SelectionSummary in new form). The two strips occupy the same physical row above the grid — they swap, not stack. Internal AG Grid wiring, sidebar, paste/fill-down, undo/redo all unchanged.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/SelectionSummary.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Lifted from footer to header (sits above the grid, not below). Adds <code>primaryAction</code> prop (status-aware, view-supplied) and a <code>moreActions</code> tray. Sums + issues + ⏱◇⚠⬇ icons stay. Renders nothing when no rows selected.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/WorkspacePanel.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Focus mode no longer returns <code>null</code> for hidden siblings — siblings collapse to header-only instead. Keel and Identity ribbon survive focus. Collapse/expand toggles unchanged.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#dcfce7;color:#166534;padding:1px 8px;">KEEP</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/StatusPill.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">No change.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#dcfce7;color:#166534;padding:1px 8px;">KEEP</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/EmptyState.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">No change. Density already calm.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#dcfce7;color:#166534;padding:1px 8px;">KEEP</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/KpiCard.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">No change.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#dcfce7;color:#166534;padding:1px 8px;">KEEP</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/useCommandRunner.ts</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">No change.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Drawers + Context -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">Drawers + Context</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:90px;">Disposition</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:280px;">Component / File</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Change</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#e0e7ff;color:#3730a3;padding:1px 8px;">NEW</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/ContextDrawer.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Right-edge tabbed drawer. States: <code>closed | peek (280px) | expanded (420px) | full (≥60% of pane)</code>. Tabs declared by the active view based on active entity (Customer / Vendor / Batch / Order / PO / Bill / Payment / Pick / Period). Read-only inside; clicks route out preserving prior state. ⌘← restores.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#e0e7ff;color:#3730a3;padding:1px 8px;">NEW</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/IdentityRibbon.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slim Zone C. Renders only when active entity present. Shows name + status + key identifier + leave/back. No rich data (that lives in drawer tabs).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#e0e7ff;color:#3730a3;padding:1px 8px;">NEW</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/drawerTabs/*</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Per-tab subcomponents: <code>CustomerBalanceTab</code>, <code>CustomerPurchasesTab</code>, <code>CustomerNotesTab</code>, <code>CustomerBuyerFitTab</code>, <code>CustomerRecentTab</code>, <code>VendorBillsTab</code>, <code>VendorPayoutsTab</code>, <code>VendorConsignmentTab</code>, <code>VendorToolsTab</code>, <code>BatchMovementTab</code>, <code>BatchSalesTab</code>, <code>BatchPhotosTab</code>, <code>OrderLinesTab</code>, <code>OrderAllocationTab</code>, <code>OrderValidationTab</code>, <code>POLinesTab</code>, <code>POLinkedIntakeTab</code>, <code>POLinkedReceiptsTab</code>, <code>BillDueReasonTab</code>, <code>BillPayoutsTab</code>, <code>PaymentAllocationsTab</code>, <code>PaymentImpactTab</code>, <code>PickLinesTab</code>, <code>PickManifestTab</code>, <code>RecoveryReversalTab</code>, <code>RecoverySnapshotTab</code>, <code>RecoveryFindReplaceTab</code>, <code>RecoveryCorrectionTab</code>, <code>RecoveryBackupTab</code>, <code>CloseoutControlTotalsTab</code>, <code>CloseoutUnsafeRowsTab</code>, <code>CloseoutAdjustmentsTab</code>, <code>CloseoutArtifactsTab</code>, <code>IntakeReceiptPreviewTab</code>, <code>IntakeCsvImportTab</code>, <code>IntakeLotInfoTab</code>. Each tab is small (~30-80 lines) and uses existing tRPC queries.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/RelationshipDrawer.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Renamed conceptually but path stays. Its tRPC query <code>relationshipDrawer</code> becomes the data source for the Customer/Vendor drawer tabs. The legacy independent drawer is unmounted; the data flows through <code>ContextDrawer</code> instead.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/RowCommandHistoryDrawer.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Becomes the <b>History</b> tab inside <code>ContextDrawer</code> on every entity. Standalone modal-style drawer goes away. Reversal-preview action still lives here.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/IssueSidecar.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Becomes a <b>Disputes/Credits</b> tab on Customer and an <b>Issue</b> tab on Order/Payment. Existing correction-journal / refund / credit / return-note actions preserved.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Inventory Finder + Quick Ledger -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">Inventory Finder + Quick Ledger</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:90px;">Disposition</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:280px;">Component / File</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Change</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/InventoryFinderPanel.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Extract the finder body into a reusable <code>InventoryFinder</code> core (search · slices · facets · table · compare strip · add). Existing <code>InventoryFinderPanel</code> becomes a thin wrapper that places the core inside a <code>WorkspacePanel</code> for Sales/Procurement embeddings.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#e0e7ff;color:#3730a3;padding:1px 8px;">NEW</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/InventoryFinder.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">The extracted core. Renders the finder controls + table + compare strip. Accepts <code>mode: 'embed' | 'overlay' | 'standalone'</code> and <code>onAddBatch</code>. Reused by panel + overlay + standalone Inventory page's "Finder mode" tab.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#e0e7ff;color:#3730a3;padding:1px 8px;">NEW</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/InventoryFinderOverlay.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">The <kbd>⌘⇧F</kbd> global overlay. Modal-style, dimmed backdrop, ESC to close. If an active sales order context exists, "Add" works; otherwise it offers "Copy customer-safe offer" and "Open in Inventory".</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#dcfce7;color:#166534;padding:1px 8px;">KEEP</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/QuickLedgerGrid.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">No structural change. Already the primary money surface. May tighten the 14-column layout by collapsing Notes/Reference into a drawer expand-row, depending on density review.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/components/PhotographyQueuePanel.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Becomes a <b>Photos</b> tab inside the Batch context drawer on Inventory. The dedicated panel is no longer the primary surface — operators reach photos from the batch they care about, not as a standalone queue.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Views -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">Views — what each route's file does</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:90px;">Disposition</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:280px;">View / File</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Change</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/views/DashboardView.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Add a one-row "Today focus" strip above KPIs ranking top 3 actions with route jumps. Money-definitions panel moves to a drawer-tab on the KPI it explains (<kbd>?</kbd> opens drawer at the right tab). Pending Queues + Recent Activity grids stay. Unified Work Queue grid stays.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/views/IntakeView.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Pre-selection: Vendor ▾ + "+ Receive Row" only. CSV import + Lot info inputs + Receipt preview <i>section</i> all become drawer tabs (<b>Receipt preview · CSV import · Lot info · Vendor card · Linked PO</b>). Action band swaps with selection-context strip showing status-aware primary (Ready or Post Receipt).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/views/SalesView.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Drop the customer-workspace <code>WorkspacePanel</code>. Identity ribbon takes over identity. Customer header data (balance/credit/tags/notes/recent) moves to drawer tabs. Smart Suggestions grid moves to a drawer "Buyer fit" tab. Sheet/Catalog preview block moves to drawer "Output" tab. Inventory Finder remains a right-side embedded panel that can be swapped to the drawer or to the ⌘⇧F overlay; customer draft lines stay as the primary grid.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#fef9c3;color:#854d0e;padding:1px 8px;">REWORK</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/views/OperationsViews.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Split into per-view files: <code>PurchaseOrdersView.tsx</code>, <code>OrdersView.tsx</code>, <code>PaymentsView.tsx</code>, <code>InventoryView.tsx</code>, <code>ClientLedgerView.tsx</code>, <code>VendorPayablesView.tsx</code>, <code>FulfillmentView.tsx</code>, <code>ConnectorsView.tsx</code>, <code>RecoveryView.tsx</code>, <code>CloseoutView.tsx</code>. <code>GridJourney</code> helper stays as a shared util. Each split file applies band-swap + drawer pattern. Easier for future single-screen work without 1000-line file churn.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="background:#dcfce7;color:#166534;padding:1px 8px;">KEEP</span></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>src/client/views/LoginView.tsx</code></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">No change.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- uiStore additions -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">State (<code>src/client/store/uiStore.ts</code>) — small additions, all persisted via the existing <code>partialize</code></div>
+  <pre style="background:#fafafa;border:1px solid var(--line,#d4d4d8);padding:10px;font-size:11px;line-height:1.5;overflow-x:auto;">
+interface DrawerState {
+  state: 'closed' | 'peek' | 'expanded' | 'full';
+  activeTab: string;            // e.g. 'purchases', 'balance', 'lines'
+  entityType: string | null;    // 'customer' | 'vendor' | 'batch' | 'order' | 'po' | ...
+  entityId: string | null;
+}
+
+// New fields on UiState:
+drawerByView: Partial&lt;Record&lt;ViewKey, DrawerState&gt;&gt;;
+inventoryFinderOverlayOpen: boolean;
+
+// New actions:
+setDrawerState(view: ViewKey, state: DrawerState['state']): void;
+setDrawerTab(view: ViewKey, tab: string): void;
+setDrawerEntity(view: ViewKey, entityType: string | null, entityId: string | null): void;
+openInventoryFinderOverlay(): void;
+closeInventoryFinderOverlay(): void;
+</pre>
+  <div style="margin-top:6px;font-size:11px;color:#666;">Persisted keys add <code>drawerByView</code> to the existing partialize list so layout muscle memory survives reload — already the pattern for <code>sideNavCollapsed</code>, <code>collapsedPanels</code>, <code>activeQuickLaunch</code>.</div>
+</div>
+
+<!-- Backend / no-op -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">Backend, schema, commands, queries</div>
+  <div style="border:1px solid var(--line,#d4d4d8);padding:10px;background:#f8f8f7;font-size:12px;line-height:1.55;">
+    <b>No backend changes in this pass.</b> All drawer tabs render from existing tRPC queries: <code>queries.customerWorkspace</code>, <code>queries.relationshipDrawer</code>, <code>queries.salesSuggestions</code>, <code>queries.salesOrderLines</code>, <code>queries.purchaseOrderLines</code>, <code>queries.receiptPreview</code>, <code>queries.paymentAllocations</code>, <code>queries.paymentAllocationPreview</code>, <code>queries.vendorPayments</code>, <code>queries.fulfillmentLines</code>, <code>queries.recoverySearch</code>, <code>queries.snapshotDiff</code>, <code>queries.findReplacePreview</code>, <code>queries.reversalPreview</code>, <code>queries.supportPacket</code>, <code>queries.closeoutPreview</code>, <code>queries.drilldown</code>, <code>queries.workQueue</code>, <code>queries.dashboard</code>, <code>queries.reference</code>, <code>queries.grid</code>, <code>queries.globalSearch</code>.
+    <br><br>If a tab later needs a tighter projection (e.g. last-10 batches a customer bought), it's a thin additive query on top of the existing entity-relationship layer. Out of scope for this design pass.
+  </div>
+</div>
+
+<!-- Visual / CSS -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">Visual / CSS</div>
+  <ul style="margin:6px 0 0 18px;font-size:12px;line-height:1.55;">
+    <li>Palette unchanged: <code>amber</code>, <code>ink</code>, <code>line</code>, <code>panel</code>, <code>zinc</code> tokens stay.</li>
+    <li>Compact density default: row height tightened only where measured to help scanning (Sales lines, Intake, Inventory) — not a global toggle.</li>
+    <li>New classes: <code>.keel</code>, <code>.identity-ribbon</code>, <code>.context-drawer</code>, <code>.context-drawer-peek</code>, <code>.context-drawer-expanded</code>, <code>.context-drawer-full</code>, <code>.drawer-tab</code>, <code>.drawer-tab-active</code>, <code>.selection-strip</code>, <code>.pre-selection-strip</code>.</li>
+    <li>Existing <code>.selection-summary</code> repurposed for the selection-strip header position.</li>
+    <li>AG Grid Quartz theme + grid-shell classes unchanged.</li>
+  </ul>
+</div>
+
+<!-- Things explicitly NOT being added -->
+<div class="section" style="margin-top:14px;">
+  <div class="label">Explicitly not in this pass</div>
+  <ul style="margin:6px 0 0 18px;font-size:12px;line-height:1.55;color:#666;">
+    <li>No new tRPC commands or queries.</li>
+    <li>No new database tables or migrations.</li>
+    <li>No new routes — same 13 nav lanes.</li>
+    <li>No new auth/role/RBAC behavior.</li>
+    <li>No third-party UI library swaps (still React + AG Grid + Lucide + Tailwind tokens).</li>
+    <li>No mobile redesign — desktop operator console only.</li>
+    <li>No design-system extraction into a separate package.</li>
+  </ul>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">Approve Section 3 and I'll start the wireframe batch. Order: <b>Shell + Keel + nav grouping</b>, then <b>Dashboard</b>, then <b>Customer Workspace / Sales</b>. Each gets default state + selection state + drawer-open state.</p>

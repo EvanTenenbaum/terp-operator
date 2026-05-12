@@ -1,0 +1,80 @@
+<h2>Section 1 — Diagnosis · Paradigm · Principles</h2>
+<p class="subtitle">Wedge: Calm density + selection-first per screen. PO and Inventory Finder as first-class givens. 9 wireframes deep, 4 in sketch.</p>
+
+<div class="section">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;">
+
+    <div style="border:1px solid var(--line,#d4d4d8);padding:14px;background:#fafafa;">
+      <div class="label">What's already shipped</div>
+      <ul style="margin:8px 0 0 18px;font-size:13px;line-height:1.55;">
+        <li>54 commands / 27 queries — parity green</li>
+        <li>Legacy markers preserved (batches + sales lines)</li>
+        <li>3 closeout cells: packed, inv posted, pay/f-up</li>
+        <li>Quick Ledger w/ FIFO·selected·unapplied + buyer-credit auto-label</li>
+        <li>SelectionSummary footer w/ sums · issues · packet · history</li>
+        <li>RowCommandHistoryDrawer · RelationshipDrawer · IssueSidecar</li>
+        <li>Customer Workspace panel inside Sales (customer-gated)</li>
+        <li>Role-aware nav · command palette aliases · persisted layout</li>
+        <li>Focus mode · collapsible panels · collapsible Quick Start</li>
+        <li>InventoryFinderPanel: token search, natural price parsing, slices, compare strip</li>
+      </ul>
+      <div style="margin-top:10px;font-size:12px;color:#666;">Capability surface is mostly there.</div>
+    </div>
+
+    <div style="border:1px solid #d97706;padding:14px;background:#fffbeb;">
+      <div class="label" style="color:#92400e;">Where it still feels raw</div>
+      <ol style="margin:8px 0 0 18px;font-size:13px;line-height:1.55;">
+        <li><b>Control-band crush before selection.</b> Orders shows 6 sibling verbs always (Ready·Post·Reprice·Fulfill·Pick·Cancel). PO: Approve·Receive·Cancel always. Vendor Payables: Approve·Schedule·Pay always. Recovery: 3 always-on control bands.</li>
+        <li><b>Selection acknowledged but not promoted.</b> Sticky footer ≠ primary work surface.</li>
+        <li><b>PO is two grids stacked.</b> No persistent PO header carried into line editing. No status-aware primary.</li>
+        <li><b>Inventory Finder is locked inside Sales.</b> Most operator-loved tool, unreachable from procurement, intake, recovery.</li>
+        <li><b>Customer Workspace not durable.</b> Forgets on tab change. No vendor analog.</li>
+        <li><b>Focus mode is binary &amp; lonely.</b> Hides ALL other panels including Quick Start — operator loses orientation.</li>
+        <li><b>Cmd-K has a JSON payload editor visible by default.</b> Power tool leaks into daily flow.</li>
+        <li><b>13 left-nav lanes presented flat.</b> Real surfaces, but no grouping for muscle memory.</li>
+        <li><b>Density inconsistency.</b> Dashboard calm; Sales stacks 3 control bands + 2 grids + side panel.</li>
+      </ol>
+    </div>
+
+    <div style="border:1px solid #16a34a;padding:14px;background:#f0fdf4;">
+      <div class="label" style="color:#166534;">7 principles for this pass</div>
+      <ol style="margin:8px 0 0 18px;font-size:13px;line-height:1.55;">
+        <li><b>One status-aware primary action per surface.</b> Secondaries collapse into selection-aware tray / row-action menu.</li>
+        <li><b>Pre vs. post-selection clarity.</b> Pre = start work (Quick Start, new-row, filter). Post = the band swaps to selection-aware primary + tray + impact strip.</li>
+        <li><b>Persistent context bands.</b> Customer · Vendor · PO identity stays visible while you work inside them.</li>
+        <li><b>Inventory Finder is global.</b> Cmd-Shift-F overlay anywhere. Embeddable panel in Sales / Procurement / Intake. Standalone Inventory gets a Finder mode tab.</li>
+        <li><b>Selection summary → context strip.</b> Sums + issues + primary + tray + history mini-strip + related-entity peek, beside the grid.</li>
+        <li><b>Focus mode keeps the keel.</b> One-line command strip (Cmd-K + 4 launch icons) survives focus. Only grid below maximizes.</li>
+        <li><b>Nav grouping without IA churn.</b> Same 13 routes, 5 muted section dividers: Decide · Procure · Sell · Fulfill · Resolve.</li>
+      </ol>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:18px;border:1px solid var(--line,#d4d4d8);padding:14px;background:#f8f8f7;">
+  <div class="label">Operator paradigm I'm designing toward</div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;font-size:12px;margin-top:8px;line-height:1.4;">
+    <div><b>Row as memory</b><br><span style="color:#666;">Half-determined OK; labeled draft / needs_resolution / ready / posted / reversed</span></div>
+    <div><b>Location is context</b><br><span style="color:#666;">Land on a place; carry it</span></div>
+    <div><b>Math is proof</b><br><span style="color:#666;">Subtotal, avail, balance live on the row</span></div>
+    <div><b>Markers are vocab</b><br><span style="color:#666;">Raw text preserved; normalized fields adjacent</span></div>
+    <div><b>Selection ⇒ output</b><br><span style="color:#666;">Any selection totals + exports</span></div>
+    <div><b>Money is a row</b><br><span style="color:#666;">Quick Ledger primary; chips are launchers</span></div>
+    <div><b>Recovery from row</b><br><span style="color:#666;">History + reversal in the grid</span></div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:18px;border:1px dashed var(--line,#d4d4d8);padding:14px;background:#fefefe;">
+  <div class="label">Explicitly NOT changing in this pass</div>
+  <ul style="margin:8px 0 0 18px;font-size:13px;line-height:1.55;">
+    <li>The 13-route IA (no consolidation into modes — option C wasn't picked).</li>
+    <li>Customer Workspace stays a panel inside Sales (no new route — option B wasn't picked).</li>
+    <li>Vendor side gets a parallel Vendor Workspace <i>panel</i> inside Vendor Payables, not a new route.</li>
+    <li>Audited command bus · AG Grid · tRPC · Drizzle/Postgres · role-aware nav.</li>
+    <li>Visual palette (zinc/amber neutral). Density + hierarchy treatment only.</li>
+    <li>Backend command catalog. If a needed primary action lacks a clean command, I flag, don't add.</li>
+  </ul>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">Approve this section in the terminal, and I'll move to Section 2 — the canvas grammar (Shell · panels · selection context strip · contextual drawers · global finder · focus mode behavior).</p>

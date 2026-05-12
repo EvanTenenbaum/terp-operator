@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: terp-agro-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: terp_agro
+      POSTGRES_PASSWORD: terp_agro
+      POSTGRES_DB: terp_agro
+    ports:
+      - "55432:5432"
+    volumes:
+      - terp-agro-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U terp_agro -d terp_agro"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  terp-agro-postgres:

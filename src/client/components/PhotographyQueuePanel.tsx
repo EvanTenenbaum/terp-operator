@@ -1,0 +1,89 @@
+import { Camera, Check } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { trpc } from '../api/trpc';
+import type { GridRow } from '../../shared/types';
+import { useCommandRunner } from './useCommandRunner';
+
+export function PhotographyQueuePanel() {
+  const inventory = trpc.queries.grid.useQuery({ view: 'inventory' });
+  const queue = trpc.queries.photographyQueue.useQuery();
+  const [batchId, setBatchId] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
+  const { runCommand, isRunning } = useCommandRunner();
+  const rows = (inventory.data ?? []) as GridRow[];
+  const open = useMemo(() => rows.filter((row) => String(row.mediaStatus ?? 'open') !== 'done'), [rows]);
+  const ready = rows.length - open.length;
+  const selected = open.find((row) => row.id === batchId) ?? open[0];
+
+  async function attach() {
+    if (!selected || !photoUrl.trim()) return;
+    await runCommand('attachBatchPhoto', { batchId: selected.id, photoUrl: photoUrl.trim() }, 'Attach photo from media readiness panel');
+    setPhotoUrl('');
+    await inventory.refetch();
+    await queue.refetch();
+  }
+
+  return (
+    <section className="inline-panel">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="section-title">Photography Queue</h2>
+          <p className="mt-1 text-xs text-zinc-600">Media readiness for catalog-safe sales output. Finder rows warn when catalog media is not ready.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="selection-pill success">{ready} ready</span>
+          <span className="selection-pill warning">{open.length} needs media</span>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <label className="field-inline">
+          Batch
+          <select className="select" value={batchId || selected?.id || ''} onChange={(event) => setBatchId(event.target.value)}>
+            <option value="">Choose</option>
+            {open.slice(0, 40).map((row) => (
+              <option key={row.id} value={row.id}>
+                {String(row.batchCode)} / {String(row.name)} / {String(row.mediaStatus ?? 'open')}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field-inline grow">
+          Photo URL/path
+          <input className="input" value={photoUrl} placeholder="/controlled/media/path/photo.jpg" onChange={(event) => setPhotoUrl(event.target.value)} />
+        </label>
+        <button className="secondary-button" type="button" disabled={!selected || !photoUrl.trim() || isRunning} onClick={attach}>
+          <Camera className="h-4 w-4" aria-hidden="true" />
+          Attach
+        </button>
+        <span className="selection-pill">
+          <Check className="h-3.5 w-3.5" aria-hidden="true" />
+          {selected ? `${String(selected.batchCode)} selected` : 'No open media rows'}
+        </span>
+      </div>
+      {queue.data?.length ? (
+        <div className="finder-table-wrap max-h-48">
+          <table className="finder-table">
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>Status</th>
+                <th>Media</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {queue.data.map((row) => (
+                <tr key={String(row.id)}>
+                  <td>{String(row.batchCode ?? row.batchId)}</td>
+                  <td>{String(row.status)}</td>
+                  <td>{String(row.mediaStatus ?? 'open')}</td>
+                  <td>{String(row.notes ?? '')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
+  );
+}

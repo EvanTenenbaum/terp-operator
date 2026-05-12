@@ -1,0 +1,241 @@
+<h2>Section 2 (v2) — Canvas grammar, slimmed</h2>
+<p class="subtitle">Quick Start collapsed into the Keel (chips are nav, not forms). Identity ribbon is one slim line. The Context Drawer absorbs everything else that used to live in always-on bands.</p>
+
+<!-- BEFORE / AFTER zone count -->
+<div class="section">
+  <div class="label">What changed</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px;font-size:12px;">
+    <div style="border:1px solid #d97706;padding:10px;background:#fffbeb;">
+      <b style="color:#92400e;">v1 — 5 zones, two always-visible bands</b>
+      <ul style="margin:6px 0 0 18px;line-height:1.55;">
+        <li>Zone A Keel + Zone B Quick Start are two separate strips, ~88px combined.</li>
+        <li>Quick Start has inline fields per lane (Client, Request, Vendor, Expected, Amount, Method…).</li>
+        <li>Persistent context band shows Bal · Credit · Tags · 3 buttons.</li>
+        <li>Selection context strip lives above the grid.</li>
+      </ul>
+    </div>
+    <div style="border:1px solid #16a34a;padding:10px;background:#f0fdf4;">
+      <b style="color:#166534;">v2 — 4 zones, one keel strip</b>
+      <ul style="margin:6px 0 0 18px;line-height:1.55;">
+        <li>Quick Start absorbed into the Keel as 5 nav-only chips. No inline fields anywhere global.</li>
+        <li>Keel is one 48px strip total.</li>
+        <li>Identity ribbon is a slim 28px line, only when you're inside an entity.</li>
+        <li>Everything formerly in always-on control bands → Drawer tabs.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- New zone diagram -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">v2 zone diagram (real proportions)</div>
+  <div style="border:1px solid var(--line,#d4d4d8);background:#fff;margin-top:6px;font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;line-height:1.35;">
+    <!-- A keel (nav chips embedded) -->
+    <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line,#d4d4d8);padding:8px 10px;background:#fafafa;">
+      <span style="background:#e5e7eb;padding:1px 6px;font-weight:600;">A · KEEL</span>
+      <span style="color:#999;">⌘K</span><span style="color:#999;">Search commands · rows · actions</span>
+      <span style="color:#888;">│</span>
+      <span style="background:#e5e7eb;padding:2px 8px;">Sale</span>
+      <span style="background:#e5e7eb;padding:2px 8px;">Receive</span>
+      <span style="background:#e5e7eb;padding:2px 8px;">$ In</span>
+      <span style="background:#e5e7eb;padding:2px 8px;">$ Out</span>
+      <span style="background:#e5e7eb;padding:2px 8px;">Purchase</span>
+      <span style="margin-left:auto;color:#666;">● Healthy · Evan / Owner</span>
+    </div>
+
+    <div style="display:flex;align-items:stretch;min-height:340px;">
+      <!-- Side nav (collapsed to chips here for layout, real one is the SideNav) -->
+      <div style="width:148px;border-right:1px solid var(--line,#d4d4d8);background:#fafafa;padding:8px 6px;font-size:10px;color:#444;">
+        <div style="text-transform:uppercase;color:#888;padding:2px 4px;margin-top:2px;font-size:9px;letter-spacing:.05em;">Decide</div>
+        <div style="padding:3px 4px;">Dashboard</div>
+        <div style="text-transform:uppercase;color:#888;padding:2px 4px;margin-top:4px;font-size:9px;letter-spacing:.05em;">Procure</div>
+        <div style="padding:3px 4px;">Purchase Orders</div>
+        <div style="padding:3px 4px;">Intake</div>
+        <div style="padding:3px 4px;">Inventory</div>
+        <div style="text-transform:uppercase;color:#888;padding:2px 4px;margin-top:4px;font-size:9px;letter-spacing:.05em;">Sell</div>
+        <div style="padding:3px 4px;background:#fef9e7;border-left:2px solid #f59e0b;font-weight:600;">Sales</div>
+        <div style="padding:3px 4px;">Orders</div>
+        <div style="padding:3px 4px;">Fulfillment</div>
+        <div style="padding:3px 4px;">Client Ledger</div>
+        <div style="text-transform:uppercase;color:#888;padding:2px 4px;margin-top:4px;font-size:9px;letter-spacing:.05em;">Money</div>
+        <div style="padding:3px 4px;">Payments</div>
+        <div style="padding:3px 4px;">Vendor Payouts</div>
+        <div style="text-transform:uppercase;color:#888;padding:2px 4px;margin-top:4px;font-size:9px;letter-spacing:.05em;">Resolve</div>
+        <div style="padding:3px 4px;">Connectors</div>
+        <div style="padding:3px 4px;">Recovery</div>
+        <div style="padding:3px 4px;">Closeout</div>
+      </div>
+
+      <div style="flex:1;display:flex;flex-direction:column;">
+        <!-- C identity ribbon -->
+        <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line,#d4d4d8);padding:5px 10px;background:#fef9e7;font-size:11px;">
+          <span style="background:#fde68a;padding:1px 6px;font-weight:600;">C · IDENTITY</span>
+          <b>Rich Star</b>
+          <span style="color:#666;">draft order RS-2026-05-11 · 3 lines</span>
+          <span style="margin-left:auto;color:#999;">[ ⌘← back ] [ ✕ leave ]</span>
+        </div>
+
+        <!-- Selection context strip -->
+        <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line,#d4d4d8);padding:6px 10px;background:#f4f4f5;font-size:11px;">
+          <span style="background:#e5e7eb;padding:1px 6px;font-weight:600;">D₁ · SELECTION STRIP</span>
+          <span>3 selected</span><span>Σ qty 9</span><span>Σ subtotal $612</span>
+          <span style="background:#22c55e;color:#fff;padding:1px 8px;font-weight:600;">▶ Price + Confirm</span>
+          <span style="border:1px solid var(--line,#d4d4d8);padding:1px 6px;color:#444;">More ▾</span>
+          <span style="margin-left:auto;color:#666;">⏱ ◇ ⚠ ⬇</span>
+        </div>
+
+        <div style="display:flex;flex:1;">
+          <!-- D₂ grid -->
+          <div style="flex:1;padding:10px 12px;font-size:11px;background:#fff;">
+            <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;border-bottom:1px solid var(--line,#d4d4d8);padding-bottom:4px;font-weight:600;color:#555;">
+              <span></span><span>Source</span><span>Item</span><span>Qty</span><span>Price</span><span>Avail</span><span>Pkd</span><span>Inv</span>
+            </div>
+            <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;padding:3px 0;background:#fef9e7;border-bottom:1px solid #f3f4f6;">
+              <span>✓</span><span>M15</span><span>Alien Runts</span><span>3</span><span>$85</span><span>12</span><span>·</span><span>·</span>
+            </div>
+            <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;padding:3px 0;background:#fef9e7;border-bottom:1px solid #f3f4f6;">
+              <span>✓</span><span>J7</span><span>Sugar High</span><span>2</span><span>$72</span><span>8</span><span>·</span><span>·</span>
+            </div>
+            <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;padding:3px 0;background:#fef9e7;border-bottom:1px solid #f3f4f6;">
+              <span>✓</span><span>C2</span><span>Black Truffle</span><span>4</span><span>$95</span><span>20</span><span>·</span><span>·</span>
+            </div>
+            <div style="display:grid;grid-template-columns:24px 80px 1fr 50px 60px 60px 60px 60px;gap:6px;padding:3px 0;color:#999;border-bottom:1px solid #f3f4f6;">
+              <span> </span><span>F2</span><span>Gelato 33</span><span>—</span><span>—</span><span>14</span><span>·</span><span>·</span>
+            </div>
+            <div style="margin-top:16px;color:#aaa;text-align:center;font-style:italic;">(grid continues)</div>
+          </div>
+
+          <!-- E drawer expanded -->
+          <div style="width:300px;background:#fafafa;border-left:1px solid var(--line,#d4d4d8);">
+            <div style="display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line,#d4d4d8);padding:5px 8px;background:#f4f4f5;font-size:10px;">
+              <span style="background:#e5e7eb;padding:1px 6px;font-weight:600;">E · DRAWER</span>
+              <span style="margin-left:auto;color:#666;">peek · <b style="color:#000;">expanded</b> · full · ✕</span>
+            </div>
+            <div style="display:flex;gap:0;border-bottom:1px solid var(--line,#d4d4d8);font-size:10px;">
+              <span style="padding:5px 8px;border-bottom:2px solid #f59e0b;font-weight:600;">Purchases</span>
+              <span style="padding:5px 8px;color:#666;">Bal</span>
+              <span style="padding:5px 8px;color:#666;">Notes</span>
+              <span style="padding:5px 8px;color:#666;">Recent</span>
+              <span style="padding:5px 8px;color:#666;">Fit</span>
+            </div>
+            <div style="padding:6px 8px;font-size:10px;line-height:1.5;">
+              <div style="display:grid;grid-template-columns:50px 1fr 30px;gap:6px;color:#555;font-weight:600;padding:2px 0;border-bottom:1px solid var(--line,#d4d4d8);">
+                <span>Date</span><span>Item · src</span><span>Qty</span>
+              </div>
+              <div style="display:grid;grid-template-columns:50px 1fr 30px;gap:6px;padding:2px 0;border-bottom:1px solid #f3f4f6;">
+                <span>4/29</span><span>Candy Mediums · J2</span><span>5</span>
+              </div>
+              <div style="display:grid;grid-template-columns:50px 1fr 30px;gap:6px;padding:2px 0;border-bottom:1px solid #f3f4f6;">
+                <span>4/22</span><span>Black Truffle · C2</span><span>8</span>
+              </div>
+              <div style="display:grid;grid-template-columns:50px 1fr 30px;gap:6px;padding:2px 0;border-bottom:1px solid #f3f4f6;">
+                <span>4/14</span><span>Alien Runts · M15</span><span>6</span>
+              </div>
+              <div style="display:grid;grid-template-columns:50px 1fr 30px;gap:6px;padding:2px 0;border-bottom:1px solid #f3f4f6;">
+                <span>4/02</span><span>Sugar High · J7</span><span>4</span>
+              </div>
+              <div style="margin-top:6px;color:#666;font-size:9px;">12 orders · 90d · avg $612 · pays in 7d</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:6px;color:#666;font-size:11px;">Footprint: ~76px above the grid (Keel 48 + Identity 28) vs. v1's ~140px (Keel + Quick Start + Persistent Context).</div>
+</div>
+
+<!-- Keel chips behavior -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Keel chips — pure navigation, no inline forms</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;"><th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:120px;">Chip</th><th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">What it does</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Sale</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Go to <code>Sales</code>. If a customer is in recent context, restore it. Otherwise land on customer-pick state. No client/request fields in the chip.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Receive</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Go to <code>Intake</code>. Pre-selection strip on the page has Vendor ▾ and "+ Receive Row".</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>$ In</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Go to <code>Payments</code> with the Quick Ledger focused on a fresh money_in row.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>$ Out</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Go to <code>Vendor Payouts</code>. Pre-selection: Vendor ▾.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Purchase</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Go to <code>Purchase Orders</code>. Pre-selection: Vendor ▾ and "+ New PO".</td></tr>
+    </tbody>
+  </table>
+  <div style="margin-top:6px;color:#666;font-size:11px;">"Start a customer-aware sale from anywhere" remains possible via <kbd>⌘K</kbd> Rich Star → routes to Sales with that customer active. Or click <b>Sale</b> chip and pick on the Sales view. The all-in-one quick-launch form is gone.</div>
+</div>
+
+<!-- What moved to drawer -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">What moved off the canvas and into the Drawer</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:170px;">Surface</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Used to live on canvas</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Now lives as drawer tab</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Sales / Customer</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Bal · Credit · Tags · Notes · 4 recent orders · 4 recent invoices visible on persistent header</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Balance</b> · <b>Purchases</b> · <b>Notes</b> · <b>Recent</b> · <b>Buyer fit</b> tabs. Identity ribbon shows only name + draft order ref.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Sales · Output</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Sheet/Catalog toggle + Export button + sheet-preview cards block</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Output</b> tab in drawer (Internal sheet preview · Customer catalog preview · Copy offer · Export). Or via selection-strip "More ▾ → Copy customer offer".</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Sales · Suggestions</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Smart Suggestions grid as a third stacked section</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Buyer fit</b> tab in drawer. Inventory Finder remains the main inventory tool (right panel) — Suggestions complements it inside the drawer.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Purchase Orders</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Vendor · Expected · "New PO" strip + Approve/Receive/Cancel actions + a second line-add strip with 5 fields</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Drawer tabs: <b>Lines</b> · <b>Vendor card</b> · <b>Linked intake</b> · <b>Linked receipts</b> · <b>History</b>. Line-add becomes the first row of the line grid (type to add). Approve/Receive moves to status-aware primary in selection strip.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Vendor Payouts</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">VendorBillTools panel always visible (manual bill + payout void) + Approve/Schedule/Pay actions</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Drawer tabs: <b>Open bills</b> · <b>Payouts</b> · <b>Consignment</b> · <b>Scheduled</b> · <b>Tools</b> (manual bill + void). Approve/Schedule/Pay becomes status-aware primary in selection strip.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Payments</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Quick Ledger + Payment Allocation Tools (allocation/unallocation/discount) + FIFO Allocate action</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Quick Ledger remains the primary surface. Drawer tabs: <b>Allocations</b> · <b>Customer card</b> · <b>Impact</b> · <b>Buckets</b>. Early-pay discount + unallocate live in drawer Allocations tab as row-actions.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Recovery</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">3 always-on control bands: Search/Backup, Correction journal entry, Find/Replace</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Search lives in the grid filter (just <kbd>/</kbd>). Drawer tabs: <b>Reversal preview</b> · <b>Snapshot diff</b> · <b>Find/Replace</b> · <b>Correction journal</b> · <b>Backup restore</b>. Each tab opens with one focused job.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Closeout</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Control band: Period · Unsafe rows · Batches · Orders · Commands · Adjustment toggle · Lock · Archive</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Identity ribbon shows Period + status. Selection strip shows Lock/Archive as status-aware primary. Drawer tabs: <b>Control totals</b> · <b>Unsafe rows</b> · <b>Adjustments</b> · <b>Artifacts</b>.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Intake</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Vendor + CSV-import + Lot info strip + receipt preview as inline section</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Pre-selection: just Vendor ▾ + "+ Receive Row". Drawer tabs: <b>Receipt preview</b> (selection-bound) · <b>CSV import</b> · <b>Lot info</b> · <b>Vendor card</b> · <b>Linked PO</b>.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Fulfillment</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Pack-line strip (Qty/Weight/Bag/Tracking) + Label-format select + Labels/Fulfilled actions</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Pack-line inputs pin to the selected fulfillment line (inline in grid). Drawer tabs: <b>Lines</b> · <b>Bag/labels</b> · <b>Manifest</b> · <b>Scan history</b> · <b>Order card</b>.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Identity ribbon detail -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Identity ribbon (Zone C) — slim, contextual, dismissible</div>
+  <div style="border:1px solid var(--line,#d4d4d8);background:#fff;padding:10px;font-family:ui-monospace,monospace;font-size:11px;margin-top:6px;line-height:1.6;">
+    <div style="background:#fef9e7;padding:5px 8px;">Sales · <b>Rich Star</b> · draft order RS-2026-05-11 · 3 lines &nbsp;&nbsp; <span style="color:#999;float:right;">[ ⌘← back ] [ ✕ leave ]</span></div>
+    <div style="background:#fef9e7;padding:5px 8px;margin-top:4px;">Purchase Orders · <b>Greenline Farms</b> · PO-DEMO-001 · approved · 12/40 received &nbsp;&nbsp; <span style="color:#999;float:right;">[ ⌘← back ] [ ✕ leave ]</span></div>
+    <div style="background:#fef9e7;padding:5px 8px;margin-top:4px;">Vendor Payouts · <b>Scott</b> · 4 open bills · $8,420 due &nbsp;&nbsp; <span style="color:#999;float:right;">[ ⌘← back ] [ ✕ leave ]</span></div>
+    <div style="background:#fef9e7;padding:5px 8px;margin-top:4px;">Closeout · period <b>2026-04</b> · locked · 0 unsafe rows &nbsp;&nbsp; <span style="color:#999;float:right;">[ ⌘← back ] [ ✕ leave ]</span></div>
+    <div style="padding:5px 8px;margin-top:4px;color:#999;">(no identity shown when you're on a queue view with nothing selected — saves the row.)</div>
+  </div>
+  <div style="margin-top:6px;color:#666;font-size:11px;">Identity ribbon shows only <i>where you are</i>. Everything <i>about</i> that entity lives in the Drawer tabs.</div>
+</div>
+
+<!-- Density audit -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Density audit — what's visible by default before any row is selected</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Surface</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">v1 (today)</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">v2 (proposed)</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Dashboard</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">37 visible controls (per ease-of-use audit)</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">~16 (KPI cards · queues · activity · refresh; drawer closed)</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Sales</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">59 visible controls</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">~22 (customer pick · finder common path · grid; drawer closed by default)</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Payments</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">49 visible</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">~14 (Quick Ledger grid · payment list; allocation/discount in drawer)</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Vendor Payouts</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">39 visible</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">~12 (bill grid · vendor pick; tools/payouts/consignment in drawer)</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Recovery</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">~30+ across 3 control bands</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">~8 (search filter · command grid; reversal/snapshot/find-replace/correction/backup in drawer tabs)</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Purchase Orders</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">~28 (PO band · PO actions · line-add band · line actions)</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">~10 (Vendor + New PO; line grid is empty until PO selected; everything else in drawer)</td></tr>
+    </tbody>
+  </table>
+  <div style="margin-top:6px;color:#666;font-size:11px;">Numbers are visual-element counts on first paint with no selection. The drawer is closed-by-default on queue views; opens on entity selection.</div>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">If this lands, I'll move into Section 3 (components — keep / rework / kill) and then start pushing the first wireframe batch: Shell + Dashboard + Customer Workspace.</p>

@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+storage/journal/*.jsonl
+storage/archives/*
+test-results
+playwright-report
+.superpowers/**/state/
+.DS_Store

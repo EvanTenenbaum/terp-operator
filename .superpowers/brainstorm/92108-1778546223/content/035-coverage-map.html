@@ -1,0 +1,246 @@
+<h2>Section 3.5 — Functional Coverage Map</h2>
+<p class="subtitle">The whole manifest, mapped to the canvas. One placement law, no exceptions.</p>
+
+<!-- The Discipline -->
+<div class="section" style="margin-top:8px;">
+  <div class="label">The placement law (one rule, eight slots)</div>
+  <div style="border:1px solid var(--line,#d4d4d8);background:#f8f8f7;padding:12px;margin-top:6px;font-size:12px;line-height:1.55;">
+    <b>Every operator-facing function lives in exactly one of these eight slots.</b> No fluid mix. If a thing doesn't fit, it's either misplaced or it needs a smaller surface (a column, a row-action, a tab).
+  </div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:42px;">#</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:200px;">Slot</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Use when</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Don't use when</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">1</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Keel</b> (top strip)</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Truly global: ⌘K search, 5 launch chips, health pill, user.</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Anything view-specific.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">2</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Side nav</b> (route)</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">A dedicated, frequently-visited operator surface.</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Anything reachable from existing routes via a row or a drawer.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">3</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Pre-selection strip</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Affordances to <i>start work</i> on this view (Vendor ▾, "+ Receive Row").</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Anything that requires a row to already exist.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">4</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Selection strip</b> (primary + More tray)</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Status-aware primary action + 2-4 secondary verbs in a tray for the selected row(s).</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Reference content or supporting context.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">5</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Grid column / inline cell</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Data scanned and edited as part of a row.</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Anything that's not a per-row attribute.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">6</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Context Drawer tab</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Referential or supporting context for the active entity (history, balances, suggestions, tools, validation, allocations, photos, manifest, etc.).</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Anything that needs to be edited from inside the drawer (drawer is read-only; clicks route out).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">7</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Cmd-K palette</b> (+ alias)</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Power command, rare admin action, anything that benefits from being typed by name.</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Daily high-frequency work.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">8</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Hotkey</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Truly repeated motion (commit, duplicate, filter, drawer, focus).</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Anything that isn't repeated.</td></tr>
+    </tbody>
+  </table>
+  <div style="margin-top:8px;font-size:11px;color:#666;">If a new function fits two slots, prefer the smaller surface (column &gt; tab &gt; palette). If it fits none, it's almost certainly redundant.</div>
+</div>
+
+<!-- TERP Numbers manifest filter -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">First filter — what in the TERP Numbers manifest applies to TERP Agro</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:180px;">Manifest section</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:120px;">Applies to TERP Agro?</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Why</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">adapter · adapter_op</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#991b1b;">No</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">AppleScript/Numbers bridge plumbing. TERP Agro uses tRPC + Postgres + Drizzle.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">script · script_applescript · script_menu_entry</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#991b1b;">No</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">macOS Script Menu wrappers. Replaced by tRPC commands + Cmd-K palette.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">panel_sheet</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#991b1b;">No</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Numbers workbook sheets. Replaced by routes + drawer tabs.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">antipattern · gate</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#854d0e;">Backend invariants</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Already enforced at command bus / schema layer. Not UI work.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">draft_table</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#854d0e;">Done in design</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Provisional row states (draft/needs_resolution/ready/posted/reversed) already in TA-001.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">form</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Mostly already</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Cash intake → Quick Ledger row · Inventory quick add → Intake +Receive Row · Warehouse pack → Fulfillment pack-line.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">decision</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#854d0e;">Data content</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">What does "C"/"T"/"CV"/"M" actually mean — those are vocabulary decisions, not UI surfaces. UI keeps raw + offers a <b>Marker Review</b> drawer tab.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">cockpit_table</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — UI mapped below</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">These ARE the operator's tables. Mapped to routes + drawer tabs.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">command</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — placement law applies</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Each gets one of slots 4 / 5 / 6 / 7. Cmd-K aliases cover the long tail.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">connector</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — Connectors route</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Live shopping · VIP portal · mobile pick-pack · customer preview all flow into Connectors review.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">contract</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — they shape columns/tabs</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Pricing rules · customer profile · tag library · smart suggestions · search index · legacy markers. Each gets a designed home below.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">hotkey</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — keyboard model in §2</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">21 hotkeys; most map onto existing TERP Agro shortcuts + new drawer/finder/primary keys.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">scenario</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — acceptance criteria</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">S01-S20 become the verification checklist at end of spec.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">view_construct</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — column/grouping rules</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Highlighting rules → StatusPill colors. Smart categories → AG Grid row grouping. Charts → Dashboard.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">journey J01-J16</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — flows already mapped</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">All 16 journeys have a designed home; J11/J12/J13/J16 add the new drawer tabs.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">28 gaps</td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><span style="color:#166534;">Yes — placed below</span></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Every gap mapped to a slot.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Cockpit tables to surfaces -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Cockpit tables → TERP Agro surfaces</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:260px;">Cockpit table</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Where it lives in TERP Agro</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">archive-index</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Closeout route — main grid (archived periods).</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">batch-tags</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Inventory: <code>tags</code> column inline; Inventory drawer <b>Tags</b> tab for library/cleanup.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">client-debt-summary</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Balance</b> tab (open invoices + aging + overdue) and Client Ledger main grid.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">client-purchase-history</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Purchases</b> tab.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">command-journal-view</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Recovery route — main grid (recoverySearch query). Selected-row drawer <b>History</b> tab on every grid.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">command-queue</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Recovery route — filter "queued/failed". Retry from selection strip.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">config-flags</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Recovery drawer <b>System</b> tab — pause/resume posting, feature flags. Power use only.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">connector-queue-summary</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Connectors route — main grid.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">fulfillment-bagging-queue</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Fulfillment route — main grid + drawer <b>Manifest</b> tab.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">inventory-summary</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Inventory route — main grid + Dashboard KPI drilldown.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">owner-dashboard</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Dashboard route — KPI cards + Today focus + queues.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">payable-cash-summary</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Vendor Payouts main grid + Dashboard "Payables due/scheduled" KPI.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">payment-ledger</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Payments route — grid below Quick Ledger.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">payout-reconciliation</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Vendor Payouts drawer <b>Payouts</b> tab (per-vendor reconciliation).</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">search-index</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">⌘K palette (entity search) + ⌘⇧F Inventory Finder overlay. No standalone surface.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">smart-suggestions</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Buyer fit</b> tab (per customer) + Inventory Finder match reasons.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">source-row-map</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Recovery drawer <b>Source map</b> tab (legacy-row → current-batch mapping for migration audit).</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">status</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Keel health pill + Recovery drawer <b>System</b> tab for detail.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">tag-catalog</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Inventory drawer <b>Tags</b> tab — library + unmapped review.</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">validation-fix-queue</td><td style="padding:4px 8px;border:1px solid var(--line,#d4d4d8);">Per-row <code>validationIssues</code> column (already in design) + per-grid drawer <b>Issues</b> tab listing all needs_fix rows.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Contracts to surfaces -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Contracts that shape behavior → designed homes</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:240px;">Contract</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Designed home</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>contract-pricing-rules</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Pricing</b> tab (tier · floor · ceiling · clearance flag · last-rule applied). Sales line columns: <code>pricingRule</code> (computed), <code>ruleFloor</code>, <code>ruleCeiling</code>, <code>ruleReason</code>. Selection-strip "Reprice" tray action. Below-floor prices show amber pill; require Manager+ to confirm. PO lines keep <code>priceRange</code> column (already there).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>contract-customer-profile</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Profile</b> tab (contact · creditLimit · balance · tags · pricing rule set · notes). Editable inline in Client Ledger main grid.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>contract-tag-library</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Inline tag editing in grids already exists. Inventory drawer <b>Tags</b> tab adds library management + unmapped-tag review. New ⌘K alias <code>tags</code>.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>contract-smart-suggestions</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Buyer fit</b> tab (sortable list of suggested batches w/ reason chips). Click a row → adds to active draft order (when in Sales) or routes to Inventory.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>contract-search-index</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">⌘K palette (already routes to <code>globalSearch</code>). ⌘⇧F Inventory Finder overlay. No new surface.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>contract-legacy-marker-contamination</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><code>legacyMarker</code> column (Inventory · Intake · Sales lines · Orders) already in design. Recovery drawer <b>Marker review</b> tab adds the vocabulary-review queue for unmapped values.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>contract-cockpit-ingestion</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Backend (tRPC + Drizzle). No UI surface beyond the routes the cockpit tables already drive.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>contract-live-shopping-session</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Connectors route — request type filter. Connector drawer <b>Session detail</b> tab shows the cart payload and routing target.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 28 gaps -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">The 28 operational gaps — every one has a home</div>
+  <table style="width:100%;font-size:11.5px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);width:74px;">Gap</th>
+      <th style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);width:280px;">Function</th>
+      <th style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Placement</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-001</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory position tracking (location)</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory <code>location</code> column + drawer <b>Movement</b> tab.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-002</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory status updates (reserved/held/damaged/returned)</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory <code>status</code> inline (already supports states) + drawer <b>Status</b> tab for damaged/returned.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-003</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Ownership transfers (consigned ↔ owned)</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory selection-strip "Transfer" tray action → opens drawer <b>Transfer</b> tab with reason + audit.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-004</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Bulk CSV import</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Intake drawer <b>CSV import</b> tab (already shipped; just relocated).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-005</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inline client balance lookup</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Balance</b> tab + balance column in Client Ledger.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-006</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inline inventory availability check</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Sales line <code>availableQty</code> column (already in design) + Inventory Finder match reasons.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-007</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Invoice ID auto-suggest</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Quick Ledger row's <code>Invoice / bill</code> select (already shipped via paymentAllocationPreview).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-008</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Batch mark ready hotkey</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">⌘↵ status-aware primary on Intake.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-009</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory adjustment</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory inline edit on <code>availableQty</code> → adjustBatchQuantity (already shipped).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-010</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Vendor receipt generation</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Intake drawer <b>Receipt preview</b> tab + selection-strip primary "Post receipt" (already shipped).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-011</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Client invoice generation</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Sales drawer <b>Output</b> tab — Internal sheet · Customer catalog · Invoice PDF preview.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-012</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Payment split allocation</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Payment drawer <b>Allocations</b> tab — per-row split editor (today an inline panel).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-013</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Delivery scheduling</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Fulfillment <code>scheduledFor</code> column + selection-strip "Schedule" tray action.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-014</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Carrier tracking</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Fulfillment <code>tracking</code> column (already in design) + drawer <b>Order card</b> shows carrier.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-015</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Aging inventory report</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory drawer <b>Aging</b> tab + Dashboard KPI drilldown.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-016</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Revenue summary</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Dashboard "Revenue" KPI + drilldown grid (period-grouped).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-017</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Payables due report</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Dashboard "Payables due/scheduled" KPI drilldown (already in design).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-018</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Duplicate row hotkey</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">⌘D (already on Intake; extend to Sales/PO/Inventory).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-019</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Credit/overdue warning</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Balance</b> tab + amber pill on Sales line when buyer is over limit. Selection-strip primary disabled with reason.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-020</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Category analytics</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Inventory drawer <b>Aging</b> tab (groups by category) + Dashboard category mini-chart.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-021</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Vendor performance</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Vendor drawer <b>Performance</b> tab (lead time · price drift · receipts).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-022</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Search inventory hotkey</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">⌘⇧F Finder overlay.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-023</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Excel export</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">CSV export on every grid (already shipped). Excel-specific format if needed via existing csvExport.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-024</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Low stock alerts</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Dashboard "Low stock" queue card + Inventory <code>lowStock</code> warning chip on row.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-025</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Archive old data</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Closeout archive (already shipped).</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-026</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Client sales history</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Customer drawer <b>Purchases</b> tab.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-027</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Real-time dashboard charts</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Dashboard "Today focus" area gets one chart only if it earns it (weekly payments mini-line). Charts are a P3.</td></tr>
+      <tr><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">GAP-028</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Mobile dashboard</td><td style="padding:3px 8px;border:1px solid var(--line,#d4d4d8);">Out of scope this pass. Connector mobile pick-pack covers warehouse use case.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- New functional surfaces -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">New functional surfaces I'm folding into this pass (vs. v2's earlier draft)</div>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:230px;">Surface</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);">Why now</th>
+      <th style="padding:6px 8px;border:1px solid var(--line,#d4d4d8);width:240px;">Slot · placement</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Customer pricing rules</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Tier · floor · ceiling · clearance · last-rule-applied. Drives sale-line reprice, below-floor refusal, internal margin display.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 6 · Customer drawer <b>Pricing</b> tab. Slot 5 · Sales line <code>pricingRule</code> + <code>ruleFloor</code> + <code>ruleReason</code> columns.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>PO price-range entry</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Operators enter expected cost band, not a single number.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 5 · PO line <code>priceRange</code> column (already exists) — wireframes show it.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Credit limit + overdue</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Pre-post guardrail when sale exceeds buyer limit.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 5 · amber pill in Sales line. Slot 6 · Customer drawer <b>Balance</b> tab. Slot 4 · selection-strip primary disabled with plain-language reason; Manager+ override.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Tag library + unmapped queue</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">contract-tag-library + J11.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 6 · Inventory drawer <b>Tags</b> tab.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Marker review queue</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">J16 + contract-legacy-marker-contamination. Operators map raw "C/CV/T/OFC" to confirmed meanings without rewriting history.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 6 · Recovery drawer <b>Markers</b> tab.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Inventory transfer / move</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">GAP-003 ownership transfer + location move.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 4 · "Transfer" tray action. Slot 6 · Inventory drawer <b>Transfer</b> tab.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Inventory movement / history</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Shows every quantity/ownership change with actor + reason.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 6 · Inventory drawer <b>Movement</b> tab.</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Reports — Aging, Vendor performance, Revenue</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">GAP-015/016/021 + view_construct charts.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Distributed: Aging → Inventory drawer; Vendor perf → Vendor drawer; Revenue → Dashboard KPI drilldown. <b>No new "Reports" route.</b></td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>System / config</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">pause/resume posting, config flags, status.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 6 · Recovery drawer <b>System</b> tab. Slot 7 · Cmd-K "pause posting".</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Down payment / buyer credit</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Already shipped: Quick Ledger auto-labels negative money_in as buyer_credit. No new surface.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">— (existing slot 4 on Payments).</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Connector live-shopping / VIP</b></td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">connector-live-shopping-session + connector-vip-portal.</td>
+        <td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Slot 2 · Connectors route already exists. Slot 6 · drawer <b>Session</b> tab.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Drawer tab catalog updated -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">Drawer tab catalog (v2 — updated with all the new surfaces)</div>
+  <table style="width:100%;font-size:11.5px;border-collapse:collapse;margin-top:6px;">
+    <thead style="background:#f4f4f5;"><tr style="text-align:left;">
+      <th style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);width:140px;">Active entity</th>
+      <th style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Drawer tabs (in default order)</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Customer</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Profile · Balance · Purchases · Pricing · Buyer fit · Notes · Recent · Disputes/credits · History</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Vendor</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Profile · Open bills · Payouts · POs · Consignment · Performance · Scheduled · Tools · Notes · History</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Batch / Inventory row</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Movement · Sales (recent) · Reservations · Photos · Sourced from PO · Tags · Transfer · History</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Order / Sale</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Lines · Allocation · Customer card · Pricing rules · Validation · Output · Fulfillment status · History</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>PO</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Lines · Vendor card · Linked intake · Linked receipts · History</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Vendor bill / Payout</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Due reason · Source receipt · Linked PO · Payouts · Consignment trigger · History</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Payment</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Allocations · Customer card · Impact · Buckets · History</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Pick / Fulfillment</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Lines · Order card · Bag/labels · Manifest · Scan history · Tracking · History</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Connector request</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Session/payload · Routing · Review history · Linked order</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Recovery row (command)</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Reversal preview · Snapshot diff · Markers · Source map · Find/Replace · Correction · Backup · System</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>Closeout period</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Control totals · Unsafe rows · Adjustments · Artifacts</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>(Inventory queue, no row)</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Tags · Aging · Movement (recent) · Photos queue</td></tr>
+      <tr><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);"><b>(Intake queue, no row)</b></td><td style="padding:5px 8px;border:1px solid var(--line,#d4d4d8);">Receipt preview (selection-driven) · CSV import · Lot info · Linked PO</td></tr>
+    </tbody>
+  </table>
+  <div style="margin-top:8px;font-size:11px;color:#666;">Tabs are <i>read-only</i> inside the drawer. Clicks route to that surface and select the row. ⌘← restores prior state. Drawer is closed by default on queue views; opens on entity selection.</div>
+</div>
+
+<!-- Discipline as a rule -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">The five questions to ask before adding any new control</div>
+  <ol style="margin:6px 0 0 22px;font-size:12px;line-height:1.7;">
+    <li><b>Is this a per-row attribute</b> the operator scans and edits? → Add it as a <i>grid column</i>. Done.</li>
+    <li><b>Is this the obvious primary action for the row at its current status?</b> → Selection strip <i>primary</i>. Done.</li>
+    <li><b>Is this a less-frequent but row-specific action?</b> → Selection strip <i>More ▾</i> tray. Done.</li>
+    <li><b>Is this reference data or supporting context</b> about the active entity? → Drawer tab. Done.</li>
+    <li><b>Is this a rare admin / power command?</b> → Cmd-K palette with alias. Done.</li>
+  </ol>
+  <div style="margin-top:8px;font-size:12px;color:#444;border-left:3px solid #f59e0b;padding-left:10px;">
+    If a function answers <b>no</b> to all five, it's almost certainly not needed. If it answers <b>yes</b> to multiple, use the smaller surface. <b>"It needs its own panel on the page"</b> is what we're trying to never say again.
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">If this discipline lands, every wireframe in the next batches has a clear, narrow shape. I'll begin pushing <b>Wireframe Batch 1</b>: Shell + Keel, Dashboard, Customer Workspace / Sales — each with default state · selection state · drawer-open state. Pricing rules, credit-limit warning, and the new drawer tabs (Pricing, Movement, Transfer, Tags, Markers, Vendor Performance, Aging) will be drawn into the relevant wireframes as they come up.</p>

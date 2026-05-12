@@ -1,0 +1,1863 @@
+import { randomUUID } from 'node:crypto';
+import { createWriteStream } from 'node:fs';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import PDFDocument from 'pdfkit';
+import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import type { Server as SocketServer } from 'socket.io';
+import { z } from 'zod';
+import { db } from '../db';
+import { env } from '../env';
+import {
+  archiveRuns,
+  backupSnapshots,
+  batches,
+  clientLedgerEntries,
+  commandJournal,
+  connectorRequests,
+  correctionJournalEntries,
+  customers,
+  fulfillmentLines,
+  inventoryMovements,
+  invoiceDisputes,
+  invoices,
+  items,
+  paymentAllocations,
+  payments,
+  periodLocks,
+  photographyQueue,
+  pickLists,
+  purchaseReceiptLines,
+  purchaseReceipts,
+  purchaseOrderLines,
+  purchaseOrders,
+  salesOrderLines,
+  salesOrders,
+  vendorBills,
+  vendorPayments,
+  vendors
+} from '../schema';
+import { assertCommandAccess } from '../rbac';
+import { appendJsonlJournal } from './journal';
+import { rowsToCsv, validateBatchCsv } from './csv';
+import { commandInputSchema } from '../../shared/schemas';
+import type { CommandName } from '../../shared/commandCatalog';
+import type { CommandResult, SessionUser } from '../../shared/types';
+
+export type CommandInput = z.infer<typeof commandInputSchema>;
+
+type Tx = any;
+type Payload = Record<string, unknown>;
+
+const moneyScale = (value: unknown) => Number(value ?? 0).toFixed(2);
+const qtyScale = (value: unknown) => Number(value ?? 0).toFixed(3);
+const code = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 999).toString().padStart(3, '0')}`;
+const oneWeek = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+export async function executeCommand(input: CommandInput, user: SessionUser, io: SocketServer): Promise<CommandResult> {
+  assertCommandAccess(user, input.name);
+
+  const existing = await db.select().from(commandJournal).where(eq(commandJournal.idempotencyKey, input.idempotencyKey)).limit(1);
+  if (existing[0]) {
+    return existing[0].result as unknown as CommandResult;
+  }
+
+  const commandId = randomUUID();
+  const beforeSnapshot = await snapshotFromPayload(input.payload);
+
+  try {
+    const result = await db.transaction(async (tx) => runCommand(tx, input.name, input.payload, user, commandId, input.reason));
+    const afterSnapshot = await snapshotByAffectedIds(result.affectedIds);
+    const storedResult = { ...result, toast: result.toast ?? 'Command completed.' };
+
+    await db.insert(commandJournal).values({
+      id: commandId,
+      commandName: input.name,
+      idempotencyKey: input.idempotencyKey,
+      actorId: user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      reason: input.reason,
+      inputPayload: input.payload,
+      status: result.ok ? 'ok' : 'failed',
+      affectedIds: result.affectedIds,
+      beforeSnapshot,
+      afterSnapshot,
+      result: storedResult
+    });
+
+    await appendJsonlJournal({
+      id: commandId,
+      commandName: input.name,
+      actor: user,
+      idempotencyKey: input.idempotencyKey,
+      reason: input.reason,
+      inputPayload: input.payload,
+      beforeSnapshot,
+      afterSnapshot,
+      result: storedResult,
+      createdAt: new Date().toISOString()
+    });
+
+    io.emit('command:completed', {
+      commandId,
+      commandName: input.name,
+      actorId: user.id,
+      affectedIds: result.affectedIds,
+      toast: storedResult.toast
+    });
+
+    return storedResult;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Command failed.';
+    const failed: CommandResult = { ok: false, commandId, affectedIds: [], toast: message };
+    await db.insert(commandJournal).values({
+      id: commandId,
+      commandName: input.name,
+      idempotencyKey: input.idempotencyKey,
+      actorId: user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      reason: input.reason,
+      inputPayload: input.payload,
+      status: 'failed',
+      affectedIds: [],
+      beforeSnapshot,
+      afterSnapshot: {},
+      result: failed as unknown as Record<string, unknown>,
+      error: message
+    });
+    await appendJsonlJournal({
+      id: commandId,
+      commandName: input.name,
+      actor: user,
+      idempotencyKey: input.idempotencyKey,
+      reason: input.reason,
+      inputPayload: input.payload,
+      beforeSnapshot,
+      result: failed,
+      error: message,
+      createdAt: new Date().toISOString()
+    });
+    io.emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: message });
+    return failed;
+  }
+}
+
+async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: SessionUser, commandId: string, reason?: string): Promise<CommandResult> {
+  switch (name) {
+    case 'createBatch':
+      return createBatch(tx, payload, commandId);
+    case 'updateBatch':
+      return updateBatch(tx, payload, commandId);
+    case 'deleteBatch':
+      return deleteBatch(tx, payload, commandId);
+    case 'postPurchaseReceipt':
+      return postPurchaseReceipt(tx, payload, commandId, reason);
+    case 'createPurchaseOrder':
+      return createPurchaseOrder(tx, payload, user.id, commandId);
+    case 'updatePurchaseOrder':
+      return updatePurchaseOrder(tx, payload, commandId);
+    case 'addPurchaseOrderLine':
+      return addPurchaseOrderLine(tx, payload, commandId);
+    case 'updatePurchaseOrderLine':
+      return updatePurchaseOrderLine(tx, payload, commandId);
+    case 'removePurchaseOrderLine':
+      return removePurchaseOrderLine(tx, payload, commandId);
+    case 'approvePurchaseOrder':
+      return approvePurchaseOrder(tx, payload, user.id, commandId);
+    case 'receivePurchaseOrder':
+      return receivePurchaseOrder(tx, payload, commandId);
+    case 'cancelPurchaseOrder':
+      return cancelPurchaseOrder(tx, payload, commandId);
+    case 'adjustBatchQuantity':
+      return adjustBatchQuantity(tx, payload, commandId, reason);
+    case 'setBatchPrice':
+      return updateBatch(tx, { ...payload, unitPrice: requiredNumber(payload.unitPrice, 'unitPrice') }, commandId, 'Batch price updated.');
+    case 'setBatchLotInfo':
+      return updateBatch(tx, payload, commandId, 'Lot information updated.');
+    case 'attachBatchPhoto':
+      return attachBatchPhoto(tx, payload, user.id, commandId);
+    case 'importBatchesCsv':
+      return importBatchesCsv(tx, payload, commandId);
+    case 'createSalesOrder':
+      return createSalesOrder(tx, payload, commandId);
+    case 'addSalesOrderLine':
+      return addSalesOrderLine(tx, payload, commandId);
+    case 'updateSalesOrderLine':
+      return updateSalesOrderLine(tx, payload, commandId);
+    case 'removeSalesOrderLine':
+      return removeSalesOrderLine(tx, payload, commandId);
+    case 'reserveInventoryForOrder':
+      return reserveInventoryForOrder(tx, payload, commandId);
+    case 'priceSalesOrder':
+      return priceSalesOrder(tx, payload, commandId);
+    case 'confirmSalesOrder':
+      return confirmSalesOrder(tx, payload, commandId);
+    case 'cancelSalesOrder':
+      return cancelSalesOrder(tx, payload, commandId);
+    case 'postSalesOrder':
+      return postSalesOrder(tx, payload, commandId);
+    case 'allocateOrderToFulfillment':
+    case 'createPickList':
+      return allocateOrderToFulfillment(tx, payload, user.id, commandId);
+    case 'applyClientCredit':
+      return applyClientCredit(tx, payload, commandId);
+    case 'setDeliveryWindow':
+      return setDeliveryWindow(tx, payload, commandId);
+    case 'logPayment':
+      return logPayment(tx, payload, commandId);
+    case 'allocatePayment':
+      return allocatePayment(tx, payload, commandId);
+    case 'unallocatePayment':
+      return unallocatePayment(tx, payload, commandId);
+    case 'refundPayment':
+      return refundPayment(tx, payload, commandId);
+    case 'applyEarlyPayDiscount':
+      return applyEarlyPayDiscount(tx, payload, commandId);
+    case 'createVendorBill':
+      return createVendorBill(tx, payload, commandId);
+    case 'approveVendorBill':
+      return updateVendorBillStatus(tx, payload, 'approved', commandId, 'Vendor bill approved.');
+    case 'scheduleVendorPayment':
+      return scheduleVendorPayment(tx, payload, commandId);
+    case 'recordVendorPayment':
+      return recordVendorPayment(tx, payload, commandId);
+    case 'voidVendorPayment':
+      return voidVendorPayment(tx, payload, commandId);
+    case 'recordWeighAndPack':
+      return recordWeighAndPack(tx, payload, commandId);
+    case 'markOrderFulfilled':
+      return markOrderFulfilled(tx, payload, commandId);
+    case 'printLabels':
+      return printLabels(tx, payload, commandId);
+    case 'adjustFulfillmentLine':
+      return recordWeighAndPack(tx, payload, commandId, 'Fulfillment line adjusted.');
+    case 'approveConnectorRequest':
+      return reviewConnectorRequest(tx, payload, 'approved', user, commandId);
+    case 'rejectConnectorRequest':
+      return reviewConnectorRequest(tx, payload, 'rejected', user, commandId);
+    case 'routeConnectorRequest':
+      return reviewConnectorRequest(tx, payload, 'routed', user, commandId);
+    case 'createCorrectionJournalEntry':
+      return createCorrectionJournalEntry(tx, payload, commandId);
+    case 'reverseCommandById':
+      return reverseCommandById(tx, payload, commandId);
+    case 'restoreFromBackupPoint':
+      return restoreFromBackupPoint(tx, payload, commandId);
+    case 'repriceOrder':
+      return priceSalesOrder(tx, payload, commandId, 'Order repriced.');
+    case 'postPeriodAdjustments':
+      return postPeriodAdjustments(tx, payload, commandId);
+    case 'lockPeriod':
+      return lockPeriod(tx, payload, user.id, commandId);
+    case 'archivePeriod':
+      return archivePeriod(tx, payload, commandId);
+  }
+}
+
+async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const decoded = decodeShorthand(stringValue(payload.shorthand));
+  const name = stringValue(payload.name) || decoded.name;
+  const category = stringValue(payload.category) || decoded.category;
+  if (!name) throw new Error('Batch name is required.');
+  if (!category) throw new Error('Category is required.');
+  const vendorId = stringValue(payload.vendorId);
+  const itemId = await ensureItem(tx, payload, name, category);
+  const validationIssues = batchValidationIssues({
+    ...payload,
+    name,
+    category,
+    vendorId,
+    intakeQty: payload.intakeQty ?? 0,
+    unitCost: payload.unitCost ?? 0
+  });
+  const requestedStatus = stringValue(payload.status) || 'draft';
+  const status = requestedStatus === 'ready' && validationIssues.length ? 'needs_fix' : requestedStatus;
+  const [row] = await tx
+    .insert(batches)
+    .values({
+      itemId,
+      vendorId: vendorId || null,
+      purchaseOrderId: stringValue(payload.purchaseOrderId) || null,
+      purchaseOrderLineId: stringValue(payload.purchaseOrderLineId) || null,
+      batchCode: code('BATCH'),
+      sourceCode: stringValue(payload.sourceCode) || null,
+      shorthand: stringValue(payload.shorthand) || null,
+      name,
+      category,
+      tags: arrayValue(payload.tags, decoded.tags),
+      intakeQty: qtyScale(payload.intakeQty ?? 0),
+      availableQty: qtyScale(payload.availableQty ?? payload.intakeQty ?? 0),
+      uom: stringValue(payload.uom) || 'lb',
+      unitCost: moneyScale(payload.unitCost ?? 0),
+      unitPrice: moneyScale(payload.unitPrice ?? 0),
+      location: stringValue(payload.location) || 'vault',
+      lotCode: stringValue(payload.lotCode) || null,
+      intakeDate: dateOrNull(payload.intakeDate),
+      ticketCost: payload.ticketCost != null ? moneyScale(payload.ticketCost) : null,
+      priceRange: stringValue(payload.priceRange) || null,
+      notes: stringValue(payload.notes) || null,
+      legacyMarker: stringValue(payload.legacyMarker) || stringValue(payload.ownershipStatus) || null,
+      expirationDate: dateOrNull(payload.expirationDate),
+      ownershipStatus: ownership(payload.ownershipStatus),
+      arrivalConfirmed: Boolean(payload.arrivalConfirmed),
+      arrivalStatus: arrivalStatus(payload.arrivalStatus, Boolean(payload.arrivalConfirmed)),
+      validationIssues,
+      mediaStatus: stringValue(payload.mediaStatus) || 'open',
+      status
+    })
+    .returning();
+  return { ok: true, commandId, affectedIds: [row.id], toast: validationIssues.length ? `${row.name} draft saved with ${validationIssues.length} issue(s) to fix.` : `${row.name} batch created.` };
+}
+
+async function updateBatch(tx: Tx, payload: Payload, commandId: string, toast = 'Batch updated.'): Promise<CommandResult> {
+  const batchId = requiredId(payload.id ?? payload.batchId, 'batchId');
+  const [current] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!current) throw new Error('Batch not found.');
+  if (current.status === 'posted' && payload.intakeQty != null && Number(payload.intakeQty) !== Number(current.intakeQty)) {
+    throw new Error('intake_qty is immutable after posting. Use adjustBatchQuantity for corrections.');
+  }
+  if (current.status === 'posted' && payload.status != null && stringValue(payload.status) !== 'posted') {
+    throw new Error('Posted batches cannot be moved back to Draft or Ready. Reverse the posting or create an adjustment.');
+  }
+
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  copyIfPresent(values, 'name', payload.name);
+  copyIfPresent(values, 'category', payload.category);
+  copyIfPresent(values, 'location', payload.location);
+  copyIfPresent(values, 'lotCode', payload.lotCode);
+  copyIfPresent(values, 'status', payload.status);
+  copyIfPresent(values, 'shorthand', payload.shorthand);
+  copyIfPresent(values, 'sourceCode', payload.sourceCode);
+  copyIfPresent(values, 'priceRange', payload.priceRange);
+  copyIfPresent(values, 'notes', payload.notes);
+  copyIfPresent(values, 'legacyMarker', payload.legacyMarker);
+  copyIfPresent(values, 'mediaStatus', payload.mediaStatus);
+  if (payload.vendorId != null) values.vendorId = stringValue(payload.vendorId) || null;
+  if (payload.purchaseOrderId != null) values.purchaseOrderId = stringValue(payload.purchaseOrderId) || null;
+  if (payload.purchaseOrderLineId != null) values.purchaseOrderLineId = stringValue(payload.purchaseOrderLineId) || null;
+  if (payload.tags != null) values.tags = arrayValue(payload.tags);
+  if (payload.intakeQty != null) values.intakeQty = qtyScale(payload.intakeQty);
+  if (payload.availableQty != null) values.availableQty = qtyScale(payload.availableQty);
+  if (payload.unitCost != null) values.unitCost = moneyScale(payload.unitCost);
+  if (payload.unitPrice != null) values.unitPrice = moneyScale(payload.unitPrice);
+  if (payload.ticketCost != null) values.ticketCost = moneyScale(payload.ticketCost);
+  if (payload.arrivalConfirmed != null) values.arrivalConfirmed = Boolean(payload.arrivalConfirmed);
+  if (payload.arrivalStatus != null) values.arrivalStatus = arrivalStatus(payload.arrivalStatus, Boolean(payload.arrivalConfirmed ?? current.arrivalConfirmed));
+  if (payload.ownershipStatus != null) values.ownershipStatus = ownership(payload.ownershipStatus);
+  if (payload.intakeDate != null) values.intakeDate = dateOrNull(payload.intakeDate);
+  if (payload.expirationDate != null) values.expirationDate = dateOrNull(payload.expirationDate);
+
+  const nextRow = { ...current, ...values } as Record<string, unknown>;
+  const validationIssues = batchValidationIssues(nextRow);
+  values.validationIssues = validationIssues;
+  if (stringValue(payload.status) === 'ready' && validationIssues.length) {
+    values.status = 'needs_fix';
+    toast = `Cannot mark Ready yet: ${validationIssues.join(' ')}`;
+  }
+
+  await tx.update(batches).set(values).where(eq(batches.id, batchId));
+  return { ok: true, commandId, affectedIds: [batchId], toast };
+}
+
+async function deleteBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.id ?? payload.batchId, 'batchId');
+  const [current] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!current) throw new Error('Batch not found.');
+  if (current.status === 'posted') throw new Error('Posted batches cannot be deleted. Reverse the posting instead.');
+  await tx.delete(batches).where(eq(batches.id, batchId));
+  return { ok: true, commandId, affectedIds: [batchId], toast: 'Draft batch deleted.' };
+}
+
+async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const batchIds = requiredIds(payload.batchIds ?? payload.selectedIds, 'batchIds');
+  const rows = await tx.select().from(batches).where(inArray(batches.id, batchIds));
+  if (rows.length !== batchIds.length) throw new Error('One or more selected intake rows no longer exist.');
+  const unsafe = rows.find((row: typeof batches.$inferSelect) => !['ready', 'draft'].includes(row.status));
+  if (unsafe) throw new Error(`${unsafe.name} is ${unsafe.status}. Only Draft or Ready intake rows can be processed.`);
+  const missing = rows.find((row: typeof batches.$inferSelect) => batchValidationIssues(row).length > 0);
+  if (missing) throw new Error(`${missing.name} needs fixes before processing: ${batchValidationIssues(missing).join(' ')}`);
+  const vendorIds = new Set(rows.map((row: typeof batches.$inferSelect) => row.vendorId));
+  if (vendorIds.size !== 1) throw new Error('Selected intake rows must share one vendor before generating a vendor receipt.');
+  const purchaseOrderIds = new Set<string>(rows.map((row: typeof batches.$inferSelect) => row.purchaseOrderId).filter((value: unknown): value is string => typeof value === 'string' && Boolean(value)));
+  if (purchaseOrderIds.size > 1) throw new Error('Selected intake rows can only be receipted against one purchase order at a time.');
+  const purchaseOrderId: string | null = [...purchaseOrderIds][0] ?? null;
+
+  const total = rows.reduce((sum: number, row: typeof batches.$inferSelect) => sum + Number(row.intakeQty) * Number(row.unitCost), 0);
+  const [receipt] = await tx
+    .insert(purchaseReceipts)
+    .values({ receiptNo: code('RCPT'), vendorId: rows[0].vendorId, purchaseOrderId, total: moneyScale(total), status: 'posted' })
+    .returning();
+
+  const affected = [receipt.id, ...batchIds];
+  for (const row of rows) {
+    const subtotal = Number(row.intakeQty) * Number(row.unitCost);
+    await tx.insert(purchaseReceiptLines).values({
+      receiptId: receipt.id,
+      batchId: row.id,
+      qty: row.intakeQty,
+      unitCost: row.unitCost,
+      subtotal: moneyScale(subtotal)
+    });
+    await tx.update(batches).set({ status: 'posted', availableQty: row.intakeQty, arrivalStatus: 'arrived', validationIssues: [], postedAt: new Date(), updatedAt: new Date() }).where(eq(batches.id, row.id));
+    await tx.insert(inventoryMovements).values({ batchId: row.id, commandId, kind: 'intake_posted', qtyDelta: row.intakeQty, reason });
+  }
+  if (purchaseOrderId) {
+    await tx.update(purchaseOrders).set({ status: 'received', receivedAt: new Date(), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+  }
+
+  const grouped = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.vendorId) continue;
+    const amount = Number(row.intakeQty) * Number(row.unitCost);
+    grouped.set(row.vendorId, (grouped.get(row.vendorId) ?? 0) + amount);
+  }
+  for (const [vendorId, amount] of grouped) {
+    const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+    const [bill] = await tx
+      .insert(vendorBills)
+      .values({
+        vendorId,
+        purchaseReceiptId: receipt.id,
+        billNo: code('VBILL'),
+        amount: moneyScale(amount),
+        dueDate: new Date(Date.now() + (vendor?.termsDays ?? 14) * 24 * 60 * 60 * 1000),
+        termsDays: vendor?.termsDays ?? 14,
+        status: 'open',
+        dueReason: 'Net terms payable from selected intake receipt'
+      })
+      .returning();
+    affected.push(bill.id);
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: affected,
+    toast: `Processed intake receipt ${receipt.receiptNo} for ${rows.length} row(s).`,
+    delta: { receiptNo: receipt.receiptNo, total: moneyScale(total) }
+  };
+}
+
+async function createPurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const vendorId = requiredId(payload.vendorId, 'vendorId');
+  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw new Error('Vendor not found.');
+  const [row] = await tx
+    .insert(purchaseOrders)
+    .values({
+      poNo: code('PO'),
+      vendorId,
+      expectedDate: dateOrNull(payload.expectedDate),
+      orderedBy: userId,
+      buyerNotes: stringValue(payload.buyerNotes) || null,
+      internalNotes: stringValue(payload.internalNotes) || null,
+      status: 'draft'
+    })
+    .returning();
+  return { ok: true, commandId, affectedIds: [row.id], toast: `Started purchase order ${row.poNo} for ${vendor.name}.` };
+}
+
+async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [current] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!current) throw new Error('Purchase order not found.');
+  assertPurchaseOrderEditable(current.status);
+
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (payload.vendorId != null) values.vendorId = stringValue(payload.vendorId) || null;
+  if (payload.expectedDate !== undefined) values.expectedDate = dateOrNull(payload.expectedDate);
+  if (payload.buyerNotes !== undefined) values.buyerNotes = stringValue(payload.buyerNotes) || null;
+  if (payload.internalNotes !== undefined) values.internalNotes = stringValue(payload.internalNotes) || null;
+  if (payload.status !== undefined) {
+    const nextStatus = stringValue(payload.status);
+    if (!['draft', 'approved', 'ordered', 'partially_received'].includes(nextStatus)) throw new Error('Purchase order status is not valid for manual update.');
+    values.status = nextStatus;
+  }
+  await tx.update(purchaseOrders).set(values).where(eq(purchaseOrders.id, purchaseOrderId));
+  return { ok: true, commandId, affectedIds: [purchaseOrderId], toast: 'Purchase order updated.' };
+}
+
+async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId, 'purchaseOrderId');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  assertPurchaseOrderEditable(order.status);
+  const decoded = decodeShorthand(stringValue(payload.shorthand));
+  const productName = stringValue(payload.productName ?? payload.name) || decoded.name;
+  const category = stringValue(payload.category) || decoded.category;
+  if (!productName) throw new Error('Product name is required.');
+  if (!category) throw new Error('Category is required.');
+  const qty = requiredNumber(payload.qty, 'qty');
+  if (qty <= 0) throw new Error('Quantity must be greater than zero.');
+  const unitCost = Number(payload.unitCost ?? 0);
+  if (!Number.isFinite(unitCost) || unitCost < 0) throw new Error('Unit cost cannot be negative.');
+  const itemId = await ensureItem(tx, { ...payload, tags: payload.tags ?? decoded.tags }, productName, category);
+  const status = unitCost > 0 ? 'planned' : 'needs_fix';
+  const [line] = await tx
+    .insert(purchaseOrderLines)
+    .values({
+      purchaseOrderId,
+      itemId,
+      productName,
+      category,
+      tags: arrayValue(payload.tags, decoded.tags),
+      qty: qtyScale(qty),
+      uom: stringValue(payload.uom) || 'lb',
+      unitCost: moneyScale(unitCost),
+      unitPrice: moneyScale(payload.unitPrice ?? unitCost),
+      sourceCode: stringValue(payload.sourceCode) || order.poNo,
+      shorthand: stringValue(payload.shorthand) || null,
+      legacyMarker: stringValue(payload.legacyMarker) || stringValue(payload.ownershipStatus) || null,
+      ownershipStatus: ownership(payload.ownershipStatus),
+      notes: stringValue(payload.notes) || null,
+      status
+    })
+    .returning();
+  await recalcPurchaseOrder(tx, purchaseOrderId);
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [purchaseOrderId, line.id],
+    toast: status === 'needs_fix' ? `${productName} added; enter unit cost before approving PO.` : `${productName} added to ${order.poNo}.`
+  };
+}
+
+async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
+  const [line] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Purchase order line not found.');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, line.purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  assertPurchaseOrderEditable(order.status);
+
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (payload.productName !== undefined || payload.name !== undefined) values.productName = stringValue(payload.productName ?? payload.name);
+  copyIfPresent(values, 'category', payload.category);
+  copyIfPresent(values, 'uom', payload.uom);
+  copyIfPresent(values, 'sourceCode', payload.sourceCode);
+  copyIfPresent(values, 'shorthand', payload.shorthand);
+  copyIfPresent(values, 'legacyMarker', payload.legacyMarker);
+  copyIfPresent(values, 'notes', payload.notes);
+  if (payload.tags !== undefined) values.tags = arrayValue(payload.tags);
+  if (payload.ownershipStatus !== undefined) values.ownershipStatus = ownership(payload.ownershipStatus);
+  if (payload.qty !== undefined) {
+    const qty = requiredNumber(payload.qty, 'qty');
+    if (qty <= 0) throw new Error('Quantity must be greater than zero.');
+    if (qty < Number(line.receivedQty)) throw new Error('Quantity cannot be below already received quantity.');
+    values.qty = qtyScale(qty);
+  }
+  if (payload.unitCost !== undefined) {
+    const unitCost = requiredNumber(payload.unitCost, 'unitCost');
+    if (unitCost < 0) throw new Error('Unit cost cannot be negative.');
+    values.unitCost = moneyScale(unitCost);
+  }
+  if (payload.unitPrice !== undefined) values.unitPrice = moneyScale(payload.unitPrice);
+  const nextLine = { ...line, ...values } as Record<string, unknown>;
+  values.status = Number(nextLine.receivedQty ?? 0) >= Number(nextLine.qty ?? 0) ? 'received' : Number(nextLine.unitCost ?? 0) > 0 ? 'planned' : 'needs_fix';
+  await tx.update(purchaseOrderLines).set(values).where(eq(purchaseOrderLines.id, lineId));
+  await recalcPurchaseOrder(tx, line.purchaseOrderId);
+  return { ok: true, commandId, affectedIds: [line.purchaseOrderId, lineId], toast: 'Purchase order line updated.' };
+}
+
+async function removePurchaseOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
+  const [line] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Purchase order line not found.');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, line.purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  assertPurchaseOrderEditable(order.status);
+  if (Number(line.receivedQty) > 0) throw new Error('Received purchase order lines cannot be removed. Use intake correction/reversal.');
+  await tx.delete(purchaseOrderLines).where(eq(purchaseOrderLines.id, lineId));
+  await recalcPurchaseOrder(tx, line.purchaseOrderId);
+  return { ok: true, commandId, affectedIds: [line.purchaseOrderId, lineId], toast: 'Purchase order line removed.' };
+}
+
+async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  if (['cancelled', 'received'].includes(order.status)) throw new Error('This purchase order cannot be approved.');
+  const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+  if (!lines.length) throw new Error('Add at least one product line before approving this purchase order.');
+  const issues = lines.flatMap((line: typeof purchaseOrderLines.$inferSelect) => purchaseOrderLineIssues(line).map((issue) => `${line.productName}: ${issue}`));
+  if (issues.length) throw new Error(issues.join(' '));
+  await tx.update(purchaseOrderLines).set({ status: 'planned', updatedAt: new Date() }).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+  await tx.update(purchaseOrders).set({ status: 'approved', orderedAt: new Date(), orderedBy: userId, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+  await recalcPurchaseOrder(tx, purchaseOrderId);
+  return { ok: true, commandId, affectedIds: [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)], toast: `${order.poNo} approved and ready to receive when product arrives.` };
+}
+
+async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  if (!['approved', 'ordered', 'partially_received'].includes(order.status)) throw new Error('Approve this purchase order before receiving product against it.');
+  if (!order.vendorId) throw new Error('Choose a vendor before receiving this purchase order.');
+  const selectedLineIds = Array.isArray(payload.lineIds) ? requiredIds(payload.lineIds, 'lineIds') : [];
+  const allLines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+  const lines = selectedLineIds.length ? allLines.filter((line: typeof purchaseOrderLines.$inferSelect) => selectedLineIds.includes(line.id)) : allLines;
+  if (!lines.length) throw new Error('No purchase order lines are available to receive.');
+  const affected = [purchaseOrderId];
+  let createdCount = 0;
+  for (const line of lines as Array<typeof purchaseOrderLines.$inferSelect>) {
+    const remainingQty = Number(line.qty) - Number(line.receivedQty);
+    if (remainingQty <= 0) continue;
+    const created = await createBatch(
+      tx,
+      {
+        vendorId: order.vendorId,
+        purchaseOrderId,
+        purchaseOrderLineId: line.id,
+        itemId: line.itemId,
+        sourceCode: line.sourceCode || order.poNo,
+        shorthand: line.shorthand,
+        name: line.productName,
+        category: line.category,
+        tags: line.tags,
+        intakeQty: remainingQty,
+        availableQty: 0,
+        uom: line.uom,
+        unitCost: line.unitCost,
+        unitPrice: line.unitPrice,
+        legacyMarker: line.legacyMarker || line.ownershipStatus,
+        ownershipStatus: line.ownershipStatus,
+        arrivalConfirmed: true,
+        arrivalStatus: 'arrived',
+        location: 'Receiving',
+        status: 'draft',
+        notes: [`Received from ${order.poNo}.`, line.notes].filter(Boolean).join(' ')
+      },
+      commandId
+    );
+    affected.push(...created.affectedIds, line.id);
+    createdCount += created.affectedIds.length;
+    await tx
+      .update(purchaseOrderLines)
+      .set({ receivedQty: qtyScale(Number(line.receivedQty) + remainingQty), status: 'received', updatedAt: new Date() })
+      .where(eq(purchaseOrderLines.id, line.id));
+  }
+  if (!createdCount) throw new Error('Selected purchase order lines have already been received.');
+  const refreshedLines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+  const allReceived = refreshedLines.every((line: typeof purchaseOrderLines.$inferSelect) => Number(line.receivedQty) >= Number(line.qty));
+  await tx
+    .update(purchaseOrders)
+    .set({ status: allReceived ? 'received' : 'partially_received', receivedAt: allReceived ? new Date() : order.receivedAt, updatedAt: new Date() })
+    .where(eq(purchaseOrders.id, purchaseOrderId));
+  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast: `Received ${createdCount} PO line(s) into draft intake rows. Process intake when counts/costs are verified.` };
+}
+
+async function cancelPurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+  if (lines.some((line: typeof purchaseOrderLines.$inferSelect) => Number(line.receivedQty) > 0)) throw new Error('Purchase orders with received product cannot be cancelled. Use intake reversal/correction.');
+  await tx.update(purchaseOrders).set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+  await tx.update(purchaseOrderLines).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+  return { ok: true, commandId, affectedIds: [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)], toast: `${order.poNo} cancelled.` };
+}
+
+async function adjustBatchQuantity(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const delta = requiredNumber(payload.deltaQty ?? payload.qtyDelta, 'deltaQty');
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  if (!reason && !stringValue(payload.reason)) throw new Error('Adjustment reason is required so inventory corrections stay traceable.');
+  const nextQty = Number(row.availableQty) + delta;
+  if (nextQty < 0) throw new Error('Available quantity cannot go below zero.');
+  await tx.update(batches).set({ availableQty: qtyScale(nextQty), updatedAt: new Date() }).where(eq(batches.id, batchId));
+  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'manual_adjustment', qtyDelta: qtyScale(delta), reason });
+  return { ok: true, commandId, affectedIds: [batchId], toast: `Adjusted ${row.name} by ${delta}.` };
+}
+
+async function attachBatchPhoto(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const photoUrl = requiredString(payload.photoUrl, 'photoUrl');
+  await tx.update(batches).set({ photoUrl, mediaStatus: 'done', updatedAt: new Date() }).where(eq(batches.id, batchId));
+  await tx.insert(photographyQueue).values({ batchId, requestedBy: userId, status: 'done', notes: stringValue(payload.notes) || null });
+  return { ok: true, commandId, affectedIds: [batchId], toast: 'Batch photo attached.' };
+}
+
+async function importBatchesCsv(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const csv = requiredString(payload.csv, 'csv');
+  const validateOnly = payload.validateOnly !== false;
+  const validation = validateBatchCsv(csv);
+  if (validateOnly) {
+    return {
+      ok: validation.valid,
+      commandId,
+      affectedIds: [],
+      toast: validation.valid ? `CSV is valid for ${validation.rows.length} batch row(s).` : `${validation.errors.length} CSV issue(s) found.`,
+      delta: validation as unknown as Record<string, unknown>
+    };
+  }
+  if (!validation.valid) throw new Error(`${validation.errors.length} CSV issue(s) must be fixed before import.`);
+
+  const affected: string[] = [];
+  for (const row of validation.rows) {
+    const vendorId = await ensureVendor(tx, row.values.vendor);
+    const created = await createBatch(
+      tx,
+      {
+        vendorId,
+        name: row.values.name,
+        category: row.values.category,
+        tags: row.values.tags ? row.values.tags.split('|').map((tag) => tag.trim()) : [],
+        intakeQty: Number(row.values.intake_qty),
+        unitCost: Number(row.values.unit_cost),
+        unitPrice: Number(row.values.unit_price),
+        sourceCode: row.values.source_code,
+        intakeDate: row.values.intake_date,
+        ticketCost: row.values.ticket_cost,
+        priceRange: row.values.price_range,
+        notes: row.values.notes,
+        legacyMarker: row.values.legacy_marker || row.values.ownership_status || null,
+        ownershipStatus: row.values.ownership_status || 'UNKNOWN',
+        arrivalStatus: row.values.arrival_status || 'pending',
+        status: 'draft'
+      },
+      commandId
+    );
+    affected.push(...created.affectedIds);
+  }
+  return { ok: true, commandId, affectedIds: affected, toast: `Imported ${affected.length} batch row(s).` };
+}
+
+async function createSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+  const [order] = await tx.insert(salesOrders).values({ orderNo: code('SO'), customerId, status: 'draft', notes: stringValue(payload.notes) || null, validationIssues: [] }).returning();
+  return { ok: true, commandId, affectedIds: [order.id], toast: `${order.orderNo} created for ${customer.name}.` };
+}
+
+async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const batchId = stringValue(payload.batchId);
+  const qty = requiredNumber(payload.qty ?? 1, 'qty');
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+  if (!['draft', 'confirmed'].includes(order.status)) throw new Error('Only draft or confirmed orders can be edited.');
+  const unresolvedSourceText = stringValue(payload.unresolvedSourceText ?? payload.itemName ?? payload.sourceRowKey);
+  const [batch] = batchId ? await tx.select().from(batches).where(eq(batches.id, requiredId(batchId, 'batchId'))).limit(1) : [];
+  if (batchId && (!batch || batch.status !== 'posted')) throw new Error('Selected batch is not available for sale.');
+  if (batch && Number(batch.availableQty) - Number(batch.reservedQty) < qty) throw new Error(`${batch.name} does not have enough available quantity.`);
+  const itemName = batch?.name || stringValue(payload.itemName) || unresolvedSourceText;
+  if (!itemName) throw new Error('Item name or source text is required for a draft sale line.');
+  const unitPrice = payload.unitPrice != null ? requiredNumber(payload.unitPrice, 'unitPrice') : Number(batch?.unitPrice ?? 0);
+  const validationIssues = salesLineValidationIssues({ ...payload, batchId: batch?.id ?? null, itemName, qty, unitPrice });
+  const [line] = await tx
+    .insert(salesOrderLines)
+    .values({
+      orderId,
+      batchId: batch?.id ?? null,
+      itemName,
+      qty: qtyScale(qty),
+      unitPrice: moneyScale(unitPrice),
+      unitCost: batch?.unitCost ?? moneyScale(0),
+      sourceRowKey: stringValue(payload.sourceRowKey) || batch?.batchCode || null,
+      unresolvedSourceText: unresolvedSourceText || null,
+      legacyStatusMarker: stringValue(payload.legacyStatusMarker) || null,
+      validationIssues,
+      status: validationIssues.length ? 'needs_fix' : 'draft'
+    })
+    .returning();
+  await recalcOrder(tx, orderId);
+  return { ok: true, commandId, affectedIds: [orderId, line.id, ...(batch?.id ? [batch.id] : [])], toast: validationIssues.length ? `${itemName} draft line saved; resolve ${validationIssues.length} issue(s).` : `${itemName} added to order.` };
+}
+
+async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  if (!payload.lineId && !payload.id && payload.orderId) {
+    const orderId = requiredId(payload.orderId, 'orderId');
+    const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+    if (!order) throw new Error('Sales order not found.');
+    const values: Record<string, unknown> = { updatedAt: new Date() };
+    if (payload.deliveryWindow != null) values.deliveryWindow = stringValue(payload.deliveryWindow) || null;
+    if (payload.notes != null) values.notes = stringValue(payload.notes) || null;
+    if (payload.legacyStatusMarkers != null) values.legacyStatusMarkers = stringValue(payload.legacyStatusMarkers) || null;
+    if (payload.packed != null) values.packed = Boolean(payload.packed);
+    if (payload.inventoryPosted != null) values.inventoryPosted = Boolean(payload.inventoryPosted);
+    if (payload.paymentFollowup != null) values.paymentFollowup = Boolean(payload.paymentFollowup);
+    await tx.update(salesOrders).set(values).where(eq(salesOrders.id, orderId));
+    const lineValues: Record<string, unknown> = { updatedAt: new Date() };
+    if (payload.packed != null) lineValues.packed = Boolean(payload.packed);
+    if (payload.inventoryPosted != null) lineValues.inventoryPosted = Boolean(payload.inventoryPosted);
+    if (payload.paymentFollowup != null) lineValues.paymentFollowup = Boolean(payload.paymentFollowup);
+    if (Object.keys(lineValues).length > 1) await tx.update(salesOrderLines).set(lineValues).where(eq(salesOrderLines.orderId, orderId));
+    return { ok: true, commandId, affectedIds: [orderId], toast: 'Order closeout fields updated.' };
+  }
+  const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
+  const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Sales line not found.');
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (payload.batchId != null) {
+    const batchId = stringValue(payload.batchId);
+    if (batchId) {
+      const [batch] = await tx.select().from(batches).where(eq(batches.id, requiredId(batchId, 'batchId'))).limit(1);
+      if (!batch || batch.status !== 'posted') throw new Error('Selected batch is not available for sale.');
+      values.batchId = batch.id;
+      values.itemName = batch.name;
+      values.unitCost = batch.unitCost;
+      values.sourceRowKey = stringValue(payload.sourceRowKey) || batch.batchCode;
+      values.unresolvedSourceText = null;
+    } else {
+      values.batchId = null;
+    }
+  }
+  copyIfPresent(values, 'itemName', payload.itemName);
+  if (payload.qty != null) values.qty = qtyScale(payload.qty);
+  if (payload.unitPrice != null) values.unitPrice = moneyScale(payload.unitPrice);
+  if (payload.status != null) values.status = stringValue(payload.status);
+  if (payload.sourceRowKey != null) values.sourceRowKey = stringValue(payload.sourceRowKey) || null;
+  if (payload.unresolvedSourceText != null) values.unresolvedSourceText = stringValue(payload.unresolvedSourceText) || null;
+  if (payload.legacyStatusMarker != null) values.legacyStatusMarker = stringValue(payload.legacyStatusMarker) || null;
+  if (payload.packed != null) values.packed = Boolean(payload.packed);
+  if (payload.inventoryPosted != null) values.inventoryPosted = Boolean(payload.inventoryPosted);
+  if (payload.paymentFollowup != null) values.paymentFollowup = Boolean(payload.paymentFollowup);
+  const nextLine = { ...line, ...values } as Record<string, unknown>;
+  const validationIssues = salesLineValidationIssues(nextLine);
+  values.validationIssues = validationIssues;
+  if (validationIssues.length && (payload.status === 'ready' || payload.status === 'confirmed')) values.status = 'needs_fix';
+  await tx.update(salesOrderLines).set(values).where(eq(salesOrderLines.id, lineId));
+  await recalcOrder(tx, line.orderId);
+  return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line updated.' };
+}
+
+async function removeSalesOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
+  const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Sales line not found.');
+  await tx.delete(salesOrderLines).where(eq(salesOrderLines.id, lineId));
+  await recalcOrder(tx, line.orderId);
+  return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line removed.' };
+}
+
+async function reserveInventoryForOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  if (!lines.length) throw new Error('Order needs at least one line before reserving inventory.');
+  const affected = [orderId];
+  for (const line of lines) {
+    if (!line.batchId || line.status === 'reserved') continue;
+    const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+    if (!batch) throw new Error(`${line.itemName} batch no longer exists.`);
+    if (Number(batch.availableQty) - Number(batch.reservedQty) < Number(line.qty)) throw new Error(`${line.itemName} is short on available quantity.`);
+    await tx.update(batches).set({ reservedQty: qtyScale(Number(batch.reservedQty) + Number(line.qty)), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+    await tx.update(salesOrderLines).set({ status: 'reserved', updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
+    affected.push(batch.id, line.id);
+  }
+  return { ok: true, commandId, affectedIds: affected, toast: 'Inventory reserved for order.' };
+}
+
+async function priceSalesOrder(tx: Tx, payload: Payload, commandId: string, toast = 'Sales order priced.'): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const strategy = stringValue(payload.strategy) || 'standard';
+  const multiplier = strategy === 'premium' ? 1.08 : strategy === 'clearance' ? 0.92 : 1;
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  for (const line of lines) {
+    const base = Number(line.unitPrice);
+    await tx.update(salesOrderLines).set({ unitPrice: moneyScale(base * multiplier), updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
+  }
+  await recalcOrder(tx, orderId, strategy);
+  return { ok: true, commandId, affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)], toast, delta: { strategy } };
+}
+
+async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  await recalcOrder(tx, orderId);
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  if (!lines.length) throw new Error('Order needs at least one line.');
+  const unresolved = lines.find((line: typeof salesOrderLines.$inferSelect) => salesLineValidationIssues(line).length);
+  if (unresolved) throw new Error(`${unresolved.itemName} needs resolution before confirming: ${salesLineValidationIssues(unresolved).join(' ')} ${await candidateSourceText(tx, unresolved)}`);
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+  if (Number(customer.balance) + Number(order.total) > Number(customer.creditLimit)) {
+    throw new Error(`${customer.name} would exceed credit limit. Request a credit override before confirming.`);
+  }
+  await tx.update(salesOrders).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  return { ok: true, commandId, affectedIds: [orderId], toast: `${order.orderNo} confirmed.` };
+}
+
+async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  for (const line of lines) {
+    if (!line.batchId || line.status !== 'reserved') continue;
+    const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+    if (batch) await tx.update(batches).set({ reservedQty: qtyScale(Math.max(0, Number(batch.reservedQty) - Number(line.qty))), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+  }
+  await tx.update(salesOrders).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  return { ok: true, commandId, affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)], toast: 'Sales order cancelled and reservations released.' };
+}
+
+async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+  if (order.status === 'posted') throw new Error(`${order.orderNo} is already posted.`);
+  if (order.status !== 'confirmed') throw new Error(`${order.orderNo} must be confirmed before posting.`);
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  if (!lines.length) throw new Error('Order needs lines before posting.');
+  const unresolved = lines.find((line: typeof salesOrderLines.$inferSelect) => salesLineValidationIssues(line).length);
+  if (unresolved) throw new Error(`${unresolved.itemName} needs resolution before posting: ${salesLineValidationIssues(unresolved).join(' ')} ${await candidateSourceText(tx, unresolved)}`);
+  const sourceKeys = new Set<string>();
+  for (const line of lines) {
+    const sourceKey = line.sourceRowKey || line.batchId;
+    if (!sourceKey) continue;
+    if (sourceKeys.has(sourceKey)) {
+      throw new Error(`${line.itemName} appears more than once from the same source row. Split the source or remove the duplicate before posting.`);
+    }
+    sourceKeys.add(sourceKey);
+  }
+
+  for (const line of lines) {
+    if (!line.batchId) throw new Error(`${line.itemName} needs a source batch.`);
+    const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+    if (!batch || Number(batch.availableQty) < Number(line.qty)) throw new Error(`${line.itemName} does not have enough available quantity.`);
+  }
+
+  await recalcOrder(tx, orderId);
+  const [freshOrder] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, freshOrder.customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+  if (Number(customer.balance) + Number(freshOrder.total) > Number(customer.creditLimit)) {
+    throw new Error(`${customer.name} would exceed credit limit. Request a credit override before posting.`);
+  }
+
+  const affected = [orderId];
+  for (const line of lines) {
+    const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId!)).limit(1);
+    const nextAvailable = Number(batch.availableQty) - Number(line.qty);
+    const nextReserved = Math.max(0, Number(batch.reservedQty) - Number(line.qty));
+    await tx.update(batches).set({ availableQty: qtyScale(nextAvailable), reservedQty: qtyScale(nextReserved), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+    if (batch.ownershipStatus === 'C' && nextAvailable <= 0 && batch.vendorId) {
+      const [bill] = await tx
+        .select()
+        .from(vendorBills)
+        .where(sql`${vendorBills.vendorId} = ${batch.vendorId} and ${vendorBills.status} in ('open','approved','scheduled','partial')`)
+        .orderBy(vendorBills.createdAt)
+        .limit(1);
+      if (bill) {
+        await tx
+          .update(vendorBills)
+          .set({ consignmentTriggered: true, status: bill.status === 'open' ? 'approved' : bill.status, dueReason: 'Due because consigned inventory depleted', updatedAt: new Date() })
+          .where(eq(vendorBills.id, bill.id));
+        affected.push(bill.id);
+      } else {
+        const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, batch.vendorId)).limit(1);
+        const [createdBill] = await tx
+          .insert(vendorBills)
+          .values({
+            vendorId: batch.vendorId,
+            billNo: code('VBILL-CONSIGN'),
+            amount: moneyScale(Number(line.qty) * Number(batch.unitCost)),
+            dueDate: new Date(Date.now() + (vendor?.termsDays ?? 14) * 24 * 60 * 60 * 1000),
+            termsDays: vendor?.termsDays ?? 14,
+            status: 'approved',
+            consignmentTriggered: true,
+            dueReason: 'Due because consigned inventory depleted'
+          })
+          .returning();
+        affected.push(createdBill.id);
+      }
+    }
+    await tx.update(salesOrderLines).set({ status: 'posted', inventoryPosted: true, validationIssues: [], updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
+    await tx.insert(inventoryMovements).values({ batchId: batch.id, commandId, kind: 'sale_posted', qtyDelta: qtyScale(-Number(line.qty)), reason: order.orderNo });
+    affected.push(batch.id, line.id);
+  }
+
+  const [invoice] = await tx
+    .insert(invoices)
+    .values({ invoiceNo: code('INV'), customerId: freshOrder.customerId, orderId, total: freshOrder.total, dueDate: oneWeek(), status: 'open' })
+    .returning();
+  const nextBalance = Number(customer.balance) + Number(freshOrder.total);
+  await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+  await tx.insert(clientLedgerEntries).values({ customerId: customer.id, invoiceId: invoice.id, kind: 'invoice', amount: freshOrder.total, balanceAfter: moneyScale(nextBalance), note: freshOrder.orderNo });
+  await tx.update(salesOrders).set({ status: 'posted', inventoryPosted: true, postedAt: new Date(), updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  affected.push(invoice.id, customer.id);
+
+  return { ok: true, commandId, affectedIds: affected, toast: `${freshOrder.orderNo} posted and invoice ${invoice.invoiceNo} created.` };
+}
+
+async function allocateOrderToFulfillment(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const [existing] = await tx.select().from(pickLists).where(eq(pickLists.orderId, orderId)).limit(1);
+  if (existing) return { ok: true, commandId, affectedIds: [existing.id, orderId], toast: `${existing.pickNo} already exists.` };
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+  if (order.status !== 'posted') throw new Error(`${order.orderNo} must be posted before fulfillment allocation.`);
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  if (!lines.length) throw new Error('Order needs lines before fulfillment allocation.');
+  const [pick] = await tx
+    .insert(pickLists)
+    .values({ pickNo: code('PICK'), orderId, assignedTo: userId, status: 'open', unitsPerBag: Math.max(1, Math.floor(Number(payload.unitsPerBag ?? 1))) })
+    .returning();
+  const affected = [pick.id, orderId];
+  for (const line of lines) {
+    const [fulfillment] = await tx
+      .insert(fulfillmentLines)
+      .values({ pickListId: pick.id, orderLineId: line.id, batchId: line.batchId, expectedQty: line.qty, status: 'open' })
+      .returning();
+    affected.push(fulfillment.id);
+  }
+  await writeBagManifest(tx, pick.id);
+  return { ok: true, commandId, affectedIds: affected, toast: `${pick.pickNo} created.` };
+}
+
+async function applyClientCredit(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const amount = requiredNumber(payload.amount, 'amount');
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+  const nextBalance = Number(customer.balance) - amount;
+  await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customerId));
+  const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, kind: 'credit', amount: moneyScale(-amount), balanceAfter: moneyScale(nextBalance), note: stringValue(payload.reason) || 'Client credit applied' }).returning();
+  return { ok: true, commandId, affectedIds: [customerId, entry.id], toast: `Applied ${moneyScale(amount)} credit to ${customer.name}.` };
+}
+
+async function setDeliveryWindow(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const deliveryWindow = requiredString(payload.deliveryWindow, 'deliveryWindow');
+  await tx.update(salesOrders).set({ deliveryWindow, updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  return { ok: true, commandId, affectedIds: [orderId], toast: 'Delivery window updated.' };
+}
+
+async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const amount = requiredNumber(payload.amount, 'amount');
+  if (amount === 0) throw new Error('Payment amount cannot be zero.');
+  const method = stringValue(payload.method) || 'cash';
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+  const [payment] = await tx
+    .insert(payments)
+    .values({
+      customerId,
+      method,
+      amount: moneyScale(amount),
+      unappliedAmount: moneyScale(Math.max(0, amount)),
+      reference: stringValue(payload.reference) || null,
+      locationBucket: stringValue(payload.locationBucket) || null,
+      notes: stringValue(payload.notes) || null,
+      direction: stringValue(payload.direction) || (amount < 0 ? 'buyer_credit' : 'money_in'),
+      category: stringValue(payload.category) || (amount < 0 ? 'buyer_credit' : 'client_payment'),
+      allocationIntent: stringValue(payload.allocationIntent) || (payload.invoiceId ? 'selected_invoice' : 'fifo'),
+      impactPreview: paymentImpactPreview(amount, stringValue(payload.allocationIntent) || (payload.invoiceId ? 'selected_invoice' : 'fifo')),
+      status: 'posted'
+    })
+    .returning();
+
+  const affected = [payment.id, customerId];
+  if (amount < 0) {
+    const credit = Math.abs(amount);
+    const nextBalance = Number(customer.balance) - credit;
+    await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customerId));
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, paymentId: payment.id, kind: 'down_payment', amount: moneyScale(-credit), balanceAfter: moneyScale(nextBalance), note: 'Negative payment recorded as buyer credit' }).returning();
+    affected.push(entry.id);
+  }
+  return { ok: true, commandId, affectedIds: affected, toast: `Payment logged for ${customer.name}.` };
+}
+
+async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const paymentId = requiredId(payload.paymentId, 'paymentId');
+  const [payment] = await tx.select().from(payments).where(eq(payments.id, paymentId)).limit(1);
+  if (!payment) throw new Error('Payment not found.');
+  if (Number(payment.unappliedAmount) <= 0) throw new Error('Payment has no unapplied amount.');
+  const invoicesToPay = payload.invoiceId
+    ? await tx.select().from(invoices).where(eq(invoices.id, requiredId(payload.invoiceId, 'invoiceId')))
+    : await tx.select().from(invoices).where(and(eq(invoices.customerId, payment.customerId), sql`${invoices.status} in ('open', 'partial')`)).orderBy(invoices.createdAt);
+  if (!invoicesToPay.length) throw new Error('No open invoice found for allocation.');
+  let remaining = Number(payment.unappliedAmount);
+  const affected = [paymentId];
+  for (const invoice of invoicesToPay) {
+    if (remaining <= 0) break;
+    const open = Number(invoice.total) - Number(invoice.amountPaid);
+    const allocationAmount = Math.min(open, remaining, payload.amount != null ? Number(payload.amount) : remaining);
+    if (allocationAmount <= 0) continue;
+    const [allocation] = await tx.insert(paymentAllocations).values({ paymentId, invoiceId: invoice.id, amount: moneyScale(allocationAmount) }).returning();
+    const invoicePaid = Number(invoice.amountPaid) + allocationAmount;
+    await tx.update(invoices).set({ amountPaid: moneyScale(invoicePaid), status: invoicePaid >= Number(invoice.total) ? 'paid' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+    remaining -= allocationAmount;
+    affected.push(invoice.id, allocation.id);
+  }
+  await tx.update(payments).set({ unappliedAmount: moneyScale(remaining), updatedAt: new Date() }).where(eq(payments.id, paymentId));
+  const totalAllocated = Number(payment.unappliedAmount) - remaining;
+  if (payment.customerId && totalAllocated > 0) {
+    const [customer] = await tx.select().from(customers).where(eq(customers.id, payment.customerId)).limit(1);
+    const nextBalance = Number(customer.balance) - totalAllocated;
+    await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'FIFO allocation' }).returning();
+    affected.push(payment.customerId, entry.id);
+  }
+  return { ok: true, commandId, affectedIds: affected, toast: `Allocated ${moneyScale(totalAllocated)} by FIFO.` };
+}
+
+async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const allocationId = requiredId(payload.allocationId, 'allocationId');
+  const [allocation] = await tx.select().from(paymentAllocations).where(eq(paymentAllocations.id, allocationId)).limit(1);
+  if (!allocation) throw new Error('Allocation not found.');
+  const [payment] = await tx.select().from(payments).where(eq(payments.id, allocation.paymentId)).limit(1);
+  const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, allocation.invoiceId)).limit(1);
+  await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, allocationId));
+  await tx.update(payments).set({ unappliedAmount: moneyScale(Number(payment.unappliedAmount) + Number(allocation.amount)), updatedAt: new Date() }).where(eq(payments.id, payment.id));
+  const paid = Math.max(0, Number(invoice.amountPaid) - Number(allocation.amount));
+  await tx.update(invoices).set({ amountPaid: moneyScale(paid), status: paid <= 0 ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+  return { ok: true, commandId, affectedIds: [allocationId, payment.id, invoice.id], toast: 'Payment allocation reversed.' };
+}
+
+async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const paymentId = requiredId(payload.paymentId, 'paymentId');
+  const [payment] = await tx.select().from(payments).where(eq(payments.id, paymentId)).limit(1);
+  if (!payment) throw new Error('Payment not found.');
+  await tx.update(payments).set({ status: 'refunded', unappliedAmount: '0.00', updatedAt: new Date() }).where(eq(payments.id, paymentId));
+  return { ok: true, commandId, affectedIds: [paymentId], toast: 'Payment refunded.' };
+}
+
+async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const invoiceId = requiredId(payload.invoiceId, 'invoiceId');
+  const amount = requiredNumber(payload.amount, 'amount');
+  const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+  if (!invoice) throw new Error('Invoice not found.');
+  const nextTotal = Math.max(0, Number(invoice.total) - amount);
+  await tx.update(invoices).set({ total: moneyScale(nextTotal), status: Number(invoice.amountPaid) >= nextTotal ? 'paid' : invoice.status, updatedAt: new Date() }).where(eq(invoices.id, invoiceId));
+  return { ok: true, commandId, affectedIds: [invoiceId], toast: 'Early-pay discount applied.' };
+}
+
+async function createVendorBill(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const vendorId = requiredId(payload.vendorId, 'vendorId');
+  const amount = requiredNumber(payload.amount, 'amount');
+  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw new Error('Vendor not found.');
+  const dueReason = stringValue(payload.dueReason) || 'Net terms payable';
+  const [bill] = await tx
+    .insert(vendorBills)
+    .values({ vendorId, billNo: code('VBILL'), amount: moneyScale(amount), dueDate: dateOrNull(payload.dueDate) ?? new Date(Date.now() + vendor.termsDays * 24 * 60 * 60 * 1000), termsDays: vendor.termsDays, dueReason })
+    .returning();
+  return { ok: true, commandId, affectedIds: [bill.id], toast: `Vendor bill created for ${vendor.name}.` };
+}
+
+async function updateVendorBillStatus(tx: Tx, payload: Payload, status: string, commandId: string, toast: string): Promise<CommandResult> {
+  const billId = requiredId(payload.vendorBillId ?? payload.id, 'vendorBillId');
+  await tx.update(vendorBills).set({ status, updatedAt: new Date() }).where(eq(vendorBills.id, billId));
+  return { ok: true, commandId, affectedIds: [billId], toast };
+}
+
+async function scheduleVendorPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const billId = requiredId(payload.vendorBillId ?? payload.id, 'vendorBillId');
+  const scheduledFor = dateOrNull(payload.scheduledFor) ?? oneWeek();
+  await tx.update(vendorBills).set({ status: 'scheduled', scheduledFor, dueReason: 'Scheduled payment event exists', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
+  return { ok: true, commandId, affectedIds: [billId], toast: 'Vendor payment scheduled with an actual due event.' };
+}
+
+async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const billId = requiredId(payload.vendorBillId ?? payload.id, 'vendorBillId');
+  const [bill] = await tx.select().from(vendorBills).where(eq(vendorBills.id, billId)).limit(1);
+  if (!bill) throw new Error('Vendor bill not found.');
+  if (bill.status !== 'scheduled' && payload.overrideUnscheduled !== true) {
+    throw new Error('Schedule this vendor payment before recording payment. Scheduled means a real appointment/payment event exists.');
+  }
+  const amount = payload.amount != null ? requiredNumber(payload.amount, 'amount') : Number(bill.amount) - Number(bill.amountPaid);
+  if (amount <= 0) throw new Error('Vendor payout amount must be greater than zero.');
+  if (Number(bill.amountPaid) + amount > Number(bill.amount)) throw new Error('Vendor payout cannot exceed the open bill balance.');
+  const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null }).returning();
+  const paid = Number(bill.amountPaid) + amount;
+  await tx.update(vendorBills).set({ amountPaid: moneyScale(paid), status: paid >= Number(bill.amount) ? 'paid' : 'partial', dueReason: paid >= Number(bill.amount) ? 'Paid in full' : 'Partially paid vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
+  return { ok: true, commandId, affectedIds: [billId, payment.id], toast: 'Vendor payout recorded and traceable.' };
+}
+
+async function voidVendorPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const paymentId = requiredId(payload.vendorPaymentId ?? payload.id, 'vendorPaymentId');
+  const [payment] = await tx.select().from(vendorPayments).where(eq(vendorPayments.id, paymentId)).limit(1);
+  if (!payment) throw new Error('Vendor payment not found.');
+  await tx.update(vendorPayments).set({ status: 'void' }).where(eq(vendorPayments.id, paymentId));
+  const [bill] = await tx.select().from(vendorBills).where(eq(vendorBills.id, payment.vendorBillId)).limit(1);
+  await tx.update(vendorBills).set({ amountPaid: moneyScale(Math.max(0, Number(bill.amountPaid) - Number(payment.amount))), status: 'approved', dueReason: bill.consignmentTriggered ? 'Due because consigned inventory depleted' : 'Approved vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+  return { ok: true, commandId, affectedIds: [paymentId, bill.id], toast: 'Vendor payout voided.' };
+}
+
+async function recordWeighAndPack(tx: Tx, payload: Payload, commandId: string, toast = 'Weigh and pack recorded.'): Promise<CommandResult> {
+  const lineId = requiredId(payload.fulfillmentLineId ?? payload.id, 'fulfillmentLineId');
+  const [line] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Fulfillment line not found.');
+  const actualQty = payload.actualQty != null ? requiredNumber(payload.actualQty, 'actualQty') : undefined;
+  const actualWeight = payload.actualWeight != null ? requiredNumber(payload.actualWeight, 'actualWeight') : undefined;
+  const nextQty = actualQty ?? Number(line.actualQty);
+  const nextWeight = actualWeight ?? Number(line.actualWeight);
+  if (nextQty <= 0) throw new Error('Actual quantity must be greater than zero before packing a fulfillment line.');
+  if (nextWeight <= 0) throw new Error('Actual weight must be greater than zero before packing a fulfillment line.');
+  const bagCode = stringValue(payload.bagCode) || code('BAG');
+  const values: Record<string, unknown> = { bagCode, status: 'packed', updatedAt: new Date() };
+  if (actualQty != null) values.actualQty = qtyScale(actualQty);
+  if (actualWeight != null) values.actualWeight = qtyScale(actualWeight);
+  await tx.update(fulfillmentLines).set(values).where(eq(fulfillmentLines.id, lineId));
+  await writeBagManifest(tx, line.pickListId);
+  return { ok: true, commandId, affectedIds: [line.pickListId, lineId], toast };
+}
+
+async function markOrderFulfilled(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+  if (order.status !== 'posted') throw new Error(`${order.orderNo} must be posted before fulfillment.`);
+  const [pick] = await tx.select().from(pickLists).where(eq(pickLists.orderId, orderId)).limit(1);
+  if (!pick) throw new Error('Create a pick list before marking fulfilled.');
+  const lines = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.pickListId, pick.id));
+  const unpacked = lines.find((line: typeof fulfillmentLines.$inferSelect) => Number(line.actualQty) <= 0);
+  if (unpacked) throw new Error('Every fulfillment line needs an actual quantity before fulfillment.');
+  await tx.update(pickLists).set({ status: 'fulfilled', tracking: stringValue(payload.tracking) || pick.tracking, updatedAt: new Date() }).where(eq(pickLists.id, pick.id));
+  await tx.update(salesOrders).set({ status: 'fulfilled', packed: true, fulfilledAt: new Date(), updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  await tx.update(salesOrderLines).set({ packed: true, updatedAt: new Date() }).where(eq(salesOrderLines.orderId, orderId));
+  await writeBagManifest(tx, pick.id);
+  return { ok: true, commandId, affectedIds: [orderId, pick.id, ...lines.map((line: typeof fulfillmentLines.$inferSelect) => line.id)], toast: 'Order fulfilled.' };
+}
+
+async function printLabels(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const pickListId = requiredId(payload.pickListId ?? payload.id, 'pickListId');
+  const labelFormat = stringValue(payload.labelFormat) || '4x6';
+  await tx.update(pickLists).set({ labelsPrinted: true, labelFormat, updatedAt: new Date() }).where(eq(pickLists.id, pickListId));
+  await writeBagManifest(tx, pickListId);
+  return { ok: true, commandId, affectedIds: [pickListId], toast: `${labelFormat} labels marked printed.` };
+}
+
+async function reviewConnectorRequest(tx: Tx, payload: Payload, status: string, user: SessionUser, commandId: string): Promise<CommandResult> {
+  const requestId = requiredId(payload.requestId ?? payload.id, 'requestId');
+  const [request] = await tx.select().from(connectorRequests).where(eq(connectorRequests.id, requestId)).limit(1);
+  if (!request) throw new Error('Connector request not found.');
+  const history = [
+    ...(Array.isArray(request.reviewHistory) ? request.reviewHistory : []),
+    { status, actorId: user.id, actorName: user.name, at: new Date().toISOString(), note: stringValue(payload.operatorNotes ?? payload.reason), routedTo: stringValue(payload.routedTo) }
+  ];
+  const routedTo = status === 'routed' ? requiredString(payload.routedTo, 'routedTo') : status === 'approved' ? stringValue(payload.routedTo) || request.routedTo || routeFromRequest(request.requestType) : request.routedTo;
+  await tx
+    .update(connectorRequests)
+    .set({
+      status,
+      routedTo,
+      operatorNotes: stringValue(payload.operatorNotes ?? payload.reason) || request.operatorNotes,
+      reviewHistory: history,
+      updatedAt: new Date()
+    })
+    .where(eq(connectorRequests.id, requestId));
+  return { ok: true, commandId, affectedIds: [requestId], toast: `Connector request ${status}.` };
+}
+
+async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const period = periodValue(payload.period);
+  const amount = requiredNumber(payload.amount, 'amount');
+  const memo = requiredString(payload.memo, 'memo');
+  const [entry] = await tx.insert(correctionJournalEntries).values({ period, amount: moneyScale(amount), memo }).returning();
+  const affected = [entry.id];
+  if (payload.findReplace && typeof payload.findReplace === 'object') {
+    affected.push(...(await applyFindReplace(tx, payload.findReplace as Payload)));
+  }
+  if (payload.invoiceId) {
+    const [dispute] = await tx
+      .insert(invoiceDisputes)
+      .values({ invoiceId: requiredId(payload.invoiceId, 'invoiceId'), reason: stringValue(payload.reason) || memo, status: 'open' })
+      .returning();
+    affected.push(dispute.id);
+  }
+  return { ok: true, commandId, affectedIds: affected, toast: payload.invoiceId ? 'Correction journal and invoice dispute posted.' : 'Correction journal entry posted.' };
+}
+
+async function applyFindReplace(tx: Tx, payload: Payload) {
+  const table = requiredString(payload.table, 'table');
+  const find = requiredString(payload.find, 'find');
+  const replacement = stringValue(payload.replacement);
+  const pattern = `%${find}%`;
+  const replace = (column: unknown) => sql`replace(coalesce(${column}, ''), ${find}, ${replacement})`;
+
+  if (table === 'batches') {
+    const rows = await tx
+      .select({ id: batches.id })
+      .from(batches)
+      .where(or(ilike(batches.name, pattern), ilike(batches.sourceCode, pattern), ilike(batches.shorthand, pattern), ilike(batches.legacyMarker, pattern), ilike(batches.notes, pattern)));
+    if (!rows.length) return [];
+    await tx
+      .update(batches)
+      .set({ name: replace(batches.name), sourceCode: replace(batches.sourceCode), shorthand: replace(batches.shorthand), legacyMarker: replace(batches.legacyMarker), notes: replace(batches.notes), updatedAt: new Date() })
+      .where(inArray(batches.id, rows.map((row: { id: string }) => row.id)));
+    return rows.map((row: { id: string }) => row.id);
+  }
+
+  if (table === 'customers') {
+    const rows = await tx.select({ id: customers.id }).from(customers).where(or(ilike(customers.name, pattern), ilike(customers.notes, pattern)));
+    if (!rows.length) return [];
+    await tx.update(customers).set({ name: replace(customers.name), notes: replace(customers.notes), updatedAt: new Date() }).where(inArray(customers.id, rows.map((row: { id: string }) => row.id)));
+    return rows.map((row: { id: string }) => row.id);
+  }
+
+  if (table === 'vendors') {
+    const rows = await tx.select({ id: vendors.id }).from(vendors).where(or(ilike(vendors.name, pattern), ilike(vendors.notes, pattern)));
+    if (!rows.length) return [];
+    await tx.update(vendors).set({ name: replace(vendors.name), notes: replace(vendors.notes), updatedAt: new Date() }).where(inArray(vendors.id, rows.map((row: { id: string }) => row.id)));
+    return rows.map((row: { id: string }) => row.id);
+  }
+
+  if (table === 'sales_orders') {
+    const rows = await tx.select({ id: salesOrders.id }).from(salesOrders).where(or(ilike(salesOrders.deliveryWindow, pattern), ilike(salesOrders.legacyStatusMarkers, pattern), ilike(salesOrders.notes, pattern)));
+    if (!rows.length) return [];
+    await tx
+      .update(salesOrders)
+      .set({ deliveryWindow: replace(salesOrders.deliveryWindow), legacyStatusMarkers: replace(salesOrders.legacyStatusMarkers), notes: replace(salesOrders.notes), updatedAt: new Date() })
+      .where(inArray(salesOrders.id, rows.map((row: { id: string }) => row.id)));
+    return rows.map((row: { id: string }) => row.id);
+  }
+
+  if (table === 'connector_requests') {
+    const rows = await tx.select({ id: connectorRequests.id }).from(connectorRequests).where(ilike(connectorRequests.operatorNotes, pattern));
+    if (!rows.length) return [];
+    await tx.update(connectorRequests).set({ operatorNotes: replace(connectorRequests.operatorNotes), updatedAt: new Date() }).where(inArray(connectorRequests.id, rows.map((row: { id: string }) => row.id)));
+    return rows.map((row: { id: string }) => row.id);
+  }
+
+  throw new Error('Find and replace is only available for approved text fields.');
+}
+
+async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const originalId = requiredId(payload.commandId, 'commandId');
+  const [original] = await tx.select().from(commandJournal).where(eq(commandJournal.id, originalId)).limit(1);
+  if (!original) throw new Error('Original command not found.');
+  if (original.reversedByCommandId) throw new Error('That command has already been reversed.');
+  if (original.status !== 'ok') throw new Error('Only successful commands can be reversed.');
+
+  const affected = [originalId];
+  const snapshot = original.afterSnapshot as Record<string, any>;
+
+  if (original.commandName === 'postSalesOrder') {
+    for (const line of snapshot.salesOrderLines ?? []) {
+      if (!line.batchId) continue;
+      const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+      if (batch) {
+        await tx.update(batches).set({ availableQty: qtyScale(Number(batch.availableQty) + Number(line.qty)), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+        affected.push(batch.id);
+      }
+    }
+    for (const invoice of snapshot.invoices ?? []) {
+      const [currentInvoice] = await tx.select().from(invoices).where(eq(invoices.id, invoice.id)).limit(1);
+      if (currentInvoice && Number(currentInvoice.amountPaid) > 0) throw new Error('Reverse payment allocations before reversing this sale.');
+      await tx.update(invoices).set({ status: 'reversed', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+      if (invoice.customerId) {
+        const [customer] = await tx.select().from(customers).where(eq(customers.id, invoice.customerId)).limit(1);
+        if (customer) {
+          const nextBalance = Number(customer.balance) - Number(invoice.total);
+          await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+          const [entry] = await tx
+            .insert(clientLedgerEntries)
+            .values({ customerId: customer.id, invoiceId: invoice.id, kind: 'sale_reversal', amount: moneyScale(-Number(invoice.total)), balanceAfter: moneyScale(nextBalance), note: `Reversal of ${original.commandName}` })
+            .returning();
+          affected.push(customer.id, entry.id);
+        }
+      }
+      affected.push(invoice.id);
+    }
+    for (const order of snapshot.salesOrders ?? []) {
+      await tx.update(salesOrders).set({ status: 'reversed', updatedAt: new Date() }).where(eq(salesOrders.id, order.id));
+      affected.push(order.id);
+    }
+  } else if (original.commandName === 'approvePurchaseOrder') {
+    for (const order of snapshot.purchaseOrders ?? []) {
+      await tx.update(purchaseOrders).set({ status: 'draft', orderedAt: null, updatedAt: new Date() }).where(eq(purchaseOrders.id, order.id));
+      affected.push(order.id);
+    }
+    for (const line of snapshot.purchaseOrderLines ?? []) {
+      const status = purchaseOrderLineIssues(line).length ? 'needs_fix' : 'planned';
+      await tx.update(purchaseOrderLines).set({ status, updatedAt: new Date() }).where(eq(purchaseOrderLines.id, line.id));
+      affected.push(line.id);
+    }
+  } else if (original.commandName === 'receivePurchaseOrder') {
+    for (const batch of snapshot.batches ?? []) {
+      if (batch.status === 'posted') throw new Error('Reverse the posted purchase receipt before reversing PO receiving.');
+      await tx.update(batches).set({ status: 'reversed', availableQty: '0.000', updatedAt: new Date() }).where(eq(batches.id, batch.id));
+      affected.push(batch.id);
+    }
+    for (const line of snapshot.purchaseOrderLines ?? []) {
+      await tx.update(purchaseOrderLines).set({ receivedQty: '0.000', status: 'planned', updatedAt: new Date() }).where(eq(purchaseOrderLines.id, line.id));
+      affected.push(line.id);
+    }
+    for (const order of snapshot.purchaseOrders ?? []) {
+      await tx.update(purchaseOrders).set({ status: 'approved', receivedAt: null, updatedAt: new Date() }).where(eq(purchaseOrders.id, order.id));
+      affected.push(order.id);
+    }
+  } else if (original.commandName === 'postPurchaseReceipt') {
+    for (const batch of snapshot.batches ?? []) {
+      await tx.update(batches).set({ status: 'reversed', availableQty: '0.000', updatedAt: new Date() }).where(eq(batches.id, batch.id));
+      affected.push(batch.id);
+    }
+    for (const bill of snapshot.vendorBills ?? []) {
+      await tx.update(vendorBills).set({ status: 'reversed', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+      affected.push(bill.id);
+    }
+    for (const receipt of snapshot.purchaseReceipts ?? []) {
+      await tx.update(purchaseReceipts).set({ status: 'reversed', updatedAt: new Date() }).where(eq(purchaseReceipts.id, receipt.id));
+      affected.push(receipt.id);
+    }
+  } else if (original.commandName === 'logPayment') {
+    for (const payment of snapshot.payments ?? []) {
+      const [currentPayment] = await tx.select().from(payments).where(eq(payments.id, payment.id)).limit(1);
+      if (!currentPayment) continue;
+      if (Number(currentPayment.unappliedAmount) !== Math.max(0, Number(currentPayment.amount))) {
+        throw new Error('Unallocate this payment before reversing the payment log.');
+      }
+      await tx.update(payments).set({ status: 'reversed', unappliedAmount: '0.00', updatedAt: new Date() }).where(eq(payments.id, currentPayment.id));
+      affected.push(currentPayment.id);
+      if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
+        const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
+        if (customer) {
+          const nextBalance = Number(customer.balance) + Math.abs(Number(currentPayment.amount));
+          await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+          const [entry] = await tx
+            .insert(clientLedgerEntries)
+            .values({ customerId: customer.id, paymentId: currentPayment.id, kind: 'payment_reversal', amount: moneyScale(Math.abs(Number(currentPayment.amount))), balanceAfter: moneyScale(nextBalance), note: 'Buyer credit reversal' })
+            .returning();
+          affected.push(customer.id, entry.id);
+        }
+      }
+    }
+  } else if (original.commandName === 'allocatePayment') {
+    for (const allocation of snapshot.paymentAllocations ?? []) {
+      const [currentAllocation] = await tx.select().from(paymentAllocations).where(eq(paymentAllocations.id, allocation.id)).limit(1);
+      if (!currentAllocation) continue;
+      const [payment] = await tx.select().from(payments).where(eq(payments.id, currentAllocation.paymentId)).limit(1);
+      const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, currentAllocation.invoiceId)).limit(1);
+      await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, currentAllocation.id));
+      if (payment) await tx.update(payments).set({ unappliedAmount: moneyScale(Number(payment.unappliedAmount) + Number(currentAllocation.amount)), updatedAt: new Date() }).where(eq(payments.id, payment.id));
+      if (invoice) {
+        const paid = Math.max(0, Number(invoice.amountPaid) - Number(currentAllocation.amount));
+        await tx.update(invoices).set({ amountPaid: moneyScale(paid), status: paid <= 0 ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+        if (invoice.customerId) {
+          const [customer] = await tx.select().from(customers).where(eq(customers.id, invoice.customerId)).limit(1);
+          if (customer) {
+            const nextBalance = Number(customer.balance) + Number(currentAllocation.amount);
+            await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+            const [entry] = await tx
+              .insert(clientLedgerEntries)
+              .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: payment?.id, kind: 'allocation_reversal', amount: moneyScale(Number(currentAllocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Payment allocation reversal' })
+              .returning();
+            affected.push(customer.id, entry.id);
+          }
+        }
+      }
+      affected.push(currentAllocation.id, currentAllocation.paymentId, currentAllocation.invoiceId);
+    }
+  } else if (original.commandName === 'createVendorBill') {
+    for (const bill of snapshot.vendorBills ?? []) {
+      await tx.update(vendorBills).set({ status: 'reversed', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+      affected.push(bill.id);
+    }
+  } else if (original.commandName === 'recordVendorPayment') {
+    for (const payment of snapshot.vendorPayments ?? []) {
+      const [currentPayment] = await tx.select().from(vendorPayments).where(eq(vendorPayments.id, payment.id)).limit(1);
+      if (!currentPayment) continue;
+      await tx.update(vendorPayments).set({ status: 'void' }).where(eq(vendorPayments.id, currentPayment.id));
+      const [bill] = await tx.select().from(vendorBills).where(eq(vendorBills.id, currentPayment.vendorBillId)).limit(1);
+      if (bill) {
+        const amountPaid = Math.max(0, Number(bill.amountPaid) - Number(currentPayment.amount));
+        await tx
+          .update(vendorBills)
+          .set({ amountPaid: moneyScale(amountPaid), status: bill.scheduledFor ? 'scheduled' : 'approved', updatedAt: new Date() })
+          .where(eq(vendorBills.id, bill.id));
+        affected.push(bill.id);
+      }
+      affected.push(currentPayment.id);
+    }
+  } else if (original.commandName === 'markOrderFulfilled') {
+    for (const pick of snapshot.pickLists ?? []) {
+      await tx.update(pickLists).set({ status: 'open', updatedAt: new Date() }).where(eq(pickLists.id, pick.id));
+      affected.push(pick.id);
+    }
+    for (const order of snapshot.salesOrders ?? []) {
+      await tx.update(salesOrders).set({ status: 'posted', fulfilledAt: null, updatedAt: new Date() }).where(eq(salesOrders.id, order.id));
+      affected.push(order.id);
+    }
+  } else if (['approveConnectorRequest', 'routeConnectorRequest'].includes(original.commandName)) {
+    for (const request of snapshot.connectorRequests ?? []) {
+      await tx.update(connectorRequests).set({ status: 'open', routedTo: null, updatedAt: new Date() }).where(eq(connectorRequests.id, request.id));
+      affected.push(request.id);
+    }
+  } else if (['createCorrectionJournalEntry', 'postPeriodAdjustments'].includes(original.commandName)) {
+    for (const entry of snapshot.correctionJournalEntries ?? []) {
+      await tx.update(correctionJournalEntries).set({ status: 'reversed' }).where(eq(correctionJournalEntries.id, entry.id));
+      affected.push(entry.id);
+    }
+  } else {
+    for (const tableRows of Object.values(snapshot)) {
+      if (!Array.isArray(tableRows)) continue;
+      for (const row of tableRows) affected.push(row.id);
+    }
+  }
+
+  await tx.update(commandJournal).set({ reversedByCommandId: commandId }).where(eq(commandJournal.id, originalId));
+  return { ok: true, commandId, affectedIds: affected, toast: `Reversed ${original.commandName}.` };
+}
+
+async function restoreFromBackupPoint(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const backupId = requiredId(payload.backupId, 'backupId');
+  const [backup] = await tx.select().from(backupSnapshots).where(eq(backupSnapshots.id, backupId)).limit(1);
+  if (!backup) throw new Error('Backup snapshot not found.');
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [backupId],
+    toast: 'Restore preview generated. No ledgers were changed.',
+    delta: { readOnly: true, label: backup.label, snapshot: backup.snapshot }
+  };
+}
+
+async function postPeriodAdjustments(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const period = periodValue(payload.period);
+  const adjustments = Array.isArray(payload.adjustments) ? payload.adjustments : [{ amount: payload.amount, memo: payload.memo }];
+  const affected: string[] = [];
+  for (const adjustment of adjustments as Array<Record<string, unknown>>) {
+    const [entry] = await tx.insert(correctionJournalEntries).values({ period, amount: moneyScale(requiredNumber(adjustment.amount, 'amount')), memo: requiredString(adjustment.memo, 'memo') }).returning();
+    affected.push(entry.id);
+  }
+  return { ok: true, commandId, affectedIds: affected, toast: `${affected.length} period adjustment(s) posted.` };
+}
+
+async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const period = periodValue(payload.period);
+  const [existing] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
+  if (existing) return { ok: true, commandId, affectedIds: [existing.id], toast: `${period} is already locked.` };
+  const [lock] = await tx.insert(periodLocks).values({ period, lockedBy: userId, status: 'locked' }).returning();
+  return { ok: true, commandId, affectedIds: [lock.id], toast: `${period} locked.` };
+}
+
+async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const period = periodValue(payload.period);
+  const [lock] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
+  if (!lock) throw new Error(`${period} must be locked before archiving.`);
+  const unsafeBatches = await tx.select().from(batches).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period} and ${batches.status} in ('draft', 'needs_fix')`);
+  if (unsafeBatches.length) throw new Error(`${unsafeBatches.length} unsafe intake row(s) must be posted, fixed, or removed before archive.`);
+
+  await fs.mkdir(env.ARCHIVE_DIR, { recursive: true });
+  const archiveBase = path.join(env.ARCHIVE_DIR, period);
+  const batchRows = await tx.select().from(batches).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
+  const orderRows = await tx.select().from(salesOrders).where(sql`to_char(${salesOrders.createdAt}, 'YYYY-MM') = ${period}`);
+  const journalRows = await tx.select().from(commandJournal).where(sql`to_char(${commandJournal.createdAt}, 'YYYY-MM') = ${period}`).orderBy(commandJournal.createdAt);
+  const controlTotals = { batches: batchRows.length, orders: orderRows.length, commands: journalRows.length };
+
+  const csvPath = `${archiveBase}-batches.csv`;
+  const jsonlPath = `${archiveBase}-commands.jsonl`;
+  const pdfPath = `${archiveBase}-summary.pdf`;
+  await fs.writeFile(csvPath, rowsToCsv(batchRows as unknown as Array<Record<string, unknown>>, ['id', 'batchCode', 'name', 'category', 'intakeQty', 'availableQty', 'status']), 'utf8');
+  await fs.writeFile(jsonlPath, journalRows.map((row: typeof commandJournal.$inferSelect) => JSON.stringify(row)).join('\n'), 'utf8');
+  await writeArchivePdf(pdfPath, period, controlTotals);
+  const [archive] = await tx.insert(archiveRuns).values({ period, controlTotals, csvPath, jsonlPath, pdfPath, status: 'archived' }).returning();
+  await tx.update(batches).set({ archivedAt: new Date() }).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
+  await tx.update(salesOrders).set({ archivedAt: new Date() }).where(sql`to_char(${salesOrders.createdAt}, 'YYYY-MM') = ${period}`);
+  return { ok: true, commandId, affectedIds: [archive.id], toast: `${period} archived with matching control totals.`, delta: { controlTotals, csvPath, jsonlPath, pdfPath } };
+}
+
+async function recalcOrder(tx: Tx, orderId: string, strategy?: string) {
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  const total = lines.reduce((sum: number, line: typeof salesOrderLines.$inferSelect) => sum + Number(line.qty) * Number(line.unitPrice), 0);
+  const cost = lines.reduce((sum: number, line: typeof salesOrderLines.$inferSelect) => sum + Number(line.qty) * Number(line.unitCost), 0);
+  const values: Record<string, unknown> = { total: moneyScale(total), internalMargin: moneyScale(total - cost), updatedAt: new Date() };
+  if (strategy) values.pricingStrategy = strategy;
+  await tx.update(salesOrders).set(values).where(eq(salesOrders.id, orderId));
+}
+
+async function recalcPurchaseOrder(tx: Tx, purchaseOrderId: string) {
+  const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+  const total = lines.reduce((sum: number, line: typeof purchaseOrderLines.$inferSelect) => sum + Number(line.qty) * Number(line.unitCost), 0);
+  await tx.update(purchaseOrders).set({ total: moneyScale(total), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+}
+
+function assertPurchaseOrderEditable(status: string) {
+  if (['received', 'cancelled'].includes(status)) throw new Error('Received or cancelled purchase orders cannot be edited.');
+}
+
+function purchaseOrderLineIssues(line: Record<string, unknown>) {
+  const issues: string[] = [];
+  if (!stringValue(line.productName)) issues.push('enter product name.');
+  if (!stringValue(line.category)) issues.push('enter category.');
+  if (Number(line.qty ?? 0) <= 0) issues.push('enter quantity above zero.');
+  if (Number(line.unitCost ?? 0) <= 0) issues.push('enter unit cost above zero.');
+  if (Number(line.unitPrice ?? 0) < 0) issues.push('price cannot be negative.');
+  return issues;
+}
+
+async function ensureVendor(tx: Tx, name: string) {
+  const vendorName = name.trim();
+  const [existing] = await tx.select().from(vendors).where(eq(vendors.name, vendorName)).limit(1);
+  if (existing) return existing.id;
+  const [created] = await tx.insert(vendors).values({ name: vendorName, termsDays: 14 }).returning();
+  return created.id;
+}
+
+async function ensureItem(tx: Tx, payload: Payload, name: string, category: string) {
+  const itemId = stringValue(payload.itemId);
+  if (itemId) return itemId;
+  const sku = `${category.slice(0, 3).toUpperCase()}-${name.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase()}-${Math.floor(Math.random() * 999)}`;
+  const [created] = await tx.insert(items).values({ sku, name, category, tags: arrayValue(payload.tags) }).returning();
+  return created.id;
+}
+
+async function snapshotFromPayload(payload: Payload) {
+  const ids = collectIds(payload);
+  return snapshotByAffectedIds(ids);
+}
+
+async function snapshotByAffectedIds(ids: string[]) {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (!unique.length) return {};
+  const snapshot: Record<string, unknown> = {};
+  const tablePairs = [
+    ['batches', batches],
+    ['salesOrders', salesOrders],
+    ['salesOrderLines', salesOrderLines],
+    ['invoices', invoices],
+    ['payments', payments],
+    ['vendorBills', vendorBills],
+    ['vendorPayments', vendorPayments],
+    ['purchaseOrders', purchaseOrders],
+    ['purchaseOrderLines', purchaseOrderLines],
+    ['purchaseReceipts', purchaseReceipts],
+    ['pickLists', pickLists],
+    ['fulfillmentLines', fulfillmentLines],
+    ['connectorRequests', connectorRequests],
+    ['customers', customers],
+    ['paymentAllocations', paymentAllocations],
+    ['clientLedgerEntries', clientLedgerEntries],
+    ['correctionJournalEntries', correctionJournalEntries]
+  ] as const;
+
+  for (const [name, table] of tablePairs) {
+    const rows = await db.select().from(table as any).where(inArray((table as any).id, unique));
+    if (rows.length) snapshot[name] = rows;
+  }
+  return snapshot;
+}
+
+async function writeBagManifest(tx: Tx, pickListId: string) {
+  const [pick] = await tx.select().from(pickLists).where(eq(pickLists.id, pickListId)).limit(1);
+  if (!pick) throw new Error('Pick list not found.');
+  const lines = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.pickListId, pickListId));
+  const manifestDir = path.join(env.ARCHIVE_DIR, 'bag-manifests');
+  await fs.mkdir(manifestDir, { recursive: true });
+  const manifestPath = path.join(manifestDir, `${pick.pickNo}.csv`);
+  const rows = lines.map((line: typeof fulfillmentLines.$inferSelect) => ({
+    pickNo: pick.pickNo,
+    fulfillmentLineId: line.id,
+    orderLineId: line.orderLineId,
+    batchId: line.batchId,
+    expectedQty: line.expectedQty,
+    actualQty: line.actualQty,
+    actualWeight: line.actualWeight,
+    bagCode: line.bagCode,
+    unitsPerBag: pick.unitsPerBag,
+    labelFormat: pick.labelFormat,
+    labelsPrinted: pick.labelsPrinted,
+    tracking: pick.tracking,
+    status: line.status
+  }));
+  await fs.writeFile(
+    manifestPath,
+    rowsToCsv(rows as unknown as Array<Record<string, unknown>>, [
+      'pickNo',
+      'fulfillmentLineId',
+      'orderLineId',
+      'batchId',
+      'expectedQty',
+      'actualQty',
+      'actualWeight',
+      'bagCode',
+      'unitsPerBag',
+      'labelFormat',
+      'labelsPrinted',
+      'tracking',
+      'status'
+    ]),
+    'utf8'
+  );
+  await tx.update(pickLists).set({ manifestPath, updatedAt: new Date() }).where(eq(pickLists.id, pickListId));
+  return manifestPath;
+}
+
+function collectIds(payload: Payload) {
+  const values = [
+    payload.id,
+    payload.batchId,
+    payload.orderId,
+    payload.lineId,
+    payload.customerId,
+    payload.vendorId,
+    payload.purchaseOrderId,
+    payload.purchaseOrderLineId,
+    payload.invoiceId,
+    payload.paymentId,
+    payload.vendorBillId,
+    payload.vendorPaymentId,
+    payload.pickListId,
+    payload.fulfillmentLineId,
+    payload.requestId,
+    payload.commandId,
+    payload.backupId,
+    ...(Array.isArray(payload.batchIds) ? payload.batchIds : []),
+    ...(Array.isArray(payload.lineIds) ? payload.lineIds : []),
+    ...(Array.isArray(payload.selectedIds) ? payload.selectedIds : [])
+  ];
+  return values.filter((value): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value));
+}
+
+async function writeArchivePdf(filePath: string, period: string, totals: Record<string, unknown>) {
+  await new Promise<void>((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 48 });
+    const stream = doc.pipe(createWriteStream(filePath));
+    doc.fontSize(18).text(`TERP Agro Closeout ${period}`);
+    doc.moveDown();
+    doc.fontSize(11).text('Control totals');
+    for (const [key, value] of Object.entries(totals)) doc.text(`${key}: ${value}`);
+    doc.end();
+    stream.on('finish', resolve);
+    stream.on('error', reject);
+  });
+}
+
+function decodeShorthand(input?: string) {
+  if (!input) return { name: '', category: '', tags: [] as string[] };
+  const [prefix, rawName] = input.split('/');
+  const categoryMap: Record<string, string> = {
+    Ins: 'Infused',
+    Flw: 'Flower',
+    Ext: 'Extract',
+    Prl: 'Pre-roll',
+    Vap: 'Vape'
+  };
+  return {
+    name: rawName ? rawName.replace(/[-_]/g, ' ') : input,
+    category: categoryMap[prefix] ?? prefix,
+    tags: [prefix.toLowerCase(), rawName?.toLowerCase()].filter(Boolean) as string[]
+  };
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function requiredString(value: unknown, name: string) {
+  const text = stringValue(value);
+  if (!text) throw new Error(`${name} is required.`);
+  return text;
+}
+
+function requiredId(value: unknown, name: string) {
+  const id = requiredString(value, name);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error(`${name} must be a valid ID.`);
+  return id;
+}
+
+function requiredIds(value: unknown, name: string) {
+  if (!Array.isArray(value) || !value.length) throw new Error(`${name} must include at least one row.`);
+  return value.map((item) => requiredId(item, name));
+}
+
+function requiredNumber(value: unknown, name: string) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) throw new Error(`${name} must be a number.`);
+  return number;
+}
+
+function arrayValue(value: unknown, fallback: string[] = []) {
+  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
+  if (typeof value === 'string') return value.split(/[|,]/).map((item) => item.trim()).filter(Boolean);
+  return fallback;
+}
+
+function ownership(value: unknown) {
+  const text = stringValue(value);
+  return ['C', 'OFC', 'UNKNOWN'].includes(text) ? text : 'UNKNOWN';
+}
+
+function arrivalStatus(value: unknown, arrivalConfirmed = false) {
+  const text = stringValue(value);
+  if (['pending', 'arrived', 'cancelled'].includes(text)) return text;
+  return arrivalConfirmed ? 'arrived' : 'pending';
+}
+
+function batchValidationIssues(row: Record<string, unknown>) {
+  const issues: string[] = [];
+  if (!stringValue(row.vendorId)) issues.push('Choose a vendor.');
+  if (!stringValue(row.name)) issues.push('Enter product name.');
+  if (!stringValue(row.category)) issues.push('Enter category.');
+  if (Number(row.intakeQty ?? 0) <= 0) issues.push('Enter intake quantity above zero.');
+  if (Number(row.unitCost ?? 0) <= 0) issues.push('Enter unit cost above zero.');
+  if (Number(row.unitPrice ?? 0) < 0) issues.push('Price cannot be negative.');
+  if (stringValue(row.status) === 'ready' && stringValue(row.arrivalStatus) === 'pending' && !Boolean(row.arrivalConfirmed)) issues.push('Confirm arrival or leave row Draft.');
+  return issues;
+}
+
+function salesLineValidationIssues(row: Record<string, unknown>) {
+  const issues: string[] = [];
+  if (!stringValue(row.itemName)) issues.push('Enter item name.');
+  if (Number(row.qty ?? 0) <= 0) issues.push('Enter quantity above zero.');
+  if (Number(row.unitPrice ?? 0) < 0) issues.push('Price cannot be negative.');
+  if (!stringValue(row.batchId)) issues.push('Choose exact inventory source row.');
+  return issues;
+}
+
+async function candidateSourceText(tx: Tx, line: Record<string, unknown>) {
+  const raw = stringValue(line.unresolvedSourceText) || stringValue(line.itemName);
+  if (!raw) return 'No source candidates found.';
+  const terms = raw.split(/\s+/).map((term) => term.trim()).filter(Boolean).slice(0, 4);
+  if (!terms.length) return 'No source candidates found.';
+  const candidates = await tx
+    .select({ batchCode: batches.batchCode, name: batches.name, sourceCode: batches.sourceCode })
+    .from(batches)
+    .where(
+      and(
+        eq(batches.status, 'posted'),
+        or(
+          ...terms.map((term) =>
+            or(
+              ilike(batches.batchCode, `%${term}%`),
+              ilike(batches.sourceCode, `%${term}%`),
+              ilike(batches.shorthand, `%${term}%`),
+              ilike(batches.name, `%${term}%`),
+              ilike(batches.notes, `%${term}%`),
+              ilike(batches.legacyMarker, `%${term}%`)
+            )
+          )
+        )
+      )
+    )
+    .limit(5);
+  if (!candidates.length) return 'No source candidates found.';
+  return `Candidate source rows: ${candidates.map((row: { batchCode: string; name: string; sourceCode?: string | null }) => `${row.batchCode}/${row.sourceCode ?? 'no-code'} ${row.name}`).join('; ')}.`;
+}
+
+function paymentImpactPreview(amount: number, allocationIntent: string) {
+  if (amount < 0) return 'Buyer credit/down payment; customer balance decreases before invoice allocation.';
+  if (allocationIntent === 'selected_invoice') return 'Payment will be ready for selected invoice allocation.';
+  if (allocationIntent === 'unapplied') return 'Payment will stay unapplied as buyer credit until allocated.';
+  return 'Payment will be available for FIFO invoice allocation.';
+}
+
+function dateOrNull(value: unknown) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function periodValue(value: unknown) {
+  const period = requiredString(value, 'period');
+  if (!/^\d{4}-\d{2}$/.test(period)) throw new Error('Period must use YYYY-MM format.');
+  return period;
+}
+
+function routeFromRequest(requestType: string) {
+  const text = requestType.toLowerCase();
+  if (text.includes('payment')) return 'payments';
+  if (text.includes('fulfillment') || text.includes('bag') || text.includes('scan')) return 'fulfillment';
+  if (text.includes('intake') || text.includes('vendor')) return 'intake';
+  return 'sales';
+}
+
+function copyIfPresent(target: Record<string, unknown>, key: string, value: unknown) {
+  if (value !== undefined) target[key] = value;
+}

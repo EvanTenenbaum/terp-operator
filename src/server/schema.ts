@@ -1,0 +1,460 @@
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar
+} from 'drizzle-orm/pg-core';
+
+const id = () => uuid('id').primaryKey().defaultRandom();
+const now = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
+const updated = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow();
+
+export const users = pgTable('users', {
+  id: id(),
+  name: varchar('name', { length: 160 }).notNull(),
+  email: varchar('email', { length: 240 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: varchar('role', { length: 32 }).notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const vendors = pgTable('vendors', {
+  id: id(),
+  name: varchar('name', { length: 180 }).notNull(),
+  termsDays: integer('terms_days').notNull().default(14),
+  consignmentDefault: boolean('consignment_default').notNull().default(false),
+  contact: text('contact'),
+  notes: text('notes'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const customers = pgTable('customers', {
+  id: id(),
+  name: varchar('name', { length: 180 }).notNull(),
+  creditLimit: numeric('credit_limit', { precision: 12, scale: 2 }).notNull().default('0'),
+  balance: numeric('balance', { precision: 12, scale: 2 }).notNull().default('0'),
+  tags: text('tags').array().notNull().default([]),
+  notes: text('notes'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const items = pgTable('items', {
+  id: id(),
+  sku: varchar('sku', { length: 80 }).notNull().unique(),
+  name: varchar('name', { length: 180 }).notNull(),
+  category: varchar('category', { length: 80 }).notNull(),
+  tags: text('tags').array().notNull().default([]),
+  pricingRule: jsonb('pricing_rule').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const purchaseOrders = pgTable(
+  'purchase_orders',
+  {
+    id: id(),
+    poNo: varchar('po_no', { length: 80 }).notNull().unique(),
+    vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+    status: varchar('status', { length: 32 }).notNull().default('draft'),
+    expectedDate: timestamp('expected_date', { withTimezone: true }),
+    orderedAt: timestamp('ordered_at', { withTimezone: true }),
+    receivedAt: timestamp('received_at', { withTimezone: true }),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    total: numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
+    orderedBy: uuid('ordered_by').references(() => users.id, { onDelete: 'set null' }),
+    buyerNotes: text('buyer_notes'),
+    internalNotes: text('internal_notes'),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    statusIdx: index('purchase_orders_status_idx').on(table.status),
+    vendorIdx: index('purchase_orders_vendor_idx').on(table.vendorId)
+  })
+);
+
+export const purchaseOrderLines = pgTable(
+  'purchase_order_lines',
+  {
+    id: id(),
+    purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'cascade' }).notNull(),
+    itemId: uuid('item_id').references(() => items.id, { onDelete: 'set null' }),
+    productName: varchar('product_name', { length: 180 }).notNull(),
+    category: varchar('category', { length: 80 }).notNull(),
+    tags: text('tags').array().notNull().default([]),
+    qty: numeric('qty', { precision: 12, scale: 3 }).notNull().default('0'),
+    receivedQty: numeric('received_qty', { precision: 12, scale: 3 }).notNull().default('0'),
+    uom: varchar('uom', { length: 24 }).notNull().default('lb'),
+    unitCost: numeric('unit_cost', { precision: 12, scale: 2 }).notNull().default('0'),
+    unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull().default('0'),
+    sourceCode: varchar('source_code', { length: 120 }),
+    shorthand: varchar('shorthand', { length: 120 }),
+    legacyMarker: varchar('legacy_marker', { length: 120 }),
+    ownershipStatus: varchar('ownership_status', { length: 16 }).notNull().default('UNKNOWN'),
+    notes: text('notes'),
+    status: varchar('status', { length: 32 }).notNull().default('planned'),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    poIdx: index('purchase_order_lines_po_idx').on(table.purchaseOrderId),
+    statusIdx: index('purchase_order_lines_status_idx').on(table.status)
+  })
+);
+
+export const batches = pgTable(
+  'batches',
+  {
+    id: id(),
+    itemId: uuid('item_id').references(() => items.id, { onDelete: 'set null' }),
+    vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+    purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+    purchaseOrderLineId: uuid('purchase_order_line_id').references(() => purchaseOrderLines.id, { onDelete: 'set null' }),
+    batchCode: varchar('batch_code', { length: 80 }).notNull().unique(),
+    sourceCode: varchar('source_code', { length: 120 }),
+    shorthand: varchar('shorthand', { length: 120 }),
+    name: varchar('name', { length: 180 }).notNull(),
+    category: varchar('category', { length: 80 }).notNull(),
+    tags: text('tags').array().notNull().default([]),
+    intakeQty: numeric('intake_qty', { precision: 12, scale: 3 }).notNull().default('0'),
+    availableQty: numeric('available_qty', { precision: 12, scale: 3 }).notNull().default('0'),
+    reservedQty: numeric('reserved_qty', { precision: 12, scale: 3 }).notNull().default('0'),
+    uom: varchar('uom', { length: 24 }).notNull().default('lb'),
+    unitCost: numeric('unit_cost', { precision: 12, scale: 2 }).notNull().default('0'),
+    unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull().default('0'),
+    location: varchar('location', { length: 120 }).notNull().default('vault'),
+    lotCode: varchar('lot_code', { length: 120 }),
+    intakeDate: timestamp('intake_date', { withTimezone: true }),
+    ticketCost: numeric('ticket_cost', { precision: 12, scale: 2 }),
+    priceRange: varchar('price_range', { length: 120 }),
+    notes: text('notes'),
+    legacyMarker: varchar('legacy_marker', { length: 120 }),
+    expirationDate: timestamp('expiration_date', { withTimezone: true }),
+    ownershipStatus: varchar('ownership_status', { length: 16 }).notNull().default('UNKNOWN'),
+    arrivalConfirmed: boolean('arrival_confirmed').notNull().default(false),
+    arrivalStatus: varchar('arrival_status', { length: 32 }).notNull().default('pending'),
+    validationIssues: jsonb('validation_issues').$type<string[]>().notNull().default([]),
+    mediaStatus: varchar('media_status', { length: 32 }).notNull().default('open'),
+    status: varchar('status', { length: 32 }).notNull().default('draft'),
+    photoUrl: text('photo_url'),
+    postedAt: timestamp('posted_at', { withTimezone: true }),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    statusIdx: index('batches_status_idx').on(table.status),
+    vendorIdx: index('batches_vendor_idx').on(table.vendorId),
+    categoryIdx: index('batches_category_idx').on(table.category)
+  })
+);
+
+export const inventoryMovements = pgTable('inventory_movements', {
+  id: id(),
+  batchId: uuid('batch_id').references(() => batches.id, { onDelete: 'cascade' }).notNull(),
+  commandId: uuid('command_id'),
+  kind: varchar('kind', { length: 48 }).notNull(),
+  qtyDelta: numeric('qty_delta', { precision: 12, scale: 3 }).notNull(),
+  reason: text('reason'),
+  createdAt: now()
+});
+
+export const purchaseReceipts = pgTable('purchase_receipts', {
+  id: id(),
+  receiptNo: varchar('receipt_no', { length: 80 }).notNull().unique(),
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+  status: varchar('status', { length: 32 }).notNull().default('posted'),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const purchaseReceiptLines = pgTable('purchase_receipt_lines', {
+  id: id(),
+  receiptId: uuid('receipt_id').references(() => purchaseReceipts.id, { onDelete: 'cascade' }).notNull(),
+  batchId: uuid('batch_id').references(() => batches.id, { onDelete: 'cascade' }).notNull(),
+  qty: numeric('qty', { precision: 12, scale: 3 }).notNull(),
+  unitCost: numeric('unit_cost', { precision: 12, scale: 2 }).notNull(),
+  subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull()
+});
+
+export const salesOrders = pgTable('sales_orders', {
+  id: id(),
+  orderNo: varchar('order_no', { length: 80 }).notNull().unique(),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  status: varchar('status', { length: 32 }).notNull().default('draft'),
+  pricingStrategy: varchar('pricing_strategy', { length: 80 }).notNull().default('standard'),
+  internalMargin: numeric('internal_margin', { precision: 12, scale: 2 }).notNull().default('0'),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
+  deliveryWindow: text('delivery_window'),
+  notes: text('notes'),
+  packed: boolean('packed').notNull().default(false),
+  inventoryPosted: boolean('inventory_posted').notNull().default(false),
+  paymentFollowup: boolean('payment_followup').notNull().default(false),
+  legacyStatusMarkers: varchar('legacy_status_markers', { length: 180 }),
+  validationIssues: jsonb('validation_issues').$type<string[]>().notNull().default([]),
+  postedAt: timestamp('posted_at', { withTimezone: true }),
+  fulfilledAt: timestamp('fulfilled_at', { withTimezone: true }),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const salesOrderLines = pgTable('sales_order_lines', {
+  id: id(),
+  orderId: uuid('order_id').references(() => salesOrders.id, { onDelete: 'cascade' }).notNull(),
+  batchId: uuid('batch_id').references(() => batches.id, { onDelete: 'set null' }),
+  itemName: varchar('item_name', { length: 180 }).notNull(),
+  qty: numeric('qty', { precision: 12, scale: 3 }).notNull(),
+  unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull(),
+  unitCost: numeric('unit_cost', { precision: 12, scale: 2 }).notNull().default('0'),
+  sourceRowKey: varchar('source_row_key', { length: 180 }),
+  unresolvedSourceText: varchar('unresolved_source_text', { length: 180 }),
+  legacyStatusMarker: varchar('legacy_status_marker', { length: 80 }),
+  packed: boolean('packed').notNull().default(false),
+  inventoryPosted: boolean('inventory_posted').notNull().default(false),
+  paymentFollowup: boolean('payment_followup').notNull().default(false),
+  validationIssues: jsonb('validation_issues').$type<string[]>().notNull().default([]),
+  status: varchar('status', { length: 32 }).notNull().default('draft'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const invoices = pgTable('invoices', {
+  id: id(),
+  invoiceNo: varchar('invoice_no', { length: 80 }).notNull().unique(),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  orderId: uuid('order_id').references(() => salesOrders.id, { onDelete: 'set null' }),
+  status: varchar('status', { length: 32 }).notNull().default('open'),
+  total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+  amountPaid: numeric('amount_paid', { precision: 12, scale: 2 }).notNull().default('0'),
+  dueDate: timestamp('due_date', { withTimezone: true }).notNull(),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const payments = pgTable('payments', {
+  id: id(),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  method: varchar('method', { length: 32 }).notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  unappliedAmount: numeric('unapplied_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+  reference: varchar('reference', { length: 180 }),
+  locationBucket: varchar('location_bucket', { length: 120 }),
+  notes: text('notes'),
+  direction: varchar('direction', { length: 32 }).notNull().default('money_in'),
+  category: varchar('category', { length: 80 }).notNull().default('client_payment'),
+  allocationIntent: varchar('allocation_intent', { length: 80 }).notNull().default('fifo'),
+  impactPreview: text('impact_preview'),
+  status: varchar('status', { length: 32 }).notNull().default('posted'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const paymentAllocations = pgTable('payment_allocations', {
+  id: id(),
+  paymentId: uuid('payment_id').references(() => payments.id, { onDelete: 'cascade' }).notNull(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'cascade' }).notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  createdAt: now()
+});
+
+export const vendorBills = pgTable('vendor_bills', {
+  id: id(),
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+  purchaseReceiptId: uuid('purchase_receipt_id').references(() => purchaseReceipts.id, { onDelete: 'set null' }),
+  billNo: varchar('bill_no', { length: 80 }).notNull().unique(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  amountPaid: numeric('amount_paid', { precision: 12, scale: 2 }).notNull().default('0'),
+  dueDate: timestamp('due_date', { withTimezone: true }).notNull(),
+  status: varchar('status', { length: 32 }).notNull().default('open'),
+  scheduledFor: timestamp('scheduled_for', { withTimezone: true }),
+  termsDays: integer('terms_days').notNull().default(14),
+  consignmentTriggered: boolean('consignment_triggered').notNull().default(false),
+  dueReason: text('due_reason'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const vendorPayments = pgTable('vendor_payments', {
+  id: id(),
+  vendorBillId: uuid('vendor_bill_id').references(() => vendorBills.id, { onDelete: 'cascade' }).notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  method: varchar('method', { length: 32 }).notNull().default('cash'),
+  reference: varchar('reference', { length: 180 }),
+  status: varchar('status', { length: 32 }).notNull().default('posted'),
+  createdAt: now()
+});
+
+export const pickLists = pgTable('pick_lists', {
+  id: id(),
+  pickNo: varchar('pick_no', { length: 80 }).notNull().unique(),
+  orderId: uuid('order_id').references(() => salesOrders.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 32 }).notNull().default('open'),
+  assignedTo: uuid('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+  labelFormat: varchar('label_format', { length: 16 }).notNull().default('4x6'),
+  unitsPerBag: integer('units_per_bag').notNull().default(1),
+  labelsPrinted: boolean('labels_printed').notNull().default(false),
+  manifestPath: text('manifest_path'),
+  tracking: text('tracking'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const fulfillmentLines = pgTable('fulfillment_lines', {
+  id: id(),
+  pickListId: uuid('pick_list_id').references(() => pickLists.id, { onDelete: 'cascade' }).notNull(),
+  orderLineId: uuid('order_line_id').references(() => salesOrderLines.id, { onDelete: 'cascade' }).notNull(),
+  batchId: uuid('batch_id').references(() => batches.id, { onDelete: 'set null' }),
+  expectedQty: numeric('expected_qty', { precision: 12, scale: 3 }).notNull(),
+  actualQty: numeric('actual_qty', { precision: 12, scale: 3 }).notNull().default('0'),
+  actualWeight: numeric('actual_weight', { precision: 12, scale: 3 }).notNull().default('0'),
+  bagCode: varchar('bag_code', { length: 80 }),
+  status: varchar('status', { length: 32 }).notNull().default('open'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const connectorRequests = pgTable('connector_requests', {
+  id: id(),
+  source: varchar('source', { length: 80 }).notNull(),
+  requestType: varchar('request_type', { length: 80 }).notNull(),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  status: varchar('status', { length: 32 }).notNull().default('open'),
+  routedTo: varchar('routed_to', { length: 80 }),
+  operatorNotes: text('operator_notes'),
+  reviewHistory: jsonb('review_history').$type<Array<Record<string, unknown>>>().notNull().default([]),
+  safetyNote: text('safety_note').notNull().default('No ledger change until an operator posts the routed row.'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const creditOverrides = pgTable('credit_overrides', {
+  id: id(),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'cascade' }).notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  status: varchar('status', { length: 32 }).notNull().default('pending'),
+  reason: text('reason'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const invoiceDisputes = pgTable('invoice_disputes', {
+  id: id(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 32 }).notNull().default('open'),
+  reason: text('reason').notNull(),
+  resolution: text('resolution'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const clientLedgerEntries = pgTable('client_ledger_entries', {
+  id: id(),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'cascade' }).notNull(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'set null' }),
+  paymentId: uuid('payment_id').references(() => payments.id, { onDelete: 'set null' }),
+  kind: varchar('kind', { length: 48 }).notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  balanceAfter: numeric('balance_after', { precision: 12, scale: 2 }).notNull(),
+  note: text('note'),
+  createdAt: now()
+});
+
+export const correctionJournalEntries = pgTable('correction_journal_entries', {
+  id: id(),
+  period: varchar('period', { length: 7 }).notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  memo: text('memo').notNull(),
+  status: varchar('status', { length: 32 }).notNull().default('posted'),
+  createdAt: now()
+});
+
+export const periodLocks = pgTable('period_locks', {
+  id: id(),
+  period: varchar('period', { length: 7 }).notNull().unique(),
+  status: varchar('status', { length: 32 }).notNull().default('locked'),
+  lockedBy: uuid('locked_by').references(() => users.id, { onDelete: 'set null' }),
+  lockedAt: timestamp('locked_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+export const archiveRuns = pgTable('archive_runs', {
+  id: id(),
+  period: varchar('period', { length: 7 }).notNull(),
+  status: varchar('status', { length: 32 }).notNull().default('archived'),
+  controlTotals: jsonb('control_totals').$type<Record<string, unknown>>().notNull().default({}),
+  csvPath: text('csv_path').notNull(),
+  jsonlPath: text('jsonl_path').notNull(),
+  pdfPath: text('pdf_path').notNull(),
+  createdAt: now()
+});
+
+export const photographyQueue = pgTable('photography_queue', {
+  id: id(),
+  batchId: uuid('batch_id').references(() => batches.id, { onDelete: 'cascade' }).notNull(),
+  status: varchar('status', { length: 32 }).notNull().default('open'),
+  requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+  notes: text('notes'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const backupSnapshots = pgTable('backup_snapshots', {
+  id: id(),
+  label: varchar('label', { length: 180 }).notNull(),
+  snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
+  createdAt: now()
+});
+
+export const commandJournal = pgTable(
+  'command_journal',
+  {
+    id: id(),
+    commandName: varchar('command_name', { length: 80 }).notNull(),
+    idempotencyKey: varchar('idempotency_key', { length: 180 }).notNull(),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    actorName: varchar('actor_name', { length: 180 }).notNull(),
+    actorRole: varchar('actor_role', { length: 32 }).notNull(),
+    reason: text('reason'),
+    inputPayload: jsonb('input_payload').$type<Record<string, unknown>>().notNull().default({}),
+    status: varchar('status', { length: 32 }).notNull(),
+    affectedIds: text('affected_ids').array().notNull().default([]),
+    beforeSnapshot: jsonb('before_snapshot').$type<Record<string, unknown>>().notNull().default({}),
+    afterSnapshot: jsonb('after_snapshot').$type<Record<string, unknown>>().notNull().default({}),
+    result: jsonb('result').$type<Record<string, unknown>>().notNull().default({}),
+    error: text('error'),
+    reversedByCommandId: uuid('reversed_by_command_id'),
+    createdAt: now()
+  },
+  (table) => ({
+    idempotencyIdx: uniqueIndex('command_journal_idempotency_idx').on(table.idempotencyKey),
+    commandIdx: index('command_journal_command_idx').on(table.commandName),
+    actorIdx: index('command_journal_actor_idx').on(table.actorId)
+  })
+);
+
+export const session = pgTable('session', {
+  sid: varchar('sid', { length: 255 }).primaryKey(),
+  sess: jsonb('sess').notNull(),
+  expire: timestamp('expire', { withTimezone: false }).notNull()
+});
+
+export type User = typeof users.$inferSelect;
+export type Batch = typeof batches.$inferSelect;
+export type Customer = typeof customers.$inferSelect;
+export type Vendor = typeof vendors.$inferSelect;
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export type SalesOrder = typeof salesOrders.$inferSelect;
