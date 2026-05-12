@@ -1,8 +1,9 @@
-import { ClipboardCheck, Copy, Plus, ReceiptText } from 'lucide-react';
+import { ChevronDown, ChevronRight, ClipboardCheck, Copy, Plus, ReceiptText } from 'lucide-react';
 import { useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
+import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { CommandResult, GridRow } from '../../shared/types';
@@ -49,12 +50,14 @@ export function IntakeView() {
   const [vendorId, setVendorId] = useState('');
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [intakeTrayOpen, setIntakeTrayOpen] = useState(false);
   const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,unit_price,source_code,legacy_marker,ownership_status,notes\n');
   const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [lotCode, setLotCode] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
   const defaultVendorId = vendorId || firstVendor;
   const receiptPreview = trpc.queries.receiptPreview.useQuery({ batchIds: rows.map((row) => String(row.id)) }, { enabled: receiptPreviewOpen && rows.length > 0 });
+  const selectedReady = rows.length > 0 && rows.every((row) => row.status === 'ready');
 
   async function onCellCommit(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null) return;
@@ -165,12 +168,8 @@ export function IntakeView() {
         </button>
       </div>
       {csvOpen ? (
-        <section className="inline-panel">
+        <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" subtitle="Paste batch rows, validate row-level errors, then import only after the preview is clean." contentClassName="p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="section-title">Validate-first CSV import</h2>
-              <p className="mt-1 text-xs text-zinc-600">Paste batch rows, validate row-level errors, then import only after the preview is clean.</p>
-            </div>
             <div className="flex flex-wrap items-center gap-2">
               <button className="secondary-button compact-action" type="button" disabled={!csvText.trim()} onClick={() => void importCsv(true)}>
                 Validate
@@ -184,7 +183,7 @@ export function IntakeView() {
           {csvResult ? (
             <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
           ) : null}
-        </section>
+        </WorkspacePanel>
       ) : null}
       <OperatorGrid
         view="intake"
@@ -195,41 +194,46 @@ export function IntakeView() {
         onSelectionChange={(selection) => setSelectedRows('intake', selection)}
         onCellCommit={onCellCommit}
         selectionActions={(selection) => (
-          <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={() => setReceiptPreviewOpen(true)}>
-            Preview receipt
-          </button>
+          <>
+            <button type="button" className="primary-button compact-action" disabled={!selection.length} onClick={selectedReady ? processIntake : markReady}>
+              {selectedReady ? <ReceiptText className="h-4 w-4" aria-hidden="true" /> : <ClipboardCheck className="h-4 w-4" aria-hidden="true" />}
+              {selectedReady ? 'Post receipt' : 'Mark Ready'}
+            </button>
+            <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={() => setReceiptPreviewOpen(true)}>
+              Preview receipt
+            </button>
+            <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={() => setIntakeTrayOpen((value) => !value)} aria-expanded={intakeTrayOpen}>
+              {intakeTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+              Intake tray
+            </button>
+            {intakeTrayOpen ? (
+              <>
+                <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={duplicateRows}>
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                  Duplicate
+                </button>
+                <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={deleteDraftRows}>
+                  Delete draft
+                </button>
+                <button type="button" className="secondary-button compact-action" disabled={!selection.length || (!lotCode && !expirationDate)} onClick={setSelectedLotInfo}>
+                  Set lot info
+                </button>
+              </>
+            ) : null}
+          </>
         )}
         actions={
           <>
-            <button type="button" className="secondary-button" onClick={createRow} disabled={!defaultVendorId}>
+            <button type="button" className="primary-button" onClick={createRow} disabled={!defaultVendorId}>
               <Plus className="h-4 w-4" aria-hidden="true" />
-              Receive Row
-            </button>
-            <button type="button" className="secondary-button" disabled={!rows.length} onClick={duplicateRows}>
-              <Copy className="h-4 w-4" aria-hidden="true" />
-              ⌘D
-            </button>
-            <button type="button" className="secondary-button" disabled={!rows.length} onClick={deleteDraftRows}>
-              Delete draft
-            </button>
-            <button type="button" className="secondary-button" disabled={!rows.length} onClick={markReady}>
-              <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
-              Ready
-            </button>
-            <button type="button" className="primary-button" disabled={!rows.length} onClick={processIntake}>
-              <ReceiptText className="h-4 w-4" aria-hidden="true" />
-              Process / Receipt
+              Receive Inventory
             </button>
           </>
         }
       />
       {receiptPreviewOpen ? (
-        <section className="inline-panel">
+        <WorkspacePanel panelId="intake:receipt-preview" title="Selected-row receipt preview" subtitle="Totals are calculated from the selected intake rows before any ledger consequences are posted." contentClassName="p-3">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="section-title">Selected-row receipt preview</h2>
-              <p className="text-sm text-zinc-600">Totals are calculated from the selected intake rows before any ledger consequences are posted.</p>
-            </div>
             <button className="text-button" type="button" onClick={() => setReceiptPreviewOpen(false)}>
               Close
             </button>
@@ -282,7 +286,7 @@ export function IntakeView() {
           ) : (
             <div className="text-sm text-zinc-600">Loading preview...</div>
           )}
-        </section>
+        </WorkspacePanel>
       ) : null}
     </div>
   );

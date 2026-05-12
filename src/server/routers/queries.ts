@@ -3,9 +3,10 @@ import { pool } from '../db';
 import { protectedProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
-import { commandLabels, commandMinRole, commandNames } from '../../shared/commandCatalog';
+import { getCloseoutSafety } from '../services/closeout';
+import { commandLabels, commandMinRole, commandNames, reversalPolicies } from '../../shared/commandCatalog';
 
-const viewSchema = z.enum(['intake', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout']);
+const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout']);
 
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
@@ -442,33 +443,21 @@ export const queriesRouter = router({
       )
     ).rows[0];
     if (!row) return null;
+    const policy = reversalPolicies[row.commandName as keyof typeof reversalPolicies];
     return {
       ...row,
-      reversible: row.status === 'ok' && !row.reversedByCommandId,
-      plainLanguageImpact: row.status !== 'ok' ? 'Failed commands do not change ledgers.' : `Reversal will mark or offset affected rows from ${row.commandName}.`
+      policy,
+      reversible: row.status === 'ok' && !row.reversedByCommandId && policy?.disposition === 'reversible',
+      plainLanguageImpact:
+        row.status !== 'ok'
+          ? 'Failed commands do not change ledgers.'
+          : policy?.disposition === 'reversible'
+            ? `Reversal will mark or offset affected rows from ${row.commandName}.`
+            : `${row.commandName} is ${policy?.disposition ?? 'not'} reversible. ${policy?.guidance ?? ''}`.trim()
     };
   }),
   closeoutPreview: protectedProcedure.input(z.object({ period: z.string().regex(/^\d{4}-\d{2}$/) })).query(async ({ input }) => {
-    const period = input.period;
-    const [unsafe, unsafePurchaseOrders, batches, orders, commands, locked] = await Promise.all([
-      pool.query("select count(*)::int as count from batches where to_char(created_at, 'YYYY-MM') = $1 and status in ('draft','needs_fix')", [period]),
-      pool.query("select count(*)::int as count from purchase_orders where to_char(created_at, 'YYYY-MM') = $1 and status in ('draft','approved','partially_received')", [period]),
-      pool.query("select count(*)::int as count from batches where to_char(created_at, 'YYYY-MM') = $1", [period]),
-      pool.query("select count(*)::int as count from sales_orders where to_char(created_at, 'YYYY-MM') = $1", [period]),
-      pool.query("select count(*)::int as count from command_journal where to_char(created_at, 'YYYY-MM') = $1", [period]),
-      pool.query('select id, status from period_locks where period = $1', [period])
-    ]);
-    return {
-      period,
-      eligible: unsafe.rows[0].count === 0 && unsafePurchaseOrders.rows[0].count === 0 && Boolean(locked.rows[0]),
-      locked: Boolean(locked.rows[0]),
-      unsafeRows: unsafe.rows[0].count + unsafePurchaseOrders.rows[0].count,
-      controlTotals: {
-        batches: batches.rows[0].count,
-        orders: orders.rows[0].count,
-        commands: commands.rows[0].count
-      }
-    };
+    return getCloseoutSafety(pool, input.period);
   }),
   csvExport: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input }) => {
     const rows = (await pool.query(gridSql(input.view))).rows;
@@ -546,6 +535,22 @@ function replaceFields(table: ReplaceTable) {
 
 function gridSql(view: z.infer<typeof viewSchema>) {
   switch (view) {
+    case 'reports':
+      return `select key as id, label, value, definition, severity, checked_at as "createdAt"
+              from (
+                select 'inventory_value' as key, 'Inventory value' as label, coalesce(sum(available_qty * unit_cost), 0)::text as value,
+                       'Available quantity multiplied by unit cost' as definition, 'neutral' as severity, now() as checked_at
+                from batches where archived_at is null
+                union all
+                select 'receivables' as key, 'Receivables' as label, coalesce(sum(total - amount_paid), 0)::text as value,
+                       'Open invoice balance' as definition, 'watch' as severity, now() as checked_at
+                from invoices where status in ('open','partial')
+                union all
+                select 'payables' as key, 'Payables' as label, coalesce(sum(amount - amount_paid), 0)::text as value,
+                       'Open vendor bill balance' as definition, 'watch' as severity, now() as checked_at
+                from vendor_bills where status in ('open','approved','scheduled','partial')
+              ) reports
+              order by label`;
     case 'intake':
       return `select b.id, b.batch_code as "batchCode", b.shorthand, b.name, b.category, v.name as vendor, b.vendor_id as "vendorId",
                      po.po_no as "poNo", b.purchase_order_id as "purchaseOrderId", b.purchase_order_line_id as "purchaseOrderLineId",
@@ -603,7 +608,8 @@ function gridSql(view: z.infer<typeof viewSchema>) {
       return `select b.id, b.batch_code as "batchCode", b.name, b.category, v.name as vendor, b.vendor_id as "vendorId", b.available_qty as "availableQty",
                      b.reserved_qty as "reservedQty", b.uom, b.unit_cost as "unitCost", b.unit_price as "unitPrice",
                      b.location, b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
-                     b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus", b.status, b.lot_code as "lotCode", b.expiration_date as "expirationDate"
+                     b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus", b.status, b.lot_code as "lotCode", b.expiration_date as "expirationDate",
+                     floor(extract(epoch from (now() - b.created_at)) / 86400)::int as "ageDays"
               from batches b left join vendors v on v.id = b.vendor_id
               where b.archived_at is null
               order by b.category, b.name`;
@@ -664,12 +670,13 @@ function drilldownSql(metricKey: string) {
 
 function deterministicHeaders(view: z.infer<typeof viewSchema>) {
   const map: Record<z.infer<typeof viewSchema>, string[]> = {
+    reports: ['id', 'label', 'value', 'definition', 'severity', 'createdAt'],
     intake: ['id', 'batchCode', 'poNo', 'purchaseOrderId', 'sourceCode', 'intakeDate', 'shorthand', 'legacyMarker', 'name', 'category', 'vendor', 'ticketCost', 'priceRange', 'intakeQty', 'availableQty', 'uom', 'unitCost', 'unitPrice', 'location', 'lotCode', 'expirationDate', 'ownershipStatus', 'arrivalStatus', 'arrivalConfirmed', 'validationIssues', 'mediaStatus', 'notes', 'status'],
     purchaseOrders: ['id', 'poNo', 'vendor', 'status', 'expectedDate', 'orderedAt', 'receivedAt', 'total', 'lines', 'orderedQty', 'receivedQty', 'buyerNotes', 'internalNotes', 'createdAt'],
     sales: ['id', 'orderNo', 'customer', 'status', 'pricingStrategy', 'total', 'internalMargin', 'lines', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes'],
     orders: ['id', 'orderNo', 'customer', 'status', 'total', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes', 'invoiceNo', 'invoiceStatus'],
     payments: ['id', 'customer', 'direction', 'category', 'method', 'amount', 'unappliedAmount', 'allocationIntent', 'impactPreview', 'reference', 'locationBucket', 'notes', 'status', 'createdAt'],
-    inventory: ['id', 'batchCode', 'name', 'category', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'status'],
+    inventory: ['id', 'batchCode', 'name', 'category', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
     clients: ['id', 'name', 'creditLimit', 'balance', 'tags', 'notes', 'invoiceCount'],
     vendors: ['id', 'vendor', 'billNo', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],

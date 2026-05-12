@@ -36,6 +36,14 @@ interface InventoryFinderPanelProps {
   onAddBatch: (batch: InventoryFinderBatch, qty: number) => Promise<void>;
 }
 
+const savedSlices = [
+  ['aging-premium', 'Aging premium'],
+  ['consignment-risk', 'Consignment risk'],
+  ['value-buyers', 'Value buyers'],
+  ['low-stock', 'Low stock'],
+  ['office-owned', 'Office owned']
+] as const;
+
 export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(), initialSearch = '', onAddBatch }: InventoryFinderPanelProps) {
   const reference = trpc.queries.reference.useQuery();
   const [search, setSearch] = useState('');
@@ -50,6 +58,7 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
+  const [activeSlice, setActiveSlice] = useState('');
   const lastInitialSearch = useRef('');
   const rows = ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
     ...row,
@@ -99,6 +108,21 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
   }, [agingOnly, category, location, maxPrice, minQty, ownership, rows, search, tag, vendorId]);
 
   const compared = useMemo(() => rows.filter((row) => compareIds.has(row.id)).slice(0, 4), [compareIds, rows]);
+  const activeFilterLabels = useMemo(
+    () =>
+      [
+        search && `search: ${search}`,
+        category,
+        vendorName(facets.vendors, vendorId),
+        tag,
+        location,
+        ownership,
+        minQty && `>= ${minQty}`,
+        (maxPrice || parsedPriceHint(search)) && `<= $${maxPrice || parsedPriceHint(search)}`,
+        agingOnly && '30+ days'
+      ].filter(Boolean) as string[],
+    [agingOnly, category, facets.vendors, location, maxPrice, minQty, ownership, search, tag, vendorId]
+  );
 
   function resetFilters() {
     setSearch('');
@@ -110,14 +134,16 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
     setMinQty('');
     setMaxPrice('');
     setAgingOnly(false);
+    setActiveSlice('');
   }
 
   function applySlice(slice: string) {
     resetFilters();
+    setActiveSlice(slice);
     if (slice === 'aging-premium') {
       setAgingOnly(true);
-        setMinQty('1');
-        setMaxPrice('100');
+      setMinQty('1');
+      setMaxPrice('100');
     }
     if (slice === 'consignment-risk') {
       setOwnership('C');
@@ -134,6 +160,12 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
     if (slice === 'office-owned') {
       setOwnership('OFC');
     }
+  }
+
+  function copySlice() {
+    const label = savedSlices.find(([key]) => key === activeSlice)?.[1] ?? 'Custom slice';
+    const text = [`Inventory Finder: ${label}`, `Filters: ${activeFilterLabels.join(', ') || 'none'}`, `Rows shown: ${filtered.length} of ${rows.length}`].join('\n');
+    void navigator.clipboard?.writeText(text);
   }
 
   function toggleCompare(batchId: string) {
@@ -160,22 +192,24 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
       subtitle="Slice live posted batches by category, vendor, tag, location, owner, price, qty, or aging."
       className="finder-panel"
       contentClassName="finder-panel-content"
-      actions={<div className="text-xs font-medium text-zinc-600">{filtered.length} / {rows.length} shown</div>}
+      actions={
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-600">
+          <span>{filtered.length} / {rows.length} shown</span>
+          <span className="selection-pill">{activeFilterLabels.length} active</span>
+        </div>
+      }
       testId="inventory-finder"
     >
       <div>
       <div className="finder-chip-row" aria-label="Saved inventory slices">
-        {[
-          ['aging-premium', 'Aging premium'],
-          ['consignment-risk', 'Consignment risk'],
-          ['value-buyers', 'Value buyers'],
-          ['low-stock', 'Low stock'],
-          ['office-owned', 'Office owned']
-        ].map(([key, label]) => (
-          <button className="finder-chip" type="button" key={key} onClick={() => applySlice(key)}>
+        {savedSlices.map(([key, label]) => (
+          <button className={activeSlice === key ? 'finder-chip success' : 'finder-chip'} type="button" key={key} onClick={() => applySlice(key)} aria-pressed={activeSlice === key}>
             {label}
           </button>
         ))}
+        <button className="text-button compact-action" type="button" disabled={!activeFilterLabels.length} onClick={copySlice}>
+          Copy slice
+        </button>
       </div>
       <div className="finder-controls">
         <label className="finder-search">
@@ -236,7 +270,7 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
       </div>
       <div className="finder-chip-row" aria-label="Active finder filters">
         <Filter className="h-4 w-4 text-zinc-500" aria-hidden="true" />
-        {[search && `search: ${search}`, category, vendorName(facets.vendors, vendorId), tag, location, ownership, minQty && `>= ${minQty}`, (maxPrice || parsedPriceHint(search)) && `<= $${maxPrice || parsedPriceHint(search)}`, agingOnly && '30+ days'].filter(Boolean).map((label) => (
+        {activeFilterLabels.map((label) => (
           <span className="finder-chip" key={String(label)}>
             {label}
           </span>

@@ -4,6 +4,7 @@ import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow, QuickLaunchMode } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
+import { WorkspacePanel } from './WorkspacePanel';
 
 type LedgerDirection = 'money_in' | 'money_out' | 'transfer' | 'adjustment';
 type LedgerCategory = 'client_payment' | 'vendor_payout' | 'buyer_credit' | 'correction' | 'transfer';
@@ -140,17 +141,28 @@ export function QuickLedgerGrid() {
   }
 
   return (
-    <section className="inline-panel" aria-label="Quick Ledger">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="section-title">Quick Ledger</h2>
-          <p className="mt-1 text-xs text-zinc-600">Append money rows, preview impact, then commit audited commands without opening modal workflows.</p>
-        </div>
+    <WorkspacePanel
+      panelId="payments:quick-ledger"
+      title="Quick Ledger"
+      subtitle="Append Money In or Money Out rows, preview allocation impact, then commit audited commands without modal workflows."
+      contentClassName="p-3"
+      actions={
+        <>
+        <button className="primary-button compact-action" type="button" onClick={() => addRow('moneyIn')}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Money In
+        </button>
+        <button className="secondary-button compact-action" type="button" onClick={() => addRow('moneyOut')}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Money Out
+        </button>
         <button className="secondary-button compact-action" type="button" onClick={() => addRow()}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           Row
         </button>
-      </div>
+        </>
+      }
+    >
       <div className="quick-ledger-grid">
         <table className="quick-ledger-table">
           <caption className="sr-only">Draft ledger rows</caption>
@@ -168,6 +180,7 @@ export function QuickLedgerGrid() {
               <th>Notes</th>
               <th>Allocation</th>
               <th>Impact</th>
+              <th>Trace</th>
               <th>Status</th>
               <th>Commit</th>
             </tr>
@@ -179,6 +192,7 @@ export function QuickLedgerGrid() {
                 ? openBills.filter((bill) => !row.counterpartyId || bill.vendorId === row.counterpartyId)
                 : (reference.data?.openInvoices ?? []).filter((invoice) => !row.counterpartyId || invoice.customerId === row.counterpartyId);
               const impact = row.id === previewRowId && preview.data ? `${preview.data.label}; unapplied ${preview.data.unapplied}` : clientImpact(row, reference.data?.openInvoices ?? [], openBills);
+              const trace = ledgerTrace(row, documentOptions);
               return (
                 <tr key={row.id}>
                   <td><input type="date" value={row.date} onChange={(event) => updateRow(row.id, { date: event.target.value })} onFocus={() => setPreviewRowId(row.id)} /></td>
@@ -236,6 +250,7 @@ export function QuickLedgerGrid() {
                     </select>
                   </td>
                   <td className="quick-ledger-impact">{row.issue ?? impact}</td>
+                  <td className="quick-ledger-impact">{trace}</td>
                   <td><span className={row.status === 'posted' ? 'finder-chip success' : row.status === 'needs_fix' ? 'finder-chip warning' : 'finder-chip'}>{row.status}</span></td>
                   <td>
                     <button className="icon-button" type="button" disabled={isRunning || row.status === 'posted'} onClick={() => void commit(row)} title="Commit ledger row">
@@ -249,7 +264,7 @@ export function QuickLedgerGrid() {
           </tbody>
         </table>
       </div>
-    </section>
+    </WorkspacePanel>
   );
 }
 
@@ -302,6 +317,15 @@ function clientImpact(row: LedgerDraft, invoices: Array<{ id: string; customerId
     return bill ? `Pays ${money(Math.min(open, Math.abs(amount)))} on ${String(bill.billNo ?? 'vendor bill')}` : 'Choose bill to preview payout';
   }
   return `${row.direction} journal entry ${money(amount)}`;
+}
+
+function ledgerTrace(row: LedgerDraft, documents: Array<GridRow | { id: string; invoiceNo?: string; billNo?: string }>) {
+  const document = documents.find((candidate) => candidate.id === row.documentId);
+  const documentLabel = String(document && 'invoiceNo' in document ? document.invoiceNo ?? document.billNo ?? document.id : document?.id ?? 'unapplied');
+  if (row.direction === 'money_in' && Number(row.amount || 0) < 0) return `client -> buyer credit -> ${row.bucket}`;
+  if (row.direction === 'money_in') return `client -> ${row.allocationIntent === 'selected' ? documentLabel : row.allocationIntent} -> ${row.bucket}`;
+  if (row.direction === 'money_out') return `${row.bucket} -> vendor bill -> ${documentLabel}`;
+  return `${row.bucket} -> journal`;
 }
 
 function money(value: number) {

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useUiStore } from '../store/uiStore';
+import { drawerStateNameForState, useUiStore } from '../store/uiStore';
 import { useCommandRunner } from './useCommandRunner';
 import type { ViewKey } from '../../shared/types';
 
@@ -17,37 +17,91 @@ export function Hotkeys() {
   const selectedRows = useUiStore((state) => state.selectedRows);
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
+  const setCommandPaletteAdvancedOpen = useUiStore((state) => state.setCommandPaletteAdvancedOpen);
   const setFocusedPanel = useUiStore((state) => state.setFocusedPanel);
+  const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
+  const focusedPanelId = useUiStore((state) => state.focusedPanelId);
+  const focusMode = useUiStore((state) => state.focusMode);
+  const toggleFocusMode = useUiStore((state) => state.toggleFocusMode);
+  const setFocusMode = useUiStore((state) => state.setFocusMode);
+  const drawerState = useUiStore((state) => drawerStateNameForState(state, state.activeView));
+  const toggleDrawer = useUiStore((state) => state.toggleDrawer);
+  const cycleDrawer = useUiStore((state) => state.cycleDrawer);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const setDrawerTab = useUiStore((state) => state.setDrawerTab);
   const pushToast = useUiStore((state) => state.pushToast);
   const { runCommand } = useCommandRunner();
 
   useEffect(() => {
     async function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
-      const isEditingText = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
+      const editingText = isEditingText(target);
+      const key = event.key.toLowerCase();
+
+      if (event.metaKey && event.altKey && key === 'k') {
+        event.preventDefault();
+        setCommandPaletteAdvancedOpen(true);
+        return;
+      }
+      if (event.metaKey && key === 'k') {
+        event.preventDefault();
+        setCommandPaletteOpen(true);
+        return;
+      }
 
       if (event.key === 'Escape') {
-        setCommandPaletteOpen(false);
-        setFocusedPanel(null);
+        event.preventDefault();
+        if (drawerState !== 'closed') {
+          setDrawerState(activeView, 'closed');
+          return;
+        }
+        if (commandPaletteOpen) {
+          setCommandPaletteOpen(false);
+          return;
+        }
+        if (focusedPanelId || focusMode) {
+          setFocusedPanel(null);
+          setFocusMode(false);
+          return;
+        }
+        return;
+      }
+
+      if (editingText) return;
+
+      if (event.code === 'BracketRight') {
+        event.preventDefault();
+        if (event.shiftKey) cycleDrawer(activeView);
+        else toggleDrawer(activeView);
+        return;
+      }
+
+      if (/^Digit[1-5]$/.test(event.code) && drawerState !== 'closed' && !event.metaKey) {
+        event.preventDefault();
+        const tabIndex = Number(event.code.replace('Digit', '')) - 1;
+        const tab = tabForIndex(activeView, tabIndex);
+        if (tab) setDrawerTab(activeView, tab);
+        return;
+      }
+
+      const rows = selectedRows[activeView] ?? [];
+
+      if (!event.metaKey && key === 'f') {
+        event.preventDefault();
+        toggleFocusMode();
         return;
       }
 
       if (!event.metaKey) return;
+
       const view = numberViews[event.key];
       if (view) {
         event.preventDefault();
         setActiveView(view);
         return;
       }
-      if (event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        setCommandPaletteOpen(true);
-        return;
-      }
-      if (isEditingText) return;
 
-      const rows = selectedRows[activeView] ?? [];
-      if (event.key.toLowerCase() === 'd') {
+      if (key === 'd') {
         event.preventDefault();
         if (activeView !== 'intake' || !rows.length) return pushToast('Select intake rows to duplicate.', 'info');
         for (const row of rows) {
@@ -96,7 +150,53 @@ export function Hotkeys() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeView, selectedRows, setActiveView, setCommandPaletteOpen, setFocusedPanel, pushToast, runCommand]);
+  }, [
+    activeView,
+    commandPaletteOpen,
+    cycleDrawer,
+    drawerState,
+    focusMode,
+    focusedPanelId,
+    pushToast,
+    runCommand,
+    selectedRows,
+    setActiveView,
+    setCommandPaletteAdvancedOpen,
+    setCommandPaletteOpen,
+    setDrawerState,
+    setDrawerTab,
+    setFocusedPanel,
+    setFocusMode,
+    toggleDrawer,
+    toggleFocusMode
+  ]);
 
   return null;
+}
+
+function isEditingText(target: HTMLElement | null) {
+  if (!target) return false;
+  if (target.isContentEditable) return true;
+  const editable = target.closest('input, textarea, select, [contenteditable="true"]');
+  return Boolean(editable);
+}
+
+function tabForIndex(view: ViewKey, index: number) {
+  const tabsByView: Partial<Record<ViewKey, string[]>> = {
+    dashboard: ['definition', 'saved'],
+    reports: ['definition', 'export', 'saved'],
+    purchaseOrders: ['lines', 'vendor', 'linked-intake', 'history'],
+    intake: ['definition', 'saved'],
+    sales: ['profile', 'balance', 'purchases', 'notes', 'history'],
+    orders: ['lines', 'customer', 'output', 'history'],
+    payments: ['allocations', 'customer', 'impact', 'history'],
+    inventory: ['movement', 'sales', 'photos', 'history'],
+    clients: ['profile', 'balance', 'purchases', 'notes', 'history'],
+    vendors: ['due-reason', 'linked-po', 'payouts', 'history'],
+    fulfillment: ['lines', 'order', 'labels', 'history'],
+    connectors: ['session', 'routing', 'history'],
+    recovery: ['reversal', 'snapshot', 'system', 'history'],
+    closeout: ['control-totals', 'unsafe', 'artifacts']
+  };
+  return tabsByView[view]?.[index] ?? null;
 }

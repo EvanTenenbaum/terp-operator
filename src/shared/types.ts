@@ -17,6 +17,10 @@ export type Status =
   | 'planned'
   | 'received'
   | 'partially_received'
+  | 'held'
+  | 'damaged'
+  | 'returned'
+  | 'in_transit'
   | 'failed'
   | 'rejected'
   | 'routed'
@@ -29,8 +33,30 @@ export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn'
 
 export type PaymentMethod = 'cash' | 'check' | 'card' | 'crypto' | 'wire';
 
+export type DrawerStateName = 'closed' | 'peek' | 'standard' | 'wide' | 'focus';
+
+export interface DrawerEntityRef {
+  entityType: string;
+  entityId: string | null;
+}
+
+export interface DrawerState {
+  state: DrawerStateName;
+  activeTab: string;
+}
+
+export interface RouteHistoryEntry {
+  view: ViewKey;
+  entityType: string;
+  entityId: string | null;
+  drawerState: DrawerStateName;
+  activeTab: string;
+  timestamp: number;
+}
+
 export type ViewKey =
   | 'dashboard'
+  | 'reports'
   | 'purchaseOrders'
   | 'intake'
   | 'sales'

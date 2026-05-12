@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
-import type { GridRow, QuickLaunchMode, ViewKey } from '../../shared/types';
+import type { DrawerEntityRef, DrawerState, DrawerStateName, GridRow, QuickLaunchMode, RouteHistoryEntry, ViewKey } from '../../shared/types';
 
 interface Toast {
   id: string;
@@ -16,11 +16,16 @@ interface UiState {
   salesRequestText: string;
   selectedRows: Partial<Record<ViewKey, GridRow[]>>;
   commandPaletteOpen: boolean;
+  commandPaletteAdvancedOpen: boolean;
   rightPanelOpen: boolean;
   sideNavCollapsed: boolean;
   drilldownMetric: string | null;
   collapsedPanels: Record<string, boolean>;
   focusedPanelId: string | null;
+  focusMode: boolean;
+  drawerByView: Record<string, DrawerState>;
+  activeDrawerEntityByView: Partial<Record<ViewKey, DrawerEntityRef>>;
+  routeHistory: RouteHistoryEntry[];
   toasts: Toast[];
   announcement: string;
   setActiveView: (view: ViewKey) => void;
@@ -29,10 +34,20 @@ interface UiState {
   setSalesRequestText: (text: string) => void;
   setSelectedRows: (view: ViewKey, rows: GridRow[]) => void;
   setCommandPaletteOpen: (open: boolean) => void;
+  setCommandPaletteAdvancedOpen: (open: boolean) => void;
   toggleSideNav: () => void;
   setDrilldownMetric: (metric: string | null) => void;
   togglePanelCollapsed: (panelId: string) => void;
   setFocusedPanel: (panelId: string | null) => void;
+  setFocusMode: (focused: boolean) => void;
+  toggleFocusMode: () => void;
+  setDrawerEntity: (view: ViewKey, entityType: string, entityId?: string | null) => void;
+  setDrawerState: (view: ViewKey, stateName: DrawerStateName) => void;
+  setDrawerTab: (view: ViewKey, tab: string) => void;
+  toggleDrawer: (view: ViewKey) => void;
+  cycleDrawer: (view: ViewKey) => void;
+  pushRouteHistory: (entry: Omit<RouteHistoryEntry, 'timestamp'>) => void;
+  goBackRouteHistory: () => void;
   pushToast: (message: string, tone?: Toast['tone']) => void;
   dismissToast: (id: string) => void;
 }
@@ -46,17 +61,34 @@ export const useUiStore = create<UiState>()(
     salesRequestText: '',
     selectedRows: {},
     commandPaletteOpen: false,
+    commandPaletteAdvancedOpen: false,
     rightPanelOpen: false,
     sideNavCollapsed: false,
     drilldownMetric: null,
     collapsedPanels: {},
     focusedPanelId: null,
+    focusMode: false,
+    drawerByView: {},
+    activeDrawerEntityByView: {},
+    routeHistory: [],
     toasts: [],
     announcement: '',
     setActiveView: (view) =>
       set((state) => {
+        if (state.activeView !== view) {
+          const activeDrawer = currentDrawerForState(state, state.activeView);
+          const activeEntity = activeEntityForState(state, state.activeView);
+          pushRouteEntry(state, {
+            view: state.activeView,
+            entityType: activeEntity.entityType,
+            entityId: activeEntity.entityId,
+            drawerState: activeDrawer.state,
+            activeTab: activeDrawer.activeTab
+          });
+        }
         state.activeView = view;
         state.focusedPanelId = null;
+        state.focusMode = false;
         state.activeQuickLaunch = launchForView(view) ?? state.activeQuickLaunch ?? 'sale';
         state.announcement = `Opened ${view}.`;
       }),
@@ -76,10 +108,21 @@ export const useUiStore = create<UiState>()(
     setSelectedRows: (view, rows) =>
       set((state) => {
         state.selectedRows[view] = rows;
+        const entity = rows[0] ? inferDrawerEntity(view, rows[0]) : { entityType: 'queue', entityId: null };
+        state.activeDrawerEntityByView[view] = entity;
+        const key = drawerStorageKey(view, entity);
+        state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
+        if (rows.length && state.drawerByView[key].state === 'closed') state.drawerByView[key].state = 'peek';
       }),
     setCommandPaletteOpen: (open) =>
       set((state) => {
         state.commandPaletteOpen = open;
+        if (!open) state.commandPaletteAdvancedOpen = false;
+      }),
+    setCommandPaletteAdvancedOpen: (open) =>
+      set((state) => {
+        state.commandPaletteAdvancedOpen = open;
+        state.commandPaletteOpen = open || state.commandPaletteOpen;
       }),
     toggleSideNav: () =>
       set((state) => {
@@ -98,7 +141,85 @@ export const useUiStore = create<UiState>()(
     setFocusedPanel: (panelId) =>
       set((state) => {
         state.focusedPanelId = panelId;
+        state.focusMode = Boolean(panelId);
         state.announcement = panelId ? 'Panel expanded for focus.' : 'Workspace restored.';
+      }),
+    setFocusMode: (focused) =>
+      set((state) => {
+        state.focusMode = focused;
+        if (!focused) state.focusedPanelId = null;
+        state.announcement = focused ? 'Focus mode on.' : 'Focus mode off.';
+      }),
+    toggleFocusMode: () =>
+      set((state) => {
+        const focused = !(state.focusMode || state.focusedPanelId);
+        state.focusMode = focused;
+        if (!focused) state.focusedPanelId = null;
+        state.announcement = focused ? 'Focus mode on.' : 'Focus mode off.';
+      }),
+    setDrawerEntity: (view, entityType, entityId = null) =>
+      set((state) => {
+        const entity = { entityType, entityId };
+        state.activeDrawerEntityByView[view] = entity;
+        const key = drawerStorageKey(view, entity);
+        state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entityType));
+      }),
+    setDrawerState: (view, stateName) =>
+      set((state) => {
+        const entity = activeEntityForState(state, view);
+        const key = drawerStorageKey(view, entity);
+        state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
+        state.drawerByView[key].state = stateName;
+        state.announcement = stateName === 'closed' ? 'Context drawer closed.' : `Context drawer ${stateName}.`;
+      }),
+    setDrawerTab: (view, tab) =>
+      set((state) => {
+        const entity = activeEntityForState(state, view);
+        const key = drawerStorageKey(view, entity);
+        state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
+        state.drawerByView[key].activeTab = tab;
+        if (state.drawerByView[key].state === 'closed') state.drawerByView[key].state = 'peek';
+        state.announcement = `Opened ${tab} drawer tab.`;
+      }),
+    toggleDrawer: (view) =>
+      set((state) => {
+        const entity = activeEntityForState(state, view);
+        const key = drawerStorageKey(view, entity);
+        state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
+        const current = state.drawerByView[key].state;
+        state.drawerByView[key].state = current === 'closed' ? 'peek' : current === 'peek' ? 'standard' : 'closed';
+        state.announcement = state.drawerByView[key].state === 'closed' ? 'Context drawer closed.' : `Context drawer ${state.drawerByView[key].state}.`;
+      }),
+    cycleDrawer: (view) =>
+      set((state) => {
+        const entity = activeEntityForState(state, view);
+        const key = drawerStorageKey(view, entity);
+        state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
+        const current = state.drawerByView[key].state;
+        state.drawerByView[key].state = current === 'standard' ? 'wide' : current === 'wide' ? 'focus' : 'standard';
+        state.announcement = `Context drawer ${state.drawerByView[key].state}.`;
+      }),
+    pushRouteHistory: (entry) =>
+      set((state) => {
+        pushRouteEntry(state, entry);
+      }),
+    goBackRouteHistory: () =>
+      set((state) => {
+        const entry = state.routeHistory.pop();
+        if (!entry) {
+          state.announcement = 'No previous workspace.';
+          return;
+        }
+        state.activeView = entry.view;
+        const entity = { entityType: entry.entityType, entityId: entry.entityId };
+        state.activeDrawerEntityByView[entry.view] = entity;
+        state.drawerByView[drawerStorageKey(entry.view, entity)] = {
+          state: entry.drawerState,
+          activeTab: entry.activeTab
+        };
+        state.focusedPanelId = null;
+        state.focusMode = false;
+        state.announcement = `Returned to ${entry.view}.`;
       }),
     pushToast: (message, tone = 'info') =>
       set((state) => {
@@ -116,17 +237,90 @@ export const useUiStore = create<UiState>()(
     partialize: (state) => ({
       sideNavCollapsed: state.sideNavCollapsed,
       collapsedPanels: state.collapsedPanels,
-      activeQuickLaunch: state.activeQuickLaunch
+      activeQuickLaunch: state.activeQuickLaunch,
+      drawerByView: state.drawerByView,
+      activeDrawerEntityByView: state.activeDrawerEntityByView
     })
   }
   )
 );
 
+export function drawerStorageKey(view: ViewKey, entity: DrawerEntityRef) {
+  return entity.entityType === 'queue' || !entity.entityId ? `${view}:queue` : `${view}:${entity.entityType}:${entity.entityId}`;
+}
+
+export function defaultDrawerState(activeTab = 'profile'): DrawerState {
+  return { state: 'closed', activeTab };
+}
+
+export const queueDrawerEntity: DrawerEntityRef = { entityType: 'queue', entityId: null };
+
+export function defaultTabForEntity(entityType: string) {
+  const tabs: Record<string, string> = {
+    queue: 'definition',
+    customer: 'profile',
+    vendor: 'profile',
+    lot: 'movement',
+    order: 'lines',
+    po: 'lines',
+    vendorBill: 'due-reason',
+    payment: 'allocations',
+    pick: 'lines',
+    connector: 'session',
+    recovery: 'reversal',
+    closeout: 'control-totals',
+    report: 'definition'
+  };
+  return tabs[entityType] ?? 'profile';
+}
+
+export function activeEntityForState(state: Pick<UiState, 'activeDrawerEntityByView'>, view: ViewKey): DrawerEntityRef {
+  return state.activeDrawerEntityByView[view] ?? queueDrawerEntity;
+}
+
+export function storedDrawerForState(state: Pick<UiState, 'activeDrawerEntityByView' | 'drawerByView'>, view: ViewKey): DrawerState | undefined {
+  const entity = activeEntityForState(state, view);
+  return state.drawerByView[drawerStorageKey(view, entity)];
+}
+
+export function drawerStateNameForState(state: Pick<UiState, 'activeDrawerEntityByView' | 'drawerByView'>, view: ViewKey): DrawerStateName {
+  return storedDrawerForState(state, view)?.state ?? 'closed';
+}
+
+export function currentDrawerForState(state: Pick<UiState, 'activeDrawerEntityByView' | 'drawerByView'>, view: ViewKey): DrawerState {
+  const entity = activeEntityForState(state, view);
+  return state.drawerByView[drawerStorageKey(view, entity)] ?? defaultDrawerState(defaultTabForEntity(entity.entityType));
+}
+
 function launchForView(view: ViewKey): QuickLaunchMode | null {
+  if (view === 'reports') return null;
   if (view === 'purchaseOrders') return 'purchaseOrder';
   if (view === 'sales' || view === 'orders') return 'sale';
   if (view === 'intake' || view === 'inventory' || view === 'fulfillment') return 'receiving';
   if (view === 'payments' || view === 'clients') return 'moneyIn';
   if (view === 'vendors') return 'moneyOut';
   return null;
+}
+
+function inferDrawerEntity(view: ViewKey, row: GridRow): DrawerEntityRef {
+  if (view === 'sales' && row.customerId) return { entityType: 'customer', entityId: String(row.customerId) };
+  if (view === 'clients') return { entityType: 'customer', entityId: row.customerId ? String(row.customerId) : row.id };
+  if (view === 'vendors') return { entityType: 'vendorBill', entityId: row.id };
+  if (view === 'purchaseOrders') return { entityType: 'po', entityId: row.id };
+  if (view === 'intake' || view === 'inventory') return { entityType: 'lot', entityId: row.id };
+  if (view === 'orders') return { entityType: 'order', entityId: row.id };
+  if (view === 'payments') return { entityType: 'payment', entityId: row.id };
+  if (view === 'fulfillment') return { entityType: 'pick', entityId: row.id };
+  if (view === 'connectors') return { entityType: 'connector', entityId: row.id };
+  if (view === 'recovery') return { entityType: 'recovery', entityId: row.id };
+  if (view === 'closeout') return { entityType: 'closeout', entityId: row.id };
+  if (view === 'reports') return { entityType: 'report', entityId: row.id };
+  if (row.vendorId) return { entityType: 'vendor', entityId: String(row.vendorId) };
+  if (row.customerId) return { entityType: 'customer', entityId: String(row.customerId) };
+  return { entityType: 'queue', entityId: null };
+}
+
+function pushRouteEntry(state: UiState, entry: Omit<RouteHistoryEntry, 'timestamp'>) {
+  state.routeHistory.push({ ...entry, timestamp: Date.now() });
+  if (state.routeHistory.length > 20) state.routeHistory = state.routeHistory.slice(-20);
 }

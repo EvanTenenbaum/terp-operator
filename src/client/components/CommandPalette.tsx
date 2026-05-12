@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Play, Search, X } from 'lucide-react';
+import { Braces, Play, Search, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import { useCommandRunner } from './useCommandRunner';
@@ -8,11 +8,14 @@ import type { GridRow, ViewKey } from '../../shared/types';
 
 export function CommandPalette() {
   const open = useUiStore((state) => state.commandPaletteOpen);
+  const advancedOpen = useUiStore((state) => state.commandPaletteAdvancedOpen);
   const setOpen = useUiStore((state) => state.setCommandPaletteOpen);
+  const setAdvancedOpen = useUiStore((state) => state.setCommandPaletteAdvancedOpen);
   const selectedRows = useUiStore((state) => state.selectedRows);
   const activeView = useUiStore((state) => state.activeView);
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const [query, setQuery] = useState('');
   const [payloadText, setPayloadText] = useState('{}');
   const reference = trpc.queries.reference.useQuery(undefined, { enabled: open });
@@ -49,6 +52,7 @@ export function CommandPalette() {
     if (view) {
       setActiveView(view);
       setSelectedRows(view, [{ id: row.id } as GridRow]);
+      setDrawerEntity(view, String(row.type), row.id);
     }
     setOpen(false);
   }
@@ -72,7 +76,7 @@ export function CommandPalette() {
             <span className="sr-only">Close</span>
           </button>
         </div>
-        <div className="grid min-h-0 flex-1 grid-cols-[1.2fr_0.8fr] overflow-hidden">
+        <div className={advancedOpen ? 'grid min-h-0 flex-1 grid-cols-[1.2fr_0.8fr] overflow-hidden' : 'min-h-0 flex-1 overflow-hidden'}>
           <div className="overflow-y-auto p-2">
             {Object.entries(groups).map(([group, rows]) =>
               Array.isArray(rows) && rows.length ? (
@@ -109,7 +113,7 @@ export function CommandPalette() {
               <div className="px-3 py-8 text-center text-sm text-zinc-600">No commands or rows matched.</div>
             ) : null}
           </div>
-          <div className="border-l border-line bg-panel p-3">
+          {advancedOpen ? <div className="border-l border-line bg-panel p-3">
             <div className="text-xs font-semibold uppercase text-zinc-600">Context payload</div>
             <pre className="mt-2 max-h-24 overflow-auto bg-white p-2 text-xs">{JSON.stringify(contextPayload, null, 2)}</pre>
             <label className="mt-3 block text-xs font-semibold uppercase text-zinc-600" htmlFor="payload-json">
@@ -121,7 +125,14 @@ export function CommandPalette() {
               value={payloadText}
               onChange={(event) => setPayloadText(event.target.value)}
             />
-          </div>
+          </div> : null}
+        </div>
+        <div className="flex items-center justify-between border-t border-line bg-panel px-3 py-2 text-xs text-zinc-600">
+          <span>{selectedRows[activeView]?.length ? `${selectedRows[activeView]?.length} selected on ${activeView}` : activeView}</span>
+          <button type="button" className="text-button h-7 text-xs" onClick={() => setAdvancedOpen(!advancedOpen)}>
+            <Braces className="h-3.5 w-3.5" aria-hidden="true" />
+            Payload
+          </button>
         </div>
       </div>
     </div>
@@ -146,7 +157,8 @@ function viewForEntity(type: string): ViewKey | null {
 
 function safeDetail(value: unknown) {
   if (value == null) return '';
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? '' : 's'}`;
+  if (typeof value === 'object') return Object.entries(value as Record<string, unknown>).slice(0, 3).map(([key, entry]) => `${key}: ${String(entry ?? '-')}`).join(' / ');
   return String(value);
 }
 

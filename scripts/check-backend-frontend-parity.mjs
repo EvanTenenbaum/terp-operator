@@ -17,11 +17,15 @@ if (missingCommands.length || missingQueries.length) {
   process.exit(1);
 }
 
-console.log(`Backend/frontend parity OK: ${commandNames.length} commands and ${queryNames.length} query endpoints have frontend surfaces.`);
+console.log(`Backend/frontend parity OK: ${commandNames.length} surfaced commands and ${queryNames.length} query endpoints accounted for.`);
 
 function parseCommandNames(source) {
-  const block = source.match(/export const commandNames = \[([\s\S]*?)\] as const;/)?.[1];
-  if (!block) throw new Error('Unable to find commandNames block.');
+  return parseConstStringArray(source, 'commandNames');
+}
+
+function parseConstStringArray(source, name) {
+  const block = source.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\](?: as const| satisfies|;)`))?.[1];
+  if (!block) throw new Error(`Unable to find ${name} block.`);
   return [...block.matchAll(/'([^']+)'/g)].map((match) => match[1]);
 }
 

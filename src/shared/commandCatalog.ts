@@ -14,6 +14,9 @@ export const commandNames = [
   'receivePurchaseOrder',
   'cancelPurchaseOrder',
   'adjustBatchQuantity',
+  'setInventoryStatus',
+  'transferInventoryLocation',
+  'transferInventoryOwnership',
   'setBatchPrice',
   'setBatchLotInfo',
   'attachBatchPhoto',
@@ -59,6 +62,13 @@ export const commandNames = [
 
 export type CommandName = (typeof commandNames)[number];
 
+export type ReversalDisposition = 'reversible' | 'offsettable' | 'terminal';
+
+export interface ReversalPolicy {
+  disposition: ReversalDisposition;
+  guidance: string;
+}
+
 export const commandLabels: Record<CommandName, string> = {
   createBatch: 'Create batch',
   updateBatch: 'Update batch',
@@ -73,6 +83,9 @@ export const commandLabels: Record<CommandName, string> = {
   receivePurchaseOrder: 'Receive purchase order to intake',
   cancelPurchaseOrder: 'Cancel purchase order',
   adjustBatchQuantity: 'Adjust batch quantity',
+  setInventoryStatus: 'Set inventory status',
+  transferInventoryLocation: 'Transfer inventory location',
+  transferInventoryOwnership: 'Transfer inventory ownership',
   setBatchPrice: 'Set batch price',
   setBatchLotInfo: 'Set lot info',
   attachBatchPhoto: 'Attach batch photo',
@@ -130,6 +143,9 @@ export const commandMinRole: Record<CommandName, Role> = {
   receivePurchaseOrder: 'operator',
   cancelPurchaseOrder: 'manager',
   adjustBatchQuantity: 'manager',
+  setInventoryStatus: 'manager',
+  transferInventoryLocation: 'operator',
+  transferInventoryOwnership: 'manager',
   setBatchPrice: 'operator',
   setBatchLotInfo: 'operator',
   attachBatchPhoto: 'operator',
@@ -173,17 +189,66 @@ export const commandMinRole: Record<CommandName, Role> = {
   archivePeriod: 'owner'
 };
 
-export const reversibleCommands = new Set<CommandName>([
-  'postPurchaseReceipt',
-  'approvePurchaseOrder',
-  'receivePurchaseOrder',
-  'postSalesOrder',
-  'logPayment',
-  'allocatePayment',
-  'createVendorBill',
-  'recordVendorPayment',
-  'markOrderFulfilled',
-  'approveConnectorRequest',
-  'routeConnectorRequest',
-  'postPeriodAdjustments'
-]);
+export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
+  createBatch: { disposition: 'terminal', guidance: 'Draft batches are deleted or edited directly before posting.' },
+  updateBatch: { disposition: 'terminal', guidance: 'Use another update command with the intended field values.' },
+  deleteBatch: { disposition: 'terminal', guidance: 'Deleted drafts are not reconstructed by command reversal.' },
+  postPurchaseReceipt: { disposition: 'reversible', guidance: 'Marks posted intake, receipt, and generated vendor bills as reversed.' },
+  createPurchaseOrder: { disposition: 'terminal', guidance: 'Cancel or edit the draft purchase order instead.' },
+  updatePurchaseOrder: { disposition: 'terminal', guidance: 'Use another purchase order update with the intended field values.' },
+  addPurchaseOrderLine: { disposition: 'terminal', guidance: 'Remove the unreceived purchase order line instead.' },
+  updatePurchaseOrderLine: { disposition: 'terminal', guidance: 'Use another line update with the intended field values.' },
+  removePurchaseOrderLine: { disposition: 'terminal', guidance: 'Removed unreceived lines are not reconstructed by command reversal.' },
+  approvePurchaseOrder: { disposition: 'reversible', guidance: 'Returns the purchase order to draft/planned state when no receipt depends on it.' },
+  receivePurchaseOrder: { disposition: 'reversible', guidance: 'Reverses unposted draft intake rows and restores the purchase order to approved.' },
+  cancelPurchaseOrder: { disposition: 'terminal', guidance: 'Cancelled purchase orders require a new order or explicit correction.' },
+  adjustBatchQuantity: { disposition: 'offsettable', guidance: 'Post an equal opposite quantity adjustment with a reason.' },
+  setInventoryStatus: { disposition: 'reversible', guidance: 'Restores the prior batch status from the command snapshot.' },
+  transferInventoryLocation: { disposition: 'reversible', guidance: 'Restores the prior batch location from the command snapshot.' },
+  transferInventoryOwnership: { disposition: 'reversible', guidance: 'Restores the prior batch ownership/vendor fields from the command snapshot.' },
+  setBatchPrice: { disposition: 'terminal', guidance: 'Use another price update or reprice the order before confirmation.' },
+  setBatchLotInfo: { disposition: 'terminal', guidance: 'Use another lot-info update with the intended field values.' },
+  attachBatchPhoto: { disposition: 'terminal', guidance: 'Replace or clear media through an explicit media correction.' },
+  importBatchesCsv: { disposition: 'terminal', guidance: 'Imported drafts should be deleted or corrected row by row before posting.' },
+  createSalesOrder: { disposition: 'terminal', guidance: 'Cancel or edit the draft order instead.' },
+  addSalesOrderLine: { disposition: 'terminal', guidance: 'Remove the order line before posting.' },
+  updateSalesOrderLine: { disposition: 'terminal', guidance: 'Use another line update with the intended field values.' },
+  removeSalesOrderLine: { disposition: 'terminal', guidance: 'Removed draft lines are not reconstructed by command reversal.' },
+  reserveInventoryForOrder: { disposition: 'offsettable', guidance: 'Cancel the sales order or manually release reservations through order correction.' },
+  priceSalesOrder: { disposition: 'offsettable', guidance: 'Run repriceOrder or update line pricing with the intended strategy.' },
+  confirmSalesOrder: { disposition: 'offsettable', guidance: 'Cancel or reprice the confirmed order before posting.' },
+  cancelSalesOrder: { disposition: 'terminal', guidance: 'Cancelled orders require a new order or correction journal.' },
+  postSalesOrder: { disposition: 'reversible', guidance: 'Restores inventory, reverses generated invoice impact, and marks the order reversed.' },
+  allocateOrderToFulfillment: { disposition: 'terminal', guidance: 'Use fulfillment line/order controls before fulfillment is completed.' },
+  applyClientCredit: { disposition: 'offsettable', guidance: 'Post an offsetting client ledger correction.' },
+  setDeliveryWindow: { disposition: 'terminal', guidance: 'Set a new delivery window.' },
+  logPayment: { disposition: 'reversible', guidance: 'Reverses unapplied payment logs and buyer-credit balance impact.' },
+  allocatePayment: { disposition: 'reversible', guidance: 'Deletes payment allocations and restores invoice/payment/customer balances.' },
+  unallocatePayment: { disposition: 'terminal', guidance: 'Re-allocate the payment if this was accidental.' },
+  refundPayment: { disposition: 'terminal', guidance: 'Refunds are terminal money movement records; use a correction entry for mistakes.' },
+  applyEarlyPayDiscount: { disposition: 'offsettable', guidance: 'Use a correction journal or invoice adjustment to offset the discount.' },
+  createVendorBill: { disposition: 'reversible', guidance: 'Marks generated vendor bill rows reversed.' },
+  approveVendorBill: { disposition: 'offsettable', guidance: 'Update or void the vendor bill status through payable controls.' },
+  scheduleVendorPayment: { disposition: 'offsettable', guidance: 'Reschedule the vendor bill or void the scheduled event.' },
+  recordVendorPayment: { disposition: 'reversible', guidance: 'Voids the vendor payment and restores payable amount paid.' },
+  voidVendorPayment: { disposition: 'terminal', guidance: 'Record a new vendor payment if the void was accidental.' },
+  createPickList: { disposition: 'terminal', guidance: 'Adjust fulfillment allocation before packing or create a correction.' },
+  recordWeighAndPack: { disposition: 'offsettable', guidance: 'Adjust the fulfillment line with corrected quantity/weight.' },
+  markOrderFulfilled: { disposition: 'reversible', guidance: 'Returns the pick/order to open/posted state when no later archive depends on it.' },
+  printLabels: { disposition: 'offsettable', guidance: 'Reprint labels or regenerate the manifest.' },
+  adjustFulfillmentLine: { disposition: 'offsettable', guidance: 'Apply another fulfillment line adjustment.' },
+  approveConnectorRequest: { disposition: 'reversible', guidance: 'Returns the connector request to open review.' },
+  rejectConnectorRequest: { disposition: 'terminal', guidance: 'Rejected connector requests stay terminal; create or route a new request.' },
+  routeConnectorRequest: { disposition: 'reversible', guidance: 'Returns the connector request to open review.' },
+  createCorrectionJournalEntry: { disposition: 'reversible', guidance: 'Marks correction journal rows reversed.' },
+  reverseCommandById: { disposition: 'terminal', guidance: 'Reversal commands are terminal audit records.' },
+  restoreFromBackupPoint: { disposition: 'terminal', guidance: 'Restore preview is read-only and has no mutation to reverse.' },
+  repriceOrder: { disposition: 'offsettable', guidance: 'Run repriceOrder again with the intended strategy.' },
+  postPeriodAdjustments: { disposition: 'reversible', guidance: 'Marks posted correction journal rows reversed.' },
+  lockPeriod: { disposition: 'terminal', guidance: 'Period locks are terminal closeout controls.' },
+  archivePeriod: { disposition: 'terminal', guidance: 'Archive runs are terminal; restore is offline/read-only in app.' }
+};
+
+export const reversibleCommands = new Set<CommandName>(
+  commandNames.filter((name) => reversalPolicies[name].disposition === 'reversible')
+);

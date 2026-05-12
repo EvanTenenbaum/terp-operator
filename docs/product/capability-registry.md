@@ -34,14 +34,14 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CAP-010 Reversal preview | J09, AC-08 | Recover/Close | control | Keep | R4 | `reversalPreview` and `reverseCommandById` exist. | Keep manager+ gated; expose through row history and Recovery drawer. |
 | CAP-011 Vendor receipt from selection | MR-012, AC-05, GAP-010 | Receive | projection, control | Keep | R10, R12 | `receiptPreview` and `postPurchaseReceipt` exist. | Phase 2 makes Receipt preview a drawer tab and blocks conflicts visibly. |
 | CAP-012 Customer-safe output | MR-041, S10 | Sell, Support | projection | Keep | R10 | Catalog mode hides cost/margin. | Phase 1 moves output into Customer/Order drawer and adds copy offer. |
-| CAP-013 Pricing risk visibility | MR-042, pricing contract | Sell | context, control | Keep | R2, R4 | Simple pricing exists; full guardrail contract not implemented. | Backend Phase B adds pricing profiles/guardrails/snapshots; frontend Phase 1 warning-only until backend lands. |
+| CAP-013 Pricing risk visibility | MR-042, pricing contract | Sell | context, control | Keep | R2, R4 | Bounded backend guardrails now resolve standard/premium/clearance profiles from existing strategy/customer tags, lift reprices to floor, and store confirmation pricing snapshots in command journal results. Dedicated pricing tables/snapshot columns remain deferred. | Add dedicated pricing profile tables and customer assignments when frontend needs editable commercial policy management. |
 | CAP-014 Tag governance | Tag contract, J11 | Sell, Receive, Decide | control, projection | Keep | R2, R9 | Tags are arrays, not governed catalog. | Backend Phase B adds tag catalog/batch tags; frontend uses Finder chips and drawer tab. |
 | CAP-015 Search index / global search | Search contract, J14 | Support | projection | Merge | R9, R12 | `globalSearch` exists as direct SQL query. | Keep query short-term; later add freshness metadata or generated projection if needed. |
 | CAP-016 Smart suggestions | Smart suggestions contract, J13 | Sell | projection | Keep | R9 | `salesSuggestions` query exists but not persisted/advisory table. | Later backend converts to persisted advisory rows with accept/dismiss trace. |
 | CAP-017 Connector review | J08, AC-11 | Support, Sell, Fulfill, Collect/Pay | core_workflow | Keep | R16, R4 | Approve/reject/route commands exist; no direct ledger mutation. | Phase 4 makes Route primary, safety banner persistent, history drawer first-class. |
 | CAP-018 Connector posting bridge | Live/mobile contracts | Support | control | Defer | R16 | No `postAcceptedConnectorRequest` command. | Backend Phase C after review UX stabilizes. |
-| CAP-019 Inventory status/location/ownership transfer | GAP-001, GAP-002, GAP-003 | Receive, Fulfill | control | Keep | R4, R12 | Location exists; transfer commands absent. | Backend Phase B adds status/location/ownership transitions and movement history. |
-| CAP-020 Archive safety gates | J10, GAP-025 | Recover/Close | control | Keep | R4 | Preview blocks POs; archive command currently thinner. | Backend Phase A aligns archive command with preview blockers. |
+| CAP-019 Inventory status/location/ownership transfer | GAP-001, GAP-002, GAP-003 | Receive, Fulfill | control | Keep | R4, R12 | Inventory view now surfaces status, location, and ownership movement controls; backend writes movement rows and reversible command snapshots. | Keep controls selected-row scoped; later move the same controls into the Inventory drawer tab if the drawer becomes the dominant operator surface. |
+| CAP-020 Archive safety gates | J10, GAP-025 | Recover/Close | control | Keep | R4 | `closeoutPreview` and `archivePeriod` share the same blocker/control-total helper, including POs, connectors, fulfillment, failed commands, drafts, receipts, invoices, payments, vendor bills, and command totals. | Keep parity audited by command-contract coverage; add unsafe row drilldown in Phase 5. |
 | CAP-021 Reports lane | Design OPEN-03, AC-12 | Decide | projection | Keep | R7 | Design mandates Reports as 14th route. | Phase 6 adds Reports route with 7 client-side aggregations. |
 | CAP-022 Dual-role relationship | JY-07, AC-14 | Support, Collect/Pay, Sell | context | Keep | R1, R12 | Relationship summary exists; separate client/vendor surfaces remain. | Phase 4 promotes relationship tab for dual-role counterparties. |
 | CAP-023 Photography/media readiness | JY-17 | Receive, Sell | context | Keep | R2, R9 | Media fields/queue exist. | Phase 2/4 keep media columns and drawer tabs; no top-level route. |
@@ -55,7 +55,7 @@ Every backend command, frontend surface, conceptual requirement, and future road
 
 | ID | Commands | Work loop | Exposure | Product decision | Next product move |
 | --- | --- | --- | --- | --- | --- |
-| CMD-INTAKE | `createBatch`, `updateBatch`, `deleteBatch`, `postPurchaseReceipt`, `adjustBatchQuantity`, `setBatchPrice`, `setBatchLotInfo`, `attachBatchPhoto`, `importBatchesCsv` | Receive | core_workflow, control | Already covered | Route status-aware actions through Intake strip/drawer. |
+| CMD-INTAKE | `createBatch`, `updateBatch`, `deleteBatch`, `postPurchaseReceipt`, `adjustBatchQuantity`, `setInventoryStatus`, `transferInventoryLocation`, `transferInventoryOwnership`, `setBatchPrice`, `setBatchLotInfo`, `attachBatchPhoto`, `importBatchesCsv` | Receive | core_workflow, control | Already covered | Intake and Inventory surfaces expose draft edits, quantity/price/lot/media edits, validate-first CSV import, purchase receipt posting, and selected-batch status/location/ownership movements. |
 | CMD-PO | `createPurchaseOrder`, `updatePurchaseOrder`, `addPurchaseOrderLine`, `updatePurchaseOrderLine`, `removePurchaseOrderLine`, `approvePurchaseOrder`, `receivePurchaseOrder`, `cancelPurchaseOrder` | Buy, Receive | core_workflow | Already covered | Phase 2 improves placement; later partial quantity receiving. |
 | CMD-SALES | `createSalesOrder`, `addSalesOrderLine`, `updateSalesOrderLine`, `removeSalesOrderLine`, `reserveInventoryForOrder`, `priceSalesOrder`, `confirmSalesOrder`, `cancelSalesOrder` | Sell | core_workflow | Already covered | Phase 1 re-homes into customer workspace and status primary. |
 | CMD-POSTING | `postSalesOrder`, `allocateOrderToFulfillment`, `applyClientCredit`, `setDeliveryWindow` | Sell, Fulfill | core_workflow, control | Already covered | Add pre-post checklist and row-native failure context. |
@@ -63,8 +63,8 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CMD-VENDOR | `createVendorBill`, `approveVendorBill`, `scheduleVendorPayment`, `recordVendorPayment`, `voidVendorPayment` | Collect/Pay | core_workflow, control | Already covered | Phase 3 status-aware payable flow. |
 | CMD-FULFILLMENT | `createPickList`, `recordWeighAndPack`, `markOrderFulfilled`, `printLabels`, `adjustFulfillmentLine` | Fulfill | core_workflow | Already covered | Phase 4 inline pack and manifest drawer. |
 | CMD-CONNECTOR | `approveConnectorRequest`, `rejectConnectorRequest`, `routeConnectorRequest` | Support | core_workflow | Partial | Add accepted-to-posted backend bridge later; keep routing as current primary. |
-| CMD-RECOVERY | `createCorrectionJournalEntry`, `reverseCommandById`, `restoreFromBackupPoint`, `repriceOrder` | Recover/Close | control | Already covered | Phase 5 drawer tools and row-origin history. |
-| CMD-CLOSEOUT | `postPeriodAdjustments`, `lockPeriod`, `archivePeriod` | Recover/Close | control | Partial | Harden archive blockers and control totals. |
+| CMD-RECOVERY | `createCorrectionJournalEntry`, `reverseCommandById`, `restoreFromBackupPoint`, `repriceOrder` | Recover/Close | control | Already covered | Reversal matrix now marks every command reversible, offsettable, or terminal; Phase 5 drawer tools expose the guidance. |
+| CMD-CLOSEOUT | `postPeriodAdjustments`, `lockPeriod`, `archivePeriod` | Recover/Close | control | Partial | Archive blockers/control totals are hardened; unsafe row drilldown remains frontend Phase 5. |
 
 ## Explicitly Rejected Old-Platform Units
 
@@ -81,16 +81,16 @@ Every backend command, frontend surface, conceptual requirement, and future road
 
 | ID | Source | Work loop | Exposure | Product decision | Next product move |
 | --- | --- | --- | --- | --- | --- |
-| BE-001 Pricing profiles and guardrails | Pricing contract | Sell | control, context | Keep | Add profile tables, resolver, guardrails, snapshot fields, tests. |
+| BE-001 Pricing profiles and guardrails | Pricing contract | Sell | control, context | Partial | Bounded existing-schema kernel landed: resolver, min-margin/max-discount/vendor-floor guardrails, and command-journal confirmation snapshots. Dedicated pricing profile tables, customer assignment rows, and order snapshot columns remain. |
 | BE-002 Governed tag catalog | Tag contract | Sell, Receive | control, projection | Keep | Add tag catalog, batch tags, reversible apply/remove tags. |
-| BE-003 Inventory state transitions | GAP-001/002/003 | Receive, Fulfill | control | Keep | Add inventory status/location/ownership transfer commands. |
+| BE-003 Inventory state transitions | GAP-001/002/003 | Receive, Fulfill | control | Already covered | `setInventoryStatus`, `transferInventoryLocation`, and `transferInventoryOwnership` are visible in Inventory controls and backed by movement rows plus reversal support. |
 | BE-004 Connector accepted-to-posted bridge | J08/J14/S05/S15 | Support | control | Defer | Add after connector review UX is stabilized. |
-| BE-005 Closeout blocker parity | J10/S07/S16 | Recover/Close | control | Keep | Make archive command enforce same blockers as preview. |
+| BE-005 Closeout blocker parity | J10/S07/S16 | Recover/Close | control | Already covered | Shared closeout safety helper makes preview and archive enforce the same blockers and control totals. |
 | BE-006 Persisted suggestions | Smart suggestions contract | Sell | projection | Defer | Convert query suggestions to persisted advisory table with accept/dismiss trace. |
 | BE-007 Search freshness | Search contract | Support | projection | Defer | Add freshness timestamp/index only if direct globalSearch becomes stale/slow. |
 | BE-008 Explicit backup commands | Backup workflows | Recover/Close | control | Defer | Current preview/support packet is acceptable; typed backup commands later if owners use them daily. |
 | BE-009 Partial PO quantity receiving | PO edge cases | Buy, Receive | core_workflow | Keep | Add simple receive-quantity column/action without modal. |
-| BE-010 Reversal completeness matrix | Mistake recovery | Recover/Close | control | Keep | Document every posted command as reversible, offsettable, or intentionally terminal. |
+| BE-010 Reversal completeness matrix | Mistake recovery | Recover/Close | control | Already covered | `reversalPolicies` documents every command as reversible, offsettable, or terminal; `reverseCommandById` now refuses unsupported reversal instead of silently marking unknown commands reversed. |
 
 ## Replication Playbook Requirement
 

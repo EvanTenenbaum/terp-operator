@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { trpc } from '../api/trpc';
 import type { GridRow } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
+import { WorkspacePanel } from './WorkspacePanel';
 
 export function PhotographyQueuePanel() {
   const inventory = trpc.queries.grid.useQuery({ view: 'inventory' });
@@ -24,17 +25,18 @@ export function PhotographyQueuePanel() {
   }
 
   return (
-    <section className="inline-panel">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="section-title">Photography Queue</h2>
-          <p className="mt-1 text-xs text-zinc-600">Media readiness for catalog-safe sales output. Finder rows warn when catalog media is not ready.</p>
-        </div>
+    <WorkspacePanel
+      panelId="inventory:photography-queue"
+      title="Photography Queue"
+      subtitle="Media readiness for catalog-safe sales output. Finder rows warn when catalog media is not ready."
+      contentClassName="p-3"
+      actions={
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="selection-pill success">{ready} ready</span>
           <span className="selection-pill warning">{open.length} needs media</span>
         </div>
-      </div>
+      }
+    >
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <label className="field-inline">
           Batch
@@ -84,6 +86,6 @@ export function PhotographyQueuePanel() {
           </table>
         </div>
       ) : null}
-    </section>
+    </WorkspacePanel>
   );
 }

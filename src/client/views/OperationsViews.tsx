@@ -1,4 +1,4 @@
-import { CalendarClock, Check, ClipboardList, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
+import { CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
@@ -190,7 +190,10 @@ export function PurchaseOrdersView() {
   const [unitCost, setUnitCost] = useState('0');
   const [unitPrice, setUnitPrice] = useState('0');
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
+  const [poTrayOpen, setPoTrayOpen] = useState(false);
+  const [lineTrayOpen, setLineTrayOpen] = useState(false);
   const defaultVendorId = vendorId || reference.data?.vendors[0]?.id || '';
+  const selectedPoStatus = String(selectedPo?.status ?? '');
 
   async function createPo() {
     const result = await runCommand('createPurchaseOrder', { vendorId: defaultVendorId, expectedDate: expectedDate || undefined }, 'Create purchase order from PO workspace');
@@ -227,6 +230,15 @@ export function PurchaseOrdersView() {
     await runCommand('updatePurchaseOrderLine', { lineId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline purchase order line edit: ${event.colDef.field}`);
   }
 
+  async function runPurchaseOrderPrimary() {
+    if (!selectedPo?.id) return;
+    if (['approved', 'ordered', 'partially_received'].includes(selectedPoStatus)) {
+      await runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Receive selected purchase order to draft intake');
+      return;
+    }
+    await runCommand('approvePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Approve selected purchase order');
+  }
+
   return (
     <div className="view-stack">
       {canWrite ? (
@@ -251,6 +263,7 @@ export function PurchaseOrdersView() {
             New PO
           </button>
           <span className="selection-pill">PO first, receiving second, intake posting last.</span>
+          <span className="selection-pill warning">PO receiving only drafts intake rows.</span>
         </div>
       ) : null}
       <OperatorGrid
@@ -267,18 +280,31 @@ export function PurchaseOrdersView() {
         actions={
           canWrite ? (
             <>
-              <button className="secondary-button" disabled={!selected.length || isRunning} onClick={() => runCommand('approvePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Approve selected purchase order')} type="button">
-                <Check className="h-4 w-4" aria-hidden="true" />
-                Approve
+              <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
+                {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
+                {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
-              <button className="primary-button" disabled={!selected.length || isRunning} onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Receive selected purchase order to intake')} type="button">
-                <PackagePlus className="h-4 w-4" aria-hidden="true" />
-                Receive to Intake
+              <span className="selection-pill">{selectedPo ? `${String(selectedPo.poNo ?? 'PO')} / ${selectedPoStatus || 'draft'}` : 'Select PO'}</span>
+              <button className="secondary-button compact-action" disabled={!selected.length} onClick={() => setPoTrayOpen((value) => !value)} aria-expanded={poTrayOpen} type="button">
+                {poTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+                PO tray
               </button>
-              <button className="secondary-button" disabled={!selected.length || isRunning} onClick={() => runCommand('cancelPurchaseOrder', { purchaseOrderId: selected[0].id }, 'Cancel selected purchase order')} type="button">
-                <Undo2 className="h-4 w-4" aria-hidden="true" />
-                Cancel
-              </button>
+              {poTrayOpen ? (
+                <>
+                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning || selectedPoStatus === 'approved'} onClick={() => runCommand('approvePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Approve selected purchase order')} type="button">
+                    <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                    Approve
+                  </button>
+                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning} onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Receive selected purchase order to draft intake')} type="button">
+                    <PackagePlus className="h-4 w-4" aria-hidden="true" />
+                    Draft intake
+                  </button>
+                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning} onClick={() => runCommand('cancelPurchaseOrder', { purchaseOrderId: selected[0].id }, 'Cancel selected purchase order')} type="button">
+                    <Undo2 className="h-4 w-4" aria-hidden="true" />
+                    Cancel
+                  </button>
+                </>
+              ) : null}
             </>
           ) : null
         }
@@ -329,23 +355,33 @@ export function PurchaseOrdersView() {
               canWrite ? (
                 <>
                   <button
-                    className="secondary-button"
+                    className="primary-button"
                     disabled={!selectedLines.length || isRunning}
                     onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo.id, lineIds: selectedLines.map((line) => line.id) }, 'Receive selected PO lines to intake')}
                     type="button"
                   >
                     <PackagePlus className="h-4 w-4" aria-hidden="true" />
-                    Receive Lines
+                    Draft selected lines
                   </button>
                   <button
-                    className="secondary-button"
+                    className="secondary-button compact-action"
+                    disabled={!selectedLines.length}
+                    onClick={() => setLineTrayOpen((value) => !value)}
+                    type="button"
+                    aria-expanded={lineTrayOpen}
+                  >
+                    {lineTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+                    Line tray
+                  </button>
+                  {lineTrayOpen ? <button
+                    className="secondary-button compact-action"
                     disabled={!selectedLines.length || isRunning}
                     onClick={() => runCommand('removePurchaseOrderLine', { lineId: selectedLines[0].id }, 'Remove selected purchase order line')}
                     type="button"
                   >
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
                     Remove Line
-                  </button>
+                  </button> : null}
                 </>
               ) : null
             }
@@ -354,6 +390,17 @@ export function PurchaseOrdersView() {
       ) : null}
     </div>
   );
+}
+
+function purchaseOrderPrimaryLabel(status: string) {
+  if (['approved', 'ordered', 'partially_received'].includes(status)) return 'Draft intake';
+  if (status === 'received') return 'Received';
+  if (status === 'cancelled') return 'Cancelled';
+  return 'Approve';
+}
+
+function purchaseOrderPrimaryDisabled(status: string) {
+  return ['received', 'cancelled'].includes(status);
 }
 
 export function OrdersView() {
@@ -480,16 +527,54 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
           Early discount
         </button>
       </div>
+      <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
+        <span className="selection-pill">Selected {selectedPayment ? String(selectedPayment.reference ?? selectedPayment.id) : 'none'}</span>
+        <span className="selection-pill">Unapplied ${moneyish(selectedPayment?.unappliedAmount)}</span>
+        <span className="selection-pill success">{String(selectedPayment?.allocationIntent ?? 'fifo')} allocation path</span>
+      </div>
+      {allocations.data?.length ? (
+        <div className="finder-table-wrap max-h-48">
+          <table className="finder-table">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Amount</th>
+                <th>Created</th>
+                <th>Trace</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allocations.data.map((row) => (
+                <tr key={String(row.id)}>
+                  <td>{String(row.invoiceNo ?? row.invoiceId ?? 'Invoice')}</td>
+                  <td>${moneyish(row.amount)}</td>
+                  <td>{dateish(row.createdAt)}</td>
+                  <td>{String(selectedPayment?.reference ?? selectedPayment?.method ?? 'Payment row')} -&gt; {String(row.invoiceNo ?? 'invoice')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </section>
   );
 }
 
 export function InventoryView() {
+  const selectedRows = useUiStore((state) => state.selectedRows.inventory);
+  const selectedBatch = selectedRows?.[0];
+  const reference = trpc.queries.reference.useQuery();
+
   return (
     <GridJourney
       view="inventory"
       title="Inventory Batches"
-      prelude={() => <PhotographyQueuePanel />}
+      prelude={(runCommand) => (
+        <>
+          <PhotographyQueuePanel />
+          <InventoryMovementTools selectedBatch={selectedBatch} vendors={reference.data?.vendors ?? []} runCommand={runCommand} />
+        </>
+      )}
       onCellCommit={(event, runCommand) => {
         if (event.colDef.field === 'unitPrice') runCommand('setBatchPrice', { batchId: event.data?.id, unitPrice: event.newValue }, 'Inline inventory price edit');
         if (event.colDef.field === 'availableQty') {
@@ -510,6 +595,98 @@ export function InventoryView() {
   );
 }
 
+function InventoryMovementTools({
+  selectedBatch,
+  vendors,
+  runCommand
+}: {
+  selectedBatch?: GridRow;
+  vendors: Array<{ id: string; name: string }>;
+  runCommand: ReturnType<typeof useCommandRunner>['runCommand'];
+}) {
+  const [status, setStatus] = useState('held');
+  const [location, setLocation] = useState('');
+  const [ownershipStatus, setOwnershipStatus] = useState('OFC');
+  const [vendorId, setVendorId] = useState('');
+  const [reason, setReason] = useState('Operator inventory correction');
+  const batchId = selectedBatch?.id;
+  const selectedLabel = selectedBatch ? `${String(selectedBatch.batchCode ?? selectedBatch.name ?? 'Batch')} / ${String(selectedBatch.status ?? 'status')}` : 'Select inventory row';
+  const consignedVendorId = vendorId || String(selectedBatch?.vendorId ?? '');
+
+  return (
+    <section className="inline-panel">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="section-title">Inventory controls</h2>
+          <p className="text-xs text-zinc-600">Move status, location, or ownership from the selected batch. Each action writes a movement row and can be reversed from Recovery.</p>
+        </div>
+        <span className="selection-pill">{selectedLabel}</span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <label className="field-inline">
+          Status
+          <select className="select compact" value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="posted">Available</option>
+            <option value="held">Held</option>
+            <option value="damaged">Damaged</option>
+            <option value="returned">Returned</option>
+            <option value="in_transit">In transit</option>
+          </select>
+        </label>
+        <button className="secondary-button compact-action" type="button" disabled={!batchId || !reason.trim()} onClick={() => runCommand('setInventoryStatus', { batchId, status }, reason || `Set inventory status to ${status}`)}>
+          <PackageCheck className="h-4 w-4" aria-hidden="true" />
+          Set status
+        </button>
+        <label className="field-inline">
+          Location
+          <input className="input compact" value={location} placeholder={String(selectedBatch?.location ?? 'Warehouse A')} onChange={(event) => setLocation(event.target.value)} />
+        </label>
+        <button className="secondary-button compact-action" type="button" disabled={!batchId || !location.trim() || !reason.trim()} onClick={() => runCommand('transferInventoryLocation', { batchId, location: location.trim() }, reason || `Move inventory to ${location}`)}>
+          <Truck className="h-4 w-4" aria-hidden="true" />
+          Move location
+        </button>
+        <label className="field-inline">
+          Owner
+          <select className="select compact" value={ownershipStatus} onChange={(event) => setOwnershipStatus(event.target.value)}>
+            <option value="OFC">Office</option>
+            <option value="C">Consigned</option>
+            <option value="UNKNOWN">Unknown</option>
+          </select>
+        </label>
+        {ownershipStatus === 'C' ? (
+          <select className="select compact" aria-label="Consignment vendor" value={consignedVendorId} onChange={(event) => setVendorId(event.target.value)}>
+            <option value="">Vendor</option>
+            {vendors.map((vendor) => (
+              <option key={vendor.id} value={vendor.id}>
+                {vendor.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <button
+          className="secondary-button compact-action"
+          type="button"
+          disabled={!batchId || !reason.trim() || (ownershipStatus === 'C' && !consignedVendorId)}
+          onClick={() =>
+            runCommand(
+              'transferInventoryOwnership',
+              { batchId, ownershipStatus, vendorId: ownershipStatus === 'C' ? consignedVendorId : undefined },
+              reason || `Move inventory ownership to ${ownershipStatus}`
+            )
+          }
+        >
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          Move ownership
+        </button>
+        <label className="field-inline grow">
+          Reason
+          <input className="input" value={reason} onChange={(event) => setReason(event.target.value)} />
+        </label>
+      </div>
+    </section>
+  );
+}
+
 export function ClientLedgerView() {
   return <GridJourney view="clients" title="Client Ledger and Credit" />;
 }
@@ -517,6 +694,7 @@ export function ClientLedgerView() {
 export function VendorPayablesView() {
   const selectedRows = useUiStore((state) => state.selectedRows.vendors);
   const selectedBill = selectedRows?.[0];
+  const [payoutTrayOpen, setPayoutTrayOpen] = useState(false);
   return (
     <GridJourney
       view="vendors"
@@ -524,22 +702,66 @@ export function VendorPayablesView() {
       prelude={() => <VendorBillTools selectedBill={selectedBill} />}
       actions={(rows, runCommand) => (
         <>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('approveVendorBill', { vendorBillId: rows[0].id }, 'Approve vendor bill')} type="button">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            Approve
+          <button className="primary-button" disabled={!rows.length || vendorPrimaryDisabled(String(rows[0]?.status ?? ''))} onClick={() => runVendorPrimary(rows[0], runCommand)} type="button">
+            {vendorPrimaryIcon(String(rows[0]?.status ?? ''))}
+            {vendorPrimaryLabel(String(rows[0]?.status ?? ''))}
           </button>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('scheduleVendorPayment', { vendorBillId: rows[0].id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment')} type="button">
-            <CalendarClock className="h-4 w-4" aria-hidden="true" />
-            Schedule
+          <span className="selection-pill">{rows[0] ? `${String(rows[0].billNo ?? 'Bill')} / ${String(rows[0].status ?? 'open')}` : 'Select bill'}</span>
+          <button className="secondary-button compact-action" disabled={!rows.length} onClick={() => setPayoutTrayOpen((value) => !value)} aria-expanded={payoutTrayOpen} type="button">
+            {payoutTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+            Payout tray
           </button>
-          <button className="primary-button" disabled={!rows.length || rows[0].status !== 'scheduled'} onClick={() => runCommand('recordVendorPayment', { vendorBillId: rows[0].id }, 'Record vendor payout')} type="button">
-            <Landmark className="h-4 w-4" aria-hidden="true" />
-            Pay
-          </button>
+          {payoutTrayOpen ? (
+            <>
+              <button className="secondary-button compact-action" disabled={!rows.length} onClick={() => runCommand('approveVendorBill', { vendorBillId: rows[0].id }, 'Approve vendor bill')} type="button">
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                Approve
+              </button>
+              <button className="secondary-button compact-action" disabled={!rows.length} onClick={() => runCommand('scheduleVendorPayment', { vendorBillId: rows[0].id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment')} type="button">
+                <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                Schedule
+              </button>
+              <button className="secondary-button compact-action" disabled={!rows.length || rows[0].status !== 'scheduled'} onClick={() => runCommand('recordVendorPayment', { vendorBillId: rows[0].id }, 'Record vendor payout')} type="button">
+                <Landmark className="h-4 w-4" aria-hidden="true" />
+                Pay
+              </button>
+            </>
+          ) : null}
         </>
       )}
     />
   );
+}
+
+function vendorPrimaryLabel(status: string) {
+  if (status === 'approved') return 'Schedule';
+  if (status === 'scheduled') return 'Pay';
+  if (status === 'paid') return 'Paid';
+  return 'Approve';
+}
+
+function vendorPrimaryDisabled(status: string) {
+  return status === 'paid' || status === 'void';
+}
+
+function vendorPrimaryIcon(status: string) {
+  if (status === 'approved') return <CalendarClock className="h-4 w-4" aria-hidden="true" />;
+  if (status === 'scheduled') return <Landmark className="h-4 w-4" aria-hidden="true" />;
+  return <ShieldCheck className="h-4 w-4" aria-hidden="true" />;
+}
+
+function runVendorPrimary(row: GridRow | undefined, runCommand: ReturnType<typeof useCommandRunner>['runCommand']) {
+  if (!row?.id) return;
+  const status = String(row.status ?? '');
+  if (status === 'scheduled') {
+    runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout');
+    return;
+  }
+  if (status === 'approved') {
+    runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment');
+    return;
+  }
+  runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill');
 }
 
 function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
@@ -607,6 +829,37 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
           Void payout
         </button>
       </div>
+      <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
+        <span className="selection-pill">Bill {String(selectedBill?.billNo ?? 'none')}</span>
+        <span className="selection-pill">Open ${moneyish(Number(selectedBill?.amount ?? 0) - Number(selectedBill?.amountPaid ?? 0))}</span>
+        <span className="selection-pill success">{String(selectedBill?.dueReason ?? 'Manual / receipt / sellout trigger')}</span>
+      </div>
+      {vendorPayments.data?.length ? (
+        <div className="finder-table-wrap max-h-48">
+          <table className="finder-table">
+            <thead>
+              <tr>
+                <th>Bill</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Reference</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vendorPayments.data.map((payment) => (
+                <tr key={String(payment.id)}>
+                  <td>{String(payment.billNo ?? selectedBill?.billNo ?? 'Bill')}</td>
+                  <td>${moneyish(payment.amount)}</td>
+                  <td>{String(payment.method ?? '-')}</td>
+                  <td>{String(payment.reference ?? '-')}</td>
+                  <td>{String(payment.status ?? '-')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -941,6 +1194,8 @@ export function CloseoutView() {
   const preview = trpc.queries.closeoutPreview.useQuery({ period });
   const { runCommand } = useCommandRunner();
   const setActiveView = useUiStore((state) => state.setActiveView);
+  const controlTotals = preview.data?.controlTotals ?? {};
+  const blockers = preview.data?.blockers ?? [];
   return (
     <div className="view-stack">
       <div className="control-band">
@@ -951,9 +1206,10 @@ export function CloseoutView() {
         <button className={(preview.data?.unsafeRows ?? 0) > 0 ? 'secondary-button compact-action' : 'text-button compact-action'} type="button" onClick={() => setActiveView('intake')}>
           Unsafe rows: {preview.data?.unsafeRows ?? 0}
         </button>
-        <span className="text-sm text-zinc-700">Batches: {preview.data?.controlTotals.batches ?? 0}</span>
-        <span className="text-sm text-zinc-700">Orders: {preview.data?.controlTotals.orders ?? 0}</span>
-        <span className="text-sm text-zinc-700">Commands: {preview.data?.controlTotals.commands ?? 0}</span>
+        <span className="text-sm text-zinc-700">Batches: {controlTotals.batches ?? 0}</span>
+        <span className="text-sm text-zinc-700">Sales: {controlTotals.salesOrders ?? 0}</span>
+        <span className="text-sm text-zinc-700">POs: {controlTotals.purchaseOrders ?? 0}</span>
+        <span className="text-sm text-zinc-700">Commands: {controlTotals.commands ?? 0}</span>
         <button className="secondary-button" type="button" onClick={() => setShowAdjustment((value) => !value)}>
           {showAdjustment ? 'Hide adjustment' : 'Adjustment'}
         </button>
@@ -975,10 +1231,37 @@ export function CloseoutView() {
             <input className="input" value={adjustmentMemo} onChange={(event) => setAdjustmentMemo(event.target.value)} />
           </label>
           <button className="secondary-button" type="button" disabled={!adjustmentMemo} onClick={() => runCommand('postPeriodAdjustments', { period, amount: Number(adjustmentAmount), memo: adjustmentMemo }, 'Post closeout adjustment')}>
-            Post adjustment
+          Post adjustment
           </button>
         </div>
       ) : null}
+      <section className="inline-panel">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="section-title">Closeout safety preview</h2>
+            <p className="text-xs text-zinc-600">Archive uses this same blocker list and these same control totals. Unsafe rows are refused before artifacts are written.</p>
+          </div>
+          <span className={preview.data?.eligible ? 'selection-pill success' : 'selection-pill danger'}>{preview.data?.eligible ? 'Eligible' : 'Blocked'}</span>
+        </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          {Object.entries(controlTotals).map(([key, value]) => (
+            <div key={key} className="metric-mini">
+              <span className="text-[11px] uppercase text-zinc-500">{key.replace(/([A-Z])/g, ' $1')}</span>
+              <strong>{Number(value ?? 0).toLocaleString('en-US')}</strong>
+            </div>
+          ))}
+        </div>
+        {blockers.length ? (
+          <div className="mt-3 grid gap-2 text-sm">
+            {blockers.map((blocker) => (
+              <div key={String(blocker.id)} className="flex items-center justify-between border border-line bg-panel px-3 py-2">
+                <span className="font-medium text-ink">{String(blocker.label)}</span>
+                <span className="selection-pill danger">{Number(blocker.count ?? 0).toLocaleString('en-US')}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
       <GridJourney view="closeout" title="J10 Archive and Closeout" />
     </div>
   );
@@ -991,7 +1274,7 @@ function GridJourney({
   prelude,
   onCellCommit
 }: {
-  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales'>;
+  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports'>;
   title: string;
   actions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
   prelude?: (runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
@@ -1041,4 +1324,15 @@ function safeHistory(value: unknown) {
   if (Array.isArray(value)) return value.map((entry) => (typeof entry === 'object' && entry ? Object.values(entry).join(' / ') : String(entry))).join('; ');
   if (typeof value === 'object') return Object.values(value).join(' / ');
   return String(value);
+}
+
+function moneyish(value: unknown) {
+  const numberValue = Number(value ?? 0);
+  return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
+}
+
+function dateish(value: unknown) {
+  if (!value) return '-';
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
 }

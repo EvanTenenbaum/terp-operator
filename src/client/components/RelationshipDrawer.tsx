@@ -18,13 +18,20 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
   const vendorOpen = (data?.bills ?? []).reduce((sum, bill) => sum + Number(bill.amount ?? 0) - Number(bill.amountPaid ?? 0), 0);
 
   function copySafeStatus() {
-    const text = [
-      data?.customer?.name || data?.vendor?.name || String(row?.customer ?? row?.vendor ?? 'Relationship'),
-      `Open receivables: $${money(customerOpen)}`,
-      `Open payables: $${money(vendorOpen)}`,
-      `Recent orders: ${(data?.orders ?? []).slice(0, 3).map((order) => `${order.orderNo} ${order.status}`).join(', ') || 'none'}`,
-      `Recent bills: ${(data?.bills ?? []).slice(0, 3).map((bill) => `${bill.billNo} ${bill.status}`).join(', ') || 'none'}`
-    ].join('\n');
+    const isVendorOnly = Boolean(data?.vendor) && !data?.customer;
+    const text = isVendorOnly
+      ? [
+          data?.vendor?.name || String(row?.vendor ?? 'Vendor'),
+          `Open payables: $${money(vendorOpen)}`,
+          `Scheduled payouts: ${(data?.vendorPayments ?? []).filter((payment) => payment.status === 'scheduled').length}`,
+          `Recent bills: ${(data?.bills ?? []).slice(0, 3).map((bill) => `${bill.billNo} ${bill.status}`).join(', ') || 'none'}`
+        ].join('\n')
+      : [
+          data?.customer?.name || String(row?.customer ?? 'Customer'),
+          `Open balance: $${money(customerOpen)}`,
+          `Recent orders: ${(data?.orders ?? []).slice(0, 3).map((order) => `${order.orderNo} ${order.status}`).join(', ') || 'none'}`,
+          `Recent invoices: ${(data?.invoices ?? []).slice(0, 3).map((invoice) => `${invoice.invoiceNo} ${invoice.status}`).join(', ') || 'none'}`
+        ].join('\n');
     void navigator.clipboard?.writeText(text);
   }
 
@@ -62,8 +69,11 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
           </div>
           <button className="secondary-button mt-3" type="button" onClick={copySafeStatus}>
             <Clipboard className="h-4 w-4" aria-hidden="true" />
-            Copy safe status
+            Copy external-safe status
           </button>
+          <div className="mt-3 border border-line bg-panel p-2 text-xs text-zinc-700">
+            Buyer debt and vendor exposure are directional here; totals are never netted together.
+          </div>
           <RelationshipSection title="Invoices" rows={data?.invoices ?? []} columns={['invoiceNo', 'status', 'total', 'amountPaid']} />
           <RelationshipSection title="Client ledger" rows={data?.ledger ?? []} columns={['kind', 'amount', 'balanceAfter', 'note']} />
           <RelationshipSection title="Credit overrides" rows={data?.creditOverrides ?? []} columns={['status', 'amount', 'reason', 'createdAt']} />
@@ -112,7 +122,11 @@ function inferVendorId(row: GridRow | null, view: ViewKey) {
 function format(value: unknown) {
   if (value == null) return '-';
   if (typeof value === 'number') return money(value);
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return value.length ? value.map((entry) => String(entry)).join(', ') : '-';
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).slice(0, 3);
+    return entries.length ? entries.map(([key, entry]) => `${key}: ${String(entry ?? '-')}`).join(' / ') : '-';
+  }
   return String(value);
 }
 

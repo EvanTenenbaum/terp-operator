@@ -1,4 +1,4 @@
-import { FileText, PackagePlus, Plus, Send } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, PackagePlus, Plus, Send } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -67,6 +67,7 @@ export function SalesView() {
   const [draftItem, setDraftItem] = useState('');
   const [draftQty, setDraftQty] = useState('1');
   const [addedBatchIds, setAddedBatchIds] = useState<Set<string>>(new Set());
+  const [saleToolsOpen, setSaleToolsOpen] = useState(false);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
   const setActiveCustomerId = useUiStore((state) => state.setActiveCustomerId);
   const salesRequestText = useUiStore((state) => state.salesRequestText);
@@ -82,6 +83,7 @@ export function SalesView() {
   const workspaceOrder = workspace.data?.orders.find((order) => ['draft', 'confirmed'].includes(String(order.status))) ?? workspace.data?.orders[0];
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
   const orderLines = trpc.queries.salesOrderLines.useQuery({ orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedOrder?.id) });
+  const selectedOrderStatus = String(selectedOrder?.status ?? '');
 
   const sheetRows = useMemo(() => selectedSuggestions.slice(0, 8), [selectedSuggestions]);
 
@@ -125,6 +127,18 @@ export function SalesView() {
     if (!selectedOrder) return;
     await runCommand('priceSalesOrder', { orderId: selectedOrder.id, strategy: 'standard' }, 'Sales view pricing preview');
     await runCommand('confirmSalesOrder', { orderId: selectedOrder.id }, 'Confirm sales order');
+  }
+
+  async function runSalesPrimary() {
+    if (!selectedOrder) {
+      await createOrder();
+      return;
+    }
+    if (selectedOrderStatus === 'confirmed') {
+      await reserveOrder();
+      return;
+    }
+    await priceAndConfirm();
   }
 
   async function reserveOrder() {
@@ -196,28 +210,38 @@ export function SalesView() {
         </label>
         <button className="secondary-button" type="button" disabled={!customerId} onClick={createOrder}>
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Order
+          New Sale
         </button>
-        <button className="secondary-button" type="button" disabled={!selectedOrder || !selectedSuggestions.length} onClick={addSuggestion}>
-          <PackagePlus className="h-4 w-4" aria-hidden="true" />
-          Add line
-        </button>
-        <button className="primary-button" type="button" disabled={!selectedOrder} onClick={priceAndConfirm}>
+        <button className="primary-button" type="button" disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
           <Send className="h-4 w-4" aria-hidden="true" />
-          Price + Confirm
+          {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder))}
         </button>
-        <button className="secondary-button" type="button" disabled={!selectedOrder} onClick={reserveOrder}>
-          Reserve
-        </button>
-        <button className="secondary-button" type="button" onClick={() => setSheetMode(sheetMode === 'internal' ? 'catalog' : 'internal')}>
-          <FileText className="h-4 w-4" aria-hidden="true" />
-          {sheetMode === 'internal' ? 'Sales Sheet' : 'Sales Catalog'}
-        </button>
-        <button className="secondary-button" type="button" disabled={!sheetRows.length} onClick={exportSheet}>
-          <FileText className="h-4 w-4" aria-hidden="true" />
-          Export
+        <span className="selection-pill">{selectedOrder ? `${String(selectedOrder.orderNo ?? 'Selected sale')} / ${selectedOrderStatus || 'open'}` : 'Pick customer to start'}</span>
+        <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
+          {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+          Sale tray
         </button>
       </div> : null}
+      {canWrite && saleToolsOpen ? (
+        <div className="control-band subtle-band">
+          <button className="secondary-button compact-action" type="button" disabled={!selectedOrder || !selectedSuggestions.length} onClick={addSuggestion}>
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Add suggestion
+          </button>
+          <button className="secondary-button compact-action" type="button" disabled={!selectedOrder} onClick={reserveOrder}>
+            Reserve
+          </button>
+          <button className="secondary-button compact-action" type="button" onClick={() => setSheetMode(sheetMode === 'internal' ? 'catalog' : 'internal')}>
+            <FileText className="h-4 w-4" aria-hidden="true" />
+            {sheetMode === 'internal' ? 'Sales Sheet' : 'Sales Catalog'}
+          </button>
+          <button className="secondary-button compact-action" type="button" disabled={!sheetRows.length} onClick={exportSheet}>
+            <FileText className="h-4 w-4" aria-hidden="true" />
+            Export
+          </button>
+          <span className="selection-pill success">Customer catalog hides cost, margin, and internal notes.</span>
+        </div>
+      ) : null}
       {customerId ? (
         <WorkspacePanel panelId="sales:customer-workspace" title="Customer Workspace" subtitle="Customer context, draft lines, inventory resolver, margin-safe output, and closeout checks." contentClassName="p-3">
           <div className="customer-workspace-header">
@@ -245,7 +269,7 @@ export function SalesView() {
                   <input className="input compact" value={draftQty} inputMode="decimal" onChange={(event) => setDraftQty(event.target.value)} />
                 </label>
                 <button className="primary-button" type="button" disabled={!selectedOrder || !draftItem.trim()} onClick={addDraftLine}>
-                  Add draft line
+                  Add sale line
                 </button>
                 <button className="secondary-button" type="button" disabled={!orderLines.data?.length} onClick={() => exportCustomerOffer(orderLines.data ?? [])}>
                   Copy/export customer offer
@@ -343,4 +367,16 @@ function exportCustomerOffer(rows: GridRow[]) {
   link.download = 'terp-agro-customer-offer.csv';
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function salesPrimaryLabel(status: string, hasOrder: boolean) {
+  if (!hasOrder) return 'New Sale';
+  if (status === 'confirmed') return 'Reserve';
+  if (status === 'posted') return 'Posted';
+  if (status === 'cancelled') return 'Cancelled';
+  return 'Price + Confirm';
+}
+
+function isOrderTerminal(status: string) {
+  return ['posted', 'cancelled', 'fulfilled'].includes(status);
 }

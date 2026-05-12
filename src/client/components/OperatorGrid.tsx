@@ -12,7 +12,7 @@ import { StatusPill } from './StatusPill';
 import { WorkspacePanel } from './WorkspacePanel';
 import type { GridRow, ViewKey } from '../../shared/types';
 
-type ExportableView = Exclude<ViewKey, 'dashboard'>;
+type ExportableView = Exclude<ViewKey, 'dashboard' | 'reports'>;
 
 const EXPORTABLE_VIEWS: readonly ExportableView[] = ['intake', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout'];
 
@@ -157,9 +157,19 @@ function isExportableView(view: ViewKey): view is ExportableView {
 
 function formatGridValue(value: unknown) {
   if (value == null) return '';
-  if (Array.isArray(value)) return value.join(', ');
+  if (Array.isArray(value)) {
+    if (!value.length) return '';
+    if (value.every((entry) => entry == null || ['string', 'number', 'boolean'].includes(typeof entry))) return value.join(', ');
+    return `${value.length} item${value.length === 1 ? '' : 's'}`;
+  }
   if (value instanceof Date) return value.toLocaleString();
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, entry]) => entry == null || ['string', 'number', 'boolean'].includes(typeof entry))
+      .slice(0, 3);
+    if (!entries.length) return `${Object.keys(value as Record<string, unknown>).length} fields`;
+    return entries.map(([key, entry]) => `${key}: ${entry ?? '-'}`).join(' / ');
+  }
   return String(value);
 }
 

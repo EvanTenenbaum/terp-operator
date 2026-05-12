@@ -6,7 +6,7 @@ import PDFDocument from 'pdfkit';
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Server as SocketServer } from 'socket.io';
 import { z } from 'zod';
-import { db } from '../db';
+import { db, pool } from '../db';
 import { env } from '../env';
 import {
   archiveRuns,
@@ -40,7 +40,10 @@ import {
 import { assertCommandAccess } from '../rbac';
 import { appendJsonlJournal } from './journal';
 import { rowsToCsv, validateBatchCsv } from './csv';
+import { getCloseoutSafety } from './closeout';
+import { evaluatePrice, resolvePricingProfile } from './pricing';
 import { commandInputSchema } from '../../shared/schemas';
+import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
 
@@ -172,6 +175,12 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return cancelPurchaseOrder(tx, payload, commandId);
     case 'adjustBatchQuantity':
       return adjustBatchQuantity(tx, payload, commandId, reason);
+    case 'setInventoryStatus':
+      return setInventoryStatus(tx, payload, commandId, reason);
+    case 'transferInventoryLocation':
+      return transferInventoryLocation(tx, payload, commandId, reason);
+    case 'transferInventoryOwnership':
+      return transferInventoryOwnership(tx, payload, commandId, reason);
     case 'setBatchPrice':
       return updateBatch(tx, { ...payload, unitPrice: requiredNumber(payload.unitPrice, 'unitPrice') }, commandId, 'Batch price updated.');
     case 'setBatchLotInfo':
@@ -672,6 +681,55 @@ async function adjustBatchQuantity(tx: Tx, payload: Payload, commandId: string, 
   return { ok: true, commandId, affectedIds: [batchId], toast: `Adjusted ${row.name} by ${delta}.` };
 }
 
+async function setInventoryStatus(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const status = inventoryStatus(payload.status);
+  const movementReason = requiredString(reason || payload.reason, 'reason');
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  if (!['posted', 'held', 'damaged', 'returned', 'in_transit'].includes(row.status)) {
+    throw new Error('Only posted inventory rows can move through inventory state transitions.');
+  }
+  if (row.status === status) {
+    return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} is already ${status}.`, delta: { status, unchanged: true } };
+  }
+  await tx.update(batches).set({ status, updatedAt: new Date() }).where(eq(batches.id, batchId));
+  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'status_transfer', qtyDelta: '0.000', reason: `${row.status} -> ${status}: ${movementReason}` });
+  return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} moved from ${row.status} to ${status}.`, delta: { fromStatus: row.status, toStatus: status } };
+}
+
+async function transferInventoryLocation(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const location = requiredString(payload.location, 'location');
+  const movementReason = requiredString(reason || payload.reason, 'reason');
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  if (row.location === location) {
+    return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} is already in ${location}.`, delta: { location, unchanged: true } };
+  }
+  await tx.update(batches).set({ location, updatedAt: new Date() }).where(eq(batches.id, batchId));
+  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'location_transfer', qtyDelta: '0.000', reason: `${row.location} -> ${location}: ${movementReason}` });
+  return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} moved to ${location}.`, delta: { fromLocation: row.location, toLocation: location } };
+}
+
+async function transferInventoryOwnership(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const ownershipStatus = ownership(payload.ownershipStatus);
+  const movementReason = requiredString(reason || payload.reason, 'reason');
+  const vendorId = payload.vendorId != null ? stringValue(payload.vendorId) || null : undefined;
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  if (ownershipStatus === 'C' && !(vendorId ?? row.vendorId)) throw new Error('Consigned inventory needs a vendor before ownership transfer.');
+  if (row.ownershipStatus === ownershipStatus && (vendorId === undefined || row.vendorId === vendorId)) {
+    return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} already has ${ownershipStatus} ownership.`, delta: { ownershipStatus, unchanged: true } };
+  }
+  const values: Record<string, unknown> = { ownershipStatus, updatedAt: new Date() };
+  if (vendorId !== undefined) values.vendorId = vendorId;
+  await tx.update(batches).set(values).where(eq(batches.id, batchId));
+  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'ownership_transfer', qtyDelta: '0.000', reason: `${row.ownershipStatus} -> ${ownershipStatus}: ${movementReason}` });
+  return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} ownership moved to ${ownershipStatus}.`, delta: { fromOwnershipStatus: row.ownershipStatus, toOwnershipStatus: ownershipStatus } };
+}
+
 async function attachBatchPhoto(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
   const photoUrl = requiredString(payload.photoUrl, 'photoUrl');
@@ -855,13 +913,31 @@ async function priceSalesOrder(tx: Tx, payload: Payload, commandId: string, toas
   const orderId = requiredId(payload.orderId, 'orderId');
   const strategy = stringValue(payload.strategy) || 'standard';
   const multiplier = strategy === 'premium' ? 1.08 : strategy === 'clearance' ? 0.92 : 1;
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+  const [customer] = order.customerId ? await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1) : [];
+  const profile = resolvePricingProfile(strategy, customer?.tags ?? []);
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  const guardrailHits: Array<Record<string, unknown>> = [];
   for (const line of lines) {
     const base = Number(line.unitPrice);
-    await tx.update(salesOrderLines).set({ unitPrice: moneyScale(base * multiplier), updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
+    const evaluated = evaluatePrice({
+      unitCost: Number(line.unitCost),
+      basisUnitPrice: base,
+      candidateUnitPrice: base * multiplier,
+      profile
+    });
+    if (evaluated.adjusted) guardrailHits.push({ lineId: line.id, itemName: line.itemName, guardrails: evaluated.guardrails, minimumUnitPrice: moneyScale(evaluated.minimumUnitPrice) });
+    await tx.update(salesOrderLines).set({ unitPrice: moneyScale(evaluated.unitPrice), updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
   }
   await recalcOrder(tx, orderId, strategy);
-  return { ok: true, commandId, affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)], toast, delta: { strategy } };
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)],
+    toast: guardrailHits.length ? `${toast} ${guardrailHits.length} line(s) were lifted to pricing guardrails.` : toast,
+    delta: { strategy, pricingProfile: profile, guardrails: guardrailHits }
+  };
 }
 
 async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -878,8 +954,11 @@ async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): P
   if (Number(customer.balance) + Number(order.total) > Number(customer.creditLimit)) {
     throw new Error(`${customer.name} would exceed credit limit. Request a credit override before confirming.`);
   }
+  const pricingSnapshot = buildPricingSnapshot(lines, order.pricingStrategy, customer.tags);
+  const belowGuardrail = pricingSnapshot.lines.find((line) => line.guardrails.length > 0);
+  if (belowGuardrail) throw new Error(`${belowGuardrail.itemName} is below pricing guardrails. Reprice before confirming.`);
   await tx.update(salesOrders).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
-  return { ok: true, commandId, affectedIds: [orderId], toast: `${order.orderNo} confirmed.` };
+  return { ok: true, commandId, affectedIds: [orderId], toast: `${order.orderNo} confirmed.`, delta: { pricingSnapshot } };
 }
 
 async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1327,6 +1406,8 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
 
   const affected = [originalId];
   const snapshot = original.afterSnapshot as Record<string, any>;
+  const beforeSnapshot = original.beforeSnapshot as Record<string, any>;
+  const policy = reversalPolicies[original.commandName as CommandName];
 
   if (original.commandName === 'postSalesOrder') {
     for (const line of snapshot.salesOrderLines ?? []) {
@@ -1395,6 +1476,25 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
     for (const receipt of snapshot.purchaseReceipts ?? []) {
       await tx.update(purchaseReceipts).set({ status: 'reversed', updatedAt: new Date() }).where(eq(purchaseReceipts.id, receipt.id));
       affected.push(receipt.id);
+    }
+  } else if (['setInventoryStatus', 'transferInventoryLocation', 'transferInventoryOwnership'].includes(original.commandName)) {
+    for (const batch of beforeSnapshot.batches ?? []) {
+      const values: Record<string, unknown> = { updatedAt: new Date() };
+      if (original.commandName === 'setInventoryStatus' && batch.status != null) values.status = batch.status;
+      if (original.commandName === 'transferInventoryLocation' && batch.location != null) values.location = batch.location;
+      if (original.commandName === 'transferInventoryOwnership') {
+        if (batch.ownershipStatus != null) values.ownershipStatus = batch.ownershipStatus;
+        if ('vendorId' in batch) values.vendorId = batch.vendorId;
+      }
+      await tx.update(batches).set(values).where(eq(batches.id, batch.id));
+      await tx.insert(inventoryMovements).values({
+        batchId: batch.id,
+        commandId,
+        kind: 'inventory_transfer_reversal',
+        qtyDelta: '0.000',
+        reason: `Reversal of ${original.commandName}`
+      });
+      affected.push(batch.id);
     }
   } else if (original.commandName === 'logPayment') {
     for (const payment of snapshot.payments ?? []) {
@@ -1485,10 +1585,7 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
       affected.push(entry.id);
     }
   } else {
-    for (const tableRows of Object.values(snapshot)) {
-      if (!Array.isArray(tableRows)) continue;
-      for (const row of tableRows) affected.push(row.id);
-    }
+    throw new Error(`${original.commandName} is ${policy?.disposition ?? 'not'} reversible: ${policy?.guidance ?? 'No reversal policy is registered.'}`);
   }
 
   await tx.update(commandJournal).set({ reversedByCommandId: commandId }).where(eq(commandJournal.id, originalId));
@@ -1529,17 +1626,17 @@ async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: s
 
 async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
-  const [lock] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
-  if (!lock) throw new Error(`${period} must be locked before archiving.`);
-  const unsafeBatches = await tx.select().from(batches).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period} and ${batches.status} in ('draft', 'needs_fix')`);
-  if (unsafeBatches.length) throw new Error(`${unsafeBatches.length} unsafe intake row(s) must be posted, fixed, or removed before archive.`);
+  const safety = await getCloseoutSafety(pool, period);
+  if (!safety.locked) throw new Error(`${period} must be locked before archiving.`);
+  if (!safety.eligible) {
+    throw new Error(`${period} cannot be archived: ${safety.blockers.map((blocker) => `${blocker.count} ${blocker.label.toLowerCase()}`).join(', ')}.`);
+  }
 
   await fs.mkdir(env.ARCHIVE_DIR, { recursive: true });
   const archiveBase = path.join(env.ARCHIVE_DIR, period);
   const batchRows = await tx.select().from(batches).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
-  const orderRows = await tx.select().from(salesOrders).where(sql`to_char(${salesOrders.createdAt}, 'YYYY-MM') = ${period}`);
   const journalRows = await tx.select().from(commandJournal).where(sql`to_char(${commandJournal.createdAt}, 'YYYY-MM') = ${period}`).orderBy(commandJournal.createdAt);
-  const controlTotals = { batches: batchRows.length, orders: orderRows.length, commands: journalRows.length };
+  const controlTotals = safety.controlTotals;
 
   const csvPath = `${archiveBase}-batches.csv`;
   const jsonlPath = `${archiveBase}-commands.jsonl`;
@@ -1560,6 +1657,33 @@ async function recalcOrder(tx: Tx, orderId: string, strategy?: string) {
   const values: Record<string, unknown> = { total: moneyScale(total), internalMargin: moneyScale(total - cost), updatedAt: new Date() };
   if (strategy) values.pricingStrategy = strategy;
   await tx.update(salesOrders).set(values).where(eq(salesOrders.id, orderId));
+}
+
+function buildPricingSnapshot(lines: Array<typeof salesOrderLines.$inferSelect>, strategy: string, customerTags: string[]) {
+  const profile = resolvePricingProfile(strategy, customerTags);
+  return {
+    strategy,
+    profile,
+    capturedAt: new Date().toISOString(),
+    lines: lines.map((line) => {
+      const evaluated = evaluatePrice({
+        unitCost: Number(line.unitCost),
+        basisUnitPrice: Number(line.unitPrice),
+        candidateUnitPrice: Number(line.unitPrice),
+        profile
+      });
+      return {
+        lineId: line.id,
+        itemName: line.itemName,
+        qty: line.qty,
+        unitCost: line.unitCost,
+        unitPrice: line.unitPrice,
+        minimumUnitPrice: moneyScale(evaluated.minimumUnitPrice),
+        marginPct: evaluated.marginPct,
+        guardrails: evaluated.guardrails
+      };
+    })
+  };
 }
 
 async function recalcPurchaseOrder(tx: Tx, purchaseOrderId: string) {
@@ -1772,6 +1896,12 @@ function arrayValue(value: unknown, fallback: string[] = []) {
 function ownership(value: unknown) {
   const text = stringValue(value);
   return ['C', 'OFC', 'UNKNOWN'].includes(text) ? text : 'UNKNOWN';
+}
+
+function inventoryStatus(value: unknown) {
+  const text = stringValue(value);
+  if (['posted', 'held', 'damaged', 'returned', 'in_transit'].includes(text)) return text;
+  throw new Error('Inventory status must be posted, held, damaged, returned, or in_transit.');
 }
 
 function arrivalStatus(value: unknown, arrivalConfirmed = false) {
