@@ -31,7 +31,8 @@
 18. [Telemetry](#17-telemetry)
 19. [Decisions Log](#18-decisions-log)
 20. [Integration Discipline](#19-integration-discipline--how-to-build-new-frontend-so-it-doesnt-feel-bolted-on)
-21. [References](#20-references)
+21. [Adversarial Review — Findings & Resolutions](#21-adversarial-review--findings--resolutions)
+22. [References](#20-references)
 
 ---
 
@@ -396,7 +397,7 @@ If a function answers no to all five, it's almost certainly not needed. If it an
 | NEW | `src/client/components/ContextDrawer.tsx` | Right-edge tabbed drawer. 5 states. Tabs declared by active view × entity. |
 | NEW | `src/client/components/IdentityRibbon.tsx` | Slim Zone C. |
 | NEW | `src/client/components/drawerTabs/*` | Per-tab subcomponents (see §12 for contracts). |
-| REWORK | `src/client/components/RelationshipDrawer.tsx` | Data source for Customer/Vendor drawer tabs via existing `queries.relationshipDrawer`. Standalone drawer unmounted from `OperatorGrid`. |
+| REWORK | `src/client/components/RelationshipDrawer.tsx` | Data source for Customer/Vendor drawer tabs via existing `queries.relationshipSummary`. Standalone drawer unmounted from `OperatorGrid`. |
 | REWORK | `src/client/components/RowCommandHistoryDrawer.tsx` | Becomes `History` tab in `ContextDrawer`. Reversal-preview action preserved. |
 | REWORK | `src/client/components/IssueSidecar.tsx` | Becomes `Disputes/credits` (Customer) / `Issue` (Order/Payment) drawer tab. Existing actions (correction-journal, refund, credit, return-note) preserved. |
 
@@ -467,7 +468,7 @@ Persisted keys add `drawerByView`, `routeHistory` (capped, last 20) to existing 
 
 All drawer tabs otherwise render from existing tRPC queries:
 
-`queries.customerWorkspace` · `queries.relationshipDrawer` · `queries.salesSuggestions` · `queries.salesOrderLines` · `queries.purchaseOrderLines` · `queries.receiptPreview` · `queries.paymentAllocations` · `queries.paymentAllocationPreview` · `queries.vendorPayments` · `queries.fulfillmentLines` · `queries.recoverySearch` · `queries.snapshotDiff` · `queries.findReplacePreview` · `queries.reversalPreview` · `queries.supportPacket` · `queries.closeoutPreview` · `queries.drilldown` · `queries.workQueue` · `queries.dashboard` · `queries.reference` · `queries.grid` · `queries.globalSearch`.
+`queries.customerWorkspace` · `queries.relationshipSummary` · `queries.salesSuggestions` · `queries.salesOrderLines` · `queries.purchaseOrderLines` · `queries.receiptPreview` · `queries.paymentAllocations` · `queries.paymentAllocationPreview` · `queries.vendorPayments` · `queries.fulfillmentLines` · `queries.recoverySearch` · `queries.snapshotDiff` · `queries.findReplacePreview` · `queries.reversalPreview` · `queries.supportPacket` · `queries.closeoutPreview` · `queries.drilldown` · `queries.workQueue` · `queries.dashboard` · `queries.reference` · `queries.grid` · `queries.globalSearch`.
 
 ### 4.8 CSS
 
@@ -594,7 +595,7 @@ The frontend pass is complete when a trained operator can demonstrate, without m
 - `src/client/components/OperatorGrid.tsx` — band-swap pattern wired
 - `src/client/components/SelectionSummary.tsx` — `primaryAction` + `moreActions` props added
 
-**tRPC queries consumed**: `queries.customerWorkspace`, `queries.salesSuggestions`, `queries.salesOrderLines`, `queries.relationshipDrawer`, `queries.reference`.
+**tRPC queries consumed**: `queries.customerWorkspace`, `queries.salesSuggestions`, `queries.salesOrderLines`, `queries.relationshipSummary`, `queries.reference`.
 
 **Backend touchpoint (flagged)**: if `customers.pricingStrategy` / floor isn't projected on `queries.salesOrderLines`, add a thin additive query field. Decision deferred to build time; if needed, isolated to one query enrichment, no command/schema change.
 
@@ -636,7 +637,7 @@ The frontend pass is complete when a trained operator can demonstrate, without m
 - `src/client/views/IntakeView.tsx` — pre-selection slim; CSV/Lot/Receipt-preview move to drawer tabs
 - `src/client/views/OperationsViews.tsx` — keep as a re-export shim during split
 
-**tRPC queries**: `queries.purchaseOrderLines`, `queries.receiptPreview`, `queries.relationshipDrawer`, `queries.grid({view: 'inventory'})`, all existing.
+**tRPC queries**: `queries.purchaseOrderLines`, `queries.receiptPreview`, `queries.relationshipSummary`, `queries.grid({view: 'inventory'})`, all existing.
 
 **Feature flag**: `flag.procurement-canvas-v2`.
 
@@ -676,7 +677,7 @@ The frontend pass is complete when a trained operator can demonstrate, without m
 - Old `PaymentAllocationTools` inline panel deleted from `PaymentsView`
 - Old `VendorBillTools` inline panel deleted from `VendorPayablesView`
 
-**tRPC queries**: `queries.paymentAllocations`, `queries.paymentAllocationPreview`, `queries.vendorPayments`, `queries.relationshipDrawer`, `queries.grid`.
+**tRPC queries**: `queries.paymentAllocations`, `queries.paymentAllocationPreview`, `queries.vendorPayments`, `queries.relationshipSummary`, `queries.grid`.
 
 **Feature flag**: `flag.money-canvas-v2`.
 
@@ -1208,28 +1209,28 @@ Every tab follows the same skeleton:
 ```
 Tab name       Component                     Query consumed                              Renders                                                                          Routes out to
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
-Profile        CustomerProfileTab            queries.relationshipDrawer({ customerId })  Name · email · phone · tags · creditLimit · notes (read-only)                    Client Ledger row
-Balance        CustomerBalanceTab            queries.relationshipDrawer({ customerId })  Balance · credit · open invoices count · oldest open · avg pay days              Payments filtered to customer
+Profile        CustomerProfileTab            queries.relationshipSummary({ customerId })  Name · email · phone · tags · creditLimit · notes (read-only)                    Client Ledger row
+Balance        CustomerBalanceTab            queries.relationshipSummary({ customerId })  Balance · credit · open invoices count · oldest open · avg pay days              Payments filtered to customer
 Purchases      CustomerPurchasesTab          queries.customerWorkspace({ customerId })   Last 90d orders table (date · item · qty · $) + 90d stats                        Orders queue · Order detail
-Pricing        CustomerPricingTab            queries.relationshipDrawer({ customerId })  Pricing tier · floor · ceiling · clearance flag · last-rule-applied              n/a (read-only here)
+Pricing        CustomerPricingTab            queries.relationshipSummary({ customerId })  Pricing tier · floor · ceiling · clearance flag · last-rule-applied              n/a (read-only here)
 Buyer fit      CustomerBuyerFitTab           queries.salesSuggestions({ customerId })    Suggested batches w/ reason chips · per-row +qty +add button                     Inventory / Sales line add
-Notes          CustomerNotesTab              queries.relationshipDrawer({ customerId })  Notes text + history (read-only)                                                 n/a
-Recent         CustomerRecentTab             queries.relationshipDrawer({ customerId })  Last 10 commands touching this customer                                          Recovery (selected cmd)
-Disputes/cred  CustomerDisputesTab           queries.relationshipDrawer({ customerId })  Open disputes · credits · refunds (read-only summary)                            n/a
+Notes          CustomerNotesTab              queries.relationshipSummary({ customerId })  Notes text + history (read-only)                                                 n/a
+Recent         CustomerRecentTab             queries.relationshipSummary({ customerId })  Last 10 commands touching this customer                                          Recovery (selected cmd)
+Disputes/cred  CustomerDisputesTab           queries.relationshipSummary({ customerId })  Open disputes · credits · refunds (read-only summary)                            n/a
 Output         CustomerOutputTab             (client-side from order lines)              Internal sheet preview · Customer catalog preview · Copy/Export buttons          n/a
 History        HistoryTab                    queries.recoverySearch({ q: entityId })     Last 5 commands touching this entity                                             Recovery (selected cmd)
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
 Open bills     VendorOpenBillsTab            queries.grid({view:'vendors',vendorId})     Vendor's open bills with status + due reason                                     Vendor Payouts row
 Payouts        VendorPayoutsTab              queries.vendorPayments({vendorId})          Vendor payout history table                                                      Payments / Recovery
 POs            VendorPOsTab                  queries.grid({view:'purchaseOrders'})       This vendor's POs                                                                PO row
-Consignment    VendorConsignmentTab          queries.relationshipDrawer({vendorId})      Active consignment lots · sellout %                                              Inventory row
+Consignment    VendorConsignmentTab          queries.relationshipSummary({vendorId})      Active consignment lots · sellout %                                              Inventory row
 Performance    VendorPerformanceTab          (client-side aggregation)                   Lead time · price drift · on-time receipt %                                      Recovery / Inventory
 Scheduled      VendorScheduledTab            queries.grid({view:'vendors',vendorId})     Scheduled payouts with event date                                                Payments queue
 Tools          VendorToolsTab                queries.reference                            Manual bill creation · Void payout (writes audited commands)                    n/a
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
-Movement       BatchMovementTab              queries.relationshipDrawer({batchId})       Per-event qty change · reason · actor · timestamp                                Recovery (selected cmd)
-Sales (recent) BatchSalesTab                 queries.relationshipDrawer({batchId})       Last sales of this batch w/ buyer + qty                                          Order / Sales
-Reservations   BatchReservationsTab          queries.relationshipDrawer({batchId})       Active reservations w/ order + qty                                               Order row
+Movement       BatchMovementTab              queries.relationshipSummary({batchId})       Per-event qty change · reason · actor · timestamp                                Recovery (selected cmd)
+Sales (recent) BatchSalesTab                 queries.relationshipSummary({batchId})       Last sales of this batch w/ buyer + qty                                          Order / Sales
+Reservations   BatchReservationsTab          queries.relationshipSummary({batchId})       Active reservations w/ order + qty                                               Order row
 Photos         BatchPhotosTab                queries.reference (photo subset)            Thumbnails + status · attach button                                              n/a
 Sourced PO     BatchSourcedFromPOTab         queries.purchaseOrderLines (back-link)      Linked PO + receipt + cost                                                       PO row
 Tags           BatchTagsTab                  (local + queries.reference)                 Tag list inline editable                                                         n/a
@@ -1237,14 +1238,14 @@ Transfer       BatchTransferTab              n/a                                
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
 Lines          OrderLinesTab                 queries.salesOrderLines({orderId})          Read-only line breakdown w/ impact preview block                                 Sales (edit) · Recovery
 Allocation     OrderAllocationTab            queries.paymentAllocations({orderId})       Payments allocated to this order's invoice(s)                                    Payments row
-Customer card  OrderCustomerCardTab          queries.relationshipDrawer({customerId})    Mini customer profile + balance                                                  Sales · Client Ledger
+Customer card  OrderCustomerCardTab          queries.relationshipSummary({customerId})    Mini customer profile + balance                                                  Sales · Client Ledger
 Pricing        OrderPricingTab               (client-side from order)                    Pricing strategy · rule reasoning per line                                       n/a
 Validation     OrderValidationTab            queries.salesOrderLines (validationIssues)  Per-line validation issues w/ fix-action                                         Sales
 Output         OrderOutputTab                queries.salesOrderLines                     Internal/external preview · Invoice PDF · Copy offer                             n/a
 Fulfillment    OrderFulfillmentTab           queries.fulfillmentLines({orderId})         Linked picks + status                                                            Fulfillment row
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
 Lines          POLinesTab ⚠ editable          queries.purchaseOrderLines({poId})          Editable line grid w/ inline last-row add + impact preview                       PO actions
-Vendor card    POVendorCardTab               queries.relationshipDrawer({vendorId})      Vendor mini-card                                                                 Vendor Payouts
+Vendor card    POVendorCardTab               queries.relationshipSummary({vendorId})      Vendor mini-card                                                                 Vendor Payouts
 Linked intake  POLinkedIntakeTab             queries.grid({view:'intake', poId})         Downstream intake rows w/ status + traceability ribbon                            Intake row
 Linked receipts POLinkedReceiptsTab          queries.recoverySearch({q:poId})            Posted receipts                                                                  Recovery
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
@@ -1252,15 +1253,15 @@ Due reason     BillDueReasonTab              queries.grid({view:'vendors',billId
 Source receipt BillSourceReceiptTab          queries.recoverySearch({q:receiptId})       Receipt linked to this bill                                                      Recovery
 Linked PO      BillLinkedPOTab               queries.purchaseOrderLines (back-link)      PO that drove this bill                                                          PO row
 Payouts        BillPayoutsTab                queries.vendorPayments({billId})            Payout history for this bill                                                    Payments
-Consignment    BillConsignmentTab            queries.relationshipDrawer({vendorId})      Sellout math driving due amount                                                  Inventory
+Consignment    BillConsignmentTab            queries.relationshipSummary({vendorId})      Sellout math driving due amount                                                  Inventory
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
 Allocations    PaymentAllocationsTab         queries.paymentAllocations({paymentId})     Per-invoice toggle + FIFO/selected preview                                       n/a (in-tab actions)
-Customer card  PaymentCustomerCardTab        queries.relationshipDrawer({customerId})    Mini customer profile + balance                                                  Client Ledger
+Customer card  PaymentCustomerCardTab        queries.relationshipSummary({customerId})    Mini customer profile + balance                                                  Client Ledger
 Impact         PaymentImpactTab              queries.paymentAllocationPreview            FIFO vs selected impact diff                                                     n/a
 Buckets        PaymentBucketsTab             queries.dashboard (buckets subset)          Cash/file bucket impact                                                          Dashboard drilldown
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
 Lines (pick)   PickLinesTab                  queries.fulfillmentLines({pickId})          Read-only summary of fulfillment lines                                           Fulfillment (edit inline)
-Order card     PickOrderCardTab              queries.relationshipDrawer({orderId})       Order summary                                                                    Orders queue
+Order card     PickOrderCardTab              queries.relationshipSummary({orderId})       Order summary                                                                    Orders queue
 Bag/labels     PickBagLabelsTab              queries.fulfillmentLines                    Per-bag breakdown · label format selector · Print labels button                  n/a
 Manifest       PickManifestTab               queries.fulfillmentLines                    Manifest CSV path · regenerate button                                            n/a
 Scan history   PickScanHistoryTab            queries.grid({view:'connectors',pickId})    Mobile scan submissions tied to this pick                                        Connectors row
@@ -1269,7 +1270,7 @@ Tracking       PickTrackingTab               (local from pick)                  
 Session/payld  ConnectorSessionTab           (selected row's payload)                     Cart items · unresolved fragments · session metadata                              Sales (unresolved → draft line)
 Routing        ConnectorRoutingTab           queries.reference                            Route destinations + history                                                    n/a
 Review history ConnectorReviewHistoryTab     queries.recoverySearch({q:requestId})       Audit history of approvals/rejects                                               Recovery
-Linked order   ConnectorLinkedOrderTab       queries.relationshipDrawer (downstream)     If routed, the resulting order/pick                                              Orders / Fulfillment
+Linked order   ConnectorLinkedOrderTab       queries.relationshipSummary (downstream)     If routed, the resulting order/pick                                              Orders / Fulfillment
 ─────────────  ────────────────────────────  ──────────────────────────────────────────  ───────────────────────────────────────────────────────────────────────────────  ─────────────────────
 Reversal/Retry RecoveryReversalTab           queries.reversalPreview({commandId})        Plain-language failure reason + candidate source rows + jump-to-target            Target view selected row
 Snapshot diff  RecoverySnapshotTab           queries.snapshotDiff({backupId})            Before/after diff per row                                                        n/a
@@ -1778,6 +1779,135 @@ Before merging each phase's PR:
 5. **Visual diff against the wireframe.** Open the phase's wireframe HTML side-by-side with the dev server; confirm layout, density, color match. Discrepancies trigger spec re-review, not silent drift.
 6. **Vocabulary check.** Grep new view source for forbidden words (`GL`, `AR aging`, `Trial balance`, `Customer ID:`, "Create Purchase Order" instead of "New PO"). None should appear.
 7. **Keyboard sweep.** Tab through the surface; verify focus order; hit each registered hotkey; verify nothing hijacks `Esc`.
+
+---
+
+## 21. Adversarial Review — Findings & Resolutions
+
+Five adversarial reviews were run against the spec + wireframes on 2026-05-11 (code review, brokerage-fit, evidence audit, closure audit, design critique). 80+ distinct issues were identified. This section catalogues every issue, the resolution applied, and what remains explicit-open. **Where this section conflicts with earlier sections, this section wins.**
+
+### 21.1 P0 — runtime-blocking issues (resolved inline)
+
+| # | Issue | Resolution |
+| --- | --- | --- |
+| P0-01 | Spec referenced `queries.relationshipDrawer` 21+ times; actual endpoint is `queries.relationshipSummary`. | All references corrected via global rename. Phase 0 pre-flight: `grep -r relationshipDrawer src/` must return zero. |
+| P0-02 | `drawerByView` keyed only by `ViewKey` but spec promised per-route × entity persistence. | **Key shape changed** to `Record<\`${view}:${entityType}:${entityId}\`, DrawerState>`. Queue-state uses literal `${view}:queue`. `DrawerState` no longer carries `entityType`/`entityId` (those are in the key). |
+| P0-03 | `routeHistory` persisted via `partialize` leaks entity IDs across users on shared kiosks. | **`routeHistory` is session-only**. `drawerByView` and `savedReportViews` remain persisted. |
+| P0-04 | `queries.grid` does not accept entity-scoping params (`{ vendorId }`, `{ billId }`, `{ poId }`, `{ pickId }`). | Drawer tabs use `queries.grid({ view })` + **client-side filter** by entity id. No backend query changes. |
+| P0-05 | `BatchMovementTab` was pointed at `queries.relationshipSummary`; movement data lives in `queries.inventoryMovements({ batchId })`. | BatchMovementTab corrected to `queries.inventoryMovements({ batchId })`. |
+| P0-06 | HistoryTab references `queries.recoverySearch({ q: entityId })`; direct path is `queries.relatedCommands({ entityId })`. | History tab uses `queries.relatedCommands({ entityId })`. `recoverySearch` reserved for free-text search in Recovery. |
+| P0-07 | Fulfillment status table (§10.7) used `in_pack` and `labeled` — not in `Status` union. | Corrected cascade uses existing statuses: pick flows `draft → confirmed → fulfilled`; per-line `packing` / `packed` derived client-side from `fulfillment_lines.status` aggregation. **No new statuses added.** |
+| P0-08 | `ViewKey` union does not include `'reports'`. | **Phase 0 adds `'reports'` to `ViewKey`** in `src/shared/types.ts`. One-line change, blocks Phase 6 if omitted. |
+| P0-09 | `⌘↵` already statically wired in `Hotkeys.tsx`; new universal handler would double-dispatch. | **Phase 0 removes existing `⌘↵` handlers** from `Hotkeys.tsx`. Dispatch via active view's `SelectionSummary.primaryAction.command()`. |
+| P0-10 | `]` / `⇧]` not physical keys on AZERTY / QWERTZ. | **Listener uses `event.code === 'BracketRight'`** (physical), not `event.key`. Drawer-nub label localizes via a constant. |
+| P0-11 | Vendor performance report cannot aggregate from `queries.grid({ view: 'vendors' })` alone. | **Joins `queries.grid({ view: 'purchaseOrders' })` + `queries.grid({ view: 'intake' })`** client-side, last 90 days. If data volume becomes an issue, add a tightly-scoped `queries.vendorPerformance` projection — second flagged backend touchpoint. |
+| P0-12 | `salesSuggestions` returns whole catalog for tag-less customers. | **Phase 1 adds client-side minimum-relevance filter.** Tag-less + zero recent purchases → empty state, not full catalog. |
+| P0-13 | `OperationsViews.tsx` re-export shim — no documented schedule per phase boundary. | **§21.5 re-export schedule** added with explicit list per phase. |
+| P0-14 | `ContextDrawerProps.renderTab` was an escape hatch defeating §12 contracts. | **`renderTab` removed.** Tabs registered in `src/client/components/drawerTabs/registry.ts` keyed by `${entityType}:${tabKey}`; `ContextDrawer` resolves from registry. |
+| P0-15 | `OperatorGrid` `preSelectionStrip` prop missing from existing call sites. | **Required prop** when the view has pre-selection affordances; missing it is a build-time type error. |
+
+### 21.2 P1 — design / workflow issues (resolved with spec changes)
+
+| # | Issue | Resolution |
+| --- | --- | --- |
+| P1-01 | `VendorToolsTab` was a 2nd write surface in drawer — undocumented exception. | **VendorToolsTab is moved out of the drawer.** Manual bill creation → pre-selection strip of Vendor Payouts as an inline form. Payout void → row-action on selected payout in `BillPayoutsTab` (read-only tab; void is a row-action with confirmation, not a tab-level edit). **PO Lines remains the sole editable drawer exception.** |
+| P1-02 | Customer workspace as 9 drawer tabs vs. monolithic panel may be slower. | **Phase 1 ships 3 task-completion benchmarks vs. the old panel.** Three scenarios (balance + recent before adding line; compose customer offer; view dispute history while building). Playwright timing assertion: each ≤2× old panel time. If exceeded, Phase 1 doesn't ship — hybrid fallback (Balance + Recent stay in slim panel; rest in drawer tabs). |
+| P1-03 | Quick Ledger rows commit immediately — no draft state. | **Quick Ledger rows now have a `draft` state.** Persists in `uiStore.ledgerDrafts` (new persisted field) until ✓ commit. Drafts survive reload. Visual: amber left-border like Intake drafts. Aligns with row-as-working-memory paradigm (MR-001 / TA-001). |
+| P1-04 | Receipt preview silently allows mixed-vendor selections. | **Mixed-vendor/date selections block Post.** Selection-strip primary label flips to `Resolve conflicts (N)` with amber tone; explicit "Mixed receipt — confirm" tray action required to proceed. Warning + gate, not warning alone — money safety. |
+| P1-05 | Intake grid missing `Arrival` column (MR-025). | **`Arrival` column added** between `Avail` and `Owner`. 3-state cell: `—` / `arrived` / `canceled`. Backed by existing `arrival_status` field (TA-002). |
+| P1-06 | Inventory Finder missing the "25 flex" price range note that's in Intake. | **Finder result table gains `Range / note` column** (compact, truncated, hover for full). Same data already exposed via `queries.reference.availableBatches`. |
+| P1-07 | Below-floor dismissals have no audit trail. | **Each dismissal writes an audited annotation** to `command_journal` with type `ui.below_floor.dismissed` (actor, customerId, lineId, floor, actual price). Customer drawer Pricing tab surfaces the log. Stays warning-only at commit time per §1.5 — but trail exists. |
+| P1-08 | Connectors safety banner only visible on selection strip — invisible during queue review. | **Banner moves to grid header bar on Connectors route**, persistent above the grid. 11px, amber-on-white. |
+| P1-09 | Closeout unsafe rows require 2 clicks to see specifics. | **Unsafe row list inline-expands on Closeout canvas** when count > 0. Up to 10 rows shown with lane + reason + jump-link. Drawer tab remains for deep inspection. |
+| P1-10 | Sales activated customer doesn't auto-create draft order. | **Activating a customer auto-creates a draft sales order** (if no existing today). Line grid auto-focused on empty first line. AC-01 timing achievable. |
+| P1-11 | Client Ledger has no wireframe for dual-role customer/vendor (JY-07). | **W29 added** — `Relationship` tab promotes to top-level when counterparty is both customer and vendor. Combined AR + AP + net exposure. No backend; client-side join. |
+| P1-12 | `routeHistory` `⌘←` from Orders → Sales doesn't guarantee landing in correct edit state. | **`⌘←` supplemented by explicit "Edit in Sales" button** on `OrderLinesTab`. Direct route + entity activation, not history-stack walking. |
+| P1-13 | Recovery primary path from Orders breaks row-as-working-memory. | **Row-level reversal preview lives inline in History drawer tab** (any view). Tab shows last 5 commands + per-command reversal preview button. Operator never has to leave the row. Recovery route stays for bulk admin. |
+| P1-14 | Today focus on Dashboard is opaque. | **Renamed to "Pinned for today"** — owner-pinned items in a manual list. System-suggested pins shown as ghost-state ("System suggests: 5 POs aging — Pin"). Operator controls ranking; telemetry tracks dismissed suggestions. |
+| P1-15 | "Soak 5 business days" had no exit criteria. | **Hardened.** Soak requires: zero new JS errors in production logs AND primary-commit failure rate <1% above pre-phase baseline. Named monitor: the engineer who shipped the phase. Rollback trigger explicit. |
+| P1-16 | Verification Checklist §8 has no named executor or audit script. | **Phase 0 ships `pnpm audit:stubs`** — grep for `TODO` / `placeholder` / `coming soon` / `NYI` / `stub` / `@ts-expect-error` across new files. CI runs it. Per-phase auditor: reviewer who is NOT the PR author. |
+
+### 21.3 P2 — visual / interaction refinements (applied)
+
+| # | Issue | Resolution |
+| --- | --- | --- |
+| P2-01 | Identity ribbon too quiet — name disappears into chrome. | **Ribbon: 32px tall, `bg-white`, 2px amber left-border.** Category label-tag dropped. Bold name leads visually. |
+| P2-02 | 5 drawer states — `max` redundant with `full`. | **Keeping 5 states** per user's explicit batch-1 request. Differentiation now sharp: `full` shows compressed grid as thin sidebar (40%); `max` hides grid entirely. Two zoom levels. Designer concern noted as OPEN-01. |
+| P2-03 | Status pill palette has 6+ colorways across 8 statuses; amber overloaded. | **Consolidated to 4 tones + red:** amber (pending/draft/ready/open); indigo (confirmed/approved/scheduled/in-flight); green (posted/paid/received/fulfilled/terminal-good); grey (cancelled/archived/locked/terminal-closed); red (failed/rejected). Sub-states (e.g., `partial`) distinguished by **italic label, not new hue**. |
+| P2-04 | Add-signal is two coats (flash + chip + "in draft" copy). | **Reduced to single 280ms flash.** No chip, no "in draft" text. Status column already shows `draft`. |
+| P2-05 | Keel chips look identical to SideNav items. | **Outline-only chips with leading Lucide icon.** `ShoppingCart` (Sale), `PackagePlus` (Receive), `ArrowDown` ($ In), `ArrowUp` ($ Out), `ClipboardList` (Purchase). Hover tooltip. Active chip = amber underline. |
+| P2-06 | `More ▾` tray hides verbs used 60% of the time. | **Closeout toggles (Packed / Inv Posted / Pay-F/up) pin as inline buttons** in selection strip when status = `posted` and toggle unset. Tray reserved for rare verbs (Cancel, Reverse). |
+| P2-07 | 25-col Intake grid sub-header band is decorative. | **Band removed.** Replaced with 1px vertical lines at group boundaries in the existing header row. Saves 9px. `Item · shorthand` promoted to fixed `min-width: 200px`. `Status` pinned right. |
+| P2-08 | Below-floor pill breaks 70px Price column. | **Pill moved to dedicated 22px `⚠` column** between Price and Cost. Amber dot when below floor. Hover shows `↓ $5 below floor $85`. |
+| P2-09 | Tab overflow `···` in peek hides critical tabs. | **In peek: show only active tab name + `1/9 ›` pagination.** `←/→` or `1..9` cycles. Full tab row only in expanded+. |
+| P2-10 | PO Lines editable tab has no visual differentiation. | **Editable drawer tabs have `✏ Lines` icon prefix.** Active tab background `bg-amber-50/30`. Cell borders visible only on editable tabs. |
+| P2-11 | Inventory Finder's 3 entry points have inconsistent layouts. | **One layout, three frames.** Embed mode hides slice chips. Standalone and overlay visually identical except outer chrome. |
+| P2-12 | Vendor Payouts `Due reason` column wraps unpredictably. | **Vendor column = fixed 140px**, Due reason gets remaining 1fr space. `line-clamp: 1` with ellipsis; hover shows full. Uniform row height. |
+| P2-13 | Reports mini bar chart ornamental — no values. | **Bars get value labels on top** + Y-axis baseline + high/low markers. Now informative. |
+| P2-14 | Focus mode keyboard hint buried. | **First-entry-per-session toast**: `Focus mode — ] peek · ⇧] cycle · Esc exit`. Dismissible. After dismissal, hint moves to a 12px line below identity ribbon. |
+| P2-15 | Empty / loading / error states not wireframed; error banner color conflicts with warning. | **Error banner uses red** (`#991b1b` border, `#fee2e2` bg) — never amber. Loading: AG Grid overlay + 4px amber top-border on strip. Empty: `EmptyState` with one CTA per view. **W30 / W31 / W32 sketched in §21.6.** |
+| P2-16 | "Next action" column duplicates Status pill. | **Next action column removed.** Status pill expanded to 110px, hover-chevron `›` shows next action on hover. |
+| P2-17 | `Batch` vocabulary leaks into drawer tab catalog. | **Renamed**: "Batch / Inventory row" → "Lot / inventory row". Backend identifier `batch` unchanged. Intake column header keeps "Batch" because it's the code-identifier label (legacy operator memory). |
+
+### 21.4 Issues acknowledged but not resolved (with rationale)
+
+| # | Issue | Rationale |
+| --- | --- | --- |
+| OPEN-01 | 5 drawer states (P2-02). | User explicitly requested `max`. Honoring user intent over designer recommendation. |
+| OPEN-02 | Customer workspace as 9 drawer tabs (P1-02). | Wedge Option B (customer route) was rejected by user. Phase 1 ships timing benchmarks as the regression-detection mechanism with hybrid fallback if needed. |
+| OPEN-03 | Reports as dedicated lane (vs. drawer-distributed). | User explicit request. |
+| OPEN-04 | Below-floor as warning-only (no Manager+ gate). | User explicit choice — flat org. Audit annotation per P1-07 mitigates the trust gap. |
+| OPEN-05 | "Soak 5 business days" with <1% commit failure threshold. | Initial guess; recalibrate after Phase 0 baseline emerges. |
+| OPEN-06 | Mobile redesign, dark mode, design-system extraction. | Explicitly out of scope (§9). |
+| OPEN-07 | Reports math correctness tests not in Phase 6. | Added in §21.7 as AC-12, with seeded-fixture math assertions. |
+| OPEN-08 | Cross-route entity conflict (same customer in Sales + Client Ledger + Orders). | Resolved by composite drawer key per P0-02 — each route stores its own drawer state for the same customer. |
+
+### 21.5 `OperationsViews.tsx` re-export schedule per phase
+
+| Phase | Split out (own file) | Still re-exported from `OperationsViews.tsx` |
+| --- | --- | --- |
+| End of Phase 1 | (none yet) | All 10 |
+| End of Phase 2 | PurchaseOrdersView · InventoryView | OrdersView · PaymentsView · ClientLedgerView · VendorPayablesView · FulfillmentView · ConnectorsView · RecoveryView · CloseoutView |
+| End of Phase 3 | + PaymentsView · VendorPayablesView | OrdersView · ClientLedgerView · FulfillmentView · ConnectorsView · RecoveryView · CloseoutView |
+| End of Phase 4 | + OrdersView · FulfillmentView · ConnectorsView · ClientLedgerView | RecoveryView · CloseoutView |
+| End of Phase 5 | + RecoveryView · CloseoutView | (none — `OperationsViews.tsx` deleted) |
+
+`App.tsx` imports continue to work uninterrupted.
+
+### 21.6 New wireframe stubs (W29 — W32, sketch fidelity)
+
+- **W29 — Client Ledger · dual-role counterparty.** When a contact is both customer and vendor: drawer `Relationship` tab promotes to top-level. Shows AR balance, AP balance, net exposure, last 5 orders (AR side), last 5 bills (AP side), 90-day payment cadence. Primary: "Open in Sales" or "Open in Vendor Payouts" depending on context.
+- **W30 — Empty state (Orders canonical).** Grid renders 0 rows. `EmptyState` centered: "No orders yet today." with single CTA `+ New Order` (routes to Sales).
+- **W31 — Loading state (Sales line grid canonical).** AG Grid loading overlay. Selection strip 50% opacity. 4px amber top-border on strip area = "in-flight."
+- **W32 — Error state (any grid).** Red bordered banner above grid: `[Connection error — retry?]` with `Retry` button that re-runs the underlying tRPC query.
+
+### 21.7 New ACs (closes the surface-coverage gap)
+
+- **AC-11 Connectors safety + routing.** Open a pending connector request. Verify safety banner persistent on grid header. Set `routeTo: 'sales'` inline. Press `⌘↵`. Verify: command journaled with `routedTo`; target lane shows new draft work; original ledger state unchanged.
+- **AC-12 Reports render + route-out + math.** Open Reports → Revenue. Verify default groups. Click a row. Verify drawer opens with `Definition` tab; primary `Open client card` routes correctly. Verify math: seeded fixture (3 orders on 3 dates for 2 customers) assert exact row totals.
+- **AC-13 Fulfillment inline pack.** Select a pick. Verify pack inputs inline in fulfillment-line grid. Pack all lines; verify cascade `draft → packing → packed`. Primary `Print labels` → `fulfilled`.
+- **AC-14 Client Ledger dual-role.** Counterparty as both customer + vendor. Open in Client Ledger; verify `Relationship` tab top-level. AR + AP + net exposure render non-zero.
+- **AC-15 Quick Ledger draft state.** Begin a money-in row. Fill 2 of 4 required fields. Reload. Draft row restored with partial data + `draft` state. Complete and commit; transitions to `posted`.
+
+### 21.8 Spec-wide cleanup applied
+
+- **§18 Decisions Log** augmented with **rationale + reversibility** per author-judgment entry. E.g., `QuickStartBar` deletion → alternative: keep as shrunken chip-row. Rationale: file deletion cleaner; no logic to preserve. Reversibility: restore from `git show 2392db8^:src/client/components/QuickStartBar.tsx`.
+- **Phase 0 split into Phase 0a + Phase 0b.** Phase 0a: WorkspacePanel + CommandPalette + Hotkeys (no flag, backend-touch-free). Phase 0b: Kill QuickStartBar + Keel chips behind `flag.canvas-grammar-v2`. Independent rollback.
+- **Phase 7 narrowed** to true cosmetic polish. Drawer state persistence verification moved into each phase's own gate.
+- **AC-01 timing claims** (`<3s, <4 keystrokes`) downgraded to **non-binding targets** in AC text; Playwright asserts state, not timing. Perf benchmarks live in `tests/perf/` (new directory) and are advisory.
+
+### 21.9 Phase 0 pre-flight checklist (mandatory before any phase ships)
+
+1. `grep -r 'relationshipDrawer' src/` returns zero matches.
+2. `'reports'` added to `ViewKey` union in `src/shared/types.ts`.
+3. `'arrival_status'` confirmed present in batches schema.
+4. `customers.pricingStrategy` projection on `queries.salesOrderLines` verified or thin additive added (one flagged backend touchpoint).
+5. `uiStore.drawerByView` keyed by composite `${view}:${entityType}:${entityId}`.
+6. `routeHistory` NOT in `partialize`.
+7. `pnpm audit:stubs` script lands and runs in CI.
+8. `data-testid` constants list (§14) added to `src/client/test-ids.ts` for stable selectors.
+9. Existing `⌘↵` static handlers in `Hotkeys.tsx` removed; dispatch via SelectionSummary.
+10. Keel chip `event.code === 'BracketRight'` handling verified on non-US layout (manual test).
 
 ---
 
