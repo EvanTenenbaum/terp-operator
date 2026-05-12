@@ -4,7 +4,10 @@
 - **Status**: brainstorm complete → awaiting approval → writing-plans
 - **Scope**: frontend density / hierarchy / contextual-access pass.
 - **Audience**: implementation agents executing the TERP Agro frontend pass; roadmap-integration agents reconciling against TA/MR backlogs.
-- **Companion artifacts**: `docs/design/wireframes/01-diagnosis.html` through `07-wireframes-batch-4.html` (rendered HTML wireframes W1-W28).
+- **Companion artifacts**:
+  - `docs/design/wireframes/01-diagnosis.html` through `07-wireframes-batch-4.html` (rendered HTML wireframes W1-W28).
+  - `docs/design/replication-playbook.md` — recipes (R1-R16) for extending the design coherently when implementers hit features the wireframes don't explicitly cover. Mandatory companion. See §22.
+  - `docs/design/handoff-prompt.md` — briefing for the PM / roadmap-integration agent.
 - **Repo**: <https://github.com/EvanTenenbaum/terp-agro-operator-console>
 
 ---
@@ -32,7 +35,8 @@
 19. [Decisions Log](#18-decisions-log)
 20. [Integration Discipline](#19-integration-discipline--how-to-build-new-frontend-so-it-doesnt-feel-bolted-on)
 21. [Adversarial Review — Findings & Resolutions](#21-adversarial-review--findings--resolutions)
-22. [References](#20-references)
+22. [Replication Playbook (extending the design)](#22-replication-playbook--extending-the-design-beyond-the-wireframes)
+23. [References](#20-references)
 
 ---
 
@@ -1908,6 +1912,23 @@ Five adversarial reviews were run against the spec + wireframes on 2026-05-11 (c
 8. `data-testid` constants list (§14) added to `src/client/test-ids.ts` for stable selectors.
 9. Existing `⌘↵` static handlers in `Hotkeys.tsx` removed; dispatch via SelectionSummary.
 10. Keel chip `event.code === 'BracketRight'` handling verified on non-US layout (manual test).
+
+---
+
+## 22. Replication Playbook — extending the design beyond the wireframes
+
+The wireframes (W1-W32) pin canonical states for the 14 surfaces. Many features that ship in the months and years following this design pass will NOT have an explicit wireframe — they'll be variations, additions, or new entities. To ensure these integrations are coherent with the spec rather than bolted on, the dedicated **replication playbook** at `docs/design/replication-playbook.md` carries:
+
+- **A 9-step decision framework** to run every new feature through before coding.
+- **16 recipes (R1-R16)** for the most common feature types: new drawer tab, new grid column, new status pill tone, new action verb, new hotkey, new view/route, new report, new entity type, new filter chip / saved slice, new export format, new error/empty/loading states, new cross-entity workflow, new telemetry event, new keyboard semantic, new role / permission level, new connector source type.
+- **Aesthetic and vocabulary rules** that don't fit a single recipe (operator vocabulary always wins; calm utility over delight; status pill / identity ribbon / drawer tab role separation; time formatting; dollar formatting; action verb tense).
+- **Anti-patterns** (with rationale) that must never be introduced.
+- **A 10-item smoke test** to run before any new feature merges.
+- **The four-question replication compass** to apply before any new pixel ships.
+
+**This playbook is mandatory reading for every implementing agent.** Anything not explicitly covered in the spec or wireframes must be run through the playbook. Implementers must cite the recipe used (or document why no recipe applied) in their PR body.
+
+The playbook is a living document — as new patterns earn their place during implementation, append recipes via follow-up PRs. Existing recipes don't get deleted; they preserve decision rationale.
 
 ---
 
