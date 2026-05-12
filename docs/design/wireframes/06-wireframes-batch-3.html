@@ -1,0 +1,595 @@
+<h2>Wireframe Batch 3 — Orders · Payments + Quick Ledger · Vendor Payables</h2>
+<p class="subtitle">Status-aware primaries across the order lifecycle, Quick Ledger as the money front door, vendor payable surfaces collapsed into one path with bill detail in the drawer.</p>
+
+<style>
+  .wf {border:1px solid #d4d4d8;background:#fff;font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;line-height:1.35;margin-top:8px;}
+  .wf .keel {display:flex;align-items:center;gap:10px;border-bottom:1px solid #d4d4d8;padding:7px 10px;background:#fafafa;}
+  .wf .chip {background:#e5e7eb;padding:2px 8px;display:inline-block;}
+  .wf .chip-active {background:#fde68a;padding:2px 8px;font-weight:600;}
+  .wf .sidenav {width:160px;border-right:1px solid #d4d4d8;background:#fafafa;padding:8px 6px;font-size:10.5px;color:#444;}
+  .wf .nav-group {text-transform:uppercase;color:#888;padding:3px 4px;margin-top:6px;font-size:9px;letter-spacing:.05em;font-weight:600;}
+  .wf .nav-group:first-child{margin-top:2px;}
+  .wf .nav-item {padding:3px 4px;display:flex;justify-content:space-between;align-items:center;}
+  .wf .nav-item-active {background:#fef9e7;border-left:2px solid #f59e0b;font-weight:600;}
+  .wf .kbd {font-size:9px;color:#aaa;}
+  .wf .ribbon {display:flex;align-items:center;gap:10px;border-bottom:1px solid #d4d4d8;padding:5px 10px;background:#fef9e7;font-size:11px;}
+  .wf .selstrip {display:flex;align-items:center;gap:10px;border-bottom:1px solid #d4d4d8;padding:6px 10px;background:#f4f4f5;font-size:11px;flex-wrap:wrap;}
+  .wf .selstrip-pre {background:#f8f8f7;}
+  .wf .primary {background:#22c55e;color:#fff;padding:2px 10px;font-weight:600;}
+  .wf .tray {border:1px solid #d4d4d8;padding:2px 8px;color:#444;}
+  .wf .warn {background:#fbbf24;color:#7c2d12;padding:1px 6px;font-size:10px;}
+  .wf .label-tag {background:#e5e7eb;color:#444;padding:1px 6px;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;}
+  .wf .drawer {background:#fafafa;border-left:1px solid #d4d4d8;}
+  .wf .drawer-head {display:flex;align-items:center;gap:6px;border-bottom:1px solid #d4d4d8;padding:5px 10px;background:#f4f4f5;font-size:10px;}
+  .wf .drawer-tabs {display:flex;gap:0;border-bottom:1px solid #d4d4d8;font-size:10.5px;overflow-x:auto;}
+  .wf .drawer-tab {padding:5px 10px;color:#666;white-space:nowrap;}
+  .wf .drawer-tab-active {border-bottom:2px solid #f59e0b;font-weight:600;color:#000;}
+  .annot {font-size:11px;color:#666;background:#fafafa;border-left:2px solid #f59e0b;padding:6px 10px;margin-top:6px;}
+  h3.wf-title{font-size:14px;margin-top:24px;margin-bottom:0;display:flex;align-items:center;gap:10px;}
+  h3.wf-title .num {background:#27272a;color:#fff;padding:1px 8px;font-size:10px;font-weight:600;}
+  .ledger-cell input,.ledger-cell select {border:1px solid #d4d4d8;padding:2px 4px;font-size:10.5px;background:#fff;width:100%;}
+  .status-pill {padding:1px 6px;font-size:9.5px;}
+  .status-draft {background:#fef9c3;color:#854d0e;}
+  .status-confirmed {background:#e0e7ff;color:#3730a3;}
+  .status-posted {background:#dcfce7;color:#166534;}
+  .status-fulfilled {background:#cffafe;color:#155e75;}
+  .status-cancelled {background:#f4f4f5;color:#525252;}
+  .status-scheduled {background:#fde68a;color:#854d0e;}
+  .status-paid {background:#dcfce7;color:#166534;}
+  .status-partial {background:#fed7aa;color:#7c2d12;}
+</style>
+
+<!-- =============================================
+     W14 — ORDERS · default · status-aware ranking
+============================================= -->
+<h3 class="wf-title"><span class="num">W14</span>Orders · queue across all statuses · drawer closed</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">Search</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip-active">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy</span>
+  </div>
+
+  <div style="display:flex;min-height:540px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div><div class="nav-item">Dashboard</div><div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div><div class="nav-item">Purchase Orders</div><div class="nav-item">Intake</div><div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div><div class="nav-item">Sales</div><div class="nav-item nav-item-active">Orders</div><div class="nav-item">Fulfillment</div><div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div><div class="nav-item">Payments</div><div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div><div class="nav-item">Connectors</div><div class="nav-item">Recovery</div><div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <!-- pre-selection -->
+      <div class="selstrip selstrip-pre">
+        <span class="label-tag">Pre-selection</span>
+        <span style="color:#888;">12 orders</span>
+        <span style="display:flex;gap:4px;">
+          <span class="chip">All</span>
+          <span class="chip" style="background:#fef9c3;color:#854d0e;">draft 3</span>
+          <span class="chip" style="background:#e0e7ff;color:#3730a3;">confirmed 2</span>
+          <span class="chip" style="background:#dcfce7;color:#166534;">posted 4</span>
+          <span class="chip" style="background:#cffafe;color:#155e75;">fulfilled 2</span>
+          <span class="chip" style="background:#f4f4f5;">cancelled 1</span>
+        </span>
+        <span style="margin-left:auto;color:#aaa;font-size:10px;">/ to filter · ⌘↵ status-aware primary on selection</span>
+      </div>
+
+      <!-- grid header -->
+      <div style="display:grid;grid-template-columns:24px 110px 1fr 110px 80px 80px 50px 50px 50px 140px;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:10px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;border-bottom:1px solid #d4d4d8;">
+        <span></span><span>Order #</span><span>Customer</span><span>Status</span><span>Total</span><span>Lines</span><span>Pkd</span><span>Inv</span><span>Pay</span><span>Next action</span>
+      </div>
+      <div style="background:#fff;font-size:11px;">
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 110px 80px 80px 50px 50px 50px 140px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>RS-2026-05-11</b></span><span>Rich Star</span><span><span class="status-pill status-draft">draft</span></span><span>$612</span><span>3</span><span>·</span><span>·</span><span>·</span><span style="color:#854d0e;font-size:10px;">Confirm</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 110px 80px 80px 50px 50px 50px 140px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>NH-2026-05-10</b></span><span>Nova H</span><span><span class="status-pill status-confirmed">confirmed</span></span><span>$1,420</span><span>5</span><span>·</span><span>·</span><span>·</span><span style="color:#3730a3;font-size:10px;">Post</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 110px 80px 80px 50px 50px 50px 140px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>KL-2026-05-10</b></span><span>Kira L</span><span><span class="status-pill status-confirmed">confirmed</span></span><span>$840</span><span>4</span><span>·</span><span>·</span><span>·</span><span style="color:#3730a3;font-size:10px;">Post</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 110px 80px 80px 50px 50px 50px 140px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>RT-2026-05-09</b></span><span>Riley T</span><span><span class="status-pill status-posted">posted</span></span><span>$2,210</span><span>7</span><span style="color:#16a34a;">✓</span><span>·</span><span>·</span><span style="color:#166534;font-size:10px;">Allocate fulfillment</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 110px 80px 80px 50px 50px 50px 140px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>MP-2026-05-08</b></span><span>Maven P</span><span><span class="status-pill status-posted">posted</span></span><span>$960</span><span>3</span><span style="color:#16a34a;">✓</span><span style="color:#16a34a;">✓</span><span>·</span><span style="color:#166534;font-size:10px;">Mark Pay/F-up</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 110px 80px 80px 50px 50px 50px 140px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>KL-2026-05-07</b></span><span>Kira L</span><span><span class="status-pill status-fulfilled">fulfilled</span></span><span>$1,560</span><span>6</span><span style="color:#16a34a;">✓</span><span style="color:#16a34a;">✓</span><span style="color:#16a34a;">✓</span><span style="color:#155e75;font-size:10px;">closed · ⌘← back</span>
+        </div>
+        <div style="padding:4px 10px;color:#999;font-style:italic;font-size:11px;">(6 more rows · status filter narrows the view)</div>
+      </div>
+
+      <div style="flex:1;background:#fafafa;"></div>
+    </div>
+
+    <div style="width:24px;background:#fafafa;border-left:1px solid #d4d4d8;display:flex;align-items:flex-start;justify-content:center;">
+      <div style="margin-top:60px;writing-mode:vertical-rl;text-align:center;color:#888;font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:8px 0;">Drawer · ]</div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Orders · queue spec</b>: Status chips in the pre-selection strip act as quick filters (click "confirmed" to scope to 2 rows). The grid shows three closeout cells inline (Packed · Inv · Pay/F-up) so operators can scan independent workstreams without opening anything. <b>"Next action" column</b> renders the status-aware primary verb per row in plain text — that same verb becomes the green primary button when the row is selected. No 6-sibling-button cockpit anywhere.
+</div>
+
+<!-- =============================================
+     W15 — ORDERS · confirmed order selected · drawer expanded · Lines tab
+============================================= -->
+<h3 class="wf-title"><span class="num">W15</span>Orders · confirmed order selected · primary "Post" · drawer expanded · Lines tab</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">NH-2026-05-10</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip-active">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy</span>
+  </div>
+
+  <div class="ribbon">
+    <span class="label-tag" style="background:#fde68a;color:#854d0e;">Order</span>
+    <b>NH-2026-05-10</b>
+    <span style="color:#666;">Nova H · confirmed · 5 lines · $1,420</span>
+    <span class="status-pill status-confirmed">confirmed</span>
+    <span style="color:#aaa;font-size:10px;">priced via "candy std" · margin 29% internal</span>
+    <span style="margin-left:auto;color:#999;font-size:10px;">[ ⌘← back ] &nbsp; [ ✕ leave ]</span>
+  </div>
+
+  <div style="display:flex;min-height:540px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div><div class="nav-item">Dashboard</div><div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div><div class="nav-item">Purchase Orders</div><div class="nav-item">Intake</div><div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div><div class="nav-item">Sales</div><div class="nav-item nav-item-active">Orders</div><div class="nav-item">Fulfillment</div><div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div><div class="nav-item">Payments</div><div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div><div class="nav-item">Connectors</div><div class="nav-item">Recovery</div><div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <!-- selection strip -->
+      <div class="selstrip">
+        <span class="label-tag" style="background:#27272a;color:#fff;">Selection · 1</span>
+        <span>5 lines</span><span>Σ qty 19</span><span>Σ total $1,420</span>
+        <span class="primary">▶ Post &nbsp;<span style="color:#dcfce7;font-size:9px;">⌘↵</span></span>
+        <span class="tray">More ▾ <span style="color:#888;">Allocate fulfillment · Pick list · Reprice · Mark packed · Cancel</span></span>
+        <span style="margin-left:auto;color:#666;">⏱ History &nbsp;·&nbsp; ◇ Customer &nbsp;·&nbsp; ⚠ Issue &nbsp;·&nbsp; ⬇ Packet</span>
+      </div>
+
+      <!-- compact orders grid with NH selected -->
+      <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 70px 50px 50px 50px 50px;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:10px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;">
+        <span></span><span>Order #</span><span>Customer</span><span>Status</span><span>Total</span><span>L</span><span>P</span><span>I</span><span>F</span>
+      </div>
+      <div style="background:#fff;font-size:11px;">
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 70px 50px 50px 50px 50px;gap:6px;padding:4px 10px;color:#888;border-bottom:1px solid #f3f4f6;"><span>○</span><span><b>RS-2026-05-11</b></span><span>Rich Star</span><span><span class="status-pill status-draft">draft</span></span><span>$612</span><span>3</span><span>·</span><span>·</span><span>·</span></div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 70px 50px 50px 50px 50px;gap:6px;padding:4px 10px;background:#fef9e7;border-bottom:1px solid #f3f4f6;"><span>✓</span><span><b>NH-2026-05-10</b></span><span>Nova H</span><span><span class="status-pill status-confirmed">confirmed</span></span><span>$1,420</span><span>5</span><span>·</span><span>·</span><span>·</span></div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 70px 50px 50px 50px 50px;gap:6px;padding:4px 10px;color:#888;"><span>○</span><span><b>KL-2026-05-10</b></span><span>Kira L</span><span><span class="status-pill status-confirmed">confirmed</span></span><span>$840</span><span>4</span><span>·</span><span>·</span><span>·</span></div>
+      </div>
+      <div style="flex:1;background:#fafafa;"></div>
+    </div>
+
+    <!-- drawer expanded · Lines tab (read-only here, lines edited in Sales) -->
+    <div class="drawer" style="width:420px;">
+      <div class="drawer-head">
+        <span class="label-tag">Drawer · expanded</span>
+        <span style="margin-left:auto;color:#666;">peek &nbsp;·&nbsp; <b style="color:#000;">expanded</b> &nbsp;·&nbsp; full &nbsp;·&nbsp; max &nbsp;·&nbsp; ✕</span>
+      </div>
+      <div class="drawer-tabs">
+        <span class="drawer-tab drawer-tab-active">Lines</span>
+        <span class="drawer-tab">Allocation</span>
+        <span class="drawer-tab">Customer card</span>
+        <span class="drawer-tab">Pricing</span>
+        <span class="drawer-tab">Validation</span>
+        <span class="drawer-tab">Output</span>
+        <span class="drawer-tab">Fulfillment</span>
+        <span class="drawer-tab">History</span>
+      </div>
+      <div style="padding:8px 10px;font-size:11px;">
+        <div style="display:flex;align-items:center;gap:8px;padding-bottom:6px;border-bottom:1px solid #d4d4d8;">
+          <span style="color:#666;">5 lines · pre-post check</span>
+          <span style="margin-left:auto;color:#888;font-size:10px;">edit in Sales workspace · ⌘← jumps to customer</span>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 50px 60px 60px 30px 30px 30px;gap:6px;padding:5px 0;border-bottom:1px solid #d4d4d8;font-size:10px;color:#555;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">
+          <span>Src</span><span>Item</span><span>Qty</span><span>$</span><span>Margin</span><span>P</span><span>I</span><span>F</span>
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 50px 60px 60px 30px 30px 30px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;"><span><b>M15</b></span><span>Alien Runts</span><span>3</span><span>$85</span><span style="color:#666;">29%</span><span>·</span><span>·</span><span>·</span></div>
+        <div style="display:grid;grid-template-columns:60px 1fr 50px 60px 60px 30px 30px 30px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;"><span><b>F2</b></span><span>Gelato 33</span><span>4</span><span>$78</span><span style="color:#666;">30%</span><span>·</span><span>·</span><span>·</span></div>
+        <div style="display:grid;grid-template-columns:60px 1fr 50px 60px 60px 30px 30px 30px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;"><span><b>J2</b></span><span>Candy Mediums</span><span>5</span><span>$64</span><span style="color:#666;">26%</span><span>·</span><span>·</span><span>·</span></div>
+        <div style="display:grid;grid-template-columns:60px 1fr 50px 60px 60px 30px 30px 30px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;"><span><b>C2</b></span><span>Black Truffle</span><span>4</span><span>$95</span><span style="color:#666;">32%</span><span>·</span><span>·</span><span>·</span></div>
+        <div style="display:grid;grid-template-columns:60px 1fr 50px 60px 60px 30px 30px 30px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;"><span><b>A4</b></span><span>Space Rocks</span><span>3</span><span>$92</span><span style="color:#666;">25%</span><span>·</span><span>·</span><span>·</span></div>
+
+        <!-- Post impact preview -->
+        <div style="margin-top:8px;padding:8px;background:#fafafa;border:1px solid #d4d4d8;font-size:10.5px;">
+          <div style="font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">Post — impact preview</div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:4px;">
+            <span style="color:#666;">Inventory reserved → sold</span><b>5 batches · 19 units</b>
+            <span style="color:#666;">Invoice generated</span><b>INV-? · $1,420</b>
+            <span style="color:#666;">Customer balance after</span><b>$1,420 (was $0)</b>
+            <span style="color:#666;">Credit limit headroom</span><b style="color:#16a34a;">$3,580 / $5,000</b>
+            <span style="color:#666;">Ambiguous source rows</span><b style="color:#16a34a;">none</b>
+            <span style="color:#666;">Duplicate source rows</span><b style="color:#16a34a;">none</b>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Orders · selection spec</b>: Primary verb is status-aware — confirmed → <b>Post</b>; draft → <b>Confirm</b>; posted → <b>Allocate fulfillment</b> (then <b>Mark Pay/F-up</b> once Pkd+Inv ticked). The same verb already showed in the queue's "Next action" column, so no new vocabulary on selection. Drawer Lines tab is <i>read-only</i> here — edits route to the Sales customer workspace via ⌘←. Validation tab covers ambiguous source rows / duplicate source rows / credit headroom / below-floor lines; if it's clean the impact preview shows the green ✓ summary inline. Output tab holds the customer-safe invoice/catalog/copy-offer actions.
+</div>
+
+<!-- =============================================
+     W16 — PAYMENTS · Quick Ledger + payment list · drawer closed
+============================================= -->
+<h3 class="wf-title"><span class="num">W16</span>Payments · Quick Ledger as primary surface + payment list below · drawer closed</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">Search</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip">Sale</span><span class="chip">Receive</span><span class="chip-active">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy</span>
+  </div>
+
+  <div style="display:flex;min-height:600px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div><div class="nav-item">Dashboard</div><div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div><div class="nav-item">Purchase Orders</div><div class="nav-item">Intake</div><div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div><div class="nav-item">Sales</div><div class="nav-item">Orders</div><div class="nav-item">Fulfillment</div><div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div><div class="nav-item nav-item-active">Payments <span class="kbd">⌘4</span></div><div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div><div class="nav-item">Connectors</div><div class="nav-item">Recovery</div><div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <!-- Quick Ledger -->
+      <div style="padding:8px 12px;border-bottom:1px solid #d4d4d8;background:#fafafa;display:flex;align-items:center;gap:10px;">
+        <span class="label-tag">Quick Ledger</span>
+        <span style="color:#888;font-size:10px;">Append rows · preview impact · commit per row · negative amounts auto-flag buyer credit</span>
+        <span style="margin-left:auto;color:#666;font-size:10px;">+ Row</span>
+      </div>
+      <div style="display:grid;grid-template-columns:80px 90px 70px 90px 100px 110px 110px 80px 80px 90px 1fr 70px;gap:5px;padding:5px 10px;background:#f4f4f5;font-size:9.5px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;">
+        <span>Date</span><span>Direction</span><span>Method</span><span>Bucket</span><span>Category</span><span>Counterparty</span><span>Invoice / bill</span><span>Amount</span><span>Ref</span><span>Alloc</span><span>Impact</span><span>Commit</span>
+      </div>
+      <div style="background:#fff;font-size:10.5px;">
+        <div style="display:grid;grid-template-columns:80px 90px 70px 90px 100px 110px 110px 80px 80px 90px 1fr 70px;gap:5px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span class="ledger-cell"><input type="date" value="2026-05-11"/></span><span class="ledger-cell"><select><option>Money in</option></select></span><span class="ledger-cell"><select><option>cash</option></select></span><span class="ledger-cell"><select><option>cash-file-a</option></select></span><span class="ledger-cell"><select><option>client_payment</option></select></span><span class="ledger-cell"><select><option>Rich Star</option></select></span><span class="ledger-cell"><select><option>FIFO</option></select></span><span class="ledger-cell"><input value="612"/></span><span class="ledger-cell"><input value=""/></span><span class="ledger-cell"><select><option>FIFO</option></select></span><span style="color:#666;font-size:10px;">applies up to $612 · 0 unapplied</span><span><button style="background:#22c55e;color:#fff;padding:2px 8px;font-size:10.5px;border:0;cursor:pointer;">✓ commit</button></span>
+        </div>
+        <div style="display:grid;grid-template-columns:80px 90px 70px 90px 100px 110px 110px 80px 80px 90px 1fr 70px;gap:5px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span class="ledger-cell"><input type="date" value="2026-05-11"/></span><span class="ledger-cell"><select><option>Money in</option></select></span><span class="ledger-cell"><select><option>crypto</option></select></span><span class="ledger-cell"><select><option>crypto-wallet</option></select></span><span class="ledger-cell"><select><option>buyer_credit</option></select></span><span class="ledger-cell"><select><option>Riley T</option></select></span><span class="ledger-cell"><select><option>—</option></select></span><span class="ledger-cell"><input value="-500"/></span><span class="ledger-cell"><input value="downpmt"/></span><span class="ledger-cell"><select><option>unapplied</option></select></span><span style="color:#854d0e;font-size:10px;background:#fffbeb;padding:1px 4px;">buyer credit · $500</span><span><button style="background:#22c55e;color:#fff;padding:2px 8px;font-size:10.5px;border:0;cursor:pointer;">✓ commit</button></span>
+        </div>
+        <div style="display:grid;grid-template-columns:80px 90px 70px 90px 100px 110px 110px 80px 80px 90px 1fr 70px;gap:5px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span class="ledger-cell"><input type="date" value="2026-05-11"/></span><span class="ledger-cell"><select><option>Money out</option></select></span><span class="ledger-cell"><select><option>wire</option></select></span><span class="ledger-cell"><select><option>accounting</option></select></span><span class="ledger-cell"><select><option>vendor_payout</option></select></span><span class="ledger-cell"><select><option>Scott</option></select></span><span class="ledger-cell"><select><option>VB-Scott-22</option></select></span><span class="ledger-cell"><input value="3240"/></span><span class="ledger-cell"><input value=""/></span><span class="ledger-cell"><select disabled><option>n/a</option></select></span><span style="color:#666;font-size:10px;">pays $3,240 on VB-Scott-22 · balance $0</span><span><button style="background:#22c55e;color:#fff;padding:2px 8px;font-size:10.5px;border:0;cursor:pointer;">✓ commit</button></span>
+        </div>
+        <div style="padding:4px 10px;color:#aaa;font-size:10px;font-style:italic;">+ type into row 4 to append · ⌘D duplicates focused row · ↵ commits row</div>
+      </div>
+
+      <!-- payment list grid -->
+      <div style="padding:8px 12px;border-bottom:1px solid #d4d4d8;background:#fafafa;display:flex;align-items:center;gap:10px;">
+        <span class="label-tag">Payment list</span>
+        <span style="color:#888;font-size:10px;">posted ledger rows · select to inspect allocations + impact</span>
+        <span style="margin-left:auto;color:#666;font-size:10px;">12 today · 2 unallocated · / filter</span>
+      </div>
+      <div style="display:grid;grid-template-columns:24px 100px 110px 70px 80px 90px 90px 70px 1fr 80px;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:9.5px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;border-bottom:1px solid #d4d4d8;">
+        <span></span><span>Date · time</span><span>Customer/Vendor</span><span>Method</span><span>Bucket</span><span>Category</span><span>Amount</span><span>Status</span><span>Reference · impact</span><span>Status</span>
+      </div>
+      <div style="background:#fff;font-size:10.5px;">
+        <div style="display:grid;grid-template-columns:24px 100px 110px 70px 80px 90px 90px 70px 1fr 80px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span>5/11 14:02</span><span>Rich Star</span><span>cash</span><span>cash-file-a</span><span>client_pay</span><span>$612</span><span><span class="status-pill status-posted">applied</span></span><span style="color:#666;">FIFO → 2 invoices · $0 unapplied</span><span style="color:#16a34a;font-size:10px;">posted</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 100px 110px 70px 80px 90px 90px 70px 1fr 80px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span>5/11 11:18</span><span>Maven P</span><span>check</span><span>cash-file-a</span><span>client_pay</span><span>$960</span><span><span class="status-pill" style="background:#fef9c3;color:#854d0e;">unapplied</span></span><span style="color:#666;">no invoice match · sitting on account</span><span style="color:#854d0e;font-size:10px;">action</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 100px 110px 70px 80px 90px 90px 70px 1fr 80px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span>5/11 10:30</span><span>Riley T</span><span>crypto</span><span>crypto-wallet</span><span>buyer_credit</span><span>-$500</span><span><span class="status-pill" style="background:#fed7aa;color:#7c2d12;">credit</span></span><span style="color:#666;">down payment · raises buyer credit by $500</span><span style="color:#16a34a;font-size:10px;">posted</span>
+        </div>
+        <div style="padding:4px 10px;color:#999;font-size:10.5px;font-style:italic;">(9 more rows)</div>
+      </div>
+      <div style="flex:1;background:#fafafa;"></div>
+    </div>
+
+    <div style="width:24px;background:#fafafa;border-left:1px solid #d4d4d8;display:flex;align-items:flex-start;justify-content:center;">
+      <div style="margin-top:60px;writing-mode:vertical-rl;text-align:center;color:#888;font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:8px 0;">Drawer · ]</div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Payments · default spec</b>: Quick Ledger is the primary work surface — append rows, preview impact, commit per row. Allocation Tools panel from the old design (allocation/unallocation/discount) <i>moves off-canvas into the drawer</i>; the only canvas inputs are the ledger row's own fields. Negative amount on money-in auto-flips to <code>buyer_credit</code> with an inline label — same behavior as today's <code>QuickLedgerGrid</code>. Payment list grid below shows posted rows with status pills; "unapplied" rows are scan-able as a class.
+</div>
+
+<!-- =============================================
+     W17 — PAYMENTS · payment selected · drawer expanded with Allocation tab
+============================================= -->
+<h3 class="wf-title"><span class="num">W17</span>Payments · unapplied payment selected · primary "Allocate FIFO" · drawer expanded · Allocation tab</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">Maven P</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip">Sale</span><span class="chip">Receive</span><span class="chip-active">$ In</span><span class="chip">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy</span>
+  </div>
+
+  <div class="ribbon">
+    <span class="label-tag" style="background:#fde68a;color:#854d0e;">Payment</span>
+    <b>PMT-2026-05-11-0847</b>
+    <span style="color:#666;">Maven P · check · $960 · cash-file-a</span>
+    <span class="status-pill" style="background:#fef9c3;color:#854d0e;">unapplied</span>
+    <span style="margin-left:auto;color:#999;font-size:10px;">[ ⌘← back ] &nbsp; [ ✕ leave ]</span>
+  </div>
+
+  <div style="display:flex;min-height:520px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div><div class="nav-item">Dashboard</div><div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div><div class="nav-item">Purchase Orders</div><div class="nav-item">Intake</div><div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div><div class="nav-item">Sales</div><div class="nav-item">Orders</div><div class="nav-item">Fulfillment</div><div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div><div class="nav-item nav-item-active">Payments</div><div class="nav-item">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div><div class="nav-item">Connectors</div><div class="nav-item">Recovery</div><div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <!-- selection strip -->
+      <div class="selstrip">
+        <span class="label-tag" style="background:#27272a;color:#fff;">Selection · 1</span>
+        <span>$960 unapplied</span>
+        <span class="primary">▶ Allocate FIFO &nbsp;<span style="color:#dcfce7;font-size:9px;">⌘↵</span></span>
+        <span class="tray">More ▾ <span style="color:#888;">Allocate to selected invoice · Apply early-pay discount · Refund · Reverse</span></span>
+        <span style="margin-left:auto;color:#666;">⏱ History &nbsp;·&nbsp; ◇ Customer &nbsp;·&nbsp; ⚠ Issue &nbsp;·&nbsp; ⬇ Packet</span>
+      </div>
+
+      <!-- compact payment list, Maven selected -->
+      <div style="display:grid;grid-template-columns:24px 100px 110px 70px 90px 70px 1fr;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:9.5px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;border-bottom:1px solid #d4d4d8;">
+        <span></span><span>Date</span><span>Counterparty</span><span>Method</span><span>Amount</span><span>Status</span><span>Reference / impact</span>
+      </div>
+      <div style="background:#fff;font-size:10.5px;">
+        <div style="display:grid;grid-template-columns:24px 100px 110px 70px 90px 70px 1fr;gap:6px;padding:4px 10px;color:#888;border-bottom:1px solid #f3f4f6;"><span>○</span><span>5/11 14:02</span><span>Rich Star</span><span>cash</span><span>$612</span><span><span class="status-pill status-posted">applied</span></span><span>FIFO → 2 invoices</span></div>
+        <div style="display:grid;grid-template-columns:24px 100px 110px 70px 90px 70px 1fr;gap:6px;padding:4px 10px;background:#fef9e7;border-bottom:1px solid #f3f4f6;"><span>✓</span><span>5/11 11:18</span><span><b>Maven P</b></span><span>check</span><span>$960</span><span><span class="status-pill" style="background:#fef9c3;color:#854d0e;">unapplied</span></span><span>no invoice match</span></div>
+        <div style="display:grid;grid-template-columns:24px 100px 110px 70px 90px 70px 1fr;gap:6px;padding:4px 10px;color:#888;border-bottom:1px solid #f3f4f6;"><span>○</span><span>5/11 10:30</span><span>Riley T</span><span>crypto</span><span>-$500</span><span><span class="status-pill" style="background:#fed7aa;color:#7c2d12;">credit</span></span><span>down payment</span></div>
+      </div>
+      <div style="flex:1;background:#fafafa;"></div>
+    </div>
+
+    <!-- drawer expanded · Allocation tab -->
+    <div class="drawer" style="width:420px;">
+      <div class="drawer-head">
+        <span class="label-tag">Drawer · expanded</span>
+        <span style="margin-left:auto;color:#666;">peek &nbsp;·&nbsp; <b style="color:#000;">expanded</b> &nbsp;·&nbsp; full &nbsp;·&nbsp; max &nbsp;·&nbsp; ✕</span>
+      </div>
+      <div class="drawer-tabs">
+        <span class="drawer-tab drawer-tab-active">Allocation</span>
+        <span class="drawer-tab">Customer card</span>
+        <span class="drawer-tab">Impact</span>
+        <span class="drawer-tab">Buckets</span>
+        <span class="drawer-tab">History</span>
+      </div>
+      <div style="padding:8px 10px;font-size:11px;">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:4px;padding-bottom:6px;border-bottom:1px solid #d4d4d8;">
+          <span style="color:#666;">Payment</span><b>$960</b>
+          <span style="color:#666;">Allocated so far</span><b>$0</b>
+          <span style="color:#666;">Remaining unapplied</span><b style="color:#854d0e;">$960</b>
+        </div>
+
+        <div style="margin-top:8px;font-size:10px;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Open invoices for Maven P</div>
+        <div style="display:grid;grid-template-columns:28px 1fr 70px 60px 80px;gap:6px;padding:4px 0;border-bottom:1px solid #d4d4d8;font-size:10.5px;color:#555;font-weight:600;">
+          <span>Apply</span><span>Invoice</span><span>Total</span><span>Paid</span><span>Open</span>
+        </div>
+        <div style="display:grid;grid-template-columns:28px 1fr 70px 60px 80px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><input type="checkbox" checked /></span><span><b>INV-198</b> · 4/22 · Black Truffle order</span><span>$760</span><span>$0</span><span>$760</span>
+        </div>
+        <div style="display:grid;grid-template-columns:28px 1fr 70px 60px 80px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><input type="checkbox" checked /></span><span><b>INV-189</b> · 4/14 · Alien Runts order</span><span>$510</span><span>$310</span><span>$200</span>
+        </div>
+        <div style="display:grid;grid-template-columns:28px 1fr 70px 60px 80px;gap:6px;padding:4px 0;border-bottom:1px solid #f3f4f6;">
+          <span><input type="checkbox" /></span><span><b>INV-204</b> · 4/29 · Candy Mediums order</span><span>$320</span><span>$0</span><span>$320</span>
+        </div>
+
+        <!-- preview -->
+        <div style="margin-top:8px;padding:8px;background:#fafafa;border:1px solid #d4d4d8;font-size:10.5px;">
+          <div style="font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">Allocation preview (FIFO if Allocate FIFO is committed)</div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:4px;">
+            <span style="color:#666;">INV-189 (oldest open)</span><b>$200</b>
+            <span style="color:#666;">INV-198</span><b>$760</b>
+            <span style="color:#666;">INV-204</span><b>$0</b>
+            <span style="color:#666;">Unapplied after</span><b style="color:#16a34a;">$0</b>
+          </div>
+          <div style="margin-top:6px;color:#888;font-size:10px;">Uncheck rows to switch from FIFO to selected. Apply early-pay discount via tray.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Payments · selection spec</b>: Status-aware primary on a posted payment: unapplied → <b>Allocate FIFO</b>, partially-applied → <b>Allocate remaining</b>, fully applied → primary disabled (tray has Reverse). Allocation tab is the canvas for split/unallocate/discount — replaces today's inline "Payment allocations" panel. Allocation preview computes from <code>queries.paymentAllocationPreview</code> live as the operator toggles checkboxes. Drawer Impact tab carries the FIFO-vs-selected impact preview; Buckets shows where the money sits (office vs. accounting cash).
+</div>
+
+<!-- =============================================
+     W18 — VENDOR PAYOUTS · default · drawer closed
+============================================= -->
+<h3 class="wf-title"><span class="num">W18</span>Vendor Payouts · default queue across statuses · drawer closed</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">Search</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip-active">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy</span>
+  </div>
+
+  <div style="display:flex;min-height:520px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div><div class="nav-item">Dashboard</div><div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div><div class="nav-item">Purchase Orders</div><div class="nav-item">Intake</div><div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div><div class="nav-item">Sales</div><div class="nav-item">Orders</div><div class="nav-item">Fulfillment</div><div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div><div class="nav-item">Payments</div><div class="nav-item nav-item-active">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div><div class="nav-item">Connectors</div><div class="nav-item">Recovery</div><div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <div class="selstrip selstrip-pre">
+        <span class="label-tag">Pre-selection</span>
+        <span>Vendor ▾</span>
+        <select style="font-size:11px;padding:2px 6px;background:#fff;border:1px solid #d4d4d8;"><option>All vendors</option><option>Scott</option><option>Greenline Farms</option><option>Aurora</option></select>
+        <span style="display:flex;gap:4px;">
+          <span class="chip">All</span>
+          <span class="chip" style="background:#fef9c3;color:#854d0e;">open 4</span>
+          <span class="chip" style="background:#e0e7ff;color:#3730a3;">approved 2</span>
+          <span class="chip status-scheduled">scheduled 3</span>
+          <span class="chip" style="background:#fed7aa;color:#7c2d12;">partial 1</span>
+          <span class="chip status-paid">paid 5</span>
+        </span>
+        <span style="margin-left:auto;color:#aaa;font-size:10px;">15 bills · $24.6K open · $8.4K scheduled today</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 90px 80px 1fr 100px;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:9.5px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;border-bottom:1px solid #d4d4d8;">
+        <span></span><span>Bill #</span><span>Vendor</span><span>Status</span><span>Amount</span><span>Paid</span><span>Open</span><span>Sched</span><span>Due reason</span><span>Next action</span>
+      </div>
+      <div style="background:#fff;font-size:10.5px;">
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 90px 80px 1fr 100px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>VB-Scott-22</b></span><span>Scott</span><span><span class="status-pill status-scheduled">scheduled</span></span><span>$3,240</span><span>$0</span><span>$3,240</span><span>5/15</span><span style="color:#666;">consigned lot depleted (B-201)</span><span style="color:#854d0e;font-size:10px;">Pay</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 90px 80px 1fr 100px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>VB-Green-09</b></span><span>Greenline Farms</span><span><span class="status-pill" style="background:#fef9c3;color:#854d0e;">open</span></span><span>$1,840</span><span>$0</span><span>$1,840</span><span style="color:#888;">—</span><span style="color:#666;">net 30 from PO-003 receipt 5/02</span><span style="color:#854d0e;font-size:10px;">Approve</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 90px 80px 1fr 100px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>VB-Aurora-14</b></span><span>Aurora</span><span><span class="status-pill" style="background:#e0e7ff;color:#3730a3;">approved</span></span><span>$2,400</span><span>$0</span><span>$2,400</span><span style="color:#888;">—</span><span style="color:#666;">consigned · 60% depleted</span><span style="color:#3730a3;font-size:10px;">Schedule</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 90px 80px 1fr 100px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>VB-Scott-21</b></span><span>Scott</span><span><span class="status-pill" style="background:#fed7aa;color:#7c2d12;">partial</span></span><span>$5,000</span><span>$3,200</span><span>$1,800</span><span>5/20</span><span style="color:#666;">terms · 2 partials so far</span><span style="color:#854d0e;font-size:10px;">Pay</span>
+        </div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 90px 80px 1fr 100px;gap:6px;padding:4px 10px;border-bottom:1px solid #f3f4f6;">
+          <span style="color:#bbb;">○</span><span><b>VB-Green-08</b></span><span>Greenline Farms</span><span><span class="status-pill status-paid">paid</span></span><span>$1,250</span><span>$1,250</span><span>$0</span><span style="color:#888;">—</span><span style="color:#666;">closed 5/03</span><span style="color:#166534;font-size:10px;">closed</span>
+        </div>
+        <div style="padding:4px 10px;color:#999;font-size:10.5px;font-style:italic;">(10 more rows)</div>
+      </div>
+
+      <div style="flex:1;background:#fafafa;"></div>
+    </div>
+
+    <div style="width:24px;background:#fafafa;border-left:1px solid #d4d4d8;display:flex;align-items:flex-start;justify-content:center;">
+      <div style="margin-top:60px;writing-mode:vertical-rl;text-align:center;color:#888;font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:8px 0;">Drawer · ]</div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Vendor Payouts · default spec</b>: <b>Due reason</b> is a first-class visible column — "consigned lot depleted (B-201)" / "net 30 from PO-003 receipt 5/02" / "terms · 2 partials so far" — so the operator never has to wonder why a bill is due. <b>Scheduled column</b> shows actual event date when a real schedule exists (5/15) and a dash otherwise — the workflow refuses to schedule without a real event. <b>Open</b> column (Amount − Paid) makes partial payouts legible at a glance. Next-action column previews the status-aware primary, same pattern as Orders. Old VendorBillTools panel (manual bill, void payout) is gone from canvas — those tools move into the drawer's <b>Tools</b> tab on a vendor.
+</div>
+
+<!-- =============================================
+     W19 — VENDOR PAYOUTS · bill selected (approved) · drawer expanded · Due reason tab
+============================================= -->
+<h3 class="wf-title"><span class="num">W19</span>Vendor Payouts · approved bill selected · primary "Schedule" · drawer expanded · Due reason tab</h3>
+
+<div class="wf">
+  <div class="keel">
+    <span style="color:#999;">⌘K</span><span style="color:#aaa;">VB-Aurora-14</span>
+    <span style="color:#ccc;">│</span>
+    <span class="chip">Sale</span><span class="chip">Receive</span><span class="chip">$ In</span><span class="chip-active">$ Out</span><span class="chip">Purchase</span>
+    <span style="margin-left:auto;color:#444;">● Healthy</span>
+  </div>
+
+  <div class="ribbon">
+    <span class="label-tag" style="background:#fde68a;color:#854d0e;">Vendor bill</span>
+    <b>VB-Aurora-14</b>
+    <span style="color:#666;">Aurora · approved · $2,400 · 0 paid · consigned 60% depleted</span>
+    <span class="status-pill" style="background:#e0e7ff;color:#3730a3;">approved</span>
+    <span style="margin-left:auto;color:#999;font-size:10px;">[ ⌘← back ] &nbsp; [ ✕ leave ]</span>
+  </div>
+
+  <div style="display:flex;min-height:520px;">
+    <div class="sidenav">
+      <div class="nav-group">Decide</div><div class="nav-item">Dashboard</div><div class="nav-item">Reports</div>
+      <div class="nav-group">Procure</div><div class="nav-item">Purchase Orders</div><div class="nav-item">Intake</div><div class="nav-item">Inventory</div>
+      <div class="nav-group">Sell</div><div class="nav-item">Sales</div><div class="nav-item">Orders</div><div class="nav-item">Fulfillment</div><div class="nav-item">Client Ledger</div>
+      <div class="nav-group">Money</div><div class="nav-item">Payments</div><div class="nav-item nav-item-active">Vendor Payouts</div>
+      <div class="nav-group">Resolve</div><div class="nav-item">Connectors</div><div class="nav-item">Recovery</div><div class="nav-item">Closeout</div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <div class="selstrip">
+        <span class="label-tag" style="background:#27272a;color:#fff;">Selection · 1</span>
+        <span>$2,400 open</span>
+        <span class="primary">▶ Schedule &nbsp;<span style="color:#dcfce7;font-size:9px;">⌘↵</span></span>
+        <span class="tray">More ▾ <span style="color:#888;">Pay now (auto-schedule) · Reverse approval · Reject · Void</span></span>
+        <span style="margin-left:auto;color:#666;">⏱ History &nbsp;·&nbsp; ◇ Vendor &nbsp;·&nbsp; ⬇ Packet</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 1fr;gap:6px;padding:5px 10px;background:#f4f4f5;font-size:9.5px;font-weight:600;text-transform:uppercase;color:#555;letter-spacing:.04em;border-bottom:1px solid #d4d4d8;">
+        <span></span><span>Bill #</span><span>Vendor</span><span>Status</span><span>Open</span><span>Sched</span><span>Due reason</span>
+      </div>
+      <div style="background:#fff;font-size:10.5px;">
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 1fr;gap:6px;padding:4px 10px;color:#888;border-bottom:1px solid #f3f4f6;"><span>○</span><span><b>VB-Scott-22</b></span><span>Scott</span><span><span class="status-pill status-scheduled">scheduled</span></span><span>$3,240</span><span>5/15</span><span>consigned depleted</span></div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 1fr;gap:6px;padding:4px 10px;color:#888;border-bottom:1px solid #f3f4f6;"><span>○</span><span><b>VB-Green-09</b></span><span>Greenline Farms</span><span><span class="status-pill" style="background:#fef9c3;color:#854d0e;">open</span></span><span>$1,840</span><span>—</span><span>net 30</span></div>
+        <div style="display:grid;grid-template-columns:24px 110px 1fr 100px 80px 80px 1fr;gap:6px;padding:4px 10px;background:#fef9e7;border-bottom:1px solid #f3f4f6;"><span>✓</span><span><b>VB-Aurora-14</b></span><span><b>Aurora</b></span><span><span class="status-pill" style="background:#e0e7ff;color:#3730a3;">approved</span></span><span>$2,400</span><span>—</span><span>consigned · 60% depleted</span></div>
+      </div>
+      <div style="flex:1;background:#fafafa;"></div>
+    </div>
+
+    <!-- drawer expanded · Due reason -->
+    <div class="drawer" style="width:420px;">
+      <div class="drawer-head">
+        <span class="label-tag">Drawer · expanded</span>
+        <span style="margin-left:auto;color:#666;">peek &nbsp;·&nbsp; <b style="color:#000;">expanded</b> &nbsp;·&nbsp; full &nbsp;·&nbsp; max &nbsp;·&nbsp; ✕</span>
+      </div>
+      <div class="drawer-tabs">
+        <span class="drawer-tab drawer-tab-active">Due reason</span>
+        <span class="drawer-tab">Source receipt</span>
+        <span class="drawer-tab">Linked PO</span>
+        <span class="drawer-tab">Payouts</span>
+        <span class="drawer-tab">Consignment</span>
+        <span class="drawer-tab">History</span>
+      </div>
+      <div style="padding:8px 10px;font-size:11px;">
+        <div style="padding:8px;background:#fff7ed;border:1px solid #fed7aa;font-size:11px;color:#854d0e;line-height:1.6;">
+          <b>Why this bill exists</b><br>
+          Consigned receipt <b>rcpt-194</b> linked to <b>PO-004</b> from Aurora · brought in <b>62 units</b> of Black Truffle (B-198).<br>
+          <b>60% of that lot has now sold</b> (B-198 has 25 units remaining of 62 intake).<br>
+          Consignment terms say <b>balance owed pro-rata as units sell</b>. So $2,400 of the $4,000 lot value is now <b>due to vendor</b>.<br>
+          When the remaining 25 units sell or 60d elapse from receipt date (5/02), the rest will follow.
+        </div>
+
+        <div style="margin-top:10px;font-size:10px;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Schedule preview</div>
+        <div style="margin-top:4px;padding:6px;background:#fafafa;border:1px solid #d4d4d8;font-size:10.5px;">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:4px;">
+            <span style="color:#666;">Default scheduled event</span><b>5/15 (4d from now)</b>
+            <span style="color:#666;">Default method</span><b>wire</b>
+            <span style="color:#666;">Default bucket</span><b>accounting</b>
+            <span style="color:#666;">Available cash</span><b style="color:#16a34a;">$22,140</b>
+            <span style="color:#666;">After scheduled</span><b>$19,740</b>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;font-size:10px;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Trace</div>
+        <div style="margin-top:4px;font-size:10.5px;color:#444;">
+          <span style="color:#666;">PO-004</span> &nbsp;→&nbsp; <span style="color:#666;">rcpt-194</span> &nbsp;→&nbsp; <span style="color:#666;">B-198 (62 → 25 avail)</span> &nbsp;→&nbsp; <b>VB-Aurora-14</b> &nbsp;→&nbsp; <span style="color:#aaa;">0 payouts yet</span>
+          <div style="margin-top:4px;color:#888;font-size:10px;">Click any link to jump · drawer state restores on ⌘←</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="annot">
+  <b>Vendor Payouts · selection spec</b>: Status-aware primary cascade: open → <b>Approve</b>, approved → <b>Schedule</b>, scheduled → <b>Pay</b>, partial → <b>Pay remaining</b>, paid → primary disabled (tray: Reverse / Void). Due reason tab tells the operator <i>why</i> a consignment bill is due in plain language — pulled from <code>queries.relationshipDrawer</code> or <code>vendorBills.dueReason</code>. Trace ribbon at the bottom mirrors the PO Linked-intake trace pattern: PO → receipt → batch → bill → payouts. Consignment tab shows the remaining-units-vs-sold math for sellout-driven payables. Tools tab (manual bill creation / void payout) is reachable via the drawer's More ▾ tab list (hidden in 7-tab default to keep ribbon clean).
+</div>
+
+<!-- =============================================
+     Batch 3 closing
+============================================= -->
+<div class="section" style="margin-top:18px;">
+  <div class="label">What batch 3 establishes</div>
+  <ul style="margin:6px 0 0 18px;font-size:12px;line-height:1.6;">
+    <li><b>Status-aware primary cascades</b> across the order lifecycle (draft→Confirm→Post→Allocate→Mark Pay/F-up) and the payable lifecycle (open→Approve→Schedule→Pay).</li>
+    <li><b>"Next action" column</b> on queue grids — the same verb the primary will become when that row is selected. Removes the "what do I do with this" question before the operator even clicks.</li>
+    <li><b>Quick Ledger as the money front door</b> — append rows, preview impact, commit per row. Allocation tools / discount / refund / reverse move into drawer tabs on selected payments.</li>
+    <li><b>Negative money-in</b> auto-flips to buyer credit with inline label and impact preview — already in <code>QuickLedgerGrid</code>; no behavior change.</li>
+    <li><b>Due reason as a first-class column</b> on Vendor Payouts, plus a dedicated Due reason drawer tab explaining sellout / net-terms / down-payment / scheduled-event triggers in plain language.</li>
+    <li><b>Trace ribbons</b> on payable Due reason tab and PO Linked-intake tab share the same pattern: <code>PO → receipt → batch → bill → payouts</code>, clickable end to end.</li>
+    <li><b>No always-on side panels</b> on Payments or Vendor Payouts. Allocation tools, manual-bill creation, payout voiding, FIFO Allocate all live inside the drawer's tabs.</li>
+  </ul>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">Batch 4 next: <b>Fulfillment</b>, <b>Connectors</b>, <b>Recovery</b>, <b>Closeout</b>, and the new <b>Reports</b> route — all in sketch fidelity per scope. Then the consolidated spec doc gets written, reviewed, and handed to writing-plans.</p>
