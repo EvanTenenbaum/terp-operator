@@ -43,4 +43,4 @@ jobs:
           spec_path="$(node scripts/render-digitalocean-spec.mjs .do/terp-agro-staging.yaml artifacts/terp-agro-staging.rendered.yaml)"
           echo "path=$spec_path" >> "$GITHUB_OUTPUT"
       - name: Create or update DigitalOcean staging app
-        run: doctl apps create --spec "${{ steps.spec.outputs.path }}" --upsert --update-sources --wait --format ID,DefaultIngress,ActiveDeployment.ID
+        run: doctl apps create --spec "${{ steps.spec.outputs.path }}" --upsert --wait --format ID,DefaultIngress,ActiveDeployment.ID
