@@ -60,6 +60,8 @@ export const commandNames = [
   'archivePeriod'
 ] as const;
 
+export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
+
 export type CommandName = (typeof commandNames)[number];
 
 export type ReversalDisposition = 'reversible' | 'offsettable' | 'terminal';
@@ -119,7 +121,7 @@ export const commandLabels: Record<CommandName, string> = {
   adjustFulfillmentLine: 'Adjust fulfillment line',
   approveConnectorRequest: 'Approve connector request',
   rejectConnectorRequest: 'Reject connector request',
-  routeConnectorRequest: 'Route connector request',
+  routeConnectorRequest: 'Reassign inbound request',
   createCorrectionJournalEntry: 'Create correction journal entry',
   reverseCommandById: 'Reverse command',
   restoreFromBackupPoint: 'Preview backup restore',
@@ -238,8 +240,8 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   printLabels: { disposition: 'offsettable', guidance: 'Reprint labels or regenerate the manifest.' },
   adjustFulfillmentLine: { disposition: 'offsettable', guidance: 'Apply another fulfillment line adjustment.' },
   approveConnectorRequest: { disposition: 'reversible', guidance: 'Returns the connector request to open review.' },
-  rejectConnectorRequest: { disposition: 'terminal', guidance: 'Rejected connector requests stay terminal; create or route a new request.' },
-  routeConnectorRequest: { disposition: 'reversible', guidance: 'Returns the connector request to open review.' },
+  rejectConnectorRequest: { disposition: 'terminal', guidance: 'Rejected connector requests stay terminal; create or approve a new request.' },
+  routeConnectorRequest: { disposition: 'reversible', guidance: 'Internal reassignment only; operators approve or reject inbound requests.' },
   createCorrectionJournalEntry: { disposition: 'reversible', guidance: 'Marks correction journal rows reversed.' },
   reverseCommandById: { disposition: 'terminal', guidance: 'Reversal commands are terminal audit records.' },
   restoreFromBackupPoint: { disposition: 'terminal', guidance: 'Restore preview is read-only and has no mutation to reverse.' },
@@ -252,3 +254,13 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
 export const reversibleCommands = new Set<CommandName>(
   commandNames.filter((name) => reversalPolicies[name].disposition === 'reversible')
 );
+
+export function commandLabelFor(name: unknown) {
+  if (typeof name !== 'string') return '';
+  if (commandNames.includes(name as CommandName)) return commandLabels[name as CommandName];
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/^./, (letter) => letter.toUpperCase());
+}

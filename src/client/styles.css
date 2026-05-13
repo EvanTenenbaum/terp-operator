@@ -393,6 +393,10 @@ kbd {
   @apply h-8 w-14 border border-line px-1 text-center outline-none focus:shadow-focus disabled:bg-panel;
 }
 
+.finder-add-button {
+  @apply px-2 text-xs;
+}
+
 .finder-match {
   @apply max-w-48 truncate text-[11px] text-zinc-600;
 }

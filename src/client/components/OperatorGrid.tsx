@@ -12,7 +12,7 @@ import { StatusPill } from './StatusPill';
 import { WorkspacePanel } from './WorkspacePanel';
 import type { GridRow, ViewKey } from '../../shared/types';
 
-type ExportableView = Exclude<ViewKey, 'dashboard' | 'reports'>;
+type ExportableView = Exclude<ViewKey, 'dashboard' | 'reports' | 'settings'>;
 
 const EXPORTABLE_VIEWS: readonly ExportableView[] = ['intake', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout'];
 
@@ -26,9 +26,11 @@ interface OperatorGridProps {
   selectionActions?: (rows: GridRow[]) => ReactNode;
   onSelectionChange?: (rows: GridRow[]) => void;
   onCellCommit?: (event: CellValueChangedEvent<GridRow>) => void;
+  emptyTitle?: string;
+  emptyChildren?: ReactNode;
 }
 
-export function OperatorGrid({ view, title, rows, columns, loading, actions, selectionActions, onSelectionChange, onCellCommit }: OperatorGridProps) {
+export function OperatorGrid({ view, title, rows, columns, loading, actions, selectionActions, onSelectionChange, onCellCommit, emptyTitle, emptyChildren }: OperatorGridProps) {
   const apiRef = useRef<GridApi<GridRow> | null>(null);
   const me = trpc.auth.me.useQuery();
   const utils = trpc.useContext();
@@ -99,7 +101,7 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
           </button>
           {isExportableView(view) ? (
             <button type="button" className="secondary-button compact-action" title="Export deterministic server CSV" onClick={() => void exportServerCsv()}>
-              Server CSV
+              Export CSV
             </button>
           ) : null}
         </>
@@ -130,7 +132,7 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
             onCellValueChanged={onCellCommit}
           />
         ) : (
-          <EmptyState title="No rows yet">Create or import rows, then mark them Ready when they can be posted.</EmptyState>
+          <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'Create or import rows, then mark them Ready when they can be posted.'}</EmptyState>
         )}
       </div>
       <SelectionSummary rows={selectedRows} view={view} onOpenHistory={setHistoryRow} onOpenRelationship={setRelationshipRow} onOpenIssue={canWrite ? setIssueRow : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} />

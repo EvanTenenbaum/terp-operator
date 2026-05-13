@@ -35,7 +35,7 @@ Purpose: confirm every backend command, query, and operator-facing ability has a
 
 ## Current Command Parity
 
-All 54 typed backend commands now have direct frontend surfaces:
+The command catalog has 57 typed backend commands. Of those, 56 are user-surfaceable and have direct frontend surfaces. `routeConnectorRequest` remains backend-internal by design because operators approve/reject inbound requests rather than manually routing them.
 
 - Intake: `createBatch`, `updateBatch`, `deleteBatch`, `postPurchaseReceipt`, `adjustBatchQuantity`, `setBatchPrice`, `setBatchLotInfo`, `attachBatchPhoto`, `importBatchesCsv`
 - Purchase orders: `createPurchaseOrder`, `updatePurchaseOrder`, `addPurchaseOrderLine`, `updatePurchaseOrderLine`, `removePurchaseOrderLine`, `approvePurchaseOrder`, `receivePurchaseOrder`, `cancelPurchaseOrder`
@@ -44,7 +44,7 @@ All 54 typed backend commands now have direct frontend surfaces:
 - Payments: `logPayment`, `allocatePayment`, `unallocatePayment`, `refundPayment`, `applyEarlyPayDiscount`
 - Vendor: `createVendorBill`, `approveVendorBill`, `scheduleVendorPayment`, `recordVendorPayment`, `voidVendorPayment`
 - Fulfillment: `createPickList`, `recordWeighAndPack`, `markOrderFulfilled`, `printLabels`, `adjustFulfillmentLine`
-- Connector: `approveConnectorRequest`, `rejectConnectorRequest`, `routeConnectorRequest`
+- Connector: `approveConnectorRequest`, `rejectConnectorRequest`
 - Recovery: `createCorrectionJournalEntry`, `reverseCommandById`, `restoreFromBackupPoint`, `repriceOrder`
 - Closeout: `postPeriodAdjustments`, `lockPeriod`, `archivePeriod`
 
@@ -72,5 +72,5 @@ Current proof:
 
 ```bash
 pnpm audit:parity
-# Backend/frontend parity OK: 54 commands and 27 query endpoints have frontend surfaces.
+# Backend/frontend parity OK: 56 surfaced commands, 1 internal command(s), and 27 query endpoints accounted for.
 ```

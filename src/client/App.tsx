@@ -25,6 +25,7 @@ import {
   PaymentsView,
   PurchaseOrdersView,
   RecoveryView,
+  SettingsView,
   VendorPayablesView
 } from './views/OperationsViews';
 
@@ -81,6 +82,7 @@ export function App() {
             {activeView === 'connectors' ? <ConnectorsView /> : null}
             {activeView === 'recovery' ? <RecoveryView /> : null}
             {activeView === 'closeout' ? <CloseoutView /> : null}
+            {activeView === 'settings' ? <SettingsView /> : null}
           </main>
           <ContextDrawer />
         </div>

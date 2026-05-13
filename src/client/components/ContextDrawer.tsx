@@ -1,11 +1,12 @@
 import { ChevronRight, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import clsx from 'clsx';
+import { trpc } from '../api/trpc';
 import { activeEntityForState, defaultDrawerState, defaultTabForEntity, drawerStorageKey, queueDrawerEntity, storedDrawerForState, useUiStore } from '../store/uiStore';
 import type { DrawerStateName, GridRow, ViewKey } from '../../shared/types';
 
 const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   queue: [
-    { key: 'definition', label: 'Definition' },
+    { key: 'actions', label: 'Actions' },
     { key: 'saved', label: 'Saved views' }
   ],
   customer: [
@@ -58,25 +59,29 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'history', label: 'History' }
   ],
   connector: [
-    { key: 'session', label: 'Session' },
-    { key: 'routing', label: 'Routing' },
+    { key: 'request', label: 'Request' },
+    { key: 'source', label: 'Source' },
     { key: 'history', label: 'History' }
   ],
   recovery: [
-    { key: 'reversal', label: 'Reversal' },
-    { key: 'snapshot', label: 'Snapshot' },
-    { key: 'system', label: 'System' },
+    { key: 'undo', label: 'Undo' },
+    { key: 'target', label: 'Target row' },
     { key: 'history', label: 'History' }
   ],
   closeout: [
     { key: 'control-totals', label: 'Control totals' },
-    { key: 'unsafe', label: 'Unsafe rows' },
+    { key: 'open-work', label: 'Open work' },
     { key: 'artifacts', label: 'Artifacts' }
   ],
   report: [
-    { key: 'definition', label: 'Definition' },
+    { key: 'rows', label: 'Rows' },
     { key: 'export', label: 'Export' },
     { key: 'saved', label: 'Saved views' }
+  ],
+  settings: [
+    { key: 'requests', label: 'Requests' },
+    { key: 'actions', label: 'Action log' },
+    { key: 'archive', label: 'Archive' }
   ]
 };
 
@@ -106,9 +111,9 @@ export function ContextDrawer() {
   if (drawer.state === 'closed') {
     return (
       <aside className="context-drawer context-drawer-closed" aria-label="Context drawer">
-        <button type="button" className="context-drawer-nub" onClick={() => toggleDrawer(activeView)}>
+        <button type="button" className="context-drawer-nub" onClick={() => toggleDrawer(activeView)} title="Toggle Drawer (Hotkey: ])">
           <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
-          <span>{stateLabel.closed}</span>
+          <span>Drawer `]`</span>
         </button>
       </aside>
     );
@@ -160,10 +165,11 @@ export function getActiveDrawerStorageKey(view: ViewKey) {
 }
 
 function ContextDrawerContent({ activeView, activeTab, row, entityType }: { activeView: ViewKey; activeTab: string; row?: GridRow; entityType: string }) {
-  const facts = compactFacts(row);
+  const customerId = entityType === 'customer' ? String(row?.customerId ?? (activeView === 'clients' ? row?.id ?? '' : '')) : '';
+  const relationship = trpc.queries.relationshipSummary.useQuery({ customerId }, { enabled: Boolean(customerId) });
+  const facts = compactFacts(row, entityType, relationship.data);
   return (
     <div className="context-drawer-card">
-      <div className="text-[11px] font-bold uppercase text-zinc-500">{activeView} · {entityType}</div>
       <h2 className="mt-1 truncate text-base font-semibold text-ink">{titleFor(row, activeTab)}</h2>
       <div className="mt-3 grid gap-2">
         {facts.length ? facts.map(([label, value]) => (
@@ -190,8 +196,22 @@ function titleFor(row: GridRow | undefined, activeTab: string) {
   return String(row?.label ?? row?.name ?? row?.customer ?? row?.vendor ?? row?.orderNo ?? row?.poNo ?? row?.billNo ?? labelFromKey(activeTab));
 }
 
-function compactFacts(row: GridRow | undefined): Array<[string, string]> {
+function compactFacts(
+  row: GridRow | undefined,
+  entityType: string,
+  relationship?: { customer?: GridRow | null; invoices?: GridRow[]; orders?: GridRow[] }
+): Array<[string, string]> {
   if (!row) return [];
+  if (entityType === 'customer' && relationship?.customer) {
+    const openInvoices = (relationship.invoices ?? []).reduce((sum, invoice) => sum + Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0), 0);
+    const lastOrder = relationship.orders?.[0]?.createdAt;
+    return [
+      ['Balance', `$${moneyish(relationship.customer.balance)}`],
+      ['Credit', `$${moneyish(relationship.customer.creditLimit)}`],
+      ['Open invoices', `$${moneyish(openInvoices)}`],
+      ['Last order', dateish(lastOrder)]
+    ];
+  }
   const keys = ['status', 'customer', 'vendor', 'amount', 'total', 'availableQty', 'intakeQty', 'createdAt'];
   return keys
     .map((key) => [labelFromKey(key), valueFor(row[key])] as [string, string])
@@ -204,6 +224,17 @@ function valueFor(value: unknown) {
   if (typeof value === 'number') return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
   if (typeof value === 'string') return value;
   return '';
+}
+
+function moneyish(value: unknown) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
+}
+
+function dateish(value: unknown) {
+  if (!value) return '-';
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
 }
 
 function labelFromKey(value: string) {

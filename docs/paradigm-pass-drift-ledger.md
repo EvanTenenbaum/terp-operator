@@ -25,7 +25,7 @@ Purpose: prevent requirement drift while executing the row-native/operator-parad
 | `pnpm build` | Tailwind custom `amber` token invalidated `amber-300` style classes. | Replaced amber scale classes with `border-amber`, `bg-amber/10`, and `text-amber`. | Production build green. |
 | Playwright | Quick Start ARIA labels caused strict-mode locator collisions. | Renamed nested launcher group and tightened tests to exact launch-chip names. | Initial 9/9 E2E green; final suite is 10/10 after parity test. |
 | Adversarial sales review | Unresolved sale line refusal did not name candidate source rows. | Added candidate source lookup in confirm/post refusal messages. | Typecheck/build/E2E green. |
-| Backend/frontend parity | Several typed commands and query-backed records existed server-side without direct operator surfaces. | Added the missing surfaces and a parity script. | `pnpm audit:parity` reports 54 commands and 27 queries covered after the purchase-order workflow was added. |
+| Backend/frontend parity | Several typed commands and query-backed records existed server-side without direct operator surfaces. | Added the missing surfaces and a parity script. | `pnpm audit:parity` reports 56 user-surfaceable commands, 1 internal command, and 27 queries covered after the purchase-order workflow was added. |
 | Parity-surface E2E | New test revealed ambiguous button/text selectors and terse lot/expiration labels. | Tightened locators, increased one slow adversarial test timeout, and changed labels to `Lot code` / `Expiration`. | 10/10 E2E green. |
 
 ## Atomic Backlog Coverage
@@ -61,7 +61,7 @@ Purpose: prevent requirement drift while executing the row-native/operator-parad
 | TA-027 | Done | Relationship drawer has customer-safe copy without cost/margin/internal notes. |
 | TA-028 | Done | Side navigation is role-adapted; viewer write surfaces are demoted/hidden. |
 | TA-029 | Done | Viewer Quick Start and grid action buttons are hidden; command RBAC still enforces server-side. |
-| TA-030 | Done | Connector review defaults to one primary Route action and secondary Reject. |
+| TA-030 | Revised | Connector review defaults to Approve/Reject; routing/default assignment stays backend-internal rather than a user workflow. |
 | TA-031 | Done | Connector selected-history panel and no-ledger-change safety note added. |
 | TA-032 | Done | Fulfillment focuses on selected pick/line with pinned pack controls. |
 | TA-033 | Done | Label formats are behind a compact print selector. |
@@ -97,7 +97,7 @@ pnpm test:e2e
 Final verification results:
 
 - TypeScript: green.
-- Backend/frontend parity: 54 commands and 27 query endpoints covered.
+- Backend/frontend parity: 56 user-surfaceable commands, 1 internal command, and 27 query endpoints covered.
 - Production build: green.
 - Migration: `0003_row_native_paradigm.sql` applied.
 - Seed: demo data regenerated against the new schema.

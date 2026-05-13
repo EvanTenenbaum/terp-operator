@@ -8,7 +8,7 @@ TERP Agro is a self-hosted cannabis wholesale ERP operator console. It moves the
 - Backend: Express, tRPC, Socket.io, Zod validation.
 - Data: PostgreSQL 16 with Drizzle ORM schema and SQL migrations.
 - Auth: server-side sessions with httpOnly cookies stored in Postgres.
-- Command model: 46 typed commands, idempotency keys, RBAC, database command journal, append-only JSONL journal, and realtime command events.
+- Command model: 57 typed commands, idempotency keys, RBAC, database command journal, append-only JSONL journal, and realtime command events.
 - Deployment: same-origin Express app serving the Vite build on a DigitalOcean droplet.
 
 ## File Tree
@@ -53,6 +53,8 @@ NODE_ENV=development
 APP_ORIGIN=http://localhost:5173
 PORT=8787
 DATABASE_URL=postgres://terp_agro:terp_agro@localhost:55432/terp_agro
+DATABASE_SSL=false
+DATABASE_SSL_REJECT_UNAUTHORIZED=true
 SESSION_SECRET=replace-with-a-long-random-secret
 JOURNAL_DIR=./storage/journal
 ARCHIVE_DIR=./storage/archives
@@ -100,6 +102,8 @@ NODE_ENV=production
 APP_ORIGIN=https://your-domain.example
 PORT=8787
 DATABASE_URL=postgres://terp_agro:strong-password@postgres:5432/terp_agro
+DATABASE_SSL=false
+DATABASE_SSL_REJECT_UNAUTHORIZED=true
 SESSION_SECRET=use-a-long-random-secret
 JOURNAL_DIR=/app/storage/journal
 ARCHIVE_DIR=/app/storage/archives
@@ -116,7 +120,16 @@ docker compose -f docker-compose.prod.yml exec app pnpm db:migrate
 docker compose -f docker-compose.prod.yml exec app pnpm db:seed
 ```
 
-5. Put Caddy, Nginx, or a DigitalOcean load balancer in front of port `8080` with HTTPS. Keep tRPC, Socket.io, and cookies on the same origin.
+5. For staging review, prefer DigitalOcean App Platform using `.do/terp-agro-staging.yaml`; it builds the Dockerfile, uses a Postgres 16 app database, runs compiled migrations, and reloads demo data on deploy.
+6. For Droplet staging, put Caddy in front of port `8080` with `deploy/staging/docker-compose.caddy.yml`. Keep tRPC, Socket.io, and cookies on the same origin.
+
+Staging reset/reseed:
+
+```bash
+ALLOW_DEMO_SEED=true pnpm staging:reset
+```
+
+The reset command truncates operational tables and reloads demo data. Use it only against staging/demo databases.
 
 ## Production Notes
 

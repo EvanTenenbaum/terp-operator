@@ -1169,10 +1169,10 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
     const [customer] = await tx.select().from(customers).where(eq(customers.id, payment.customerId)).limit(1);
     const nextBalance = Number(customer.balance) - totalAllocated;
     await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
-    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'FIFO allocation' }).returning();
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'Auto-applied to oldest open invoices' }).returning();
     affected.push(payment.customerId, entry.id);
   }
-  return { ok: true, commandId, affectedIds: affected, toast: `Allocated ${moneyScale(totalAllocated)} by FIFO.` };
+  return { ok: true, commandId, affectedIds: affected, toast: `Allocated ${moneyScale(totalAllocated)} to oldest open invoices.` };
 }
 
 async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1965,7 +1965,7 @@ function paymentImpactPreview(amount: number, allocationIntent: string) {
   if (amount < 0) return 'Buyer credit/down payment; customer balance decreases before invoice allocation.';
   if (allocationIntent === 'selected_invoice') return 'Payment will be ready for selected invoice allocation.';
   if (allocationIntent === 'unapplied') return 'Payment will stay unapplied as buyer credit until allocated.';
-  return 'Payment will be available for FIFO invoice allocation.';
+  return 'Payment will be available for oldest-open-invoice allocation.';
 }
 
 function dateOrNull(value: unknown) {

@@ -1,0 +1,46 @@
+name: deploy-staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - staging
+      - codex/roadmap-execution-2026-05-12
+
+concurrency:
+  group: terp-agro-staging
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.25.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm audit:self
+      - name: Render DigitalOcean app spec
+        id: spec
+        env:
+          TERP_AGRO_STAGING_SESSION_SECRET: ${{ secrets.TERP_AGRO_STAGING_SESSION_SECRET }}
+          TERP_AGRO_STAGING_DATABASE_URL: ${{ secrets.TERP_AGRO_STAGING_DATABASE_URL }}
+          VITE_AG_GRID_LICENSE_KEY: ${{ secrets.VITE_AG_GRID_LICENSE_KEY }}
+          STAGING_BRANCH: ${{ github.ref_name }}
+        run: |
+          spec_path="$(node scripts/render-digitalocean-spec.mjs .do/terp-agro-staging.yaml artifacts/terp-agro-staging.rendered.yaml)"
+          echo "path=$spec_path" >> "$GITHUB_OUTPUT"
+      - name: Create or update DigitalOcean staging app
+        run: doctl apps create --spec "${{ steps.spec.outputs.path }}" --upsert --update-sources --wait --format ID,DefaultIngress,ActiveDeployment.ID

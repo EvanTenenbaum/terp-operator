@@ -187,7 +187,7 @@ export function IntakeView() {
       ) : null}
       <OperatorGrid
         view="intake"
-        title="J02 Fast Inventory Intake"
+        title="Inventory Intake"
         rows={(grid.data ?? []) as GridRow[]}
         columns={intakeColumns}
         loading={grid.isLoading || isRunning}

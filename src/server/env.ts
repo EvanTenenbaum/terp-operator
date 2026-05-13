@@ -8,6 +8,8 @@ const envSchema = z.object({
   APP_ORIGIN: z.string().url().default('http://localhost:5173'),
   PORT: z.coerce.number().int().positive().default(8787),
   DATABASE_URL: z.string().url().default('postgres://terp_agro:terp_agro@localhost:55432/terp_agro'),
+  DATABASE_SSL: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  DATABASE_SSL_REJECT_UNAUTHORIZED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   SESSION_SECRET: z.string().min(16).default(DEV_SESSION_SECRET),
   JOURNAL_DIR: z.string().default('./storage/journal'),
   ARCHIVE_DIR: z.string().default('./storage/archives')

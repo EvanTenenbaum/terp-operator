@@ -97,7 +97,7 @@ test.describe('adversarial command contracts', () => {
     expect(posted.toast).toContain('appears more than once from the same source row');
   });
 
-  test('money and warehouse commands reject unsafe no-op or premature actions', async ({ page }) => {
+  test('money and warehouse commands reject no-op or premature actions', async ({ page }) => {
     test.setTimeout(60_000);
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
@@ -173,7 +173,7 @@ test.describe('adversarial command contracts', () => {
     expect(Number(afterReverse[0].result.data.json.find((row: { id: string }) => row.id === customer.id).balance)).toBe(0);
   });
 
-  test('closeout archive enforces the same blockers preview reports', async ({ page }) => {
+  test('archive enforces the same open-work blockers preview reports', async ({ page }) => {
     await login(page);
     const period = new Date().toISOString().slice(0, 7);
     await runCommand(page, 'lockPeriod', { period }, 'lock current test period');
@@ -181,11 +181,13 @@ test.describe('adversarial command contracts', () => {
     const preview = await trpcQuery(page, 'queries.closeoutPreview', { period });
     const closeout = preview[0].result.data.json;
     expect(closeout.eligible).toBe(false);
-    expect(closeout.unsafeRows).toBeGreaterThan(0);
-    expect(closeout.blockers.map((row: { id: string }) => row.id)).toEqual(expect.arrayContaining(['unsafeBatches', 'unsafePurchaseOrders']));
+    expect(closeout.openWorkCount).toBeGreaterThan(0);
+    expect(closeout.unsafeRows).toBe(closeout.openWorkCount);
+    expect(closeout.blockers.map((row: { id: string }) => row.id)).toEqual(expect.arrayContaining(['unsafePurchaseOrders']));
+    expect(closeout.blockers.map((row: { label: string }) => row.label.toLowerCase()).join(' ')).not.toContain('unsafe');
     expect(closeout.controlTotals).toEqual(expect.objectContaining({ purchaseOrders: expect.any(Number), purchaseReceipts: expect.any(Number), invoices: expect.any(Number), payments: expect.any(Number), vendorBills: expect.any(Number), connectorRequests: expect.any(Number), fulfillment: expect.any(Number), commands: expect.any(Number) }));
 
-    const archived = commandData(await runCommand(page, 'archivePeriod', { period }, 'try unsafe archive'));
+    const archived = commandData(await runCommand(page, 'archivePeriod', { period }, 'try archive with open work'));
     expect(archived.ok).toBe(false);
     expect(archived.toast).toContain('cannot be archived');
   });

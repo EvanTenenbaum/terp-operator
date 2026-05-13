@@ -4,7 +4,21 @@ import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import { useCommandRunner } from './useCommandRunner';
 import type { CommandName } from '../../shared/commandCatalog';
-import type { GridRow, ViewKey } from '../../shared/types';
+import type { GridRow, QuickLaunchMode, ViewKey } from '../../shared/types';
+
+const launchActions: Array<{
+  label: string;
+  detail: string;
+  aliases: string;
+  view: ViewKey;
+  launch: QuickLaunchMode;
+}> = [
+  { label: 'New sale', detail: 'Open Sales with the customer-first workspace and inventory finder ready.', aliases: 'sale order customer sell quote catalog', view: 'sales', launch: 'sale' },
+  { label: 'New purchase order', detail: 'Open Purchase Orders with vendor and line-entry controls ready.', aliases: 'purchase po procure buy vendor order', view: 'purchaseOrders', launch: 'purchaseOrder' },
+  { label: 'Receive product', detail: 'Open Intake for receiving rows, Ready marking, and receipt posting.', aliases: 'receive receiving intake inventory batch vendor receipt', view: 'intake', launch: 'receiving' },
+  { label: 'Receive money', detail: 'Open Payments with Quick Ledger in Money In mode.', aliases: 'money in payment cash crypto check wire paid', view: 'payments', launch: 'moneyIn' },
+  { label: 'Pay vendor', detail: 'Open Vendor Payouts with Quick Ledger in Money Out mode.', aliases: 'money out vendor payout payable bill pay', view: 'vendors', launch: 'moneyOut' }
+];
 
 export function CommandPalette() {
   const open = useUiStore((state) => state.commandPaletteOpen);
@@ -14,6 +28,9 @@ export function CommandPalette() {
   const selectedRows = useUiStore((state) => state.selectedRows);
   const activeView = useUiStore((state) => state.activeView);
   const setActiveView = useUiStore((state) => state.setActiveView);
+  const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
+  const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
+  const setSalesRequestText = useUiStore((state) => state.setSalesRequestText);
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const [query, setQuery] = useState('');
@@ -21,11 +38,18 @@ export function CommandPalette() {
   const reference = trpc.queries.reference.useQuery(undefined, { enabled: open });
   const entitySearch = trpc.queries.globalSearch.useQuery({ q: query }, { enabled: open && query.trim().length > 1 });
   const { runCommand, isRunning } = useCommandRunner();
+  const normalizedQuery = query.trim().toLowerCase();
 
   const commands = useMemo(() => {
     const all = reference.data?.commands ?? [];
-    return all.filter((command) => `${command.label} ${command.name} ${commandAliasText(command.name as CommandName)}`.toLowerCase().includes(query.toLowerCase())).slice(0, 16);
-  }, [reference.data?.commands, query]);
+    if (!normalizedQuery) return [];
+    return all.filter((command) => `${command.label} ${command.name} ${commandAliasText(command.name as CommandName)}`.toLowerCase().includes(normalizedQuery)).slice(0, 16);
+  }, [reference.data?.commands, normalizedQuery]);
+
+  const matchingLaunches = useMemo(() => {
+    if (!normalizedQuery) return launchActions;
+    return launchActions.filter((action) => `${action.label} ${action.detail} ${action.aliases}`.toLowerCase().includes(normalizedQuery));
+  }, [normalizedQuery]);
 
   if (!open) return null;
 
@@ -48,12 +72,38 @@ export function CommandPalette() {
   }
 
   function openEntity(row: GridRow) {
-    const view = viewForEntity(String(row.type));
+    const type = String(row.type);
+    if (type === 'connector') {
+      setActiveSettingsTab('requests');
+      setActiveView('settings');
+      setSelectedRows('connectors', [{ id: row.id } as GridRow]);
+      setDrawerEntity('settings', 'connector', row.id);
+      setOpen(false);
+      return;
+    }
+    if (type === 'command') {
+      setActiveSettingsTab('actions');
+      setActiveView('settings');
+      setSelectedRows('recovery', [{ id: row.id } as GridRow]);
+      setDrawerEntity('settings', 'recovery', row.id);
+      setOpen(false);
+      return;
+    }
+    const view = viewForEntity(type);
     if (view) {
       setActiveView(view);
       setSelectedRows(view, [{ id: row.id } as GridRow]);
-      setDrawerEntity(view, String(row.type), row.id);
+      setDrawerEntity(view, type, row.id);
     }
+    setOpen(false);
+  }
+
+  function launchWorkflow(action: (typeof launchActions)[number]) {
+    setActiveQuickLaunch(action.launch);
+    if (action.view === 'sales' && normalizedQuery && !['new sale', 'sale', 'sales'].includes(normalizedQuery)) {
+      setSalesRequestText(query.trim());
+    }
+    setActiveView(action.view);
     setOpen(false);
   }
 
@@ -78,6 +128,20 @@ export function CommandPalette() {
         </div>
         <div className={advancedOpen ? 'grid min-h-0 flex-1 grid-cols-[1.2fr_0.8fr] overflow-hidden' : 'min-h-0 flex-1 overflow-hidden'}>
           <div className="overflow-y-auto p-2">
+            {matchingLaunches.length ? (
+              <div className="mb-2">
+                <div className="px-3 py-1 text-[11px] font-bold uppercase text-zinc-500">Start work</div>
+                {matchingLaunches.map((action) => (
+                  <button type="button" key={action.launch} className="entity-result" onClick={() => launchWorkflow(action)}>
+                    <span className="entity-type">open</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-ink">{action.label}</span>
+                      <span className="block truncate text-xs text-zinc-500">{action.detail}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {Object.entries(groups).map(([group, rows]) =>
               Array.isArray(rows) && rows.length ? (
                 <div key={group} className="mb-2">
@@ -94,22 +158,27 @@ export function CommandPalette() {
                 </div>
               ) : null
             )}
-            {commands.map((command) => (
-              <button
-                type="button"
-                key={command.name}
-                className="flex w-full items-center gap-2 border border-transparent px-3 py-2 text-left text-sm hover:border-line hover:bg-panel focus:outline-none focus-visible:shadow-focus"
-                disabled={isRunning}
-                onClick={() => run(command.name)}
-              >
-                <Play className="h-4 w-4 text-accent" aria-hidden="true" />
-                <span className="flex-1">
-                  <span className="block font-medium text-ink">{command.label}</span>
-                  <span className="text-xs text-zinc-500">{command.name}{command.minRole ? ` / ${command.minRole}+` : ''}</span>
-                </span>
-              </button>
-            ))}
-            {!commands.length && !Object.values(groups).some((rows) => Array.isArray(rows) && rows.length) ? (
+            {commands.length ? (
+              <div className="mb-2">
+                <div className="px-3 py-1 text-[11px] font-bold uppercase text-zinc-500">Commands</div>
+                {commands.map((command) => (
+                  <button
+                    type="button"
+                    key={command.name}
+                    className="flex w-full items-center gap-2 border border-transparent px-3 py-2 text-left text-sm hover:border-line hover:bg-panel focus:outline-none focus-visible:shadow-focus"
+                    disabled={isRunning}
+                    onClick={() => run(command.name)}
+                  >
+                    <Play className="h-4 w-4 text-accent" aria-hidden="true" />
+                    <span className="flex-1">
+                      <span className="block font-medium text-ink">{command.label}</span>
+                      <span className="text-xs text-zinc-500">{command.name}{command.minRole ? ` / ${command.minRole}+` : ''}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {!commands.length && !matchingLaunches.length && !Object.values(groups).some((rows) => Array.isArray(rows) && rows.length) ? (
               <div className="px-3 py-8 text-center text-sm text-zinc-600">No commands or rows matched.</div>
             ) : null}
           </div>
@@ -131,7 +200,7 @@ export function CommandPalette() {
           <span>{selectedRows[activeView]?.length ? `${selectedRows[activeView]?.length} selected on ${activeView}` : activeView}</span>
           <button type="button" className="text-button h-7 text-xs" onClick={() => setAdvancedOpen(!advancedOpen)}>
             <Braces className="h-3.5 w-3.5" aria-hidden="true" />
-            Payload
+            Advanced payload
           </button>
         </div>
       </div>
@@ -149,8 +218,8 @@ function viewForEntity(type: string): ViewKey | null {
     payment: 'payments',
     batch: 'inventory',
     pick: 'fulfillment',
-    connector: 'connectors',
-    command: 'recovery'
+    connector: 'settings',
+    command: 'settings'
   };
   return map[type] ?? null;
 }

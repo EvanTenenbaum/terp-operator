@@ -5,6 +5,7 @@ import { OperatorGrid } from '../components/OperatorGrid';
 import { StatusPill } from '../components/StatusPill';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useUiStore } from '../store/uiStore';
+import { commandLabelFor } from '../../shared/commandCatalog';
 import type { ColDef } from 'ag-grid-community';
 import type { GridRow, ViewKey } from '../../shared/types';
 
@@ -40,7 +41,7 @@ export function DashboardView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Owner Daily Decision View</h1>
-          <p className="page-subtitle">Live metrics, source-row drilldowns, work queues, recent command activity, and health.</p>
+          <p className="page-subtitle">Today’s money, inventory, open work, and recent activity.</p>
         </div>
         <button type="button" className="secondary-button" onClick={() => dashboard.refetch()}>
           <RefreshCcw className="h-4 w-4" aria-hidden="true" />
@@ -52,22 +53,21 @@ export function DashboardView() {
           <KpiCard key={metric.key} metric={metric} onOpen={setDrilldownMetric} />
         ))}
       </div>
-      <WorkspacePanel panelId="dashboard:money-definitions" title="Money Definitions and Buckets" contentClassName="p-3">
+      <WorkspacePanel panelId="dashboard:money-buckets" title="Money Buckets" contentClassName="p-3">
         <div className="definition-list">
           {(dashboard.data?.moneyBuckets ?? []).map((bucket) => (
             <button key={bucket.bucket} className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('cash')}>
               <strong>{bucket.bucket}</strong>
               <div className="mt-1 text-sm text-ink">${Number(bucket.amount ?? 0).toLocaleString()}</div>
-              <p className="mt-1">{bucket.definition}</p>
             </button>
           ))}
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('payables')}>
             <strong>Payables due/scheduled</strong>
-            <p className="mt-1">Vendor bills are included when open, approved, scheduled, or partial. Each row now shows due reason and scheduled event.</p>
+            <div className="mt-1 text-sm text-ink">Open vendor bills</div>
           </button>
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('receivables')}>
             <strong>Receivables</strong>
-            <p className="mt-1">Customer invoice total minus allocated payments. Unapplied money remains visible in Payments until allocated.</p>
+            <div className="mt-1 text-sm text-ink">Open customer invoices</div>
           </button>
         </div>
       </WorkspacePanel>
@@ -90,7 +90,7 @@ export function DashboardView() {
           <div className="mt-2 max-h-64 overflow-auto">
             {(dashboard.data?.recentActivity ?? []).map((activity) => (
               <div key={activity.id} className="activity-row">
-                <span className="font-medium">{activity.commandName}</span>
+                <span className="font-medium">{commandLabelFor(activity.commandName)}</span>
                 <span>{activity.actorName}</span>
                 <span>{new Date(activity.createdAt).toLocaleString()}</span>
                 <span>{activity.toast}</span>
@@ -101,7 +101,7 @@ export function DashboardView() {
       </div>
       <OperatorGrid
         view="dashboard"
-        title="Unified Work Queue"
+        title="My Open Work"
         rows={(workQueue.data ?? []) as GridRow[]}
         columns={queueColumns}
         loading={workQueue.isLoading}
@@ -114,7 +114,7 @@ export function DashboardView() {
               if (first?.route) setActiveView(first.route as ViewKey);
             }}
           >
-            Open top row lane
+            Open top item
           </button>
         }
       />

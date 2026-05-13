@@ -9,6 +9,7 @@ import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow, ViewKey } from '../../shared/types';
+import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 
 const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
@@ -110,19 +111,16 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'lines', width: 90 }
   ],
   connectors: [
-    { field: 'source', pinned: 'left', width: 140 },
-    { field: 'requestType', width: 170 },
+    { field: 'source', headerName: 'From', pinned: 'left', width: 140 },
+    { field: 'requestType', headerName: 'Request', width: 170, valueFormatter: (params) => formatRequestType(params.value) },
     { field: 'customer', width: 180 },
     { field: 'status', width: 125 },
-    { field: 'routedTo', width: 130 },
-    { field: 'operatorNotes', minWidth: 180 },
-    { field: 'safetyNote', minWidth: 260 },
-    { field: 'payload', minWidth: 260 },
+    { field: 'operatorNotes', headerName: 'Notes', minWidth: 220 },
     { field: 'createdAt', width: 180 }
   ],
   recovery: [
     { field: 'id', pinned: 'left', width: 240 },
-    { field: 'commandName', width: 220 },
+    { field: 'commandName', headerName: 'Action', width: 220, valueFormatter: (params) => commandLabelFor(params.value) },
     { field: 'actorName', width: 150 },
     { field: 'status', width: 125 },
     { field: 'error', minWidth: 260 },
@@ -133,9 +131,9 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'period', pinned: 'left', width: 100 },
     { field: 'status', width: 125 },
     { field: 'controlTotals', minWidth: 220 },
-    { field: 'csvPath', minWidth: 240 },
-    { field: 'jsonlPath', minWidth: 240 },
-    { field: 'pdfPath', minWidth: 240 },
+    { field: 'csvPath', headerName: 'CSV', minWidth: 180 },
+    { field: 'jsonlPath', headerName: 'JSONL', minWidth: 180 },
+    { field: 'pdfPath', headerName: 'PDF', minWidth: 180 },
     { field: 'createdAt', width: 180 }
   ]
 };
@@ -262,8 +260,7 @@ export function PurchaseOrdersView() {
             <ClipboardList className="h-4 w-4" aria-hidden="true" />
             New PO
           </button>
-          <span className="selection-pill">PO first, receiving second, intake posting last.</span>
-          <span className="selection-pill warning">PO receiving only drafts intake rows.</span>
+          <span className="selection-pill">Select a vendor and add expected items to create a new PO.</span>
         </div>
       ) : null}
       <OperatorGrid
@@ -284,18 +281,14 @@ export function PurchaseOrdersView() {
                 {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
-              <span className="selection-pill">{selectedPo ? `${String(selectedPo.poNo ?? 'PO')} / ${selectedPoStatus || 'draft'}` : 'Select PO'}</span>
+              {selectedPo ? <span className="selection-pill">{`${String(selectedPo.poNo ?? 'PO')} / ${selectedPoStatus || 'draft'}`}</span> : null}
               <button className="secondary-button compact-action" disabled={!selected.length} onClick={() => setPoTrayOpen((value) => !value)} aria-expanded={poTrayOpen} type="button">
                 {poTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-                PO tray
+                More
               </button>
               {poTrayOpen ? (
                 <>
-                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning || selectedPoStatus === 'approved'} onClick={() => runCommand('approvePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Approve selected purchase order')} type="button">
-                    <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                    Approve
-                  </button>
-                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning} onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Receive selected purchase order to draft intake')} type="button">
+                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning || !['approved', 'ordered', 'partially_received'].includes(selectedPoStatus)} onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Receive selected purchase order to draft intake')} type="button">
                     <PackagePlus className="h-4 w-4" aria-hidden="true" />
                     Draft intake
                   </button>
@@ -371,7 +364,7 @@ export function PurchaseOrdersView() {
                     aria-expanded={lineTrayOpen}
                   >
                     {lineTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-                    Line tray
+                    Line actions
                   </button>
                   {lineTrayOpen ? <button
                     className="secondary-button compact-action"
@@ -407,7 +400,7 @@ export function OrdersView() {
   return (
     <GridJourney
       view="orders"
-      title="J04 Client Order Posting"
+      title="Orders"
       onCellCommit={(event, runCommand) => {
         if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
         if (event.colDef.field === 'deliveryWindow') {
@@ -456,7 +449,7 @@ export function PaymentsView() {
   return (
     <GridJourney
       view="payments"
-      title="J05 Payment Logging and Allocation"
+      title="Payments"
       prelude={() => (
         <>
           <QuickLedgerGrid />
@@ -464,9 +457,9 @@ export function PaymentsView() {
         </>
       )}
       actions={(rows, runCommand) => (
-        <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('allocatePayment', { paymentId: rows[0].id }, 'FIFO payment allocation')} type="button">
+        <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('allocatePayment', { paymentId: rows[0].id }, 'Auto-apply payment to oldest open invoices')} type="button">
           <Check className="h-4 w-4" aria-hidden="true" />
-          FIFO Allocate
+          Auto-apply oldest
         </button>
       )}
     />
@@ -489,7 +482,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="section-title">Payment allocations</h2>
-          <p className="mt-1 text-xs text-zinc-600">Allocation rows, unallocation, and early-pay discount are first-class controls here.</p>
+          <p className="mt-1 text-xs text-zinc-600">Uses the selected payment row below.</p>
         </div>
         <span className="selection-pill">{allocations.data?.length ?? 0} allocation(s)</span>
       </div>
@@ -530,7 +523,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
       <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
         <span className="selection-pill">Selected {selectedPayment ? String(selectedPayment.reference ?? selectedPayment.id) : 'none'}</span>
         <span className="selection-pill">Unapplied ${moneyish(selectedPayment?.unappliedAmount)}</span>
-        <span className="selection-pill success">{String(selectedPayment?.allocationIntent ?? 'fifo')} allocation path</span>
+        <span className="selection-pill success">{paymentAllocationLabel(selectedPayment?.allocationIntent)}</span>
       </div>
       {allocations.data?.length ? (
         <div className="finder-table-wrap max-h-48">
@@ -558,6 +551,12 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
       ) : null}
     </section>
   );
+}
+
+function paymentAllocationLabel(intent: unknown) {
+  if (intent === 'selected' || intent === 'selected_invoice') return 'Selected invoice';
+  if (intent === 'unapplied') return 'Leave unapplied';
+  return 'Auto-apply to oldest';
 }
 
 export function InventoryView() {
@@ -618,7 +617,7 @@ function InventoryMovementTools({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="section-title">Inventory controls</h2>
-          <p className="text-xs text-zinc-600">Move status, location, or ownership from the selected batch. Each action writes a movement row and can be reversed from Recovery.</p>
+          <p className="text-xs text-zinc-600">Move status, location, or ownership from the selected batch. Changes are tracked in Settings.</p>
         </div>
         <span className="selection-pill">{selectedLabel}</span>
       </div>
@@ -698,7 +697,7 @@ export function VendorPayablesView() {
   return (
     <GridJourney
       view="vendors"
-      title="J06 Vendor Payable and Payout"
+      title="Vendor Payables"
       prelude={() => <VendorBillTools selectedBill={selectedBill} />}
       actions={(rows, runCommand) => (
         <>
@@ -885,7 +884,7 @@ export function FulfillmentView() {
     <div className="view-stack">
       <OperatorGrid
         view="fulfillment"
-        title="J07 Fulfillment and Bagging"
+        title="Fulfillment"
         rows={(grid.data ?? []) as GridRow[]}
         columns={columnsByView.fulfillment ?? []}
         loading={grid.isLoading || isRunning}
@@ -968,37 +967,28 @@ export function FulfillmentView() {
 }
 
 export function ConnectorsView() {
-  const [routeTo, setRouteTo] = useState('sales');
   const [operatorNotes, setOperatorNotes] = useState('');
   const selectedRows = useUiStore((state) => state.selectedRows.connectors);
   const selected = selectedRows?.[0];
   return (
     <GridJourney
       view="connectors"
-      title="J08 Connector Request Review"
+      title="Inbound Requests"
       prelude={() => (
         <>
           <div className="control-band">
-            <span className="selection-pill success">Connector requests route work only; ledgers change after core operators post commands.</span>
-            <label className="field-inline">
-              Route
-              <select className="select compact" value={routeTo} onChange={(event) => setRouteTo(event.target.value)}>
-                {['sales', 'intake', 'fulfillment', 'payments'].map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-            </label>
             <label className="field-inline">
               Notes
               <input className="input compact" value={operatorNotes} onChange={(event) => setOperatorNotes(event.target.value)} />
             </label>
+            <span className="selection-pill">{selected ? `${formatRequestSource(selected.source)} / ${formatRequestType(selected.requestType)}` : 'Select request'}</span>
           </div>
           {selected ? (
             <section className="inline-panel text-sm">
-              <h2 className="section-title">Selected request history</h2>
+              <h2 className="section-title">Selected request</h2>
               <div className="mt-2 grid gap-2 md:grid-cols-3">
-                <span>{String(selected.source)} / {String(selected.requestType)}</span>
-                <span>{String(selected.safetyNote ?? 'No direct ledger mutation.')}</span>
+                <span>{formatRequestSource(selected.source)} / {formatRequestType(selected.requestType)}</span>
+                <span>{String(selected.customer ?? 'No customer')}</span>
                 <span>{safeHistory(selected.reviewHistory)}</span>
               </div>
             </section>
@@ -1007,17 +997,13 @@ export function ConnectorsView() {
       )}
       actions={(rows, runCommand) => (
         <>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('approveConnectorRequest', { requestId: rows[0].id, routedTo: routeTo, operatorNotes }, 'Approve connector request without ledger mutation')} type="button">
+          <button className="primary-button" disabled={!rows.length} onClick={() => runCommand('approveConnectorRequest', { requestId: rows[0].id, operatorNotes }, 'Approve inbound request')} type="button">
             <Check className="h-4 w-4" aria-hidden="true" />
             Approve
           </button>
           <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('rejectConnectorRequest', { requestId: rows[0].id, operatorNotes }, 'Reject connector request')} type="button">
             <Undo2 className="h-4 w-4" aria-hidden="true" />
             Reject
-          </button>
-          <button className="primary-button" disabled={!rows.length} onClick={() => runCommand('routeConnectorRequest', { requestId: rows[0].id, routedTo: routeTo, operatorNotes }, 'Route connector request')} type="button">
-            <Send className="h-4 w-4" aria-hidden="true" />
-            Route
           </button>
         </>
       )}
@@ -1031,6 +1017,7 @@ export function RecoveryView() {
   const rows = selectedRecoveryRows ?? EMPTY_ROWS;
   const { runCommand } = useCommandRunner();
   const [q, setQ] = useState('');
+  const [showAdminTools, setShowAdminTools] = useState(false);
   const [backupId, setBackupId] = useState('');
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [amount, setAmount] = useState('0');
@@ -1038,6 +1025,7 @@ export function RecoveryView() {
   const [replaceTable, setReplaceTable] = useState<'batches' | 'customers' | 'vendors' | 'sales_orders' | 'connector_requests'>('batches');
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
+  const [replaceConfirm, setReplaceConfirm] = useState('');
   const search = trpc.queries.recoverySearch.useQuery({ q });
   const reference = trpc.queries.reference.useQuery();
   const support = trpc.queries.supportPacket.useQuery(undefined, { enabled: false });
@@ -1055,83 +1043,96 @@ export function RecoveryView() {
           Search
           <input className="input" value={q} onChange={(event) => setQ(event.target.value)} />
         </label>
-        <button className="secondary-button" type="button" onClick={() => support.refetch().then((result) => downloadJson('terp-agro-support-packet.json', result.data))}>
-          <FileDown className="h-4 w-4" aria-hidden="true" />
-          Support packet
-        </button>
-        <select className="select" value={backupId} onChange={(event) => setBackupId(event.target.value)}>
-          <option value="">Backup preview</option>
-          {reference.data?.backupSnapshots.map((snapshot) => (
-            <option key={snapshot.id} value={snapshot.id}>
-              {snapshot.label}
-            </option>
-          ))}
-        </select>
-        <button className="secondary-button" type="button" disabled={!backupId} onClick={() => runCommand('restoreFromBackupPoint', { backupId }, 'Read-only backup restore preview')}>
-          Restore preview
+        <button className="secondary-button compact-action" type="button" onClick={() => setShowAdminTools((value) => !value)} aria-expanded={showAdminTools}>
+          {showAdminTools ? 'Hide admin tools' : 'Admin tools'}
         </button>
       </div>
-      <div className="control-band">
-        <label className="field-inline">
-          Period
-          <input className="input compact" value={period} onChange={(event) => setPeriod(event.target.value)} />
-        </label>
-        <label className="field-inline">
-          Amount
-          <input className="input compact" value={amount} onChange={(event) => setAmount(event.target.value)} />
-        </label>
-        <label className="field-inline">
-          Memo
-          <input className="input" value={memo} onChange={(event) => setMemo(event.target.value)} />
-        </label>
-        <button className="secondary-button" type="button" disabled={!memo} onClick={() => runCommand('createCorrectionJournalEntry', { period, amount: Number(amount), memo }, 'Create correction journal entry')}>
-          <Check className="h-4 w-4" aria-hidden="true" />
-          Correction
-        </button>
-      </div>
-      <div className="control-band subtle-band">
-        <label className="field-inline">
-          Table
-          <select className="select compact" value={replaceTable} onChange={(event) => setReplaceTable(event.target.value as typeof replaceTable)}>
-            <option value="batches">batches</option>
-            <option value="customers">customers</option>
-            <option value="vendors">vendors</option>
-            <option value="sales_orders">sales orders</option>
-            <option value="connector_requests">connector requests</option>
-          </select>
-        </label>
-        <label className="field-inline">
-          Find
-          <input className="input compact" value={findText} onChange={(event) => setFindText(event.target.value)} />
-        </label>
-        <label className="field-inline">
-          Replace
-          <input className="input compact" value={replaceText} onChange={(event) => setReplaceText(event.target.value)} />
-        </label>
-        <span className="selection-pill">{findReplace.data?.count ?? 0} match row(s)</span>
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={!findText || !findReplace.data?.count}
-          onClick={() =>
-            runCommand(
-              'createCorrectionJournalEntry',
-              {
-                period,
-                amount: 0,
-                memo: `Find and replace ${findText} -> ${replaceText} in ${replaceTable}`,
-                findReplace: { table: replaceTable, find: findText, replacement: replaceText }
-              },
-              'Recovery find and replace with preview'
-            )
-          }
-        >
-          Apply previewed replace
-        </button>
-      </div>
+      {showAdminTools ? (
+        <>
+          <div className="control-band subtle-band">
+            <button className="secondary-button" type="button" onClick={() => support.refetch().then((result) => downloadJson('terp-agro-support-packet.json', result.data))}>
+              <FileDown className="h-4 w-4" aria-hidden="true" />
+              Export support
+            </button>
+            <select className="select" value={backupId} onChange={(event) => setBackupId(event.target.value)}>
+              <option value="">Backup preview</option>
+              {reference.data?.backupSnapshots.map((snapshot) => (
+                <option key={snapshot.id} value={snapshot.id}>
+                  {snapshot.label}
+                </option>
+              ))}
+            </select>
+            <button className="secondary-button" type="button" disabled={!backupId} onClick={() => runCommand('restoreFromBackupPoint', { backupId }, 'Read-only backup restore preview')}>
+              Restore preview
+            </button>
+          </div>
+          <div className="control-band subtle-band">
+            <label className="field-inline">
+              Period
+              <input className="input compact" value={period} onChange={(event) => setPeriod(event.target.value)} />
+            </label>
+            <label className="field-inline">
+              Amount
+              <input className="input compact" value={amount} onChange={(event) => setAmount(event.target.value)} />
+            </label>
+            <label className="field-inline">
+              Memo
+              <input className="input" value={memo} onChange={(event) => setMemo(event.target.value)} />
+            </label>
+            <button className="secondary-button" type="button" disabled={!memo} onClick={() => runCommand('createCorrectionJournalEntry', { period, amount: Number(amount), memo }, 'Create correction journal entry')}>
+              <Check className="h-4 w-4" aria-hidden="true" />
+              Correction
+            </button>
+          </div>
+          <div className="control-band subtle-band">
+            <label className="field-inline">
+              Find in
+              <select className="select compact" value={replaceTable} onChange={(event) => setReplaceTable(event.target.value as typeof replaceTable)}>
+                <option value="batches">Inventory Batches</option>
+                <option value="customers">Customers</option>
+                <option value="vendors">Vendors</option>
+                <option value="sales_orders">Sales Orders</option>
+                <option value="connector_requests">Inbound Requests</option>
+              </select>
+            </label>
+            <label className="field-inline">
+              Find value
+              <input className="input compact" value={findText} onChange={(event) => setFindText(event.target.value)} />
+            </label>
+            <label className="field-inline">
+              Replace with
+              <input className="input compact" value={replaceText} onChange={(event) => setReplaceText(event.target.value)} />
+            </label>
+            <label className="field-inline">
+              Confirm
+              <input className="input compact" value={replaceConfirm} placeholder="Type REPLACE" onChange={(event) => setReplaceConfirm(event.target.value)} />
+            </label>
+            <span className="selection-pill">{findReplace.data?.count ? `${findReplace.data.count} matching row(s)` : 'No matching rows'}</span>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={!findText || !findReplace.data?.count || replaceConfirm !== 'REPLACE'}
+              onClick={() =>
+                runCommand(
+                  'createCorrectionJournalEntry',
+                  {
+                    period,
+                    amount: 0,
+                    memo: `Find and replace ${findText} -> ${replaceText} in ${replaceTable}`,
+                    findReplace: { table: replaceTable, find: findText, replacement: replaceText }
+                  },
+                  'Action log find and replace with preview'
+                )
+              }
+            >
+              Apply previewed replace
+            </button>
+          </div>
+        </>
+      ) : null}
       <OperatorGrid
         view="recovery"
-        title="J09 Mistake Recovery"
+        title="Action Log"
         rows={(search.data ?? []) as GridRow[]}
         columns={columnsByView.recovery ?? []}
         loading={search.isLoading}
@@ -1144,13 +1145,13 @@ export function RecoveryView() {
             </button>
             <button className="primary-button" disabled={!selected || !preview.data?.reversible} onClick={() => runCommand('reverseCommandById', { commandId: selected?.id }, 'Reverse selected command')} type="button">
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              Reverse
+              Undo
             </button>
           </>
         }
       />
       {preview.data ? <div className="border border-line bg-white p-3 text-sm">{preview.data.plainLanguageImpact}</div> : null}
-      {diff.data ? (
+      {showAdminTools && diff.data ? (
         <section className="border border-line bg-white p-3">
           <h2 className="section-title">Snapshot diff</h2>
           <div className="mt-2 grid gap-1 text-sm">
@@ -1165,7 +1166,7 @@ export function RecoveryView() {
           </div>
         </section>
       ) : null}
-      {findReplace.data?.rows.length ? (
+      {showAdminTools && findReplace.data?.rows.length ? (
         <section className="inline-panel">
           <h2 className="section-title">Find / replace preview</h2>
           <div className="mt-2 grid gap-2 text-xs">
@@ -1196,6 +1197,7 @@ export function CloseoutView() {
   const setActiveView = useUiStore((state) => state.setActiveView);
   const controlTotals = preview.data?.controlTotals ?? {};
   const blockers = preview.data?.blockers ?? [];
+  const openWorkCount = preview.data?.openWorkCount ?? preview.data?.unsafeRows ?? 0;
   return (
     <div className="view-stack">
       <div className="control-band">
@@ -1203,8 +1205,8 @@ export function CloseoutView() {
           Period
           <input className="input compact" value={period} onChange={(event) => setPeriod(event.target.value)} />
         </label>
-        <button className={(preview.data?.unsafeRows ?? 0) > 0 ? 'secondary-button compact-action' : 'text-button compact-action'} type="button" onClick={() => setActiveView('intake')}>
-          Unsafe rows: {preview.data?.unsafeRows ?? 0}
+        <button className={openWorkCount > 0 ? 'secondary-button compact-action' : 'text-button compact-action'} type="button" onClick={() => setActiveView('dashboard')}>
+          Open work: {openWorkCount}
         </button>
         <span className="text-sm text-zinc-700">Batches: {controlTotals.batches ?? 0}</span>
         <span className="text-sm text-zinc-700">Sales: {controlTotals.salesOrders ?? 0}</span>
@@ -1216,7 +1218,7 @@ export function CloseoutView() {
         <button className="secondary-button" type="button" onClick={() => runCommand('lockPeriod', { period }, 'Lock closeout period')}>
           Lock period
         </button>
-        <button className="primary-button" type="button" disabled={!preview.data?.locked || (preview.data?.unsafeRows ?? 1) > 0} onClick={() => runCommand('archivePeriod', { period, verified: true }, 'Archive locked period')}>
+        <button className="primary-button" type="button" disabled={!preview.data?.locked || openWorkCount > 0} onClick={() => runCommand('archivePeriod', { period, verified: true }, 'Archive locked period')}>
           Archive
         </button>
       </div>
@@ -1238,10 +1240,9 @@ export function CloseoutView() {
       <section className="inline-panel">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="section-title">Closeout safety preview</h2>
-            <p className="text-xs text-zinc-600">Archive uses this same blocker list and these same control totals. Unsafe rows are refused before artifacts are written.</p>
+            <h2 className="section-title">Archive readiness</h2>
           </div>
-          <span className={preview.data?.eligible ? 'selection-pill success' : 'selection-pill danger'}>{preview.data?.eligible ? 'Eligible' : 'Blocked'}</span>
+          <span className={preview.data?.eligible ? 'selection-pill success' : 'selection-pill danger'}>{preview.data?.eligible ? 'Ready' : 'Open work'}</span>
         </div>
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           {Object.entries(controlTotals).map(([key, value]) => (
@@ -1262,7 +1263,45 @@ export function CloseoutView() {
           </div>
         ) : null}
       </section>
-      <GridJourney view="closeout" title="J10 Archive and Closeout" />
+      <GridJourney view="closeout" title="Archive Runs" />
+    </div>
+  );
+}
+
+export function SettingsView() {
+  const activeTab = useUiStore((state) => state.activeSettingsTab);
+  const setActiveTab = useUiStore((state) => state.setActiveSettingsTab);
+  const tabs = [
+    { key: 'requests', label: 'Requests' },
+    { key: 'actions', label: 'Action log' },
+    { key: 'archive', label: 'Archive' }
+  ] as const;
+  const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? 'Settings';
+  return (
+    <div className="view-stack">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="page-title">{activeTabLabel}</h1>
+          <p className="page-subtitle">System review, audit history, and archive controls for managers.</p>
+        </div>
+      </div>
+      <div className="report-chip-row" role="tablist" aria-label="Settings sections">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            className={activeTab === tab.key ? 'report-chip report-chip-active' : 'report-chip'}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {activeTab === 'requests' ? <ConnectorsView /> : null}
+      {activeTab === 'actions' ? <RecoveryView /> : null}
+      {activeTab === 'archive' ? <CloseoutView /> : null}
     </div>
   );
 }
@@ -1274,7 +1313,7 @@ function GridJourney({
   prelude,
   onCellCommit
 }: {
-  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports'>;
+  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings'>;
   title: string;
   actions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
   prelude?: (runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
@@ -1321,9 +1360,41 @@ function payloadObject(value: unknown) {
 
 function safeHistory(value: unknown) {
   if (!value) return 'No review history yet.';
-  if (Array.isArray(value)) return value.map((entry) => (typeof entry === 'object' && entry ? Object.values(entry).join(' / ') : String(entry))).join('; ');
-  if (typeof value === 'object') return Object.values(value).join(' / ');
-  return String(value);
+  if (Array.isArray(value)) return value.map((entry) => (typeof entry === 'object' && entry ? Object.values(entry).map(historyValue).join(' / ') : historyValue(entry))).join('; ');
+  if (typeof value === 'object') return Object.values(value).map(historyValue).join(' / ');
+  return historyValue(value);
+}
+
+function historyValue(value: unknown) {
+  return String(value === 'routed' ? 'in progress' : value);
+}
+
+function formatRequestType(value: unknown) {
+  const raw = String(value ?? '');
+  const labels: Record<string, string> = {
+    catalog_request: 'Catalog Request',
+    reserve_request: 'Reserve Request',
+    bag_scan: 'Bag Scan',
+    cart_submit: 'Cart Submit',
+    session_end: 'Session End'
+  };
+  return labels[raw] ?? labelFromToken(raw);
+}
+
+function formatRequestSource(value: unknown) {
+  const raw = String(value ?? '');
+  const labels: Record<string, string> = {
+    vip: 'VIP',
+    'live-shopping': 'Live shopping',
+    'mobile-scan': 'Mobile scan'
+  };
+  return labels[raw] ?? labelFromToken(raw);
+}
+
+function labelFromToken(value: string) {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function moneyish(value: unknown) {

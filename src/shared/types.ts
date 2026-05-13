@@ -30,6 +30,7 @@ export type Status =
 export type OwnershipStatus = 'C' | 'OFC' | 'UNKNOWN';
 export type ArrivalStatus = 'pending' | 'arrived' | 'cancelled';
 export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut';
+export type SettingsTab = 'requests' | 'actions' | 'archive';
 
 export type PaymentMethod = 'cash' | 'check' | 'card' | 'crypto' | 'wire';
 
@@ -68,7 +69,8 @@ export type ViewKey =
   | 'fulfillment'
   | 'connectors'
   | 'recovery'
-  | 'closeout';
+  | 'closeout'
+  | 'settings';
 
 export interface SessionUser {
   id: string;

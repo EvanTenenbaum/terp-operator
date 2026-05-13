@@ -271,18 +271,20 @@ export function SalesView() {
                 <button className="primary-button" type="button" disabled={!selectedOrder || !draftItem.trim()} onClick={addDraftLine}>
                   Add sale line
                 </button>
-                <button className="secondary-button" type="button" disabled={!orderLines.data?.length} onClick={() => exportCustomerOffer(orderLines.data ?? [])}>
+                {orderLines.data?.length ? <button className="secondary-button" type="button" onClick={() => exportCustomerOffer(orderLines.data ?? [])}>
                   Copy/export customer offer
-                </button>
+                </button> : null}
               </div> : null}
               <OperatorGrid
                 view="sales"
                 title="Customer Draft Lines"
                 rows={(orderLines.data ?? []) as GridRow[]}
                 columns={lineColumns}
-                loading={orderLines.isLoading}
+                loading={false}
                 onSelectionChange={setSelectedLines}
                 onCellCommit={canWrite ? onLineCommit : undefined}
+                emptyTitle="No sale lines yet"
+                emptyChildren="Use Inventory Finder to add posted batches, or type a request above and press Enter."
                 selectionActions={(rows) => (
                   <>
                     <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('packed', true)}>Packed</button>
@@ -317,13 +319,15 @@ export function SalesView() {
       <div className="grid min-h-[420px] grid-cols-1 gap-3 xl:grid-cols-[0.9fr_1.1fr]">
         <OperatorGrid
           view="sales"
-          title="J03 Guided Selling / Sales Orders"
-          rows={(orders.data ?? []) as GridRow[]}
-          columns={orderColumns}
-          loading={orders.isLoading}
-          onSelectionChange={(selection) => setSelectedRows('sales', selection)}
-        />
-        <InventoryFinderPanel selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''} addedBatchIds={addedBatchIds} initialSearch={salesRequestText} onAddBatch={addFinderBatch} />
+        title="Sales Orders"
+        rows={(orders.data ?? []) as GridRow[]}
+        columns={orderColumns}
+        loading={orders.isLoading && !customerId}
+        onSelectionChange={(selection) => setSelectedRows('sales', selection)}
+        emptyTitle="No open sales shown"
+        emptyChildren={customerId ? 'Use the Inventory Finder to add products, or type a request and press Enter.' : 'Choose a customer, then start a New Sale.'}
+      />
+        <InventoryFinderPanel selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''} focusKey={customerId} addedBatchIds={addedBatchIds} initialSearch={salesRequestText} onAddBatch={addFinderBatch} />
       </div>
       {customerId ? <div className="min-h-[340px]">
         <OperatorGrid

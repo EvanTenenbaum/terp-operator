@@ -62,7 +62,7 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CMD-PAYMENTS | `logPayment`, `allocatePayment`, `unallocatePayment`, `refundPayment`, `applyEarlyPayDiscount` | Collect/Pay | core_workflow, control | Already covered | Phase 3 ledger row model and allocation drawer. |
 | CMD-VENDOR | `createVendorBill`, `approveVendorBill`, `scheduleVendorPayment`, `recordVendorPayment`, `voidVendorPayment` | Collect/Pay | core_workflow, control | Already covered | Phase 3 status-aware payable flow. |
 | CMD-FULFILLMENT | `createPickList`, `recordWeighAndPack`, `markOrderFulfilled`, `printLabels`, `adjustFulfillmentLine` | Fulfill | core_workflow | Already covered | Phase 4 inline pack and manifest drawer. |
-| CMD-CONNECTOR | `approveConnectorRequest`, `rejectConnectorRequest`, `routeConnectorRequest` | Support | core_workflow | Partial | Add accepted-to-posted backend bridge later; keep routing as current primary. |
+| CMD-CONNECTOR | `approveConnectorRequest`, `rejectConnectorRequest`, internal `routeConnectorRequest` | Support | core_workflow | Partial | Add accepted-to-posted backend bridge later; operators approve/reject while routing/default assignment stays internal. |
 | CMD-RECOVERY | `createCorrectionJournalEntry`, `reverseCommandById`, `restoreFromBackupPoint`, `repriceOrder` | Recover/Close | control | Already covered | Reversal matrix now marks every command reversible, offsettable, or terminal; Phase 5 drawer tools expose the guidance. |
 | CMD-CLOSEOUT | `postPeriodAdjustments`, `lockPeriod`, `archivePeriod` | Recover/Close | control | Partial | Archive blockers/control totals are hardened; unsafe row drilldown remains frontend Phase 5. |
 

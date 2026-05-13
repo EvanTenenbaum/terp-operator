@@ -17,12 +17,17 @@ const toneByStatus: Record<string, string> = {
   archived: 'bg-stone-100 text-stone-800 border-stone-300'
 };
 
+const labelByStatus: Record<string, string> = {
+  routed: 'in progress'
+};
+
 export function StatusPill({ status }: { status?: string | null }) {
   const label = status ?? 'unknown';
+  const displayLabel = labelByStatus[label] ?? label.replaceAll('_', ' ');
   return (
     <span className={clsx('inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-normal border', toneByStatus[label] ?? 'bg-zinc-50 text-zinc-800 border-zinc-300')}>
       <span className="h-2 w-2 rounded-sm bg-current" aria-hidden="true" />
-      {label.replace('_', ' ')}
+      {displayLabel}
     </span>
   );
 }

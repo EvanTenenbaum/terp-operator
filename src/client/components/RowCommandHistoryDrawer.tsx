@@ -1,6 +1,7 @@
 import { RotateCcw, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
+import { commandLabelFor } from '../../shared/commandCatalog';
 import type { GridRow } from '../../shared/types';
 
 interface RowCommandHistoryDrawerProps {
@@ -51,7 +52,7 @@ export function RowCommandHistoryDrawer({ row, onClose }: RowCommandHistoryDrawe
           return (
             <div className="row-history-card" key={String(command.id)}>
               <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold">{String(command.commandName)}</span>
+                <span className="font-semibold">{commandLabelFor(command.commandName)}</span>
                 <span>{new Date(String(command.createdAt)).toLocaleString()}</span>
               </div>
               <div className="mt-1 text-xs text-zinc-600">{String(command.actorName)} · {String(command.status)}</div>

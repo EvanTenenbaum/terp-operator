@@ -4,7 +4,7 @@ import { protectedProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
-import { commandLabels, commandMinRole, commandNames, reversalPolicies } from '../../shared/commandCatalog';
+import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 
 const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout']);
 
@@ -44,7 +44,9 @@ export const queriesRouter = router({
       backupSnapshots: backups.rows,
       categories: ['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape'],
       priceBrackets: ['under-25', '25-100', '100-plus'],
-      commands: commandNames.map((name) => ({ name, label: commandLabels[name], minRole: commandMinRole[name] }))
+      commands: commandNames
+        .filter((name) => !(internalOnlyCommandNames as readonly string[]).includes(name))
+        .map((name) => ({ name, label: commandLabels[name], minRole: commandMinRole[name] }))
     };
   }),
   grid: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input }) => {
@@ -228,7 +230,7 @@ export const queriesRouter = router({
         remaining -= applied;
         return { invoiceId: invoice.id, invoiceNo: invoice.invoiceNo, open: open.toFixed(2), applied: applied.toFixed(2) };
       });
-      return { kind: input.allocationIntent || 'fifo', label: input.allocationIntent === 'unapplied' ? 'Leave unapplied' : 'FIFO allocation preview', rows, unapplied: Math.max(0, remaining).toFixed(2) };
+      return { kind: input.allocationIntent || 'fifo', label: input.allocationIntent === 'unapplied' ? 'Leave unapplied' : 'Auto-apply to oldest invoices', rows, unapplied: Math.max(0, remaining).toFixed(2) };
     }),
   paymentAllocations: protectedProcedure.input(z.object({ paymentId: z.string().uuid().optional(), customerId: z.string().uuid().optional() })).query(async ({ input }) => {
     return (
@@ -680,7 +682,7 @@ function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     clients: ['id', 'name', 'creditLimit', 'balance', 'tags', 'notes', 'invoiceCount'],
     vendors: ['id', 'vendor', 'billNo', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],
-    connectors: ['id', 'source', 'requestType', 'customer', 'status', 'routedTo', 'operatorNotes', 'safetyNote', 'createdAt'],
+    connectors: ['id', 'source', 'requestType', 'customer', 'status', 'operatorNotes', 'createdAt'],
     recovery: ['id', 'commandName', 'actorName', 'status', 'error', 'affectedIds', 'reversedByCommandId', 'createdAt'],
     closeout: ['id', 'period', 'status', 'controlTotals', 'csvPath', 'jsonlPath', 'pdfPath', 'createdAt']
   };

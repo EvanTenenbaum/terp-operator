@@ -12,6 +12,7 @@ export interface CloseoutSafety {
   period: string;
   locked: boolean;
   eligible: boolean;
+  openWorkCount: number;
   unsafeRows: number;
   blockers: CloseoutBlocker[];
   controlTotals: Record<string, number>;
@@ -57,12 +58,12 @@ export async function getCloseoutSafety(db: Queryable, period: string): Promise<
   ]);
 
   const blockers = [
-    { id: 'unsafeBatches', label: 'Unsafe intake rows', count: unsafeBatches },
-    { id: 'unsafePurchaseOrders', label: 'Unsafe purchase orders', count: unsafePurchaseOrders },
-    { id: 'openConnectors', label: 'Open connector requests', count: openConnectors },
-    { id: 'openFulfillment', label: 'Open fulfillment work', count: openFulfillment },
-    { id: 'failedCommands', label: 'Failed commands without a later matching success', count: failedCommands },
-    { id: 'unresolvedDrafts', label: 'Unresolved draft sales orders', count: unresolvedDrafts }
+    { id: 'unsafeBatches', label: 'Intake rows still in progress', count: unsafeBatches },
+    { id: 'unsafePurchaseOrders', label: 'Purchase orders still open', count: unsafePurchaseOrders },
+    { id: 'openConnectors', label: 'Requests waiting for review', count: openConnectors },
+    { id: 'openFulfillment', label: 'Fulfillment work still open', count: openFulfillment },
+    { id: 'failedCommands', label: 'Actions needing review', count: failedCommands },
+    { id: 'unresolvedDrafts', label: 'Draft sales orders still open', count: unresolvedDrafts }
   ].filter((blocker) => blocker.count > 0);
 
   const unsafeRows = blockers.reduce((sum, blocker) => sum + blocker.count, 0);
@@ -70,6 +71,7 @@ export async function getCloseoutSafety(db: Queryable, period: string): Promise<
     period,
     locked: lock > 0,
     eligible: lock > 0 && unsafeRows === 0,
+    openWorkCount: unsafeRows,
     unsafeRows,
     blockers,
     controlTotals: {

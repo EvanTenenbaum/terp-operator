@@ -79,10 +79,12 @@ test.describe('roadmap final gate', () => {
     await runCommand(page, 'lockPeriod', { period }, 'roadmap final gate lock period');
     const preview = await trpcQuery(page, 'queries.closeoutPreview', { period });
     const safety = preview[0].result.data.json;
-    expect(safety.unsafeRows).toBeGreaterThan(0);
+    expect(safety.openWorkCount).toBeGreaterThan(0);
+    expect(safety.unsafeRows).toBe(safety.openWorkCount);
     expect(safety.blockers.map((row: { id: string }) => row.id)).toEqual(expect.arrayContaining(['unsafePurchaseOrders']));
+    expect(safety.blockers.map((row: { label: string }) => row.label.toLowerCase()).join(' ')).not.toContain('unsafe');
 
-    const archive = commandData(await runCommand(page, 'archivePeriod', { period, verified: true }, 'roadmap final gate unsafe archive'));
+    const archive = commandData(await runCommand(page, 'archivePeriod', { period, verified: true }, 'roadmap final gate open-work archive'));
     expect(archive.ok).toBe(false);
     expect(archive.toast).toContain('cannot be archived');
   });

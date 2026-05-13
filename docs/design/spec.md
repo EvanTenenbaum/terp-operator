@@ -42,7 +42,7 @@
 
 ## TL;DR
 
-The TERP Agro app is functionally complete (54 commands / 27 queries, parity green, MR-001..MR-052 + TA-001..TA-048 shipped). The gap is **cohesion and hierarchy**, not capability.
+The TERP Agro app is functionally complete (56 user-surfaceable commands, 1 internal command, 27 queries, parity green, MR-001..MR-052 + TA-001..TA-048 shipped). The gap is **cohesion and hierarchy**, not capability.
 
 This spec defines:
 
@@ -67,7 +67,7 @@ This spec defines:
 
 - React 18 / Vite / TypeScript / AG Grid / Zustand / TanStack Query / tRPC client.
 - Express / tRPC / Socket.io / Drizzle ORM / PostgreSQL backend.
-- 54 commands, 27 protected query endpoints, role-aware nav, session auth, idempotent audited command bus.
+- 57 commands total: 56 user-surfaceable commands, 1 internal connector-routing command, 27 protected query endpoints, role-aware nav, session auth, idempotent audited command bus.
 - 13 operator surfaces (Dashboard · Purchase Orders · Intake · Sales · Orders · Payments · Inventory · Client Ledger · Vendor Payouts · Fulfillment · Connectors · Recovery · Closeout).
 - Legacy markers preserved across batches and sales lines (`legacyMarker` / `legacyStatusMarkers`).
 - Three independent closeout columns on sales lines: `packed`, `inventoryPosted`, `paymentFollowup`.
@@ -862,7 +862,7 @@ Per-surface checklist (applied to all 14 routes):
 
 Backend invariants (no change but must remain):
 
-- [ ] Backend/frontend parity stays green (54 commands / 27 queries minimum).
+- [ ] Backend/frontend parity stays green (56 user-surfaceable commands, 1 internal command, 27 queries minimum).
 - [ ] Audited command bus untouched.
 - [ ] Role-aware nav untouched (`navVisibleForUser`).
 - [ ] No new tRPC commands or queries introduced (except the flagged pricing-rule projection in Phase 1, if needed).
@@ -971,12 +971,12 @@ Below-floor warning: shown inline as amber pill on line; never blocks primary.
 
 | Request status | Primary | Command | Tray |
 | --- | --- | --- | --- |
-| `pending` | **Route** (uses row's `routeTo` cell) | `routeConnectorRequest` | Approve · Reject · Bulk route same-source |
-| `routed` | (no primary; routed downstream) | — | Open linked order/pick · Re-route |
-| `approved` | **Route** (same; approved without routing is rare) | `routeConnectorRequest` | Reject · Open linked entity |
+| `pending` | **Approve** | `approveConnectorRequest` | Reject · Open source |
+| `routed` | (internal state; no operator primary) | — | Open linked order/pick |
+| `approved` | (no primary; accepted for normal lane work) | — | Reject · Open linked entity |
 | `rejected` | (no primary) | — | Restore as pending |
 
-Safety banner persistent in selection strip: "Connector requests never mutate ledgers directly. Route creates the work on the target lane."
+Safety note in the drawer only: connector requests never mutate ledgers directly. Any lane/default assignment is backend/internal, not a user routing workflow.
 
 ### 10.9 Recovery (`RecoveryView`)
 
@@ -1778,7 +1778,7 @@ Before merging each phase's PR:
 
 1. `pnpm typecheck` — zero errors.
 2. `pnpm build` — zero errors. Bundle size diff < 5% per phase (Phase 1 likely +10% due to many drawer tabs; phase 6 adds Reports view which is +3%; budget accordingly).
-3. `pnpm audit:parity` — backend/frontend parity green (54 commands / 27 queries, +1 if Phase 1 needs the pricing projection).
+3. `pnpm audit:parity` — backend/frontend parity green (56 user-surfaceable commands, 1 internal command, 27 queries, +1 if Phase 1 needs the pricing projection).
 4. `pnpm db:seed && pnpm test:e2e` — all green (existing + new tests).
 5. **Visual diff against the wireframe.** Open the phase's wireframe HTML side-by-side with the dev server; confirm layout, density, color match. Discrepancies trigger spec re-review, not silent drift.
 6. **Vocabulary check.** Grep new view source for forbidden words (`GL`, `AR aging`, `Trial balance`, `Customer ID:`, "Create Purchase Order" instead of "New PO"). None should appear.

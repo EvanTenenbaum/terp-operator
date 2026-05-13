@@ -1,5 +1,4 @@
 import {
-  Archive,
   ArrowDown,
   ArrowUp,
   BadgeDollarSign,
@@ -7,7 +6,6 @@ import {
   Boxes,
   ClipboardList,
   Gauge,
-  History,
   Inbox,
   Landmark,
   PackageCheck,
@@ -18,7 +16,7 @@ import {
   ReceiptText,
   Search,
   ShoppingCart,
-  Truck
+  Settings
 } from 'lucide-react';
 import clsx from 'clsx';
 import { trpc } from '../api/trpc';
@@ -60,11 +58,9 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     ]
   },
   {
-    label: 'Resolve',
+    label: 'Admin',
     items: [
-      { view: 'connectors', label: 'Connectors', icon: Truck },
-      { view: 'recovery', label: 'Recovery', icon: History },
-      { view: 'closeout', label: 'Closeout', icon: Archive }
+      { view: 'settings', label: 'Settings', icon: Settings }
     ]
   }
 ];
@@ -127,13 +123,15 @@ export function SideNav({ user }: { user: SessionUser }) {
 }
 
 function navVisibleForUser(view: ViewKey, user: SessionUser) {
+  if (view === 'settings') return user.role === 'owner' || user.role === 'manager';
+  if (['connectors', 'recovery', 'closeout'].includes(view)) return false;
   if (user.role === 'owner' || user.role === 'manager') return true;
-  if (user.role === 'viewer') return ['dashboard', 'reports', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors'].includes(view);
+  if (user.role === 'viewer') return ['dashboard', 'reports', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment'].includes(view);
   const email = user.email.toLowerCase();
   const name = user.name.toLowerCase();
-  if (email.includes('sales') || name.includes('sales')) return ['dashboard', 'reports', 'sales', 'orders', 'inventory', 'clients', 'connectors', 'payments'].includes(view);
-  if (email.includes('intake') || name.includes('intake')) return ['dashboard', 'purchaseOrders', 'intake', 'inventory', 'fulfillment', 'vendors', 'connectors'].includes(view);
-  return ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors'].includes(view);
+  if (email.includes('sales') || name.includes('sales')) return ['dashboard', 'reports', 'sales', 'orders', 'inventory', 'clients', 'payments'].includes(view);
+  if (email.includes('intake') || name.includes('intake')) return ['dashboard', 'purchaseOrders', 'intake', 'inventory', 'fulfillment', 'vendors'].includes(view);
+  return ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment'].includes(view);
 }
 
 export function Keel({ user }: { user: SessionUser }) {
@@ -153,7 +151,7 @@ export function Keel({ user }: { user: SessionUser }) {
     <header className="keel" aria-label="Global workspace keel">
       <button type="button" className="command-search keel-search" onClick={() => setCommandPaletteOpen(true)}>
         <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
-        <span>Search commands, rows, and actions</span>
+        <span>Search PO-123, Sunset Collective, or "new sale"</span>
         <kbd className="ml-auto">⌘K</kbd>
       </button>
       <div className="keel-chip-row" aria-label="Start chips">

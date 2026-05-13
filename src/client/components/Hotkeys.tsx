@@ -183,10 +183,10 @@ function isEditingText(target: HTMLElement | null) {
 
 function tabForIndex(view: ViewKey, index: number) {
   const tabsByView: Partial<Record<ViewKey, string[]>> = {
-    dashboard: ['definition', 'saved'],
-    reports: ['definition', 'export', 'saved'],
+    dashboard: ['actions', 'saved'],
+    reports: ['rows', 'export', 'saved'],
     purchaseOrders: ['lines', 'vendor', 'linked-intake', 'history'],
-    intake: ['definition', 'saved'],
+    intake: ['actions', 'saved'],
     sales: ['profile', 'balance', 'purchases', 'notes', 'history'],
     orders: ['lines', 'customer', 'output', 'history'],
     payments: ['allocations', 'customer', 'impact', 'history'],
@@ -194,9 +194,10 @@ function tabForIndex(view: ViewKey, index: number) {
     clients: ['profile', 'balance', 'purchases', 'notes', 'history'],
     vendors: ['due-reason', 'linked-po', 'payouts', 'history'],
     fulfillment: ['lines', 'order', 'labels', 'history'],
-    connectors: ['session', 'routing', 'history'],
-    recovery: ['reversal', 'snapshot', 'system', 'history'],
-    closeout: ['control-totals', 'unsafe', 'artifacts']
+    connectors: ['request', 'source', 'history'],
+    recovery: ['undo', 'target', 'history'],
+    closeout: ['control-totals', 'open-work', 'artifacts'],
+    settings: ['requests', 'actions', 'archive']
   };
   return tabsByView[view]?.[index] ?? null;
 }

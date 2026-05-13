@@ -231,7 +231,7 @@ export function QuickLedgerGrid() {
                   </td>
                   <td>
                     <select value={row.documentId} onChange={(event) => updateRow(row.id, { documentId: event.target.value, allocationIntent: event.target.value ? 'selected' : row.allocationIntent })} onFocus={() => setPreviewRowId(row.id)}>
-                      <option value="">{row.direction === 'money_out' ? 'Choose bill' : 'FIFO / none'}</option>
+                      <option value="">{row.direction === 'money_out' ? 'Choose bill' : 'Auto oldest / none'}</option>
                       {documentOptions.map((doc) => (
                         <option key={doc.id} value={doc.id}>
                           {String(doc.invoiceNo ?? doc.billNo ?? 'Document')} / ${money(Number(doc.total ?? doc.amount ?? 0) - Number(doc.amountPaid ?? 0))}
@@ -244,7 +244,7 @@ export function QuickLedgerGrid() {
                   <td><input value={row.notes} onChange={(event) => updateRow(row.id, { notes: event.target.value })} /></td>
                   <td>
                     <select value={row.allocationIntent} onChange={(event) => updateRow(row.id, { allocationIntent: event.target.value as AllocationIntent })} disabled={row.direction !== 'money_in'}>
-                      <option value="fifo">FIFO</option>
+                      <option value="fifo">Auto-apply to oldest</option>
                       <option value="selected">Selected</option>
                       <option value="unapplied">Unapplied</option>
                     </select>
@@ -323,9 +323,15 @@ function ledgerTrace(row: LedgerDraft, documents: Array<GridRow | { id: string; 
   const document = documents.find((candidate) => candidate.id === row.documentId);
   const documentLabel = String(document && 'invoiceNo' in document ? document.invoiceNo ?? document.billNo ?? document.id : document?.id ?? 'unapplied');
   if (row.direction === 'money_in' && Number(row.amount || 0) < 0) return `client -> buyer credit -> ${row.bucket}`;
-  if (row.direction === 'money_in') return `client -> ${row.allocationIntent === 'selected' ? documentLabel : row.allocationIntent} -> ${row.bucket}`;
+  if (row.direction === 'money_in') return `client -> ${allocationLabel(row.allocationIntent, documentLabel)} -> ${row.bucket}`;
   if (row.direction === 'money_out') return `${row.bucket} -> vendor bill -> ${documentLabel}`;
   return `${row.bucket} -> journal`;
+}
+
+function allocationLabel(intent: AllocationIntent, selectedDocument: string) {
+  if (intent === 'fifo') return 'oldest open invoices';
+  if (intent === 'selected') return selectedDocument;
+  return 'unapplied';
 }
 
 function money(value: number) {

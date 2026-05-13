@@ -5,6 +5,7 @@ storage/journal/*.jsonl
 storage/archives/*
 test-results
 playwright-report
+artifacts/
 .superpowers/
 
 .DS_Store

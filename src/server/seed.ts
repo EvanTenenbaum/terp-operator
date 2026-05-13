@@ -22,17 +22,31 @@ import {
   vendors
 } from './schema';
 
-async function seed() {
-  await pool.query(`
-    truncate table
-      command_journal, backup_snapshots, photography_queue, archive_runs, period_locks, correction_journal_entries,
-      client_ledger_entries, invoice_disputes, credit_overrides, connector_requests, fulfillment_lines, pick_lists,
-      vendor_payments, vendor_bills, payment_allocations, payments, invoices, sales_order_lines, sales_orders,
-      purchase_receipt_lines, purchase_receipts, inventory_movements, batches, purchase_order_lines, purchase_orders,
-      items, customers, vendors, users
-    restart identity cascade
-  `);
+const seedLockKey = 520126;
 
+async function seed() {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+    throw new Error('Refusing to seed in production without ALLOW_DEMO_SEED=true.');
+  }
+  await pool.query('select pg_advisory_lock($1)', [seedLockKey]);
+  try {
+    await pool.query(`
+      truncate table
+        "session", command_journal, backup_snapshots, photography_queue, archive_runs, period_locks, correction_journal_entries,
+        client_ledger_entries, invoice_disputes, credit_overrides, connector_requests, fulfillment_lines, pick_lists,
+        vendor_payments, vendor_bills, payment_allocations, payments, invoices, sales_order_lines, sales_orders,
+        purchase_receipt_lines, purchase_receipts, inventory_movements, batches, purchase_order_lines, purchase_orders,
+        items, customers, vendors, users
+      restart identity cascade
+    `);
+
+    await insertSeedData();
+  } finally {
+    await pool.query('select pg_advisory_unlock($1)', [seedLockKey]);
+  }
+}
+
+async function insertSeedData() {
   const passwordHash = await bcrypt.hash('terp-demo', 12);
   const [owner, manager, inventoryOperator, salesOperator, viewer] = await db
     .insert(users)
@@ -131,7 +145,7 @@ async function seed() {
 
   const [payment] = await db
     .insert(payments)
-    .values({ customerId: harbor.id, direction: 'money_in', category: 'client_payment', allocationIntent: 'selected_invoice', method: 'cash', amount: '2000.00', unappliedAmount: '0.00', reference: 'cash-file-0511', locationBucket: 'cash-file-a', impactPreview: 'Applied to INV-DEMO-001.', notes: 'Seed partial payment with FIFO allocation.', status: 'posted' })
+    .values({ customerId: harbor.id, direction: 'money_in', category: 'client_payment', allocationIntent: 'selected_invoice', method: 'cash', amount: '2000.00', unappliedAmount: '0.00', reference: 'cash-file-0511', locationBucket: 'cash-file-a', impactPreview: 'Applied to INV-DEMO-001.', notes: 'Seed partial payment with oldest-invoice allocation.', status: 'posted' })
     .returning();
 
   await db.insert(clientLedgerEntries).values([
@@ -153,7 +167,7 @@ async function seed() {
   await db.insert(connectorRequests).values([
     { source: 'vip', requestType: 'catalog_request', customerId: cobalt.id, payload: { category: 'Flower', priceVisibility: 'customer' }, status: 'open' },
     { source: 'live-shopping', requestType: 'reserve_request', customerId: sunset.id, payload: { sku: 'INS-CANDY', qty: 20 }, status: 'open' },
-    { source: 'mobile-scan', requestType: 'bag_scan', customerId: null, payload: { bagCode: 'BAG-447', orderNo: 'SO-DEMO-001' }, status: 'routed', routedTo: 'fulfillment', operatorNotes: 'Scan routed through connector review, not direct ledger mutation.', reviewHistory: [{ status: 'routed', actorName: 'Maya Manager', at: new Date().toISOString() }] }
+    { source: 'mobile-scan', requestType: 'bag_scan', customerId: null, payload: { bagCode: 'BAG-447', orderNo: 'SO-DEMO-001' }, status: 'routed', routedTo: 'fulfillment', operatorNotes: 'Scan accepted for fulfillment review; no direct ledger mutation.', reviewHistory: [{ status: 'routed', actorName: 'Maya Manager', at: new Date().toISOString() }] }
   ]);
 
   await db.insert(backupSnapshots).values({

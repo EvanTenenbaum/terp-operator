@@ -18,7 +18,8 @@ const viewLabels: Record<ViewKey, string> = {
   fulfillment: 'Fulfillment',
   connectors: 'Connectors',
   recovery: 'Recovery',
-  closeout: 'Closeout'
+  closeout: 'Closeout',
+  settings: 'Settings'
 };
 
 export function IdentityRibbon() {

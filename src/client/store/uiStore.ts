@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
-import type { DrawerEntityRef, DrawerState, DrawerStateName, GridRow, QuickLaunchMode, RouteHistoryEntry, ViewKey } from '../../shared/types';
+import type { DrawerEntityRef, DrawerState, DrawerStateName, GridRow, QuickLaunchMode, RouteHistoryEntry, SettingsTab, ViewKey } from '../../shared/types';
 
 interface Toast {
   id: string;
@@ -13,6 +13,7 @@ interface UiState {
   activeView: ViewKey;
   activeCustomerId: string | null;
   activeQuickLaunch: QuickLaunchMode | null;
+  activeSettingsTab: SettingsTab;
   salesRequestText: string;
   selectedRows: Partial<Record<ViewKey, GridRow[]>>;
   commandPaletteOpen: boolean;
@@ -31,6 +32,7 @@ interface UiState {
   setActiveView: (view: ViewKey) => void;
   setActiveCustomerId: (customerId: string | null) => void;
   setActiveQuickLaunch: (mode: QuickLaunchMode | null) => void;
+  setActiveSettingsTab: (tab: SettingsTab) => void;
   setSalesRequestText: (text: string) => void;
   setSelectedRows: (view: ViewKey, rows: GridRow[]) => void;
   setCommandPaletteOpen: (open: boolean) => void;
@@ -58,6 +60,7 @@ export const useUiStore = create<UiState>()(
     activeView: 'dashboard',
     activeCustomerId: null,
     activeQuickLaunch: 'sale',
+    activeSettingsTab: 'requests',
     salesRequestText: '',
     selectedRows: {},
     commandPaletteOpen: false,
@@ -100,6 +103,10 @@ export const useUiStore = create<UiState>()(
     setActiveQuickLaunch: (mode) =>
       set((state) => {
         state.activeQuickLaunch = mode ?? state.activeQuickLaunch ?? 'sale';
+      }),
+    setActiveSettingsTab: (tab) =>
+      set((state) => {
+        state.activeSettingsTab = tab;
       }),
     setSalesRequestText: (text) =>
       set((state) => {
@@ -238,6 +245,7 @@ export const useUiStore = create<UiState>()(
       sideNavCollapsed: state.sideNavCollapsed,
       collapsedPanels: state.collapsedPanels,
       activeQuickLaunch: state.activeQuickLaunch,
+      activeSettingsTab: state.activeSettingsTab,
       drawerByView: state.drawerByView,
       activeDrawerEntityByView: state.activeDrawerEntityByView
     })
@@ -257,8 +265,8 @@ export const queueDrawerEntity: DrawerEntityRef = { entityType: 'queue', entityI
 
 export function defaultTabForEntity(entityType: string) {
   const tabs: Record<string, string> = {
-    queue: 'definition',
-    customer: 'profile',
+    queue: 'actions',
+    customer: 'balance',
     vendor: 'profile',
     lot: 'movement',
     order: 'lines',
@@ -266,10 +274,11 @@ export function defaultTabForEntity(entityType: string) {
     vendorBill: 'due-reason',
     payment: 'allocations',
     pick: 'lines',
-    connector: 'session',
-    recovery: 'reversal',
+    connector: 'request',
+    recovery: 'undo',
     closeout: 'control-totals',
-    report: 'definition'
+    report: 'rows',
+    settings: 'requests'
   };
   return tabs[entityType] ?? 'profile';
 }
@@ -293,7 +302,7 @@ export function currentDrawerForState(state: Pick<UiState, 'activeDrawerEntityBy
 }
 
 function launchForView(view: ViewKey): QuickLaunchMode | null {
-  if (view === 'reports') return null;
+  if (['reports', 'settings', 'connectors', 'recovery', 'closeout'].includes(view)) return null;
   if (view === 'purchaseOrders') return 'purchaseOrder';
   if (view === 'sales' || view === 'orders') return 'sale';
   if (view === 'intake' || view === 'inventory' || view === 'fulfillment') return 'receiving';
@@ -314,6 +323,7 @@ function inferDrawerEntity(view: ViewKey, row: GridRow): DrawerEntityRef {
   if (view === 'connectors') return { entityType: 'connector', entityId: row.id };
   if (view === 'recovery') return { entityType: 'recovery', entityId: row.id };
   if (view === 'closeout') return { entityType: 'closeout', entityId: row.id };
+  if (view === 'settings') return { entityType: 'settings', entityId: row.id };
   if (view === 'reports') return { entityType: 'report', entityId: row.id };
   if (row.vendorId) return { entityType: 'vendor', entityId: String(row.vendorId) };
   if (row.customerId) return { entityType: 'customer', entityId: String(row.customerId) };

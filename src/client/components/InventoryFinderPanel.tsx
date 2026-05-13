@@ -1,4 +1,4 @@
-import { Filter, PackagePlus, Search, X } from 'lucide-react';
+import { Clipboard, Filter, PackagePlus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { trpc } from '../api/trpc';
 import type { GridRow } from '../../shared/types';
@@ -31,6 +31,7 @@ export interface InventoryFinderBatch extends GridRow {
 
 interface InventoryFinderPanelProps {
   selectedOrderId?: string;
+  focusKey?: string;
   addedBatchIds?: Set<string>;
   initialSearch?: string;
   onAddBatch: (batch: InventoryFinderBatch, qty: number) => Promise<void>;
@@ -44,7 +45,7 @@ const savedSlices = [
   ['office-owned', 'Office owned']
 ] as const;
 
-export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(), initialSearch = '', onAddBatch }: InventoryFinderPanelProps) {
+export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatchIds = new Set(), initialSearch = '', onAddBatch }: InventoryFinderPanelProps) {
   const reference = trpc.queries.reference.useQuery();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -60,6 +61,7 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
   const [activeSlice, setActiveSlice] = useState('');
   const lastInitialSearch = useRef('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const rows = ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
     ...row,
     tags: Array.isArray(row.tags) ? row.tags : String(row.tags ?? '').split(',').map((item) => item.trim()).filter(Boolean)
@@ -82,6 +84,10 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
       lastInitialSearch.current = nextSearch;
     }
   }, [initialSearch]);
+
+  useEffect(() => {
+    if (selectedOrderId || focusKey) searchInputRef.current?.focus();
+  }, [focusKey, selectedOrderId]);
 
   const filtered = useMemo(() => {
     const parsed = parseFinderSearch(search);
@@ -164,7 +170,10 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
 
   function copySlice() {
     const label = savedSlices.find(([key]) => key === activeSlice)?.[1] ?? 'Custom slice';
-    const text = [`Inventory Finder: ${label}`, `Filters: ${activeFilterLabels.join(', ') || 'none'}`, `Rows shown: ${filtered.length} of ${rows.length}`].join('\n');
+    const customerSafeRows = filtered
+      .slice(0, 20)
+      .map((row) => `${row.name} | ${moneyish(row.availableQty)} ${row.uom ?? ''} available | $${moneyish(row.unitPrice)} | ${row.category ?? 'Inventory'}`);
+    const text = [`Inventory Finder: ${label}`, `Filters: ${activeFilterLabels.join(', ') || 'none'}`, ...customerSafeRows].join('\n');
     void navigator.clipboard?.writeText(text);
   }
 
@@ -195,7 +204,7 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
       actions={
         <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-600">
           <span>{filtered.length} / {rows.length} shown</span>
-          <span className="selection-pill">{activeFilterLabels.length} active</span>
+          <span className="selection-pill">{activeFilterLabels.length} filter{activeFilterLabels.length === 1 ? '' : 's'}</span>
         </div>
       }
       testId="inventory-finder"
@@ -207,14 +216,15 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
             {label}
           </button>
         ))}
-        <button className="text-button compact-action" type="button" disabled={!activeFilterLabels.length} onClick={copySlice}>
-          Copy slice
+        <button className="secondary-button compact-action" type="button" disabled={!filtered.length} onClick={copySlice}>
+          <Clipboard className="h-4 w-4" aria-hidden="true" />
+          Copy List for Customer
         </button>
       </div>
       <div className="finder-controls">
         <label className="finder-search">
           <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search code, notes, shorthand, vendor, lot, tag, marker" />
+          <input ref={searchInputRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search code, notes, shorthand, vendor, lot, tag, marker" />
         </label>
         <select className="select compact" aria-label="Finder category" value={category} onChange={(event) => setCategory(event.target.value)}>
           <option value="">Category</option>
@@ -278,7 +288,7 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
       </div>
       {compared.length ? (
         <div className="finder-chip-row" aria-label="Compared inventory">
-          <span className="text-xs font-semibold uppercase text-zinc-600">Compare</span>
+          <span className="text-xs font-semibold uppercase text-zinc-600">Compare list</span>
           {compared.map((row) => (
             <span key={row.id} className="finder-chip success">
               {row.batchCode} / ${moneyish(row.unitPrice)} / {moneyish(row.availableQty)} {row.uom}
@@ -296,14 +306,15 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
             <tr>
               <th>Qty</th>
               <th>Compare</th>
-              <th>Identity</th>
+              <th>Batch</th>
+              <th>Lot / date</th>
               <th>Product</th>
               <th>Source</th>
               <th>Avail</th>
               <th>Ticket / Price</th>
               <th>Marker</th>
               <th>Media</th>
-              <th>Match</th>
+              <th>Why shown</th>
             </tr>
           </thead>
           <tbody>
@@ -325,19 +336,22 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
                             if (event.key === 'Enter') void add(row);
                           }}
                         />
-                        <button className="icon-button" type="button" disabled={!selectedOrderId || added || available <= 0} onClick={() => void add(row)} title={selectedOrderId ? 'Add to selected order' : 'Select an order first'}>
+                        <button className="secondary-button compact-action finder-add-button" type="button" disabled={!selectedOrderId || added || available <= 0} onClick={() => void add(row)} title={selectedOrderId ? 'Add to selected order' : 'Select an order first'}>
                           <PackagePlus className="h-4 w-4" aria-hidden="true" />
-                          <span className="sr-only">Add {row.name}</span>
+                          Add
                         </button>
                       </div>
                     </td>
                     <td>
-                      <input aria-label={`Compare ${row.batchCode}`} type="checkbox" checked={compareIds.has(row.id)} onChange={() => toggleCompare(row.id)} />
+                      <input aria-label={`Add ${row.batchCode} to compare list`} type="checkbox" checked={compareIds.has(row.id)} onChange={() => toggleCompare(row.id)} />
                     </td>
                     <td className="font-medium">
                       <div>{row.batchCode}</div>
-                      <div className="text-[11px] text-zinc-500">{row.sourceCode ?? '-'} / {dateish(row.intakeDate)}</div>
                       {added ? <span className="finder-chip success">Already in order</span> : null}
+                    </td>
+                    <td>
+                      <div>{row.sourceCode ?? '-'}</div>
+                      <div className="text-[11px] text-zinc-500">{dateish(row.intakeDate)}</div>
                     </td>
                     <td>
                       <div>{row.name}</div>
@@ -360,7 +374,7 @@ export function InventoryFinderPanel({ selectedOrderId, addedBatchIds = new Set(
               })
             ) : (
               <tr>
-                <td colSpan={10} className="py-8 text-center text-sm text-zinc-600">
+                <td colSpan={11} className="py-8 text-center text-sm text-zinc-600">
                   <div>No inventory matches these filters.</div>
                   <div className="mt-2 flex flex-wrap justify-center gap-2">
                     {[

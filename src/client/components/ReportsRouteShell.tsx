@@ -21,7 +21,6 @@ const reportColumns: ColDef<GridRow>[] = [
   { field: 'status', width: 125 },
   { field: 'amount', type: 'numericColumn', width: 130 },
   { field: 'count', type: 'numericColumn', width: 105 },
-  { field: 'definition', minWidth: 280 },
   { field: 'source', width: 145 }
 ];
 
@@ -58,7 +57,7 @@ export function ReportsRouteShell() {
   }
 
   function exportCsv() {
-    const headers = ['id', 'label', 'status', 'amount', 'count', 'definition', 'source'];
+    const headers = ['id', 'label', 'status', 'amount', 'count', 'source'];
     const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n');
     downloadText(`terp-agro-${activeReport.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`, csv, 'text/csv;charset=utf-8');
   }
@@ -70,7 +69,7 @@ export function ReportsRouteShell() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">Live source rows, grouped for owner decisions and deterministic export.</p>
+          <p className="page-subtitle">Live source rows grouped for owner decisions.</p>
         </div>
         <button type="button" className="secondary-button" onClick={exportCsv} disabled={!rows.length}>
           <Download className="h-4 w-4" aria-hidden="true" />
