@@ -144,7 +144,7 @@ export function QuickLedgerGrid() {
     <WorkspacePanel
       panelId="payments:quick-ledger"
       title="Quick Ledger"
-      subtitle="Append Money In or Money Out rows, preview allocation impact, then commit audited commands without modal workflows."
+      subtitle={`${rows.length} draft row(s)`}
       contentClassName="p-3"
       actions={
         <>

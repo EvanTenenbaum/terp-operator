@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Braces, Play, Search, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
+import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
 import { useUiStore } from '../store/uiStore';
 import { useCommandRunner } from './useCommandRunner';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -16,8 +17,8 @@ const launchActions: Array<{
   { label: 'New sale', detail: 'Open Sales with the customer-first workspace and inventory finder ready.', aliases: 'sale order customer sell quote catalog', view: 'sales', launch: 'sale' },
   { label: 'New purchase order', detail: 'Open Purchase Orders with vendor and line-entry controls ready.', aliases: 'purchase po procure buy vendor order', view: 'purchaseOrders', launch: 'purchaseOrder' },
   { label: 'Receive product', detail: 'Open Intake for receiving rows, Ready marking, and receipt posting.', aliases: 'receive receiving intake inventory batch vendor receipt', view: 'intake', launch: 'receiving' },
-  { label: 'Receive money', detail: 'Open Payments with Quick Ledger in Money In mode.', aliases: 'money in payment cash crypto check wire paid', view: 'payments', launch: 'moneyIn' },
-  { label: 'Pay vendor', detail: 'Open Vendor Payouts with Quick Ledger in Money Out mode.', aliases: 'money out vendor payout payable bill pay', view: 'vendors', launch: 'moneyOut' }
+  { label: 'Money in', detail: 'Open Payments with Quick Ledger in Money In mode.', aliases: 'receive money payment cash crypto check wire paid', view: 'payments', launch: 'moneyIn' },
+  { label: 'Money out', detail: 'Open Vendor Payouts with a payout row ready.', aliases: 'pay vendor payout payable bill pay money out', view: 'vendors', launch: 'moneyOut' }
 ];
 
 export function CommandPalette() {
@@ -33,8 +34,11 @@ export function CommandPalette() {
   const setSalesRequestText = useUiStore((state) => state.setSalesRequestText);
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
+  const setDrawerTab = useUiStore((state) => state.setDrawerTab);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
   const [query, setQuery] = useState('');
   const [payloadText, setPayloadText] = useState('{}');
+  const me = trpc.auth.me.useQuery();
   const reference = trpc.queries.reference.useQuery(undefined, { enabled: open });
   const entitySearch = trpc.queries.globalSearch.useQuery({ q: query }, { enabled: open && query.trim().length > 1 });
   const { runCommand, isRunning } = useCommandRunner();
@@ -47,9 +51,11 @@ export function CommandPalette() {
   }, [reference.data?.commands, normalizedQuery]);
 
   const matchingLaunches = useMemo(() => {
-    if (!normalizedQuery) return launchActions;
-    return launchActions.filter((action) => `${action.label} ${action.detail} ${action.aliases}`.toLowerCase().includes(normalizedQuery));
-  }, [normalizedQuery]);
+    const user = me.data;
+    const allowed = user ? launchActions.filter((action) => viewVisibleForUser(action.view, user) && startVisibleForUser(action.launch, user)) : launchActions;
+    if (!normalizedQuery) return allowed;
+    return allowed.filter((action) => `${action.label} ${action.detail} ${action.aliases}`.toLowerCase().includes(normalizedQuery));
+  }, [me.data, normalizedQuery]);
 
   if (!open) return null;
 
@@ -91,9 +97,14 @@ export function CommandPalette() {
     }
     const view = viewForEntity(type);
     if (view) {
+      const drawerType = drawerTypeForEntity(type);
       setActiveView(view);
-      setSelectedRows(view, [{ id: row.id } as GridRow]);
-      setDrawerEntity(view, type, row.id);
+      setSelectedRows(view, [row]);
+      setDrawerEntity(view, drawerType, row.id);
+      if (relationshipEntity(row, type)) {
+        setDrawerTab(view, 'relationship');
+        setDrawerState(view, 'standard');
+      }
     }
     setOpen(false);
   }
@@ -208,6 +219,15 @@ export function CommandPalette() {
   );
 }
 
+function drawerTypeForEntity(type: string) {
+  const map: Record<string, string> = {
+    purchaseOrder: 'po',
+    batch: 'lot',
+    invoice: 'payment'
+  };
+  return map[type] ?? type;
+}
+
 function viewForEntity(type: string): ViewKey | null {
   const map: Record<string, ViewKey> = {
     customer: 'clients',
@@ -222,6 +242,10 @@ function viewForEntity(type: string): ViewKey | null {
     command: 'settings'
   };
   return map[type] ?? null;
+}
+
+function relationshipEntity(row: GridRow, type: string) {
+  return ['customer', 'vendor', 'order', 'invoice', 'payment', 'purchaseOrder', 'batch', 'pick', 'connector'].includes(type) || Boolean(row.customerId || row.vendorId);
 }
 
 function safeDetail(value: unknown) {

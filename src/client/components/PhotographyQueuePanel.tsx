@@ -28,7 +28,7 @@ export function PhotographyQueuePanel() {
     <WorkspacePanel
       panelId="inventory:photography-queue"
       title="Photography Queue"
-      subtitle="Media readiness for catalog-safe sales output. Finder rows warn when catalog media is not ready."
+      subtitle={`${open.length} open / ${ready} ready`}
       contentClassName="p-3"
       actions={
         <div className="flex flex-wrap items-center gap-2 text-xs">

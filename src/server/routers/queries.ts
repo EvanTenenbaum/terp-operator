@@ -293,21 +293,23 @@ export const queriesRouter = router({
   globalSearch: protectedProcedure.input(z.object({ q: z.string().min(1) })).query(async ({ input }) => {
     const q = `%${input.q.trim()}%`;
     const [customerRows, vendorRows, purchaseOrderRows, orderRows, invoiceRows, paymentRows, batchRows, pickRows, connectorRows, commandRows] = await Promise.all([
-      pool.query('select id, name as label, balance as detail, \'customer\' as type from customers where name ilike $1 or notes ilike $1 limit 8', [q]),
-      pool.query('select id, name as label, notes as detail, \'vendor\' as type from vendors where name ilike $1 or notes ilike $1 limit 8', [q]),
-      pool.query(`select po.id, po.po_no as label, concat(coalesce(v.name, 'No vendor'), ' / ', po.status, ' / ', po.total) as detail, 'purchaseOrder' as type
+      pool.query('select id, id as "customerId", name as label, balance as detail, \'customer\' as type from customers where name ilike $1 or notes ilike $1 limit 8', [q]),
+      pool.query('select id, id as "vendorId", name as label, notes as detail, \'vendor\' as type from vendors where name ilike $1 or notes ilike $1 limit 8', [q]),
+      pool.query(`select po.id, po.vendor_id as "vendorId", po.po_no as label, concat(coalesce(v.name, 'No vendor'), ' / ', po.status, ' / ', po.total) as detail, 'purchaseOrder' as type
                   from purchase_orders po left join vendors v on v.id = po.vendor_id
                   where po.po_no ilike $1 or po.buyer_notes ilike $1 or po.internal_notes ilike $1
                   limit 8`, [q]),
-      pool.query('select id, order_no as label, status as detail, \'order\' as type from sales_orders where order_no ilike $1 or notes ilike $1 limit 8', [q]),
-      pool.query('select id, invoice_no as label, status as detail, \'invoice\' as type from invoices where invoice_no ilike $1 limit 8', [q]),
-      pool.query('select id, reference as label, amount as detail, \'payment\' as type from payments where reference ilike $1 or notes ilike $1 or location_bucket ilike $1 limit 8', [q]),
-      pool.query(`select id, concat(batch_code, ' ', name) as label, concat(coalesce(source_code,''), ' ', coalesce(legacy_marker,''), ' ', coalesce(notes,'')) as detail, 'batch' as type
+      pool.query('select id, customer_id as "customerId", order_no as label, status as detail, \'order\' as type from sales_orders where order_no ilike $1 or notes ilike $1 limit 8', [q]),
+      pool.query('select id, customer_id as "customerId", invoice_no as label, status as detail, \'invoice\' as type from invoices where invoice_no ilike $1 limit 8', [q]),
+      pool.query('select id, customer_id as "customerId", reference as label, amount as detail, \'payment\' as type from payments where reference ilike $1 or notes ilike $1 or location_bucket ilike $1 limit 8', [q]),
+      pool.query(`select id, vendor_id as "vendorId", batch_code as "batchCode", concat(batch_code, ' ', name) as label, concat(coalesce(source_code,''), ' ', coalesce(legacy_marker,''), ' ', coalesce(notes,'')) as detail, 'batch' as type
                   from batches
                   where batch_code ilike $1 or source_code ilike $1 or name ilike $1 or category ilike $1 or notes ilike $1 or legacy_marker ilike $1 or shorthand ilike $1 or price_range ilike $1
                   limit 12`, [q]),
-      pool.query('select id, pick_no as label, tracking as detail, \'pick\' as type from pick_lists where pick_no ilike $1 or tracking ilike $1 limit 8', [q]),
-      pool.query("select id, concat(source, ' ', request_type) as label, status as detail, 'connector' as type from connector_requests where source ilike $1 or request_type ilike $1 or payload::text ilike $1 limit 8", [q]),
+      pool.query(`select pl.id, so.customer_id as "customerId", pl.pick_no as label, pl.tracking as detail, 'pick' as type
+                  from pick_lists pl left join sales_orders so on so.id = pl.order_id
+                  where pl.pick_no ilike $1 or pl.tracking ilike $1 limit 8`, [q]),
+      pool.query("select id, customer_id as \"customerId\", concat(source, ' ', request_type) as label, status as detail, 'connector' as type from connector_requests where source ilike $1 or request_type ilike $1 or payload::text ilike $1 limit 8", [q]),
       pool.query("select id, command_name as label, status as detail, 'command' as type from command_journal where id::text ilike $1 or command_name ilike $1 or affected_ids::text ilike $1 limit 8", [q])
     ]);
     return { groups: { customers: customerRows.rows, vendors: vendorRows.rows, purchaseOrders: purchaseOrderRows.rows, orders: orderRows.rows, invoices: invoiceRows.rows, payments: paymentRows.rows, batches: batchRows.rows, picks: pickRows.rows, connectors: connectorRows.rows, commands: commandRows.rows } };

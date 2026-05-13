@@ -442,6 +442,10 @@ kbd {
   @apply border-amber bg-amber/10 text-amber;
 }
 
+.selection-pill.danger {
+  @apply border-red-300 bg-red-50 text-red-700;
+}
+
 .compact-action {
   @apply h-7 px-2 text-xs;
 }
@@ -505,6 +509,65 @@ kbd {
 
 .quick-ledger-impact {
   @apply max-w-52 truncate text-[11px] text-zinc-600;
+}
+
+.money-out-strip,
+.po-header-strip,
+.fulfillment-pack-strip,
+.receipt-impact-strip {
+  @apply flex flex-wrap items-center gap-2 border border-line bg-white p-2;
+}
+
+.money-out-strip {
+  @apply bg-panel;
+}
+
+.po-header-strip {
+  @apply justify-between;
+}
+
+.po-header-facts {
+  @apply flex flex-wrap items-center gap-2 text-xs text-zinc-700;
+}
+
+.po-header-facts span {
+  @apply border border-line bg-panel px-2 py-1;
+}
+
+.fulfillment-pack-strip {
+  @apply border-accent bg-emerald-50;
+}
+
+.receipt-impact-strip {
+  @apply border-amber bg-amber/10;
+}
+
+.closeout-blocker-row {
+  @apply flex items-center justify-between border border-line bg-panel px-3 py-2 text-left text-sm hover:border-accent focus:outline-none focus-visible:shadow-focus;
+}
+
+.connector-timeline {
+  @apply mt-3 grid gap-2 text-xs;
+}
+
+.connector-timeline-step {
+  @apply grid grid-cols-[auto_0.5fr_1fr] items-center gap-2 border-b border-line py-1.5 text-zinc-700;
+}
+
+.timeline-dot {
+  @apply h-2.5 w-2.5 border;
+}
+
+.timeline-dot-done {
+  @apply border-emerald-700 bg-emerald-500;
+}
+
+.timeline-dot-current {
+  @apply border-amber bg-amber;
+}
+
+.timeline-dot-blocked {
+  @apply border-red-700 bg-red-500;
 }
 
 .entity-result {

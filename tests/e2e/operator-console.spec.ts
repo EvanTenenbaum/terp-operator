@@ -75,14 +75,13 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
   await expect(keel.getByRole('button', { name: 'New PO', exact: true })).toBeVisible();
   await expect(keel.getByRole('button', { name: 'Receive', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: '$ In', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: '$ Out', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'Money in', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'Money out', exact: true })).toBeVisible();
 
   await keel.getByRole('button', { name: 'New Sale', exact: true }).click();
   await page.getByLabel('Customer').selectOption({ label: 'Cobalt Reserve' });
-  await page.getByRole('button', { name: 'New Sale' }).first().click();
   await expect(page.getByText('Sales Orders')).toBeVisible();
-  await expect(page.getByText('Customer Workspace')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Customer Workspace', exact: true })).toBeVisible();
 
   const finder = page.getByTestId('inventory-finder');
   await expect(finder.getByText('Inventory Finder')).toBeVisible();
@@ -104,10 +103,39 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await expect(page.getByText('Inventory Intake')).toBeVisible();
   await expect(page.getByRole('button', { name: /Receive Inventory/ })).toBeVisible();
 
-  await keel.getByRole('button', { name: '$ In', exact: true }).click();
+  await keel.getByRole('button', { name: 'Money in', exact: true }).click();
   await expect(page.getByRole('button', { name: /Payments \d+ row/ })).toBeVisible();
   await expect(page.getByText('Quick Ledger')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Money In', exact: true })).toBeVisible();
+});
+
+test('persona workspaces keep only the relevant starts visible', async ({ page }) => {
+  await waitForBackend(page);
+  await page.goto('/');
+  await page.getByLabel('Email').fill('sales@terpagro.local');
+  await page.getByLabel('Password').fill('terp-demo');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  const keel = page.getByRole('banner', { name: 'Global workspace keel' });
+  await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'Money in', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'New PO', exact: true })).toHaveCount(0);
+  await expect(keel.getByRole('button', { name: 'Receive', exact: true })).toHaveCount(0);
+  await expect(keel.getByRole('button', { name: 'Money out', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('navigation').getByRole('button', { name: 'Settings' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByLabel('Email').fill('viewer@terpagro.local');
+  await page.getByLabel('Password').fill('terp-demo');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  const viewerKeel = page.getByRole('banner', { name: 'Global workspace keel' });
+  await expect(viewerKeel.getByRole('button', { name: 'Find', exact: true })).toBeVisible();
+  await expect(viewerKeel.getByRole('button', { name: 'New Sale', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('button', { name: 'New PO', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('button', { name: 'Receive', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('button', { name: 'Money in', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('button', { name: 'Money out', exact: true })).toHaveCount(0);
 });
 
 test('operators can reclaim space while keeping the keel available', async ({ page }) => {

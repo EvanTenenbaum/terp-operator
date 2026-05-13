@@ -56,7 +56,7 @@ export function IntakeView() {
   const [lotCode, setLotCode] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
   const defaultVendorId = vendorId || firstVendor;
-  const receiptPreview = trpc.queries.receiptPreview.useQuery({ batchIds: rows.map((row) => String(row.id)) }, { enabled: receiptPreviewOpen && rows.length > 0 });
+  const receiptPreview = trpc.queries.receiptPreview.useQuery({ batchIds: rows.map((row) => String(row.id)) }, { enabled: rows.length > 0 });
   const selectedReady = rows.length > 0 && rows.every((row) => row.status === 'ready');
 
   async function onCellCommit(event: CellValueChangedEvent<GridRow>) {
@@ -168,7 +168,7 @@ export function IntakeView() {
         </button>
       </div>
       {csvOpen ? (
-        <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" subtitle="Paste batch rows, validate row-level errors, then import only after the preview is clean." contentClassName="p-3">
+        <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <button className="secondary-button compact-action" type="button" disabled={!csvText.trim()} onClick={() => void importCsv(true)}>
@@ -231,8 +231,21 @@ export function IntakeView() {
           </>
         }
       />
+      {rows.length ? (
+        <div className="control-band receipt-impact-strip">
+          <span className="selection-pill">{rows.length} selected</span>
+          <span className="selection-pill">Vendor {receiptPreview.data?.vendor || 'Mixed / missing'}</span>
+          <span className="selection-pill">Total ${receiptPreview.data?.total ?? '...'}</span>
+          <span className={receiptPreview.data?.ok ? 'selection-pill success' : 'selection-pill warning'}>
+            {receiptPreview.data?.ok ? 'Receipt ready' : `${receiptPreview.data?.conflicts.length ?? 0} fix`}
+          </span>
+          <button type="button" className="secondary-button compact-action" onClick={() => setReceiptPreviewOpen(true)}>
+            Receipt detail
+          </button>
+        </div>
+      ) : null}
       {receiptPreviewOpen ? (
-        <WorkspacePanel panelId="intake:receipt-preview" title="Selected-row receipt preview" subtitle="Totals are calculated from the selected intake rows before any ledger consequences are posted." contentClassName="p-3">
+        <WorkspacePanel panelId="intake:receipt-preview" title="Selected-row receipt preview" contentClassName="p-3">
           <div className="flex items-start justify-between gap-3">
             <button className="text-button" type="button" onClick={() => setReceiptPreviewOpen(false)}>
               Close

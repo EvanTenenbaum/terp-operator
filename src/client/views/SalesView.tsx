@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronRight, FileText, PackagePlus, Plus, Send } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, FileText, PackagePlus, Send } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { InventoryFinderPanel, type InventoryFinderBatch } from '../components/InventoryFinderPanel';
@@ -68,7 +68,10 @@ export function SalesView() {
   const [draftQty, setDraftQty] = useState('1');
   const [addedBatchIds, setAddedBatchIds] = useState<Set<string>>(new Set());
   const [saleToolsOpen, setSaleToolsOpen] = useState(false);
+  const [autoStartedCustomerIds, setAutoStartedCustomerIds] = useState<Set<string>>(new Set());
+  const customerSelectRef = useRef<HTMLSelectElement | null>(null);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
+  const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const setActiveCustomerId = useUiStore((state) => state.setActiveCustomerId);
   const salesRequestText = useUiStore((state) => state.salesRequestText);
   const me = trpc.auth.me.useQuery();
@@ -94,6 +97,21 @@ export function SalesView() {
   useEffect(() => {
     if (salesRequestText && !draftItem) setDraftItem(salesRequestText);
   }, [draftItem, salesRequestText]);
+
+  useEffect(() => {
+    if (activeQuickLaunch === 'sale' && !customerId) customerSelectRef.current?.focus();
+  }, [activeQuickLaunch, customerId]);
+
+  useEffect(() => {
+    if (!customerId || !canWrite || workspace.isFetching || workspaceOrder || autoStartedCustomerIds.has(customerId)) return;
+    setAutoStartedCustomerIds((current) => new Set(current).add(customerId));
+    void runCommand('createSalesOrder', { customerId }, 'Auto-start customer sale workspace').then((result) => {
+      if (result.ok) {
+        setActiveCustomerId(customerId);
+        void workspace.refetch();
+      }
+    });
+  }, [autoStartedCustomerIds, canWrite, customerId, runCommand, setActiveCustomerId, workspace, workspace.isFetching, workspaceOrder]);
 
   async function createOrder() {
     if (!customerId) return;
@@ -199,7 +217,15 @@ export function SalesView() {
       {canWrite ? <div className="control-band">
         <label className="field-inline">
           Customer
-          <select className="select" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
+          <select
+            ref={customerSelectRef}
+            className="select"
+            value={customerId}
+            onChange={(event) => {
+              setCustomerId(event.target.value);
+              setActiveCustomerId(event.target.value || null);
+            }}
+          >
             <option value="">Choose customer</option>
             {reference.data?.customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
@@ -208,15 +234,11 @@ export function SalesView() {
             ))}
           </select>
         </label>
-        <button className="secondary-button" type="button" disabled={!customerId} onClick={createOrder}>
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          New Sale
-        </button>
         <button className="primary-button" type="button" disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
           <Send className="h-4 w-4" aria-hidden="true" />
           {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder))}
         </button>
-        <span className="selection-pill">{selectedOrder ? `${String(selectedOrder.orderNo ?? 'Selected sale')} / ${selectedOrderStatus || 'open'}` : 'Pick customer to start'}</span>
+        <span className="selection-pill">{selectedOrder ? `${String(selectedOrder.orderNo ?? 'Selected sale')} / ${selectedOrderStatus || 'open'}` : customerId ? 'Sale shell starting' : 'Pick customer to start'}</span>
         <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
           {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
           Sale tray
@@ -243,7 +265,7 @@ export function SalesView() {
         </div>
       ) : null}
       {customerId ? (
-        <WorkspacePanel panelId="sales:customer-workspace" title="Customer Workspace" subtitle="Customer context, draft lines, inventory resolver, margin-safe output, and closeout checks." contentClassName="p-3">
+        <WorkspacePanel panelId="sales:customer-workspace" title="Customer Workspace" contentClassName="p-3">
           <div className="customer-workspace-header">
             <div>
               <div className="text-lg font-semibold text-ink">{workspace.data?.customer?.name ?? 'Customer'}</div>
@@ -325,7 +347,7 @@ export function SalesView() {
         loading={orders.isLoading && !customerId}
         onSelectionChange={(selection) => setSelectedRows('sales', selection)}
         emptyTitle="No open sales shown"
-        emptyChildren={customerId ? 'Use the Inventory Finder to add products, or type a request and press Enter.' : 'Choose a customer, then start a New Sale.'}
+        emptyChildren={customerId ? 'No lines yet.' : 'Choose a customer to start.'}
       />
         <InventoryFinderPanel selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''} focusKey={customerId} addedBatchIds={addedBatchIds} initialSearch={salesRequestText} onAddBatch={addFinderBatch} />
       </div>
@@ -374,7 +396,7 @@ function exportCustomerOffer(rows: GridRow[]) {
 }
 
 function salesPrimaryLabel(status: string, hasOrder: boolean) {
-  if (!hasOrder) return 'New Sale';
+  if (!hasOrder) return 'Start';
   if (status === 'confirmed') return 'Reserve';
   if (status === 'posted') return 'Posted';
   if (status === 'cancelled') return 'Cancelled';

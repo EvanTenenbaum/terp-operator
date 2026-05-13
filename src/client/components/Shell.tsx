@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { trpc } from '../api/trpc';
+import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
 import { drawerStateNameForState, useUiStore } from '../store/uiStore';
 import type { SessionUser, ViewKey } from '../../shared/types';
 
@@ -69,8 +70,8 @@ const keelChips: Array<{ label: string; view: ViewKey; launch: 'sale' | 'purchas
   { label: 'New Sale', view: 'sales', launch: 'sale', icon: ShoppingCart, title: 'Start a new sale' },
   { label: 'New PO', view: 'purchaseOrders', launch: 'purchaseOrder', icon: ClipboardList, title: 'Start a new purchase order' },
   { label: 'Receive', view: 'intake', launch: 'receiving', icon: PackagePlus, title: 'Receive product into intake' },
-  { label: '$ In', view: 'payments', launch: 'moneyIn', icon: ArrowDown, title: 'Open Payments' },
-  { label: '$ Out', view: 'vendors', launch: 'moneyOut', icon: ArrowUp, title: 'Open Vendor Payouts' }
+  { label: 'Money in', view: 'payments', launch: 'moneyIn', icon: ArrowDown, title: 'Open money in' },
+  { label: 'Money out', view: 'vendors', launch: 'moneyOut', icon: ArrowUp, title: 'Open money out' }
 ];
 
 export function SideNav({ user }: { user: SessionUser }) {
@@ -92,7 +93,7 @@ export function SideNav({ user }: { user: SessionUser }) {
       </div>
       <div className="mt-2 flex flex-1 flex-col gap-1 overflow-y-auto">
         {navGroups.map((group) => {
-          const visibleItems = group.items.filter((item) => navVisibleForUser(item.view, user));
+          const visibleItems = group.items.filter((item) => viewVisibleForUser(item.view, user));
           if (!visibleItems.length) return null;
           return (
             <div key={group.label} className="nav-group">
@@ -122,18 +123,6 @@ export function SideNav({ user }: { user: SessionUser }) {
   );
 }
 
-function navVisibleForUser(view: ViewKey, user: SessionUser) {
-  if (view === 'settings') return user.role === 'owner' || user.role === 'manager';
-  if (['connectors', 'recovery', 'closeout'].includes(view)) return false;
-  if (user.role === 'owner' || user.role === 'manager') return true;
-  if (user.role === 'viewer') return ['dashboard', 'reports', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment'].includes(view);
-  const email = user.email.toLowerCase();
-  const name = user.name.toLowerCase();
-  if (email.includes('sales') || name.includes('sales')) return ['dashboard', 'reports', 'sales', 'orders', 'inventory', 'clients', 'payments'].includes(view);
-  if (email.includes('intake') || name.includes('intake')) return ['dashboard', 'purchaseOrders', 'intake', 'inventory', 'fulfillment', 'vendors'].includes(view);
-  return ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment'].includes(view);
-}
-
 export function Keel({ user }: { user: SessionUser }) {
   const activeView = useUiStore((state) => state.activeView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
@@ -146,6 +135,7 @@ export function Keel({ user }: { user: SessionUser }) {
     onSuccess: () => utils.auth.me.invalidate()
   });
   const health = trpc.queries.health.useQuery(undefined, { refetchInterval: 30_000 });
+  const visibleChips = keelChips.filter((chip) => viewVisibleForUser(chip.view, user) && startVisibleForUser(chip.launch, user));
 
   return (
     <header className="keel" aria-label="Global workspace keel">
@@ -155,7 +145,7 @@ export function Keel({ user }: { user: SessionUser }) {
         <kbd className="ml-auto">⌘K</kbd>
       </button>
       <div className="keel-chip-row" aria-label="Start chips">
-        {keelChips.map((chip) => {
+        {visibleChips.length ? visibleChips.map((chip) => {
           const Icon = chip.icon;
           return (
             <button
@@ -172,7 +162,12 @@ export function Keel({ user }: { user: SessionUser }) {
               <span>{chip.label}</span>
             </button>
           );
-        })}
+        }) : (
+          <button type="button" className="keel-chip" title="Find rows and commands" onClick={() => setCommandPaletteOpen(true)}>
+            <Search className="h-4 w-4" aria-hidden="true" />
+            <span>Find</span>
+          </button>
+        )}
       </div>
       <div className="keel-utilities">
         <button type="button" className="keel-status-chip" onClick={() => toggleDrawer(activeView)} title={`Context drawer is ${drawerState}. Toggle context drawer.`} aria-label={`Toggle context drawer. Current state: ${drawerState}.`}>

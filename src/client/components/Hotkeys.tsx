@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { trpc } from '../api/trpc';
+import { viewVisibleForUser } from '../accessPolicy';
 import { drawerStateNameForState, useUiStore } from '../store/uiStore';
 import { useCommandRunner } from './useCommandRunner';
 import type { ViewKey } from '../../shared/types';
@@ -31,6 +33,7 @@ export function Hotkeys() {
   const setDrawerTab = useUiStore((state) => state.setDrawerTab);
   const pushToast = useUiStore((state) => state.pushToast);
   const { runCommand } = useCommandRunner();
+  const me = trpc.auth.me.useQuery();
 
   useEffect(() => {
     async function onKeyDown(event: KeyboardEvent) {
@@ -97,6 +100,10 @@ export function Hotkeys() {
       const view = numberViews[event.key];
       if (view) {
         event.preventDefault();
+        if (me.data && !viewVisibleForUser(view, me.data)) {
+          pushToast('That lane is not part of this operator workspace.', 'info');
+          return;
+        }
         setActiveView(view);
         return;
       }
@@ -168,7 +175,8 @@ export function Hotkeys() {
     setFocusedPanel,
     setFocusMode,
     toggleDrawer,
-    toggleFocusMode
+    toggleFocusMode,
+    me.data
   ]);
 
   return null;
@@ -185,16 +193,16 @@ function tabForIndex(view: ViewKey, index: number) {
   const tabsByView: Partial<Record<ViewKey, string[]>> = {
     dashboard: ['actions', 'saved'],
     reports: ['rows', 'export', 'saved'],
-    purchaseOrders: ['lines', 'vendor', 'linked-intake', 'history'],
+    purchaseOrders: ['relationship', 'lines', 'vendor', 'linked-intake', 'history'],
     intake: ['actions', 'saved'],
-    sales: ['profile', 'balance', 'purchases', 'notes', 'history'],
-    orders: ['lines', 'customer', 'output', 'history'],
-    payments: ['allocations', 'customer', 'impact', 'history'],
-    inventory: ['movement', 'sales', 'photos', 'history'],
-    clients: ['profile', 'balance', 'purchases', 'notes', 'history'],
-    vendors: ['due-reason', 'linked-po', 'payouts', 'history'],
-    fulfillment: ['lines', 'order', 'labels', 'history'],
-    connectors: ['request', 'source', 'history'],
+    sales: ['relationship', 'profile', 'balance', 'purchases', 'notes', 'history'],
+    orders: ['relationship', 'lines', 'customer', 'output', 'history'],
+    payments: ['relationship', 'allocations', 'customer', 'impact', 'history'],
+    inventory: ['relationship', 'movement', 'sales', 'photos', 'history'],
+    clients: ['relationship', 'profile', 'balance', 'purchases', 'notes', 'history'],
+    vendors: ['relationship', 'due-reason', 'linked-po', 'payouts', 'history'],
+    fulfillment: ['relationship', 'lines', 'order', 'labels', 'history'],
+    connectors: ['relationship', 'request', 'source', 'history'],
     recovery: ['undo', 'target', 'history'],
     closeout: ['control-totals', 'open-work', 'artifacts'],
     settings: ['requests', 'actions', 'archive']

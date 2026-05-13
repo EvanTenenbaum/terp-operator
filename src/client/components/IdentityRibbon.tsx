@@ -1,5 +1,6 @@
 import { ArrowLeft, X } from 'lucide-react';
 import { useMemo } from 'react';
+import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import { StatusPill } from './StatusPill';
 import type { GridRow, ViewKey } from '../../shared/types';
@@ -30,9 +31,11 @@ export function IdentityRibbon() {
   const setActiveCustomerId = useUiStore((state) => state.setActiveCustomerId);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const goBackRouteHistory = useUiStore((state) => state.goBackRouteHistory);
+  const reference = trpc.queries.reference.useQuery(undefined, { enabled: Boolean(activeCustomerId) });
+  const activeCustomerName = reference.data?.customers.find((customer) => customer.id === activeCustomerId)?.name;
 
   const row = selectedRows[activeView]?.[0];
-  const identity = useMemo(() => buildIdentity(activeView, row, activeCustomerId), [activeCustomerId, activeView, row]);
+  const identity = useMemo(() => buildIdentity(activeView, row, activeCustomerId, activeCustomerName), [activeCustomerId, activeCustomerName, activeView, row]);
 
   if (!identity) return null;
 
@@ -60,17 +63,23 @@ export function IdentityRibbon() {
   );
 }
 
-function buildIdentity(view: ViewKey, row: GridRow | undefined, activeCustomerId: string | null) {
+function buildIdentity(view: ViewKey, row: GridRow | undefined, activeCustomerId: string | null, activeCustomerName?: string) {
   if (!row && !(view === 'sales' && activeCustomerId)) return null;
   if (view === 'sales' && activeCustomerId && !row) {
-    return { title: `Customer ${shortId(activeCustomerId)}`, detail: 'customer context', status: undefined };
+    return { title: activeCustomerName ?? 'Selected customer', detail: 'customer context', status: undefined };
   }
   if (!row) return null;
   return {
-    title: String(row.label ?? row.name ?? row.customer ?? row.vendor ?? row.orderNo ?? row.poNo ?? row.billNo ?? row.id),
+    title: displayTitle(row, view),
     detail: detailFor(row),
     status: row.status
   };
+}
+
+function displayTitle(row: GridRow, view: ViewKey) {
+  const candidate = row.label ?? row.name ?? row.customer ?? row.vendor ?? row.orderNo ?? row.poNo ?? row.billNo ?? row.batchCode ?? row.pickNo ?? row.reference;
+  if (candidate) return String(candidate);
+  return `Selected ${viewLabel(view)} row`;
 }
 
 function detailFor(row: GridRow) {
@@ -80,6 +89,6 @@ function detailFor(row: GridRow) {
   return values.slice(0, 2).join(' · ');
 }
 
-function shortId(value: string) {
-  return value.length > 10 ? value.slice(0, 10) : value;
+function viewLabel(view: ViewKey) {
+  return viewLabels[view].toLowerCase();
 }

@@ -1,5 +1,5 @@
 import { CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -119,8 +119,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'createdAt', width: 180 }
   ],
   recovery: [
-    { field: 'id', pinned: 'left', width: 240 },
-    { field: 'commandName', headerName: 'Action', width: 220, valueFormatter: (params) => commandLabelFor(params.value) },
+    { field: 'commandName', headerName: 'Action', pinned: 'left', width: 220, valueFormatter: (params) => commandLabelFor(params.value) },
     { field: 'actorName', width: 150 },
     { field: 'status', width: 125 },
     { field: 'error', minWidth: 260 },
@@ -303,6 +302,24 @@ export function PurchaseOrdersView() {
       />
       {selectedPo ? (
         <>
+          <section className="po-header-strip" aria-label="Selected purchase order summary">
+            <div>
+              <div className="text-xs font-bold uppercase text-zinc-500">Selected PO</div>
+              <div className="text-base font-semibold text-ink">{String(selectedPo.poNo ?? 'Purchase order')}</div>
+            </div>
+            <div className="po-header-facts">
+              <span>{String(selectedPo.vendor ?? 'Vendor')}</span>
+              <span>Expected {dateish(selectedPo.expectedDate)}</span>
+              <span>{String(selectedPo.status ?? 'draft')}</span>
+              <span>{moneyish(selectedPo.receivedQty)} / {moneyish(selectedPo.orderedQty)} received</span>
+              <span>${moneyish(selectedPo.total)}</span>
+            </div>
+            {canWrite ? (
+              <button className="primary-button compact-action" disabled={isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
+                {purchaseOrderPrimaryLabel(selectedPoStatus)}
+              </button>
+            ) : null}
+          </section>
           {canWrite ? (
             <div className="control-band subtle-band">
               <label className="field-inline grow">
@@ -697,7 +714,12 @@ export function VendorPayablesView() {
     <GridJourney
       view="vendors"
       title="Vendor Payables"
-      prelude={() => <VendorBillTools selectedBill={selectedBill} />}
+      prelude={() => (
+        <>
+          <VendorMoneyOutStrip selectedBill={selectedBill} />
+          <VendorBillTools selectedBill={selectedBill} />
+        </>
+      )}
       actions={(rows, runCommand) => (
         <>
           <button className="primary-button" disabled={!rows.length || vendorPrimaryDisabled(String(rows[0]?.status ?? ''))} onClick={() => runVendorPrimary(rows[0], runCommand)} type="button">
@@ -728,6 +750,70 @@ export function VendorPayablesView() {
         </>
       )}
     />
+  );
+}
+
+function VendorMoneyOutStrip({ selectedBill }: { selectedBill?: GridRow }) {
+  const { runCommand, isRunning } = useCommandRunner();
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [method, setMethod] = useState('cash');
+  const [bucket, setBucket] = useState('accounting');
+  const [amount, setAmount] = useState('');
+  const [reference, setReference] = useState('');
+  const openAmount = Number(selectedBill?.amount ?? 0) - Number(selectedBill?.amountPaid ?? 0);
+  const payoutAmount = amount ? Number(amount) : openAmount;
+  const selectedStatus = String(selectedBill?.status ?? '');
+  const trace = selectedBill ? `${bucket} -> ${String(selectedBill.billNo ?? 'vendor bill')}` : `${bucket} -> vendor bill`;
+  const impact = selectedBill ? `Pays ${moneyish(Math.min(Math.max(openAmount, 0), Math.max(payoutAmount, 0)))} on ${String(selectedBill.billNo ?? 'bill')}` : 'Select bill to preview payout';
+
+  async function commit() {
+    if (!selectedBill?.id) return;
+    if (selectedStatus !== 'scheduled') {
+      const scheduled = await runCommand('scheduleVendorPayment', { vendorBillId: selectedBill.id, scheduledFor: new Date(date).toISOString() }, 'Money out row: schedule vendor payout');
+      if (!scheduled.ok) return;
+    }
+    await runCommand('recordVendorPayment', { vendorBillId: selectedBill.id, amount: payoutAmount, method, reference }, 'Money out row: record vendor payout');
+  }
+
+  return (
+    <section className="money-out-strip" aria-label="Money out payout row">
+      <span className="selection-pill">{selectedBill ? `${String(selectedBill.vendor ?? 'Vendor')} / ${String(selectedBill.billNo ?? 'bill')}` : 'Select vendor bill'}</span>
+      <label className="field-inline">
+        Date
+        <input className="input compact" type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+      </label>
+      <label className="field-inline">
+        Method
+        <select className="select compact" value={method} onChange={(event) => setMethod(event.target.value)}>
+          <option value="cash">cash</option>
+          <option value="check">check</option>
+          <option value="wire">wire</option>
+          <option value="crypto">crypto</option>
+        </select>
+      </label>
+      <label className="field-inline">
+        Bucket
+        <select className="select compact" value={bucket} onChange={(event) => setBucket(event.target.value)}>
+          <option value="accounting">accounting</option>
+          <option value="cash-file-a">cash-file-a</option>
+          <option value="cash-file-b">cash-file-b</option>
+          <option value="wire-clearing">wire-clearing</option>
+        </select>
+      </label>
+      <label className="field-inline">
+        Amount
+        <input className="input compact" value={amount} placeholder={openAmount > 0 ? moneyish(openAmount) : '0'} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} />
+      </label>
+      <label className="field-inline grow">
+        Reference
+        <input className="input" value={reference} onChange={(event) => setReference(event.target.value)} />
+      </label>
+      <span className="selection-pill">{impact}</span>
+      <span className="selection-pill">{trace}</span>
+      <button className="primary-button compact-action" type="button" disabled={!selectedBill?.id || payoutAmount <= 0 || isRunning} onClick={commit}>
+        Commit payout
+      </button>
+    </section>
   );
 }
 
@@ -875,10 +961,29 @@ export function FulfillmentView() {
   const [bagCode, setBagCode] = useState('');
   const [tracking, setTracking] = useState('');
   const [labelFormat, setLabelFormat] = useState('4x6');
+  const [printTrayOpen, setPrintTrayOpen] = useState(false);
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const line = selectedLines[0];
+  const fulfillmentComplete = Boolean(
+    selected.length &&
+      lines.data?.length &&
+      lines.data.every((candidate) => String(candidate.status ?? '') === 'packed' || (Number(candidate.actualQty ?? 0) > 0 && Boolean(candidate.bagCode)))
+  );
+
+  useEffect(() => {
+    if (!line) {
+      setActualQty('');
+      setActualWeight('');
+      setBagCode('');
+      return;
+    }
+    setActualQty(String(line.actualQty ?? ''));
+    setActualWeight(String(line.actualWeight ?? ''));
+    setBagCode(String(line.bagCode ?? ''));
+  }, [line]);
+
   return (
     <div className="view-stack">
       <OperatorGrid
@@ -893,62 +998,73 @@ export function FulfillmentView() {
         }}
         actions={canWrite ?
           <>
-            <label className="field-inline">
-              Print
-              <select className="select compact" value={labelFormat} onChange={(event) => setLabelFormat(event.target.value)}>
-                <option value="4x6">4x6</option>
-                <option value="2x1">2x1</option>
-              </select>
-            </label>
-            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('printLabels', { pickListId: selected[0].id, labelFormat }, 'Print labels')} type="button">
-              <FileDown className="h-4 w-4" aria-hidden="true" />
-              Labels
-            </button>
-            <button className="primary-button" disabled={!selected.length} onClick={() => runCommand('markOrderFulfilled', { orderId: selected[0].orderId, tracking }, 'Mark order fulfilled')} type="button">
+            {fulfillmentComplete ? <button className="primary-button" disabled={!selected.length} onClick={() => runCommand('markOrderFulfilled', { orderId: selected[0].orderId, tracking }, 'Mark order fulfilled')} type="button">
               <PackageCheck className="h-4 w-4" aria-hidden="true" />
               Fulfilled
+            </button> : null}
+            <button className="secondary-button compact-action" disabled={!selected.length} onClick={() => setPrintTrayOpen((value) => !value)} type="button" aria-expanded={printTrayOpen}>
+              {printTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+              Print
             </button>
+            {printTrayOpen ? (
+              <>
+                <label className="field-inline">
+                  Format
+                  <select className="select compact" value={labelFormat} onChange={(event) => setLabelFormat(event.target.value)}>
+                    <option value="4x6">4x6</option>
+                    <option value="2x1">2x1</option>
+                  </select>
+                </label>
+                <button className="secondary-button compact-action" disabled={!selected.length} onClick={() => runCommand('printLabels', { pickListId: selected[0].id, labelFormat }, 'Print labels')} type="button">
+                  <FileDown className="h-4 w-4" aria-hidden="true" />
+                  Labels
+                </button>
+              </>
+            ) : null}
           </>
           : null}
       />
-      {canWrite ? <div className="control-band">
-        <label className="field-inline">
-          Qty
-          <input className="input compact" value={actualQty} onChange={(event) => setActualQty(event.target.value)} />
-        </label>
-        <label className="field-inline">
-          Weight
-          <input className="input compact" value={actualWeight} onChange={(event) => setActualWeight(event.target.value)} />
-        </label>
-        <label className="field-inline">
-          Bag
-          <input className="input compact" value={bagCode} onChange={(event) => setBagCode(event.target.value)} />
-        </label>
-        <label className="field-inline">
-          Tracking
-          <input className="input compact" value={tracking} onChange={(event) => setTracking(event.target.value)} />
-        </label>
-        <button
-          className="primary-button"
-          type="button"
-          disabled={!line}
-          onClick={() =>
-            runCommand(
-              'recordWeighAndPack',
-              {
-                fulfillmentLineId: line.id,
-                actualQty: actualQty ? Number(actualQty) : line.actualQty,
-                actualWeight: actualWeight ? Number(actualWeight) : line.actualWeight,
-                bagCode: bagCode || line.bagCode
-              },
-              'Record fulfillment line bagging'
-            )
-          }
-        >
-          <PackageCheck className="h-4 w-4" aria-hidden="true" />
-          Pack line
-        </button>
-      </div> : null}
+      {canWrite && line ? (
+        <div className="control-band fulfillment-pack-strip">
+          <span className="selection-pill">{String(line.itemName ?? 'Selected line')} / {String(line.batchCode ?? 'batch')}</span>
+          <label className="field-inline">
+            Qty
+            <input className="input compact" value={actualQty} onChange={(event) => setActualQty(event.target.value)} />
+          </label>
+          <label className="field-inline">
+            Weight
+            <input className="input compact" value={actualWeight} onChange={(event) => setActualWeight(event.target.value)} />
+          </label>
+          <label className="field-inline">
+            Bag
+            <input className="input compact" value={bagCode} onChange={(event) => setBagCode(event.target.value)} />
+          </label>
+          <label className="field-inline">
+            Tracking
+            <input className="input compact" value={tracking} onChange={(event) => setTracking(event.target.value)} />
+          </label>
+          <button
+            className="primary-button"
+            type="button"
+            disabled={!actualQty || !bagCode}
+            onClick={() =>
+              runCommand(
+                'recordWeighAndPack',
+                {
+                  fulfillmentLineId: line.id,
+                  actualQty: actualQty ? Number(actualQty) : line.actualQty,
+                  actualWeight: actualWeight ? Number(actualWeight) : line.actualWeight,
+                  bagCode: bagCode || line.bagCode
+                },
+                'Record fulfillment line bagging'
+              )
+            }
+          >
+            <PackageCheck className="h-4 w-4" aria-hidden="true" />
+            Pack line
+          </button>
+        </div>
+      ) : null}
       <OperatorGrid
         view="fulfillment"
         title="Fulfillment Lines"
@@ -988,8 +1104,9 @@ export function ConnectorsView() {
               <div className="mt-2 grid gap-2 md:grid-cols-3">
                 <span>{formatRequestSource(selected.source)} / {formatRequestType(selected.requestType)}</span>
                 <span>{String(selected.customer ?? 'No customer')}</span>
-                <span>{safeHistory(selected.reviewHistory)}</span>
+                <span>{String(selected.status ?? 'open')}</span>
               </div>
+              <ConnectorTimeline selected={selected} />
             </section>
           ) : null}
         </>
@@ -1008,6 +1125,30 @@ export function ConnectorsView() {
       )}
     />
   );
+}
+
+function ConnectorTimeline({ selected }: { selected: GridRow }) {
+  const history = normalizeReviewHistory(selected.reviewHistory);
+  const steps = [
+    { label: 'Received', detail: dateish(selected.createdAt), tone: 'done' },
+    ...history.map((entry) => ({ label: labelFromToken(String(entry.status ?? 'reviewed')), detail: [entry.actorName, dateish(entry.at), entry.note].filter(Boolean).join(' · '), tone: entry.status === 'rejected' ? 'blocked' : 'done' })),
+    { label: String(selected.status ?? 'open') === 'open' ? 'Waiting review' : 'Current status', detail: String(selected.status ?? 'open'), tone: String(selected.status ?? 'open') === 'rejected' ? 'blocked' : 'current' }
+  ];
+  return (
+    <div className="connector-timeline" aria-label="Request review timeline">
+      {steps.slice(0, 5).map((step, index) => (
+        <div className="connector-timeline-step" key={`${step.label}-${index}`}>
+          <span className={`timeline-dot timeline-dot-${step.tone}`} aria-hidden="true" />
+          <strong>{step.label}</strong>
+          <span>{step.detail || '-'}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function normalizeReviewHistory(value: unknown): Array<{ status?: unknown; actorName?: unknown; at?: unknown; note?: unknown }> {
+  return Array.isArray(value) ? value.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object')) : [];
 }
 
 export function RecoveryView() {
@@ -1136,6 +1277,8 @@ export function RecoveryView() {
         columns={columnsByView.recovery ?? []}
         loading={search.isLoading}
         onSelectionChange={(selection) => setSelectedRows('recovery', selection)}
+        emptyTitle="No recent actions"
+        emptyChildren="Recent commands will appear here automatically. Use search when you need a specific row, person, or action."
         actions={
           <>
             <button className="secondary-button" disabled={!selected || selected.status !== 'failed'} onClick={() => runCommand(String(selected?.commandName) as CommandName, payloadObject(selected?.inputPayload), 'Retry failed command')} type="button">
@@ -1194,9 +1337,20 @@ export function CloseoutView() {
   const preview = trpc.queries.closeoutPreview.useQuery({ period });
   const { runCommand } = useCommandRunner();
   const setActiveView = useUiStore((state) => state.setActiveView);
+  const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
   const controlTotals = preview.data?.controlTotals ?? {};
   const blockers = preview.data?.blockers ?? [];
   const openWorkCount = preview.data?.openWorkCount ?? preview.data?.unsafeRows ?? 0;
+  const readiness = closeoutReadiness(preview.data?.locked, openWorkCount);
+
+  function openBlocker(blockerId?: string) {
+    const target = blockerTarget(blockerId);
+    if (target.settingsTab) setActiveSettingsTab(target.settingsTab);
+    setGridFilter(target.filterView ?? target.view, target.filter);
+    setActiveView(target.view);
+  }
+
   return (
     <div className="view-stack">
       <div className="control-band">
@@ -1204,9 +1358,10 @@ export function CloseoutView() {
           Period
           <input className="input compact" value={period} onChange={(event) => setPeriod(event.target.value)} />
         </label>
-        <button className={openWorkCount > 0 ? 'secondary-button compact-action' : 'text-button compact-action'} type="button" onClick={() => setActiveView('dashboard')}>
+        <button className={openWorkCount > 0 ? 'secondary-button compact-action' : 'text-button compact-action'} type="button" onClick={() => openBlocker(blockers[0]?.id)}>
           Open work: {openWorkCount}
         </button>
+        <span className={`selection-pill ${readiness.tone}`}>{readiness.label}</span>
         <span className="text-sm text-zinc-700">Batches: {controlTotals.batches ?? 0}</span>
         <span className="text-sm text-zinc-700">Sales: {controlTotals.salesOrders ?? 0}</span>
         <span className="text-sm text-zinc-700">POs: {controlTotals.purchaseOrders ?? 0}</span>
@@ -1241,7 +1396,7 @@ export function CloseoutView() {
           <div>
             <h2 className="section-title">Archive readiness</h2>
           </div>
-          <span className={preview.data?.eligible ? 'selection-pill success' : 'selection-pill danger'}>{preview.data?.eligible ? 'Ready' : 'Open work'}</span>
+          <span className={preview.data?.eligible ? 'selection-pill success' : 'selection-pill warning'}>{preview.data?.eligible ? 'Ready' : 'Open work'}</span>
         </div>
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           {Object.entries(controlTotals).map(([key, value]) => (
@@ -1254,10 +1409,10 @@ export function CloseoutView() {
         {blockers.length ? (
           <div className="mt-3 grid gap-2 text-sm">
             {blockers.map((blocker) => (
-              <div key={String(blocker.id)} className="flex items-center justify-between border border-line bg-panel px-3 py-2">
+              <button key={String(blocker.id)} type="button" className="closeout-blocker-row" onClick={() => openBlocker(String(blocker.id))}>
                 <span className="font-medium text-ink">{String(blocker.label)}</span>
-                <span className="selection-pill danger">{Number(blocker.count ?? 0).toLocaleString('en-US')}</span>
-              </div>
+                <span className="selection-pill warning">{Number(blocker.count ?? 0).toLocaleString('en-US')}</span>
+              </button>
             ))}
           </div>
         ) : null}
@@ -1265,6 +1420,24 @@ export function CloseoutView() {
       <GridJourney view="closeout" title="Archive Runs" />
     </div>
   );
+}
+
+function closeoutReadiness(locked: unknown, openWorkCount: number) {
+  if (openWorkCount > 0) return { label: 'Review open work', tone: 'warning' };
+  if (locked) return { label: 'Ready to archive', tone: 'success' };
+  return { label: 'Ready to lock', tone: 'success' };
+}
+
+function blockerTarget(blockerId?: string): { view: ViewKey; filter: string; filterView?: ViewKey; settingsTab?: 'requests' | 'actions' | 'archive' } {
+  const map: Record<string, { view: ViewKey; filter: string; filterView?: ViewKey; settingsTab?: 'requests' | 'actions' | 'archive' }> = {
+    unsafeBatches: { view: 'intake', filter: 'status:draft,needs_fix' },
+    unsafePurchaseOrders: { view: 'purchaseOrders', filter: 'status:draft,approved,ordered,partially_received' },
+    openConnectors: { view: 'settings', filterView: 'connectors', settingsTab: 'requests', filter: 'status:open,pending_review,approved,accepted,routed,posting,failed' },
+    openFulfillment: { view: 'fulfillment', filter: 'status:open,packed' },
+    failedCommands: { view: 'settings', filterView: 'recovery', settingsTab: 'actions', filter: 'failed' },
+    unresolvedDrafts: { view: 'orders', filter: 'status:draft' }
+  };
+  return map[blockerId ?? ''] ?? { view: 'dashboard', filter: '' };
 }
 
 export function SettingsView() {

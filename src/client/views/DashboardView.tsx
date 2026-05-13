@@ -1,4 +1,5 @@
 import { RefreshCcw } from 'lucide-react';
+import { useMemo } from 'react';
 import { trpc } from '../api/trpc';
 import { KpiCard } from '../components/KpiCard';
 import { OperatorGrid } from '../components/OperatorGrid';
@@ -16,6 +17,7 @@ export function DashboardView() {
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 15_000 });
   const workQueue = trpc.queries.workQueue.useQuery(undefined, { refetchInterval: 15_000 });
   const drilldown = trpc.queries.drilldown.useQuery({ metricKey: drilldownMetric ?? 'cash' }, { enabled: Boolean(drilldownMetric) });
+  const rankedWorkRows = useMemo(() => [...((workQueue.data ?? []) as GridRow[])].sort(workUrgencySort), [workQueue.data]);
 
   const columns: ColDef<GridRow>[] = [
     { field: 'id', pinned: 'left', width: 120 },
@@ -102,7 +104,7 @@ export function DashboardView() {
       <OperatorGrid
         view="dashboard"
         title="My Open Work"
-        rows={(workQueue.data ?? []) as GridRow[]}
+        rows={rankedWorkRows}
         columns={queueColumns}
         loading={workQueue.isLoading}
         actions={
@@ -110,7 +112,7 @@ export function DashboardView() {
             type="button"
             className="text-button"
             onClick={() => {
-              const first = workQueue.data?.[0] as GridRow | undefined;
+              const first = rankedWorkRows[0] as GridRow | undefined;
               if (first?.route) setActiveView(first.route as ViewKey);
             }}
           >
@@ -134,4 +136,20 @@ export function DashboardView() {
       ) : null}
     </div>
   );
+}
+
+function workUrgencySort(a: GridRow, b: GridRow) {
+  const score = urgencyScore(b) - urgencyScore(a);
+  if (score) return score;
+  return new Date(String(b.createdAt ?? 0)).getTime() - new Date(String(a.createdAt ?? 0)).getTime();
+}
+
+function urgencyScore(row: GridRow) {
+  const status = String(row.status ?? '');
+  const lane = String(row.lane ?? '');
+  if (status === 'needs_fix' || status === 'failed') return 100;
+  if (status === 'ready' || status === 'confirmed') return 80;
+  if (lane === 'Payments' || lane === 'Vendor') return 70;
+  if (status === 'draft' || status === 'open') return 50;
+  return 10;
 }

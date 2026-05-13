@@ -26,6 +26,7 @@ interface UiState {
   focusMode: boolean;
   drawerByView: Record<string, DrawerState>;
   activeDrawerEntityByView: Partial<Record<ViewKey, DrawerEntityRef>>;
+  gridFilters: Partial<Record<ViewKey, string>>;
   routeHistory: RouteHistoryEntry[];
   toasts: Toast[];
   announcement: string;
@@ -48,6 +49,7 @@ interface UiState {
   setDrawerTab: (view: ViewKey, tab: string) => void;
   toggleDrawer: (view: ViewKey) => void;
   cycleDrawer: (view: ViewKey) => void;
+  setGridFilter: (view: ViewKey, filter: string) => void;
   pushRouteHistory: (entry: Omit<RouteHistoryEntry, 'timestamp'>) => void;
   goBackRouteHistory: () => void;
   pushToast: (message: string, tone?: Toast['tone']) => void;
@@ -73,6 +75,7 @@ export const useUiStore = create<UiState>()(
     focusMode: false,
     drawerByView: {},
     activeDrawerEntityByView: {},
+    gridFilters: {},
     routeHistory: [],
     toasts: [],
     announcement: '',
@@ -206,6 +209,11 @@ export const useUiStore = create<UiState>()(
         state.drawerByView[key].state = current === 'standard' ? 'wide' : current === 'wide' ? 'focus' : 'standard';
         state.announcement = `Context drawer ${state.drawerByView[key].state}.`;
       }),
+    setGridFilter: (view, filter) =>
+      set((state) => {
+        state.gridFilters[view] = filter;
+        state.announcement = filter ? `Filtered ${view}.` : `Cleared ${view} filter.`;
+      }),
     pushRouteHistory: (entry) =>
       set((state) => {
         pushRouteEntry(state, entry);
@@ -247,7 +255,8 @@ export const useUiStore = create<UiState>()(
       activeQuickLaunch: state.activeQuickLaunch,
       activeSettingsTab: state.activeSettingsTab,
       drawerByView: state.drawerByView,
-      activeDrawerEntityByView: state.activeDrawerEntityByView
+      activeDrawerEntityByView: state.activeDrawerEntityByView,
+      gridFilters: state.gridFilters
     })
   }
   )

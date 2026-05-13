@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type { CellValueChangedEvent, ColDef, GridApi, GridReadyEvent, SideBarDef } from 'ag-grid-community';
 import { Download, Search } from 'lucide-react';
@@ -10,6 +10,7 @@ import { RowCommandHistoryDrawer } from './RowCommandHistoryDrawer';
 import { SelectionSummary } from './SelectionSummary';
 import { StatusPill } from './StatusPill';
 import { WorkspacePanel } from './WorkspacePanel';
+import { useUiStore } from '../store/uiStore';
 import type { GridRow, ViewKey } from '../../shared/types';
 
 type ExportableView = Exclude<ViewKey, 'dashboard' | 'reports' | 'settings'>;
@@ -39,6 +40,11 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
   const [historyRow, setHistoryRow] = useState<GridRow | null>(null);
   const [relationshipRow, setRelationshipRow] = useState<GridRow | null>(null);
   const [issueRow, setIssueRow] = useState<GridRow | null>(null);
+  const storedGridFilter = useUiStore((state) => state.gridFilters[view] ?? '');
+  const setStoredGridFilter = useUiStore((state) => state.setGridFilter);
+  const [quickFilter, setQuickFilter] = useState(storedGridFilter);
+  const parsedFilter = useMemo(() => parseGridFilter(quickFilter), [quickFilter]);
+  const renderedRows = useMemo(() => applyGridFilter(rows, parsedFilter), [parsedFilter, rows]);
   const panelId = useMemo(() => `grid:${view}:${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [title, view]);
   const defaultColDef = useMemo<ColDef<GridRow>>(
     () => ({
@@ -68,6 +74,11 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
   const cellSelection = useMemo(() => ({ handle: { mode: 'range' as const } }), []);
   const sideBar = useMemo<SideBarDef>(() => ({ toolPanels: ['columns', 'filters'], hiddenByDefault: true }), []);
 
+  useEffect(() => {
+    setQuickFilter(storedGridFilter);
+    apiRef.current?.setGridOption('quickFilterText', parseGridFilter(storedGridFilter).freeText);
+  }, [storedGridFilter]);
+
   async function exportServerCsv() {
     if (!isExportableView(view)) return;
     const result = await utils.queries.csvExport.fetch({ view });
@@ -78,7 +89,7 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
     <WorkspacePanel
       panelId={panelId}
       title={title}
-      subtitle={`${rows.length} row(s). Sort, filter, group, fill down, copy/paste TSV, and edit inline where enabled.`}
+      subtitle={`${renderedRows.length.toLocaleString('en-US')} row(s)`}
       actions={
         <>
           <label className="flex h-8 items-center gap-2 border border-line bg-white px-2 text-sm">
@@ -86,7 +97,12 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
             <input
               className="h-full w-44 bg-transparent outline-none"
               placeholder="Filter grid"
-              onChange={(event) => apiRef.current?.setGridOption('quickFilterText', event.target.value)}
+              value={quickFilter}
+              onChange={(event) => {
+                setQuickFilter(event.target.value);
+                setStoredGridFilter(view, event.target.value);
+                apiRef.current?.setGridOption('quickFilterText', parseGridFilter(event.target.value).freeText);
+              }}
             />
           </label>
           {canWrite ? actions : null}
@@ -108,9 +124,9 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
       }
     >
       <div className="ag-theme-quartz grid-shell">
-        {rows.length || loading ? (
+        {renderedRows.length || loading ? (
           <AgGridReact<GridRow>
-            rowData={rows}
+            rowData={renderedRows}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
             rowSelection={rowSelection}
@@ -122,6 +138,7 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
             getRowId={(params) => String(params.data.id)}
             onGridReady={(event: GridReadyEvent<GridRow>) => {
               apiRef.current = event.api;
+              event.api.setGridOption('quickFilterText', parsedFilter.freeText);
               event.api.sizeColumnsToFit();
             }}
             onSelectionChanged={() => {
@@ -155,6 +172,38 @@ function downloadText(filename: string, value: string, type: string) {
 
 function isExportableView(view: ViewKey): view is ExportableView {
   return EXPORTABLE_VIEWS.includes(view as ExportableView);
+}
+
+interface ParsedGridFilter {
+  freeText: string;
+  fields: Record<string, string[]>;
+}
+
+function parseGridFilter(value: string): ParsedGridFilter {
+  const fields: Record<string, string[]> = {};
+  const freeText: string[] = [];
+  for (const part of value.split(/\s+/).filter(Boolean)) {
+    const [rawKey, ...rawRest] = part.split(':');
+    const rest = rawRest.join(':');
+    if (rawKey && rest) {
+      fields[rawKey] = rest.split(',').map((entry) => entry.trim().toLowerCase()).filter(Boolean);
+    } else {
+      freeText.push(part);
+    }
+  }
+  return { freeText: freeText.join(' '), fields };
+}
+
+function applyGridFilter(rows: GridRow[], filter: ParsedGridFilter) {
+  const entries = Object.entries(filter.fields);
+  if (!entries.length) return rows;
+  return rows.filter((row) =>
+    entries.every(([field, allowed]) => {
+      if (!allowed.length) return true;
+      const value = String(row[field] ?? '').toLowerCase();
+      return allowed.some((candidate) => value === candidate || value.includes(candidate));
+    })
+  );
 }
 
 function formatGridValue(value: unknown) {

@@ -170,10 +170,12 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
 
   function copySlice() {
     const label = savedSlices.find(([key]) => key === activeSlice)?.[1] ?? 'Custom slice';
-    const customerSafeRows = filtered
+    const shareReady = filtered.filter((row) => customerShareReady(row.mediaStatus));
+    const heldBack = filtered.length - shareReady.length;
+    const customerSafeRows = shareReady
       .slice(0, 20)
       .map((row) => `${row.name} | ${moneyish(row.availableQty)} ${row.uom ?? ''} available | $${moneyish(row.unitPrice)} | ${row.category ?? 'Inventory'}`);
-    const text = [`Inventory Finder: ${label}`, `Filters: ${activeFilterLabels.join(', ') || 'none'}`, ...customerSafeRows].join('\n');
+    const text = [`Inventory Finder: ${label}`, `Filters: ${activeFilterLabels.join(', ') || 'none'}`, heldBack ? `${heldBack} lot(s) held back for media readiness.` : '', ...customerSafeRows].filter(Boolean).join('\n');
     void navigator.clipboard?.writeText(text);
   }
 
@@ -198,7 +200,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
     <WorkspacePanel
       panelId="sales:inventory-finder"
       title="Inventory Finder"
-      subtitle="Slice live posted batches by category, vendor, tag, location, owner, price, qty, or aging."
+      subtitle="Posted batches on hand"
       className="finder-panel"
       contentClassName="finder-panel-content"
       actions={
@@ -216,7 +218,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
             {label}
           </button>
         ))}
-        <button className="secondary-button compact-action" type="button" disabled={!filtered.length} onClick={copySlice}>
+        <button className="secondary-button compact-action" type="button" disabled={!filtered.some((row) => customerShareReady(row.mediaStatus))} onClick={copySlice}>
           <Clipboard className="h-4 w-4" aria-hidden="true" />
           Copy List for Customer
         </button>
@@ -280,6 +282,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
       </div>
       <div className="finder-chip-row" aria-label="Active finder filters">
         <Filter className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+        {!selectedOrderId ? <span className="finder-chip warning">Choose customer to add</span> : null}
         {activeFilterLabels.map((label) => (
           <span className="finder-chip" key={String(label)}>
             {label}
@@ -294,7 +297,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
               {row.batchCode} / ${moneyish(row.unitPrice)} / {moneyish(row.availableQty)} {row.uom}
             </span>
           ))}
-          <button className="text-button compact-action" type="button" onClick={() => copyFinderOffer(compared)}>
+          <button className="text-button compact-action" type="button" disabled={!compared.some((row) => customerShareReady(row.mediaStatus))} onClick={() => copyFinderOffer(compared)}>
             Copy customer-safe offer
           </button>
         </div>
@@ -515,7 +518,12 @@ function mediaLabel(value: unknown) {
   return 'No photo';
 }
 
+function customerShareReady(value: unknown) {
+  return ['done', 'ready'].includes(String(value ?? '').toLowerCase());
+}
+
 function copyFinderOffer(rows: InventoryFinderBatch[]) {
-  const text = rows.map((row) => `${row.name} / ${moneyish(row.availableQty)} ${row.uom ?? ''} available / $${moneyish(row.unitPrice)}`).join('\n');
+  const shareReady = rows.filter((row) => customerShareReady(row.mediaStatus));
+  const text = shareReady.map((row) => `${row.name} / ${moneyish(row.availableQty)} ${row.uom ?? ''} available / $${moneyish(row.unitPrice)}`).join('\n');
   void navigator.clipboard?.writeText(text);
 }
