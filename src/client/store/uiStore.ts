@@ -314,6 +314,7 @@ function launchForView(view: ViewKey): QuickLaunchMode | null {
   if (['reports', 'settings', 'connectors', 'recovery', 'closeout'].includes(view)) return null;
   if (view === 'purchaseOrders') return 'purchaseOrder';
   if (view === 'sales' || view === 'orders') return 'sale';
+  if (view === 'matchmaking') return 'customerNeed';
   if (view === 'intake' || view === 'inventory' || view === 'fulfillment') return 'receiving';
   if (view === 'payments' || view === 'clients') return 'moneyIn';
   if (view === 'vendors') return 'moneyOut';
@@ -322,6 +323,9 @@ function launchForView(view: ViewKey): QuickLaunchMode | null {
 
 function inferDrawerEntity(view: ViewKey, row: GridRow): DrawerEntityRef {
   if (view === 'sales' && row.customerId) return { entityType: 'customer', entityId: String(row.customerId) };
+  if (view === 'matchmaking' && row.customerNeedId) return { entityType: 'customerNeed', entityId: String(row.customerNeedId) };
+  if (view === 'matchmaking' && row.vendorSupplyId) return { entityType: 'vendorSupply', entityId: String(row.vendorSupplyId) };
+  if (view === 'matchmaking') return { entityType: row.needCode ? 'customerNeed' : row.supplyCode ? 'vendorSupply' : 'match', entityId: row.id };
   if (view === 'clients') return { entityType: 'customer', entityId: row.customerId ? String(row.customerId) : row.id };
   if (view === 'vendors') return { entityType: 'vendorBill', entityId: row.id };
   if (view === 'purchaseOrders') return { entityType: 'po', entityId: row.id };

@@ -15,7 +15,7 @@ import type { GridRow, ViewKey } from '../../shared/types';
 
 type ExportableView = Exclude<ViewKey, 'dashboard' | 'reports' | 'settings'>;
 
-const EXPORTABLE_VIEWS: readonly ExportableView[] = ['intake', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout'];
+const EXPORTABLE_VIEWS: readonly ExportableView[] = ['intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout'];
 
 interface OperatorGridProps {
   view: ViewKey;

@@ -46,6 +46,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     label: 'Sell',
     items: [
       { view: 'sales', label: 'Sales', hotkey: '⌘3', icon: ShoppingCart },
+      { view: 'matchmaking', label: 'Matchmaking', icon: Search },
       { view: 'orders', label: 'Orders', icon: Inbox },
       { view: 'fulfillment', label: 'Fulfillment', icon: PackageCheck },
       { view: 'clients', label: 'Client Ledger', hotkey: '⌘6', icon: ReceiptText }

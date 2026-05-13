@@ -18,7 +18,9 @@ const launchActions: Array<{
   { label: 'New purchase order', detail: 'Open Purchase Orders with vendor and line-entry controls ready.', aliases: 'purchase po procure buy vendor order', view: 'purchaseOrders', launch: 'purchaseOrder' },
   { label: 'Receive product', detail: 'Open Intake for receiving rows, Ready marking, and receipt posting.', aliases: 'receive receiving intake inventory batch vendor receipt', view: 'intake', launch: 'receiving' },
   { label: 'Money in', detail: 'Open Payments with Quick Ledger in Money In mode.', aliases: 'receive money payment cash crypto check wire paid', view: 'payments', launch: 'moneyIn' },
-  { label: 'Money out', detail: 'Open Vendor Payouts with a payout row ready.', aliases: 'pay vendor payout payable bill pay money out', view: 'vendors', launch: 'moneyOut' }
+  { label: 'Money out', detail: 'Open Vendor Payouts with a payout row ready.', aliases: 'pay vendor payout payable bill pay money out', view: 'vendors', launch: 'moneyOut' },
+  { label: 'Add customer need', detail: 'Open Matchmaking and focus the customer need row entry.', aliases: 'matchmaking customer need demand wanted looking for', view: 'matchmaking', launch: 'customerNeed' },
+  { label: 'Add vendor stock', detail: 'Open Matchmaking and focus vendor stock row entry.', aliases: 'matchmaking vendor stock supply available offered inventory', view: 'matchmaking', launch: 'vendorSupply' }
 ];
 
 export function CommandPalette() {
@@ -223,7 +225,9 @@ function drawerTypeForEntity(type: string) {
   const map: Record<string, string> = {
     purchaseOrder: 'po',
     batch: 'lot',
-    invoice: 'payment'
+    invoice: 'payment',
+    customerNeed: 'customerNeed',
+    vendorSupply: 'vendorSupply'
   };
   return map[type] ?? type;
 }
@@ -237,6 +241,8 @@ function viewForEntity(type: string): ViewKey | null {
     invoice: 'payments',
     payment: 'payments',
     batch: 'inventory',
+    customerNeed: 'matchmaking',
+    vendorSupply: 'matchmaking',
     pick: 'fulfillment',
     connector: 'settings',
     command: 'settings'
@@ -245,7 +251,7 @@ function viewForEntity(type: string): ViewKey | null {
 }
 
 function relationshipEntity(row: GridRow, type: string) {
-  return ['customer', 'vendor', 'order', 'invoice', 'payment', 'purchaseOrder', 'batch', 'pick', 'connector'].includes(type) || Boolean(row.customerId || row.vendorId);
+  return ['customer', 'vendor', 'order', 'invoice', 'payment', 'purchaseOrder', 'batch', 'customerNeed', 'vendorSupply', 'pick', 'connector'].includes(type) || Boolean(row.customerId || row.vendorId);
 }
 
 function safeDetail(value: unknown) {
@@ -267,6 +273,11 @@ function commandAliasText(name: CommandName) {
     recordVendorPayment: 'pay vendor payout money out',
     postPurchaseReceipt: 'process intake receiving receipt po',
     createBatch: 'new receiving intake row Ins candy ofc cv marker',
+    applyTags: 'tag tags tagged product slice filter catalog',
+    createCustomerNeed: 'matchmaking customer need demand wanted',
+    createVendorSupply: 'matchmaking vendor stock supply available',
+    acceptMatchmakingMatch: 'matchmaking accept fit',
+    dismissMatchmakingMatch: 'matchmaking dismiss hide',
     attachBatchPhoto: 'photo catalog media',
     reverseCommandById: 'undo reversal mistake',
     archivePeriod: 'closeout archive period'

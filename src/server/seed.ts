@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { db, pool } from './db';
+import { realisticDemoConfigFromEnv, seedRealisticDemoData } from './realisticSeed';
 import {
   backupSnapshots,
   batches,
@@ -7,18 +8,22 @@ import {
   commandJournal,
   connectorRequests,
   customers,
+  customerNeeds,
   fulfillmentLines,
   inventoryMovements,
   invoices,
   items,
+  matchmakingMatches,
   payments,
   pickLists,
   purchaseOrderLines,
   purchaseOrders,
   salesOrderLines,
   salesOrders,
+  tagCatalog,
   users,
   vendorBills,
+  vendorSupply,
   vendors
 } from './schema';
 
@@ -33,6 +38,7 @@ async function seed() {
     await pool.query(`
       truncate table
         "session", command_journal, backup_snapshots, photography_queue, archive_runs, period_locks, correction_journal_entries,
+        matchmaking_matches, vendor_supply, customer_needs, tag_catalog,
         client_ledger_entries, invoice_disputes, credit_overrides, connector_requests, fulfillment_lines, pick_lists,
         vendor_payments, vendor_bills, payment_allocations, payments, invoices, sales_order_lines, sales_orders,
         purchase_receipt_lines, purchase_receipts, inventory_movements, batches, purchase_order_lines, purchase_orders,
@@ -40,7 +46,11 @@ async function seed() {
       restart identity cascade
     `);
 
-    await insertSeedData();
+    if (process.env.DEMO_SEED_SCENARIO === 'realistic_100d') {
+      await seedRealisticDemoData(realisticDemoConfigFromEnv());
+    } else {
+      await insertSeedData();
+    }
   } finally {
     await pool.query('select pg_advisory_unlock($1)', [seedLockKey]);
   }
@@ -77,6 +87,18 @@ async function insertSeedData() {
       { name: 'Cobalt Reserve', creditLimit: '65000.00', balance: '0.00', tags: ['premium', 'flower', 'live'], notes: 'VIP connector customer.' }
     ])
     .returning();
+
+  await db.insert(tagCatalog).values([
+    { slug: 'infused', label: 'Infused', color: 'purple', description: 'Infused product family' },
+    { slug: 'candy', label: 'Candy', color: 'orange', description: 'Candy and edible shorthand' },
+    { slug: 'premium', label: 'Premium', color: 'green', description: 'Premium buyer or inventory signal' },
+    { slug: 'flower', label: 'Flower', color: 'green', description: 'Flower product family' },
+    { slug: 'value', label: 'Value', color: 'gray', description: 'Value buyer or stock signal' },
+    { slug: 'extract', label: 'Extract', color: 'blue', description: 'Extract product family' },
+    { slug: 'live', label: 'Live', color: 'blue', description: 'Live resin or live rosin signal' },
+    { slug: 'vape', label: 'Vape', color: 'yellow', description: 'Vape product family' },
+    { slug: 'pre-roll', label: 'Pre-roll', color: 'gray', description: 'Pre-roll product family' }
+  ]);
 
   const [candy, flower, rosin, preroll, vape] = await db
     .insert(items)
@@ -168,6 +190,108 @@ async function insertSeedData() {
     { source: 'vip', requestType: 'catalog_request', customerId: cobalt.id, payload: { category: 'Flower', priceVisibility: 'customer' }, status: 'open' },
     { source: 'live-shopping', requestType: 'reserve_request', customerId: sunset.id, payload: { sku: 'INS-CANDY', qty: 20 }, status: 'open' },
     { source: 'mobile-scan', requestType: 'bag_scan', customerId: null, payload: { bagCode: 'BAG-447', orderNo: 'SO-DEMO-001' }, status: 'routed', routedTo: 'fulfillment', operatorNotes: 'Scan accepted for fulfillment review; no direct ledger mutation.', reviewHistory: [{ status: 'routed', actorName: 'Maya Manager', at: new Date().toISOString() }] }
+  ]);
+
+  const [needA, needB, needC] = await db
+    .insert(customerNeeds)
+    .values([
+      {
+        needCode: 'NEED-DEMO-001',
+        customerId: cobalt.id,
+        productName: 'Premium indoor flower',
+        category: 'Flower',
+        tags: ['premium', 'flower'],
+        qtyMin: '20.000',
+        qtyMax: '40.000',
+        targetPrice: '1050.00',
+        neededBy: daysFromNow(6),
+        urgency: 'high',
+        ownerId: salesOperator.id,
+        notes: 'Customer asked for tight bag appeal; not necessarily in current stock.'
+      },
+      {
+        needCode: 'NEED-DEMO-002',
+        customerId: sunset.id,
+        productName: 'Candy restock',
+        category: 'Infused',
+        tags: ['infused', 'candy'],
+        qtyMin: '80.000',
+        qtyMax: '150.000',
+        targetPrice: '65.00',
+        neededBy: daysFromNow(3),
+        urgency: 'normal',
+        ownerId: salesOperator.id,
+        notes: 'Keep customer-safe catalog price hidden until sales sheet.'
+      },
+      {
+        needCode: 'NEED-DEMO-003',
+        customerId: valley.id,
+        productName: 'Live vape carts',
+        category: 'Vape',
+        tags: ['vape', 'live'],
+        qtyMin: '100.000',
+        qtyMax: '200.000',
+        targetPrice: '23.00',
+        neededBy: daysFromNow(10),
+        urgency: 'watch',
+        ownerId: manager.id,
+        notes: 'Credit watch; match only, do not auto-sell.'
+      }
+    ])
+    .returning();
+
+  const [supplyA, supplyB, supplyC] = await db
+    .insert(vendorSupply)
+    .values([
+      {
+        supplyCode: 'VS-DEMO-001',
+        vendorId: northCoast.id,
+        productName: 'Indoor Gelato smalls',
+        category: 'Flower',
+        tags: ['premium', 'flower'],
+        availableQty: '35.000',
+        askingPrice: '980.00',
+        availableDate: daysFromNow(2),
+        location: 'Vendor vault',
+        grade: 'Smalls',
+        terms: 'Consignment possible',
+        notes: 'Vendor has not sold this to the office yet.'
+      },
+      {
+        supplyCode: 'VS-DEMO-002',
+        vendorId: northCoast.id,
+        productName: 'Sour candy cases',
+        category: 'Infused',
+        tags: ['infused', 'candy'],
+        availableQty: '120.000',
+        askingPrice: '42.00',
+        availableDate: daysFromNow(1),
+        location: 'North Coast',
+        grade: 'Standard',
+        terms: 'Net 10',
+        notes: 'Likely fill for Sunset need.'
+      },
+      {
+        supplyCode: 'VS-DEMO-003',
+        vendorId: emerald.id,
+        productName: 'Live resin cart overrun',
+        category: 'Vape',
+        tags: ['vape', 'live'],
+        availableQty: '180.000',
+        askingPrice: '14.50',
+        availableDate: daysFromNow(5),
+        location: 'Emerald shop',
+        grade: 'A',
+        terms: 'Office-owned buy',
+        notes: 'Possible match; customer credit still separate.'
+      }
+    ])
+    .returning();
+
+  await db.insert(matchmakingMatches).values([
+    { customerNeedId: needA.id, vendorSupplyId: supplyA.id, score: 100, reasons: ['Category match', 'Tags: premium, flower', 'Quantity covers minimum', 'Ask is within target', 'Available before needed-by'] },
+    { customerNeedId: needB.id, vendorSupplyId: supplyB.id, score: 100, reasons: ['Category match', 'Tags: infused, candy', 'Quantity covers minimum', 'Ask is within target', 'Available before needed-by'] },
+    { customerNeedId: needC.id, vendorSupplyId: supplyC.id, score: 100, reasons: ['Category match', 'Tags: vape, live', 'Quantity covers minimum', 'Ask is within target', 'Available before needed-by'] }
   ]);
 
   await db.insert(backupSnapshots).values({

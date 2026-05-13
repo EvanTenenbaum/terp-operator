@@ -17,11 +17,13 @@ import {
   connectorRequests,
   correctionJournalEntries,
   customers,
+  customerNeeds,
   fulfillmentLines,
   inventoryMovements,
   invoiceDisputes,
   invoices,
   items,
+  matchmakingMatches,
   paymentAllocations,
   payments,
   periodLocks,
@@ -33,8 +35,10 @@ import {
   purchaseOrders,
   salesOrderLines,
   salesOrders,
+  tagCatalog,
   vendorBills,
   vendorPayments,
+  vendorSupply,
   vendors
 } from '../schema';
 import { assertCommandAccess } from '../rbac';
@@ -189,6 +193,8 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return attachBatchPhoto(tx, payload, user.id, commandId);
     case 'importBatchesCsv':
       return importBatchesCsv(tx, payload, commandId);
+    case 'applyTags':
+      return applyTags(tx, payload, commandId);
     case 'createSalesOrder':
       return createSalesOrder(tx, payload, commandId);
     case 'addSalesOrderLine':
@@ -262,6 +268,18 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return lockPeriod(tx, payload, user.id, commandId);
     case 'archivePeriod':
       return archivePeriod(tx, payload, commandId);
+    case 'createCustomerNeed':
+      return createCustomerNeed(tx, payload, user.id, commandId);
+    case 'updateCustomerNeed':
+      return updateCustomerNeed(tx, payload, commandId);
+    case 'createVendorSupply':
+      return createVendorSupply(tx, payload, commandId);
+    case 'updateVendorSupply':
+      return updateVendorSupply(tx, payload, commandId);
+    case 'acceptMatchmakingMatch':
+      return reviewMatchmakingMatch(tx, payload, 'accepted', user.id, commandId);
+    case 'dismissMatchmakingMatch':
+      return reviewMatchmakingMatch(tx, payload, 'dismissed', user.id, commandId);
   }
 }
 
@@ -272,7 +290,9 @@ async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise
   if (!name) throw new Error('Batch name is required.');
   if (!category) throw new Error('Category is required.');
   const vendorId = stringValue(payload.vendorId);
-  const itemId = await ensureItem(tx, payload, name, category);
+  const tags = tagValue(payload.tags, decoded.tags);
+  const itemId = await ensureItem(tx, { ...payload, tags }, name, category);
+  await ensureTagCatalog(tx, tags);
   const validationIssues = batchValidationIssues({
     ...payload,
     name,
@@ -295,7 +315,7 @@ async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise
       shorthand: stringValue(payload.shorthand) || null,
       name,
       category,
-      tags: arrayValue(payload.tags, decoded.tags),
+      tags,
       intakeQty: qtyScale(payload.intakeQty ?? 0),
       availableQty: qtyScale(payload.availableQty ?? payload.intakeQty ?? 0),
       uom: stringValue(payload.uom) || 'lb',
@@ -346,7 +366,10 @@ async function updateBatch(tx: Tx, payload: Payload, commandId: string, toast = 
   if (payload.vendorId != null) values.vendorId = stringValue(payload.vendorId) || null;
   if (payload.purchaseOrderId != null) values.purchaseOrderId = stringValue(payload.purchaseOrderId) || null;
   if (payload.purchaseOrderLineId != null) values.purchaseOrderLineId = stringValue(payload.purchaseOrderLineId) || null;
-  if (payload.tags != null) values.tags = arrayValue(payload.tags);
+  if (payload.tags != null) {
+    values.tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, values.tags as string[]);
+  }
   if (payload.intakeQty != null) values.intakeQty = qtyScale(payload.intakeQty);
   if (payload.availableQty != null) values.availableQty = qtyScale(payload.availableQty);
   if (payload.unitCost != null) values.unitCost = moneyScale(payload.unitCost);
@@ -498,11 +521,13 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
   const category = stringValue(payload.category) || decoded.category;
   if (!productName) throw new Error('Product name is required.');
   if (!category) throw new Error('Category is required.');
+  const tags = tagValue(payload.tags, decoded.tags);
   const qty = requiredNumber(payload.qty, 'qty');
   if (qty <= 0) throw new Error('Quantity must be greater than zero.');
   const unitCost = Number(payload.unitCost ?? 0);
   if (!Number.isFinite(unitCost) || unitCost < 0) throw new Error('Unit cost cannot be negative.');
-  const itemId = await ensureItem(tx, { ...payload, tags: payload.tags ?? decoded.tags }, productName, category);
+  const itemId = await ensureItem(tx, { ...payload, tags }, productName, category);
+  await ensureTagCatalog(tx, tags);
   const status = unitCost > 0 ? 'planned' : 'needs_fix';
   const [line] = await tx
     .insert(purchaseOrderLines)
@@ -511,7 +536,7 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
       itemId,
       productName,
       category,
-      tags: arrayValue(payload.tags, decoded.tags),
+      tags,
       qty: qtyScale(qty),
       uom: stringValue(payload.uom) || 'lb',
       unitCost: moneyScale(unitCost),
@@ -549,7 +574,10 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   copyIfPresent(values, 'shorthand', payload.shorthand);
   copyIfPresent(values, 'legacyMarker', payload.legacyMarker);
   copyIfPresent(values, 'notes', payload.notes);
-  if (payload.tags !== undefined) values.tags = arrayValue(payload.tags);
+  if (payload.tags !== undefined) {
+    values.tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, values.tags as string[]);
+  }
   if (payload.ownershipStatus !== undefined) values.ownershipStatus = ownership(payload.ownershipStatus);
   if (payload.qty !== undefined) {
     const qty = requiredNumber(payload.qty, 'qty');
@@ -781,6 +809,37 @@ async function importBatchesCsv(tx: Tx, payload: Payload, commandId: string): Pr
     affected.push(...created.affectedIds);
   }
   return { ok: true, commandId, affectedIds: affected, toast: `Imported ${affected.length} batch row(s).` };
+}
+
+async function applyTags(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const entityType = requiredString(payload.entityType, 'entityType');
+  const entityId = requiredId(payload.entityId ?? payload.id, 'entityId');
+  const incoming = tagValue(payload.tags);
+  const mode = stringValue(payload.mode) || 'replace';
+  if (!['add', 'remove', 'replace'].includes(mode)) throw new Error('Tag mode must be add, remove, or replace.');
+  if (!incoming.length && mode !== 'replace') throw new Error('Enter at least one tag.');
+
+  const current = await taggedEntity(tx, entityType, entityId);
+  const currentTags = tagValue(current.tags);
+  const nextTags =
+    mode === 'add'
+      ? [...new Set([...currentTags, ...incoming])]
+      : mode === 'remove'
+        ? currentTags.filter((tag) => !incoming.includes(tag))
+        : incoming;
+
+  await ensureTagCatalog(tx, nextTags);
+  await updateTaggedEntity(tx, entityType, entityId, nextTags);
+  if (entityType === 'customerNeed') await rebuildMatchesForNeed(tx, entityId);
+  if (entityType === 'vendorSupply') await rebuildMatchesForSupply(tx, entityId);
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [entityId],
+    toast: nextTags.length ? `Tags updated: ${nextTags.join(', ')}.` : 'Tags cleared.',
+    delta: { entityType, entityId, tags: nextTags }
+  };
 }
 
 async function createSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1650,6 +1709,157 @@ async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promi
   return { ok: true, commandId, affectedIds: [archive.id], toast: `${period} archived with matching control totals.`, delta: { controlTotals, csvPath, jsonlPath, pdfPath } };
 }
 
+async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+  const productName = requiredString(payload.productName ?? payload.name, 'productName');
+  const category = requiredString(payload.category, 'category');
+  const qtyMin = Math.max(0, requiredNumber(payload.qtyMin ?? payload.qty ?? 1, 'qtyMin'));
+  if (qtyMin <= 0) throw new Error('Need quantity must be greater than zero.');
+  const qtyMaxValue = isBlankValue(payload.qtyMax) ? null : requiredNumber(payload.qtyMax, 'qtyMax');
+  if (qtyMaxValue != null && qtyMaxValue < qtyMin) throw new Error('Need max quantity cannot be below min quantity.');
+  const tags = tagValue(payload.tags);
+  await ensureTagCatalog(tx, tags);
+  const [row] = await tx
+    .insert(customerNeeds)
+    .values({
+      needCode: code('NEED'),
+      customerId,
+      productName,
+      category,
+      tags,
+      qtyMin: qtyScale(qtyMin),
+      qtyMax: qtyMaxValue == null ? null : qtyScale(qtyMaxValue),
+      targetPrice: isBlankValue(payload.targetPrice) ? null : moneyScale(payload.targetPrice),
+      neededBy: dateOrNull(payload.neededBy),
+      urgency: urgencyValue(payload.urgency),
+      ownerId: userId,
+      notes: stringValue(payload.notes) || null,
+      status: statusValue(payload.status, ['open', 'matched', 'accepted', 'dismissed', 'closed'], 'open')
+    })
+    .returning();
+  const matchIds = await rebuildMatchesForNeed(tx, row.id);
+  return { ok: true, commandId, affectedIds: [row.id, ...matchIds], toast: `Customer need added for ${customer.name}.`, delta: { matchCount: matchIds.length } };
+}
+
+async function updateCustomerNeed(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const needId = requiredId(payload.customerNeedId ?? payload.id, 'customerNeedId');
+  const [current] = await tx.select().from(customerNeeds).where(eq(customerNeeds.id, needId)).limit(1);
+  if (!current) throw new Error('Customer need not found.');
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (payload.customerId !== undefined) values.customerId = stringValue(payload.customerId) ? requiredId(payload.customerId, 'customerId') : null;
+  if (payload.productName !== undefined || payload.name !== undefined) values.productName = requiredString(payload.productName ?? payload.name, 'productName');
+  if (payload.category !== undefined) values.category = requiredString(payload.category, 'category');
+  if (payload.tags !== undefined) {
+    values.tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, values.tags as string[]);
+  }
+  if (payload.qtyMin !== undefined || payload.qty !== undefined) {
+    const qtyMin = requiredNumber(payload.qtyMin ?? payload.qty, 'qtyMin');
+    if (qtyMin <= 0) throw new Error('Need quantity must be greater than zero.');
+    values.qtyMin = qtyScale(qtyMin);
+  }
+  if (payload.qtyMax !== undefined) values.qtyMax = isBlankValue(payload.qtyMax) ? null : qtyScale(requiredNumber(payload.qtyMax, 'qtyMax'));
+  if (payload.targetPrice !== undefined) values.targetPrice = isBlankValue(payload.targetPrice) ? null : moneyScale(payload.targetPrice);
+  if (payload.neededBy !== undefined) values.neededBy = dateOrNull(payload.neededBy);
+  if (payload.urgency !== undefined) values.urgency = urgencyValue(payload.urgency);
+  if (payload.notes !== undefined) values.notes = stringValue(payload.notes) || null;
+  if (payload.status !== undefined) values.status = statusValue(payload.status, ['open', 'matched', 'accepted', 'dismissed', 'closed'], 'open');
+  const nextQtyMin = Number(values.qtyMin ?? current.qtyMin);
+  const nextQtyMax = values.qtyMax == null ? null : Number(values.qtyMax);
+  if (nextQtyMax != null && nextQtyMax < nextQtyMin) throw new Error('Need max quantity cannot be below min quantity.');
+  await tx.update(customerNeeds).set(values).where(eq(customerNeeds.id, needId));
+  const matchIds = await rebuildMatchesForNeed(tx, needId);
+  return { ok: true, commandId, affectedIds: [needId, ...matchIds], toast: 'Customer need updated.', delta: { matchCount: matchIds.length } };
+}
+
+async function createVendorSupply(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const vendorId = requiredId(payload.vendorId, 'vendorId');
+  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw new Error('Vendor not found.');
+  const productName = requiredString(payload.productName ?? payload.name, 'productName');
+  const category = requiredString(payload.category, 'category');
+  const availableQty = requiredNumber(payload.availableQty ?? payload.qty ?? 1, 'availableQty');
+  if (availableQty <= 0) throw new Error('Vendor stock quantity must be greater than zero.');
+  const tags = tagValue(payload.tags);
+  await ensureTagCatalog(tx, tags);
+  const [row] = await tx
+    .insert(vendorSupply)
+    .values({
+      supplyCode: code('VS'),
+      vendorId,
+      productName,
+      category,
+      tags,
+      availableQty: qtyScale(availableQty),
+      askingPrice: isBlankValue(payload.askingPrice) ? null : moneyScale(payload.askingPrice),
+      availableDate: dateOrNull(payload.availableDate),
+      location: stringValue(payload.location) || null,
+      grade: stringValue(payload.grade) || null,
+      terms: stringValue(payload.terms) || null,
+      notes: stringValue(payload.notes) || null,
+      status: statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open')
+    })
+    .returning();
+  const matchIds = await rebuildMatchesForSupply(tx, row.id);
+  return { ok: true, commandId, affectedIds: [row.id, ...matchIds], toast: `Vendor stock added for ${vendor.name}.`, delta: { matchCount: matchIds.length } };
+}
+
+async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const supplyId = requiredId(payload.vendorSupplyId ?? payload.id, 'vendorSupplyId');
+  const [current] = await tx.select().from(vendorSupply).where(eq(vendorSupply.id, supplyId)).limit(1);
+  if (!current) throw new Error('Vendor stock row not found.');
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (payload.vendorId !== undefined) values.vendorId = stringValue(payload.vendorId) ? requiredId(payload.vendorId, 'vendorId') : null;
+  if (payload.productName !== undefined || payload.name !== undefined) values.productName = requiredString(payload.productName ?? payload.name, 'productName');
+  if (payload.category !== undefined) values.category = requiredString(payload.category, 'category');
+  if (payload.tags !== undefined) {
+    values.tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, values.tags as string[]);
+  }
+  if (payload.availableQty !== undefined || payload.qty !== undefined) {
+    const availableQty = requiredNumber(payload.availableQty ?? payload.qty, 'availableQty');
+    if (availableQty <= 0) throw new Error('Vendor stock quantity must be greater than zero.');
+    values.availableQty = qtyScale(availableQty);
+  }
+  if (payload.askingPrice !== undefined) values.askingPrice = isBlankValue(payload.askingPrice) ? null : moneyScale(payload.askingPrice);
+  if (payload.availableDate !== undefined) values.availableDate = dateOrNull(payload.availableDate);
+  if (payload.location !== undefined) values.location = stringValue(payload.location) || null;
+  if (payload.grade !== undefined) values.grade = stringValue(payload.grade) || null;
+  if (payload.terms !== undefined) values.terms = stringValue(payload.terms) || null;
+  if (payload.notes !== undefined) values.notes = stringValue(payload.notes) || null;
+  if (payload.status !== undefined) values.status = statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open');
+  await tx.update(vendorSupply).set(values).where(eq(vendorSupply.id, supplyId));
+  const matchIds = await rebuildMatchesForSupply(tx, supplyId);
+  return { ok: true, commandId, affectedIds: [supplyId, ...matchIds], toast: 'Vendor stock updated.', delta: { matchCount: matchIds.length } };
+}
+
+async function reviewMatchmakingMatch(tx: Tx, payload: Payload, status: 'accepted' | 'dismissed', userId: string, commandId: string): Promise<CommandResult> {
+  const matchId = requiredId(payload.matchId ?? payload.id, 'matchId');
+  const [match] = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.id, matchId)).limit(1);
+  if (!match) throw new Error('Match not found.');
+  await tx.update(matchmakingMatches).set({ status, reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
+  const affected = new Set([matchId, match.customerNeedId, match.vendorSupplyId]);
+  if (status === 'accepted') {
+    const siblingMatches = await tx
+      .update(matchmakingMatches)
+      .set({ status: 'dismissed', reviewedBy: userId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(matchmakingMatches.status, 'open'),
+          or(eq(matchmakingMatches.customerNeedId, match.customerNeedId), eq(matchmakingMatches.vendorSupplyId, match.vendorSupplyId)),
+          sql`${matchmakingMatches.id} <> ${matchId}`
+        )
+      )
+      .returning({ id: matchmakingMatches.id });
+    for (const row of siblingMatches) affected.add(row.id);
+    await tx.update(customerNeeds).set({ status: 'matched', updatedAt: new Date() }).where(eq(customerNeeds.id, match.customerNeedId));
+    await tx.update(vendorSupply).set({ status: 'held_for_match', updatedAt: new Date() }).where(eq(vendorSupply.id, match.vendorSupplyId));
+  }
+  return { ok: true, commandId, affectedIds: [...affected], toast: status === 'accepted' ? 'Match accepted. Use existing PO, intake, and sales workspaces for consequences.' : 'Match dismissed.' };
+}
+
 async function recalcOrder(tx: Tx, orderId: string, strategy?: string) {
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
   const total = lines.reduce((sum: number, line: typeof salesOrderLines.$inferSelect) => sum + Number(line.qty) * Number(line.unitPrice), 0);
@@ -1718,8 +1928,188 @@ async function ensureItem(tx: Tx, payload: Payload, name: string, category: stri
   const itemId = stringValue(payload.itemId);
   if (itemId) return itemId;
   const sku = `${category.slice(0, 3).toUpperCase()}-${name.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase()}-${Math.floor(Math.random() * 999)}`;
-  const [created] = await tx.insert(items).values({ sku, name, category, tags: arrayValue(payload.tags) }).returning();
+  const tags = tagValue(payload.tags);
+  await ensureTagCatalog(tx, tags);
+  const [created] = await tx.insert(items).values({ sku, name, category, tags }).returning();
   return created.id;
+}
+
+async function ensureTagCatalog(tx: Tx, tags: string[]) {
+  const unique = [...new Set(tags.map(normalizeTagSlug).filter(Boolean))];
+  for (const slug of unique) {
+    await tx
+      .insert(tagCatalog)
+      .values({ slug, label: tagLabel(slug), color: tagColor(slug) })
+      .onConflictDoUpdate({
+        target: tagCatalog.slug,
+        set: { label: tagLabel(slug), updatedAt: new Date(), isActive: true }
+      });
+  }
+}
+
+async function taggedEntity(tx: Tx, entityType: string, entityId: string) {
+  const table = taggedTable(entityType);
+  const [row] = await tx.select().from(table).where(eq(table.id, entityId)).limit(1);
+  if (!row) throw new Error(`${taggedEntityLabel(entityType)} not found.`);
+  return row as Record<string, unknown>;
+}
+
+async function updateTaggedEntity(tx: Tx, entityType: string, entityId: string, tags: string[]) {
+  const table = taggedTable(entityType);
+  await tx.update(table).set({ tags, updatedAt: new Date() }).where(eq(table.id, entityId));
+}
+
+function taggedTable(entityType: string) {
+  switch (entityType) {
+    case 'batch':
+      return batches as any;
+    case 'purchaseOrderLine':
+      return purchaseOrderLines as any;
+    case 'item':
+      return items as any;
+    case 'customer':
+      return customers as any;
+    case 'customerNeed':
+      return customerNeeds as any;
+    case 'vendorSupply':
+      return vendorSupply as any;
+    default:
+      throw new Error('Tags can be applied to item, purchaseOrderLine, batch, customer, customerNeed, or vendorSupply.');
+  }
+}
+
+function taggedEntityLabel(entityType: string) {
+  return entityType.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+}
+
+async function rebuildMatchesForNeed(tx: Tx, needId: string) {
+  const [need] = await tx.select().from(customerNeeds).where(eq(customerNeeds.id, needId)).limit(1);
+  if (!need) throw new Error('Customer need not found.');
+  await tx.delete(matchmakingMatches).where(and(eq(matchmakingMatches.customerNeedId, needId), eq(matchmakingMatches.status, 'open')));
+  if (need.status !== 'open') return [];
+  const supplies = await tx.select().from(vendorSupply).where(eq(vendorSupply.status, 'open'));
+  return createBestMatches(tx, need, supplies);
+}
+
+async function rebuildMatchesForSupply(tx: Tx, supplyId: string) {
+  const [supply] = await tx.select().from(vendorSupply).where(eq(vendorSupply.id, supplyId)).limit(1);
+  if (!supply) throw new Error('Vendor stock row not found.');
+  await tx.delete(matchmakingMatches).where(and(eq(matchmakingMatches.vendorSupplyId, supplyId), eq(matchmakingMatches.status, 'open')));
+  if (supply.status !== 'open') return [];
+  const needs = await tx.select().from(customerNeeds).where(eq(customerNeeds.status, 'open'));
+  return createBestMatchesForSupply(tx, supply, needs);
+}
+
+async function createBestMatches(tx: Tx, need: typeof customerNeeds.$inferSelect, supplies: Array<typeof vendorSupply.$inferSelect>) {
+  const chosen = bestSupplyMatchesForNeed(need, supplies);
+  if (!chosen.length) return [];
+  const existingRows = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.customerNeedId, need.id));
+  const existingBySupply = new Map<string, typeof matchmakingMatches.$inferSelect>(
+    (existingRows as Array<typeof matchmakingMatches.$inferSelect>).map((row) => [row.vendorSupplyId, row])
+  );
+  const affected: string[] = [];
+  for (const match of chosen) {
+    const existing = existingBySupply.get(match.supply.id);
+    if (existing && existing.status !== 'open') continue;
+    if (existing) {
+      await tx
+        .update(matchmakingMatches)
+        .set({ score: Math.min(100, match.score), reasons: match.reasons, status: 'open', updatedAt: new Date() })
+        .where(eq(matchmakingMatches.id, existing.id));
+      affected.push(existing.id);
+    } else {
+      const [row] = await tx.insert(matchmakingMatches).values({
+        customerNeedId: need.id,
+        vendorSupplyId: match.supply.id,
+        score: Math.min(100, match.score),
+        reasons: match.reasons,
+        status: 'open'
+      }).returning();
+      affected.push(row.id);
+    }
+  }
+  return affected;
+}
+
+async function createBestMatchesForSupply(tx: Tx, supply: typeof vendorSupply.$inferSelect, needs: Array<typeof customerNeeds.$inferSelect>) {
+  const chosen = needs
+    .map((need) => ({ need, ...scoreMatch(need, supply) }))
+    .filter((match) => match.score > 0);
+  if (!chosen.length) return [];
+  const existingRows = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.vendorSupplyId, supply.id));
+  const existingByNeed = new Map<string, typeof matchmakingMatches.$inferSelect>(
+    (existingRows as Array<typeof matchmakingMatches.$inferSelect>).map((row) => [row.customerNeedId, row])
+  );
+  const affected: string[] = [];
+  for (const match of chosen) {
+    const existing = existingByNeed.get(match.need.id);
+    if (existing && existing.status !== 'open') continue;
+    if (existing) {
+      await tx
+        .update(matchmakingMatches)
+        .set({ score: Math.min(100, match.score), reasons: match.reasons, status: 'open', updatedAt: new Date() })
+        .where(eq(matchmakingMatches.id, existing.id));
+      affected.push(existing.id);
+    } else {
+      const [row] = await tx.insert(matchmakingMatches).values({
+        customerNeedId: match.need.id,
+        vendorSupplyId: supply.id,
+        score: Math.min(100, match.score),
+        reasons: match.reasons,
+        status: 'open'
+      }).returning();
+      affected.push(row.id);
+    }
+  }
+  return affected;
+}
+
+function bestSupplyMatchesForNeed(need: typeof customerNeeds.$inferSelect, supplies: Array<typeof vendorSupply.$inferSelect>) {
+  const scored = supplies
+    .map((supply) => ({ supply, ...scoreMatch(need, supply) }))
+    .filter((match) => match.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const candidates = scored.filter((match) => match.score >= 35);
+  return candidates.length ? candidates : scored.slice(0, 1);
+}
+
+function scoreMatch(need: typeof customerNeeds.$inferSelect, supply: typeof vendorSupply.$inferSelect) {
+  let score = 0;
+  const reasons: string[] = [];
+  if (need.category.toLowerCase() === supply.category.toLowerCase()) {
+    score += 35;
+    reasons.push('Category match');
+  }
+  const overlap = tagValue(need.tags).filter((tag) => tagValue(supply.tags).includes(tag));
+  if (overlap.length) {
+    score += Math.min(24, overlap.length * 8);
+    reasons.push(`Tags: ${overlap.join(', ')}`);
+  }
+  if (tokenOverlap(need.productName, supply.productName)) {
+    score += 10;
+    reasons.push('Product wording overlaps');
+  }
+  if (Number(supply.availableQty) >= Number(need.qtyMin)) {
+    score += 12;
+    reasons.push('Quantity covers minimum');
+  }
+  if (need.targetPrice != null && supply.askingPrice != null && Number(supply.askingPrice) <= Number(need.targetPrice)) {
+    score += 12;
+    reasons.push('Ask is within target');
+  }
+  if (need.neededBy && supply.availableDate && new Date(supply.availableDate).getTime() <= new Date(need.neededBy).getTime()) {
+    score += 7;
+    reasons.push('Available before needed-by');
+  }
+  return { score, reasons };
+}
+
+function tokenOverlap(left: string, right: string) {
+  const leftTokens = new Set(left.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2));
+  return right
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .some((token) => token.length > 2 && leftTokens.has(token));
 }
 
 async function snapshotFromPayload(payload: Payload) {
@@ -1745,6 +2135,10 @@ async function snapshotByAffectedIds(ids: string[]) {
     ['pickLists', pickLists],
     ['fulfillmentLines', fulfillmentLines],
     ['connectorRequests', connectorRequests],
+    ['customerNeeds', customerNeeds],
+    ['vendorSupply', vendorSupply],
+    ['matchmakingMatches', matchmakingMatches],
+    ['tagCatalog', tagCatalog],
     ['customers', customers],
     ['paymentAllocations', paymentAllocations],
     ['clientLedgerEntries', clientLedgerEntries],
@@ -1820,6 +2214,10 @@ function collectIds(payload: Payload) {
     payload.pickListId,
     payload.fulfillmentLineId,
     payload.requestId,
+    payload.customerNeedId,
+    payload.vendorSupplyId,
+    payload.matchId,
+    payload.entityId,
     payload.commandId,
     payload.backupId,
     ...(Array.isArray(payload.batchIds) ? payload.batchIds : []),
@@ -1864,6 +2262,10 @@ function stringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function isBlankValue(value: unknown) {
+  return value == null || (typeof value === 'string' && !value.trim());
+}
+
 function requiredString(value: unknown, name: string) {
   const text = stringValue(value);
   if (!text) throw new Error(`${name} is required.`);
@@ -1891,6 +2293,52 @@ function arrayValue(value: unknown, fallback: string[] = []) {
   if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
   if (typeof value === 'string') return value.split(/[|,]/).map((item) => item.trim()).filter(Boolean);
   return fallback;
+}
+
+function tagValue(value: unknown, fallback: string[] = []) {
+  return [...new Set(arrayValue(value, fallback).map(normalizeTagSlug).filter(Boolean))];
+}
+
+function normalizeTagSlug(value: unknown) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+function tagLabel(slug: string) {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function tagColor(slug: string) {
+  const map: Record<string, string> = {
+    infused: 'purple',
+    candy: 'orange',
+    premium: 'green',
+    flower: 'green',
+    value: 'gray',
+    extract: 'blue',
+    live: 'blue',
+    vape: 'yellow',
+    'pre-roll': 'gray'
+  };
+  return map[slug] ?? 'gray';
+}
+
+function statusValue(value: unknown, allowed: string[], fallback: string) {
+  const text = stringValue(value);
+  return allowed.includes(text) ? text : fallback;
+}
+
+function urgencyValue(value: unknown) {
+  return statusValue(value, ['watch', 'normal', 'high'], 'normal');
 }
 
 function ownership(value: unknown) {

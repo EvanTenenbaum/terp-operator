@@ -7,12 +7,14 @@ export type Status =
   | 'needs_fix'
   | 'reversed'
   | 'confirmed'
+  | 'reserved'
   | 'fulfilled'
   | 'cancelled'
   | 'open'
   | 'scheduled'
   | 'paid'
   | 'approved'
+  | 'accepted'
   | 'ordered'
   | 'planned'
   | 'received'
@@ -24,12 +26,18 @@ export type Status =
   | 'failed'
   | 'rejected'
   | 'routed'
+  | 'matched'
+  | 'dismissed'
+  | 'watch'
+  | 'normal'
+  | 'high'
+  | 'held_for_match'
   | 'locked'
   | 'archived';
 
 export type OwnershipStatus = 'C' | 'OFC' | 'UNKNOWN';
 export type ArrivalStatus = 'pending' | 'arrived' | 'cancelled';
-export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut';
+export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut' | 'customerNeed' | 'vendorSupply';
 export type SettingsTab = 'requests' | 'actions' | 'archive';
 
 export type PaymentMethod = 'cash' | 'check' | 'card' | 'crypto' | 'wire';
@@ -61,6 +69,7 @@ export type ViewKey =
   | 'purchaseOrders'
   | 'intake'
   | 'sales'
+  | 'matchmaking'
   | 'orders'
   | 'payments'
   | 'inventory'

@@ -64,7 +64,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   ).rows[0];
   const opportunityRow = (
     await pool.query<{ opportunities: string }>(
-      "select count(*)::text as opportunities from customers c where exists (select 1 from batches b where b.status = 'posted' and b.available_qty > 0 and b.tags && c.tags)"
+      "select count(*)::text as opportunities from matchmaking_matches where status = 'open'"
     )
   ).rows[0];
   const moneyBuckets = (
@@ -133,9 +133,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     },
     {
       key: 'matchmaking',
-      label: 'Matchmaking/reorder',
+      label: 'Matchmaking',
       value: `${Number(opportunityRow?.opportunities ?? 0)} matches`,
-      definition: 'Customers whose tags overlap available inventory tags.',
+      definition: 'Open deterministic matches between customer needs and vendor stock.',
       severity: 'good'
     }
   ];

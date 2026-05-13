@@ -17,6 +17,7 @@ const intakeColumns: ColDef<GridRow>[] = [
   { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
   { field: 'name', editable: true, minWidth: 190 },
   { field: 'category', editable: true, width: 120 },
+  { field: 'tags', editable: true, minWidth: 160 },
   { field: 'vendor', editable: false, width: 160 },
   { field: 'ticketCost', headerName: 'Ticket cost', editable: true, type: 'numericColumn', width: 120 },
   { field: 'priceRange', headerName: 'Range', editable: true, width: 120 },
@@ -55,6 +56,7 @@ export function IntakeView() {
   const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [lotCode, setLotCode] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  const [rowTags, setRowTags] = useState('');
   const defaultVendorId = vendorId || firstVendor;
   const receiptPreview = trpc.queries.receiptPreview.useQuery({ batchIds: rows.map((row) => String(row.id)) }, { enabled: rows.length > 0 });
   const selectedReady = rows.length > 0 && rows.every((row) => row.status === 'ready');
@@ -73,6 +75,7 @@ export function IntakeView() {
       shorthand: 'Ins/candy',
       name: 'New receiving line',
       category: 'Infused',
+      tags: parseTags(rowTags),
       intakeDate: new Date().toISOString(),
       intakeQty: 1,
       unitCost: 0,
@@ -96,6 +99,7 @@ export function IntakeView() {
         shorthand: row.shorthand,
         name: `${row.name} copy`,
         category: row.category,
+        tags: row.tags,
         intakeDate: row.intakeDate,
         intakeQty: row.intakeQty,
         unitCost: row.unitCost,
@@ -155,6 +159,10 @@ export function IntakeView() {
         <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
           CSV import
         </button>
+        <label className="field-inline grow">
+          Tags
+          <input className="input" value={rowTags} placeholder="premium, candy" onChange={(event) => setRowTags(event.target.value)} />
+        </label>
         <label className="field-inline">
           Lot code
           <input className="input compact" value={lotCode} onChange={(event) => setLotCode(event.target.value)} />
@@ -303,4 +311,8 @@ export function IntakeView() {
       ) : null}
     </div>
   );
+}
+
+function parseTags(value: string) {
+  return value.split(/[|,]/).map((tag) => tag.trim()).filter(Boolean);
 }

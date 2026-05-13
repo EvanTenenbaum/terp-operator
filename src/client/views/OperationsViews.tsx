@@ -64,6 +64,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'batchCode', pinned: 'left', width: 150 },
     { field: 'name', minWidth: 180 },
     { field: 'category', width: 120 },
+    { field: 'tags', editable: true, minWidth: 170 },
     { field: 'vendor', width: 180 },
     { field: 'availableQty', editable: true, type: 'numericColumn', width: 130 },
     { field: 'reservedQty', type: 'numericColumn', width: 130 },
@@ -142,6 +143,7 @@ const EMPTY_ROWS: GridRow[] = [];
 const purchaseOrderLineColumns: ColDef<GridRow>[] = [
   { field: 'productName', headerName: 'Product', pinned: 'left', editable: true, minWidth: 190 },
   { field: 'category', editable: true, width: 120 },
+  { field: 'tags', editable: true, minWidth: 160 },
   { field: 'qty', headerName: 'Ordered', editable: true, type: 'numericColumn', width: 120 },
   { field: 'receivedQty', headerName: 'Received', width: 120 },
   { field: 'uom', editable: true, width: 90 },
@@ -183,6 +185,7 @@ export function PurchaseOrdersView() {
   const [expectedDate, setExpectedDate] = useState('');
   const [productName, setProductName] = useState('Infused Candy');
   const [category, setCategory] = useState('Infused');
+  const [lineTags, setLineTags] = useState('');
   const [qty, setQty] = useState('1');
   const [unitCost, setUnitCost] = useState('0');
   const [unitPrice, setUnitPrice] = useState('0');
@@ -205,6 +208,7 @@ export function PurchaseOrdersView() {
         purchaseOrderId: selectedPo.id,
         productName,
         category,
+        tags: parseTags(lineTags),
         qty: Number(qty),
         unitCost: Number(unitCost),
         unitPrice: Number(unitPrice || unitCost),
@@ -333,6 +337,10 @@ export function PurchaseOrdersView() {
                     <option key={option}>{option}</option>
                   ))}
                 </select>
+              </label>
+              <label className="field-inline grow">
+                Tags
+                <input className="input" value={lineTags} placeholder="premium, candy" onChange={(event) => setLineTags(event.target.value)} />
               </label>
               <label className="field-inline">
                 Qty
@@ -602,7 +610,7 @@ export function InventoryView() {
         if (['lotCode', 'expirationDate'].includes(String(event.colDef.field))) {
           runCommand('setBatchLotInfo', { batchId: event.data?.id, [String(event.colDef.field)]: event.newValue }, `Inline lot info edit: ${event.colDef.field}`);
         }
-        if (['legacyMarker', 'ownershipStatus', 'arrivalStatus', 'mediaStatus'].includes(String(event.colDef.field))) {
+        if (['tags', 'legacyMarker', 'ownershipStatus', 'arrivalStatus', 'mediaStatus'].includes(String(event.colDef.field))) {
           runCommand('updateBatch', { batchId: event.data?.id, [String(event.colDef.field)]: event.newValue }, `Inline inventory edit: ${event.colDef.field}`);
         }
       }}
@@ -624,9 +632,15 @@ function InventoryMovementTools({
   const [ownershipStatus, setOwnershipStatus] = useState('OFC');
   const [vendorId, setVendorId] = useState('');
   const [reason, setReason] = useState('Operator inventory correction');
+  const [tagText, setTagText] = useState('');
   const batchId = selectedBatch?.id;
   const selectedLabel = selectedBatch ? `${String(selectedBatch.batchCode ?? selectedBatch.name ?? 'Batch')} / ${String(selectedBatch.status ?? 'status')}` : 'Select inventory row';
   const consignedVendorId = vendorId || String(selectedBatch?.vendorId ?? '');
+
+  useEffect(() => {
+    const currentTags = selectedBatch?.tags;
+    setTagText(Array.isArray(currentTags) ? currentTags.join(', ') : String(currentTags ?? ''));
+  }, [selectedBatch?.id, selectedBatch?.tags]);
 
   return (
     <section className="inline-panel">
@@ -697,6 +711,13 @@ function InventoryMovementTools({
           Reason
           <input className="input" value={reason} onChange={(event) => setReason(event.target.value)} />
         </label>
+        <label className="field-inline grow">
+          Tags
+          <input className="input" value={tagText} placeholder="premium, candy" onChange={(event) => setTagText(event.target.value)} />
+        </label>
+        <button className="secondary-button compact-action" type="button" disabled={!batchId} onClick={() => runCommand('applyTags', { entityType: 'batch', entityId: batchId, tags: parseTags(tagText), mode: 'replace' }, 'Replace tags on selected inventory row')}>
+          Apply tags
+        </button>
       </div>
     </section>
   );
@@ -1572,6 +1593,10 @@ function labelFromToken(value: string) {
 function moneyish(value: unknown) {
   const numberValue = Number(value ?? 0);
   return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
+}
+
+function parseTags(value: string) {
+  return value.split(/[|,]/).map((tag) => tag.trim()).filter(Boolean);
 }
 
 function dateish(value: unknown) {

@@ -6,16 +6,17 @@ import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 
-const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout']);
+const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout']);
 
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
   health: protectedProcedure.query(() => getHealth()),
   reference: protectedProcedure.query(async () => {
-    const [customers, vendors, items, invoices, batches, orders, purchaseOrders, backups] = await Promise.all([
+    const [customers, vendors, items, tags, invoices, batches, orders, purchaseOrders, backups] = await Promise.all([
       pool.query('select id, name, credit_limit as "creditLimit", balance, tags from customers order by name'),
       pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
       pool.query('select id, sku, name, category, tags from items order by name'),
+      pool.query('select id, slug, label, color, description, is_active as "isActive" from tag_catalog where is_active order by label'),
       pool.query("select id, invoice_no as \"invoiceNo\", customer_id as \"customerId\", total, amount_paid as \"amountPaid\", status from invoices where status in ('open', 'partial') order by created_at"),
       pool.query(`select b.id, b.batch_code as "batchCode", b.name, b.category, b.vendor_id as "vendorId", v.name as vendor,
                          b.available_qty as "availableQty", b.reserved_qty as "reservedQty", b.unit_price as "unitPrice",
@@ -37,6 +38,7 @@ export const queriesRouter = router({
       customers: customers.rows,
       vendors: vendors.rows,
       items: items.rows,
+      tags: tags.rows,
       openInvoices: invoices.rows,
       availableBatches: batches.rows,
       activeOrders: orders.rows,
@@ -51,6 +53,14 @@ export const queriesRouter = router({
   }),
   grid: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input }) => {
     return (await pool.query(gridSql(input.view))).rows;
+  }),
+  matchmakingBoard: protectedProcedure.query(async () => {
+    const [needs, supplies, matches] = await Promise.all([
+      pool.query(customerNeedsSql()),
+      pool.query(vendorSupplySql()),
+      pool.query(matchmakingSql())
+    ]);
+    return { needs: needs.rows, supplies: supplies.rows, matches: matches.rows };
   }),
   drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input }) => {
     return (await pool.query(drilldownSql(input.metricKey))).rows;
@@ -292,8 +302,8 @@ export const queriesRouter = router({
   }),
   globalSearch: protectedProcedure.input(z.object({ q: z.string().min(1) })).query(async ({ input }) => {
     const q = `%${input.q.trim()}%`;
-    const [customerRows, vendorRows, purchaseOrderRows, orderRows, invoiceRows, paymentRows, batchRows, pickRows, connectorRows, commandRows] = await Promise.all([
-      pool.query('select id, id as "customerId", name as label, balance as detail, \'customer\' as type from customers where name ilike $1 or notes ilike $1 limit 8', [q]),
+    const [customerRows, vendorRows, purchaseOrderRows, orderRows, invoiceRows, paymentRows, batchRows, needRows, supplyRows, pickRows, connectorRows, commandRows] = await Promise.all([
+      pool.query('select id, id as "customerId", name as label, balance as detail, \'customer\' as type from customers where name ilike $1 or notes ilike $1 or tags::text ilike $1 limit 8', [q]),
       pool.query('select id, id as "vendorId", name as label, notes as detail, \'vendor\' as type from vendors where name ilike $1 or notes ilike $1 limit 8', [q]),
       pool.query(`select po.id, po.vendor_id as "vendorId", po.po_no as label, concat(coalesce(v.name, 'No vendor'), ' / ', po.status, ' / ', po.total) as detail, 'purchaseOrder' as type
                   from purchase_orders po left join vendors v on v.id = po.vendor_id
@@ -304,15 +314,29 @@ export const queriesRouter = router({
       pool.query('select id, customer_id as "customerId", reference as label, amount as detail, \'payment\' as type from payments where reference ilike $1 or notes ilike $1 or location_bucket ilike $1 limit 8', [q]),
       pool.query(`select id, vendor_id as "vendorId", batch_code as "batchCode", concat(batch_code, ' ', name) as label, concat(coalesce(source_code,''), ' ', coalesce(legacy_marker,''), ' ', coalesce(notes,'')) as detail, 'batch' as type
                   from batches
-                  where batch_code ilike $1 or source_code ilike $1 or name ilike $1 or category ilike $1 or notes ilike $1 or legacy_marker ilike $1 or shorthand ilike $1 or price_range ilike $1
+                  where batch_code ilike $1 or source_code ilike $1 or name ilike $1 or category ilike $1 or notes ilike $1 or legacy_marker ilike $1 or shorthand ilike $1 or price_range ilike $1 or tags::text ilike $1
                   limit 12`, [q]),
+      pool.query(`select cn.id, cn.customer_id as "customerId", cn.need_code as "needCode",
+                         concat(cn.need_code, ' ', cn.product_name) as label,
+                         concat(coalesce(c.name, 'No customer'), ' / ', cn.status, ' / ', array_to_string(cn.tags, ', ')) as detail,
+                         'customerNeed' as type
+                  from customer_needs cn left join customers c on c.id = cn.customer_id
+                  where cn.need_code ilike $1 or cn.product_name ilike $1 or cn.category ilike $1 or cn.tags::text ilike $1 or cn.notes ilike $1
+                  limit 8`, [q]),
+      pool.query(`select vs.id, vs.vendor_id as "vendorId", vs.supply_code as "supplyCode",
+                         concat(vs.supply_code, ' ', vs.product_name) as label,
+                         concat(coalesce(v.name, 'No vendor'), ' / ', vs.status, ' / ', array_to_string(vs.tags, ', ')) as detail,
+                         'vendorSupply' as type
+                  from vendor_supply vs left join vendors v on v.id = vs.vendor_id
+                  where vs.supply_code ilike $1 or vs.product_name ilike $1 or vs.category ilike $1 or vs.tags::text ilike $1 or vs.notes ilike $1
+                  limit 8`, [q]),
       pool.query(`select pl.id, so.customer_id as "customerId", pl.pick_no as label, pl.tracking as detail, 'pick' as type
                   from pick_lists pl left join sales_orders so on so.id = pl.order_id
                   where pl.pick_no ilike $1 or pl.tracking ilike $1 limit 8`, [q]),
       pool.query("select id, customer_id as \"customerId\", concat(source, ' ', request_type) as label, status as detail, 'connector' as type from connector_requests where source ilike $1 or request_type ilike $1 or payload::text ilike $1 limit 8", [q]),
       pool.query("select id, command_name as label, status as detail, 'command' as type from command_journal where id::text ilike $1 or command_name ilike $1 or affected_ids::text ilike $1 limit 8", [q])
     ]);
-    return { groups: { customers: customerRows.rows, vendors: vendorRows.rows, purchaseOrders: purchaseOrderRows.rows, orders: orderRows.rows, invoices: invoiceRows.rows, payments: paymentRows.rows, batches: batchRows.rows, picks: pickRows.rows, connectors: connectorRows.rows, commands: commandRows.rows } };
+    return { groups: { customers: customerRows.rows, vendors: vendorRows.rows, purchaseOrders: purchaseOrderRows.rows, orders: orderRows.rows, invoices: invoiceRows.rows, payments: paymentRows.rows, batches: batchRows.rows, customerNeeds: needRows.rows, vendorStock: supplyRows.rows, picks: pickRows.rows, connectors: connectorRows.rows, commands: commandRows.rows } };
   }),
   fulfillmentLines: protectedProcedure.input(z.object({ pickListId: z.string().uuid() })).query(async ({ input }) => {
     return (
@@ -537,6 +561,47 @@ function replaceFields(table: ReplaceTable) {
   return map[table];
 }
 
+function customerNeedsSql() {
+  return `select cn.id, cn.need_code as "needCode", cn.customer_id as "customerId", c.name as customer,
+                 cn.product_name as "productName", cn.category, cn.tags, cn.qty_min as "qtyMin", cn.qty_max as "qtyMax",
+                 cn.target_price as "targetPrice", cn.needed_by as "neededBy", cn.urgency, cn.notes, cn.status,
+                 cn.created_at as "createdAt", cn.updated_at as "updatedAt"
+          from customer_needs cn
+          left join customers c on c.id = cn.customer_id
+          order by case cn.status when 'open' then 0 when 'matched' then 1 when 'accepted' then 2 when 'dismissed' then 3 else 4 end,
+                   cn.updated_at desc`;
+}
+
+function vendorSupplySql() {
+  return `select vs.id, vs.supply_code as "supplyCode", vs.vendor_id as "vendorId", v.name as vendor,
+                 vs.product_name as "productName", vs.category, vs.tags, vs.available_qty as "availableQty",
+                 vs.asking_price as "askingPrice", vs.available_date as "availableDate", vs.location, vs.grade,
+                 vs.terms, vs.notes, vs.status, vs.created_at as "createdAt", vs.updated_at as "updatedAt"
+          from vendor_supply vs
+          left join vendors v on v.id = vs.vendor_id
+          order by case vs.status when 'open' then 0 when 'held_for_match' then 1 when 'accepted' then 2 when 'dismissed' then 3 else 4 end,
+                   vs.updated_at desc`;
+}
+
+function matchmakingSql() {
+  return `select mm.id, mm.customer_need_id as "customerNeedId", cn.need_code as "needCode",
+                 cn.customer_id as "customerId", c.name as customer, cn.product_name as "needProduct",
+                 cn.category, cn.tags as "needTags", cn.qty_min as "qtyMin", cn.qty_max as "qtyMax",
+                 cn.target_price as "targetPrice", cn.needed_by as "neededBy", cn.urgency,
+                 mm.vendor_supply_id as "vendorSupplyId", vs.supply_code as "supplyCode",
+                 vs.vendor_id as "vendorId", v.name as vendor, vs.product_name as "vendorProduct",
+                 vs.tags as "supplyTags", vs.available_qty as "availableQty", vs.asking_price as "askingPrice",
+                 vs.available_date as "availableDate", vs.location, mm.score, mm.reasons, mm.status,
+                 mm.created_at as "createdAt", mm.updated_at as "updatedAt"
+          from matchmaking_matches mm
+          join customer_needs cn on cn.id = mm.customer_need_id
+          join vendor_supply vs on vs.id = mm.vendor_supply_id
+          left join customers c on c.id = cn.customer_id
+          left join vendors v on v.id = vs.vendor_id
+          order by case mm.status when 'open' then 0 when 'accepted' then 1 when 'dismissed' then 2 else 3 end,
+                   mm.score desc, mm.updated_at desc`;
+}
+
 function gridSql(view: z.infer<typeof viewSchema>) {
   switch (view) {
     case 'reports':
@@ -559,7 +624,7 @@ function gridSql(view: z.infer<typeof viewSchema>) {
       return `select b.id, b.batch_code as "batchCode", b.shorthand, b.name, b.category, v.name as vendor, b.vendor_id as "vendorId",
                      po.po_no as "poNo", b.purchase_order_id as "purchaseOrderId", b.purchase_order_line_id as "purchaseOrderLineId",
                      b.source_code as "sourceCode", b.intake_date as "intakeDate", b.ticket_cost as "ticketCost", b.price_range as "priceRange",
-                     b.intake_qty as "intakeQty", b.available_qty as "availableQty", b.uom, b.unit_cost as "unitCost",
+                     b.tags, b.intake_qty as "intakeQty", b.available_qty as "availableQty", b.uom, b.unit_cost as "unitCost",
                      b.unit_price as "unitPrice", b.location, b.lot_code as "lotCode", b.ownership_status as "ownershipStatus",
                      b.legacy_marker as "legacyMarker", b.arrival_confirmed as "arrivalConfirmed", b.arrival_status as "arrivalStatus",
                      b.validation_issues as "validationIssues", b.media_status as "mediaStatus", b.expiration_date as "expirationDate",
@@ -593,6 +658,8 @@ function gridSql(view: z.infer<typeof viewSchema>) {
               left join sales_order_lines sol on sol.order_id = so.id
               group by so.id, c.name
               order by so.created_at desc`;
+    case 'matchmaking':
+      return matchmakingSql();
     case 'orders':
       return `select so.id, so.order_no as "orderNo", c.name as customer, so.status, so.total, so.delivery_window as "deliveryWindow", so.notes,
                      so.packed, so.inventory_posted as "inventoryPosted", so.payment_followup as "paymentFollowup",
@@ -611,7 +678,7 @@ function gridSql(view: z.infer<typeof viewSchema>) {
     case 'inventory':
       return `select b.id, b.batch_code as "batchCode", b.name, b.category, v.name as vendor, b.vendor_id as "vendorId", b.available_qty as "availableQty",
                      b.reserved_qty as "reservedQty", b.uom, b.unit_cost as "unitCost", b.unit_price as "unitPrice",
-                     b.location, b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
+                     b.tags, b.location, b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
                      b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus", b.status, b.lot_code as "lotCode", b.expiration_date as "expirationDate",
                      floor(extract(epoch from (now() - b.created_at)) / 86400)::int as "ageDays"
               from batches b left join vendors v on v.id = b.vendor_id
@@ -663,7 +730,7 @@ function drilldownSql(metricKey: string) {
     case 'inventory_value':
     case 'aging_inventory':
     case 'matchmaking':
-      return gridSql('inventory');
+      return gridSql('matchmaking');
     case 'debt_leader':
       return gridSql('clients');
     case 'cash':
@@ -675,12 +742,13 @@ function drilldownSql(metricKey: string) {
 function deterministicHeaders(view: z.infer<typeof viewSchema>) {
   const map: Record<z.infer<typeof viewSchema>, string[]> = {
     reports: ['id', 'label', 'value', 'definition', 'severity', 'createdAt'],
-    intake: ['id', 'batchCode', 'poNo', 'purchaseOrderId', 'sourceCode', 'intakeDate', 'shorthand', 'legacyMarker', 'name', 'category', 'vendor', 'ticketCost', 'priceRange', 'intakeQty', 'availableQty', 'uom', 'unitCost', 'unitPrice', 'location', 'lotCode', 'expirationDate', 'ownershipStatus', 'arrivalStatus', 'arrivalConfirmed', 'validationIssues', 'mediaStatus', 'notes', 'status'],
+    intake: ['id', 'batchCode', 'poNo', 'purchaseOrderId', 'sourceCode', 'intakeDate', 'shorthand', 'legacyMarker', 'name', 'category', 'tags', 'vendor', 'ticketCost', 'priceRange', 'intakeQty', 'availableQty', 'uom', 'unitCost', 'unitPrice', 'location', 'lotCode', 'expirationDate', 'ownershipStatus', 'arrivalStatus', 'arrivalConfirmed', 'validationIssues', 'mediaStatus', 'notes', 'status'],
     purchaseOrders: ['id', 'poNo', 'vendor', 'status', 'expectedDate', 'orderedAt', 'receivedAt', 'total', 'lines', 'orderedQty', 'receivedQty', 'buyerNotes', 'internalNotes', 'createdAt'],
     sales: ['id', 'orderNo', 'customer', 'status', 'pricingStrategy', 'total', 'internalMargin', 'lines', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes'],
+    matchmaking: ['id', 'needCode', 'customer', 'needProduct', 'category', 'needTags', 'qtyMin', 'qtyMax', 'targetPrice', 'neededBy', 'urgency', 'supplyCode', 'vendor', 'vendorProduct', 'supplyTags', 'availableQty', 'askingPrice', 'availableDate', 'score', 'reasons', 'status', 'createdAt'],
     orders: ['id', 'orderNo', 'customer', 'status', 'total', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes', 'invoiceNo', 'invoiceStatus'],
     payments: ['id', 'customer', 'direction', 'category', 'method', 'amount', 'unappliedAmount', 'allocationIntent', 'impactPreview', 'reference', 'locationBucket', 'notes', 'status', 'createdAt'],
-    inventory: ['id', 'batchCode', 'name', 'category', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
+    inventory: ['id', 'batchCode', 'name', 'category', 'tags', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
     clients: ['id', 'name', 'creditLimit', 'balance', 'tags', 'notes', 'invoiceCount'],
     vendors: ['id', 'vendor', 'billNo', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],

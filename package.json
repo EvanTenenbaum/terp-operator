@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n server,client \"tsx watch src/server/index.ts\" \"vite --host 0.0.0.0\"",
+    "dev:e2e": "concurrently -k -n server,client \"tsx src/server/index.ts\" \"vite --host 0.0.0.0\"",
     "server:dev": "tsx watch src/server/index.ts",
     "client:dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
@@ -13,13 +14,16 @@
     "start": "NODE_ENV=production node dist/server/index.js",
     "db:migrate": "tsx src/server/migrate.ts",
     "db:seed": "tsx src/server/seed.ts",
+    "db:seed:realistic": "DEMO_SEED_SCENARIO=realistic_100d tsx src/server/seed.ts",
     "db:migrate:prod": "node dist/server/migrate.js",
     "db:seed:prod": "node dist/server/seed.js",
-    "start:staging": "NODE_ENV=production pnpm db:migrate:prod && ALLOW_DEMO_SEED=true pnpm db:seed:prod && NODE_ENV=production node dist/server/index.js",
+    "db:seed:realistic:prod": "DEMO_SEED_SCENARIO=realistic_100d node dist/server/seed.js",
+    "start:staging": "NODE_ENV=production pnpm db:migrate:prod && ALLOW_DEMO_SEED=true DEMO_SEED_SCENARIO=${DEMO_SEED_SCENARIO:-realistic_100d} pnpm db:seed:prod && NODE_ENV=production node dist/server/index.js",
     "staging:reset": "bash scripts/reset-staging-data.sh",
     "test:e2e": "playwright test",
     "audit:parity": "node scripts/check-backend-frontend-parity.mjs",
     "audit:product-roadmap": "node scripts/check-product-roadmap.mjs",
+    "audit:realistic-demo": "node scripts/audit-realistic-demo-data.mjs",
     "audit:self": "pnpm typecheck && pnpm audit:parity && pnpm audit:product-roadmap && pnpm build"
   },
   "dependencies": {

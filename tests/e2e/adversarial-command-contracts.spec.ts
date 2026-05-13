@@ -195,7 +195,9 @@ test.describe('adversarial command contracts', () => {
   test('inventory transfer commands are audited, reversible, and keep held stock out of sale posting', async ({ page }) => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
-    const batch = reference[0].result.data.json.availableBatches.find((row: { availableQty: string }) => Number(row.availableQty) >= 1);
+    const batch = reference[0].result.data.json.availableBatches.find((row: { availableQty: string; ownershipStatus?: string }) => Number(row.availableQty) >= 1 && row.ownershipStatus !== 'OFC')
+      ?? reference[0].result.data.json.availableBatches.find((row: { availableQty: string }) => Number(row.availableQty) >= 1);
+    const nextOwnership = batch.ownershipStatus === 'OFC' ? 'C' : 'OFC';
 
     const held = commandData(await runCommand(page, 'setInventoryStatus', { batchId: batch.id, status: 'held' }, 'QA hold for damaged label check'));
     expect(held.ok).toBe(true);
@@ -210,7 +212,7 @@ test.describe('adversarial command contracts', () => {
     expect(blockedLine.toast).toContain('not available for sale');
 
     const moved = commandData(await runCommand(page, 'transferInventoryLocation', { batchId: batch.id, location: 'QA-Hold' }, 'QA move'));
-    const owned = commandData(await runCommand(page, 'transferInventoryOwnership', { batchId: batch.id, ownershipStatus: 'OFC' }, 'QA ownership correction'));
+    const owned = commandData(await runCommand(page, 'transferInventoryOwnership', { batchId: batch.id, ownershipStatus: nextOwnership, vendorId: nextOwnership === 'C' ? batch.vendorId ?? reference[0].result.data.json.vendors[0].id : undefined }, 'QA ownership correction'));
     expect(moved.ok).toBe(true);
     expect(owned.ok).toBe(true);
 

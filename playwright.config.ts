@@ -12,7 +12,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_SKIP_WEB_SERVER
     ? undefined
     : {
-        command: 'pnpm dev',
+        command: 'pnpm dev:e2e',
         url: 'http://127.0.0.1:5173',
         reuseExistingServer: true,
         timeout: 120_000

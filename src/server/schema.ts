@@ -49,6 +49,24 @@ export const customers = pgTable('customers', {
   updatedAt: updated()
 });
 
+export const tagCatalog = pgTable(
+  'tag_catalog',
+  {
+    id: id(),
+    slug: varchar('slug', { length: 80 }).notNull(),
+    label: varchar('label', { length: 120 }).notNull(),
+    color: varchar('color', { length: 32 }).notNull().default('gray'),
+    description: text('description'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    slugIdx: uniqueIndex('tag_catalog_slug_idx').on(table.slug),
+    activeIdx: index('tag_catalog_active_idx').on(table.isActive)
+  })
+);
+
 export const items = pgTable('items', {
   id: id(),
   sku: varchar('sku', { length: 80 }).notNull().unique(),
@@ -342,6 +360,84 @@ export const connectorRequests = pgTable('connector_requests', {
   updatedAt: updated()
 });
 
+export const customerNeeds = pgTable(
+  'customer_needs',
+  {
+    id: id(),
+    needCode: varchar('need_code', { length: 80 }).notNull(),
+    customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+    productName: varchar('product_name', { length: 180 }).notNull(),
+    category: varchar('category', { length: 80 }).notNull(),
+    tags: text('tags').array().notNull().default([]),
+    qtyMin: numeric('qty_min', { precision: 12, scale: 3 }).notNull().default('1'),
+    qtyMax: numeric('qty_max', { precision: 12, scale: 3 }),
+    targetPrice: numeric('target_price', { precision: 12, scale: 2 }),
+    neededBy: timestamp('needed_by', { withTimezone: true }),
+    urgency: varchar('urgency', { length: 32 }).notNull().default('normal'),
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
+    notes: text('notes'),
+    status: varchar('status', { length: 32 }).notNull().default('open'),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    needCodeIdx: uniqueIndex('customer_needs_code_idx').on(table.needCode),
+    customerIdx: index('customer_needs_customer_idx').on(table.customerId),
+    statusIdx: index('customer_needs_status_idx').on(table.status),
+    categoryIdx: index('customer_needs_category_idx').on(table.category)
+  })
+);
+
+export const vendorSupply = pgTable(
+  'vendor_supply',
+  {
+    id: id(),
+    supplyCode: varchar('supply_code', { length: 80 }).notNull(),
+    vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+    productName: varchar('product_name', { length: 180 }).notNull(),
+    category: varchar('category', { length: 80 }).notNull(),
+    tags: text('tags').array().notNull().default([]),
+    availableQty: numeric('available_qty', { precision: 12, scale: 3 }).notNull().default('1'),
+    askingPrice: numeric('asking_price', { precision: 12, scale: 2 }),
+    availableDate: timestamp('available_date', { withTimezone: true }),
+    location: varchar('location', { length: 120 }),
+    grade: varchar('grade', { length: 80 }),
+    terms: text('terms'),
+    notes: text('notes'),
+    status: varchar('status', { length: 32 }).notNull().default('open'),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    supplyCodeIdx: uniqueIndex('vendor_supply_code_idx').on(table.supplyCode),
+    vendorIdx: index('vendor_supply_vendor_idx').on(table.vendorId),
+    statusIdx: index('vendor_supply_status_idx').on(table.status),
+    categoryIdx: index('vendor_supply_category_idx').on(table.category)
+  })
+);
+
+export const matchmakingMatches = pgTable(
+  'matchmaking_matches',
+  {
+    id: id(),
+    customerNeedId: uuid('customer_need_id').references(() => customerNeeds.id, { onDelete: 'cascade' }).notNull(),
+    vendorSupplyId: uuid('vendor_supply_id').references(() => vendorSupply.id, { onDelete: 'cascade' }).notNull(),
+    score: integer('score').notNull().default(0),
+    reasons: text('reasons').array().notNull().default([]),
+    status: varchar('status', { length: 32 }).notNull().default('open'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    pairIdx: uniqueIndex('matchmaking_matches_pair_idx').on(table.customerNeedId, table.vendorSupplyId),
+    needIdx: index('matchmaking_matches_need_idx').on(table.customerNeedId),
+    supplyIdx: index('matchmaking_matches_supply_idx').on(table.vendorSupplyId),
+    statusIdx: index('matchmaking_matches_status_idx').on(table.status),
+    scoreIdx: index('matchmaking_matches_score_idx').on(table.score)
+  })
+);
+
 export const creditOverrides = pgTable('credit_overrides', {
   id: id(),
   customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'cascade' }).notNull(),
@@ -458,3 +554,5 @@ export type Customer = typeof customers.$inferSelect;
 export type Vendor = typeof vendors.$inferSelect;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type SalesOrder = typeof salesOrders.$inferSelect;
+export type CustomerNeed = typeof customerNeeds.$inferSelect;
+export type VendorSupply = typeof vendorSupply.$inferSelect;

@@ -2,25 +2,25 @@ import type { QuickLaunchMode, SessionUser, ViewKey } from '../shared/types';
 
 type WorkLoop = 'owner' | 'manager' | 'sales' | 'intake' | 'warehouse' | 'operator' | 'viewer';
 
-const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment'];
+const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment'];
 
 const viewsByLoop: Record<WorkLoop, readonly ViewKey[]> = {
   owner: [...defaultOperatorViews, 'settings'],
   manager: [...defaultOperatorViews, 'settings'],
-  sales: ['dashboard', 'reports', 'sales', 'orders', 'inventory', 'clients', 'payments'],
-  intake: ['dashboard', 'purchaseOrders', 'intake', 'inventory', 'fulfillment', 'vendors'],
+  sales: ['dashboard', 'reports', 'sales', 'matchmaking', 'orders', 'inventory', 'clients', 'payments'],
+  intake: ['dashboard', 'purchaseOrders', 'intake', 'matchmaking', 'inventory', 'fulfillment', 'vendors'],
   warehouse: ['dashboard', 'orders', 'inventory', 'fulfillment'],
   operator: defaultOperatorViews,
-  viewer: ['dashboard', 'reports', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment']
+  viewer: ['dashboard', 'reports', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment']
 };
 
 const startsByLoop: Record<WorkLoop, readonly QuickLaunchMode[]> = {
-  owner: ['sale', 'purchaseOrder', 'receiving', 'moneyIn', 'moneyOut'],
-  manager: ['sale', 'purchaseOrder', 'receiving', 'moneyIn', 'moneyOut'],
-  sales: ['sale', 'moneyIn'],
-  intake: ['purchaseOrder', 'receiving', 'moneyOut'],
+  owner: ['sale', 'purchaseOrder', 'receiving', 'moneyIn', 'moneyOut', 'customerNeed', 'vendorSupply'],
+  manager: ['sale', 'purchaseOrder', 'receiving', 'moneyIn', 'moneyOut', 'customerNeed', 'vendorSupply'],
+  sales: ['sale', 'moneyIn', 'customerNeed'],
+  intake: ['purchaseOrder', 'receiving', 'moneyOut', 'vendorSupply'],
   warehouse: ['receiving'],
-  operator: ['sale', 'purchaseOrder', 'receiving', 'moneyIn', 'moneyOut'],
+  operator: ['sale', 'purchaseOrder', 'receiving', 'moneyIn', 'moneyOut', 'customerNeed', 'vendorSupply'],
   viewer: []
 };
 

@@ -35,7 +35,7 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CAP-011 Vendor receipt from selection | MR-012, AC-05, GAP-010 | Receive | projection, control | Keep | R10, R12 | `receiptPreview` and `postPurchaseReceipt` exist. | Phase 2 makes Receipt preview a drawer tab and blocks conflicts visibly. |
 | CAP-012 Customer-safe output | MR-041, S10 | Sell, Support | projection | Keep | R10 | Catalog mode hides cost/margin. | Phase 1 moves output into Customer/Order drawer and adds copy offer. |
 | CAP-013 Pricing risk visibility | MR-042, pricing contract | Sell | context, control | Keep | R2, R4 | Bounded backend guardrails now resolve standard/premium/clearance profiles from existing strategy/customer tags, lift reprices to floor, and store confirmation pricing snapshots in command journal results. Dedicated pricing tables/snapshot columns remain deferred. | Add dedicated pricing profile tables and customer assignments when frontend needs editable commercial policy management. |
-| CAP-014 Tag governance | Tag contract, J11 | Sell, Receive, Decide | control, projection | Keep | R2, R9 | Tags are arrays, not governed catalog. | Backend Phase B adds tag catalog/batch tags; frontend uses Finder chips and drawer tab. |
+| CAP-014 Tag governance | Tag contract, J11 | Sell, Receive, Decide | control, projection | Keep | R2, R9, R12 | Tags are row-native on PO lines, intake, inventory, needs, and vendor stock; `tag_catalog` normalizes vocabulary; `applyTags` and existing row commands audit changes. | Keep tags out of modal pickers; add reports/saved slices only if operators need more rollups. |
 | CAP-015 Search index / global search | Search contract, J14 | Support | projection | Merge | R9, R12 | `globalSearch` exists as direct SQL query. | Keep query short-term; later add freshness metadata or generated projection if needed. |
 | CAP-016 Smart suggestions | Smart suggestions contract, J13 | Sell | projection | Keep | R9 | `salesSuggestions` query exists but not persisted/advisory table. | Later backend converts to persisted advisory rows with accept/dismiss trace. |
 | CAP-017 Connector review | J08, AC-11 | Support, Sell, Fulfill, Collect/Pay | core_workflow | Keep | R16, R4 | Approve/reject/route commands exist; no direct ledger mutation. | Phase 4 makes Route primary, safety banner persistent, history drawer first-class. |
@@ -50,6 +50,7 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CAP-026 Support packet | J09 | Support | control | Keep | R10 | `supportPacket` query exists. | Keep in Recovery drawer/row packet export; no daily nav. |
 | CAP-027 Backup/restore preview | J09 | Recover/Close | control | Keep | R10 | Restore preview is read-only. | Preserve read-only in app; offline destructive restore remains out of app. |
 | CAP-028 Legacy marker preservation | Legacy marker contract, MR-002 | All loops | context | Keep | R2 | Raw marker fields exist. | Preserve; add legends/review queue later without remapping prematurely. |
+| CAP-029 Matchmaking demand/supply board | User clarification 2026-05-13 | Sell, Buy, Decide | core_workflow, projection | Keep | R6, R8, R12 | Matchmaking route records customer needs, vendor stock, and deterministic match rows with reasons. | Keep as intent tracking only; purchase/sale/intake consequences stay in existing workflows. |
 
 ## Backend Command Families
 
@@ -65,6 +66,8 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CMD-CONNECTOR | `approveConnectorRequest`, `rejectConnectorRequest`, internal `routeConnectorRequest` | Support | core_workflow | Partial | Add accepted-to-posted backend bridge later; operators approve/reject while routing/default assignment stays internal. |
 | CMD-RECOVERY | `createCorrectionJournalEntry`, `reverseCommandById`, `restoreFromBackupPoint`, `repriceOrder` | Recover/Close | control | Already covered | Reversal matrix now marks every command reversible, offsettable, or terminal; Phase 5 drawer tools expose the guidance. |
 | CMD-CLOSEOUT | `postPeriodAdjustments`, `lockPeriod`, `archivePeriod` | Recover/Close | control | Partial | Archive blockers/control totals are hardened; unsafe row drilldown remains frontend Phase 5. |
+| CMD-TAGS | `applyTags` | Buy, Receive, Sell, Decide | core_workflow, control | Covered | Tag edits are inline on operational rows; the explicit command supports palette/API use and audited tag replacement. |
+| CMD-MATCHMAKING | `createCustomerNeed`, `updateCustomerNeed`, `createVendorSupply`, `updateVendorSupply`, `acceptMatchmakingMatch`, `dismissMatchmakingMatch` | Sell, Buy, Decide | core_workflow | Covered | Matchmaking route exposes quick-entry strips, three grids, and deterministic accept/dismiss actions. |
 
 ## Explicitly Rejected Old-Platform Units
 
@@ -82,7 +85,7 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | ID | Source | Work loop | Exposure | Product decision | Next product move |
 | --- | --- | --- | --- | --- | --- |
 | BE-001 Pricing profiles and guardrails | Pricing contract | Sell | control, context | Partial | Bounded existing-schema kernel landed: resolver, min-margin/max-discount/vendor-floor guardrails, and command-journal confirmation snapshots. Dedicated pricing profile tables, customer assignment rows, and order snapshot columns remain. |
-| BE-002 Governed tag catalog | Tag contract | Sell, Receive | control, projection | Keep | Add tag catalog, batch tags, reversible apply/remove tags. |
+| BE-002 Governed tag catalog | Tag contract | Sell, Receive | control, projection | Covered | `tag_catalog` plus `applyTags` and normalized row tag arrays preserve operator speed while adding searchable vocabulary. |
 | BE-003 Inventory state transitions | GAP-001/002/003 | Receive, Fulfill | control | Already covered | `setInventoryStatus`, `transferInventoryLocation`, and `transferInventoryOwnership` are visible in Inventory controls and backed by movement rows plus reversal support. |
 | BE-004 Connector accepted-to-posted bridge | J08/J14/S05/S15 | Support | control | Defer | Add after connector review UX is stabilized. |
 | BE-005 Closeout blocker parity | J10/S07/S16 | Recover/Close | control | Already covered | Shared closeout safety helper makes preview and archive enforce the same blockers and control totals. |

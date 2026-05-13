@@ -21,6 +21,7 @@ export const commandNames = [
   'setBatchLotInfo',
   'attachBatchPhoto',
   'importBatchesCsv',
+  'applyTags',
   'createSalesOrder',
   'addSalesOrderLine',
   'updateSalesOrderLine',
@@ -57,7 +58,13 @@ export const commandNames = [
   'repriceOrder',
   'postPeriodAdjustments',
   'lockPeriod',
-  'archivePeriod'
+  'archivePeriod',
+  'createCustomerNeed',
+  'updateCustomerNeed',
+  'createVendorSupply',
+  'updateVendorSupply',
+  'acceptMatchmakingMatch',
+  'dismissMatchmakingMatch'
 ] as const;
 
 export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
@@ -92,6 +99,7 @@ export const commandLabels: Record<CommandName, string> = {
   setBatchLotInfo: 'Set lot info',
   attachBatchPhoto: 'Attach batch photo',
   importBatchesCsv: 'Import batches CSV',
+  applyTags: 'Apply tags',
   createSalesOrder: 'Create sales order',
   addSalesOrderLine: 'Add sales order line',
   updateSalesOrderLine: 'Update sales order line',
@@ -128,7 +136,13 @@ export const commandLabels: Record<CommandName, string> = {
   repriceOrder: 'Reprice order',
   postPeriodAdjustments: 'Post period adjustments',
   lockPeriod: 'Lock period',
-  archivePeriod: 'Archive period'
+  archivePeriod: 'Archive period',
+  createCustomerNeed: 'Create customer need',
+  updateCustomerNeed: 'Update customer need',
+  createVendorSupply: 'Create vendor stock',
+  updateVendorSupply: 'Update vendor stock',
+  acceptMatchmakingMatch: 'Accept match',
+  dismissMatchmakingMatch: 'Dismiss match'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -152,6 +166,7 @@ export const commandMinRole: Record<CommandName, Role> = {
   setBatchLotInfo: 'operator',
   attachBatchPhoto: 'operator',
   importBatchesCsv: 'operator',
+  applyTags: 'operator',
   createSalesOrder: 'operator',
   addSalesOrderLine: 'operator',
   updateSalesOrderLine: 'operator',
@@ -188,7 +203,13 @@ export const commandMinRole: Record<CommandName, Role> = {
   repriceOrder: 'manager',
   postPeriodAdjustments: 'owner',
   lockPeriod: 'owner',
-  archivePeriod: 'owner'
+  archivePeriod: 'owner',
+  createCustomerNeed: 'operator',
+  updateCustomerNeed: 'operator',
+  createVendorSupply: 'operator',
+  updateVendorSupply: 'operator',
+  acceptMatchmakingMatch: 'operator',
+  dismissMatchmakingMatch: 'operator'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -212,6 +233,7 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   setBatchLotInfo: { disposition: 'terminal', guidance: 'Use another lot-info update with the intended field values.' },
   attachBatchPhoto: { disposition: 'terminal', guidance: 'Replace or clear media through an explicit media correction.' },
   importBatchesCsv: { disposition: 'terminal', guidance: 'Imported drafts should be deleted or corrected row by row before posting.' },
+  applyTags: { disposition: 'terminal', guidance: 'Apply tags again with the intended add/remove/replace mode.' },
   createSalesOrder: { disposition: 'terminal', guidance: 'Cancel or edit the draft order instead.' },
   addSalesOrderLine: { disposition: 'terminal', guidance: 'Remove the order line before posting.' },
   updateSalesOrderLine: { disposition: 'terminal', guidance: 'Use another line update with the intended field values.' },
@@ -248,7 +270,13 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   repriceOrder: { disposition: 'offsettable', guidance: 'Run repriceOrder again with the intended strategy.' },
   postPeriodAdjustments: { disposition: 'reversible', guidance: 'Marks posted correction journal rows reversed.' },
   lockPeriod: { disposition: 'terminal', guidance: 'Period locks are terminal closeout controls.' },
-  archivePeriod: { disposition: 'terminal', guidance: 'Archive runs are terminal; restore is offline/read-only in app.' }
+  archivePeriod: { disposition: 'terminal', guidance: 'Archive runs are terminal; restore is offline/read-only in app.' },
+  createCustomerNeed: { disposition: 'terminal', guidance: 'Close or edit the customer need if it was entered by mistake.' },
+  updateCustomerNeed: { disposition: 'terminal', guidance: 'Use another update with the intended need values.' },
+  createVendorSupply: { disposition: 'terminal', guidance: 'Close or edit the vendor stock row if it was entered by mistake.' },
+  updateVendorSupply: { disposition: 'terminal', guidance: 'Use another update with the intended vendor stock values.' },
+  acceptMatchmakingMatch: { disposition: 'offsettable', guidance: 'Dismiss the match or reopen the need/supply from the matchmaking grid.' },
+  dismissMatchmakingMatch: { disposition: 'offsettable', guidance: 'Accept a new or reopened match if the dismissal was accidental.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

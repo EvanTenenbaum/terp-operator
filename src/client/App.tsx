@@ -14,6 +14,7 @@ import { useUiStore } from './store/uiStore';
 import { DashboardView } from './views/DashboardView';
 import { IntakeView } from './views/IntakeView';
 import { LoginView } from './views/LoginView';
+import { MatchmakingView } from './views/MatchmakingView';
 import { SalesView } from './views/SalesView';
 import {
   ClientLedgerView,
@@ -73,6 +74,7 @@ export function App() {
             {activeView === 'purchaseOrders' ? <PurchaseOrdersView /> : null}
             {activeView === 'intake' ? <IntakeView /> : null}
             {activeView === 'sales' ? <SalesView /> : null}
+            {activeView === 'matchmaking' ? <MatchmakingView /> : null}
             {activeView === 'orders' ? <OrdersView /> : null}
             {activeView === 'payments' ? <PaymentsView /> : null}
             {activeView === 'inventory' ? <InventoryView /> : null}
