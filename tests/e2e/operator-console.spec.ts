@@ -50,6 +50,11 @@ test('collapsed mobile navigation keeps accessible route names', async ({ page }
   await page.getByLabel('Password').fill('terp-demo');
   await page.getByRole('button', { name: 'Sign in' }).click();
 
+  const keel = page.getByRole('banner', { name: 'Global workspace keel' });
+  await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'New PO', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'Receive', exact: true })).toBeVisible();
+
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Requests' })).toBeVisible();
@@ -67,13 +72,13 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await expect(page.getByText('Owner Daily Decision View')).toBeVisible({ timeout: 30_000 });
 
   const keel = page.getByRole('banner', { name: 'Global workspace keel' });
-  await expect(keel.getByRole('button', { name: 'Sale', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'Purchase', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'New PO', exact: true })).toBeVisible();
   await expect(keel.getByRole('button', { name: 'Receive', exact: true })).toBeVisible();
   await expect(keel.getByRole('button', { name: '$ In', exact: true })).toBeVisible();
   await expect(keel.getByRole('button', { name: '$ Out', exact: true })).toBeVisible();
 
-  await keel.getByRole('button', { name: 'Sale', exact: true }).click();
+  await keel.getByRole('button', { name: 'New Sale', exact: true }).click();
   await page.getByLabel('Customer').selectOption({ label: 'Cobalt Reserve' });
   await page.getByRole('button', { name: 'New Sale' }).first().click();
   await expect(page.getByText('Sales Orders')).toBeVisible();
@@ -90,9 +95,9 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await expect(finder.getByText(/\d+ \/ \d+ shown/)).toBeVisible();
   await page.keyboard.press('Escape');
 
-  await keel.getByRole('button', { name: 'Purchase' }).click();
+  await keel.getByRole('button', { name: 'New PO' }).click();
   await expect(page.getByRole('button', { name: /Purchase Orders \d+ row/ })).toBeVisible();
-  await page.getByRole('button', { name: 'New PO' }).click();
+  await page.getByRole('main').getByRole('button', { name: 'New PO' }).click();
   await expect(page.getByRole('button', { name: /Add Line/ })).toBeVisible();
 
   await keel.getByRole('button', { name: 'Receive', exact: true }).click();
@@ -117,7 +122,7 @@ test('operators can reclaim space while keeping the keel available', async ({ pa
   await page.getByRole('navigation').getByRole('button', { name: /Sales/ }).click();
   await expect(page.getByText('Sales Orders')).toBeVisible();
   await page.getByLabel('Expand Sales Orders').click();
-  await expect(keel.getByRole('button', { name: 'Sale', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
   await expect(page.getByText('Inventory Finder')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(keel).toBeVisible();
@@ -197,6 +202,8 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   await nav.getByRole('button', { name: /Settings/ }).click();
   await page.getByRole('tab', { name: 'Requests' }).click();
   await expect(page.getByText('Inbound Requests')).toBeVisible();
+  await expect(page.getByText('VIP customer')).toBeVisible();
+  await expect(page.getByText('Live order')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Route' })).toHaveCount(0);
   await expect(page.getByText(/routed/i)).toHaveCount(0);

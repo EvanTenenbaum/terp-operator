@@ -111,7 +111,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'lines', width: 90 }
   ],
   connectors: [
-    { field: 'source', headerName: 'From', pinned: 'left', width: 140 },
+    { field: 'source', headerName: 'From', pinned: 'left', width: 170, valueFormatter: (params) => formatRequestSource(params.value) },
     { field: 'requestType', headerName: 'Request', width: 170, valueFormatter: (params) => formatRequestType(params.value) },
     { field: 'customer', width: 180 },
     { field: 'status', width: 125 },
@@ -1384,9 +1384,9 @@ function formatRequestType(value: unknown) {
 function formatRequestSource(value: unknown) {
   const raw = String(value ?? '');
   const labels: Record<string, string> = {
-    vip: 'VIP',
-    'live-shopping': 'Live shopping',
-    'mobile-scan': 'Mobile scan'
+    vip: 'VIP customer',
+    'live-shopping': 'Live order',
+    'mobile-scan': 'Warehouse scan'
   };
   return labels[raw] ?? labelFromToken(raw);
 }

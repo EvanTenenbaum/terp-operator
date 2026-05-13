@@ -66,11 +66,11 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
 ];
 
 const keelChips: Array<{ label: string; view: ViewKey; launch: 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut'; icon: typeof Gauge; title: string }> = [
-  { label: 'Sale', view: 'sales', launch: 'sale', icon: ShoppingCart, title: 'Open Sales' },
-  { label: 'Receive', view: 'intake', launch: 'receiving', icon: PackagePlus, title: 'Open Intake' },
+  { label: 'New Sale', view: 'sales', launch: 'sale', icon: ShoppingCart, title: 'Start a new sale' },
+  { label: 'New PO', view: 'purchaseOrders', launch: 'purchaseOrder', icon: ClipboardList, title: 'Start a new purchase order' },
+  { label: 'Receive', view: 'intake', launch: 'receiving', icon: PackagePlus, title: 'Receive product into intake' },
   { label: '$ In', view: 'payments', launch: 'moneyIn', icon: ArrowDown, title: 'Open Payments' },
-  { label: '$ Out', view: 'vendors', launch: 'moneyOut', icon: ArrowUp, title: 'Open Vendor Payouts' },
-  { label: 'Purchase', view: 'purchaseOrders', launch: 'purchaseOrder', icon: ClipboardList, title: 'Open Purchase Orders' }
+  { label: '$ Out', view: 'vendors', launch: 'moneyOut', icon: ArrowUp, title: 'Open Vendor Payouts' }
 ];
 
 export function SideNav({ user }: { user: SessionUser }) {
@@ -174,10 +174,11 @@ export function Keel({ user }: { user: SessionUser }) {
           );
         })}
       </div>
-      <div className="flex min-w-0 items-center gap-3 text-sm">
-        <button type="button" className="keel-status-chip" onClick={() => toggleDrawer(activeView)} title="Toggle context drawer">
+      <div className="keel-utilities">
+        <button type="button" className="keel-status-chip" onClick={() => toggleDrawer(activeView)} title={`Context drawer is ${drawerState}. Toggle context drawer.`} aria-label={`Toggle context drawer. Current state: ${drawerState}.`}>
           <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
-          <span>{drawerState}</span>
+          <span>Drawer</span>
+          <span className="keel-chip-detail">{drawerState}</span>
         </button>
         <div className="keel-status-chip">
           <span className={clsx('h-3 w-3 border', health.data?.ok ? 'bg-emerald-500 border-emerald-700' : 'bg-amber border-amber')} aria-hidden="true" />

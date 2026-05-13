@@ -183,10 +183,10 @@ export function CommandPalette() {
             ) : null}
           </div>
           {advancedOpen ? <div className="border-l border-line bg-panel p-3">
-            <div className="text-xs font-semibold uppercase text-zinc-600">Context payload</div>
+            <div className="text-xs font-semibold uppercase text-zinc-600">Current context</div>
             <pre className="mt-2 max-h-24 overflow-auto bg-white p-2 text-xs">{JSON.stringify(contextPayload, null, 2)}</pre>
             <label className="mt-3 block text-xs font-semibold uppercase text-zinc-600" htmlFor="payload-json">
-              Extra JSON payload
+              Advanced JSON
             </label>
             <textarea
               id="payload-json"
