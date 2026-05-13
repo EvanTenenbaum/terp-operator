@@ -14,6 +14,7 @@ COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install --prod --frozen-lockfile=false
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
+COPY scripts ./scripts
 RUN mkdir -p storage/journal storage/archives
 EXPOSE 8787
 CMD ["node", "dist/server/index.js"]
