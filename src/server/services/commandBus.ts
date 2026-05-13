@@ -50,6 +50,7 @@ import { commandInputSchema } from '../../shared/schemas';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
+import { normalizeTagSlug, parseTagInput } from '../../shared/tags';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -2289,24 +2290,8 @@ function requiredNumber(value: unknown, name: string) {
   return number;
 }
 
-function arrayValue(value: unknown, fallback: string[] = []) {
-  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
-  if (typeof value === 'string') return value.split(/[|,]/).map((item) => item.trim()).filter(Boolean);
-  return fallback;
-}
-
 function tagValue(value: unknown, fallback: string[] = []) {
-  return [...new Set(arrayValue(value, fallback).map(normalizeTagSlug).filter(Boolean))];
-}
-
-function normalizeTagSlug(value: unknown) {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
+  return parseTagInput(value, fallback);
 }
 
 function tagLabel(slug: string) {

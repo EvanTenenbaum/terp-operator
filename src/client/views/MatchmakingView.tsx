@@ -7,6 +7,7 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
+import { parseTagInput } from '../../shared/tags';
 
 const needColumns: ColDef<GridRow>[] = [
   { field: 'needCode', headerName: 'Need', pinned: 'left', width: 150 },
@@ -103,7 +104,7 @@ export function MatchmakingView() {
         customerId: defaultCustomerId,
         productName: needProduct,
         category: needCategory,
-        tags: parseTags(needTags),
+        tags: parseTagInput(needTags),
         qtyMin: Number(qtyMin),
         qtyMax: qtyMax ? Number(qtyMax) : undefined,
         targetPrice: targetPrice ? Number(targetPrice) : undefined,
@@ -123,7 +124,7 @@ export function MatchmakingView() {
         vendorId: defaultVendorId,
         productName: supplyProduct,
         category: supplyCategory,
-        tags: parseTags(supplyTags),
+        tags: parseTagInput(supplyTags),
         availableQty: Number(availableQty),
         askingPrice: askingPrice ? Number(askingPrice) : undefined,
         availableDate: availableDate || undefined,
@@ -325,8 +326,4 @@ export function MatchmakingView() {
       </div>
     </div>
   );
-}
-
-function parseTags(value: string) {
-  return value.split(/[|,]/).map((tag) => tag.trim()).filter(Boolean);
 }

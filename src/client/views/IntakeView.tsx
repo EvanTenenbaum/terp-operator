@@ -7,6 +7,7 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { CommandResult, GridRow } from '../../shared/types';
+import { parseTagInput } from '../../shared/tags';
 
 const intakeColumns: ColDef<GridRow>[] = [
   { field: 'batchCode', headerName: 'Batch', pinned: 'left', editable: false, width: 150 },
@@ -75,7 +76,7 @@ export function IntakeView() {
       shorthand: 'Ins/candy',
       name: 'New receiving line',
       category: 'Infused',
-      tags: parseTags(rowTags),
+      tags: parseTagInput(rowTags),
       intakeDate: new Date().toISOString(),
       intakeQty: 1,
       unitCost: 0,
@@ -311,8 +312,4 @@ export function IntakeView() {
       ) : null}
     </div>
   );
-}
-
-function parseTags(value: string) {
-  return value.split(/[|,]/).map((tag) => tag.trim()).filter(Boolean);
 }

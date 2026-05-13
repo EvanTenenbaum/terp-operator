@@ -18,7 +18,7 @@
     "db:migrate:prod": "node dist/server/migrate.js",
     "db:seed:prod": "node dist/server/seed.js",
     "db:seed:realistic:prod": "DEMO_SEED_SCENARIO=realistic_100d node dist/server/seed.js",
-    "start:staging": "NODE_ENV=production pnpm db:migrate:prod && ALLOW_DEMO_SEED=true DEMO_SEED_SCENARIO=${DEMO_SEED_SCENARIO:-realistic_100d} pnpm db:seed:prod && NODE_ENV=production node dist/server/index.js",
+    "start:staging": "NODE_ENV=production pnpm db:migrate:prod && ALLOW_DEMO_SEED=true DEMO_SEED_SCENARIO=${DEMO_SEED_SCENARIO:-realistic_100d} pnpm db:seed:prod && DATABASE_SSL=${DATABASE_SSL:-false} pnpm audit:realistic-demo && NODE_ENV=production node dist/server/index.js",
     "staging:reset": "bash scripts/reset-staging-data.sh",
     "test:e2e": "playwright test",
     "audit:parity": "node scripts/check-backend-frontend-parity.mjs",

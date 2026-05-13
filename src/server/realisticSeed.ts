@@ -161,6 +161,12 @@ export async function seedRealisticDemoData(config = realisticDemoConfigFromEnv(
     { ownerId: owner.id, managerId: manager.id, salesOperatorId: salesOperator.id, warehouseOperatorId: warehouseOperator.id },
     customerBalances
   );
+  await seedActiveOperatorWork(config, rng, itemRows, vendorRows, customerSeeds, mutableBatches, {
+    managerId: manager.id,
+    inventoryOperatorId: inventoryOperator.id,
+    salesOperatorId: salesOperator.id,
+    warehouseOperatorId: warehouseOperator.id
+  });
   await seedMatchmaking(config, rng, customerSeeds, vendorRows, salesOperator.id);
   await seedConnectors(rng, customerSeeds, warehouseOperator.id);
   await seedOperationalControls(config, {
@@ -518,6 +524,194 @@ async function seedPurchasingAndInventory(
   await insertChunks(vendorPayments, vendorPaymentRows, 250);
   await insertChunks(inventoryMovements, movementRows, 500);
   return mutableBatches;
+}
+
+async function seedActiveOperatorWork(
+  config: RealisticDemoConfig,
+  rng: () => number,
+  itemRows: Array<typeof items.$inferSelect>,
+  vendorRows: Array<typeof vendors.$inferSelect>,
+  customerRows: CustomerSeed[],
+  mutableBatches: MutableBatch[],
+  actorIds: { managerId: string; inventoryOperatorId: string; salesOperatorId: string; warehouseOperatorId: string }
+) {
+  const flowerItems = itemRows.filter((item) => item.category === 'Flower');
+  const nonFlowerItems = itemRows.filter((item) => item.category !== 'Flower');
+  const activePurchaseRows: Insertable<typeof purchaseOrders>[] = [];
+  const activePurchaseLineRows: Insertable<typeof purchaseOrderLines>[] = [];
+  const activeBatchRows: Insertable<typeof batches>[] = [];
+
+  for (let index = 0; index < 8; index += 1) {
+    const isFlower = index < 6;
+    const item = isFlower ? flowerItems[index % flowerItems.length] : nonFlowerItems[index % nonFlowerItems.length];
+    const vendor = vendorRows[index % vendorRows.length];
+    const grade = isFlower ? (item.sku.includes('OUTDOOR') ? 'outdoor' : item.sku.includes('DEPS') ? 'deps' : 'indoor') : undefined;
+    const avgSale = grade ? config.flowerAvgPrice[grade] : Number((item.pricingRule as { avgSalePrice?: number }).avgSalePrice ?? 45);
+    const qtyValue = isFlower ? randBetween(rng, 12, 80) : randBetween(rng, 100, 600);
+    const unitCost = avgSale * (isFlower ? randBetween(rng, 0.48, 0.66) : randBetween(rng, 0.55, 0.7));
+    const isConsigned = isFlower && index % 4 !== 0;
+    const status = index % 3 === 0 ? 'draft' : 'approved';
+    const activeCode = index === 0 ? 'M15-ACTIVE-001' : `ACTIVE-${String(index + 1).padStart(3, '0')}`;
+    activePurchaseRows.push({
+      poNo: `PO-${activeCode}`,
+      vendorId: vendor.id,
+      status,
+      expectedDate: addDays(new Date(), 1 + index),
+      orderedAt: status === 'approved' ? daysAgo(1 + (index % 3)) : null,
+      orderedBy: status === 'approved' ? actorIds.managerId : actorIds.inventoryOperatorId,
+      total: money(qtyValue * unitCost),
+      buyerNotes: status === 'draft' ? 'Draft buy being shaped before product arrives.' : 'Approved buy awaiting receipt.',
+      internalNotes: isConsigned ? 'Active consignment purchase; receive before inventory posts.' : 'Active office-owned purchase.'
+    });
+    activePurchaseLineRows.push({
+      purchaseOrderId: '',
+      itemId: item.id,
+      productName: item.name,
+      category: item.category,
+      tags: [...item.tags, ...(isConsigned ? ['consignment'] : []), ...(index % 2 === 0 ? ['range-priced'] : [])],
+      qty: qty(qtyValue),
+      receivedQty: '0.000',
+      uom: isFlower ? 'lb' : item.category === 'Pre-roll' ? 'unit' : 'case',
+      unitCost: money(unitCost),
+      unitPrice: money(avgSale),
+      sourceCode: activeCode,
+      shorthand: isFlower ? `Flw/${grade === 'deps' ? 'mixed-light' : grade}` : `${item.category}/active`,
+      legacyMarker: isConsigned ? 'C' : 'OFC',
+      ownershipStatus: isConsigned ? 'C' : 'OFC',
+      notes: index === 0 ? 'Ready to receive when product lands. Rich asked about 25 flex.' : status === 'draft' ? 'Open PO line for operator planning.' : 'Ready to receive when product lands.',
+      status: 'planned'
+    });
+  }
+
+  const insertedActivePurchaseOrders = await insertChunks(purchaseOrders, activePurchaseRows, 250);
+  activePurchaseLineRows.forEach((line, index) => {
+    line.purchaseOrderId = insertedActivePurchaseOrders[index].id;
+  });
+  const insertedActivePurchaseLines = await insertChunks(purchaseOrderLines, activePurchaseLineRows, 250);
+
+  for (const [index, poLine] of insertedActivePurchaseLines.slice(0, 6).entries()) {
+    const priceRange = index % 2 === 0 ? `${money(Number(poLine.unitCost) * 0.92)}-${money(Number(poLine.unitCost) * 1.12)}` : null;
+    activeBatchRows.push({
+      itemId: poLine.itemId,
+      vendorId: insertedActivePurchaseOrders[index].vendorId,
+      purchaseOrderId: insertedActivePurchaseOrders[index].id,
+      purchaseOrderLineId: poLine.id,
+      batchCode: `INTAKE-${String(index + 1).padStart(3, '0')}`,
+      sourceCode: poLine.sourceCode,
+      shorthand: poLine.shorthand,
+      legacyMarker: poLine.legacyMarker,
+      name: poLine.productName,
+      category: poLine.category,
+      tags: poLine.tags,
+      intakeQty: poLine.qty,
+      availableQty: '0.000',
+      uom: poLine.uom,
+      unitCost: poLine.unitCost,
+      unitPrice: poLine.unitPrice,
+      ticketCost: money(Number(poLine.qty) * Number(poLine.unitCost)),
+      priceRange,
+      location: 'Receiving',
+      lotCode: `LOT-${poLine.sourceCode}`,
+      intakeDate: index % 2 === 0 ? new Date() : addDays(new Date(), 1),
+      notes: index === 0 ? 'Active ready intake row for receiving QA. Rich asked about 25 flex.' : index % 2 === 0 ? 'Active ready intake row for receiving QA.' : 'Draft intake row awaiting arrival confirmation.',
+      ownershipStatus: poLine.ownershipStatus,
+      arrivalConfirmed: index % 2 === 0,
+      arrivalStatus: index % 2 === 0 ? 'arrived' : 'pending',
+      mediaStatus: 'open',
+      status: index % 2 === 0 ? 'ready' : 'draft',
+      createdAt: daysAgo(index % 2),
+      updatedAt: daysAgo(index % 2)
+    });
+  }
+  await insertChunks(batches, activeBatchRows, 250);
+
+  const activeOrderRows: Insertable<typeof salesOrders>[] = [];
+  const activeLineRows: Insertable<typeof salesOrderLines>[] = [];
+  const saleBatches = mutableBatches.filter((batch) => batch.remainingQty > 5).slice(0, 8);
+  for (let index = 0; index < 8 && saleBatches[index]; index += 1) {
+    const batch = saleBatches[index];
+    const customer = customerRows[index % customerRows.length];
+    const orderStatus = index % 2 === 0 ? 'draft' : 'confirmed';
+    const qtyValue = Math.min(batch.remainingQty, batch.category === 'Flower' ? randBetween(rng, 2, 12) : randBetween(rng, 20, 80));
+    const unitPrice = batch.unitPrice * randBetween(rng, 0.94, 1.06);
+    activeOrderRows.push({
+      orderNo: `SO-ACTIVE-${String(index + 1).padStart(3, '0')}`,
+      customerId: customer.id,
+      status: orderStatus,
+      pricingStrategy: batch.priceRange ? 'range-preview' : 'standard',
+      internalMargin: money(qtyValue * (unitPrice - batch.unitCost)),
+      total: money(qtyValue * unitPrice),
+      deliveryWindow: index % 2 === 0 ? 'Needs confirmation' : 'Ready this week',
+      notes: orderStatus === 'draft' ? 'Active draft order for sales-grid testing.' : 'Active confirmed order ready to post.',
+      packed: false,
+      inventoryPosted: false,
+      paymentFollowup: true,
+      legacyStatusMarkers: customer.kind === 'whale' ? 'P,Iv' : 'M',
+      validationIssues: [],
+      createdAt: daysAgo(index % 3),
+      updatedAt: daysAgo(index % 3)
+    });
+    activeLineRows.push({
+      orderId: '',
+      batchId: batch.id,
+      itemName: batch.itemName,
+      qty: qty(qtyValue),
+      unitPrice: money(unitPrice),
+      unitCost: money(batch.priceRange ? landedCogs(batch, rng) : batch.unitCost),
+      sourceRowKey: batch.batchCode,
+      legacyStatusMarker: batch.ownershipStatus === 'C' ? 'C' : 'OFC',
+      packed: false,
+      inventoryPosted: false,
+      paymentFollowup: true,
+      validationIssues: index % 5 === 0 ? ['Confirm buyer credit before posting.'] : [],
+      status: orderStatus === 'confirmed' ? 'ready' : 'draft',
+      createdAt: daysAgo(index % 3),
+      updatedAt: daysAgo(index % 3)
+    });
+  }
+  const insertedActiveOrders = await insertChunks(salesOrders, activeOrderRows, 250);
+  activeLineRows.forEach((line, index) => {
+    line.orderId = insertedActiveOrders[index].id;
+  });
+  await insertChunks(salesOrderLines, activeLineRows, 250);
+
+  await insertChunks(payments, customerRows.slice(0, 6).map((customer, index) => {
+    const isBuyerCredit = index % 2 === 1;
+    const amount = isBuyerCredit ? randBetween(rng, 5_000, 18_000) : randBetween(rng, 8_000, 45_000);
+    return {
+      customerId: customer.id,
+      method: index % 3 === 0 ? 'cash' : index % 3 === 1 ? 'wire' : 'crypto',
+      amount: money(isBuyerCredit ? -amount : amount),
+      unappliedAmount: money(isBuyerCredit ? amount : 0),
+      reference: `active-payment-${index + 1}`,
+      locationBucket: isBuyerCredit ? 'credit-memo' : 'cash-file-a',
+      notes: isBuyerCredit ? 'Active buyer prepayment row ready for review.' : 'Active payment row ready for allocation review.',
+      direction: isBuyerCredit ? 'buyer_credit' : 'money_in',
+      category: isBuyerCredit ? 'buyer_credit' : 'client_payment',
+      allocationIntent: isBuyerCredit ? 'unapplied' : 'fifo',
+      impactPreview: 'Active work row for payment logging and allocation QA.',
+      status: isBuyerCredit ? 'draft' : 'ready',
+      createdAt: daysAgo(index),
+      updatedAt: daysAgo(index)
+    };
+  }), 250);
+
+  const openPickOrders = insertedActiveOrders.filter((order) => order.status === 'confirmed').slice(0, 3);
+  await insertChunks(pickLists, openPickOrders.map((order, index) => ({
+    pickNo: `PICK-ACTIVE-${String(index + 1).padStart(3, '0')}`,
+    orderId: order.id,
+    status: 'open',
+    assignedTo: actorIds.warehouseOperatorId,
+    labelFormat: index % 2 === 0 ? '4x6' : '2x1',
+    unitsPerBag: 10,
+    labelsPrinted: false,
+    manifestPath: null,
+    tracking: null,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  })), 250);
+
+  await db.insert(commandJournal).values(commandRow('createSalesOrder', actorIds.salesOperatorId, 'Sam Sales', 'operator', { activeWork: true }, insertedActiveOrders.map((order) => order.id), new Date(), { activeDraftOrders: insertedActiveOrders.length }));
 }
 
 async function seedSalesAccountingAndFulfillment(

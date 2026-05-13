@@ -36,6 +36,7 @@ This scenario is the DigitalOcean demo dataset for operator QA. It is intentiona
 - Connector requests that remain non-authoritative.
 - Customer needs, vendor stock, and deterministic matchmaking rows.
 - Command journal rows showing pricing/range-resolution and accounting events.
+- Active operator work layered on top of history: draft/approved POs, ready intake rows, draft/confirmed sales, ready payment rows, open pick lists, open connector requests, and open matchmaking rows.
 
 ## Config Knobs
 
@@ -63,6 +64,14 @@ ALLOW_DEMO_SEED=true DEMO_SEED_SCENARIO=realistic_100d pnpm db:seed
 pnpm audit:realistic-demo
 ```
 
+The seed takes roughly 10-20 seconds on a local laptop database and around the same order of magnitude during App Platform startup. Staging intentionally defaults to this scenario so reviewers see a useful operating business instead of a tiny fixture.
+
+To opt out for a faster smoke database:
+
+```bash
+ALLOW_DEMO_SEED=true DEMO_SEED_SCENARIO=baseline pnpm db:seed
+```
+
 ## Acceptance
 
-`pnpm audit:realistic-demo` must pass before the scenario is deployed to the DigitalOcean demo app.
+`pnpm audit:realistic-demo` must pass before the scenario is deployed to the DigitalOcean demo app. The staging start command also runs this audit after seeding; if the data mix drifts or a partial seed happens, the app refuses to start instead of presenting misleading demo data.

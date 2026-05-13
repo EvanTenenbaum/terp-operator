@@ -229,8 +229,8 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   await nav.getByRole('button', { name: /Settings/ }).click();
   await page.getByRole('tab', { name: 'Requests' }).click();
   await expect(page.getByText('Inbound Requests')).toBeVisible();
-  await expect(page.getByText('VIP customer')).toBeVisible();
-  await expect(page.getByText('Live order')).toBeVisible();
+  await expect(page.getByText('VIP customer').first()).toBeVisible();
+  await expect(page.getByText('Live order').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Route' })).toHaveCount(0);
   await expect(page.getByText(/routed/i)).toHaveCount(0);

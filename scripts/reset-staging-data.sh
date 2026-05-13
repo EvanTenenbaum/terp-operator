@@ -17,3 +17,4 @@ fi
 
 NODE_ENV="${NODE_ENV:-production}" pnpm db:migrate:prod
 NODE_ENV="${NODE_ENV:-production}" ALLOW_DEMO_SEED=true DEMO_SEED_SCENARIO="${DEMO_SEED_SCENARIO:-realistic_100d}" pnpm db:seed:prod
+pnpm audit:realistic-demo

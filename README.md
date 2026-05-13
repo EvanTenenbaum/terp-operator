@@ -81,6 +81,7 @@ pnpm audit:realistic-demo
 ```
 
 The scenario is configurable with `DEMO_*` environment variables and is documented in `docs/product/realistic-demo-data.md`.
+Staging startup also runs `pnpm audit:realistic-demo` after seeding so partial or drifted demo data fails closed. To use the tiny smoke fixture instead, set `DEMO_SEED_SCENARIO=baseline` before running `pnpm db:seed`.
 
 ## Development
 
@@ -138,7 +139,7 @@ Staging reset/reseed:
 ALLOW_DEMO_SEED=true pnpm staging:reset
 ```
 
-The reset command truncates operational tables and reloads realistic demo data unless `DEMO_SEED_SCENARIO` is overridden. Use it only against staging/demo databases.
+The reset command truncates operational tables, reloads realistic demo data unless `DEMO_SEED_SCENARIO` is overridden, and audits the seeded ratios plus active work queues. Use it only against staging/demo databases.
 
 ## Production Notes
 

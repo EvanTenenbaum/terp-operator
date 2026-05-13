@@ -11,6 +11,7 @@ import { useUiStore } from '../store/uiStore';
 import type { GridRow, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
+import { parseTagInput } from '../../shared/tags';
 
 const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
   purchaseOrders: [
@@ -208,7 +209,7 @@ export function PurchaseOrdersView() {
         purchaseOrderId: selectedPo.id,
         productName,
         category,
-        tags: parseTags(lineTags),
+        tags: parseTagInput(lineTags),
         qty: Number(qty),
         unitCost: Number(unitCost),
         unitPrice: Number(unitPrice || unitCost),
@@ -715,7 +716,7 @@ function InventoryMovementTools({
           Tags
           <input className="input" value={tagText} placeholder="premium, candy" onChange={(event) => setTagText(event.target.value)} />
         </label>
-        <button className="secondary-button compact-action" type="button" disabled={!batchId} onClick={() => runCommand('applyTags', { entityType: 'batch', entityId: batchId, tags: parseTags(tagText), mode: 'replace' }, 'Replace tags on selected inventory row')}>
+        <button className="secondary-button compact-action" type="button" disabled={!batchId} onClick={() => runCommand('applyTags', { entityType: 'batch', entityId: batchId, tags: parseTagInput(tagText), mode: 'replace' }, 'Replace tags on selected inventory row')}>
           Apply tags
         </button>
       </div>
@@ -1593,10 +1594,6 @@ function labelFromToken(value: string) {
 function moneyish(value: unknown) {
   const numberValue = Number(value ?? 0);
   return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
-}
-
-function parseTags(value: string) {
-  return value.split(/[|,]/).map((tag) => tag.trim()).filter(Boolean);
 }
 
 function dateish(value: unknown) {
