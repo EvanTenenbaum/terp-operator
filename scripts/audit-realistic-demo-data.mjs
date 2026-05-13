@@ -4,7 +4,7 @@ import pg from 'pg';
 const { Pool } = pg;
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseConnectionString(),
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false' } : false
 });
 
@@ -178,4 +178,13 @@ function assertAtLeast(failures, key, actual, min) {
 
 function assertBetween(failures, key, actual, min, max) {
   if (actual < min || actual > max) failures.push(`${key} expected ${min}-${max}, got ${actual}`);
+}
+
+function databaseConnectionString() {
+  if (process.env.DATABASE_SSL !== 'true' || !process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  const url = new URL(process.env.DATABASE_URL);
+  for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) {
+    url.searchParams.delete(key);
+  }
+  return url.toString();
 }
