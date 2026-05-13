@@ -11,6 +11,7 @@ const envSchema = z.object({
   DATABASE_SSL: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   DATABASE_SSL_REJECT_UNAUTHORIZED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   SESSION_SECRET: z.string().min(16).default(DEV_SESSION_SECRET),
+  VITE_AG_GRID_LICENSE_KEY: z.string().default(''),
   JOURNAL_DIR: z.string().default('./storage/journal'),
   ARCHIVE_DIR: z.string().default('./storage/archives')
 });

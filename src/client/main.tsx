@@ -9,7 +9,26 @@ import 'ag-grid-community/styles/ag-theme-quartz.css';
 import 'ag-grid-enterprise';
 import { LicenseManager } from 'ag-grid-enterprise';
 
-LicenseManager.setLicenseKey(import.meta.env.VITE_AG_GRID_LICENSE_KEY ?? '');
+type ClientConfig = {
+  agGridLicenseKey?: string;
+};
+
+async function loadClientConfig(): Promise<ClientConfig> {
+  const buildTimeKey = import.meta.env.VITE_AG_GRID_LICENSE_KEY;
+  if (buildTimeKey) {
+    return { agGridLicenseKey: buildTimeKey };
+  }
+
+  try {
+    const response = await fetch('/api/client-config', { credentials: 'same-origin' });
+    if (!response.ok) {
+      return {};
+    }
+    return (await response.json()) as ClientConfig;
+  } catch {
+    return {};
+  }
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,12 +40,19 @@ const queryClient = new QueryClient({
   }
 });
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <trpc.Provider client={trpcClient()} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
-    </trpc.Provider>
-  </React.StrictMode>
-);
+void loadClientConfig().then((config) => {
+  const licenseKey = config.agGridLicenseKey ?? import.meta.env.VITE_AG_GRID_LICENSE_KEY ?? '';
+  if (licenseKey) {
+    LicenseManager.setLicenseKey(licenseKey);
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <trpc.Provider client={trpcClient()} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </trpc.Provider>
+    </React.StrictMode>
+  );
+});
