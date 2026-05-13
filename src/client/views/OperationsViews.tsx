@@ -40,7 +40,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'packed', editable: true, width: 105 },
     { field: 'inventoryPosted', headerName: 'Inv Posted', editable: true, width: 125 },
     { field: 'paymentFollowup', headerName: 'Pay/F-up', editable: true, width: 125 },
-    { field: 'legacyStatusMarkers', headerName: 'Raw', width: 115 },
+    { field: 'legacyStatusMarkers', headerName: 'Markers', width: 115 },
     { field: 'validationIssues', headerName: 'Fix', minWidth: 200 },
     { field: 'postedAt', width: 180 },
     { field: 'fulfilledAt', width: 180 }
@@ -71,7 +71,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'unitCost', type: 'numericColumn', width: 110 },
     { field: 'unitPrice', editable: true, type: 'numericColumn', width: 110 },
     { field: 'location', width: 120 },
-    { field: 'legacyMarker', headerName: 'Raw', editable: true, width: 90 },
+    { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
     { field: 'ownershipStatus', width: 120 },
     { field: 'arrivalStatus', width: 120 },
     { field: 'mediaStatus', headerName: 'Media', width: 120 },
@@ -150,7 +150,7 @@ const purchaseOrderLineColumns: ColDef<GridRow>[] = [
   { field: 'unitPrice', headerName: 'Target price', editable: true, type: 'numericColumn', width: 130 },
   { field: 'sourceCode', headerName: 'Code', editable: true, width: 130 },
   { field: 'shorthand', editable: true, width: 120 },
-  { field: 'legacyMarker', headerName: 'Raw', editable: true, width: 90 },
+  { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
   { field: 'ownershipStatus', headerName: 'Owner', editable: true, width: 110 },
   { field: 'notes', editable: true, minWidth: 180 },
   { field: 'status', width: 120 }
@@ -260,7 +260,6 @@ export function PurchaseOrdersView() {
             <ClipboardList className="h-4 w-4" aria-hidden="true" />
             New PO
           </button>
-          <span className="selection-pill">Select a vendor and add expected items to create a new PO.</span>
         </div>
       ) : null}
       <OperatorGrid

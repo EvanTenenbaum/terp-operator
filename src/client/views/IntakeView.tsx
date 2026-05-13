@@ -13,8 +13,8 @@ const intakeColumns: ColDef<GridRow>[] = [
   { field: 'poNo', headerName: 'PO', editable: false, width: 130 },
   { field: 'sourceCode', headerName: 'Code', editable: true, width: 110 },
   { field: 'intakeDate', headerName: 'Date', editable: true, width: 150 },
-  { field: 'shorthand', editable: true, width: 120 },
-  { field: 'legacyMarker', headerName: 'Raw', editable: true, width: 90 },
+  { field: 'shorthand', headerName: 'Shorthand', editable: true, width: 145 },
+  { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
   { field: 'name', editable: true, minWidth: 190 },
   { field: 'category', editable: true, width: 120 },
   { field: 'vendor', editable: false, width: 160 },
@@ -262,7 +262,7 @@ export function IntakeView() {
                       <th>Qty</th>
                       <th>Cost</th>
                       <th>Subtotal</th>
-                      <th>Raw</th>
+                      <th>Marker</th>
                     </tr>
                   </thead>
                   <tbody>
