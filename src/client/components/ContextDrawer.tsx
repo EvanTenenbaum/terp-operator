@@ -119,11 +119,12 @@ export function ContextDrawer() {
   const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? 'Context';
 
   if (drawer.state === 'closed') {
+    if (activeEntity.entityType === 'queue' && !row) return null;
     return (
-      <aside className="context-drawer context-drawer-closed" aria-label="Context drawer">
-        <button type="button" className="context-drawer-nub" onClick={() => toggleDrawer(activeView)} title="Toggle Drawer (Hotkey: ])">
+      <aside className="context-drawer-reopen" aria-label="Context drawer reopen">
+        <button type="button" className="context-reopen-button" onClick={() => setDrawerState(activeView, 'standard')} title="Show context for the selected row">
           <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
-          <span>Drawer `]`</span>
+          <span>Context</span>
         </button>
       </aside>
     );
@@ -145,23 +146,21 @@ export function ContextDrawer() {
           <PanelRightClose className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
-      {drawer.state === 'peek' ? null : (
-        <div className="drawer-tabs" role="tablist" aria-label="Context tabs">
-          {tabs.map((tab, index) => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.key}
-              className={clsx('drawer-tab', activeTab === tab.key && 'drawer-tab-active')}
-              onClick={() => setDrawerTab(activeView, tab.key)}
-            >
-              <span className="drawer-tab-index">{index + 1}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="drawer-tabs" role="tablist" aria-label="Context tabs">
+        {tabs.map((tab, index) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            className={clsx('drawer-tab', activeTab === tab.key && 'drawer-tab-active')}
+            onClick={() => setDrawerTab(activeView, tab.key)}
+          >
+            <span className="drawer-tab-index">{index + 1}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
       <div className="context-drawer-body">
         <ContextDrawerContent activeView={activeView} activeTab={activeTab} row={row} entityType={activeEntity.entityType} entityId={activeEntity.entityId} />
       </div>

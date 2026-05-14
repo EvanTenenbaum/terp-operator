@@ -191,8 +191,12 @@ test.describe('tags and deterministic matchmaking', () => {
     await expect(page.getByRole('button', { name: /Deterministic Matches \d+ row/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Customer Needs \d+ row/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Vendor Stock \d+ row/ })).toBeVisible();
-    await page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first().click();
     await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeDisabled();
+    await page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first().click();
+    await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeEnabled();
   });
 });

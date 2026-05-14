@@ -8,7 +8,7 @@ async function login(page: Page, email = 'owner@terpagro.local') {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill('terp-demo');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByText('Owner Daily Decision View').waitFor();
+  await page.getByText(/Daily Decision View/).waitFor();
 }
 
 async function trpcQuery(page: Page, path: string, inputValue: unknown = null) {
@@ -65,6 +65,24 @@ test.describe('adversarial command contracts', () => {
 
     expect(result.status).toBe(403);
     expect(commandError(result)).toContain('requires operator access');
+  });
+
+  test('transaction ledger posting is manager-gated consistently', async ({ page }) => {
+    await login(page, 'intake@terpagro.local');
+    const result = await runCommand(page, 'postTransactionLedgerRow', {
+      direction: 'receiving',
+      entityType: 'other',
+      entityName: 'QA operator blocked',
+      transactionType: 'other_receipt',
+      allocationTargetType: 'unapplied',
+      amount: 1,
+      method: 'cash',
+      bucket: 'cash-file-a',
+      notes: 'operator should not post manager ledger command'
+    });
+
+    expect(result.status).toBe(403);
+    expect(commandError(result)).toContain('requires manager access');
   });
 
   test('draft orders cannot bypass confirmation and credit checks by posting directly', async ({ page }) => {
@@ -124,6 +142,89 @@ test.describe('adversarial command contracts', () => {
     expect(packed.toast).toContain('Actual weight must be greater than zero');
   });
 
+  test('transaction ledger posts receiving rows and vendor PO payments through auditable commands', async ({ page }) => {
+    await login(page);
+    const marker = `QA ledger ${Date.now()}`;
+    const reference = await trpcQuery(page, 'queries.reference');
+    const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve') ?? reference[0].result.data.json.customers[0];
+    const invoice = reference[0].result.data.json.openInvoices.find((row: { customerId: string }) => row.customerId === customer.id);
+    const vendor = reference[0].result.data.json.vendors[0];
+    const po = commandData(await runCommand(page, 'createPurchaseOrder', { vendorId: vendor.id }, 'ledger contract creates PO target'));
+
+    const received = commandData(
+      await runCommand(page, 'postTransactionLedgerRow', {
+        direction: 'receiving',
+        entityType: 'customer',
+        entityId: customer.id,
+        transactionType: 'client_payment',
+        allocationTargetType: invoice ? 'selected_invoice' : 'fifo',
+        allocationTargetId: invoice?.id,
+        date: '2026-05-14',
+        method: 'cash',
+        bucket: 'cash-file-a',
+        amount: 7,
+        reference: `${marker} receiving`,
+        notes: `${marker} selected invoice path should normalize into payment allocation`
+      })
+    );
+    expect(received.ok).toBe(true);
+    expect(received.affectedIds.length).toBeGreaterThan(0);
+
+    const paid = commandData(
+      await runCommand(page, 'postTransactionLedgerRow', {
+        direction: 'paying',
+        entityType: 'vendor',
+        entityId: vendor.id,
+        transactionType: 'vendor_product_payment',
+        allocationTargetType: 'selected_po',
+        allocationTargetId: po.affectedIds[0],
+        date: '2026-05-14',
+        method: 'cash',
+        bucket: 'accounting',
+        amount: 12,
+        reference: `${marker} paying`,
+        notes: `${marker} product payment should link to PO without sales price`
+      })
+    );
+    expect(paid.ok).toBe(true);
+    expect(paid.affectedIds).toContain(po.affectedIds[0]);
+
+    const ledger = await trpcQuery(page, 'queries.transactionLedger');
+    expect(ledger[0].result.data.json.receiving.some((row: { reference?: string; transactionType?: string }) => row.reference === `${marker} receiving` && row.transactionType === 'client_payment')).toBe(true);
+    expect(ledger[0].result.data.json.paying.some((row: { reference?: string; transactionType?: string; allocationTargetLabel?: string }) => row.reference === `${marker} paying` && row.transactionType === 'vendor_product_payment' && row.allocationTargetLabel)).toBe(true);
+
+    const vendorRows = await trpcQuery(page, 'queries.grid', { view: 'vendors' });
+    const linkedBill = vendorRows[0].result.data.json.find((row: { purchaseOrderId?: string }) => row.purchaseOrderId === po.affectedIds[0]);
+    expect(linkedBill).toEqual(expect.objectContaining({ amount: '12.00', amountPaid: '12.00', status: 'paid' }));
+    expect(linkedBill).not.toHaveProperty('unitPrice');
+
+    const reversedPaying = commandData(await runCommand(page, 'reverseCommandById', { commandId: paid.commandId }, 'reverse transaction ledger vendor payment'));
+    expect(reversedPaying.ok).toBe(true);
+    const afterReverseLedger = await trpcQuery(page, 'queries.transactionLedger');
+    expect(afterReverseLedger[0].result.data.json.paying.some((row: { reference?: string }) => row.reference === `${marker} paying`)).toBe(false);
+    const afterReverseVendorRows = await trpcQuery(page, 'queries.grid', { view: 'vendors' });
+    expect(afterReverseVendorRows[0].result.data.json.find((row: { purchaseOrderId?: string }) => row.purchaseOrderId === po.affectedIds[0]).status).toBe('reversed');
+
+    const reversedReceiving = commandData(await runCommand(page, 'reverseCommandById', { commandId: received.commandId }, 'reverse transaction ledger receiving payment'));
+    expect(reversedReceiving.ok).toBe(true);
+    const afterReceivingReverseLedger = await trpcQuery(page, 'queries.transactionLedger');
+    expect(afterReceivingReverseLedger[0].result.data.json.receiving.some((row: { reference?: string }) => row.reference === `${marker} receiving`)).toBe(false);
+
+    const type = commandData(
+      await runCommand(page, 'upsertTransactionType', {
+        label: 'QA Vendor Rebate',
+        direction: 'paying',
+        allowedEntityTypes: ['vendor'],
+        defaultMethod: 'wire',
+        defaultBucket: 'accounting',
+        defaultAllocationIntent: 'unapplied'
+      })
+    );
+    expect(type.ok).toBe(true);
+    const refreshed = await trpcQuery(page, 'queries.reference');
+    expect(refreshed[0].result.data.json.transactionTypes.some((row: { slug: string; allowedEntityTypes: string[] }) => row.slug === 'qa_vendor_rebate' && row.allowedEntityTypes.includes('vendor'))).toBe(true);
+  });
+
   test('purchase orders are planned before receiving and do not post inventory/payables early', async ({ page }) => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
@@ -155,6 +256,22 @@ test.describe('adversarial command contracts', () => {
     expect(vendorBills[0].result.data.json.some((row: { purchaseOrderId?: string }) => row.purchaseOrderId === purchaseOrderId)).toBe(false);
   });
 
+  test('vendor quick-add deduplicates existing vendors case-insensitively', async ({ page }) => {
+    await login(page);
+    const reference = await trpcQuery(page, 'queries.reference');
+    const vendor = reference[0].result.data.json.vendors[0];
+    const duplicate = commandData(
+      await runCommand(page, 'createVendor', {
+        name: String(vendor.name).toLowerCase(),
+        termsDays: Number(vendor.termsDays ?? 14)
+      })
+    );
+
+    expect(duplicate.ok).toBe(true);
+    expect(duplicate.affectedIds).toContain(vendor.id);
+    expect(String(duplicate.toast).toLowerCase()).toContain('already exists');
+  });
+
   test('payment reversal has real ledger consequences, not just an audit label', async ({ page }) => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
@@ -176,11 +293,14 @@ test.describe('adversarial command contracts', () => {
   test('archive enforces the same open-work blockers preview reports', async ({ page }) => {
     await login(page);
     const period = new Date().toISOString().slice(0, 7);
-    await runCommand(page, 'lockPeriod', { period }, 'lock current test period');
+    const locked = commandData(await runCommand(page, 'lockPeriod', { period }, 'lock current test period'));
+    expect(locked.ok).toBe(false);
+    expect(locked.toast).toContain('cannot be locked yet');
 
     const preview = await trpcQuery(page, 'queries.closeoutPreview', { period });
     const closeout = preview[0].result.data.json;
     expect(closeout.eligible).toBe(false);
+    expect(closeout.locked).toBe(false);
     expect(closeout.openWorkCount).toBeGreaterThan(0);
     expect(closeout.unsafeRows).toBe(closeout.openWorkCount);
     expect(closeout.blockers.map((row: { id: string }) => row.id)).toEqual(expect.arrayContaining(['unsafePurchaseOrders']));
@@ -189,7 +309,7 @@ test.describe('adversarial command contracts', () => {
 
     const archived = commandData(await runCommand(page, 'archivePeriod', { period }, 'try archive with open work'));
     expect(archived.ok).toBe(false);
-    expect(archived.toast).toContain('cannot be archived');
+    expect(archived.toast).toContain('must be locked');
   });
 
   test('inventory transfer commands are audited, reversible, and keep held stock out of sale posting', async ({ page }) => {

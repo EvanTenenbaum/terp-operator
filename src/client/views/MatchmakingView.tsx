@@ -290,18 +290,18 @@ export function MatchmakingView() {
         columns={matchColumns}
         loading={board.isLoading || isRunning}
         onSelectionChange={setSelectedMatches}
-        selectionActions={(rows) => (
+        actions={
           <>
-            <button className="primary-button compact-action" type="button" disabled={!rows.length || isRunning} onClick={acceptSelected}>
+            <button className="primary-button compact-action" type="button" disabled={!selectedMatches.length || isRunning} onClick={acceptSelected}>
               <Check className="h-4 w-4" aria-hidden="true" />
               Accept
             </button>
-            <button className="secondary-button compact-action" type="button" disabled={!rows.length || isRunning} onClick={dismissSelected}>
+            <button className="secondary-button compact-action" type="button" disabled={!selectedMatches.length || isRunning} onClick={dismissSelected}>
               <X className="h-4 w-4" aria-hidden="true" />
               Dismiss
             </button>
           </>
-        )}
+        }
         emptyTitle="No matches yet"
         emptyChildren="Add a customer need and vendor stock with matching category or tags."
       />

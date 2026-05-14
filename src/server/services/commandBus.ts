@@ -36,6 +36,7 @@ import {
   salesOrderLines,
   salesOrders,
   tagCatalog,
+  transactionTypes,
   vendorBills,
   vendorPayments,
   vendorSupply,
@@ -57,7 +58,10 @@ export type CommandInput = z.infer<typeof commandInputSchema>;
 type Tx = any;
 type Payload = Record<string, unknown>;
 
-const moneyScale = (value: unknown) => Number(value ?? 0).toFixed(2);
+const moneyScale = (value: unknown) => {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+};
 const qtyScale = (value: unknown) => Number(value ?? 0).toFixed(3);
 const code = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 999).toString().padStart(3, '0')}`;
 const oneWeek = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -257,6 +261,10 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return reviewConnectorRequest(tx, payload, 'routed', user, commandId);
     case 'createCorrectionJournalEntry':
       return createCorrectionJournalEntry(tx, payload, commandId);
+    case 'postTransactionLedgerRow':
+      return postTransactionLedgerRow(tx, payload, user, commandId);
+    case 'upsertTransactionType':
+      return upsertTransactionType(tx, payload, commandId);
     case 'reverseCommandById':
       return reverseCommandById(tx, payload, commandId);
     case 'restoreFromBackupPoint':
@@ -269,6 +277,8 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return lockPeriod(tx, payload, user.id, commandId);
     case 'archivePeriod':
       return archivePeriod(tx, payload, commandId);
+    case 'createVendor':
+      return createVendor(tx, payload, commandId);
     case 'createCustomerNeed':
       return createCustomerNeed(tx, payload, user.id, commandId);
     case 'updateCustomerNeed':
@@ -492,6 +502,25 @@ async function createPurchaseOrder(tx: Tx, payload: Payload, userId: string, com
   return { ok: true, commandId, affectedIds: [row.id], toast: `Started purchase order ${row.poNo} for ${vendor.name}.` };
 }
 
+async function createVendor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const name = requiredString(payload.name, 'name');
+  const termsDays = Number(payload.termsDays ?? 14);
+  if (!Number.isFinite(termsDays) || termsDays < 0) throw new Error('Vendor payment terms must be zero or more days.');
+  const [existing] = await tx.select().from(vendors).where(ilike(vendors.name, name.trim())).limit(1);
+  if (existing) return { ok: true, commandId, affectedIds: [existing.id], toast: `${existing.name} already exists.` };
+  const [vendor] = await tx
+    .insert(vendors)
+    .values({
+      name: name.trim(),
+      termsDays: Math.round(termsDays),
+      contact: stringValue(payload.contact) || null,
+      notes: stringValue(payload.notes) || null,
+      consignmentDefault: Boolean(payload.consignmentDefault)
+    })
+    .returning();
+  return { ok: true, commandId, affectedIds: [vendor.id], toast: `${vendor.name} added to vendors.` };
+}
+
 async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [current] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
@@ -541,7 +570,7 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
       qty: qtyScale(qty),
       uom: stringValue(payload.uom) || 'lb',
       unitCost: moneyScale(unitCost),
-      unitPrice: moneyScale(payload.unitPrice ?? unitCost),
+      unitPrice: moneyScale(unitCost),
       sourceCode: stringValue(payload.sourceCode) || order.poNo,
       shorthand: stringValue(payload.shorthand) || null,
       legacyMarker: stringValue(payload.legacyMarker) || stringValue(payload.ownershipStatus) || null,
@@ -591,7 +620,7 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
     if (unitCost < 0) throw new Error('Unit cost cannot be negative.');
     values.unitCost = moneyScale(unitCost);
   }
-  if (payload.unitPrice !== undefined) values.unitPrice = moneyScale(payload.unitPrice);
+  if (payload.unitCost !== undefined) values.unitPrice = values.unitCost;
   const nextLine = { ...line, ...values } as Record<string, unknown>;
   values.status = Number(nextLine.receivedQty ?? 0) >= Number(nextLine.qty ?? 0) ? 'received' : Number(nextLine.unitCost ?? 0) > 0 ? 'planned' : 'needs_fix';
   await tx.update(purchaseOrderLines).set(values).where(eq(purchaseOrderLines.id, lineId));
@@ -794,7 +823,7 @@ async function importBatchesCsv(tx: Tx, payload: Payload, commandId: string): Pr
         tags: row.values.tags ? row.values.tags.split('|').map((tag) => tag.trim()) : [],
         intakeQty: Number(row.values.intake_qty),
         unitCost: Number(row.values.unit_cost),
-        unitPrice: Number(row.values.unit_price),
+        unitPrice: 0,
         sourceCode: row.values.source_code,
         intakeDate: row.values.intake_date,
         ticketCost: row.values.ticket_cost,
@@ -1170,6 +1199,7 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
   const amount = requiredNumber(payload.amount, 'amount');
   if (amount === 0) throw new Error('Payment amount cannot be zero.');
   const method = stringValue(payload.method) || 'cash';
+  const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
   const [payment] = await tx
@@ -1186,7 +1216,9 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
       category: stringValue(payload.category) || (amount < 0 ? 'buyer_credit' : 'client_payment'),
       allocationIntent: stringValue(payload.allocationIntent) || (payload.invoiceId ? 'selected_invoice' : 'fifo'),
       impactPreview: paymentImpactPreview(amount, stringValue(payload.allocationIntent) || (payload.invoiceId ? 'selected_invoice' : 'fifo')),
-      status: 'posted'
+      status: 'posted',
+      createdAt: transactionDate,
+      updatedAt: transactionDate
     })
     .returning();
 
@@ -1195,7 +1227,7 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
     const credit = Math.abs(amount);
     const nextBalance = Number(customer.balance) - credit;
     await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customerId));
-    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, paymentId: payment.id, kind: 'down_payment', amount: moneyScale(-credit), balanceAfter: moneyScale(nextBalance), note: 'Negative payment recorded as buyer credit' }).returning();
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, paymentId: payment.id, kind: 'down_payment', amount: moneyScale(-credit), balanceAfter: moneyScale(nextBalance), note: 'Negative payment recorded as buyer credit', createdAt: transactionDate }).returning();
     affected.push(entry.id);
   }
   return { ok: true, commandId, affectedIds: affected, toast: `Payment logged for ${customer.name}.` };
@@ -1302,7 +1334,8 @@ async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string):
   const amount = payload.amount != null ? requiredNumber(payload.amount, 'amount') : Number(bill.amount) - Number(bill.amountPaid);
   if (amount <= 0) throw new Error('Vendor payout amount must be greater than zero.');
   if (Number(bill.amountPaid) + amount > Number(bill.amount)) throw new Error('Vendor payout cannot exceed the open bill balance.');
-  const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null }).returning();
+  const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
+  const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null, createdAt: transactionDate }).returning();
   const paid = Number(bill.amountPaid) + amount;
   await tx.update(vendorBills).set({ amountPaid: moneyScale(paid), status: paid >= Number(bill.amount) ? 'paid' : 'partial', dueReason: paid >= Number(bill.amount) ? 'Paid in full' : 'Partially paid vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
   return { ok: true, commandId, affectedIds: [billId, payment.id], toast: 'Vendor payout recorded and traceable.' };
@@ -1388,7 +1421,8 @@ async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId:
   const period = periodValue(payload.period);
   const amount = requiredNumber(payload.amount, 'amount');
   const memo = requiredString(payload.memo, 'memo');
-  const [entry] = await tx.insert(correctionJournalEntries).values({ period, amount: moneyScale(amount), memo }).returning();
+  const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
+  const [entry] = await tx.insert(correctionJournalEntries).values({ period, amount: moneyScale(amount), memo, createdAt: transactionDate }).returning();
   const affected = [entry.id];
   if (payload.findReplace && typeof payload.findReplace === 'object') {
     affected.push(...(await applyFindReplace(tx, payload.findReplace as Payload)));
@@ -1401,6 +1435,168 @@ async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId:
     affected.push(dispute.id);
   }
   return { ok: true, commandId, affectedIds: affected, toast: payload.invoiceId ? 'Correction journal and invoice dispute posted.' : 'Correction journal entry posted.' };
+}
+
+async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionUser, commandId: string): Promise<CommandResult> {
+  const direction = requiredString(payload.direction, 'direction');
+  const entityType = requiredString(payload.entityType, 'entityType');
+  const transactionType = requiredString(payload.transactionType, 'transactionType');
+  const amount = requiredNumber(payload.amount, 'amount');
+  if (amount === 0) throw new Error('Transaction amount cannot be zero.');
+  const transactionDate = dateOrNull(payload.date) ?? new Date();
+  const method = stringValue(payload.method) || 'cash';
+  const reference = stringValue(payload.reference) || null;
+  const notes = stringValue(payload.notes);
+  const allocationTargetType = stringValue(payload.allocationTargetType);
+  const allocationIntent = stringValue(payload.allocationIntent) || allocationTargetType || 'fifo';
+  const targetId = stringValue(payload.allocationTargetId);
+
+  if (entityType === 'customer' && direction === 'receiving') {
+    const signedAmount = ['buyer_credit', 'down_payment', 'customer_down_payment'].includes(transactionType) ? -Math.abs(amount) : amount;
+    let clientAllocationIntent = allocationTargetType === 'selected_invoice' ? 'selected' : allocationIntent;
+    const customerId = requiredId(payload.entityId, 'entityId');
+    if (signedAmount > 0 && clientAllocationIntent === 'fifo') {
+      const [openInvoice] = await tx
+        .select({ id: invoices.id })
+        .from(invoices)
+        .where(and(eq(invoices.customerId, customerId), sql`${invoices.status} in ('open', 'partial')`))
+        .limit(1);
+      if (!openInvoice) clientAllocationIntent = 'unapplied';
+    }
+    const logged = await logPayment(
+      tx,
+      {
+        customerId,
+        amount: signedAmount,
+        method,
+        reference,
+        locationBucket: stringValue(payload.bucket) || 'cash-file-a',
+        notes,
+        direction: 'money_in',
+        category: signedAmount < 0 ? 'buyer_credit' : transactionType,
+        allocationIntent: clientAllocationIntent,
+        invoiceId: targetId && clientAllocationIntent === 'selected' ? targetId : undefined,
+        date: transactionDate
+      },
+      commandId
+    );
+    if (logged.ok && signedAmount > 0 && clientAllocationIntent !== 'unapplied') {
+      const allocated = await allocatePayment(tx, { paymentId: logged.affectedIds[0], invoiceId: clientAllocationIntent === 'selected' ? targetId || undefined : undefined }, commandId);
+      return { ...logged, affectedIds: [...logged.affectedIds, ...allocated.affectedIds], toast: `${logged.toast} ${allocated.toast}` };
+    }
+    return logged;
+  }
+
+  if (entityType === 'vendor' && direction === 'paying') {
+    if (!['owner', 'manager'].includes(user.role)) throw new Error('Vendor payouts require manager access.');
+    return postVendorLedgerPayment(tx, payload, transactionDate, commandId);
+  }
+
+  const entityLabel = stringValue(payload.entityName) || entityType;
+  const signedAmount = direction === 'paying' ? -Math.abs(amount) : Math.abs(amount);
+  return createCorrectionJournalEntry(
+    tx,
+    {
+      period: transactionDate.toISOString().slice(0, 7),
+      amount: signedAmount,
+      memo: [labelFromToken(transactionType), entityLabel, notes || reference].filter(Boolean).join(' / '),
+      date: transactionDate
+    },
+    commandId
+  );
+}
+
+async function postVendorLedgerPayment(tx: Tx, payload: Payload, transactionDate: Date, commandId: string): Promise<CommandResult> {
+  const vendorId = requiredId(payload.entityId, 'entityId');
+  const amount = Math.abs(requiredNumber(payload.amount, 'amount'));
+  const transactionType = requiredString(payload.transactionType, 'transactionType');
+  const method = stringValue(payload.method) || 'cash';
+  const reference = stringValue(payload.reference) || null;
+  const notes = stringValue(payload.notes);
+  const allocationTargetType = stringValue(payload.allocationTargetType) || stringValue(payload.allocationIntent) || 'unapplied';
+  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw new Error('Vendor not found.');
+
+  if (allocationTargetType === 'selected_bill' && payload.allocationTargetId) {
+    return recordVendorPayment(tx, { vendorBillId: requiredId(payload.allocationTargetId, 'allocationTargetId'), amount, method, reference, overrideUnscheduled: true, date: transactionDate }, commandId);
+  }
+
+  let purchaseOrderId: string | null = null;
+  let purchaseOrderLabel = '';
+  if (['vendor_product_payment', 'product_payment', 'vendor_down_payment'].includes(transactionType)) {
+    const targetId = stringValue(payload.allocationTargetId);
+    const purchaseOrderRows = targetId && allocationTargetType === 'selected_po'
+      ? await tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, targetId), eq(purchaseOrders.vendorId, vendorId))).limit(1)
+      : await tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.vendorId, vendorId), sql`${purchaseOrders.status} not in ('cancelled')`)).orderBy(purchaseOrders.createdAt).limit(1);
+    const [po] = purchaseOrderRows;
+    if (!po) throw new Error('No open purchase order found for this vendor payment.');
+    purchaseOrderId = po.id;
+    purchaseOrderLabel = po.poNo;
+  }
+
+  const dueReason = [
+    labelFromToken(transactionType),
+    purchaseOrderLabel ? `against ${purchaseOrderLabel}` : 'manual ledger row',
+    notes
+  ].filter(Boolean).join(' / ');
+  const [bill] = await tx
+    .insert(vendorBills)
+    .values({
+      vendorId,
+      purchaseOrderId,
+      billNo: code('VBILL'),
+      amount: moneyScale(amount),
+      amountPaid: moneyScale(amount),
+      dueDate: transactionDate,
+      scheduledFor: transactionDate,
+      termsDays: vendor.termsDays,
+      status: 'paid',
+      dueReason,
+      createdAt: transactionDate,
+      updatedAt: transactionDate
+    })
+    .returning();
+  const [payment] = await tx
+    .insert(vendorPayments)
+    .values({
+      vendorBillId: bill.id,
+      amount: moneyScale(amount),
+      method,
+      reference: reference || purchaseOrderLabel || labelFromToken(transactionType),
+      status: 'posted',
+      createdAt: transactionDate
+    })
+    .returning();
+  return { ok: true, commandId, affectedIds: [bill.id, payment.id, ...(purchaseOrderId ? [purchaseOrderId] : [])], toast: `Paying ledger row posted for ${vendor.name}.` };
+}
+
+async function upsertTransactionType(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const label = requiredString(payload.label, 'label');
+  const slug = stringValue(payload.slug) || slugFromLabel(label);
+  const direction = requiredString(payload.direction, 'direction');
+  const allowedEntityTypes = Array.isArray(payload.allowedEntityTypes) ? payload.allowedEntityTypes.map(String).filter(Boolean) : [requiredString(payload.entityType ?? 'other', 'entityType')];
+  const values = {
+    slug,
+    label,
+    direction,
+    allowedEntityTypes,
+    defaultMethod: stringValue(payload.defaultMethod) || 'cash',
+    defaultBucket: stringValue(payload.defaultBucket) || (direction === 'paying' ? 'accounting' : 'cash-file-a'),
+    defaultAllocationIntent: stringValue(payload.defaultAllocationIntent) || 'unapplied',
+    requiresApproval: Boolean(payload.requiresApproval),
+    isSystem: false,
+    isActive: payload.isActive !== false,
+    updatedAt: new Date()
+  };
+  const [row] = await tx
+    .insert(transactionTypes)
+    .values(values)
+    .onConflictDoUpdate({
+      target: transactionTypes.slug,
+      set: values
+    })
+    .returning();
+  return { ok: true, commandId, affectedIds: [row.id], toast: `Transaction type ${row.label} saved.` };
 }
 
 async function applyFindReplace(tx: Tx, payload: Payload) {
@@ -1604,6 +1800,84 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
       }
       affected.push(currentAllocation.id, currentAllocation.paymentId, currentAllocation.invoiceId);
     }
+  } else if (original.commandName === 'postTransactionLedgerRow') {
+    for (const payment of snapshot.payments ?? []) {
+      const [currentPayment] = await tx.select().from(payments).where(eq(payments.id, payment.id)).limit(1);
+      if (!currentPayment) continue;
+      const currentAllocations = await tx.select().from(paymentAllocations).where(eq(paymentAllocations.paymentId, currentPayment.id));
+      for (const allocation of currentAllocations) {
+        const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, allocation.invoiceId)).limit(1);
+        await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, allocation.id));
+        if (invoice) {
+          const paid = Math.max(0, Number(invoice.amountPaid) - Number(allocation.amount));
+          await tx.update(invoices).set({ amountPaid: moneyScale(paid), status: paid <= 0 ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+          if (invoice.customerId) {
+            const [customer] = await tx.select().from(customers).where(eq(customers.id, invoice.customerId)).limit(1);
+            if (customer) {
+              const nextBalance = Number(customer.balance) + Number(allocation.amount);
+              await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+              const [entry] = await tx
+                .insert(clientLedgerEntries)
+                .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: currentPayment.id, kind: 'allocation_reversal', amount: moneyScale(Number(allocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Transaction ledger allocation reversal' })
+                .returning();
+              affected.push(customer.id, entry.id);
+            }
+          }
+          affected.push(invoice.id);
+        }
+        affected.push(allocation.id);
+      }
+      if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
+        const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
+        if (customer) {
+          const nextBalance = Number(customer.balance) + Math.abs(Number(currentPayment.amount));
+          await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+          const [entry] = await tx
+            .insert(clientLedgerEntries)
+            .values({ customerId: customer.id, paymentId: currentPayment.id, kind: 'payment_reversal', amount: moneyScale(Math.abs(Number(currentPayment.amount))), balanceAfter: moneyScale(nextBalance), note: 'Transaction ledger buyer credit reversal' })
+            .returning();
+          affected.push(customer.id, entry.id);
+        }
+      }
+      await tx.update(payments).set({ status: 'reversed', unappliedAmount: '0.00', updatedAt: new Date() }).where(eq(payments.id, currentPayment.id));
+      affected.push(currentPayment.id);
+    }
+
+    const beforeBills = new Map((beforeSnapshot.vendorBills ?? []).map((bill: Record<string, unknown>) => [bill.id, bill]));
+    for (const payment of snapshot.vendorPayments ?? []) {
+      const [currentPayment] = await tx.select().from(vendorPayments).where(eq(vendorPayments.id, payment.id)).limit(1);
+      if (!currentPayment) continue;
+      await tx.update(vendorPayments).set({ status: 'void' }).where(eq(vendorPayments.id, currentPayment.id));
+      const [bill] = await tx.select().from(vendorBills).where(eq(vendorBills.id, currentPayment.vendorBillId)).limit(1);
+      if (bill) {
+        const beforeBill = beforeBills.get(bill.id) as Record<string, unknown> | undefined;
+        if (beforeBill) {
+          await tx
+            .update(vendorBills)
+            .set({
+              amountPaid: moneyScale(beforeBill.amountPaid),
+              status: String(beforeBill.status ?? 'approved'),
+              scheduledFor: beforeBill.scheduledFor ? new Date(String(beforeBill.scheduledFor)) : null,
+              dueReason: stringValue(beforeBill.dueReason) || null,
+              updatedAt: new Date()
+            })
+            .where(eq(vendorBills.id, bill.id));
+        } else {
+          await tx.update(vendorBills).set({ amountPaid: '0.00', status: 'reversed', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+        }
+        affected.push(bill.id);
+      }
+      affected.push(currentPayment.id);
+    }
+    for (const bill of snapshot.vendorBills ?? []) {
+      if (beforeBills.has(bill.id) || affected.includes(bill.id)) continue;
+      await tx.update(vendorBills).set({ amountPaid: '0.00', status: 'reversed', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+      affected.push(bill.id);
+    }
+    for (const entry of snapshot.correctionJournalEntries ?? []) {
+      await tx.update(correctionJournalEntries).set({ status: 'reversed' }).where(eq(correctionJournalEntries.id, entry.id));
+      affected.push(entry.id);
+    }
   } else if (original.commandName === 'createVendorBill') {
     for (const bill of snapshot.vendorBills ?? []) {
       await tx.update(vendorBills).set({ status: 'reversed', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
@@ -1680,6 +1954,10 @@ async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: s
   const period = periodValue(payload.period);
   const [existing] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
   if (existing) return { ok: true, commandId, affectedIds: [existing.id], toast: `${period} is already locked.` };
+  const safety = await getCloseoutSafety(pool, period);
+  if (safety.openWorkCount > 0) {
+    throw new Error(`${period} cannot be locked yet: ${safety.blockers.map((blocker) => `${blocker.count} ${blocker.label.toLowerCase()}`).join(', ')}.`);
+  }
   const [lock] = await tx.insert(periodLocks).values({ period, lockedBy: userId, status: 'locked' }).returning();
   return { ok: true, commandId, affectedIds: [lock.id], toast: `${period} locked.` };
 }
@@ -1913,7 +2191,6 @@ function purchaseOrderLineIssues(line: Record<string, unknown>) {
   if (!stringValue(line.category)) issues.push('enter category.');
   if (Number(line.qty ?? 0) <= 0) issues.push('enter quantity above zero.');
   if (Number(line.unitCost ?? 0) <= 0) issues.push('enter unit cost above zero.');
-  if (Number(line.unitPrice ?? 0) < 0) issues.push('price cannot be negative.');
   return issues;
 }
 
@@ -2140,6 +2417,7 @@ async function snapshotByAffectedIds(ids: string[]) {
     ['vendorSupply', vendorSupply],
     ['matchmakingMatches', matchmakingMatches],
     ['tagCatalog', tagCatalog],
+    ['transactionTypes', transactionTypes],
     ['customers', customers],
     ['paymentAllocations', paymentAllocations],
     ['clientLedgerEntries', clientLedgerEntries],
@@ -2219,6 +2497,7 @@ function collectIds(payload: Payload) {
     payload.vendorSupplyId,
     payload.matchId,
     payload.entityId,
+    payload.allocationTargetId,
     payload.commandId,
     payload.backupId,
     ...(Array.isArray(payload.batchIds) ? payload.batchIds : []),
@@ -2271,6 +2550,21 @@ function requiredString(value: unknown, name: string) {
   const text = stringValue(value);
   if (!text) throw new Error(`${name} is required.`);
   return text;
+}
+
+function labelFromToken(value: string) {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function slugFromLabel(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80);
 }
 
 function requiredId(value: unknown, name: string) {

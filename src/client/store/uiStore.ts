@@ -122,7 +122,7 @@ export const useUiStore = create<UiState>()(
         state.activeDrawerEntityByView[view] = entity;
         const key = drawerStorageKey(view, entity);
         state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
-        if (rows.length && state.drawerByView[key].state === 'closed') state.drawerByView[key].state = 'peek';
+        if (rows.length && state.drawerByView[key].state === 'peek') state.drawerByView[key].state = 'standard';
       }),
     setCommandPaletteOpen: (open) =>
       set((state) => {

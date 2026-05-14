@@ -17,10 +17,11 @@ export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship
   if (!rows.length) return null;
   const sums = sumFields
     .map((field) => {
-      const total = rows.reduce((sum, row) => sum + numeric(row[field]), 0);
-      return Math.abs(total) > 0.0001 ? { field, total } : null;
+      const values = rows.map((row) => numeric(row[field])).filter((value) => Math.abs(value) > 0.0001);
+      const total = values.reduce((sum, value) => sum + value, 0);
+      return values.length ? { field, total, average: total / values.length, count: values.length } : null;
     })
-    .filter((row): row is { field: string; total: number } => Boolean(row));
+    .filter((row): row is { field: string; total: number; average: number; count: number } => Boolean(row));
   const issues = rows.flatMap((row) => Array.isArray(row.validationIssues) ? row.validationIssues.map(String) : []);
 
   return (
@@ -31,7 +32,7 @@ export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship
         {sums.slice(0, 4).map((sum) => (
           <span className="selection-pill" key={sum.field}>
             <Sigma className="h-3.5 w-3.5" aria-hidden="true" />
-            {label(sum.field)} {format(sum.total)}
+            {label(sum.field)} total {format(sum.total)} / avg {format(sum.average)} / count {sum.count}
           </span>
         ))}
         {issues.length ? (

@@ -4,6 +4,7 @@ import {
   BadgeDollarSign,
   BarChart3,
   Boxes,
+  ChevronDown,
   ClipboardList,
   Gauge,
   Inbox,
@@ -12,16 +13,16 @@ import {
   PackagePlus,
   PanelLeftClose,
   PanelLeftOpen,
-  PanelRightOpen,
   ReceiptText,
   Search,
   ShoppingCart,
   Settings
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { trpc } from '../api/trpc';
 import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
-import { drawerStateNameForState, useUiStore } from '../store/uiStore';
+import { useUiStore } from '../store/uiStore';
 import type { SessionUser, ViewKey } from '../../shared/types';
 
 type NavItem = { view: ViewKey; label: string; hotkey?: string; icon: typeof Gauge };
@@ -125,12 +126,12 @@ export function SideNav({ user }: { user: SessionUser }) {
 }
 
 export function Keel({ user }: { user: SessionUser }) {
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const activeView = useUiStore((state) => state.activeView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
   const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
   const setActiveView = useUiStore((state) => state.setActiveView);
-  const toggleDrawer = useUiStore((state) => state.toggleDrawer);
-  const drawerState = useUiStore((state) => drawerStateNameForState(state, state.activeView));
   const utils = trpc.useContext();
   const logout = trpc.auth.logout.useMutation({
     onSuccess: () => utils.auth.me.invalidate()
@@ -138,32 +139,64 @@ export function Keel({ user }: { user: SessionUser }) {
   const health = trpc.queries.health.useQuery(undefined, { refetchInterval: 30_000 });
   const visibleChips = keelChips.filter((chip) => viewVisibleForUser(chip.view, user) && startVisibleForUser(chip.launch, user));
 
+  useEffect(() => {
+    if (!actionsOpen) return;
+    function closeOnOutside(event: MouseEvent) {
+      if (!actionMenuRef.current?.contains(event.target as Node)) setActionsOpen(false);
+    }
+    document.addEventListener('mousedown', closeOnOutside);
+    return () => document.removeEventListener('mousedown', closeOnOutside);
+  }, [actionsOpen]);
+
   return (
     <header className="keel" aria-label="Global workspace keel">
       <button type="button" className="command-search keel-search" onClick={() => setCommandPaletteOpen(true)}>
         <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
-        <span>Search PO-123, Sunset Collective, or "new sale"</span>
+        <span>Search</span>
         <kbd className="ml-auto">⌘K</kbd>
       </button>
       <div className="keel-chip-row" aria-label="Start chips">
-        {visibleChips.length ? visibleChips.map((chip) => {
-          const Icon = chip.icon;
-          return (
+        {visibleChips.length ? (
+          <div className="quick-action-menu" ref={actionMenuRef} onKeyDown={(event) => {
+            if (event.key === 'Escape') setActionsOpen(false);
+          }}>
             <button
-              key={chip.launch}
               type="button"
-              className={clsx('keel-chip', activeView === chip.view && 'keel-chip-active')}
-              title={chip.title}
-              onClick={() => {
-                setActiveQuickLaunch(chip.launch);
-                setActiveView(chip.view);
-              }}
+              className="keel-chip"
+              aria-haspopup="menu"
+              aria-expanded={actionsOpen}
+              onClick={() => setActionsOpen((value) => !value)}
             >
-              <Icon className="h-4 w-4" aria-hidden="true" />
-              <span>{chip.label}</span>
+              <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+              <span>Quick actions</span>
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
             </button>
-          );
-        }) : (
+            {actionsOpen ? (
+              <div className="quick-action-popover" role="menu" aria-label="Quick actions">
+                {visibleChips.map((chip) => {
+                  const Icon = chip.icon;
+                  return (
+                    <button
+                      key={chip.launch}
+                      type="button"
+                      role="menuitem"
+                      className={clsx('quick-action-item', activeView === chip.view && 'quick-action-item-active')}
+                      title={chip.title}
+                      onClick={() => {
+                        setActiveQuickLaunch(chip.launch);
+                        setActiveView(chip.view);
+                        setActionsOpen(false);
+                      }}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                      <span>{chip.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : (
           <button type="button" className="keel-chip" title="Find rows and commands" onClick={() => setCommandPaletteOpen(true)}>
             <Search className="h-4 w-4" aria-hidden="true" />
             <span>Find</span>
@@ -171,17 +204,11 @@ export function Keel({ user }: { user: SessionUser }) {
         )}
       </div>
       <div className="keel-utilities">
-        <button type="button" className="keel-status-chip" onClick={() => toggleDrawer(activeView)} title={`Context drawer is ${drawerState}. Toggle context drawer.`} aria-label={`Toggle context drawer. Current state: ${drawerState}.`}>
-          <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
-          <span>Drawer</span>
-          <span className="keel-chip-detail">{drawerState}</span>
-        </button>
         <div className="keel-status-chip">
           <span className={clsx('h-3 w-3 border', health.data?.ok ? 'bg-emerald-500 border-emerald-700' : 'bg-amber border-amber')} aria-hidden="true" />
           <span>{health.data?.ok ? 'Healthy' : 'Needs attention'}</span>
         </div>
         <span className="min-w-0 truncate font-medium text-ink">{user.name}</span>
-        <span className="border border-line px-2 py-0.5 text-xs uppercase text-zinc-700">{user.role}</span>
         <button type="button" className="text-button" onClick={() => logout.mutate()}>
           Sign out
         </button>

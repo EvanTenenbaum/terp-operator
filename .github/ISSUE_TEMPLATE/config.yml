@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: TERP Agro agent tracking guide
+    url: https://github.com/EvanTenenbaum/terp-agro-operator-console/blob/main/docs/github-issue-tracking.md
+    about: Read how agents should use GitHub Issues for backlog, to-do, and known-issue tracking.

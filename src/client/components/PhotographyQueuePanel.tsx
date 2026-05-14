@@ -39,12 +39,12 @@ export function PhotographyQueuePanel() {
     >
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <label className="field-inline">
-          Batch
+          Media batch
           <select className="select" value={batchId || selected?.id || ''} onChange={(event) => setBatchId(event.target.value)}>
             <option value="">Choose</option>
             {open.slice(0, 40).map((row) => (
               <option key={row.id} value={row.id}>
-                {String(row.batchCode)} / {String(row.name)} / {String(row.mediaStatus ?? 'open')}
+                {String(row.batchCode)} / {String(row.name)} / {humanMediaStatus(row.mediaStatus)}
               </option>
             ))}
           </select>
@@ -59,7 +59,7 @@ export function PhotographyQueuePanel() {
         </button>
         <span className="selection-pill">
           <Check className="h-3.5 w-3.5" aria-hidden="true" />
-          {selected ? `${String(selected.batchCode)} selected` : 'No open media rows'}
+          {selected ? `Media: ${String(selected.batchCode)}` : 'No open media rows'}
         </span>
       </div>
       {queue.data?.length ? (
@@ -77,8 +77,8 @@ export function PhotographyQueuePanel() {
               {queue.data.map((row) => (
                 <tr key={String(row.id)}>
                   <td>{String(row.batchCode ?? row.batchId)}</td>
-                  <td>{String(row.status)}</td>
-                  <td>{String(row.mediaStatus ?? 'open')}</td>
+                  <td>{humanMediaStatus(row.status)}</td>
+                  <td>{humanMediaStatus(row.mediaStatus)}</td>
                   <td>{String(row.notes ?? '')}</td>
                 </tr>
               ))}
@@ -88,4 +88,14 @@ export function PhotographyQueuePanel() {
       ) : null}
     </WorkspacePanel>
   );
+}
+
+function humanMediaStatus(value: unknown) {
+  const raw = String(value ?? 'open');
+  const labels: Record<string, string> = {
+    open: 'Open',
+    in_progress: 'In progress',
+    done: 'Done'
+  };
+  return labels[raw] ?? raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

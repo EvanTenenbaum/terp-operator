@@ -293,6 +293,7 @@ export const vendorBills = pgTable('vendor_bills', {
   id: id(),
   vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
   purchaseReceiptId: uuid('purchase_receipt_id').references(() => purchaseReceipts.id, { onDelete: 'set null' }),
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
   billNo: varchar('bill_no', { length: 80 }).notNull().unique(),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   amountPaid: numeric('amount_paid', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -514,6 +515,30 @@ export const backupSnapshots = pgTable('backup_snapshots', {
   snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
   createdAt: now()
 });
+
+export const transactionTypes = pgTable(
+  'transaction_types',
+  {
+    id: id(),
+    slug: varchar('slug', { length: 80 }).notNull(),
+    label: varchar('label', { length: 140 }).notNull(),
+    direction: varchar('direction', { length: 24 }).notNull().default('receiving'),
+    allowedEntityTypes: text('allowed_entity_types').array().notNull().default([]),
+    defaultMethod: varchar('default_method', { length: 32 }).notNull().default('cash'),
+    defaultBucket: varchar('default_bucket', { length: 120 }).notNull().default('cash-file-a'),
+    defaultAllocationIntent: varchar('default_allocation_intent', { length: 80 }).notNull().default('fifo'),
+    requiresApproval: boolean('requires_approval').notNull().default(false),
+    isSystem: boolean('is_system').notNull().default(false),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    slugIdx: uniqueIndex('transaction_types_slug_idx').on(table.slug),
+    directionIdx: index('transaction_types_direction_idx').on(table.direction),
+    activeIdx: index('transaction_types_active_idx').on(table.isActive)
+  })
+);
 
 export const commandJournal = pgTable(
   'command_journal',

@@ -26,7 +26,6 @@ const intakeColumns: ColDef<GridRow>[] = [
   { field: 'availableQty', headerName: 'available_qty', editable: false, type: 'numericColumn', width: 130 },
   { field: 'uom', editable: true, width: 90 },
   { field: 'unitCost', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'unitPrice', editable: true, type: 'numericColumn', width: 110 },
   { field: 'ownershipStatus', headerName: 'Owner', editable: true, width: 110 },
   { field: 'arrivalStatus', editable: true, width: 130 },
   { field: 'arrivalConfirmed', editable: true, width: 130 },
@@ -53,7 +52,7 @@ export function IntakeView() {
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [intakeTrayOpen, setIntakeTrayOpen] = useState(false);
-  const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,unit_price,source_code,legacy_marker,ownership_status,notes\n');
+  const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
   const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [lotCode, setLotCode] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
@@ -65,6 +64,7 @@ export function IntakeView() {
   async function onCellCommit(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null) return;
     if (event.oldValue === event.newValue) return;
+    if (event.colDef.field === 'unitPrice') return;
     await runCommand('updateBatch', { id: event.data.id, [event.colDef.field]: event.newValue }, `Inline intake edit: ${event.colDef.field}`);
   }
 
@@ -80,7 +80,6 @@ export function IntakeView() {
       intakeDate: new Date().toISOString(),
       intakeQty: 1,
       unitCost: 0,
-      unitPrice: 0,
       ticketCost: 0,
       priceRange: '',
       ownershipStatus: 'UNKNOWN',
@@ -104,7 +103,6 @@ export function IntakeView() {
         intakeDate: row.intakeDate,
         intakeQty: row.intakeQty,
         unitCost: row.unitCost,
-        unitPrice: row.unitPrice,
         ticketCost: row.ticketCost,
         priceRange: row.priceRange,
         uom: row.uom,

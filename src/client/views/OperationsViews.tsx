@@ -142,19 +142,19 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
 const EMPTY_ROWS: GridRow[] = [];
 
 const purchaseOrderLineColumns: ColDef<GridRow>[] = [
-  { field: 'productName', headerName: 'Product', pinned: 'left', editable: true, minWidth: 190 },
+  { field: 'productName', headerName: 'Product / strain', pinned: 'left', editable: true, minWidth: 190 },
   { field: 'category', editable: true, width: 120 },
+  { field: 'subcategory', editable: true, width: 140 },
+  { field: 'unitCost', headerName: 'Unit cost', editable: true, type: 'numericColumn', width: 120 },
+  { field: 'costRange', headerName: 'Cost range', editable: true, width: 135 },
+  { field: 'qty', headerName: 'Units', editable: true, type: 'numericColumn', width: 105 },
+  { field: 'uom', headerName: 'Unit type', editable: true, width: 110 },
+  { field: 'lineTotal', headerName: 'Row total', type: 'numericColumn', width: 120, valueGetter: (params) => Number(params.data?.qty ?? 0) * Number(params.data?.unitCost ?? 0) },
+  { field: 'paymentTerms', headerName: 'Payment terms', editable: true, width: 145 },
+  { field: 'notes', headerName: 'Vendor receipt notes', editable: true, minWidth: 190 },
+  { field: 'internalNotes', headerName: 'Internal notes', editable: true, minWidth: 180 },
   { field: 'tags', editable: true, minWidth: 160 },
-  { field: 'qty', headerName: 'Ordered', editable: true, type: 'numericColumn', width: 120 },
   { field: 'receivedQty', headerName: 'Received', width: 120 },
-  { field: 'uom', editable: true, width: 90 },
-  { field: 'unitCost', headerName: 'Cost', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'unitPrice', headerName: 'Target price', editable: true, type: 'numericColumn', width: 130 },
-  { field: 'sourceCode', headerName: 'Code', editable: true, width: 130 },
-  { field: 'shorthand', editable: true, width: 120 },
-  { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
-  { field: 'ownershipStatus', headerName: 'Owner', editable: true, width: 110 },
-  { field: 'notes', editable: true, minWidth: 180 },
   { field: 'status', width: 120 }
 ];
 
@@ -173,6 +173,8 @@ export function PurchaseOrdersView() {
   const reference = trpc.queries.reference.useQuery();
   const selectedRows = useUiStore((state) => state.selectedRows.purchaseOrders);
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const pushToast = useUiStore((state) => state.pushToast);
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedPo = selected[0];
   const lines = trpc.queries.purchaseOrderLines.useQuery(
@@ -182,42 +184,123 @@ export function PurchaseOrdersView() {
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+  const [authoringOpen, setAuthoringOpen] = useState(false);
   const [vendorId, setVendorId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
-  const [productName, setProductName] = useState('Infused Candy');
-  const [category, setCategory] = useState('Infused');
-  const [lineTags, setLineTags] = useState('');
-  const [qty, setQty] = useState('1');
-  const [unitCost, setUnitCost] = useState('0');
-  const [unitPrice, setUnitPrice] = useState('0');
+  const [buyerNotes, setBuyerNotes] = useState('');
+  const [internalNotes, setInternalNotes] = useState('');
+  const [draftLines, setDraftLines] = useState<GridRow[]>([makePoDraftLine()]);
+  const [newVendorOpen, setNewVendorOpen] = useState(false);
+  const [newVendorName, setNewVendorName] = useState('');
+  const [newVendorTerms, setNewVendorTerms] = useState('14');
+  const [newVendorContact, setNewVendorContact] = useState('');
+  const [newVendorNotes, setNewVendorNotes] = useState('');
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [poTrayOpen, setPoTrayOpen] = useState(false);
   const [lineTrayOpen, setLineTrayOpen] = useState(false);
-  const defaultVendorId = vendorId || reference.data?.vendors[0]?.id || '';
+  const defaultVendorId = vendorId;
+  const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
+  const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
+  const historicalProducts = (reference.data?.availableBatches ?? [])
+    .filter((row) => !defaultVendorId || row.vendorId === defaultVendorId)
+    .slice(0, 8);
   const selectedPoStatus = String(selectedPo?.status ?? '');
+  const filledDraftLines = draftLines.filter((line) => String(line.productName ?? '').trim());
+  const approvalLineIssues = filledDraftLines.filter((line) => Number(line.qty ?? 0) <= 0 || Number(line.unitCost ?? 0) <= 0);
+  const canApproveDraft = Boolean(defaultVendorId) && filledDraftLines.length > 0 && approvalLineIssues.length === 0;
 
-  async function createPo() {
-    const result = await runCommand('createPurchaseOrder', { vendorId: defaultVendorId, expectedDate: expectedDate || undefined }, 'Create purchase order from PO workspace');
-    if (result.ok && result.affectedIds[0]) setSelectedRows('purchaseOrders', [{ id: result.affectedIds[0] }]);
+  function openAuthoringWorkspace() {
+    setAuthoringOpen(true);
+    setSelectedRows('purchaseOrders', []);
+    setDraftLines((rows) => rows.length ? rows : [makePoDraftLine()]);
+    setDrawerState('purchaseOrders', 'closed');
   }
 
-  async function addLine() {
-    if (!selectedPo?.id) return;
-    await runCommand(
-      'addPurchaseOrderLine',
-      {
-        purchaseOrderId: selectedPo.id,
-        productName,
-        category,
-        tags: parseTagInput(lineTags),
-        qty: Number(qty),
-        unitCost: Number(unitCost),
-        unitPrice: Number(unitPrice || unitCost),
-        sourceCode: selectedPo.poNo,
-        ownershipStatus: 'UNKNOWN'
-      },
-      'Add product line to selected purchase order'
+  function updateDraftLine(event: CellValueChangedEvent<GridRow>) {
+    if (!event.data?.id || event.colDef.field == null) return;
+    const field = String(event.colDef.field);
+    setDraftLines((rows) =>
+      rows.map((row) => {
+        if (row.id !== event.data?.id) return row;
+        const next = { ...row, [field]: event.newValue };
+        if (field === 'category') next.uom = unitTypeForCategory(String(event.newValue));
+        return next;
+      })
     );
+  }
+
+  function addDraftLine(seed: Partial<GridRow> = {}) {
+    setDraftLines((rows) => [...rows, makePoDraftLine(seed)]);
+  }
+
+  function quickAddHistorical(row: GridRow) {
+    addDraftLine({
+      productName: row.name,
+      category: row.category,
+      subcategory: Array.isArray(row.tags) ? row.tags[0] : '',
+      tags: Array.isArray(row.tags) ? row.tags.join(', ') : '',
+      unitCost: row.unitCost,
+      qty: 1,
+      uom: row.uom || unitTypeForCategory(String(row.category ?? ''))
+    });
+  }
+
+  async function saveDraftPo(options: { approve?: boolean } = {}) {
+    if (!defaultVendorId) return null;
+    const linesToSubmit = draftLines.filter((row) => String(row.productName ?? '').trim());
+    if (options.approve && (!linesToSubmit.length || linesToSubmit.some((row) => Number(row.qty ?? 0) <= 0 || Number(row.unitCost ?? 0) <= 0))) {
+      pushToast('Approve PO needs product, units, and unit cost on every filled line.', 'error');
+      return null;
+    }
+    const result = await runCommand(
+      'createPurchaseOrder',
+      { vendorId: defaultVendorId, expectedDate: expectedDate || undefined, buyerNotes: buyerNotes || undefined, internalNotes: internalNotes || undefined },
+      options.approve ? 'Create purchase order draft before approval' : 'Save purchase order draft'
+    );
+    if (!result.ok || !result.affectedIds[0]) return null;
+    const purchaseOrderId = result.affectedIds[0];
+    for (const line of linesToSubmit) {
+      await runCommand(
+        'addPurchaseOrderLine',
+        {
+          purchaseOrderId,
+          productName: line.productName,
+          category: line.category || 'Flower',
+          tags: parseTagInput(String(line.tags ?? '')),
+          qty: Number(line.qty || 0),
+          unitCost: Number(line.unitCost || 0),
+          uom: line.uom || unitTypeForCategory(String(line.category ?? '')),
+          notes: composePoLineNotes(line),
+          shorthand: line.costRange ? `Range: ${String(line.costRange)}` : undefined,
+          ownershipStatus: 'UNKNOWN'
+        },
+        'Add purchase order line from authoring table'
+      );
+    }
+    if (options.approve) {
+      await runCommand('approvePurchaseOrder', { purchaseOrderId }, 'Approve PO to receive queue');
+    }
+    setAuthoringOpen(false);
+    setDraftLines([makePoDraftLine()]);
+    setBuyerNotes('');
+    setInternalNotes('');
+    setSelectedRows('purchaseOrders', [{ id: purchaseOrderId }]);
+    return purchaseOrderId;
+  }
+
+  async function saveNewVendor() {
+    const result = await runCommand(
+      'createVendor',
+      { name: newVendorName, termsDays: Number(newVendorTerms || 14), contact: newVendorContact || undefined, notes: newVendorNotes || undefined },
+      'Add vendor from PO workspace'
+    );
+    if (result.ok && result.affectedIds[0]) {
+      setVendorId(result.affectedIds[0]);
+      setNewVendorOpen(false);
+      setNewVendorName('');
+      setNewVendorContact('');
+      setNewVendorNotes('');
+    }
   }
 
   async function updatePoCell(event: CellValueChangedEvent<GridRow>) {
@@ -229,7 +312,10 @@ export function PurchaseOrdersView() {
 
   async function updateLineCell(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
-    await runCommand('updatePurchaseOrderLine', { lineId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline purchase order line edit: ${event.colDef.field}`);
+    const field = String(event.colDef.field);
+    const supported = ['productName', 'category', 'tags', 'qty', 'uom', 'unitCost', 'notes'];
+    if (!supported.includes(field)) return;
+    await runCommand('updatePurchaseOrderLine', { lineId: event.data.id, [field]: field === 'tags' ? parseTagInput(String(event.newValue ?? '')) : event.newValue }, `Inline purchase order line edit: ${field}`);
   }
 
   async function runPurchaseOrderPrimary() {
@@ -238,37 +324,156 @@ export function PurchaseOrdersView() {
       await runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Receive selected purchase order to draft intake');
       return;
     }
-    await runCommand('approvePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Approve selected purchase order');
+    await runCommand('approvePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Approve PO to receive queue');
   }
 
   return (
     <div className="view-stack">
       {canWrite ? (
         <div className="control-band">
-          <label className="field-inline">
-            Vendor
-            <select className="select" value={vendorId} onChange={(event) => setVendorId(event.target.value)}>
-              <option value="">Default vendor</option>
-              {reference.data?.vendors.map((vendor) => (
-                <option key={vendor.id} value={vendor.id}>
-                  {vendor.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field-inline">
-            Expected
-            <input className="input compact" type="date" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} />
-          </label>
-          <button className="primary-button" type="button" disabled={!defaultVendorId || isRunning} onClick={createPo}>
+          <button className="primary-button" type="button" disabled={isRunning} onClick={openAuthoringWorkspace}>
             <ClipboardList className="h-4 w-4" aria-hidden="true" />
             New PO
           </button>
         </div>
       ) : null}
+      {authoringOpen ? (
+        <section className="inline-panel po-authoring-layout" aria-label="New purchase order workspace">
+          <div className="po-authoring-main">
+            <div className="po-header-strip">
+              <div>
+                <div className="text-xs font-bold uppercase text-zinc-500">New purchase order</div>
+                <div className="text-base font-semibold text-ink">Draft workspace</div>
+              </div>
+              <div className="po-header-facts">
+                <span>{selectedVendor?.name ?? 'Choose vendor'}</span>
+                <span>Expected {expectedDate ? dateish(expectedDate) : 'optional'}</span>
+                <span>${moneyish(poLinesTotal(draftLines))} PO total</span>
+              </div>
+              <button className="secondary-button compact-action" type="button" onClick={() => setAuthoringOpen(false)}>
+                Cancel draft PO
+              </button>
+            </div>
+            <div className="control-band subtle-band">
+              <label className="field-inline">
+                Vendor
+                <select
+                  className="select"
+                  value={vendorId}
+                  onChange={(event) => {
+                    setVendorId(event.target.value);
+                  }}
+                >
+                  <option value="">Choose vendor</option>
+                  {reference.data?.vendors.map((vendor) => (
+                    <option key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="secondary-button compact-action" type="button" onClick={() => setNewVendorOpen((value) => !value)} aria-expanded={newVendorOpen}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add new vendor
+              </button>
+              <label className="field-inline">
+                Expected
+                <input className="input compact" type="date" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} />
+              </label>
+              <label className="field-inline grow">
+                Vendor receipt notes
+                <input className="input" value={buyerNotes} onChange={(event) => setBuyerNotes(event.target.value)} />
+              </label>
+              <label className="field-inline grow">
+                Internal notes
+                <input className="input" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+              </label>
+            </div>
+            {newVendorOpen ? (
+              <div className="po-context-panel" role="region" aria-label="Add new vendor drawer">
+                <div className="mb-2 text-sm font-semibold text-ink">Add new vendor</div>
+                <div className="grid gap-2 md:grid-cols-4">
+                  <label className="field-inline">
+                    Name
+                    <input className="input" value={newVendorName} onChange={(event) => setNewVendorName(event.target.value)} />
+                  </label>
+                  <label className="field-inline">
+                    Terms
+                    <input className="input compact" inputMode="numeric" value={newVendorTerms} onChange={(event) => setNewVendorTerms(event.target.value)} />
+                  </label>
+                  <label className="field-inline">
+                    Contact
+                    <input className="input" value={newVendorContact} onChange={(event) => setNewVendorContact(event.target.value)} />
+                  </label>
+                  <label className="field-inline">
+                    Notes
+                    <input className="input" value={newVendorNotes} onChange={(event) => setNewVendorNotes(event.target.value)} />
+                  </label>
+                </div>
+                <button className="primary-button mt-2" type="button" disabled={!newVendorName.trim() || isRunning} onClick={saveNewVendor}>
+                  Save vendor
+                </button>
+              </div>
+            ) : null}
+            <OperatorGrid
+              view="purchaseOrders"
+              title="New PO lines"
+              subtitle="Enter lines directly in the table"
+              rows={draftLines.map(withPoLineTotal)}
+              columns={purchaseOrderLineColumns}
+              loading={isRunning}
+              onSelectionChange={setSelectedLines}
+              onCellCommit={updateDraftLine}
+              actions={
+                <>
+                  {approvalLineIssues.length ? <span className="selection-pill danger">{approvalLineIssues.length} filled line needs units and unit cost.</span> : null}
+                  <button className="secondary-button compact-action" type="button" onClick={() => addDraftLine()}>
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Add line row
+                  </button>
+                  <button className="secondary-button compact-action" type="button" disabled={!defaultVendorId || isRunning} onClick={() => void saveDraftPo()}>
+                    Save draft
+                  </button>
+                  <button className="primary-button compact-action" type="button" disabled={isRunning || !canApproveDraft} title={approvalLineIssues.length ? 'Every filled PO line needs units and unit cost before approval.' : undefined} onClick={() => void saveDraftPo({ approve: true })}>
+                    Approve PO
+                  </button>
+                </>
+              }
+              emptyTitle="No PO lines"
+              emptyChildren="Add a line row, then type product, units, cost, terms, and notes directly into the table."
+            />
+            <div className="po-total-strip">
+              <span>PO total ${moneyish(poLinesTotal(draftLines))}</span>
+              <span>Procurement cost only. Sales price stays in Sales.</span>
+              {approvalLineIssues.length ? <span className="po-total-warning">{approvalLineIssues.length} filled line needs units and unit cost.</span> : null}
+            </div>
+          </div>
+          <aside className="po-context-panel" aria-label="Vendor context">
+            <h2 className="section-title">Vendor context</h2>
+            <div className="po-context-list">
+              <div className="drawer-fact-row"><span>Vendor</span><strong>{selectedVendor?.name ?? 'Choose vendor'}</strong></div>
+              <div className="drawer-fact-row"><span>Terms</span><strong>{selectedVendor ? `${String(selectedVendor.termsDays ?? 14)} days` : '-'}</strong></div>
+              <div className="drawer-fact-row"><span>Open bills</span><strong>{vendorRelationship.data?.bills?.length ?? 0}</strong></div>
+              <div className="drawer-fact-row"><span>Payments</span><strong>{vendorRelationship.data?.vendorPayments?.length ?? 0}</strong></div>
+              <div className="drawer-fact-row"><span>Prior POs</span><strong>{vendorRelationship.data?.purchaseOrders?.length ?? 0}</strong></div>
+            </div>
+            <h3 className="section-title mt-4">Historical quick add</h3>
+            <div className="po-context-list">
+              {historicalProducts.length ? historicalProducts.map((row) => (
+                <button className="po-context-row" type="button" key={String(row.id)} onClick={() => quickAddHistorical(row)}>
+                  <span>{String(row.name ?? 'Product')}</span>
+                  <strong>${moneyish(row.unitCost)}</strong>
+                </button>
+              )) : (
+                <div className="drawer-empty">No reusable vendor history yet.</div>
+              )}
+            </div>
+          </aside>
+        </section>
+      ) : null}
       <OperatorGrid
         view="purchaseOrders"
-        title="Purchase Orders"
+        title="Recent purchase orders"
         rows={(grid.data ?? []) as GridRow[]}
         columns={columnsByView.purchaseOrders ?? []}
         loading={grid.isLoading || isRunning}
@@ -284,7 +489,6 @@ export function PurchaseOrdersView() {
                 {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
-              {selectedPo ? <span className="selection-pill">{`${String(selectedPo.poNo ?? 'PO')} / ${selectedPoStatus || 'draft'}`}</span> : null}
               <button className="secondary-button compact-action" disabled={!selected.length} onClick={() => setPoTrayOpen((value) => !value)} aria-expanded={poTrayOpen} type="button">
                 {poTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
                 More
@@ -297,7 +501,7 @@ export function PurchaseOrdersView() {
                   </button>
                   <button className="secondary-button compact-action" disabled={!selected.length || isRunning} onClick={() => runCommand('cancelPurchaseOrder', { purchaseOrderId: selected[0].id }, 'Cancel selected purchase order')} type="button">
                     <Undo2 className="h-4 w-4" aria-hidden="true" />
-                    Cancel
+                    Cancel draft PO
                   </button>
                 </>
               ) : null}
@@ -325,45 +529,10 @@ export function PurchaseOrdersView() {
               </button>
             ) : null}
           </section>
-          {canWrite ? (
-            <div className="control-band subtle-band">
-              <label className="field-inline grow">
-                Product
-                <input className="input" value={productName} onChange={(event) => setProductName(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Category
-                <select className="select compact" value={category} onChange={(event) => setCategory(event.target.value)}>
-                  {reference.data?.categories.map((option) => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field-inline grow">
-                Tags
-                <input className="input" value={lineTags} placeholder="premium, candy" onChange={(event) => setLineTags(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Qty
-                <input className="input compact" value={qty} inputMode="decimal" onChange={(event) => setQty(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Cost
-                <input className="input compact" value={unitCost} inputMode="decimal" onChange={(event) => setUnitCost(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Price
-                <input className="input compact" value={unitPrice} inputMode="decimal" onChange={(event) => setUnitPrice(event.target.value)} />
-              </label>
-              <button className="secondary-button" type="button" disabled={!productName || Number(qty) <= 0 || isRunning} onClick={addLine}>
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add Line
-              </button>
-            </div>
-          ) : null}
           <OperatorGrid
             view="purchaseOrders"
             title={`${String(selectedPo.poNo ?? 'Selected PO')} Lines`}
+            subtitle="Procurement cost lines"
             rows={(lines.data ?? []) as GridRow[]}
             columns={purchaseOrderLineColumns}
             loading={lines.isLoading || isRunning}
@@ -398,7 +567,7 @@ export function PurchaseOrdersView() {
                     type="button"
                   >
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    Remove Line
+                    Remove PO line
                   </button> : null}
                 </>
               ) : null
@@ -410,11 +579,55 @@ export function PurchaseOrdersView() {
   );
 }
 
+function makePoDraftLine(seed: Partial<GridRow> = {}): GridRow {
+  const category = String(seed.category ?? 'Flower');
+  return {
+    id: `draft-${crypto.randomUUID()}`,
+    productName: seed.productName ?? '',
+    category,
+    subcategory: seed.subcategory ?? '',
+    costRange: seed.costRange ?? '',
+    qty: seed.qty ?? 1,
+    uom: seed.uom ?? unitTypeForCategory(category),
+    unitCost: seed.unitCost ?? 0,
+    paymentTerms: seed.paymentTerms ?? 'Vendor terms',
+    notes: seed.notes ?? '',
+    internalNotes: seed.internalNotes ?? '',
+    tags: seed.tags ?? '',
+    receivedQty: 0,
+    status: 'draft'
+  };
+}
+
+function withPoLineTotal(row: GridRow): GridRow {
+  return { ...row, lineTotal: Number(row.qty ?? 0) * Number(row.unitCost ?? 0) };
+}
+
+function poLinesTotal(rows: GridRow[]) {
+  return rows.reduce((sum, row) => sum + Number(row.qty ?? 0) * Number(row.unitCost ?? 0), 0);
+}
+
+function unitTypeForCategory(category: string) {
+  const normalized = category.toLowerCase();
+  if (normalized.includes('flower')) return 'lb';
+  if (normalized.includes('infused')) return 'case';
+  if (normalized.includes('pre-roll')) return 'pack';
+  return 'unit';
+}
+
+function composePoLineNotes(line: GridRow) {
+  return [
+    line.notes ? `Receipt: ${String(line.notes)}` : '',
+    line.internalNotes ? `Internal: ${String(line.internalNotes)}` : '',
+    line.paymentTerms ? `Terms: ${String(line.paymentTerms)}` : ''
+  ].filter(Boolean).join(' | ');
+}
+
 function purchaseOrderPrimaryLabel(status: string) {
-  if (['approved', 'ordered', 'partially_received'].includes(status)) return 'Draft intake';
+  if (['approved', 'ordered', 'partially_received'].includes(status)) return 'Receive PO';
   if (status === 'received') return 'Received';
   if (status === 'cancelled') return 'Cancelled';
-  return 'Approve';
+  return 'Approve PO';
 }
 
 function purchaseOrderPrimaryDisabled(status: string) {
@@ -635,7 +848,9 @@ function InventoryMovementTools({
   const [reason, setReason] = useState('Operator inventory correction');
   const [tagText, setTagText] = useState('');
   const batchId = selectedBatch?.id;
-  const selectedLabel = selectedBatch ? `${String(selectedBatch.batchCode ?? selectedBatch.name ?? 'Batch')} / ${String(selectedBatch.status ?? 'status')}` : 'Select inventory row';
+  const selectedLabel = selectedBatch
+    ? `Inventory row: ${String(selectedBatch.batchCode ?? selectedBatch.name ?? 'Batch')} / ${labelFromToken(String(selectedBatch.status ?? 'status'))}`
+    : 'Inventory row not selected';
   const consignedVendorId = vendorId || String(selectedBatch?.vendorId ?? '');
 
   useEffect(() => {
@@ -648,9 +863,9 @@ function InventoryMovementTools({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="section-title">Inventory controls</h2>
-          <p className="text-xs text-zinc-600">Move status, location, or ownership from the selected batch. Changes are tracked in Settings.</p>
+          <p className="text-xs text-zinc-600">Select a row in Inventory Batches below. Media queue selection is separate.</p>
         </div>
-        <span className="selection-pill">{selectedLabel}</span>
+        <span className={selectedBatch ? 'selection-pill' : 'selection-pill warning'}>{selectedLabel}</span>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <label className="field-inline">
@@ -785,7 +1000,7 @@ function VendorMoneyOutStrip({ selectedBill }: { selectedBill?: GridRow }) {
   const openAmount = Number(selectedBill?.amount ?? 0) - Number(selectedBill?.amountPaid ?? 0);
   const payoutAmount = amount ? Number(amount) : openAmount;
   const selectedStatus = String(selectedBill?.status ?? '');
-  const trace = selectedBill ? `${bucket} -> ${String(selectedBill.billNo ?? 'vendor bill')}` : `${bucket} -> vendor bill`;
+  const trace = selectedBill ? `${moneyBucketLabel(bucket)} to ${String(selectedBill.billNo ?? 'bill')}` : `${moneyBucketLabel(bucket)} to selected bill`;
   const impact = selectedBill ? `Pays ${moneyish(Math.min(Math.max(openAmount, 0), Math.max(payoutAmount, 0)))} on ${String(selectedBill.billNo ?? 'bill')}` : 'Select bill to preview payout';
 
   async function commit() {
@@ -807,19 +1022,19 @@ function VendorMoneyOutStrip({ selectedBill }: { selectedBill?: GridRow }) {
       <label className="field-inline">
         Method
         <select className="select compact" value={method} onChange={(event) => setMethod(event.target.value)}>
-          <option value="cash">cash</option>
-          <option value="check">check</option>
-          <option value="wire">wire</option>
-          <option value="crypto">crypto</option>
+          <option value="cash">Cash</option>
+          <option value="check">Check</option>
+          <option value="wire">Wire</option>
+          <option value="crypto">Crypto</option>
         </select>
       </label>
       <label className="field-inline">
         Bucket
         <select className="select compact" value={bucket} onChange={(event) => setBucket(event.target.value)}>
-          <option value="accounting">accounting</option>
-          <option value="cash-file-a">cash-file-a</option>
-          <option value="cash-file-b">cash-file-b</option>
-          <option value="wire-clearing">wire-clearing</option>
+          <option value="accounting">Accounting</option>
+          <option value="cash-file-a">Cash file A</option>
+          <option value="cash-file-b">Cash file B</option>
+          <option value="wire-clearing">Wire clearing</option>
         </select>
       </label>
       <label className="field-inline">
@@ -837,6 +1052,16 @@ function VendorMoneyOutStrip({ selectedBill }: { selectedBill?: GridRow }) {
       </button>
     </section>
   );
+}
+
+function moneyBucketLabel(value: string) {
+  const labels: Record<string, string> = {
+    accounting: 'Accounting',
+    'cash-file-a': 'Cash file A',
+    'cash-file-b': 'Cash file B',
+    'wire-clearing': 'Wire clearing'
+  };
+  return labels[value] ?? labelFromToken(value);
 }
 
 function vendorPrimaryLabel(status: string) {
@@ -926,7 +1151,7 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
             <option value="">Choose payout</option>
             {vendorPayments.data?.map((payment) => (
               <option key={String(payment.id)} value={String(payment.id)}>
-                {String(payment.billNo)} / ${String(payment.amount)} / {String(payment.status)}
+                {String(payment.billNo)} / ${String(payment.amount)} / {labelFromToken(String(payment.status ?? 'open'))}
               </option>
             ))}
           </select>
@@ -938,7 +1163,7 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
       <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
         <span className="selection-pill">Bill {String(selectedBill?.billNo ?? 'none')}</span>
         <span className="selection-pill">Open ${moneyish(Number(selectedBill?.amount ?? 0) - Number(selectedBill?.amountPaid ?? 0))}</span>
-        <span className="selection-pill success">{String(selectedBill?.dueReason ?? 'Manual / receipt / sellout trigger')}</span>
+        <span className="selection-pill success">{selectedBill ? String(selectedBill.dueReason ?? 'Due reason not recorded') : 'Select bill to see due reason'}</span>
       </div>
       {vendorPayments.data?.length ? (
         <div className="finder-table-wrap max-h-48">
@@ -957,9 +1182,9 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
                 <tr key={String(payment.id)}>
                   <td>{String(payment.billNo ?? selectedBill?.billNo ?? 'Bill')}</td>
                   <td>${moneyish(payment.amount)}</td>
-                  <td>{String(payment.method ?? '-')}</td>
+                  <td>{labelFromToken(String(payment.method ?? '-'))}</td>
                   <td>{String(payment.reference ?? '-')}</td>
-                  <td>{String(payment.status ?? '-')}</td>
+                  <td>{labelFromToken(String(payment.status ?? '-'))}</td>
                 </tr>
               ))}
             </tbody>
@@ -974,6 +1199,7 @@ export function FulfillmentView() {
   const grid = trpc.queries.grid.useQuery({ view: 'fulfillment' });
   const selectedRows = useUiStore((state) => state.selectedRows.fulfillment);
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+  const pickRows = (grid.data ?? []) as GridRow[];
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedPick = selected[0];
   const lines = trpc.queries.fulfillmentLines.useQuery({ pickListId: String(selectedPick?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedPick?.id) });
@@ -989,7 +1215,7 @@ export function FulfillmentView() {
   const canWrite = me.data?.role !== 'viewer';
   const line = selectedLines[0];
   const fulfillmentComplete = Boolean(
-    selected.length &&
+    selectedPick?.id &&
       lines.data?.length &&
       lines.data.every((candidate) => String(candidate.status ?? '') === 'packed' || (Number(candidate.actualQty ?? 0) > 0 && Boolean(candidate.bagCode)))
   );
@@ -1011,7 +1237,7 @@ export function FulfillmentView() {
       <OperatorGrid
         view="fulfillment"
         title="Fulfillment"
-        rows={(grid.data ?? []) as GridRow[]}
+        rows={pickRows}
         columns={columnsByView.fulfillment ?? []}
         loading={grid.isLoading || isRunning}
         onSelectionChange={(rows) => {
@@ -1020,11 +1246,12 @@ export function FulfillmentView() {
         }}
         actions={canWrite ?
           <>
-            {fulfillmentComplete ? <button className="primary-button" disabled={!selected.length} onClick={() => runCommand('markOrderFulfilled', { orderId: selected[0].orderId, tracking }, 'Mark order fulfilled')} type="button">
+            <span className={selectedPick ? 'selection-pill' : 'selection-pill warning'}>{selectedPick ? `Showing ${String(selectedPick.pickNo ?? 'pick')}` : 'Select a pick row'}</span>
+            {fulfillmentComplete ? <button className="primary-button" disabled={!selectedPick?.id} onClick={() => runCommand('markOrderFulfilled', { orderId: selectedPick?.orderId, tracking }, 'Mark order fulfilled')} type="button">
               <PackageCheck className="h-4 w-4" aria-hidden="true" />
               Fulfilled
             </button> : null}
-            <button className="secondary-button compact-action" disabled={!selected.length} onClick={() => setPrintTrayOpen((value) => !value)} type="button" aria-expanded={printTrayOpen}>
+            <button className="secondary-button compact-action" disabled={!selectedPick?.id} onClick={() => setPrintTrayOpen((value) => !value)} type="button" aria-expanded={printTrayOpen}>
               {printTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
               Print
             </button>
@@ -1037,7 +1264,7 @@ export function FulfillmentView() {
                     <option value="2x1">2x1</option>
                   </select>
                 </label>
-                <button className="secondary-button compact-action" disabled={!selected.length} onClick={() => runCommand('printLabels', { pickListId: selected[0].id, labelFormat }, 'Print labels')} type="button">
+                <button className="secondary-button compact-action" disabled={!selectedPick?.id} onClick={() => runCommand('printLabels', { pickListId: selectedPick?.id, labelFormat }, 'Print labels')} type="button">
                   <FileDown className="h-4 w-4" aria-hidden="true" />
                   Labels
                 </button>
@@ -1094,6 +1321,8 @@ export function FulfillmentView() {
         columns={fulfillmentLineColumns}
         loading={lines.isLoading}
         onSelectionChange={setSelectedLines}
+        emptyTitle={selectedPick ? 'No lines on this pick' : 'No pick selected'}
+        emptyChildren={selectedPick ? 'Allocate an order to fulfillment to create pack lines.' : 'Select a fulfillment row to load pack lines.'}
         onCellCommit={canWrite ? (event) => {
           if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
           runCommand('adjustFulfillmentLine', { fulfillmentLineId: event.data.id, [event.colDef.field]: event.newValue }, `Inline fulfillment edit: ${event.colDef.field}`);
@@ -1365,6 +1594,7 @@ export function CloseoutView() {
   const blockers = preview.data?.blockers ?? [];
   const openWorkCount = preview.data?.openWorkCount ?? preview.data?.unsafeRows ?? 0;
   const readiness = closeoutReadiness(preview.data?.locked, openWorkCount);
+  const lockDisabled = openWorkCount > 0 || Boolean(preview.data?.locked);
 
   function openBlocker(blockerId?: string) {
     const target = blockerTarget(blockerId);
@@ -1391,7 +1621,13 @@ export function CloseoutView() {
         <button className="secondary-button" type="button" onClick={() => setShowAdjustment((value) => !value)}>
           {showAdjustment ? 'Hide adjustment' : 'Adjustment'}
         </button>
-        <button className="secondary-button" type="button" onClick={() => runCommand('lockPeriod', { period }, 'Lock closeout period')}>
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={lockDisabled}
+          title={openWorkCount > 0 ? 'Review open work before locking this period.' : preview.data?.locked ? 'This period is already locked.' : undefined}
+          onClick={() => runCommand('lockPeriod', { period }, 'Lock closeout period')}
+        >
           Lock period
         </button>
         <button className="primary-button" type="button" disabled={!preview.data?.locked || openWorkCount > 0} onClick={() => runCommand('archivePeriod', { period, verified: true }, 'Archive locked period')}>

@@ -12,9 +12,17 @@ export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
   health: protectedProcedure.query(() => getHealth()),
   reference: protectedProcedure.query(async () => {
-    const [customers, vendors, items, tags, invoices, batches, orders, purchaseOrders, backups] = await Promise.all([
+    const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups] = await Promise.all([
       pool.query('select id, name, credit_limit as "creditLimit", balance, tags from customers order by name'),
       pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
+      pool.query("select id, name, role from users where role in ('owner','manager','operator') and active order by name"),
+      pool.query(`select id, slug, label, direction, allowed_entity_types as "allowedEntityTypes",
+                         default_method as "defaultMethod", default_bucket as "defaultBucket",
+                         default_allocation_intent as "defaultAllocationIntent",
+                         requires_approval as "requiresApproval", is_system as "isSystem", is_active as "isActive"
+                  from transaction_types
+                  where is_active
+                  order by is_system desc, direction, label`),
       pool.query('select id, sku, name, category, tags from items order by name'),
       pool.query('select id, slug, label, color, description, is_active as "isActive" from tag_catalog where is_active order by label'),
       pool.query("select id, invoice_no as \"invoiceNo\", customer_id as \"customerId\", total, amount_paid as \"amountPaid\", status from invoices where status in ('open', 'partial') order by created_at"),
@@ -37,6 +45,8 @@ export const queriesRouter = router({
     return {
       customers: customers.rows,
       vendors: vendors.rows,
+      staff: staff.rows,
+      transactionTypes: transactionTypes.rows,
       items: items.rows,
       tags: tags.rows,
       openInvoices: invoices.rows,
@@ -53,6 +63,94 @@ export const queriesRouter = router({
   }),
   grid: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input }) => {
     return (await pool.query(gridSql(input.view))).rows;
+  }),
+  transactionLedger: protectedProcedure.query(async () => {
+    const rows = (
+      await pool.query(
+        `select *
+         from (
+           select p.id,
+                  'payment' as "sourceType",
+                  p.id as "sourceId",
+                  'receiving' as direction,
+                  p.created_at as date,
+                  p.customer_id as "entityId",
+                  'customer' as "entityType",
+                  coalesce(c.name, 'Unknown customer') as "entityLabel",
+                  p.amount,
+                  p.method,
+                  p.location_bucket as bucket,
+                  p.category as "transactionType",
+                  p.allocation_intent as "allocationIntent",
+                  case
+                    when p.allocation_intent = 'unapplied' then 'Unapplied'
+                    when p.allocation_intent in ('selected', 'selected_invoice') then coalesce((select i.invoice_no from payment_allocations pa join invoices i on i.id = pa.invoice_id where pa.payment_id = p.id order by pa.created_at limit 1), 'Selected invoice')
+                    else 'FIFO oldest invoices'
+                  end as "allocationTargetLabel",
+                  p.reference,
+                  p.notes,
+                  p.status,
+                  p.impact_preview as "impactPreview",
+                  (select cj.id from command_journal cj where p.id::text = any(cj.affected_ids) order by cj.created_at desc limit 1) as "commandId"
+           from payments p
+           left join customers c on c.id = p.customer_id
+           where p.status not in ('reversed', 'refunded')
+           union all
+           select vp.id,
+                  'vendor_payment' as "sourceType",
+                  vp.id as "sourceId",
+                  'paying' as direction,
+                  vp.created_at as date,
+                  vb.vendor_id as "entityId",
+                  'vendor' as "entityType",
+                  coalesce(v.name, 'Unknown vendor') as "entityLabel",
+                  vp.amount,
+                  vp.method,
+                  'accounting' as bucket,
+                  case when vb.purchase_order_id is not null then 'vendor_product_payment' else 'vendor_payout' end as "transactionType",
+                  case when vb.purchase_order_id is not null then 'selected_po' else 'selected_bill' end as "allocationIntent",
+                  coalesce(po.po_no, vb.bill_no) as "allocationTargetLabel",
+                  vp.reference,
+                  vb.due_reason as notes,
+                  vp.status,
+                  concat('Pays ', vp.amount, ' on ', coalesce(po.po_no, vb.bill_no)) as "impactPreview",
+                  (select cj.id from command_journal cj where vp.id::text = any(cj.affected_ids) order by cj.created_at desc limit 1) as "commandId"
+           from vendor_payments vp
+           join vendor_bills vb on vb.id = vp.vendor_bill_id
+           left join vendors v on v.id = vb.vendor_id
+           left join purchase_orders po on po.id = vb.purchase_order_id
+           where vp.status <> 'void' and vb.status <> 'reversed'
+           union all
+           select cje.id,
+                  'correction' as "sourceType",
+                  cje.id as "sourceId",
+                  case when cje.amount::numeric < 0 then 'paying' else 'receiving' end as direction,
+                  cje.created_at as date,
+                  null::uuid as "entityId",
+                  'other' as "entityType",
+                  'Manual / other' as "entityLabel",
+                  abs(cje.amount::numeric) as amount,
+                  'journal' as method,
+                  'accounting' as bucket,
+                  'correction' as "transactionType",
+                  'unapplied' as "allocationIntent",
+                  'Journal' as "allocationTargetLabel",
+                  null::varchar as reference,
+                  cje.memo as notes,
+                  cje.status,
+                  cje.memo as "impactPreview",
+                  (select cj.id from command_journal cj where cje.id::text = any(cj.affected_ids) order by cj.created_at desc limit 1) as "commandId"
+           from correction_journal_entries cje
+           where cje.status <> 'reversed'
+         ) ledger
+         order by date desc
+         limit 500`
+      )
+    ).rows;
+    return {
+      receiving: rows.filter((row) => row.direction === 'receiving'),
+      paying: rows.filter((row) => row.direction === 'paying')
+    };
   }),
   matchmakingBoard: protectedProcedure.query(async () => {
     const [needs, supplies, matches] = await Promise.all([
@@ -691,9 +789,12 @@ function gridSql(view: z.infer<typeof viewSchema>) {
               group by c.id
               order by c.balance desc, c.name`;
     case 'vendors':
-      return `select vb.id, v.name as vendor, vb.vendor_id as "vendorId", vb.bill_no as "billNo", vb.amount, vb.amount_paid as "amountPaid",
-                     vb.status, vb.due_date as "dueDate", vb.scheduled_for as "scheduledFor", vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered"
-              from vendor_bills vb left join vendors v on v.id = vb.vendor_id
+      return `select vb.id, v.name as vendor, vb.vendor_id as "vendorId", vb.bill_no as "billNo", po.po_no as "poNo", vb.purchase_order_id as "purchaseOrderId",
+                     vb.amount, vb.amount_paid as "amountPaid", vb.status, vb.due_date as "dueDate", vb.scheduled_for as "scheduledFor",
+                     vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered"
+              from vendor_bills vb
+              left join vendors v on v.id = vb.vendor_id
+              left join purchase_orders po on po.id = vb.purchase_order_id
               order by vb.due_date, v.name`;
     case 'fulfillment':
       return `select pl.id, pl.order_id as "orderId", pl.pick_no as "pickNo", so.order_no as "orderNo", c.name as customer, pl.status,
@@ -750,7 +851,7 @@ function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     payments: ['id', 'customer', 'direction', 'category', 'method', 'amount', 'unappliedAmount', 'allocationIntent', 'impactPreview', 'reference', 'locationBucket', 'notes', 'status', 'createdAt'],
     inventory: ['id', 'batchCode', 'name', 'category', 'tags', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
     clients: ['id', 'name', 'creditLimit', 'balance', 'tags', 'notes', 'invoiceCount'],
-    vendors: ['id', 'vendor', 'billNo', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
+    vendors: ['id', 'vendor', 'billNo', 'poNo', 'purchaseOrderId', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],
     connectors: ['id', 'source', 'requestType', 'customer', 'status', 'operatorNotes', 'createdAt'],
     recovery: ['id', 'commandName', 'actorName', 'status', 'error', 'affectedIds', 'reversedByCommandId', 'createdAt'],

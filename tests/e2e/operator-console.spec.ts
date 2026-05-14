@@ -20,7 +20,7 @@ test('owner can log in, inspect dashboard, and navigate spreadsheet grids', asyn
   await expect(page.getByText('Inventory Intake')).toBeVisible();
   await expect(page.locator('.ag-root:visible').first()).toBeVisible();
 
-  await page.getByRole('button', { name: /Search PO-123/ }).click();
+  await page.getByRole('button', { name: /^Search/ }).click();
   await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
   await page.keyboard.press('Escape');
 
@@ -51,9 +51,10 @@ test('collapsed mobile navigation keeps accessible route names', async ({ page }
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   const keel = page.getByRole('banner', { name: 'Global workspace keel' });
-  await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'New PO', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'Receive', exact: true })).toBeVisible();
+  await keel.getByRole('button', { name: 'Quick actions' }).click();
+  await expect(keel.getByRole('menuitem', { name: 'New Sale', exact: true })).toBeVisible();
+  await expect(keel.getByRole('menuitem', { name: 'New PO', exact: true })).toBeVisible();
+  await expect(keel.getByRole('menuitem', { name: 'Receive', exact: true })).toBeVisible();
 
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: 'Settings' }).click();
@@ -72,13 +73,14 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await expect(page.getByText('Owner Daily Decision View')).toBeVisible({ timeout: 30_000 });
 
   const keel = page.getByRole('banner', { name: 'Global workspace keel' });
-  await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'New PO', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'Receive', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'Money in', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'Money out', exact: true })).toBeVisible();
+  await keel.getByRole('button', { name: 'Quick actions' }).click();
+  await expect(keel.getByRole('menuitem', { name: 'New Sale', exact: true })).toBeVisible();
+  await expect(keel.getByRole('menuitem', { name: 'New PO', exact: true })).toBeVisible();
+  await expect(keel.getByRole('menuitem', { name: 'Receive', exact: true })).toBeVisible();
+  await expect(keel.getByRole('menuitem', { name: 'Money in', exact: true })).toBeVisible();
+  await expect(keel.getByRole('menuitem', { name: 'Money out', exact: true })).toBeVisible();
 
-  await keel.getByRole('button', { name: 'New Sale', exact: true }).click();
+  await keel.getByRole('menuitem', { name: 'New Sale', exact: true }).click();
   await page.getByLabel('Customer').selectOption({ label: 'Cobalt Reserve' });
   await expect(page.getByText('Sales Orders')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Customer Workspace', exact: true })).toBeVisible();
@@ -94,19 +96,37 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await expect(finder.getByText(/\d+ \/ \d+ shown/)).toBeVisible();
   await page.keyboard.press('Escape');
 
-  await keel.getByRole('button', { name: 'New PO' }).click();
-  await expect(page.getByRole('button', { name: /Purchase Orders \d+ row/ })).toBeVisible();
+  await keel.getByRole('button', { name: 'Quick actions' }).click();
+  await keel.getByRole('menuitem', { name: 'New PO' }).click();
+  await expect(page.getByRole('button', { name: /Recent purchase orders \d+ row/ })).toBeVisible();
   await page.getByRole('main').getByRole('button', { name: 'New PO' }).click();
-  await expect(page.getByRole('button', { name: /Add Line/ })).toBeVisible();
+  await expect(page.getByText('New PO lines')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Add line row/ })).toBeVisible();
+  const poWorkspace = page.getByLabel('New purchase order workspace');
+  await poWorkspace.locator('.ag-cell[col-id="productName"]').first().dblclick();
+  await page.keyboard.type('QA Zero Cost');
+  await page.keyboard.press('Enter');
+  await expect(poWorkspace.getByRole('button', { name: 'Approve PO' })).toBeDisabled();
+  await expect(poWorkspace.locator('.workspace-panel-actions .selection-pill.danger', { hasText: '1 filled line needs units and unit cost.' })).toBeVisible();
 
-  await keel.getByRole('button', { name: 'Receive', exact: true }).click();
+  await keel.getByRole('button', { name: 'Quick actions' }).click();
+  await keel.getByRole('menuitem', { name: 'Receive', exact: true }).click();
   await expect(page.getByText('Inventory Intake')).toBeVisible();
   await expect(page.getByRole('button', { name: /Receive Inventory/ })).toBeVisible();
 
-  await keel.getByRole('button', { name: 'Money in', exact: true }).click();
+  await keel.getByRole('button', { name: 'Quick actions' }).click();
+  await keel.getByRole('menuitem', { name: 'Money in', exact: true }).click();
   await expect(page.getByRole('button', { name: /Payments \d+ row/ })).toBeVisible();
-  await expect(page.getByText('Quick Ledger')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Money In', exact: true })).toBeVisible();
+  await expect(page.getByText('Transaction Ledger')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Receiving', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Paying', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Receiving Ledger' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Paying Ledger' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'PO / FIFO / target' }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Paying Ledger' }).click();
+  await expect(page.getByText('Entity paying cash to')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Paying Ledger' }).click();
+  await expect(page.getByText('Entity paying cash to')).toBeVisible();
 });
 
 test('persona workspaces keep only the relevant starts visible', async ({ page }) => {
@@ -117,11 +137,12 @@ test('persona workspaces keep only the relevant starts visible', async ({ page }
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   const keel = page.getByRole('banner', { name: 'Global workspace keel' });
-  await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'Money in', exact: true })).toBeVisible();
-  await expect(keel.getByRole('button', { name: 'New PO', exact: true })).toHaveCount(0);
-  await expect(keel.getByRole('button', { name: 'Receive', exact: true })).toHaveCount(0);
-  await expect(keel.getByRole('button', { name: 'Money out', exact: true })).toHaveCount(0);
+  await keel.getByRole('button', { name: 'Quick actions' }).click();
+  await expect(keel.getByRole('menuitem', { name: 'New Sale', exact: true })).toBeVisible();
+  await expect(keel.getByRole('menuitem', { name: 'Money in', exact: true })).toBeVisible();
+  await expect(keel.getByRole('menuitem', { name: 'New PO', exact: true })).toHaveCount(0);
+  await expect(keel.getByRole('menuitem', { name: 'Receive', exact: true })).toHaveCount(0);
+  await expect(keel.getByRole('menuitem', { name: 'Money out', exact: true })).toHaveCount(0);
   await expect(page.getByRole('navigation').getByRole('button', { name: 'Settings' })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Sign out' }).click();
@@ -131,11 +152,11 @@ test('persona workspaces keep only the relevant starts visible', async ({ page }
 
   const viewerKeel = page.getByRole('banner', { name: 'Global workspace keel' });
   await expect(viewerKeel.getByRole('button', { name: 'Find', exact: true })).toBeVisible();
-  await expect(viewerKeel.getByRole('button', { name: 'New Sale', exact: true })).toHaveCount(0);
-  await expect(viewerKeel.getByRole('button', { name: 'New PO', exact: true })).toHaveCount(0);
-  await expect(viewerKeel.getByRole('button', { name: 'Receive', exact: true })).toHaveCount(0);
-  await expect(viewerKeel.getByRole('button', { name: 'Money in', exact: true })).toHaveCount(0);
-  await expect(viewerKeel.getByRole('button', { name: 'Money out', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('menuitem', { name: 'New Sale', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('menuitem', { name: 'New PO', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('menuitem', { name: 'Receive', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('menuitem', { name: 'Money in', exact: true })).toHaveCount(0);
+  await expect(viewerKeel.getByRole('menuitem', { name: 'Money out', exact: true })).toHaveCount(0);
 });
 
 test('operators can reclaim space while keeping the keel available', async ({ page }) => {
@@ -150,7 +171,7 @@ test('operators can reclaim space while keeping the keel available', async ({ pa
   await page.getByRole('navigation').getByRole('button', { name: /Sales/ }).click();
   await expect(page.getByText('Sales Orders')).toBeVisible();
   await page.getByLabel('Expand Sales Orders').click();
-  await expect(keel.getByRole('button', { name: 'New Sale', exact: true })).toBeVisible();
+  await expect(keel.getByRole('button', { name: 'Quick actions' })).toBeVisible();
   await expect(page.getByText('Inventory Finder')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(keel).toBeVisible();
@@ -172,14 +193,14 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   const main = page.getByRole('main');
 
   await nav.getByRole('button', { name: /Purchase Orders/ }).click();
-  await expect(main.getByRole('button', { name: /Purchase Orders \d+ row/ })).toBeVisible();
+  await expect(main.getByRole('button', { name: /Recent purchase orders \d+ row/ })).toBeVisible();
   await expect(main.getByRole('button', { name: 'New PO' })).toBeVisible();
-  await expect(main.getByRole('button', { name: 'Approve' })).toBeVisible();
+  await expect(main.getByRole('button', { name: 'Approve PO' })).toBeVisible();
   await page.locator('.ag-center-cols-container .ag-row').first().click();
   await main.getByRole('button', { name: 'More', exact: true }).click();
   await expect(main.getByRole('button', { name: 'Draft intake' })).toBeVisible();
-  await expect(main.getByRole('button', { name: 'Cancel' })).toBeVisible();
-  await expect(main.getByRole('button', { name: 'Add Line' })).toBeVisible();
+  await expect(main.getByRole('button', { name: 'Cancel draft PO' })).toBeVisible();
+  await expect(main.getByRole('button', { name: /Lines Procurement cost lines/ })).toBeVisible();
   await expect(main.getByRole('button', { name: 'Draft selected lines' })).toBeVisible();
   await expect(main.getByRole('button', { name: 'Line actions' })).toBeVisible();
 
@@ -195,7 +216,7 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   await expect(page.getByRole('button', { name: 'Intake tray' })).toBeVisible();
   await page.getByRole('button', { name: 'Intake tray' }).click();
   await expect(page.getByRole('button', { name: 'Delete draft' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export CSV' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Export visible grid CSV' }).first()).toBeVisible();
 
   await nav.getByRole('button', { name: /Sales/ }).click();
   await page.getByRole('button', { name: 'Sale tray' }).click();
@@ -205,8 +226,10 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   await expect(page.getByRole('button', { name: 'Pick list' })).toBeVisible();
 
   await nav.getByRole('button', { name: /Payments/ }).click();
-  await expect(page.getByRole('button', { name: 'Money In', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Money Out', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Receiving', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Paying', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Types' }).first()).toBeVisible();
+  await expect(page.getByText('Product payment').first()).toBeVisible();
   await expect(page.getByText('Payment allocations')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Unallocate' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Early discount' })).toBeVisible();
