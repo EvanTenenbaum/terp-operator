@@ -303,6 +303,7 @@ export const vendorBills = pgTable('vendor_bills', {
   termsDays: integer('terms_days').notNull().default(14),
   consignmentTriggered: boolean('consignment_triggered').notNull().default(false),
   dueReason: text('due_reason'),
+  discrepancyNotes: text('discrepancy_notes'),
   createdAt: now(),
   updatedAt: updated()
 });

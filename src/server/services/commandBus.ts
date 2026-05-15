@@ -433,6 +433,15 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
   if (purchaseOrderIds.size > 1) throw new Error('Selected intake rows can only be receipted against one purchase order at a time.');
   const purchaseOrderId: string | null = [...purchaseOrderIds][0] ?? null;
 
+  const discrepancyInput = (payload.discrepancyNotes && typeof payload.discrepancyNotes === 'object' && !Array.isArray(payload.discrepancyNotes))
+    ? (payload.discrepancyNotes as Record<string, unknown>)
+    : {};
+  const reasonByBatch = new Map<string, string>();
+  for (const [batchId, value] of Object.entries(discrepancyInput)) {
+    const text = stringValue(value);
+    if (text) reasonByBatch.set(batchId, text);
+  }
+
   const total = rows.reduce((sum: number, row: typeof batches.$inferSelect) => sum + Number(row.intakeQty) * Number(row.unitCost), 0);
   const [receipt] = await tx
     .insert(purchaseReceipts)
@@ -441,6 +450,7 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
 
   const affected = [receipt.id, ...batchIds];
   const discrepancyNotes: string[] = [];
+  const stamp = new Date().toISOString().slice(0, 10);
   for (const row of rows) {
     const subtotal = Number(row.intakeQty) * Number(row.unitCost);
     await tx.insert(purchaseReceiptLines).values({
@@ -450,14 +460,32 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
       unitCost: row.unitCost,
       subtotal: moneyScale(subtotal)
     });
-    await tx.update(batches).set({ status: 'posted', availableQty: row.intakeQty, arrivalStatus: 'arrived', validationIssues: [], postedAt: new Date(), updatedAt: new Date() }).where(eq(batches.id, row.id));
+    const operatorReason = reasonByBatch.get(row.id);
+    const batchNotesAddition = operatorReason ? `Discrepancy reason on ${stamp}: ${operatorReason}` : null;
+    const nextBatchNotes = batchNotesAddition ? [row.notes, batchNotesAddition].filter(Boolean).join('\n') : row.notes;
+    await tx
+      .update(batches)
+      .set({
+        status: 'posted',
+        availableQty: row.intakeQty,
+        arrivalStatus: 'arrived',
+        validationIssues: [],
+        postedAt: new Date(),
+        notes: nextBatchNotes,
+        updatedAt: new Date()
+      })
+      .where(eq(batches.id, row.id));
     await tx.insert(inventoryMovements).values({ batchId: row.id, commandId, kind: 'intake_posted', qtyDelta: row.intakeQty, reason });
     await tx.insert(photographyQueue).values({ batchId: row.id, status: 'open', notes: `Auto-queued from receipt ${receipt.receiptNo}.` });
     if (row.purchaseOrderLineId) {
       const [poLine] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, row.purchaseOrderLineId)).limit(1);
       if (poLine) {
-        if (Number(poLine.qty) !== Number(row.intakeQty)) {
-          discrepancyNotes.push(`Intake discrepancy: expected ${Number(poLine.qty)} ${poLine.uom}, received ${Number(row.intakeQty)} ${row.uom} on ${new Date().toISOString().slice(0, 10)} (${row.name}).`);
+        const isMismatch = Number(poLine.qty) !== Number(row.intakeQty);
+        if (isMismatch) {
+          const detail = `Intake discrepancy: expected ${Number(poLine.qty)} ${poLine.uom}, received ${Number(row.intakeQty)} ${row.uom} on ${stamp} (${row.name})`;
+          discrepancyNotes.push(operatorReason ? `${detail} — ${operatorReason}.` : `${detail}.`);
+        } else if (operatorReason) {
+          discrepancyNotes.push(`Intake note on ${stamp} (${row.name}): ${operatorReason}.`);
         }
         await tx.update(purchaseOrderLines).set({ receivedQty: qtyScale(row.intakeQty), status: 'received', updatedAt: new Date() }).where(eq(purchaseOrderLines.id, poLine.id));
       }
@@ -476,24 +504,35 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
   }
 
   const grouped = new Map<string, number>();
+  const reasonsByVendor = new Map<string, string[]>();
   for (const row of rows) {
     if (!row.vendorId) continue;
     const amount = Number(row.intakeQty) * Number(row.unitCost);
     grouped.set(row.vendorId, (grouped.get(row.vendorId) ?? 0) + amount);
+    const operatorReason = reasonByBatch.get(row.id);
+    if (operatorReason) {
+      const list = reasonsByVendor.get(row.vendorId) ?? [];
+      list.push(`${row.name}: ${operatorReason}`);
+      reasonsByVendor.set(row.vendorId, list);
+    }
   }
   for (const [vendorId, amount] of grouped) {
     const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+    const vendorReasons = reasonsByVendor.get(vendorId);
+    const discrepancyText = vendorReasons && vendorReasons.length ? vendorReasons.join('\n') : null;
     const [bill] = await tx
       .insert(vendorBills)
       .values({
         vendorId,
         purchaseReceiptId: receipt.id,
+        purchaseOrderId,
         billNo: code('VBILL'),
         amount: moneyScale(amount),
         dueDate: new Date(Date.now() + (vendor?.termsDays ?? 14) * 24 * 60 * 60 * 1000),
         termsDays: vendor?.termsDays ?? 14,
         status: 'open',
-        dueReason: 'Net terms payable from selected intake receipt'
+        dueReason: 'Net terms payable from selected intake receipt',
+        discrepancyNotes: discrepancyText
       })
       .returning();
     affected.push(bill.id);
@@ -701,10 +740,17 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
   const allLines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
   const lines = selectedLineIds.length ? allLines.filter((line: typeof purchaseOrderLines.$inferSelect) => selectedLineIds.includes(line.id)) : allLines;
   if (!lines.length) throw new Error('No purchase order lines are available to receive.');
+  const existingBatches = await tx.select().from(batches).where(eq(batches.purchaseOrderId, purchaseOrderId));
+  const linesWithBatches = new Set(
+    (existingBatches as Array<typeof batches.$inferSelect>)
+      .filter((b) => b.archivedAt == null && b.purchaseOrderLineId)
+      .map((b) => b.purchaseOrderLineId as string)
+  );
   const affected = [purchaseOrderId];
   let createdCount = 0;
   for (const line of lines as Array<typeof purchaseOrderLines.$inferSelect>) {
-    const remainingQty = Number(line.qty) - Number(line.receivedQty);
+    if (linesWithBatches.has(line.id)) continue;
+    const remainingQty = Number(line.qty);
     if (remainingQty <= 0) continue;
     const created = await createBatch(
       tx,
@@ -735,19 +781,9 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
     );
     affected.push(...created.affectedIds, line.id);
     createdCount += created.affectedIds.length;
-    await tx
-      .update(purchaseOrderLines)
-      .set({ receivedQty: qtyScale(Number(line.receivedQty) + remainingQty), status: 'received', updatedAt: new Date() })
-      .where(eq(purchaseOrderLines.id, line.id));
   }
-  if (!createdCount) throw new Error('Selected purchase order lines have already been received.');
-  const refreshedLines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
-  const allReceived = refreshedLines.every((line: typeof purchaseOrderLines.$inferSelect) => Number(line.receivedQty) >= Number(line.qty));
-  await tx
-    .update(purchaseOrders)
-    .set({ status: allReceived ? 'received' : 'partially_received', receivedAt: allReceived ? new Date() : order.receivedAt, updatedAt: new Date() })
-    .where(eq(purchaseOrders.id, purchaseOrderId));
-  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast: `Received ${createdCount} PO line(s) into draft intake rows. Process intake when counts/costs are verified.` };
+  if (!createdCount) throw new Error('Draft intake rows already exist for the selected purchase order lines.');
+  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast: `Materialized ${createdCount} draft intake row(s). Verify actual counts and discrepancy reasons before posting.` };
 }
 
 async function cancelPurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
+  CellValueChangedEvent,
   ColDef,
   GetDetailRowDataParams,
   GridApi,
@@ -38,6 +39,7 @@ interface IntakeBatchRow {
   lotCode: string | null;
   expectedQty: string | null;
   expectedUnitCost: string | null;
+  discrepancyReason?: string;
   createdAt: string;
 }
 
@@ -70,6 +72,7 @@ export function IntakeView() {
   const pushToast = useUiStore((state) => state.pushToast);
 
   const verifiedDraftsRef = useRef<Map<string, number>>(new Map());
+  const discrepancyReasonsRef = useRef<Map<string, string>>(new Map());
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmVerifyAllFor, setConfirmVerifyAllFor] = useState<IntakeOrderRow | null>(null);
@@ -109,9 +112,6 @@ export function IntakeView() {
       detailGridOptions: {
         columnDefs: buildBatchColumns(
           canWrite,
-          (batchId, value) => {
-            verifiedDraftsRef.current.set(batchId, Number(value));
-          },
           async (batchId, reason) => {
             setBusy(true);
             try {
@@ -142,7 +142,22 @@ export function IntakeView() {
           deleteDraftBatch
         ),
         defaultColDef: { resizable: true, sortable: true } as ColDef<IntakeBatchRow>,
-        domLayout: 'autoHeight' as const
+        domLayout: 'autoHeight' as const,
+        onCellValueChanged: (event: CellValueChangedEvent<IntakeBatchRow>) => {
+          const data = event.data;
+          if (!data?.id) return;
+          const field = event.colDef.field;
+          if (field === 'intakeQty') {
+            const next = Number(event.newValue ?? data.intakeQty ?? 0);
+            if (Number.isFinite(next) && next >= 0) {
+              verifiedDraftsRef.current.set(data.id, next);
+            }
+          } else if (field === 'discrepancyReason') {
+            const reason = String(event.newValue ?? '').trim();
+            if (reason) discrepancyReasonsRef.current.set(data.id, reason);
+            else discrepancyReasonsRef.current.delete(data.id);
+          }
+        }
       },
       getDetailRowData: (params: GetDetailRowDataParams<IntakeOrderRow>) => {
         params.successCallback(params.data?.batches ?? []);
@@ -245,20 +260,25 @@ export function IntakeView() {
       const pending = order.batches.filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status));
       for (const batch of pending) {
         const drafted = verifiedDraftsRef.current.get(batch.id);
-        if (drafted != null && Number.isFinite(drafted) && Number(drafted) !== Number(batch.intakeQty)) {
-          await runCommand(
-            'updateBatch',
-            { id: batch.id, intakeQty: drafted, availableQty: drafted },
-            'Apply verified intake quantity'
-          );
-        }
+        if (drafted == null || !Number.isFinite(drafted) || drafted < 0) continue;
+        await runCommand(
+          'updateBatch',
+          { id: batch.id, intakeQty: drafted, availableQty: drafted },
+          'Apply actual intake quantity'
+        );
+      }
+      const discrepancyNotes: Record<string, string> = {};
+      for (const batch of pending) {
+        const reason = discrepancyReasonsRef.current.get(batch.id);
+        if (reason) discrepancyNotes[batch.id] = reason;
       }
       await runCommand(
         'postPurchaseReceipt',
-        { batchIds: pending.map((batch) => batch.id) },
+        { batchIds: pending.map((batch) => batch.id), discrepancyNotes },
         `Verify intake for ${order.poNo}`
       );
       verifiedDraftsRef.current.clear();
+      discrepancyReasonsRef.current.clear();
     } finally {
       setBusy(false);
     }
@@ -269,6 +289,7 @@ export function IntakeView() {
     try {
       await runCommand('verifyAllIntake', { purchaseOrderId: order.id }, `Verify all intake for ${order.poNo}`);
       verifiedDraftsRef.current.clear();
+      discrepancyReasonsRef.current.clear();
     } finally {
       setBusy(false);
     }
@@ -429,7 +450,6 @@ export function IntakeView() {
 
 function buildBatchColumns(
   canWrite: boolean,
-  onVerifiedDraft: (batchId: string, value: number) => void,
   onFlag: (batchId: string, reason: string) => Promise<void>,
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
@@ -446,24 +466,41 @@ function buildBatchColumns(
     },
     {
       field: 'intakeQty',
-      headerName: 'Verified qty',
+      headerName: 'Actual qty',
       editable: canWrite,
       type: 'numericColumn',
       minWidth: 140,
+      valueParser: (params) => {
+        const next = Number(params.newValue);
+        return Number.isFinite(next) && next >= 0 ? next : params.oldValue;
+      },
       cellClass: (params) => {
         const expected = Number(params.data?.expectedQty ?? 0);
         const actual = Number(params.value ?? 0);
         return expected && actual && expected !== actual ? 'intake-discrepancy' : '';
-      },
-      onCellValueChanged: (event: NewValueParams<IntakeBatchRow>) => {
-        if (!event.data?.id) return;
-        onVerifiedDraft(event.data.id, Number(event.newValue ?? 0));
       },
       cellStyle: (params) => {
         const expected = Number(params.data?.expectedQty ?? 0);
         const actual = Number(params.value ?? 0);
         return expected && actual && expected !== actual ? { backgroundColor: '#fef9c3' } : null;
       }
+    },
+    {
+      field: 'discrepancyReason',
+      headerName: 'Discrepancy reason',
+      editable: canWrite,
+      minWidth: 240,
+      cellEditor: 'agLargeTextCellEditor',
+      cellEditorPopup: true,
+      cellStyle: (params) => {
+        const expected = Number(params.data?.expectedQty ?? 0);
+        const actual = Number(params.data?.intakeQty ?? 0);
+        const hasMismatch = expected && actual && expected !== actual;
+        const hasReason = String(params.value ?? '').trim().length > 0;
+        if (hasMismatch && !hasReason) return { backgroundColor: '#fee2e2' };
+        return null;
+      },
+      tooltipValueGetter: () => 'Free-text reason; carried onto the vendor bill and PO notes when intake is verified.'
     },
     {
       field: 'unitCost',
