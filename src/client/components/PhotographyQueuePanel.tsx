@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { trpc } from '../api/trpc';
 import type { GridRow } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
+import { WorkspacePanel } from './WorkspacePanel';
 
 export function PhotographyQueuePanel() {
   const inventory = trpc.queries.grid.useQuery({ view: 'inventory' });
@@ -24,25 +25,26 @@ export function PhotographyQueuePanel() {
   }
 
   return (
-    <section className="inline-panel">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="section-title">Photography Queue</h2>
-          <p className="mt-1 text-xs text-zinc-600">Media readiness for catalog-safe sales output. Finder rows warn when catalog media is not ready.</p>
-        </div>
+    <WorkspacePanel
+      panelId="inventory:photography-queue"
+      title="Photography Queue"
+      subtitle={`${open.length} open / ${ready} ready`}
+      contentClassName="p-3"
+      actions={
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="selection-pill success">{ready} ready</span>
           <span className="selection-pill warning">{open.length} needs media</span>
         </div>
-      </div>
+      }
+    >
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <label className="field-inline">
-          Batch
+          Media batch
           <select className="select" value={batchId || selected?.id || ''} onChange={(event) => setBatchId(event.target.value)}>
             <option value="">Choose</option>
             {open.slice(0, 40).map((row) => (
               <option key={row.id} value={row.id}>
-                {String(row.batchCode)} / {String(row.name)} / {String(row.mediaStatus ?? 'open')}
+                {String(row.batchCode)} / {String(row.name)} / {humanMediaStatus(row.mediaStatus)}
               </option>
             ))}
           </select>
@@ -57,7 +59,7 @@ export function PhotographyQueuePanel() {
         </button>
         <span className="selection-pill">
           <Check className="h-3.5 w-3.5" aria-hidden="true" />
-          {selected ? `${String(selected.batchCode)} selected` : 'No open media rows'}
+          {selected ? `Media: ${String(selected.batchCode)}` : 'No open media rows'}
         </span>
       </div>
       {queue.data?.length ? (
@@ -75,8 +77,8 @@ export function PhotographyQueuePanel() {
               {queue.data.map((row) => (
                 <tr key={String(row.id)}>
                   <td>{String(row.batchCode ?? row.batchId)}</td>
-                  <td>{String(row.status)}</td>
-                  <td>{String(row.mediaStatus ?? 'open')}</td>
+                  <td>{humanMediaStatus(row.status)}</td>
+                  <td>{humanMediaStatus(row.mediaStatus)}</td>
                   <td>{String(row.notes ?? '')}</td>
                 </tr>
               ))}
@@ -84,6 +86,16 @@ export function PhotographyQueuePanel() {
           </table>
         </div>
       ) : null}
-    </section>
+    </WorkspacePanel>
   );
+}
+
+function humanMediaStatus(value: unknown) {
+  const raw = String(value ?? 'open');
+  const labels: Record<string, string> = {
+    open: 'Open',
+    in_progress: 'In progress',
+    done: 'Done'
+  };
+  return labels[raw] ?? raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

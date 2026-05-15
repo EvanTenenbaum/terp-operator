@@ -25,6 +25,12 @@ export function createApp(getIo: () => SocketServer) {
     res.json(await getHealth());
   });
 
+  app.get('/api/client-config', (_req, res) => {
+    res.json({
+      agGridLicenseKey: env.VITE_AG_GRID_LICENSE_KEY
+    });
+  });
+
   app.use(
     '/trpc',
     createExpressMiddleware({

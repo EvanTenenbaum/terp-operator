@@ -1,10 +1,12 @@
 import { RefreshCcw } from 'lucide-react';
+import { useMemo } from 'react';
 import { trpc } from '../api/trpc';
 import { KpiCard } from '../components/KpiCard';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { StatusPill } from '../components/StatusPill';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useUiStore } from '../store/uiStore';
+import { commandLabelFor } from '../../shared/commandCatalog';
 import type { ColDef } from 'ag-grid-community';
 import type { GridRow, ViewKey } from '../../shared/types';
 
@@ -15,6 +17,7 @@ export function DashboardView() {
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 15_000 });
   const workQueue = trpc.queries.workQueue.useQuery(undefined, { refetchInterval: 15_000 });
   const drilldown = trpc.queries.drilldown.useQuery({ metricKey: drilldownMetric ?? 'cash' }, { enabled: Boolean(drilldownMetric) });
+  const rankedWorkRows = useMemo(() => [...((workQueue.data ?? []) as GridRow[])].sort(workUrgencySort), [workQueue.data]);
 
   const columns: ColDef<GridRow>[] = [
     { field: 'id', pinned: 'left', width: 120 },
@@ -22,6 +25,10 @@ export function DashboardView() {
     { field: 'name' },
     { field: 'customer' },
     { field: 'vendor' },
+    { field: 'needProduct', headerName: 'Need' },
+    { field: 'vendorProduct', headerName: 'Vendor stock' },
+    { field: 'score' },
+    { field: 'reasons' },
     { field: 'amount' },
     { field: 'total' },
     { field: 'availableQty' },
@@ -40,7 +47,7 @@ export function DashboardView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Owner Daily Decision View</h1>
-          <p className="page-subtitle">Live metrics, source-row drilldowns, work queues, recent command activity, and health.</p>
+          <p className="page-subtitle">Today’s money, inventory, open work, and recent activity.</p>
         </div>
         <button type="button" className="secondary-button" onClick={() => dashboard.refetch()}>
           <RefreshCcw className="h-4 w-4" aria-hidden="true" />
@@ -52,22 +59,21 @@ export function DashboardView() {
           <KpiCard key={metric.key} metric={metric} onOpen={setDrilldownMetric} />
         ))}
       </div>
-      <WorkspacePanel panelId="dashboard:money-definitions" title="Money Definitions and Buckets" contentClassName="p-3">
+      <WorkspacePanel panelId="dashboard:money-buckets" title="Money Buckets" contentClassName="p-3">
         <div className="definition-list">
           {(dashboard.data?.moneyBuckets ?? []).map((bucket) => (
             <button key={bucket.bucket} className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('cash')}>
               <strong>{bucket.bucket}</strong>
               <div className="mt-1 text-sm text-ink">${Number(bucket.amount ?? 0).toLocaleString()}</div>
-              <p className="mt-1">{bucket.definition}</p>
             </button>
           ))}
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('payables')}>
             <strong>Payables due/scheduled</strong>
-            <p className="mt-1">Vendor bills are included when open, approved, scheduled, or partial. Each row now shows due reason and scheduled event.</p>
+            <div className="mt-1 text-sm text-ink">Open vendor bills</div>
           </button>
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('receivables')}>
             <strong>Receivables</strong>
-            <p className="mt-1">Customer invoice total minus allocated payments. Unapplied money remains visible in Payments until allocated.</p>
+            <div className="mt-1 text-sm text-ink">Open customer invoices</div>
           </button>
         </div>
       </WorkspacePanel>
@@ -90,7 +96,7 @@ export function DashboardView() {
           <div className="mt-2 max-h-64 overflow-auto">
             {(dashboard.data?.recentActivity ?? []).map((activity) => (
               <div key={activity.id} className="activity-row">
-                <span className="font-medium">{activity.commandName}</span>
+                <span className="font-medium">{commandLabelFor(activity.commandName)}</span>
                 <span>{activity.actorName}</span>
                 <span>{new Date(activity.createdAt).toLocaleString()}</span>
                 <span>{activity.toast}</span>
@@ -101,8 +107,8 @@ export function DashboardView() {
       </div>
       <OperatorGrid
         view="dashboard"
-        title="Unified Work Queue"
-        rows={(workQueue.data ?? []) as GridRow[]}
+        title="My Open Work"
+        rows={rankedWorkRows}
         columns={queueColumns}
         loading={workQueue.isLoading}
         actions={
@@ -110,11 +116,11 @@ export function DashboardView() {
             type="button"
             className="text-button"
             onClick={() => {
-              const first = workQueue.data?.[0] as GridRow | undefined;
+              const first = rankedWorkRows[0] as GridRow | undefined;
               if (first?.route) setActiveView(first.route as ViewKey);
             }}
           >
-            Open top row lane
+            Open top item
           </button>
         }
       />
@@ -134,4 +140,20 @@ export function DashboardView() {
       ) : null}
     </div>
   );
+}
+
+function workUrgencySort(a: GridRow, b: GridRow) {
+  const score = urgencyScore(b) - urgencyScore(a);
+  if (score) return score;
+  return new Date(String(b.createdAt ?? 0)).getTime() - new Date(String(a.createdAt ?? 0)).getTime();
+}
+
+function urgencyScore(row: GridRow) {
+  const status = String(row.status ?? '');
+  const lane = String(row.lane ?? '');
+  if (status === 'needs_fix' || status === 'failed') return 100;
+  if (status === 'ready' || status === 'confirmed') return 80;
+  if (lane === 'Payments' || lane === 'Vendor') return 70;
+  if (status === 'draft' || status === 'open') return 50;
+  return 10;
 }

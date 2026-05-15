@@ -19,5 +19,6 @@
 ## Current Status
 - Implementation complete.
 - Verification complete: install, migration, seed, typecheck, build, health, and Playwright smoke passed.
-- Backend/frontend parity pass complete: all 46 backend commands and 26 protected query endpoints now have frontend surfaces, enforced by `pnpm audit:parity`.
+- Backend/frontend parity pass complete: all 56 user-surfaceable backend commands and 27 protected query endpoints now have frontend surfaces, enforced by `pnpm audit:parity`.
 - Ease-of-use frontend pass complete: high-pressure starts and finder controls were measured, simplified, and reverified.
+- Staging hardening in progress: DigitalOcean App Platform spec, GitHub deploy workflow, compiled production migration/seed scripts, Caddy Droplet fallback, and guarded demo reset command.

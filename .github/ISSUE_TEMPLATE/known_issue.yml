@@ -1,0 +1,87 @@
+name: Known issue
+description: Track confirmed or suspected bugs, runtime failures, confusing UX, data drift, or test gaps.
+title: "Known issue: "
+labels:
+  - "tracking:known-issue"
+  - "status:needs-triage"
+body:
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What is visibly wrong?
+      placeholder: "On <route>, <thing> happens..."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Include login, route, demo data state, command, or browser flow.
+      placeholder: |
+        1. Log in as ...
+        2. Open ...
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: classification
+    attributes:
+      label: Classification
+      description: Keep product, fixture, coverage, runtime, and expectation gaps distinct.
+      options:
+        - runtime bug
+        - product gap
+        - fixture gap
+        - coverage gap
+        - expectation gap
+        - unknown / needs triage
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - P0 blocks core workflow
+        - P1 breaks important workflow
+        - P2 confusing or degraded workflow
+        - P3 cleanup / polish
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Paste exact error, command output, screenshot path, trace path, console log, or failing test.
+    validations:
+      required: false
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround / recovery
+      description: Add any temporary operator-safe recovery path.
+    validations:
+      required: false
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification needed
+      placeholder: |
+        - [ ] Repro fails before fix
+        - [ ] Fix verified in browser
+        - [ ] Test added or updated
+    validations:
+      required: true

@@ -71,7 +71,7 @@ Important behavior:
 
 ### Drift Prevention
 
-- Updated backend/frontend parity to cover 54 commands and 27 query endpoints.
+- Updated backend/frontend parity to cover 56 user-surfaceable commands, 1 internal connector-routing command, and 27 query endpoints.
 - Added E2E coverage proving:
   - POs are planned before receiving.
   - Receiving refuses unapproved POs.
@@ -161,6 +161,6 @@ Highest-priority UX gaps:
 - `pnpm db:migrate`: migration applied.
 - `pnpm db:seed`: seed data loads.
 - `pnpm typecheck`: passed.
-- `pnpm audit:parity`: passed, 54 commands and 27 query endpoints covered.
+- `pnpm audit:parity`: passed, 56 user-surfaceable commands, 1 internal command, and 27 query endpoints covered.
 - `pnpm build`: passed.
 - `pnpm test:e2e`: in progress during this report update; latest failure was test-selector drift, not app logic.

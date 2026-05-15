@@ -1,0 +1,69 @@
+name: Backlog item
+description: Track product, UX, architecture, or workflow work that should be planned before implementation.
+title: "Backlog: "
+labels:
+  - "tracking:backlog"
+  - "status:needs-triage"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for planned work. If this is a bug or live failure, use the Known issue form instead.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Operator outcome
+      description: What should be true for the operator when this is done?
+      placeholder: "Operators can..."
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Procurement / purchase orders
+        - Intake / receiving
+        - Inventory
+        - Sales
+        - Payments / vendor payouts
+        - Fulfillment
+        - Reporting / closeout
+        - Shell / navigation
+        - Data / seed / fixtures
+        - Infrastructure / CI
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior or gap
+      description: Describe the current state and why it is not good enough.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List concrete checks that prove the backlog item is done.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and source
+      description: Link annotations, docs, screenshots, test output, recordings, or local paths.
+      placeholder: "Source: artifacts/... or docs/..."
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Constraints / guardrails
+      description: Include product boundaries, non-goals, and risks.
+    validations:
+      required: false

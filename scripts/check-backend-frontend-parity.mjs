@@ -4,10 +4,12 @@ import path from 'node:path';
 const root = process.cwd();
 
 const commandNames = parseCommandNames(read('src/shared/commandCatalog.ts'));
+const internalOnlyCommandNames = parseCommandNames(read('src/shared/commandCatalog.ts'), 'internalOnlyCommandNames');
 const queryNames = parseRouterNames(read('src/server/routers/queries.ts'));
 const clientText = readClientSource();
 
-const missingCommands = commandNames.filter((name) => !new RegExp(`runCommand\\(\\s*['"\`]${name}['"\`]`).test(clientText));
+const surfaceRequiredCommands = commandNames.filter((name) => !internalOnlyCommandNames.includes(name));
+const missingCommands = surfaceRequiredCommands.filter((name) => !new RegExp(`runCommand\\(\\s*['"\`]${name}['"\`]`).test(clientText));
 const missingQueries = queryNames.filter((name) => !clientText.includes(`queries.${name}`));
 
 if (missingCommands.length || missingQueries.length) {
@@ -17,11 +19,15 @@ if (missingCommands.length || missingQueries.length) {
   process.exit(1);
 }
 
-console.log(`Backend/frontend parity OK: ${commandNames.length} commands and ${queryNames.length} query endpoints have frontend surfaces.`);
+console.log(`Backend/frontend parity OK: ${surfaceRequiredCommands.length} surfaced commands, ${internalOnlyCommandNames.length} internal command(s), and ${queryNames.length} query endpoints accounted for.`);
 
-function parseCommandNames(source) {
-  const block = source.match(/export const commandNames = \[([\s\S]*?)\] as const;/)?.[1];
-  if (!block) throw new Error('Unable to find commandNames block.');
+function parseCommandNames(source, name = 'commandNames') {
+  return parseConstStringArray(source, name);
+}
+
+function parseConstStringArray(source, name) {
+  const block = source.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\](?: as const| satisfies|;)`))?.[1];
+  if (!block) throw new Error(`Unable to find ${name} block.`);
   return [...block.matchAll(/'([^']+)'/g)].map((match) => match[1]);
 }
 

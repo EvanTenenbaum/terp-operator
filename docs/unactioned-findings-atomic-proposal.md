@@ -1016,7 +1016,7 @@ This table is the de-duplicated backlog. The IDs are stable enough for tickets.
 | TA-027 | P1 | Add support-safe copy status answer. | TA-026 | No cost/margin/internal fields leak. |
 | TA-028 | P1 | Role-adapt primary navigation. | none | Viewer sees read-only surfaces; sales sees sales lanes. |
 | TA-029 | P1 | Hide/demote role-gated actions in UI with plain explanation. | TA-028 | Operator sees why manager action is unavailable. |
-| TA-030 | P1 | Simplify Connector review to one primary Route action plus secondary Reject. | none | No approve/route ambiguity. |
+| TA-030 | P1 | Simplify Connector review to Approve/Reject and keep routing/default assignment backend-internal. | none | No user-facing route workflow or approve/route ambiguity. |
 | TA-031 | P1 | Add connector review history drawer and no-ledger-change indicator. | TA-030 | Review history visible without raw JSON. |
 | TA-032 | P1 | Focus Fulfillment around selected pick/line. | TA-012 | Pack controls pin to selected line. |
 | TA-033 | P1 | Hide fulfillment label formats behind compact print menu. | TA-032 | Fewer visible buttons; print still works. |

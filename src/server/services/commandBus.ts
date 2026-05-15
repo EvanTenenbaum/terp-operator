@@ -6,7 +6,7 @@ import PDFDocument from 'pdfkit';
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Server as SocketServer } from 'socket.io';
 import { z } from 'zod';
-import { db } from '../db';
+import { db, pool } from '../db';
 import { env } from '../env';
 import {
   archiveRuns,
@@ -17,11 +17,13 @@ import {
   connectorRequests,
   correctionJournalEntries,
   customers,
+  customerNeeds,
   fulfillmentLines,
   inventoryMovements,
   invoiceDisputes,
   invoices,
   items,
+  matchmakingMatches,
   paymentAllocations,
   payments,
   periodLocks,
@@ -33,23 +35,33 @@ import {
   purchaseOrders,
   salesOrderLines,
   salesOrders,
+  tagCatalog,
+  transactionTypes,
   vendorBills,
   vendorPayments,
+  vendorSupply,
   vendors
 } from '../schema';
 import { assertCommandAccess } from '../rbac';
 import { appendJsonlJournal } from './journal';
 import { rowsToCsv, validateBatchCsv } from './csv';
+import { getCloseoutSafety } from './closeout';
+import { evaluatePrice, resolvePricingProfile } from './pricing';
 import { commandInputSchema } from '../../shared/schemas';
+import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
+import { normalizeTagSlug, parseTagInput } from '../../shared/tags';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
 type Tx = any;
 type Payload = Record<string, unknown>;
 
-const moneyScale = (value: unknown) => Number(value ?? 0).toFixed(2);
+const moneyScale = (value: unknown) => {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+};
 const qtyScale = (value: unknown) => Number(value ?? 0).toFixed(3);
 const code = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 999).toString().padStart(3, '0')}`;
 const oneWeek = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -172,6 +184,12 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return cancelPurchaseOrder(tx, payload, commandId);
     case 'adjustBatchQuantity':
       return adjustBatchQuantity(tx, payload, commandId, reason);
+    case 'setInventoryStatus':
+      return setInventoryStatus(tx, payload, commandId, reason);
+    case 'transferInventoryLocation':
+      return transferInventoryLocation(tx, payload, commandId, reason);
+    case 'transferInventoryOwnership':
+      return transferInventoryOwnership(tx, payload, commandId, reason);
     case 'setBatchPrice':
       return updateBatch(tx, { ...payload, unitPrice: requiredNumber(payload.unitPrice, 'unitPrice') }, commandId, 'Batch price updated.');
     case 'setBatchLotInfo':
@@ -180,6 +198,8 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return attachBatchPhoto(tx, payload, user.id, commandId);
     case 'importBatchesCsv':
       return importBatchesCsv(tx, payload, commandId);
+    case 'applyTags':
+      return applyTags(tx, payload, commandId);
     case 'createSalesOrder':
       return createSalesOrder(tx, payload, commandId);
     case 'addSalesOrderLine':
@@ -241,6 +261,10 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return reviewConnectorRequest(tx, payload, 'routed', user, commandId);
     case 'createCorrectionJournalEntry':
       return createCorrectionJournalEntry(tx, payload, commandId);
+    case 'postTransactionLedgerRow':
+      return postTransactionLedgerRow(tx, payload, user, commandId);
+    case 'upsertTransactionType':
+      return upsertTransactionType(tx, payload, commandId);
     case 'reverseCommandById':
       return reverseCommandById(tx, payload, commandId);
     case 'restoreFromBackupPoint':
@@ -253,6 +277,20 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return lockPeriod(tx, payload, user.id, commandId);
     case 'archivePeriod':
       return archivePeriod(tx, payload, commandId);
+    case 'createVendor':
+      return createVendor(tx, payload, commandId);
+    case 'createCustomerNeed':
+      return createCustomerNeed(tx, payload, user.id, commandId);
+    case 'updateCustomerNeed':
+      return updateCustomerNeed(tx, payload, commandId);
+    case 'createVendorSupply':
+      return createVendorSupply(tx, payload, commandId);
+    case 'updateVendorSupply':
+      return updateVendorSupply(tx, payload, commandId);
+    case 'acceptMatchmakingMatch':
+      return reviewMatchmakingMatch(tx, payload, 'accepted', user.id, commandId);
+    case 'dismissMatchmakingMatch':
+      return reviewMatchmakingMatch(tx, payload, 'dismissed', user.id, commandId);
   }
 }
 
@@ -263,7 +301,9 @@ async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise
   if (!name) throw new Error('Batch name is required.');
   if (!category) throw new Error('Category is required.');
   const vendorId = stringValue(payload.vendorId);
-  const itemId = await ensureItem(tx, payload, name, category);
+  const tags = tagValue(payload.tags, decoded.tags);
+  const itemId = await ensureItem(tx, { ...payload, tags }, name, category);
+  await ensureTagCatalog(tx, tags);
   const validationIssues = batchValidationIssues({
     ...payload,
     name,
@@ -286,7 +326,7 @@ async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise
       shorthand: stringValue(payload.shorthand) || null,
       name,
       category,
-      tags: arrayValue(payload.tags, decoded.tags),
+      tags,
       intakeQty: qtyScale(payload.intakeQty ?? 0),
       availableQty: qtyScale(payload.availableQty ?? payload.intakeQty ?? 0),
       uom: stringValue(payload.uom) || 'lb',
@@ -337,7 +377,10 @@ async function updateBatch(tx: Tx, payload: Payload, commandId: string, toast = 
   if (payload.vendorId != null) values.vendorId = stringValue(payload.vendorId) || null;
   if (payload.purchaseOrderId != null) values.purchaseOrderId = stringValue(payload.purchaseOrderId) || null;
   if (payload.purchaseOrderLineId != null) values.purchaseOrderLineId = stringValue(payload.purchaseOrderLineId) || null;
-  if (payload.tags != null) values.tags = arrayValue(payload.tags);
+  if (payload.tags != null) {
+    values.tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, values.tags as string[]);
+  }
   if (payload.intakeQty != null) values.intakeQty = qtyScale(payload.intakeQty);
   if (payload.availableQty != null) values.availableQty = qtyScale(payload.availableQty);
   if (payload.unitCost != null) values.unitCost = moneyScale(payload.unitCost);
@@ -459,6 +502,25 @@ async function createPurchaseOrder(tx: Tx, payload: Payload, userId: string, com
   return { ok: true, commandId, affectedIds: [row.id], toast: `Started purchase order ${row.poNo} for ${vendor.name}.` };
 }
 
+async function createVendor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const name = requiredString(payload.name, 'name');
+  const termsDays = Number(payload.termsDays ?? 14);
+  if (!Number.isFinite(termsDays) || termsDays < 0) throw new Error('Vendor payment terms must be zero or more days.');
+  const [existing] = await tx.select().from(vendors).where(ilike(vendors.name, name.trim())).limit(1);
+  if (existing) return { ok: true, commandId, affectedIds: [existing.id], toast: `${existing.name} already exists.` };
+  const [vendor] = await tx
+    .insert(vendors)
+    .values({
+      name: name.trim(),
+      termsDays: Math.round(termsDays),
+      contact: stringValue(payload.contact) || null,
+      notes: stringValue(payload.notes) || null,
+      consignmentDefault: Boolean(payload.consignmentDefault)
+    })
+    .returning();
+  return { ok: true, commandId, affectedIds: [vendor.id], toast: `${vendor.name} added to vendors.` };
+}
+
 async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [current] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
@@ -489,11 +551,13 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
   const category = stringValue(payload.category) || decoded.category;
   if (!productName) throw new Error('Product name is required.');
   if (!category) throw new Error('Category is required.');
+  const tags = tagValue(payload.tags, decoded.tags);
   const qty = requiredNumber(payload.qty, 'qty');
   if (qty <= 0) throw new Error('Quantity must be greater than zero.');
   const unitCost = Number(payload.unitCost ?? 0);
   if (!Number.isFinite(unitCost) || unitCost < 0) throw new Error('Unit cost cannot be negative.');
-  const itemId = await ensureItem(tx, { ...payload, tags: payload.tags ?? decoded.tags }, productName, category);
+  const itemId = await ensureItem(tx, { ...payload, tags }, productName, category);
+  await ensureTagCatalog(tx, tags);
   const status = unitCost > 0 ? 'planned' : 'needs_fix';
   const [line] = await tx
     .insert(purchaseOrderLines)
@@ -502,11 +566,11 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
       itemId,
       productName,
       category,
-      tags: arrayValue(payload.tags, decoded.tags),
+      tags,
       qty: qtyScale(qty),
       uom: stringValue(payload.uom) || 'lb',
       unitCost: moneyScale(unitCost),
-      unitPrice: moneyScale(payload.unitPrice ?? unitCost),
+      unitPrice: moneyScale(unitCost),
       sourceCode: stringValue(payload.sourceCode) || order.poNo,
       shorthand: stringValue(payload.shorthand) || null,
       legacyMarker: stringValue(payload.legacyMarker) || stringValue(payload.ownershipStatus) || null,
@@ -540,7 +604,10 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   copyIfPresent(values, 'shorthand', payload.shorthand);
   copyIfPresent(values, 'legacyMarker', payload.legacyMarker);
   copyIfPresent(values, 'notes', payload.notes);
-  if (payload.tags !== undefined) values.tags = arrayValue(payload.tags);
+  if (payload.tags !== undefined) {
+    values.tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, values.tags as string[]);
+  }
   if (payload.ownershipStatus !== undefined) values.ownershipStatus = ownership(payload.ownershipStatus);
   if (payload.qty !== undefined) {
     const qty = requiredNumber(payload.qty, 'qty');
@@ -553,7 +620,7 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
     if (unitCost < 0) throw new Error('Unit cost cannot be negative.');
     values.unitCost = moneyScale(unitCost);
   }
-  if (payload.unitPrice !== undefined) values.unitPrice = moneyScale(payload.unitPrice);
+  if (payload.unitCost !== undefined) values.unitPrice = values.unitCost;
   const nextLine = { ...line, ...values } as Record<string, unknown>;
   values.status = Number(nextLine.receivedQty ?? 0) >= Number(nextLine.qty ?? 0) ? 'received' : Number(nextLine.unitCost ?? 0) > 0 ? 'planned' : 'needs_fix';
   await tx.update(purchaseOrderLines).set(values).where(eq(purchaseOrderLines.id, lineId));
@@ -672,6 +739,55 @@ async function adjustBatchQuantity(tx: Tx, payload: Payload, commandId: string, 
   return { ok: true, commandId, affectedIds: [batchId], toast: `Adjusted ${row.name} by ${delta}.` };
 }
 
+async function setInventoryStatus(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const status = inventoryStatus(payload.status);
+  const movementReason = requiredString(reason || payload.reason, 'reason');
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  if (!['posted', 'held', 'damaged', 'returned', 'in_transit'].includes(row.status)) {
+    throw new Error('Only posted inventory rows can move through inventory state transitions.');
+  }
+  if (row.status === status) {
+    return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} is already ${status}.`, delta: { status, unchanged: true } };
+  }
+  await tx.update(batches).set({ status, updatedAt: new Date() }).where(eq(batches.id, batchId));
+  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'status_transfer', qtyDelta: '0.000', reason: `${row.status} -> ${status}: ${movementReason}` });
+  return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} moved from ${row.status} to ${status}.`, delta: { fromStatus: row.status, toStatus: status } };
+}
+
+async function transferInventoryLocation(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const location = requiredString(payload.location, 'location');
+  const movementReason = requiredString(reason || payload.reason, 'reason');
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  if (row.location === location) {
+    return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} is already in ${location}.`, delta: { location, unchanged: true } };
+  }
+  await tx.update(batches).set({ location, updatedAt: new Date() }).where(eq(batches.id, batchId));
+  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'location_transfer', qtyDelta: '0.000', reason: `${row.location} -> ${location}: ${movementReason}` });
+  return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} moved to ${location}.`, delta: { fromLocation: row.location, toLocation: location } };
+}
+
+async function transferInventoryOwnership(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const ownershipStatus = ownership(payload.ownershipStatus);
+  const movementReason = requiredString(reason || payload.reason, 'reason');
+  const vendorId = payload.vendorId != null ? stringValue(payload.vendorId) || null : undefined;
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  if (ownershipStatus === 'C' && !(vendorId ?? row.vendorId)) throw new Error('Consigned inventory needs a vendor before ownership transfer.');
+  if (row.ownershipStatus === ownershipStatus && (vendorId === undefined || row.vendorId === vendorId)) {
+    return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} already has ${ownershipStatus} ownership.`, delta: { ownershipStatus, unchanged: true } };
+  }
+  const values: Record<string, unknown> = { ownershipStatus, updatedAt: new Date() };
+  if (vendorId !== undefined) values.vendorId = vendorId;
+  await tx.update(batches).set(values).where(eq(batches.id, batchId));
+  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'ownership_transfer', qtyDelta: '0.000', reason: `${row.ownershipStatus} -> ${ownershipStatus}: ${movementReason}` });
+  return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} ownership moved to ${ownershipStatus}.`, delta: { fromOwnershipStatus: row.ownershipStatus, toOwnershipStatus: ownershipStatus } };
+}
+
 async function attachBatchPhoto(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
   const photoUrl = requiredString(payload.photoUrl, 'photoUrl');
@@ -707,7 +823,7 @@ async function importBatchesCsv(tx: Tx, payload: Payload, commandId: string): Pr
         tags: row.values.tags ? row.values.tags.split('|').map((tag) => tag.trim()) : [],
         intakeQty: Number(row.values.intake_qty),
         unitCost: Number(row.values.unit_cost),
-        unitPrice: Number(row.values.unit_price),
+        unitPrice: 0,
         sourceCode: row.values.source_code,
         intakeDate: row.values.intake_date,
         ticketCost: row.values.ticket_cost,
@@ -723,6 +839,37 @@ async function importBatchesCsv(tx: Tx, payload: Payload, commandId: string): Pr
     affected.push(...created.affectedIds);
   }
   return { ok: true, commandId, affectedIds: affected, toast: `Imported ${affected.length} batch row(s).` };
+}
+
+async function applyTags(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const entityType = requiredString(payload.entityType, 'entityType');
+  const entityId = requiredId(payload.entityId ?? payload.id, 'entityId');
+  const incoming = tagValue(payload.tags);
+  const mode = stringValue(payload.mode) || 'replace';
+  if (!['add', 'remove', 'replace'].includes(mode)) throw new Error('Tag mode must be add, remove, or replace.');
+  if (!incoming.length && mode !== 'replace') throw new Error('Enter at least one tag.');
+
+  const current = await taggedEntity(tx, entityType, entityId);
+  const currentTags = tagValue(current.tags);
+  const nextTags =
+    mode === 'add'
+      ? [...new Set([...currentTags, ...incoming])]
+      : mode === 'remove'
+        ? currentTags.filter((tag) => !incoming.includes(tag))
+        : incoming;
+
+  await ensureTagCatalog(tx, nextTags);
+  await updateTaggedEntity(tx, entityType, entityId, nextTags);
+  if (entityType === 'customerNeed') await rebuildMatchesForNeed(tx, entityId);
+  if (entityType === 'vendorSupply') await rebuildMatchesForSupply(tx, entityId);
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [entityId],
+    toast: nextTags.length ? `Tags updated: ${nextTags.join(', ')}.` : 'Tags cleared.',
+    delta: { entityType, entityId, tags: nextTags }
+  };
 }
 
 async function createSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -855,13 +1002,31 @@ async function priceSalesOrder(tx: Tx, payload: Payload, commandId: string, toas
   const orderId = requiredId(payload.orderId, 'orderId');
   const strategy = stringValue(payload.strategy) || 'standard';
   const multiplier = strategy === 'premium' ? 1.08 : strategy === 'clearance' ? 0.92 : 1;
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+  const [customer] = order.customerId ? await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1) : [];
+  const profile = resolvePricingProfile(strategy, customer?.tags ?? []);
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  const guardrailHits: Array<Record<string, unknown>> = [];
   for (const line of lines) {
     const base = Number(line.unitPrice);
-    await tx.update(salesOrderLines).set({ unitPrice: moneyScale(base * multiplier), updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
+    const evaluated = evaluatePrice({
+      unitCost: Number(line.unitCost),
+      basisUnitPrice: base,
+      candidateUnitPrice: base * multiplier,
+      profile
+    });
+    if (evaluated.adjusted) guardrailHits.push({ lineId: line.id, itemName: line.itemName, guardrails: evaluated.guardrails, minimumUnitPrice: moneyScale(evaluated.minimumUnitPrice) });
+    await tx.update(salesOrderLines).set({ unitPrice: moneyScale(evaluated.unitPrice), updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
   }
   await recalcOrder(tx, orderId, strategy);
-  return { ok: true, commandId, affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)], toast, delta: { strategy } };
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)],
+    toast: guardrailHits.length ? `${toast} ${guardrailHits.length} line(s) were lifted to pricing guardrails.` : toast,
+    delta: { strategy, pricingProfile: profile, guardrails: guardrailHits }
+  };
 }
 
 async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -878,8 +1043,11 @@ async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): P
   if (Number(customer.balance) + Number(order.total) > Number(customer.creditLimit)) {
     throw new Error(`${customer.name} would exceed credit limit. Request a credit override before confirming.`);
   }
+  const pricingSnapshot = buildPricingSnapshot(lines, order.pricingStrategy, customer.tags);
+  const belowGuardrail = pricingSnapshot.lines.find((line) => line.guardrails.length > 0);
+  if (belowGuardrail) throw new Error(`${belowGuardrail.itemName} is below pricing guardrails. Reprice before confirming.`);
   await tx.update(salesOrders).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
-  return { ok: true, commandId, affectedIds: [orderId], toast: `${order.orderNo} confirmed.` };
+  return { ok: true, commandId, affectedIds: [orderId], toast: `${order.orderNo} confirmed.`, delta: { pricingSnapshot } };
 }
 
 async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1031,6 +1199,7 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
   const amount = requiredNumber(payload.amount, 'amount');
   if (amount === 0) throw new Error('Payment amount cannot be zero.');
   const method = stringValue(payload.method) || 'cash';
+  const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
   const [payment] = await tx
@@ -1047,7 +1216,9 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
       category: stringValue(payload.category) || (amount < 0 ? 'buyer_credit' : 'client_payment'),
       allocationIntent: stringValue(payload.allocationIntent) || (payload.invoiceId ? 'selected_invoice' : 'fifo'),
       impactPreview: paymentImpactPreview(amount, stringValue(payload.allocationIntent) || (payload.invoiceId ? 'selected_invoice' : 'fifo')),
-      status: 'posted'
+      status: 'posted',
+      createdAt: transactionDate,
+      updatedAt: transactionDate
     })
     .returning();
 
@@ -1056,7 +1227,7 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
     const credit = Math.abs(amount);
     const nextBalance = Number(customer.balance) - credit;
     await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customerId));
-    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, paymentId: payment.id, kind: 'down_payment', amount: moneyScale(-credit), balanceAfter: moneyScale(nextBalance), note: 'Negative payment recorded as buyer credit' }).returning();
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, paymentId: payment.id, kind: 'down_payment', amount: moneyScale(-credit), balanceAfter: moneyScale(nextBalance), note: 'Negative payment recorded as buyer credit', createdAt: transactionDate }).returning();
     affected.push(entry.id);
   }
   return { ok: true, commandId, affectedIds: affected, toast: `Payment logged for ${customer.name}.` };
@@ -1090,10 +1261,10 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
     const [customer] = await tx.select().from(customers).where(eq(customers.id, payment.customerId)).limit(1);
     const nextBalance = Number(customer.balance) - totalAllocated;
     await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
-    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'FIFO allocation' }).returning();
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'Auto-applied to oldest open invoices' }).returning();
     affected.push(payment.customerId, entry.id);
   }
-  return { ok: true, commandId, affectedIds: affected, toast: `Allocated ${moneyScale(totalAllocated)} by FIFO.` };
+  return { ok: true, commandId, affectedIds: affected, toast: `Allocated ${moneyScale(totalAllocated)} to oldest open invoices.` };
 }
 
 async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1163,7 +1334,8 @@ async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string):
   const amount = payload.amount != null ? requiredNumber(payload.amount, 'amount') : Number(bill.amount) - Number(bill.amountPaid);
   if (amount <= 0) throw new Error('Vendor payout amount must be greater than zero.');
   if (Number(bill.amountPaid) + amount > Number(bill.amount)) throw new Error('Vendor payout cannot exceed the open bill balance.');
-  const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null }).returning();
+  const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
+  const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null, createdAt: transactionDate }).returning();
   const paid = Number(bill.amountPaid) + amount;
   await tx.update(vendorBills).set({ amountPaid: moneyScale(paid), status: paid >= Number(bill.amount) ? 'paid' : 'partial', dueReason: paid >= Number(bill.amount) ? 'Paid in full' : 'Partially paid vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
   return { ok: true, commandId, affectedIds: [billId, payment.id], toast: 'Vendor payout recorded and traceable.' };
@@ -1249,7 +1421,8 @@ async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId:
   const period = periodValue(payload.period);
   const amount = requiredNumber(payload.amount, 'amount');
   const memo = requiredString(payload.memo, 'memo');
-  const [entry] = await tx.insert(correctionJournalEntries).values({ period, amount: moneyScale(amount), memo }).returning();
+  const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
+  const [entry] = await tx.insert(correctionJournalEntries).values({ period, amount: moneyScale(amount), memo, createdAt: transactionDate }).returning();
   const affected = [entry.id];
   if (payload.findReplace && typeof payload.findReplace === 'object') {
     affected.push(...(await applyFindReplace(tx, payload.findReplace as Payload)));
@@ -1262,6 +1435,168 @@ async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId:
     affected.push(dispute.id);
   }
   return { ok: true, commandId, affectedIds: affected, toast: payload.invoiceId ? 'Correction journal and invoice dispute posted.' : 'Correction journal entry posted.' };
+}
+
+async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionUser, commandId: string): Promise<CommandResult> {
+  const direction = requiredString(payload.direction, 'direction');
+  const entityType = requiredString(payload.entityType, 'entityType');
+  const transactionType = requiredString(payload.transactionType, 'transactionType');
+  const amount = requiredNumber(payload.amount, 'amount');
+  if (amount === 0) throw new Error('Transaction amount cannot be zero.');
+  const transactionDate = dateOrNull(payload.date) ?? new Date();
+  const method = stringValue(payload.method) || 'cash';
+  const reference = stringValue(payload.reference) || null;
+  const notes = stringValue(payload.notes);
+  const allocationTargetType = stringValue(payload.allocationTargetType);
+  const allocationIntent = stringValue(payload.allocationIntent) || allocationTargetType || 'fifo';
+  const targetId = stringValue(payload.allocationTargetId);
+
+  if (entityType === 'customer' && direction === 'receiving') {
+    const signedAmount = ['buyer_credit', 'down_payment', 'customer_down_payment'].includes(transactionType) ? -Math.abs(amount) : amount;
+    let clientAllocationIntent = allocationTargetType === 'selected_invoice' ? 'selected' : allocationIntent;
+    const customerId = requiredId(payload.entityId, 'entityId');
+    if (signedAmount > 0 && clientAllocationIntent === 'fifo') {
+      const [openInvoice] = await tx
+        .select({ id: invoices.id })
+        .from(invoices)
+        .where(and(eq(invoices.customerId, customerId), sql`${invoices.status} in ('open', 'partial')`))
+        .limit(1);
+      if (!openInvoice) clientAllocationIntent = 'unapplied';
+    }
+    const logged = await logPayment(
+      tx,
+      {
+        customerId,
+        amount: signedAmount,
+        method,
+        reference,
+        locationBucket: stringValue(payload.bucket) || 'cash-file-a',
+        notes,
+        direction: 'money_in',
+        category: signedAmount < 0 ? 'buyer_credit' : transactionType,
+        allocationIntent: clientAllocationIntent,
+        invoiceId: targetId && clientAllocationIntent === 'selected' ? targetId : undefined,
+        date: transactionDate
+      },
+      commandId
+    );
+    if (logged.ok && signedAmount > 0 && clientAllocationIntent !== 'unapplied') {
+      const allocated = await allocatePayment(tx, { paymentId: logged.affectedIds[0], invoiceId: clientAllocationIntent === 'selected' ? targetId || undefined : undefined }, commandId);
+      return { ...logged, affectedIds: [...logged.affectedIds, ...allocated.affectedIds], toast: `${logged.toast} ${allocated.toast}` };
+    }
+    return logged;
+  }
+
+  if (entityType === 'vendor' && direction === 'paying') {
+    if (!['owner', 'manager'].includes(user.role)) throw new Error('Vendor payouts require manager access.');
+    return postVendorLedgerPayment(tx, payload, transactionDate, commandId);
+  }
+
+  const entityLabel = stringValue(payload.entityName) || entityType;
+  const signedAmount = direction === 'paying' ? -Math.abs(amount) : Math.abs(amount);
+  return createCorrectionJournalEntry(
+    tx,
+    {
+      period: transactionDate.toISOString().slice(0, 7),
+      amount: signedAmount,
+      memo: [labelFromToken(transactionType), entityLabel, notes || reference].filter(Boolean).join(' / '),
+      date: transactionDate
+    },
+    commandId
+  );
+}
+
+async function postVendorLedgerPayment(tx: Tx, payload: Payload, transactionDate: Date, commandId: string): Promise<CommandResult> {
+  const vendorId = requiredId(payload.entityId, 'entityId');
+  const amount = Math.abs(requiredNumber(payload.amount, 'amount'));
+  const transactionType = requiredString(payload.transactionType, 'transactionType');
+  const method = stringValue(payload.method) || 'cash';
+  const reference = stringValue(payload.reference) || null;
+  const notes = stringValue(payload.notes);
+  const allocationTargetType = stringValue(payload.allocationTargetType) || stringValue(payload.allocationIntent) || 'unapplied';
+  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw new Error('Vendor not found.');
+
+  if (allocationTargetType === 'selected_bill' && payload.allocationTargetId) {
+    return recordVendorPayment(tx, { vendorBillId: requiredId(payload.allocationTargetId, 'allocationTargetId'), amount, method, reference, overrideUnscheduled: true, date: transactionDate }, commandId);
+  }
+
+  let purchaseOrderId: string | null = null;
+  let purchaseOrderLabel = '';
+  if (['vendor_product_payment', 'product_payment', 'vendor_down_payment'].includes(transactionType)) {
+    const targetId = stringValue(payload.allocationTargetId);
+    const purchaseOrderRows = targetId && allocationTargetType === 'selected_po'
+      ? await tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, targetId), eq(purchaseOrders.vendorId, vendorId))).limit(1)
+      : await tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.vendorId, vendorId), sql`${purchaseOrders.status} not in ('cancelled')`)).orderBy(purchaseOrders.createdAt).limit(1);
+    const [po] = purchaseOrderRows;
+    if (!po) throw new Error('No open purchase order found for this vendor payment.');
+    purchaseOrderId = po.id;
+    purchaseOrderLabel = po.poNo;
+  }
+
+  const dueReason = [
+    labelFromToken(transactionType),
+    purchaseOrderLabel ? `against ${purchaseOrderLabel}` : 'manual ledger row',
+    notes
+  ].filter(Boolean).join(' / ');
+  const [bill] = await tx
+    .insert(vendorBills)
+    .values({
+      vendorId,
+      purchaseOrderId,
+      billNo: code('VBILL'),
+      amount: moneyScale(amount),
+      amountPaid: moneyScale(amount),
+      dueDate: transactionDate,
+      scheduledFor: transactionDate,
+      termsDays: vendor.termsDays,
+      status: 'paid',
+      dueReason,
+      createdAt: transactionDate,
+      updatedAt: transactionDate
+    })
+    .returning();
+  const [payment] = await tx
+    .insert(vendorPayments)
+    .values({
+      vendorBillId: bill.id,
+      amount: moneyScale(amount),
+      method,
+      reference: reference || purchaseOrderLabel || labelFromToken(transactionType),
+      status: 'posted',
+      createdAt: transactionDate
+    })
+    .returning();
+  return { ok: true, commandId, affectedIds: [bill.id, payment.id, ...(purchaseOrderId ? [purchaseOrderId] : [])], toast: `Paying ledger row posted for ${vendor.name}.` };
+}
+
+async function upsertTransactionType(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const label = requiredString(payload.label, 'label');
+  const slug = stringValue(payload.slug) || slugFromLabel(label);
+  const direction = requiredString(payload.direction, 'direction');
+  const allowedEntityTypes = Array.isArray(payload.allowedEntityTypes) ? payload.allowedEntityTypes.map(String).filter(Boolean) : [requiredString(payload.entityType ?? 'other', 'entityType')];
+  const values = {
+    slug,
+    label,
+    direction,
+    allowedEntityTypes,
+    defaultMethod: stringValue(payload.defaultMethod) || 'cash',
+    defaultBucket: stringValue(payload.defaultBucket) || (direction === 'paying' ? 'accounting' : 'cash-file-a'),
+    defaultAllocationIntent: stringValue(payload.defaultAllocationIntent) || 'unapplied',
+    requiresApproval: Boolean(payload.requiresApproval),
+    isSystem: false,
+    isActive: payload.isActive !== false,
+    updatedAt: new Date()
+  };
+  const [row] = await tx
+    .insert(transactionTypes)
+    .values(values)
+    .onConflictDoUpdate({
+      target: transactionTypes.slug,
+      set: values
+    })
+    .returning();
+  return { ok: true, commandId, affectedIds: [row.id], toast: `Transaction type ${row.label} saved.` };
 }
 
 async function applyFindReplace(tx: Tx, payload: Payload) {
@@ -1327,6 +1662,8 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
 
   const affected = [originalId];
   const snapshot = original.afterSnapshot as Record<string, any>;
+  const beforeSnapshot = original.beforeSnapshot as Record<string, any>;
+  const policy = reversalPolicies[original.commandName as CommandName];
 
   if (original.commandName === 'postSalesOrder') {
     for (const line of snapshot.salesOrderLines ?? []) {
@@ -1396,6 +1733,25 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
       await tx.update(purchaseReceipts).set({ status: 'reversed', updatedAt: new Date() }).where(eq(purchaseReceipts.id, receipt.id));
       affected.push(receipt.id);
     }
+  } else if (['setInventoryStatus', 'transferInventoryLocation', 'transferInventoryOwnership'].includes(original.commandName)) {
+    for (const batch of beforeSnapshot.batches ?? []) {
+      const values: Record<string, unknown> = { updatedAt: new Date() };
+      if (original.commandName === 'setInventoryStatus' && batch.status != null) values.status = batch.status;
+      if (original.commandName === 'transferInventoryLocation' && batch.location != null) values.location = batch.location;
+      if (original.commandName === 'transferInventoryOwnership') {
+        if (batch.ownershipStatus != null) values.ownershipStatus = batch.ownershipStatus;
+        if ('vendorId' in batch) values.vendorId = batch.vendorId;
+      }
+      await tx.update(batches).set(values).where(eq(batches.id, batch.id));
+      await tx.insert(inventoryMovements).values({
+        batchId: batch.id,
+        commandId,
+        kind: 'inventory_transfer_reversal',
+        qtyDelta: '0.000',
+        reason: `Reversal of ${original.commandName}`
+      });
+      affected.push(batch.id);
+    }
   } else if (original.commandName === 'logPayment') {
     for (const payment of snapshot.payments ?? []) {
       const [currentPayment] = await tx.select().from(payments).where(eq(payments.id, payment.id)).limit(1);
@@ -1444,6 +1800,84 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
       }
       affected.push(currentAllocation.id, currentAllocation.paymentId, currentAllocation.invoiceId);
     }
+  } else if (original.commandName === 'postTransactionLedgerRow') {
+    for (const payment of snapshot.payments ?? []) {
+      const [currentPayment] = await tx.select().from(payments).where(eq(payments.id, payment.id)).limit(1);
+      if (!currentPayment) continue;
+      const currentAllocations = await tx.select().from(paymentAllocations).where(eq(paymentAllocations.paymentId, currentPayment.id));
+      for (const allocation of currentAllocations) {
+        const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, allocation.invoiceId)).limit(1);
+        await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, allocation.id));
+        if (invoice) {
+          const paid = Math.max(0, Number(invoice.amountPaid) - Number(allocation.amount));
+          await tx.update(invoices).set({ amountPaid: moneyScale(paid), status: paid <= 0 ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+          if (invoice.customerId) {
+            const [customer] = await tx.select().from(customers).where(eq(customers.id, invoice.customerId)).limit(1);
+            if (customer) {
+              const nextBalance = Number(customer.balance) + Number(allocation.amount);
+              await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+              const [entry] = await tx
+                .insert(clientLedgerEntries)
+                .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: currentPayment.id, kind: 'allocation_reversal', amount: moneyScale(Number(allocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Transaction ledger allocation reversal' })
+                .returning();
+              affected.push(customer.id, entry.id);
+            }
+          }
+          affected.push(invoice.id);
+        }
+        affected.push(allocation.id);
+      }
+      if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
+        const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
+        if (customer) {
+          const nextBalance = Number(customer.balance) + Math.abs(Number(currentPayment.amount));
+          await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+          const [entry] = await tx
+            .insert(clientLedgerEntries)
+            .values({ customerId: customer.id, paymentId: currentPayment.id, kind: 'payment_reversal', amount: moneyScale(Math.abs(Number(currentPayment.amount))), balanceAfter: moneyScale(nextBalance), note: 'Transaction ledger buyer credit reversal' })
+            .returning();
+          affected.push(customer.id, entry.id);
+        }
+      }
+      await tx.update(payments).set({ status: 'reversed', unappliedAmount: '0.00', updatedAt: new Date() }).where(eq(payments.id, currentPayment.id));
+      affected.push(currentPayment.id);
+    }
+
+    const beforeBills = new Map((beforeSnapshot.vendorBills ?? []).map((bill: Record<string, unknown>) => [bill.id, bill]));
+    for (const payment of snapshot.vendorPayments ?? []) {
+      const [currentPayment] = await tx.select().from(vendorPayments).where(eq(vendorPayments.id, payment.id)).limit(1);
+      if (!currentPayment) continue;
+      await tx.update(vendorPayments).set({ status: 'void' }).where(eq(vendorPayments.id, currentPayment.id));
+      const [bill] = await tx.select().from(vendorBills).where(eq(vendorBills.id, currentPayment.vendorBillId)).limit(1);
+      if (bill) {
+        const beforeBill = beforeBills.get(bill.id) as Record<string, unknown> | undefined;
+        if (beforeBill) {
+          await tx
+            .update(vendorBills)
+            .set({
+              amountPaid: moneyScale(beforeBill.amountPaid),
+              status: String(beforeBill.status ?? 'approved'),
+              scheduledFor: beforeBill.scheduledFor ? new Date(String(beforeBill.scheduledFor)) : null,
+              dueReason: stringValue(beforeBill.dueReason) || null,
+              updatedAt: new Date()
+            })
+            .where(eq(vendorBills.id, bill.id));
+        } else {
+          await tx.update(vendorBills).set({ amountPaid: '0.00', status: 'reversed', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+        }
+        affected.push(bill.id);
+      }
+      affected.push(currentPayment.id);
+    }
+    for (const bill of snapshot.vendorBills ?? []) {
+      if (beforeBills.has(bill.id) || affected.includes(bill.id)) continue;
+      await tx.update(vendorBills).set({ amountPaid: '0.00', status: 'reversed', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+      affected.push(bill.id);
+    }
+    for (const entry of snapshot.correctionJournalEntries ?? []) {
+      await tx.update(correctionJournalEntries).set({ status: 'reversed' }).where(eq(correctionJournalEntries.id, entry.id));
+      affected.push(entry.id);
+    }
   } else if (original.commandName === 'createVendorBill') {
     for (const bill of snapshot.vendorBills ?? []) {
       await tx.update(vendorBills).set({ status: 'reversed', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
@@ -1485,10 +1919,7 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
       affected.push(entry.id);
     }
   } else {
-    for (const tableRows of Object.values(snapshot)) {
-      if (!Array.isArray(tableRows)) continue;
-      for (const row of tableRows) affected.push(row.id);
-    }
+    throw new Error(`${original.commandName} is ${policy?.disposition ?? 'not'} reversible: ${policy?.guidance ?? 'No reversal policy is registered.'}`);
   }
 
   await tx.update(commandJournal).set({ reversedByCommandId: commandId }).where(eq(commandJournal.id, originalId));
@@ -1523,23 +1954,27 @@ async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: s
   const period = periodValue(payload.period);
   const [existing] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
   if (existing) return { ok: true, commandId, affectedIds: [existing.id], toast: `${period} is already locked.` };
+  const safety = await getCloseoutSafety(pool, period);
+  if (safety.openWorkCount > 0) {
+    throw new Error(`${period} cannot be locked yet: ${safety.blockers.map((blocker) => `${blocker.count} ${blocker.label.toLowerCase()}`).join(', ')}.`);
+  }
   const [lock] = await tx.insert(periodLocks).values({ period, lockedBy: userId, status: 'locked' }).returning();
   return { ok: true, commandId, affectedIds: [lock.id], toast: `${period} locked.` };
 }
 
 async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
-  const [lock] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
-  if (!lock) throw new Error(`${period} must be locked before archiving.`);
-  const unsafeBatches = await tx.select().from(batches).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period} and ${batches.status} in ('draft', 'needs_fix')`);
-  if (unsafeBatches.length) throw new Error(`${unsafeBatches.length} unsafe intake row(s) must be posted, fixed, or removed before archive.`);
+  const safety = await getCloseoutSafety(pool, period);
+  if (!safety.locked) throw new Error(`${period} must be locked before archiving.`);
+  if (!safety.eligible) {
+    throw new Error(`${period} cannot be archived: ${safety.blockers.map((blocker) => `${blocker.count} ${blocker.label.toLowerCase()}`).join(', ')}.`);
+  }
 
   await fs.mkdir(env.ARCHIVE_DIR, { recursive: true });
   const archiveBase = path.join(env.ARCHIVE_DIR, period);
   const batchRows = await tx.select().from(batches).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
-  const orderRows = await tx.select().from(salesOrders).where(sql`to_char(${salesOrders.createdAt}, 'YYYY-MM') = ${period}`);
   const journalRows = await tx.select().from(commandJournal).where(sql`to_char(${commandJournal.createdAt}, 'YYYY-MM') = ${period}`).orderBy(commandJournal.createdAt);
-  const controlTotals = { batches: batchRows.length, orders: orderRows.length, commands: journalRows.length };
+  const controlTotals = safety.controlTotals;
 
   const csvPath = `${archiveBase}-batches.csv`;
   const jsonlPath = `${archiveBase}-commands.jsonl`;
@@ -1553,6 +1988,157 @@ async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promi
   return { ok: true, commandId, affectedIds: [archive.id], toast: `${period} archived with matching control totals.`, delta: { controlTotals, csvPath, jsonlPath, pdfPath } };
 }
 
+async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+  const productName = requiredString(payload.productName ?? payload.name, 'productName');
+  const category = requiredString(payload.category, 'category');
+  const qtyMin = Math.max(0, requiredNumber(payload.qtyMin ?? payload.qty ?? 1, 'qtyMin'));
+  if (qtyMin <= 0) throw new Error('Need quantity must be greater than zero.');
+  const qtyMaxValue = isBlankValue(payload.qtyMax) ? null : requiredNumber(payload.qtyMax, 'qtyMax');
+  if (qtyMaxValue != null && qtyMaxValue < qtyMin) throw new Error('Need max quantity cannot be below min quantity.');
+  const tags = tagValue(payload.tags);
+  await ensureTagCatalog(tx, tags);
+  const [row] = await tx
+    .insert(customerNeeds)
+    .values({
+      needCode: code('NEED'),
+      customerId,
+      productName,
+      category,
+      tags,
+      qtyMin: qtyScale(qtyMin),
+      qtyMax: qtyMaxValue == null ? null : qtyScale(qtyMaxValue),
+      targetPrice: isBlankValue(payload.targetPrice) ? null : moneyScale(payload.targetPrice),
+      neededBy: dateOrNull(payload.neededBy),
+      urgency: urgencyValue(payload.urgency),
+      ownerId: userId,
+      notes: stringValue(payload.notes) || null,
+      status: statusValue(payload.status, ['open', 'matched', 'accepted', 'dismissed', 'closed'], 'open')
+    })
+    .returning();
+  const matchIds = await rebuildMatchesForNeed(tx, row.id);
+  return { ok: true, commandId, affectedIds: [row.id, ...matchIds], toast: `Customer need added for ${customer.name}.`, delta: { matchCount: matchIds.length } };
+}
+
+async function updateCustomerNeed(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const needId = requiredId(payload.customerNeedId ?? payload.id, 'customerNeedId');
+  const [current] = await tx.select().from(customerNeeds).where(eq(customerNeeds.id, needId)).limit(1);
+  if (!current) throw new Error('Customer need not found.');
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (payload.customerId !== undefined) values.customerId = stringValue(payload.customerId) ? requiredId(payload.customerId, 'customerId') : null;
+  if (payload.productName !== undefined || payload.name !== undefined) values.productName = requiredString(payload.productName ?? payload.name, 'productName');
+  if (payload.category !== undefined) values.category = requiredString(payload.category, 'category');
+  if (payload.tags !== undefined) {
+    values.tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, values.tags as string[]);
+  }
+  if (payload.qtyMin !== undefined || payload.qty !== undefined) {
+    const qtyMin = requiredNumber(payload.qtyMin ?? payload.qty, 'qtyMin');
+    if (qtyMin <= 0) throw new Error('Need quantity must be greater than zero.');
+    values.qtyMin = qtyScale(qtyMin);
+  }
+  if (payload.qtyMax !== undefined) values.qtyMax = isBlankValue(payload.qtyMax) ? null : qtyScale(requiredNumber(payload.qtyMax, 'qtyMax'));
+  if (payload.targetPrice !== undefined) values.targetPrice = isBlankValue(payload.targetPrice) ? null : moneyScale(payload.targetPrice);
+  if (payload.neededBy !== undefined) values.neededBy = dateOrNull(payload.neededBy);
+  if (payload.urgency !== undefined) values.urgency = urgencyValue(payload.urgency);
+  if (payload.notes !== undefined) values.notes = stringValue(payload.notes) || null;
+  if (payload.status !== undefined) values.status = statusValue(payload.status, ['open', 'matched', 'accepted', 'dismissed', 'closed'], 'open');
+  const nextQtyMin = Number(values.qtyMin ?? current.qtyMin);
+  const nextQtyMax = values.qtyMax == null ? null : Number(values.qtyMax);
+  if (nextQtyMax != null && nextQtyMax < nextQtyMin) throw new Error('Need max quantity cannot be below min quantity.');
+  await tx.update(customerNeeds).set(values).where(eq(customerNeeds.id, needId));
+  const matchIds = await rebuildMatchesForNeed(tx, needId);
+  return { ok: true, commandId, affectedIds: [needId, ...matchIds], toast: 'Customer need updated.', delta: { matchCount: matchIds.length } };
+}
+
+async function createVendorSupply(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const vendorId = requiredId(payload.vendorId, 'vendorId');
+  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw new Error('Vendor not found.');
+  const productName = requiredString(payload.productName ?? payload.name, 'productName');
+  const category = requiredString(payload.category, 'category');
+  const availableQty = requiredNumber(payload.availableQty ?? payload.qty ?? 1, 'availableQty');
+  if (availableQty <= 0) throw new Error('Vendor stock quantity must be greater than zero.');
+  const tags = tagValue(payload.tags);
+  await ensureTagCatalog(tx, tags);
+  const [row] = await tx
+    .insert(vendorSupply)
+    .values({
+      supplyCode: code('VS'),
+      vendorId,
+      productName,
+      category,
+      tags,
+      availableQty: qtyScale(availableQty),
+      askingPrice: isBlankValue(payload.askingPrice) ? null : moneyScale(payload.askingPrice),
+      availableDate: dateOrNull(payload.availableDate),
+      location: stringValue(payload.location) || null,
+      grade: stringValue(payload.grade) || null,
+      terms: stringValue(payload.terms) || null,
+      notes: stringValue(payload.notes) || null,
+      status: statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open')
+    })
+    .returning();
+  const matchIds = await rebuildMatchesForSupply(tx, row.id);
+  return { ok: true, commandId, affectedIds: [row.id, ...matchIds], toast: `Vendor stock added for ${vendor.name}.`, delta: { matchCount: matchIds.length } };
+}
+
+async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const supplyId = requiredId(payload.vendorSupplyId ?? payload.id, 'vendorSupplyId');
+  const [current] = await tx.select().from(vendorSupply).where(eq(vendorSupply.id, supplyId)).limit(1);
+  if (!current) throw new Error('Vendor stock row not found.');
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (payload.vendorId !== undefined) values.vendorId = stringValue(payload.vendorId) ? requiredId(payload.vendorId, 'vendorId') : null;
+  if (payload.productName !== undefined || payload.name !== undefined) values.productName = requiredString(payload.productName ?? payload.name, 'productName');
+  if (payload.category !== undefined) values.category = requiredString(payload.category, 'category');
+  if (payload.tags !== undefined) {
+    values.tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, values.tags as string[]);
+  }
+  if (payload.availableQty !== undefined || payload.qty !== undefined) {
+    const availableQty = requiredNumber(payload.availableQty ?? payload.qty, 'availableQty');
+    if (availableQty <= 0) throw new Error('Vendor stock quantity must be greater than zero.');
+    values.availableQty = qtyScale(availableQty);
+  }
+  if (payload.askingPrice !== undefined) values.askingPrice = isBlankValue(payload.askingPrice) ? null : moneyScale(payload.askingPrice);
+  if (payload.availableDate !== undefined) values.availableDate = dateOrNull(payload.availableDate);
+  if (payload.location !== undefined) values.location = stringValue(payload.location) || null;
+  if (payload.grade !== undefined) values.grade = stringValue(payload.grade) || null;
+  if (payload.terms !== undefined) values.terms = stringValue(payload.terms) || null;
+  if (payload.notes !== undefined) values.notes = stringValue(payload.notes) || null;
+  if (payload.status !== undefined) values.status = statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open');
+  await tx.update(vendorSupply).set(values).where(eq(vendorSupply.id, supplyId));
+  const matchIds = await rebuildMatchesForSupply(tx, supplyId);
+  return { ok: true, commandId, affectedIds: [supplyId, ...matchIds], toast: 'Vendor stock updated.', delta: { matchCount: matchIds.length } };
+}
+
+async function reviewMatchmakingMatch(tx: Tx, payload: Payload, status: 'accepted' | 'dismissed', userId: string, commandId: string): Promise<CommandResult> {
+  const matchId = requiredId(payload.matchId ?? payload.id, 'matchId');
+  const [match] = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.id, matchId)).limit(1);
+  if (!match) throw new Error('Match not found.');
+  await tx.update(matchmakingMatches).set({ status, reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
+  const affected = new Set([matchId, match.customerNeedId, match.vendorSupplyId]);
+  if (status === 'accepted') {
+    const siblingMatches = await tx
+      .update(matchmakingMatches)
+      .set({ status: 'dismissed', reviewedBy: userId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(matchmakingMatches.status, 'open'),
+          or(eq(matchmakingMatches.customerNeedId, match.customerNeedId), eq(matchmakingMatches.vendorSupplyId, match.vendorSupplyId)),
+          sql`${matchmakingMatches.id} <> ${matchId}`
+        )
+      )
+      .returning({ id: matchmakingMatches.id });
+    for (const row of siblingMatches) affected.add(row.id);
+    await tx.update(customerNeeds).set({ status: 'matched', updatedAt: new Date() }).where(eq(customerNeeds.id, match.customerNeedId));
+    await tx.update(vendorSupply).set({ status: 'held_for_match', updatedAt: new Date() }).where(eq(vendorSupply.id, match.vendorSupplyId));
+  }
+  return { ok: true, commandId, affectedIds: [...affected], toast: status === 'accepted' ? 'Match accepted. Use existing PO, intake, and sales workspaces for consequences.' : 'Match dismissed.' };
+}
+
 async function recalcOrder(tx: Tx, orderId: string, strategy?: string) {
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
   const total = lines.reduce((sum: number, line: typeof salesOrderLines.$inferSelect) => sum + Number(line.qty) * Number(line.unitPrice), 0);
@@ -1560,6 +2146,33 @@ async function recalcOrder(tx: Tx, orderId: string, strategy?: string) {
   const values: Record<string, unknown> = { total: moneyScale(total), internalMargin: moneyScale(total - cost), updatedAt: new Date() };
   if (strategy) values.pricingStrategy = strategy;
   await tx.update(salesOrders).set(values).where(eq(salesOrders.id, orderId));
+}
+
+function buildPricingSnapshot(lines: Array<typeof salesOrderLines.$inferSelect>, strategy: string, customerTags: string[]) {
+  const profile = resolvePricingProfile(strategy, customerTags);
+  return {
+    strategy,
+    profile,
+    capturedAt: new Date().toISOString(),
+    lines: lines.map((line) => {
+      const evaluated = evaluatePrice({
+        unitCost: Number(line.unitCost),
+        basisUnitPrice: Number(line.unitPrice),
+        candidateUnitPrice: Number(line.unitPrice),
+        profile
+      });
+      return {
+        lineId: line.id,
+        itemName: line.itemName,
+        qty: line.qty,
+        unitCost: line.unitCost,
+        unitPrice: line.unitPrice,
+        minimumUnitPrice: moneyScale(evaluated.minimumUnitPrice),
+        marginPct: evaluated.marginPct,
+        guardrails: evaluated.guardrails
+      };
+    })
+  };
 }
 
 async function recalcPurchaseOrder(tx: Tx, purchaseOrderId: string) {
@@ -1578,7 +2191,6 @@ function purchaseOrderLineIssues(line: Record<string, unknown>) {
   if (!stringValue(line.category)) issues.push('enter category.');
   if (Number(line.qty ?? 0) <= 0) issues.push('enter quantity above zero.');
   if (Number(line.unitCost ?? 0) <= 0) issues.push('enter unit cost above zero.');
-  if (Number(line.unitPrice ?? 0) < 0) issues.push('price cannot be negative.');
   return issues;
 }
 
@@ -1594,8 +2206,188 @@ async function ensureItem(tx: Tx, payload: Payload, name: string, category: stri
   const itemId = stringValue(payload.itemId);
   if (itemId) return itemId;
   const sku = `${category.slice(0, 3).toUpperCase()}-${name.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase()}-${Math.floor(Math.random() * 999)}`;
-  const [created] = await tx.insert(items).values({ sku, name, category, tags: arrayValue(payload.tags) }).returning();
+  const tags = tagValue(payload.tags);
+  await ensureTagCatalog(tx, tags);
+  const [created] = await tx.insert(items).values({ sku, name, category, tags }).returning();
   return created.id;
+}
+
+async function ensureTagCatalog(tx: Tx, tags: string[]) {
+  const unique = [...new Set(tags.map(normalizeTagSlug).filter(Boolean))];
+  for (const slug of unique) {
+    await tx
+      .insert(tagCatalog)
+      .values({ slug, label: tagLabel(slug), color: tagColor(slug) })
+      .onConflictDoUpdate({
+        target: tagCatalog.slug,
+        set: { label: tagLabel(slug), updatedAt: new Date(), isActive: true }
+      });
+  }
+}
+
+async function taggedEntity(tx: Tx, entityType: string, entityId: string) {
+  const table = taggedTable(entityType);
+  const [row] = await tx.select().from(table).where(eq(table.id, entityId)).limit(1);
+  if (!row) throw new Error(`${taggedEntityLabel(entityType)} not found.`);
+  return row as Record<string, unknown>;
+}
+
+async function updateTaggedEntity(tx: Tx, entityType: string, entityId: string, tags: string[]) {
+  const table = taggedTable(entityType);
+  await tx.update(table).set({ tags, updatedAt: new Date() }).where(eq(table.id, entityId));
+}
+
+function taggedTable(entityType: string) {
+  switch (entityType) {
+    case 'batch':
+      return batches as any;
+    case 'purchaseOrderLine':
+      return purchaseOrderLines as any;
+    case 'item':
+      return items as any;
+    case 'customer':
+      return customers as any;
+    case 'customerNeed':
+      return customerNeeds as any;
+    case 'vendorSupply':
+      return vendorSupply as any;
+    default:
+      throw new Error('Tags can be applied to item, purchaseOrderLine, batch, customer, customerNeed, or vendorSupply.');
+  }
+}
+
+function taggedEntityLabel(entityType: string) {
+  return entityType.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+}
+
+async function rebuildMatchesForNeed(tx: Tx, needId: string) {
+  const [need] = await tx.select().from(customerNeeds).where(eq(customerNeeds.id, needId)).limit(1);
+  if (!need) throw new Error('Customer need not found.');
+  await tx.delete(matchmakingMatches).where(and(eq(matchmakingMatches.customerNeedId, needId), eq(matchmakingMatches.status, 'open')));
+  if (need.status !== 'open') return [];
+  const supplies = await tx.select().from(vendorSupply).where(eq(vendorSupply.status, 'open'));
+  return createBestMatches(tx, need, supplies);
+}
+
+async function rebuildMatchesForSupply(tx: Tx, supplyId: string) {
+  const [supply] = await tx.select().from(vendorSupply).where(eq(vendorSupply.id, supplyId)).limit(1);
+  if (!supply) throw new Error('Vendor stock row not found.');
+  await tx.delete(matchmakingMatches).where(and(eq(matchmakingMatches.vendorSupplyId, supplyId), eq(matchmakingMatches.status, 'open')));
+  if (supply.status !== 'open') return [];
+  const needs = await tx.select().from(customerNeeds).where(eq(customerNeeds.status, 'open'));
+  return createBestMatchesForSupply(tx, supply, needs);
+}
+
+async function createBestMatches(tx: Tx, need: typeof customerNeeds.$inferSelect, supplies: Array<typeof vendorSupply.$inferSelect>) {
+  const chosen = bestSupplyMatchesForNeed(need, supplies);
+  if (!chosen.length) return [];
+  const existingRows = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.customerNeedId, need.id));
+  const existingBySupply = new Map<string, typeof matchmakingMatches.$inferSelect>(
+    (existingRows as Array<typeof matchmakingMatches.$inferSelect>).map((row) => [row.vendorSupplyId, row])
+  );
+  const affected: string[] = [];
+  for (const match of chosen) {
+    const existing = existingBySupply.get(match.supply.id);
+    if (existing && existing.status !== 'open') continue;
+    if (existing) {
+      await tx
+        .update(matchmakingMatches)
+        .set({ score: Math.min(100, match.score), reasons: match.reasons, status: 'open', updatedAt: new Date() })
+        .where(eq(matchmakingMatches.id, existing.id));
+      affected.push(existing.id);
+    } else {
+      const [row] = await tx.insert(matchmakingMatches).values({
+        customerNeedId: need.id,
+        vendorSupplyId: match.supply.id,
+        score: Math.min(100, match.score),
+        reasons: match.reasons,
+        status: 'open'
+      }).returning();
+      affected.push(row.id);
+    }
+  }
+  return affected;
+}
+
+async function createBestMatchesForSupply(tx: Tx, supply: typeof vendorSupply.$inferSelect, needs: Array<typeof customerNeeds.$inferSelect>) {
+  const chosen = needs
+    .map((need) => ({ need, ...scoreMatch(need, supply) }))
+    .filter((match) => match.score > 0);
+  if (!chosen.length) return [];
+  const existingRows = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.vendorSupplyId, supply.id));
+  const existingByNeed = new Map<string, typeof matchmakingMatches.$inferSelect>(
+    (existingRows as Array<typeof matchmakingMatches.$inferSelect>).map((row) => [row.customerNeedId, row])
+  );
+  const affected: string[] = [];
+  for (const match of chosen) {
+    const existing = existingByNeed.get(match.need.id);
+    if (existing && existing.status !== 'open') continue;
+    if (existing) {
+      await tx
+        .update(matchmakingMatches)
+        .set({ score: Math.min(100, match.score), reasons: match.reasons, status: 'open', updatedAt: new Date() })
+        .where(eq(matchmakingMatches.id, existing.id));
+      affected.push(existing.id);
+    } else {
+      const [row] = await tx.insert(matchmakingMatches).values({
+        customerNeedId: match.need.id,
+        vendorSupplyId: supply.id,
+        score: Math.min(100, match.score),
+        reasons: match.reasons,
+        status: 'open'
+      }).returning();
+      affected.push(row.id);
+    }
+  }
+  return affected;
+}
+
+function bestSupplyMatchesForNeed(need: typeof customerNeeds.$inferSelect, supplies: Array<typeof vendorSupply.$inferSelect>) {
+  const scored = supplies
+    .map((supply) => ({ supply, ...scoreMatch(need, supply) }))
+    .filter((match) => match.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const candidates = scored.filter((match) => match.score >= 35);
+  return candidates.length ? candidates : scored.slice(0, 1);
+}
+
+function scoreMatch(need: typeof customerNeeds.$inferSelect, supply: typeof vendorSupply.$inferSelect) {
+  let score = 0;
+  const reasons: string[] = [];
+  if (need.category.toLowerCase() === supply.category.toLowerCase()) {
+    score += 35;
+    reasons.push('Category match');
+  }
+  const overlap = tagValue(need.tags).filter((tag) => tagValue(supply.tags).includes(tag));
+  if (overlap.length) {
+    score += Math.min(24, overlap.length * 8);
+    reasons.push(`Tags: ${overlap.join(', ')}`);
+  }
+  if (tokenOverlap(need.productName, supply.productName)) {
+    score += 10;
+    reasons.push('Product wording overlaps');
+  }
+  if (Number(supply.availableQty) >= Number(need.qtyMin)) {
+    score += 12;
+    reasons.push('Quantity covers minimum');
+  }
+  if (need.targetPrice != null && supply.askingPrice != null && Number(supply.askingPrice) <= Number(need.targetPrice)) {
+    score += 12;
+    reasons.push('Ask is within target');
+  }
+  if (need.neededBy && supply.availableDate && new Date(supply.availableDate).getTime() <= new Date(need.neededBy).getTime()) {
+    score += 7;
+    reasons.push('Available before needed-by');
+  }
+  return { score, reasons };
+}
+
+function tokenOverlap(left: string, right: string) {
+  const leftTokens = new Set(left.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2));
+  return right
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .some((token) => token.length > 2 && leftTokens.has(token));
 }
 
 async function snapshotFromPayload(payload: Payload) {
@@ -1621,6 +2413,11 @@ async function snapshotByAffectedIds(ids: string[]) {
     ['pickLists', pickLists],
     ['fulfillmentLines', fulfillmentLines],
     ['connectorRequests', connectorRequests],
+    ['customerNeeds', customerNeeds],
+    ['vendorSupply', vendorSupply],
+    ['matchmakingMatches', matchmakingMatches],
+    ['tagCatalog', tagCatalog],
+    ['transactionTypes', transactionTypes],
     ['customers', customers],
     ['paymentAllocations', paymentAllocations],
     ['clientLedgerEntries', clientLedgerEntries],
@@ -1696,6 +2493,11 @@ function collectIds(payload: Payload) {
     payload.pickListId,
     payload.fulfillmentLineId,
     payload.requestId,
+    payload.customerNeedId,
+    payload.vendorSupplyId,
+    payload.matchId,
+    payload.entityId,
+    payload.allocationTargetId,
     payload.commandId,
     payload.backupId,
     ...(Array.isArray(payload.batchIds) ? payload.batchIds : []),
@@ -1740,10 +2542,29 @@ function stringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function isBlankValue(value: unknown) {
+  return value == null || (typeof value === 'string' && !value.trim());
+}
+
 function requiredString(value: unknown, name: string) {
   const text = stringValue(value);
   if (!text) throw new Error(`${name} is required.`);
   return text;
+}
+
+function labelFromToken(value: string) {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function slugFromLabel(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80);
 }
 
 function requiredId(value: unknown, name: string) {
@@ -1763,15 +2584,51 @@ function requiredNumber(value: unknown, name: string) {
   return number;
 }
 
-function arrayValue(value: unknown, fallback: string[] = []) {
-  if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
-  if (typeof value === 'string') return value.split(/[|,]/).map((item) => item.trim()).filter(Boolean);
-  return fallback;
+function tagValue(value: unknown, fallback: string[] = []) {
+  return parseTagInput(value, fallback);
+}
+
+function tagLabel(slug: string) {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function tagColor(slug: string) {
+  const map: Record<string, string> = {
+    infused: 'purple',
+    candy: 'orange',
+    premium: 'green',
+    flower: 'green',
+    value: 'gray',
+    extract: 'blue',
+    live: 'blue',
+    vape: 'yellow',
+    'pre-roll': 'gray'
+  };
+  return map[slug] ?? 'gray';
+}
+
+function statusValue(value: unknown, allowed: string[], fallback: string) {
+  const text = stringValue(value);
+  return allowed.includes(text) ? text : fallback;
+}
+
+function urgencyValue(value: unknown) {
+  return statusValue(value, ['watch', 'normal', 'high'], 'normal');
 }
 
 function ownership(value: unknown) {
   const text = stringValue(value);
   return ['C', 'OFC', 'UNKNOWN'].includes(text) ? text : 'UNKNOWN';
+}
+
+function inventoryStatus(value: unknown) {
+  const text = stringValue(value);
+  if (['posted', 'held', 'damaged', 'returned', 'in_transit'].includes(text)) return text;
+  throw new Error('Inventory status must be posted, held, damaged, returned, or in_transit.');
 }
 
 function arrivalStatus(value: unknown, arrivalConfirmed = false) {
@@ -1835,7 +2692,7 @@ function paymentImpactPreview(amount: number, allocationIntent: string) {
   if (amount < 0) return 'Buyer credit/down payment; customer balance decreases before invoice allocation.';
   if (allocationIntent === 'selected_invoice') return 'Payment will be ready for selected invoice allocation.';
   if (allocationIntent === 'unapplied') return 'Payment will stay unapplied as buyer credit until allocated.';
-  return 'Payment will be available for FIFO invoice allocation.';
+  return 'Payment will be available for oldest-open-invoice allocation.';
 }
 
 function dateOrNull(value: unknown) {

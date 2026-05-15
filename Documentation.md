@@ -19,3 +19,4 @@ Verification completed locally on 2026-05-11:
 Backend/frontend parity details live in `docs/backend-frontend-parity-audit.md`.
 Latest Playwright run after the parity pass: 10 passed.
 Ease-of-use frontend pass details live in `docs/ease-of-use-frontend-pass.md`.
+Staging deployment notes live in `deploy/staging/README.md`.

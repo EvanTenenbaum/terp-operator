@@ -1,5 +1,5 @@
-import { FileText, PackagePlus, Plus, Send } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, FileText, PackagePlus, Send } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { InventoryFinderPanel, type InventoryFinderBatch } from '../components/InventoryFinderPanel';
@@ -67,7 +67,11 @@ export function SalesView() {
   const [draftItem, setDraftItem] = useState('');
   const [draftQty, setDraftQty] = useState('1');
   const [addedBatchIds, setAddedBatchIds] = useState<Set<string>>(new Set());
+  const [saleToolsOpen, setSaleToolsOpen] = useState(false);
+  const [autoStartedCustomerIds, setAutoStartedCustomerIds] = useState<Set<string>>(new Set());
+  const customerSelectRef = useRef<HTMLSelectElement | null>(null);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
+  const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const setActiveCustomerId = useUiStore((state) => state.setActiveCustomerId);
   const salesRequestText = useUiStore((state) => state.salesRequestText);
   const me = trpc.auth.me.useQuery();
@@ -82,6 +86,7 @@ export function SalesView() {
   const workspaceOrder = workspace.data?.orders.find((order) => ['draft', 'confirmed'].includes(String(order.status))) ?? workspace.data?.orders[0];
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
   const orderLines = trpc.queries.salesOrderLines.useQuery({ orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedOrder?.id) });
+  const selectedOrderStatus = String(selectedOrder?.status ?? '');
 
   const sheetRows = useMemo(() => selectedSuggestions.slice(0, 8), [selectedSuggestions]);
 
@@ -92,6 +97,21 @@ export function SalesView() {
   useEffect(() => {
     if (salesRequestText && !draftItem) setDraftItem(salesRequestText);
   }, [draftItem, salesRequestText]);
+
+  useEffect(() => {
+    if (activeQuickLaunch === 'sale' && !customerId) customerSelectRef.current?.focus();
+  }, [activeQuickLaunch, customerId]);
+
+  useEffect(() => {
+    if (!customerId || !canWrite || workspace.isFetching || workspaceOrder || autoStartedCustomerIds.has(customerId)) return;
+    setAutoStartedCustomerIds((current) => new Set(current).add(customerId));
+    void runCommand('createSalesOrder', { customerId }, 'Auto-start customer sale workspace').then((result) => {
+      if (result.ok) {
+        setActiveCustomerId(customerId);
+        void workspace.refetch();
+      }
+    });
+  }, [autoStartedCustomerIds, canWrite, customerId, runCommand, setActiveCustomerId, workspace, workspace.isFetching, workspaceOrder]);
 
   async function createOrder() {
     if (!customerId) return;
@@ -125,6 +145,18 @@ export function SalesView() {
     if (!selectedOrder) return;
     await runCommand('priceSalesOrder', { orderId: selectedOrder.id, strategy: 'standard' }, 'Sales view pricing preview');
     await runCommand('confirmSalesOrder', { orderId: selectedOrder.id }, 'Confirm sales order');
+  }
+
+  async function runSalesPrimary() {
+    if (!selectedOrder) {
+      await createOrder();
+      return;
+    }
+    if (selectedOrderStatus === 'confirmed') {
+      await reserveOrder();
+      return;
+    }
+    await priceAndConfirm();
   }
 
   async function reserveOrder() {
@@ -185,7 +217,15 @@ export function SalesView() {
       {canWrite ? <div className="control-band">
         <label className="field-inline">
           Customer
-          <select className="select" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
+          <select
+            ref={customerSelectRef}
+            className="select"
+            value={customerId}
+            onChange={(event) => {
+              setCustomerId(event.target.value);
+              setActiveCustomerId(event.target.value || null);
+            }}
+          >
             <option value="">Choose customer</option>
             {reference.data?.customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
@@ -194,32 +234,38 @@ export function SalesView() {
             ))}
           </select>
         </label>
-        <button className="secondary-button" type="button" disabled={!customerId} onClick={createOrder}>
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Order
-        </button>
-        <button className="secondary-button" type="button" disabled={!selectedOrder || !selectedSuggestions.length} onClick={addSuggestion}>
-          <PackagePlus className="h-4 w-4" aria-hidden="true" />
-          Add line
-        </button>
-        <button className="primary-button" type="button" disabled={!selectedOrder} onClick={priceAndConfirm}>
+        <button className="primary-button" type="button" disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
           <Send className="h-4 w-4" aria-hidden="true" />
-          Price + Confirm
+          {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder))}
         </button>
-        <button className="secondary-button" type="button" disabled={!selectedOrder} onClick={reserveOrder}>
-          Reserve
-        </button>
-        <button className="secondary-button" type="button" onClick={() => setSheetMode(sheetMode === 'internal' ? 'catalog' : 'internal')}>
-          <FileText className="h-4 w-4" aria-hidden="true" />
-          {sheetMode === 'internal' ? 'Sales Sheet' : 'Sales Catalog'}
-        </button>
-        <button className="secondary-button" type="button" disabled={!sheetRows.length} onClick={exportSheet}>
-          <FileText className="h-4 w-4" aria-hidden="true" />
-          Export
+        <span className="selection-pill">{selectedOrder ? `${String(selectedOrder.orderNo ?? 'Selected sale')} / ${selectedOrderStatus || 'open'}` : customerId ? 'Sale shell starting' : 'Pick customer to start'}</span>
+        <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
+          {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+          Sale tray
         </button>
       </div> : null}
+      {canWrite && saleToolsOpen ? (
+        <div className="control-band subtle-band">
+          <button className="secondary-button compact-action" type="button" disabled={!selectedOrder || !selectedSuggestions.length} onClick={addSuggestion}>
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Add suggestion
+          </button>
+          <button className="secondary-button compact-action" type="button" disabled={!selectedOrder} onClick={reserveOrder}>
+            Reserve
+          </button>
+          <button className="secondary-button compact-action" type="button" onClick={() => setSheetMode(sheetMode === 'internal' ? 'catalog' : 'internal')}>
+            <FileText className="h-4 w-4" aria-hidden="true" />
+            {sheetMode === 'internal' ? 'Sales Sheet' : 'Sales Catalog'}
+          </button>
+          <button className="secondary-button compact-action" type="button" disabled={!sheetRows.length} onClick={exportSheet}>
+            <FileText className="h-4 w-4" aria-hidden="true" />
+            Export
+          </button>
+          <span className="selection-pill success">Customer catalog hides cost, margin, and internal notes.</span>
+        </div>
+      ) : null}
       {customerId ? (
-        <WorkspacePanel panelId="sales:customer-workspace" title="Customer Workspace" subtitle="Customer context, draft lines, inventory resolver, margin-safe output, and closeout checks." contentClassName="p-3">
+        <WorkspacePanel panelId="sales:customer-workspace" title="Customer Workspace" contentClassName="p-3">
           <div className="customer-workspace-header">
             <div>
               <div className="text-lg font-semibold text-ink">{workspace.data?.customer?.name ?? 'Customer'}</div>
@@ -245,20 +291,22 @@ export function SalesView() {
                   <input className="input compact" value={draftQty} inputMode="decimal" onChange={(event) => setDraftQty(event.target.value)} />
                 </label>
                 <button className="primary-button" type="button" disabled={!selectedOrder || !draftItem.trim()} onClick={addDraftLine}>
-                  Add draft line
+                  Add sale line
                 </button>
-                <button className="secondary-button" type="button" disabled={!orderLines.data?.length} onClick={() => exportCustomerOffer(orderLines.data ?? [])}>
+                {orderLines.data?.length ? <button className="secondary-button" type="button" onClick={() => exportCustomerOffer(orderLines.data ?? [])}>
                   Copy/export customer offer
-                </button>
+                </button> : null}
               </div> : null}
               <OperatorGrid
                 view="sales"
                 title="Customer Draft Lines"
                 rows={(orderLines.data ?? []) as GridRow[]}
                 columns={lineColumns}
-                loading={orderLines.isLoading}
+                loading={false}
                 onSelectionChange={setSelectedLines}
                 onCellCommit={canWrite ? onLineCommit : undefined}
+                emptyTitle="No sale lines yet"
+                emptyChildren="Use Inventory Finder to add posted batches, or type a request above and press Enter."
                 selectionActions={(rows) => (
                   <>
                     <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('packed', true)}>Packed</button>
@@ -293,13 +341,15 @@ export function SalesView() {
       <div className="grid min-h-[420px] grid-cols-1 gap-3 xl:grid-cols-[0.9fr_1.1fr]">
         <OperatorGrid
           view="sales"
-          title="J03 Guided Selling / Sales Orders"
-          rows={(orders.data ?? []) as GridRow[]}
-          columns={orderColumns}
-          loading={orders.isLoading}
-          onSelectionChange={(selection) => setSelectedRows('sales', selection)}
-        />
-        <InventoryFinderPanel selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''} addedBatchIds={addedBatchIds} initialSearch={salesRequestText} onAddBatch={addFinderBatch} />
+        title="Sales Orders"
+        rows={(orders.data ?? []) as GridRow[]}
+        columns={orderColumns}
+        loading={orders.isLoading && !customerId}
+        onSelectionChange={(selection) => setSelectedRows('sales', selection)}
+        emptyTitle="No open sales shown"
+        emptyChildren={customerId ? 'No lines yet.' : 'Choose a customer to start.'}
+      />
+        <InventoryFinderPanel selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''} focusKey={customerId} addedBatchIds={addedBatchIds} initialSearch={salesRequestText} onAddBatch={addFinderBatch} />
       </div>
       {customerId ? <div className="min-h-[340px]">
         <OperatorGrid
@@ -343,4 +393,16 @@ function exportCustomerOffer(rows: GridRow[]) {
   link.download = 'terp-agro-customer-offer.csv';
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function salesPrimaryLabel(status: string, hasOrder: boolean) {
+  if (!hasOrder) return 'Start';
+  if (status === 'confirmed') return 'Reserve';
+  if (status === 'posted') return 'Posted';
+  if (status === 'cancelled') return 'Cancelled';
+  return 'Price + Confirm';
+}
+
+function isOrderTerminal(status: string) {
+  return ['posted', 'cancelled', 'fulfilled'].includes(status);
 }

@@ -1,6 +1,7 @@
 import { RotateCcw, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
+import { commandLabelFor } from '../../shared/commandCatalog';
 import type { GridRow } from '../../shared/types';
 
 interface RowCommandHistoryDrawerProps {
@@ -23,7 +24,7 @@ export function RowCommandHistoryDrawer({ row, onClose }: RowCommandHistoryDrawe
       <div className="row-history-header">
         <div>
           <div className="text-sm font-semibold text-ink">Row History</div>
-          <div className="text-xs text-zinc-600">{String(row.id)}</div>
+          <div className="text-xs text-zinc-600">{rowLabel(row)}</div>
         </div>
         <button className="icon-button" type="button" onClick={onClose} aria-label="Close row history">
           <X className="h-4 w-4" aria-hidden="true" />
@@ -51,7 +52,7 @@ export function RowCommandHistoryDrawer({ row, onClose }: RowCommandHistoryDrawe
           return (
             <div className="row-history-card" key={String(command.id)}>
               <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold">{String(command.commandName)}</span>
+                <span className="font-semibold">{commandLabelFor(command.commandName)}</span>
                 <span>{new Date(String(command.createdAt)).toLocaleString()}</span>
               </div>
               <div className="mt-1 text-xs text-zinc-600">{String(command.actorName)} · {String(command.status)}</div>
@@ -66,7 +67,7 @@ export function RowCommandHistoryDrawer({ row, onClose }: RowCommandHistoryDrawe
                 type="button"
                 disabled={!reversible || !canReverse || isRunning}
                 title={canReverse ? 'Reverse command' : 'Manager or owner access is required to reverse posted actions.'}
-                onClick={() => runCommand('reverseCommandById', { commandId: command.id }, `Reverse from row history for ${row.id}`)}
+                onClick={() => runCommand('reverseCommandById', { commandId: command.id }, `Reverse from row history for ${rowLabel(row)}`)}
               >
                 <RotateCcw className="h-4 w-4" aria-hidden="true" />
                 Preview / Reverse
@@ -78,4 +79,8 @@ export function RowCommandHistoryDrawer({ row, onClose }: RowCommandHistoryDrawe
     </aside>
     </>
   );
+}
+
+function rowLabel(row: GridRow) {
+  return String(row.label ?? row.name ?? row.customer ?? row.vendor ?? row.orderNo ?? row.poNo ?? row.billNo ?? row.batchCode ?? row.pickNo ?? row.reference ?? 'Selected row');
 }

@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { CellValueChangedEvent, ColDef, GridApi, GridReadyEvent, SideBarDef } from 'ag-grid-community';
+import type { CellValueChangedEvent, ColDef, GridApi, GridReadyEvent, SideBarDef, ValueGetterParams } from 'ag-grid-community';
 import { Download, Search } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { EmptyState } from './EmptyState';
@@ -10,15 +10,13 @@ import { RowCommandHistoryDrawer } from './RowCommandHistoryDrawer';
 import { SelectionSummary } from './SelectionSummary';
 import { StatusPill } from './StatusPill';
 import { WorkspacePanel } from './WorkspacePanel';
+import { useUiStore } from '../store/uiStore';
 import type { GridRow, ViewKey } from '../../shared/types';
-
-type ExportableView = Exclude<ViewKey, 'dashboard'>;
-
-const EXPORTABLE_VIEWS: readonly ExportableView[] = ['intake', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout'];
 
 interface OperatorGridProps {
   view: ViewKey;
   title: string;
+  subtitle?: string;
   rows: GridRow[];
   columns: ColDef<GridRow>[];
   loading?: boolean;
@@ -26,17 +24,23 @@ interface OperatorGridProps {
   selectionActions?: (rows: GridRow[]) => ReactNode;
   onSelectionChange?: (rows: GridRow[]) => void;
   onCellCommit?: (event: CellValueChangedEvent<GridRow>) => void;
+  emptyTitle?: string;
+  emptyChildren?: ReactNode;
 }
 
-export function OperatorGrid({ view, title, rows, columns, loading, actions, selectionActions, onSelectionChange, onCellCommit }: OperatorGridProps) {
+export function OperatorGrid({ view, title, subtitle, rows, columns, loading, actions, selectionActions, onSelectionChange, onCellCommit, emptyTitle, emptyChildren }: OperatorGridProps) {
   const apiRef = useRef<GridApi<GridRow> | null>(null);
   const me = trpc.auth.me.useQuery();
-  const utils = trpc.useContext();
   const canWrite = me.data?.role !== 'viewer';
   const [selectedRows, setSelectedRows] = useState<GridRow[]>([]);
   const [historyRow, setHistoryRow] = useState<GridRow | null>(null);
   const [relationshipRow, setRelationshipRow] = useState<GridRow | null>(null);
   const [issueRow, setIssueRow] = useState<GridRow | null>(null);
+  const storedGridFilter = useUiStore((state) => state.gridFilters[view] ?? '');
+  const setStoredGridFilter = useUiStore((state) => state.setGridFilter);
+  const [quickFilter, setQuickFilter] = useState(storedGridFilter);
+  const parsedFilter = useMemo(() => parseGridFilter(quickFilter), [quickFilter]);
+  const renderedRows = useMemo(() => applyGridFilter(rows, parsedFilter), [parsedFilter, rows]);
   const panelId = useMemo(() => `grid:${view}:${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [title, view]);
   const defaultColDef = useMemo<ColDef<GridRow>>(
     () => ({
@@ -53,7 +57,7 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
     }),
     []
   );
-  const columnDefs = useMemo<ColDef<GridRow>[]>(() => withStatusRenderer(columns, canWrite), [canWrite, columns]);
+  const columnDefs = useMemo<ColDef<GridRow>[]>(() => withRowNumbers(withStatusRenderer(columns, canWrite)), [canWrite, columns]);
   const rowSelection = useMemo(
     () => ({
       mode: 'multiRow' as const,
@@ -66,17 +70,16 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
   const cellSelection = useMemo(() => ({ handle: { mode: 'range' as const } }), []);
   const sideBar = useMemo<SideBarDef>(() => ({ toolPanels: ['columns', 'filters'], hiddenByDefault: true }), []);
 
-  async function exportServerCsv() {
-    if (!isExportableView(view)) return;
-    const result = await utils.queries.csvExport.fetch({ view });
-    downloadText(result.filename, result.csv, 'text/csv;charset=utf-8');
-  }
+  useEffect(() => {
+    setQuickFilter(storedGridFilter);
+    apiRef.current?.setGridOption('quickFilterText', parseGridFilter(storedGridFilter).freeText);
+  }, [storedGridFilter]);
 
   return (
     <WorkspacePanel
       panelId={panelId}
       title={title}
-      subtitle={`${rows.length} row(s). Sort, filter, group, fill down, copy/paste TSV, and edit inline where enabled.`}
+      subtitle={subtitle ?? `${renderedRows.length.toLocaleString('en-US')} row(s)`}
       actions={
         <>
           <label className="flex h-8 items-center gap-2 border border-line bg-white px-2 text-sm">
@@ -84,7 +87,12 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
             <input
               className="h-full w-44 bg-transparent outline-none"
               placeholder="Filter grid"
-              onChange={(event) => apiRef.current?.setGridOption('quickFilterText', event.target.value)}
+              value={quickFilter}
+              onChange={(event) => {
+                setQuickFilter(event.target.value);
+                setStoredGridFilter(view, event.target.value);
+                apiRef.current?.setGridOption('quickFilterText', parseGridFilter(event.target.value).freeText);
+              }}
             />
           </label>
           {canWrite ? actions : null}
@@ -97,18 +105,13 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
             <Download className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only">Export visible grid CSV</span>
           </button>
-          {isExportableView(view) ? (
-            <button type="button" className="secondary-button compact-action" title="Export deterministic server CSV" onClick={() => void exportServerCsv()}>
-              Server CSV
-            </button>
-          ) : null}
         </>
       }
     >
       <div className="ag-theme-quartz grid-shell">
-        {rows.length || loading ? (
+        {renderedRows.length || loading ? (
           <AgGridReact<GridRow>
-            rowData={rows}
+            rowData={renderedRows}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
             rowSelection={rowSelection}
@@ -120,6 +123,7 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
             getRowId={(params) => String(params.data.id)}
             onGridReady={(event: GridReadyEvent<GridRow>) => {
               apiRef.current = event.api;
+              event.api.setGridOption('quickFilterText', parsedFilter.freeText);
               event.api.sizeColumnsToFit();
             }}
             onSelectionChanged={() => {
@@ -130,7 +134,7 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
             onCellValueChanged={onCellCommit}
           />
         ) : (
-          <EmptyState title="No rows yet">Create or import rows, then mark them Ready when they can be posted.</EmptyState>
+          <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'Create or import rows, then mark them Ready when they can be posted.'}</EmptyState>
         )}
       </div>
       <SelectionSummary rows={selectedRows} view={view} onOpenHistory={setHistoryRow} onOpenRelationship={setRelationshipRow} onOpenIssue={canWrite ? setIssueRow : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} />
@@ -141,25 +145,53 @@ export function OperatorGrid({ view, title, rows, columns, loading, actions, sel
   );
 }
 
-function downloadText(filename: string, value: string, type: string) {
-  const blob = new Blob([value], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+interface ParsedGridFilter {
+  freeText: string;
+  fields: Record<string, string[]>;
 }
 
-function isExportableView(view: ViewKey): view is ExportableView {
-  return EXPORTABLE_VIEWS.includes(view as ExportableView);
+function parseGridFilter(value: string): ParsedGridFilter {
+  const fields: Record<string, string[]> = {};
+  const freeText: string[] = [];
+  for (const part of value.split(/\s+/).filter(Boolean)) {
+    const [rawKey, ...rawRest] = part.split(':');
+    const rest = rawRest.join(':');
+    if (rawKey && rest) {
+      fields[rawKey] = rest.split(',').map((entry) => entry.trim().toLowerCase()).filter(Boolean);
+    } else {
+      freeText.push(part);
+    }
+  }
+  return { freeText: freeText.join(' '), fields };
+}
+
+function applyGridFilter(rows: GridRow[], filter: ParsedGridFilter) {
+  const entries = Object.entries(filter.fields);
+  if (!entries.length) return rows;
+  return rows.filter((row) =>
+    entries.every(([field, allowed]) => {
+      if (!allowed.length) return true;
+      const value = String(row[field] ?? '').toLowerCase();
+      return allowed.some((candidate) => value === candidate || value.includes(candidate));
+    })
+  );
 }
 
 function formatGridValue(value: unknown) {
   if (value == null) return '';
-  if (Array.isArray(value)) return value.join(', ');
+  if (Array.isArray(value)) {
+    if (!value.length) return '';
+    if (value.every((entry) => entry == null || ['string', 'number', 'boolean'].includes(typeof entry))) return value.join(', ');
+    return `${value.length} item${value.length === 1 ? '' : 's'}`;
+  }
   if (value instanceof Date) return value.toLocaleString();
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, entry]) => entry == null || ['string', 'number', 'boolean'].includes(typeof entry))
+      .slice(0, 3);
+    if (!entries.length) return `${Object.keys(value as Record<string, unknown>).length} fields`;
+    return entries.map(([key, entry]) => `${key}: ${entry ?? '-'}`).join(' / ');
+  }
   return String(value);
 }
 
@@ -172,7 +204,34 @@ function withStatusRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
           cellRenderer: (params: { value?: string }) => <StatusPill status={params.value} />
         }
       : canWrite
-        ? column
+        ? {
+            ...column,
+            cellClass: column.editable ? 'editable-cell' : column.cellClass
+          }
         : { ...column, editable: false }
   );
+}
+
+function withRowNumbers(columns: ColDef<GridRow>[]) {
+  if (columns.some((column) => column.colId === 'rowNumber')) return columns;
+  const rowNumberColumn: ColDef<GridRow> = {
+    colId: 'rowNumber',
+    headerName: '#',
+    valueGetter: (params: ValueGetterParams<GridRow>) => (params.node?.rowIndex ?? 0) + 1,
+    width: 54,
+    minWidth: 48,
+    maxWidth: 64,
+    pinned: 'left',
+    lockPinned: true,
+    suppressMovable: true,
+    sortable: false,
+    filter: false,
+    resizable: false,
+    editable: false,
+    cellClass: 'row-number-cell'
+  };
+  return [
+    rowNumberColumn,
+    ...columns
+  ];
 }

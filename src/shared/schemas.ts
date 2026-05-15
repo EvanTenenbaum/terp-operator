@@ -4,6 +4,7 @@ import { commandNames } from './commandCatalog';
 export const roleSchema = z.enum(['owner', 'manager', 'operator', 'viewer']);
 export const ownershipSchema = z.enum(['C', 'OFC', 'UNKNOWN']);
 export const arrivalStatusSchema = z.enum(['pending', 'arrived', 'cancelled']);
+export const inventoryStatusSchema = z.enum(['posted', 'held', 'damaged', 'returned', 'in_transit']);
 export const paymentMethodSchema = z.enum(['cash', 'check', 'card', 'crypto', 'wire']);
 export const commandNameSchema = z.enum(commandNames);
 
@@ -48,6 +49,15 @@ export const batchPayloadSchema = z.object({
   arrivalStatus: arrivalStatusSchema.optional(),
   mediaStatus: z.enum(['open', 'in_progress', 'done']).optional(),
   status: z.enum(['draft', 'ready', 'needs_fix']).optional()
+});
+
+export const inventoryTransferPayloadSchema = z.object({
+  batchId: z.string().uuid(),
+  status: inventoryStatusSchema.optional(),
+  location: z.string().trim().min(1).optional(),
+  ownershipStatus: ownershipSchema.optional(),
+  vendorId: z.string().uuid().optional(),
+  reason: z.string().trim().min(3)
 });
 
 export const salesOrderPayloadSchema = z.object({

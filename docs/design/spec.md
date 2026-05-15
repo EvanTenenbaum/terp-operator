@@ -42,7 +42,7 @@
 
 ## TL;DR
 
-The TERP Agro app is functionally complete (54 commands / 27 queries, parity green, MR-001..MR-052 + TA-001..TA-048 shipped). The gap is **cohesion and hierarchy**, not capability.
+The TERP Agro app is functionally complete (63 user-surfaceable commands, 1 internal command, 28 queries, parity green, MR-001..MR-052 + TA-001..TA-048 shipped). The gap is **cohesion and hierarchy**, not capability.
 
 This spec defines:
 
@@ -54,7 +54,7 @@ This spec defines:
 - **Inventory Finder as a global tool** reachable three ways: embedded right rail on Sales, standalone Inventory route Finder mode, `⌘⇧F` overlay anywhere.
 - **Purchase Orders rebuilt** with persistent header + status-aware action + drawer Lines tab + Linked-intake traceability ribbon.
 - **`QuickStartBar.tsx` deleted**, its 5 launch chips absorbed into the Keel (top strip).
-- **One new lane**: Reports (under Decide group). No other IA churn — same 13 existing routes.
+- **Two product lanes added by explicit requirement**: Reports (under Decide) and Matchmaking (under Sell). No other IA churn.
 - **8 implementation phases**, each shippable behind a feature flag with typecheck + build + parity + E2E green.
 
 28 wireframes (W1-W28) pin every primary state.
@@ -67,8 +67,8 @@ This spec defines:
 
 - React 18 / Vite / TypeScript / AG Grid / Zustand / TanStack Query / tRPC client.
 - Express / tRPC / Socket.io / Drizzle ORM / PostgreSQL backend.
-- 54 commands, 27 protected query endpoints, role-aware nav, session auth, idempotent audited command bus.
-- 13 operator surfaces (Dashboard · Purchase Orders · Intake · Sales · Orders · Payments · Inventory · Client Ledger · Vendor Payouts · Fulfillment · Connectors · Recovery · Closeout).
+- 64 commands total: 63 user-surfaceable commands, 1 internal connector-routing command, 28 protected query endpoints, role-aware nav, session auth, idempotent audited command bus.
+- 15 operator surfaces (Dashboard · Reports · Purchase Orders · Intake · Sales · Matchmaking · Orders · Payments · Inventory · Client Ledger · Vendor Payouts · Fulfillment · Connectors · Recovery · Closeout).
 - Legacy markers preserved across batches and sales lines (`legacyMarker` / `legacyStatusMarkers`).
 - Three independent closeout columns on sales lines: `packed`, `inventoryPosted`, `paymentFollowup`.
 - Quick Ledger grid with FIFO / selected / unapplied + auto-buyer-credit on negative money-in.
@@ -112,7 +112,7 @@ Seven anchors derived from recording analysis, persona journeys, and audit synth
 4. **Inventory Finder is global.** `⌘⇧F` overlay anywhere; embeddable panel; standalone route's Finder mode.
 5. **Selection summary becomes the context strip, not just a footer.** Sums + issues + primary + tray + history/relationship/issue/packet icons, beside the grid.
 6. **Focus mode keeps the keel.** Keel + Identity ribbon + Quick Start chips survive focus; only the grid maximizes.
-7. **Nav grouping without IA churn.** Same 13 routes (+ 1 new Reports), rendered in 5 muted section dividers (Decide · Procure · Sell · Money · Resolve).
+7. **Nav grouping with controlled IA changes.** Existing routes plus Reports and Matchmaking, rendered in muted section dividers (Decide · Procure · Sell · Money · Admin).
 
 ### 1.5 What is explicitly NOT changing (non-goals)
 
@@ -139,7 +139,7 @@ Every operations screen uses this shape:
 | Zone | Height/Width | Purpose | Survives focus mode? |
 | --- | --- | --- | --- |
 | **A — Keel** | 44-48px tall | Global: `⌘K` search + 5 launch chips (Sale · Receive · $ In · $ Out · Purchase) + health pill + user. | Yes |
-| **B — SideNav** | 160px wide (or 56px collapsed) | 14 routes in 5 muted groups. | Yes |
+| **B — SideNav** | 160px wide (or 56px collapsed) | 15 routes in muted groups. | Yes |
 | **C — Identity ribbon** | 28px tall (only when entity active) | Slim. Holds entity name + status pill + key id + `⌘← back` + `✕ leave`. No rich data. | Yes |
 | **D — Primary work surface** | flex | Selection-context strip (band-swap) above the grid. | Yes (the focused panel) |
 | **E — Context Drawer** | 24px / 280px / 420px / 60% / 100% of pane | Tabbed, right-edge. Five states (see §2.6). | Follows D |
@@ -158,7 +158,7 @@ Total chrome above the grid: **~76px when an entity is active, ~48px otherwise.*
 
 No inline `Client ▾` / `Request ▢` / amount / method forms anywhere global. Customer-aware starts remain available via `⌘K Rich Star → ↵` → routes to Sales with that customer active.
 
-### 2.3 SideNav grouping (14 routes in 5 groups)
+### 2.3 SideNav grouping (15 routes in groups)
 
 ```
 Decide       — Dashboard · Reports
@@ -490,7 +490,7 @@ All rendered HTML at `docs/design/wireframes/`. Each wireframe carries a spec an
 
 | # | Surface · state | File |
 | --- | --- | --- |
-| W1 | Shell · default · 14 routes in 5 groups · drawer closed | `04-wireframes-batch-1.html` |
+| W1 | Shell · default · route groups · drawer closed | `04-wireframes-batch-1.html` |
 | W2 | Dashboard · Today focus + KPIs + queues + Unified Work Queue | `04-wireframes-batch-1.html` |
 | W3 | Sales · customer pick · drawer closed · Finder visible | `04-wireframes-batch-1.html` |
 | W4 | Sales · customer active, no row selected · drawer peek · Balance tab | `04-wireframes-batch-1.html` |
@@ -840,7 +840,7 @@ Every visible button, screen, action, nav item, panel, filter, chart, card, moda
 - [ ] **Useful** — solves an operator moment that's in the persona-journey or 67-task inventory.
 - [ ] **Operationally justified** — reducing burden, not adding visibility-for-visibility.
 
-Per-surface checklist (applied to all 14 routes):
+Per-surface checklist (applied to all active routes):
 
 - [ ] No stubs.
 - [ ] No placeholders.
@@ -862,7 +862,7 @@ Per-surface checklist (applied to all 14 routes):
 
 Backend invariants (no change but must remain):
 
-- [ ] Backend/frontend parity stays green (54 commands / 27 queries minimum).
+- [ ] Backend/frontend parity stays green (63 user-surfaceable commands, 1 internal command, 28 queries minimum).
 - [ ] Audited command bus untouched.
 - [ ] Role-aware nav untouched (`navVisibleForUser`).
 - [ ] No new tRPC commands or queries introduced (except the flagged pricing-rule projection in Phase 1, if needed).
@@ -971,12 +971,12 @@ Below-floor warning: shown inline as amber pill on line; never blocks primary.
 
 | Request status | Primary | Command | Tray |
 | --- | --- | --- | --- |
-| `pending` | **Route** (uses row's `routeTo` cell) | `routeConnectorRequest` | Approve · Reject · Bulk route same-source |
-| `routed` | (no primary; routed downstream) | — | Open linked order/pick · Re-route |
-| `approved` | **Route** (same; approved without routing is rare) | `routeConnectorRequest` | Reject · Open linked entity |
+| `pending` | **Approve** | `approveConnectorRequest` | Reject · Open source |
+| `routed` | (internal state; no operator primary) | — | Open linked order/pick |
+| `approved` | (no primary; accepted for normal lane work) | — | Reject · Open linked entity |
 | `rejected` | (no primary) | — | Restore as pending |
 
-Safety banner persistent in selection strip: "Connector requests never mutate ledgers directly. Route creates the work on the target lane."
+Safety note in the drawer only: connector requests never mutate ledgers directly. Any lane/default assignment is backend/internal, not a user routing workflow.
 
 ### 10.9 Recovery (`RecoveryView`)
 
@@ -1778,7 +1778,7 @@ Before merging each phase's PR:
 
 1. `pnpm typecheck` — zero errors.
 2. `pnpm build` — zero errors. Bundle size diff < 5% per phase (Phase 1 likely +10% due to many drawer tabs; phase 6 adds Reports view which is +3%; budget accordingly).
-3. `pnpm audit:parity` — backend/frontend parity green (54 commands / 27 queries, +1 if Phase 1 needs the pricing projection).
+3. `pnpm audit:parity` — backend/frontend parity green (63 user-surfaceable commands, 1 internal command, 28 queries, +1 if Phase 1 needs the pricing projection).
 4. `pnpm db:seed && pnpm test:e2e` — all green (existing + new tests).
 5. **Visual diff against the wireframe.** Open the phase's wireframe HTML side-by-side with the dev server; confirm layout, density, color match. Discrepancies trigger spec re-review, not silent drift.
 6. **Vocabulary check.** Grep new view source for forbidden words (`GL`, `AR aging`, `Trial balance`, `Customer ID:`, "Create Purchase Order" instead of "New PO"). None should appear.

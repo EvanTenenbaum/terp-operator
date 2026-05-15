@@ -1,5 +1,6 @@
 import { Clipboard, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
+import { commandLabelFor } from '../../shared/commandCatalog';
 import type { GridRow, ViewKey } from '../../shared/types';
 
 interface RelationshipDrawerProps {
@@ -18,13 +19,20 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
   const vendorOpen = (data?.bills ?? []).reduce((sum, bill) => sum + Number(bill.amount ?? 0) - Number(bill.amountPaid ?? 0), 0);
 
   function copySafeStatus() {
-    const text = [
-      data?.customer?.name || data?.vendor?.name || String(row?.customer ?? row?.vendor ?? 'Relationship'),
-      `Open receivables: $${money(customerOpen)}`,
-      `Open payables: $${money(vendorOpen)}`,
-      `Recent orders: ${(data?.orders ?? []).slice(0, 3).map((order) => `${order.orderNo} ${order.status}`).join(', ') || 'none'}`,
-      `Recent bills: ${(data?.bills ?? []).slice(0, 3).map((bill) => `${bill.billNo} ${bill.status}`).join(', ') || 'none'}`
-    ].join('\n');
+    const isVendorOnly = Boolean(data?.vendor) && !data?.customer;
+    const text = isVendorOnly
+      ? [
+          data?.vendor?.name || String(row?.vendor ?? 'Vendor'),
+          `Open payables: $${money(vendorOpen)}`,
+          `Scheduled payouts: ${(data?.vendorPayments ?? []).filter((payment) => payment.status === 'scheduled').length}`,
+          `Recent bills: ${(data?.bills ?? []).slice(0, 3).map((bill) => `${bill.billNo} ${bill.status}`).join(', ') || 'none'}`
+        ].join('\n')
+      : [
+          data?.customer?.name || String(row?.customer ?? 'Customer'),
+          `Open balance: $${money(customerOpen)}`,
+          `Recent orders: ${(data?.orders ?? []).slice(0, 3).map((order) => `${order.orderNo} ${order.status}`).join(', ') || 'none'}`,
+          `Recent invoices: ${(data?.invoices ?? []).slice(0, 3).map((invoice) => `${invoice.invoiceNo} ${invoice.status}`).join(', ') || 'none'}`
+        ].join('\n');
     void navigator.clipboard?.writeText(text);
   }
 
@@ -35,7 +43,6 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
         <div className="row-history-header">
           <div>
             <h2 className="text-lg font-semibold text-ink">Relationship Summary</h2>
-            <p className="text-sm text-zinc-600">AR, AP, orders, bills, payments, and recent commands in one place.</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close relationship summary">
             <X className="h-4 w-4" aria-hidden="true" />
@@ -62,7 +69,7 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
           </div>
           <button className="secondary-button mt-3" type="button" onClick={copySafeStatus}>
             <Clipboard className="h-4 w-4" aria-hidden="true" />
-            Copy safe status
+            Copy external-safe status
           </button>
           <RelationshipSection title="Invoices" rows={data?.invoices ?? []} columns={['invoiceNo', 'status', 'total', 'amountPaid']} />
           <RelationshipSection title="Client ledger" rows={data?.ledger ?? []} columns={['kind', 'amount', 'balanceAfter', 'note']} />
@@ -87,7 +94,7 @@ function RelationshipSection({ title, rows, columns }: { title: string; rows: Gr
       <div className="mt-2 grid gap-1 text-xs">
         {rows.length ? rows.slice(0, 8).map((row) => (
           <div className="activity-row" key={row.id}>
-            {columns.slice(0, 4).map((column) => <span key={column}>{format(row[column])}</span>)}
+            {columns.slice(0, 4).map((column) => <span key={column}>{formatRelationshipValue(column, row[column])}</span>)}
           </div>
         )) : <div className="border border-line bg-panel p-2 text-zinc-600">No rows.</div>}
       </div>
@@ -112,8 +119,17 @@ function inferVendorId(row: GridRow | null, view: ViewKey) {
 function format(value: unknown) {
   if (value == null) return '-';
   if (typeof value === 'number') return money(value);
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return value.length ? value.map((entry) => String(entry)).join(', ') : '-';
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).slice(0, 3);
+    return entries.length ? entries.map(([key, entry]) => `${key}: ${String(entry ?? '-')}`).join(' / ') : '-';
+  }
   return String(value);
+}
+
+function formatRelationshipValue(column: string, value: unknown) {
+  if (column === 'commandName') return commandLabelFor(value);
+  return format(value);
 }
 
 function money(value: number) {

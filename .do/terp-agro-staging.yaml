@@ -1,0 +1,60 @@
+name: terp-agro-staging
+region: sfo
+services:
+  - name: web
+    github:
+      repo: EvanTenenbaum/terp-agro-operator-console
+      branch: "__BRANCH__"
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    run_command: pnpm start:staging
+    http_port: 8787
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 120
+      period_seconds: 15
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 8
+    envs:
+      - key: NODE_ENV
+        scope: RUN_AND_BUILD_TIME
+        value: production
+      - key: APP_ORIGIN
+        scope: RUN_AND_BUILD_TIME
+        value: "__APP_ORIGIN__"
+      - key: PORT
+        scope: RUN_AND_BUILD_TIME
+        value: "8787"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: "__DATABASE_URL__"
+      - key: DATABASE_SSL
+        scope: RUN_TIME
+        value: "true"
+      - key: DATABASE_SSL_REJECT_UNAUTHORIZED
+        scope: RUN_TIME
+        value: "false"
+      - key: SESSION_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: "__SESSION_SECRET__"
+      - key: JOURNAL_DIR
+        scope: RUN_TIME
+        value: /tmp/terp-agro/journal
+      - key: ARCHIVE_DIR
+        scope: RUN_TIME
+        value: /tmp/terp-agro/archives
+      - key: VITE_TRPC_URL
+        scope: RUN_AND_BUILD_TIME
+        value: /trpc
+      - key: VITE_SOCKET_URL
+        scope: RUN_AND_BUILD_TIME
+        value: /
+      - key: VITE_AG_GRID_LICENSE_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+        value: "__AG_GRID_LICENSE_KEY__"

@@ -187,7 +187,7 @@ Read these to recover the product/workflow context:
   - Click-cost and ease-of-use audit from the last frontend pass.
 
 - `docs/backend-frontend-parity-audit.md`
-  - Backend command/query parity report. Current target is 54 commands and 27 protected query endpoints.
+  - Backend command/query parity report. Current target is 56 user-surfaceable commands, 1 internal command, and 27 protected query endpoints.
 
 - `docs/persona-journey-frontend-fit-audit.md`
   - Persona and journey fit review with specific UI/UX gaps.
@@ -218,7 +218,7 @@ Read these to recover the product/workflow context:
 Backend/frontend parity now reports:
 
 ```text
-Backend/frontend parity OK: 54 commands and 27 query endpoints have frontend surfaces.
+Backend/frontend parity OK: 56 surfaced commands, 1 internal command(s), and 27 query endpoints accounted for.
 ```
 
 The current app includes:
@@ -280,7 +280,7 @@ pnpm typecheck
 # Passed.
 
 pnpm audit:parity
-# Backend/frontend parity OK: 54 commands and 27 query endpoints have frontend surfaces.
+# Backend/frontend parity OK: 56 surfaced commands, 1 internal command(s), and 27 query endpoints accounted for.
 
 pnpm build
 # Passed.

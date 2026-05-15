@@ -7,33 +7,69 @@ export type Status =
   | 'needs_fix'
   | 'reversed'
   | 'confirmed'
+  | 'reserved'
   | 'fulfilled'
   | 'cancelled'
   | 'open'
   | 'scheduled'
   | 'paid'
   | 'approved'
+  | 'accepted'
   | 'ordered'
   | 'planned'
   | 'received'
   | 'partially_received'
+  | 'held'
+  | 'damaged'
+  | 'returned'
+  | 'in_transit'
   | 'failed'
   | 'rejected'
   | 'routed'
+  | 'matched'
+  | 'dismissed'
+  | 'watch'
+  | 'normal'
+  | 'high'
+  | 'held_for_match'
   | 'locked'
   | 'archived';
 
 export type OwnershipStatus = 'C' | 'OFC' | 'UNKNOWN';
 export type ArrivalStatus = 'pending' | 'arrived' | 'cancelled';
-export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut';
+export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut' | 'customerNeed' | 'vendorSupply';
+export type SettingsTab = 'requests' | 'actions' | 'archive';
 
 export type PaymentMethod = 'cash' | 'check' | 'card' | 'crypto' | 'wire';
 
+export type DrawerStateName = 'closed' | 'peek' | 'standard' | 'wide' | 'focus';
+
+export interface DrawerEntityRef {
+  entityType: string;
+  entityId: string | null;
+}
+
+export interface DrawerState {
+  state: DrawerStateName;
+  activeTab: string;
+}
+
+export interface RouteHistoryEntry {
+  view: ViewKey;
+  entityType: string;
+  entityId: string | null;
+  drawerState: DrawerStateName;
+  activeTab: string;
+  timestamp: number;
+}
+
 export type ViewKey =
   | 'dashboard'
+  | 'reports'
   | 'purchaseOrders'
   | 'intake'
   | 'sales'
+  | 'matchmaking'
   | 'orders'
   | 'payments'
   | 'inventory'
@@ -42,7 +78,8 @@ export type ViewKey =
   | 'fulfillment'
   | 'connectors'
   | 'recovery'
-  | 'closeout';
+  | 'closeout'
+  | 'settings';
 
 export interface SessionUser {
   id: string;

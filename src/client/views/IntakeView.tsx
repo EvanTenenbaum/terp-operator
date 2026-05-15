@@ -1,21 +1,24 @@
-import { ClipboardCheck, Copy, Plus, ReceiptText } from 'lucide-react';
+import { ChevronDown, ChevronRight, ClipboardCheck, Copy, Plus, ReceiptText } from 'lucide-react';
 import { useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
+import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { CommandResult, GridRow } from '../../shared/types';
+import { parseTagInput } from '../../shared/tags';
 
 const intakeColumns: ColDef<GridRow>[] = [
   { field: 'batchCode', headerName: 'Batch', pinned: 'left', editable: false, width: 150 },
   { field: 'poNo', headerName: 'PO', editable: false, width: 130 },
   { field: 'sourceCode', headerName: 'Code', editable: true, width: 110 },
   { field: 'intakeDate', headerName: 'Date', editable: true, width: 150 },
-  { field: 'shorthand', editable: true, width: 120 },
-  { field: 'legacyMarker', headerName: 'Raw', editable: true, width: 90 },
+  { field: 'shorthand', headerName: 'Shorthand', editable: true, width: 145 },
+  { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
   { field: 'name', editable: true, minWidth: 190 },
   { field: 'category', editable: true, width: 120 },
+  { field: 'tags', editable: true, minWidth: 160 },
   { field: 'vendor', editable: false, width: 160 },
   { field: 'ticketCost', headerName: 'Ticket cost', editable: true, type: 'numericColumn', width: 120 },
   { field: 'priceRange', headerName: 'Range', editable: true, width: 120 },
@@ -23,7 +26,6 @@ const intakeColumns: ColDef<GridRow>[] = [
   { field: 'availableQty', headerName: 'available_qty', editable: false, type: 'numericColumn', width: 130 },
   { field: 'uom', editable: true, width: 90 },
   { field: 'unitCost', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'unitPrice', editable: true, type: 'numericColumn', width: 110 },
   { field: 'ownershipStatus', headerName: 'Owner', editable: true, width: 110 },
   { field: 'arrivalStatus', editable: true, width: 130 },
   { field: 'arrivalConfirmed', editable: true, width: 130 },
@@ -49,16 +51,20 @@ export function IntakeView() {
   const [vendorId, setVendorId] = useState('');
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
-  const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,unit_price,source_code,legacy_marker,ownership_status,notes\n');
+  const [intakeTrayOpen, setIntakeTrayOpen] = useState(false);
+  const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
   const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [lotCode, setLotCode] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  const [rowTags, setRowTags] = useState('');
   const defaultVendorId = vendorId || firstVendor;
-  const receiptPreview = trpc.queries.receiptPreview.useQuery({ batchIds: rows.map((row) => String(row.id)) }, { enabled: receiptPreviewOpen && rows.length > 0 });
+  const receiptPreview = trpc.queries.receiptPreview.useQuery({ batchIds: rows.map((row) => String(row.id)) }, { enabled: rows.length > 0 });
+  const selectedReady = rows.length > 0 && rows.every((row) => row.status === 'ready');
 
   async function onCellCommit(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null) return;
     if (event.oldValue === event.newValue) return;
+    if (event.colDef.field === 'unitPrice') return;
     await runCommand('updateBatch', { id: event.data.id, [event.colDef.field]: event.newValue }, `Inline intake edit: ${event.colDef.field}`);
   }
 
@@ -70,10 +76,10 @@ export function IntakeView() {
       shorthand: 'Ins/candy',
       name: 'New receiving line',
       category: 'Infused',
+      tags: parseTagInput(rowTags),
       intakeDate: new Date().toISOString(),
       intakeQty: 1,
       unitCost: 0,
-      unitPrice: 0,
       ticketCost: 0,
       priceRange: '',
       ownershipStatus: 'UNKNOWN',
@@ -93,10 +99,10 @@ export function IntakeView() {
         shorthand: row.shorthand,
         name: `${row.name} copy`,
         category: row.category,
+        tags: row.tags,
         intakeDate: row.intakeDate,
         intakeQty: row.intakeQty,
         unitCost: row.unitCost,
-        unitPrice: row.unitPrice,
         ticketCost: row.ticketCost,
         priceRange: row.priceRange,
         uom: row.uom,
@@ -152,6 +158,10 @@ export function IntakeView() {
         <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
           CSV import
         </button>
+        <label className="field-inline grow">
+          Tags
+          <input className="input" value={rowTags} placeholder="premium, candy" onChange={(event) => setRowTags(event.target.value)} />
+        </label>
         <label className="field-inline">
           Lot code
           <input className="input compact" value={lotCode} onChange={(event) => setLotCode(event.target.value)} />
@@ -165,12 +175,8 @@ export function IntakeView() {
         </button>
       </div>
       {csvOpen ? (
-        <section className="inline-panel">
+        <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="section-title">Validate-first CSV import</h2>
-              <p className="mt-1 text-xs text-zinc-600">Paste batch rows, validate row-level errors, then import only after the preview is clean.</p>
-            </div>
             <div className="flex flex-wrap items-center gap-2">
               <button className="secondary-button compact-action" type="button" disabled={!csvText.trim()} onClick={() => void importCsv(true)}>
                 Validate
@@ -184,52 +190,70 @@ export function IntakeView() {
           {csvResult ? (
             <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
           ) : null}
-        </section>
+        </WorkspacePanel>
       ) : null}
       <OperatorGrid
         view="intake"
-        title="J02 Fast Inventory Intake"
+        title="Inventory Intake"
         rows={(grid.data ?? []) as GridRow[]}
         columns={intakeColumns}
         loading={grid.isLoading || isRunning}
         onSelectionChange={(selection) => setSelectedRows('intake', selection)}
         onCellCommit={onCellCommit}
         selectionActions={(selection) => (
-          <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={() => setReceiptPreviewOpen(true)}>
-            Preview receipt
-          </button>
+          <>
+            <button type="button" className="primary-button compact-action" disabled={!selection.length} onClick={selectedReady ? processIntake : markReady}>
+              {selectedReady ? <ReceiptText className="h-4 w-4" aria-hidden="true" /> : <ClipboardCheck className="h-4 w-4" aria-hidden="true" />}
+              {selectedReady ? 'Post receipt' : 'Mark Ready'}
+            </button>
+            <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={() => setReceiptPreviewOpen(true)}>
+              Preview receipt
+            </button>
+            <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={() => setIntakeTrayOpen((value) => !value)} aria-expanded={intakeTrayOpen}>
+              {intakeTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+              Intake tray
+            </button>
+            {intakeTrayOpen ? (
+              <>
+                <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={duplicateRows}>
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                  Duplicate
+                </button>
+                <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={deleteDraftRows}>
+                  Delete draft
+                </button>
+                <button type="button" className="secondary-button compact-action" disabled={!selection.length || (!lotCode && !expirationDate)} onClick={setSelectedLotInfo}>
+                  Set lot info
+                </button>
+              </>
+            ) : null}
+          </>
         )}
         actions={
           <>
-            <button type="button" className="secondary-button" onClick={createRow} disabled={!defaultVendorId}>
+            <button type="button" className="primary-button" onClick={createRow} disabled={!defaultVendorId}>
               <Plus className="h-4 w-4" aria-hidden="true" />
-              Receive Row
-            </button>
-            <button type="button" className="secondary-button" disabled={!rows.length} onClick={duplicateRows}>
-              <Copy className="h-4 w-4" aria-hidden="true" />
-              ⌘D
-            </button>
-            <button type="button" className="secondary-button" disabled={!rows.length} onClick={deleteDraftRows}>
-              Delete draft
-            </button>
-            <button type="button" className="secondary-button" disabled={!rows.length} onClick={markReady}>
-              <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
-              Ready
-            </button>
-            <button type="button" className="primary-button" disabled={!rows.length} onClick={processIntake}>
-              <ReceiptText className="h-4 w-4" aria-hidden="true" />
-              Process / Receipt
+              Receive Inventory
             </button>
           </>
         }
       />
+      {rows.length ? (
+        <div className="control-band receipt-impact-strip">
+          <span className="selection-pill">{rows.length} selected</span>
+          <span className="selection-pill">Vendor {receiptPreview.data?.vendor || 'Mixed / missing'}</span>
+          <span className="selection-pill">Total ${receiptPreview.data?.total ?? '...'}</span>
+          <span className={receiptPreview.data?.ok ? 'selection-pill success' : 'selection-pill warning'}>
+            {receiptPreview.data?.ok ? 'Receipt ready' : `${receiptPreview.data?.conflicts.length ?? 0} fix`}
+          </span>
+          <button type="button" className="secondary-button compact-action" onClick={() => setReceiptPreviewOpen(true)}>
+            Receipt detail
+          </button>
+        </div>
+      ) : null}
       {receiptPreviewOpen ? (
-        <section className="inline-panel">
+        <WorkspacePanel panelId="intake:receipt-preview" title="Selected-row receipt preview" contentClassName="p-3">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="section-title">Selected-row receipt preview</h2>
-              <p className="text-sm text-zinc-600">Totals are calculated from the selected intake rows before any ledger consequences are posted.</p>
-            </div>
             <button className="text-button" type="button" onClick={() => setReceiptPreviewOpen(false)}>
               Close
             </button>
@@ -258,7 +282,7 @@ export function IntakeView() {
                       <th>Qty</th>
                       <th>Cost</th>
                       <th>Subtotal</th>
-                      <th>Raw</th>
+                      <th>Marker</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -282,7 +306,7 @@ export function IntakeView() {
           ) : (
             <div className="text-sm text-zinc-600">Loading preview...</div>
           )}
-        </section>
+        </WorkspacePanel>
       ) : null}
     </div>
   );

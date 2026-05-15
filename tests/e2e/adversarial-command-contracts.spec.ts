@@ -3,11 +3,12 @@ import type { Page } from '@playwright/test';
 import type { CommandName } from '../../src/shared/commandCatalog';
 
 async function login(page: Page, email = 'owner@terpagro.local') {
+  await expect.poll(async () => (await page.request.get('/api/health')).ok(), { timeout: 45_000 }).toBe(true);
   await page.goto('/');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill('terp-demo');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByText('Owner Daily Decision View').waitFor();
+  await page.getByText(/Daily Decision View/).waitFor();
 }
 
 async function trpcQuery(page: Page, path: string, inputValue: unknown = null) {
@@ -66,6 +67,24 @@ test.describe('adversarial command contracts', () => {
     expect(commandError(result)).toContain('requires operator access');
   });
 
+  test('transaction ledger posting is manager-gated consistently', async ({ page }) => {
+    await login(page, 'intake@terpagro.local');
+    const result = await runCommand(page, 'postTransactionLedgerRow', {
+      direction: 'receiving',
+      entityType: 'other',
+      entityName: 'QA operator blocked',
+      transactionType: 'other_receipt',
+      allocationTargetType: 'unapplied',
+      amount: 1,
+      method: 'cash',
+      bucket: 'cash-file-a',
+      notes: 'operator should not post manager ledger command'
+    });
+
+    expect(result.status).toBe(403);
+    expect(commandError(result)).toContain('requires manager access');
+  });
+
   test('draft orders cannot bypass confirmation and credit checks by posting directly', async ({ page }) => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
@@ -96,7 +115,7 @@ test.describe('adversarial command contracts', () => {
     expect(posted.toast).toContain('appears more than once from the same source row');
   });
 
-  test('money and warehouse commands reject unsafe no-op or premature actions', async ({ page }) => {
+  test('money and warehouse commands reject no-op or premature actions', async ({ page }) => {
     test.setTimeout(60_000);
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
@@ -121,6 +140,89 @@ test.describe('adversarial command contracts', () => {
     const packed = commandData(await runCommand(page, 'recordWeighAndPack', { fulfillmentLineId: lines[0].id, actualQty: 1 }));
     expect(packed.ok).toBe(false);
     expect(packed.toast).toContain('Actual weight must be greater than zero');
+  });
+
+  test('transaction ledger posts receiving rows and vendor PO payments through auditable commands', async ({ page }) => {
+    await login(page);
+    const marker = `QA ledger ${Date.now()}`;
+    const reference = await trpcQuery(page, 'queries.reference');
+    const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve') ?? reference[0].result.data.json.customers[0];
+    const invoice = reference[0].result.data.json.openInvoices.find((row: { customerId: string }) => row.customerId === customer.id);
+    const vendor = reference[0].result.data.json.vendors[0];
+    const po = commandData(await runCommand(page, 'createPurchaseOrder', { vendorId: vendor.id }, 'ledger contract creates PO target'));
+
+    const received = commandData(
+      await runCommand(page, 'postTransactionLedgerRow', {
+        direction: 'receiving',
+        entityType: 'customer',
+        entityId: customer.id,
+        transactionType: 'client_payment',
+        allocationTargetType: invoice ? 'selected_invoice' : 'fifo',
+        allocationTargetId: invoice?.id,
+        date: '2026-05-14',
+        method: 'cash',
+        bucket: 'cash-file-a',
+        amount: 7,
+        reference: `${marker} receiving`,
+        notes: `${marker} selected invoice path should normalize into payment allocation`
+      })
+    );
+    expect(received.ok).toBe(true);
+    expect(received.affectedIds.length).toBeGreaterThan(0);
+
+    const paid = commandData(
+      await runCommand(page, 'postTransactionLedgerRow', {
+        direction: 'paying',
+        entityType: 'vendor',
+        entityId: vendor.id,
+        transactionType: 'vendor_product_payment',
+        allocationTargetType: 'selected_po',
+        allocationTargetId: po.affectedIds[0],
+        date: '2026-05-14',
+        method: 'cash',
+        bucket: 'accounting',
+        amount: 12,
+        reference: `${marker} paying`,
+        notes: `${marker} product payment should link to PO without sales price`
+      })
+    );
+    expect(paid.ok).toBe(true);
+    expect(paid.affectedIds).toContain(po.affectedIds[0]);
+
+    const ledger = await trpcQuery(page, 'queries.transactionLedger');
+    expect(ledger[0].result.data.json.receiving.some((row: { reference?: string; transactionType?: string }) => row.reference === `${marker} receiving` && row.transactionType === 'client_payment')).toBe(true);
+    expect(ledger[0].result.data.json.paying.some((row: { reference?: string; transactionType?: string; allocationTargetLabel?: string }) => row.reference === `${marker} paying` && row.transactionType === 'vendor_product_payment' && row.allocationTargetLabel)).toBe(true);
+
+    const vendorRows = await trpcQuery(page, 'queries.grid', { view: 'vendors' });
+    const linkedBill = vendorRows[0].result.data.json.find((row: { purchaseOrderId?: string }) => row.purchaseOrderId === po.affectedIds[0]);
+    expect(linkedBill).toEqual(expect.objectContaining({ amount: '12.00', amountPaid: '12.00', status: 'paid' }));
+    expect(linkedBill).not.toHaveProperty('unitPrice');
+
+    const reversedPaying = commandData(await runCommand(page, 'reverseCommandById', { commandId: paid.commandId }, 'reverse transaction ledger vendor payment'));
+    expect(reversedPaying.ok).toBe(true);
+    const afterReverseLedger = await trpcQuery(page, 'queries.transactionLedger');
+    expect(afterReverseLedger[0].result.data.json.paying.some((row: { reference?: string }) => row.reference === `${marker} paying`)).toBe(false);
+    const afterReverseVendorRows = await trpcQuery(page, 'queries.grid', { view: 'vendors' });
+    expect(afterReverseVendorRows[0].result.data.json.find((row: { purchaseOrderId?: string }) => row.purchaseOrderId === po.affectedIds[0]).status).toBe('reversed');
+
+    const reversedReceiving = commandData(await runCommand(page, 'reverseCommandById', { commandId: received.commandId }, 'reverse transaction ledger receiving payment'));
+    expect(reversedReceiving.ok).toBe(true);
+    const afterReceivingReverseLedger = await trpcQuery(page, 'queries.transactionLedger');
+    expect(afterReceivingReverseLedger[0].result.data.json.receiving.some((row: { reference?: string }) => row.reference === `${marker} receiving`)).toBe(false);
+
+    const type = commandData(
+      await runCommand(page, 'upsertTransactionType', {
+        label: 'QA Vendor Rebate',
+        direction: 'paying',
+        allowedEntityTypes: ['vendor'],
+        defaultMethod: 'wire',
+        defaultBucket: 'accounting',
+        defaultAllocationIntent: 'unapplied'
+      })
+    );
+    expect(type.ok).toBe(true);
+    const refreshed = await trpcQuery(page, 'queries.reference');
+    expect(refreshed[0].result.data.json.transactionTypes.some((row: { slug: string; allowedEntityTypes: string[] }) => row.slug === 'qa_vendor_rebate' && row.allowedEntityTypes.includes('vendor'))).toBe(true);
   });
 
   test('purchase orders are planned before receiving and do not post inventory/payables early', async ({ page }) => {
@@ -154,6 +256,22 @@ test.describe('adversarial command contracts', () => {
     expect(vendorBills[0].result.data.json.some((row: { purchaseOrderId?: string }) => row.purchaseOrderId === purchaseOrderId)).toBe(false);
   });
 
+  test('vendor quick-add deduplicates existing vendors case-insensitively', async ({ page }) => {
+    await login(page);
+    const reference = await trpcQuery(page, 'queries.reference');
+    const vendor = reference[0].result.data.json.vendors[0];
+    const duplicate = commandData(
+      await runCommand(page, 'createVendor', {
+        name: String(vendor.name).toLowerCase(),
+        termsDays: Number(vendor.termsDays ?? 14)
+      })
+    );
+
+    expect(duplicate.ok).toBe(true);
+    expect(duplicate.affectedIds).toContain(vendor.id);
+    expect(String(duplicate.toast).toLowerCase()).toContain('already exists');
+  });
+
   test('payment reversal has real ledger consequences, not just an audit label', async ({ page }) => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
@@ -170,5 +288,80 @@ test.describe('adversarial command contracts', () => {
 
     const afterReverse = await trpcQuery(page, 'queries.grid', { view: 'clients' });
     expect(Number(afterReverse[0].result.data.json.find((row: { id: string }) => row.id === customer.id).balance)).toBe(0);
+  });
+
+  test('archive enforces the same open-work blockers preview reports', async ({ page }) => {
+    await login(page);
+    const period = new Date().toISOString().slice(0, 7);
+    const locked = commandData(await runCommand(page, 'lockPeriod', { period }, 'lock current test period'));
+    expect(locked.ok).toBe(false);
+    expect(locked.toast).toContain('cannot be locked yet');
+
+    const preview = await trpcQuery(page, 'queries.closeoutPreview', { period });
+    const closeout = preview[0].result.data.json;
+    expect(closeout.eligible).toBe(false);
+    expect(closeout.locked).toBe(false);
+    expect(closeout.openWorkCount).toBeGreaterThan(0);
+    expect(closeout.unsafeRows).toBe(closeout.openWorkCount);
+    expect(closeout.blockers.map((row: { id: string }) => row.id)).toEqual(expect.arrayContaining(['unsafePurchaseOrders']));
+    expect(closeout.blockers.map((row: { label: string }) => row.label.toLowerCase()).join(' ')).not.toContain('unsafe');
+    expect(closeout.controlTotals).toEqual(expect.objectContaining({ purchaseOrders: expect.any(Number), purchaseReceipts: expect.any(Number), invoices: expect.any(Number), payments: expect.any(Number), vendorBills: expect.any(Number), connectorRequests: expect.any(Number), fulfillment: expect.any(Number), commands: expect.any(Number) }));
+
+    const archived = commandData(await runCommand(page, 'archivePeriod', { period }, 'try archive with open work'));
+    expect(archived.ok).toBe(false);
+    expect(archived.toast).toContain('must be locked');
+  });
+
+  test('inventory transfer commands are audited, reversible, and keep held stock out of sale posting', async ({ page }) => {
+    await login(page);
+    const reference = await trpcQuery(page, 'queries.reference');
+    const batch = reference[0].result.data.json.availableBatches.find((row: { availableQty: string; ownershipStatus?: string }) => Number(row.availableQty) >= 1 && row.ownershipStatus !== 'OFC')
+      ?? reference[0].result.data.json.availableBatches.find((row: { availableQty: string }) => Number(row.availableQty) >= 1);
+    const nextOwnership = batch.ownershipStatus === 'OFC' ? 'C' : 'OFC';
+
+    const held = commandData(await runCommand(page, 'setInventoryStatus', { batchId: batch.id, status: 'held' }, 'QA hold for damaged label check'));
+    expect(held.ok).toBe(true);
+
+    const inventoryRows = await trpcQuery(page, 'queries.grid', { view: 'inventory' });
+    expect(inventoryRows[0].result.data.json.find((row: { id: string }) => row.id === batch.id).status).toBe('held');
+
+    const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
+    const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
+    const blockedLine = commandData(await runCommand(page, 'addSalesOrderLine', { orderId: order.affectedIds[0], batchId: batch.id, qty: 1 }));
+    expect(blockedLine.ok).toBe(false);
+    expect(blockedLine.toast).toContain('not available for sale');
+
+    const moved = commandData(await runCommand(page, 'transferInventoryLocation', { batchId: batch.id, location: 'QA-Hold' }, 'QA move'));
+    const owned = commandData(await runCommand(page, 'transferInventoryOwnership', { batchId: batch.id, ownershipStatus: nextOwnership, vendorId: nextOwnership === 'C' ? batch.vendorId ?? reference[0].result.data.json.vendors[0].id : undefined }, 'QA ownership correction'));
+    expect(moved.ok).toBe(true);
+    expect(owned.ok).toBe(true);
+
+    const movements = await trpcQuery(page, 'queries.inventoryMovements', { batchId: batch.id });
+    expect(movements[0].result.data.json.map((row: { kind: string }) => row.kind)).toEqual(expect.arrayContaining(['status_transfer', 'location_transfer', 'ownership_transfer']));
+
+    const reversed = commandData(await runCommand(page, 'reverseCommandById', { commandId: held.commandId }));
+    expect(reversed.ok).toBe(true);
+  });
+
+  test('pricing guardrails lift unsafe reprices and snapshot the confirmation basis', async ({ page }) => {
+    await login(page);
+    const reference = await trpcQuery(page, 'queries.reference');
+    const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
+    const batch = reference[0].result.data.json.availableBatches.find((row: { availableQty: string }) => Number(row.availableQty) >= 1);
+    const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
+    const orderId = order.affectedIds[0];
+
+    await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, unitPrice: 1 });
+    const unsafeConfirm = commandData(await runCommand(page, 'confirmSalesOrder', { orderId }));
+    expect(unsafeConfirm.ok).toBe(false);
+    expect(unsafeConfirm.toast).toContain('below pricing guardrails');
+
+    const priced = commandData(await runCommand(page, 'priceSalesOrder', { orderId, strategy: 'clearance' }));
+    expect(priced.ok).toBe(true);
+    expect(priced.delta.guardrails.length).toBeGreaterThan(0);
+
+    const confirmed = commandData(await runCommand(page, 'confirmSalesOrder', { orderId }));
+    expect(confirmed.ok).toBe(true);
+    expect(confirmed.delta.pricingSnapshot.lines[0]).toEqual(expect.objectContaining({ unitCost: expect.any(String), unitPrice: expect.any(String), minimumUnitPrice: expect.any(String), guardrails: [] }));
   });
 });

@@ -5,14 +5,17 @@ import clsx from 'clsx';
 import { trpc } from './api/trpc';
 import { Agentation } from 'agentation';
 import { CommandPalette } from './components/CommandPalette';
+import { ContextDrawer } from './components/ContextDrawer';
 import { Hotkeys } from './components/Hotkeys';
-import { QuickStartBar } from './components/QuickStartBar';
-import { SideNav, TopBar } from './components/Shell';
+import { IdentityRibbon } from './components/IdentityRibbon';
+import { ReportsRouteShell } from './components/ReportsRouteShell';
+import { Keel, SideNav } from './components/Shell';
 import { ToastCenter } from './components/ToastCenter';
 import { useUiStore } from './store/uiStore';
 import { DashboardView } from './views/DashboardView';
 import { IntakeView } from './views/IntakeView';
 import { LoginView } from './views/LoginView';
+import { MatchmakingView } from './views/MatchmakingView';
 import { SalesView } from './views/SalesView';
 import {
   ClientLedgerView,
@@ -24,6 +27,7 @@ import {
   PaymentsView,
   PurchaseOrdersView,
   RecoveryView,
+  SettingsView,
   VendorPayablesView
 } from './views/OperationsViews';
 
@@ -31,6 +35,7 @@ export function App() {
   const me = trpc.auth.me.useQuery();
   const activeView = useUiStore((state) => state.activeView);
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
+  const focusMode = useUiStore((state) => state.focusMode);
   const pushToast = useUiStore((state) => state.pushToast);
   const queryClient = useQueryClient();
 
@@ -61,23 +66,29 @@ export function App() {
     <div className="flex h-screen overflow-hidden bg-white text-ink">
       <SideNav user={me.data} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar user={me.data} />
-        <QuickStartBar />
-        <main className={clsx('min-h-0 flex-1 overflow-auto', focusedPanelId ? 'p-2' : 'p-4')}>
-          {activeView === 'dashboard' ? <DashboardView /> : null}
-          {activeView === 'purchaseOrders' ? <PurchaseOrdersView /> : null}
-          {activeView === 'intake' ? <IntakeView /> : null}
-          {activeView === 'sales' ? <SalesView /> : null}
-          {activeView === 'orders' ? <OrdersView /> : null}
-          {activeView === 'payments' ? <PaymentsView /> : null}
-          {activeView === 'inventory' ? <InventoryView /> : null}
-          {activeView === 'clients' ? <ClientLedgerView /> : null}
-          {activeView === 'vendors' ? <VendorPayablesView /> : null}
-          {activeView === 'fulfillment' ? <FulfillmentView /> : null}
-          {activeView === 'connectors' ? <ConnectorsView /> : null}
-          {activeView === 'recovery' ? <RecoveryView /> : null}
-          {activeView === 'closeout' ? <CloseoutView /> : null}
-        </main>
+        <Keel user={me.data} />
+        <IdentityRibbon />
+        <div className={clsx('canvas-shell', (focusedPanelId || focusMode) && 'canvas-shell-focus')}>
+          <main className={clsx('min-h-0 flex-1 overflow-auto', focusedPanelId || focusMode ? 'p-2' : 'p-4')}>
+            {activeView === 'dashboard' ? <DashboardView /> : null}
+            {activeView === 'reports' ? <ReportsRouteShell /> : null}
+            {activeView === 'purchaseOrders' ? <PurchaseOrdersView /> : null}
+            {activeView === 'intake' ? <IntakeView /> : null}
+            {activeView === 'sales' ? <SalesView /> : null}
+            {activeView === 'matchmaking' ? <MatchmakingView /> : null}
+            {activeView === 'orders' ? <OrdersView /> : null}
+            {activeView === 'payments' ? <PaymentsView /> : null}
+            {activeView === 'inventory' ? <InventoryView /> : null}
+            {activeView === 'clients' ? <ClientLedgerView /> : null}
+            {activeView === 'vendors' ? <VendorPayablesView /> : null}
+            {activeView === 'fulfillment' ? <FulfillmentView /> : null}
+            {activeView === 'connectors' ? <ConnectorsView /> : null}
+            {activeView === 'recovery' ? <RecoveryView /> : null}
+            {activeView === 'closeout' ? <CloseoutView /> : null}
+            {activeView === 'settings' ? <SettingsView /> : null}
+          </main>
+          <ContextDrawer />
+        </div>
       </div>
       <Hotkeys />
       <CommandPalette />

@@ -1,0 +1,15 @@
+{
+  email {$CADDY_ACME_EMAIL}
+}
+
+{$TERP_AGRO_STAGING_DOMAIN} {
+  encode zstd gzip
+
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+
+  reverse_proxy app:8787
+}

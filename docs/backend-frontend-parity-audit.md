@@ -32,28 +32,32 @@ Purpose: confirm every backend command, query, and operator-facing ability has a
 | `inventoryMovements` | Movement history existed but was not directly row-visible. | Row command history drawer now shows inventory movements for selected batches. |
 | `photographyQueue` | Queue table existed but panel used only inventory rows. | Photography Queue panel now reads the queue endpoint and attaches photos with the backend `photoUrl` field. |
 | `relationshipSummary` detail rows | Ledger entries, credit overrides, invoice disputes, and purchase receipts were not visible. | Relationship drawer now includes those tables alongside orders/invoices/payments/bills/commands. |
+| `applyTags` | Tag arrays existed, but no explicit audited tag command surface. | Inventory selected-row tag control plus inline PO/intake/inventory tag cells. |
+| Matchmaking commands | Customer needs, vendor stock, and deterministic match review did not exist as frontend tools. | Matchmaking route with quick-entry strips, three grids, and Accept/Dismiss selected-match actions. |
 
 ## Current Command Parity
 
-All 54 typed backend commands now have direct frontend surfaces:
+The command catalog has 64 typed backend commands. Of those, 63 are user-surfaceable and have direct frontend surfaces. `routeConnectorRequest` remains backend-internal by design because operators approve/reject inbound requests rather than manually routing them.
 
-- Intake: `createBatch`, `updateBatch`, `deleteBatch`, `postPurchaseReceipt`, `adjustBatchQuantity`, `setBatchPrice`, `setBatchLotInfo`, `attachBatchPhoto`, `importBatchesCsv`
+- Intake/tags: `createBatch`, `updateBatch`, `deleteBatch`, `postPurchaseReceipt`, `adjustBatchQuantity`, `setBatchPrice`, `setBatchLotInfo`, `attachBatchPhoto`, `importBatchesCsv`, `applyTags`
 - Purchase orders: `createPurchaseOrder`, `updatePurchaseOrder`, `addPurchaseOrderLine`, `updatePurchaseOrderLine`, `removePurchaseOrderLine`, `approvePurchaseOrder`, `receivePurchaseOrder`, `cancelPurchaseOrder`
 - Sales: `createSalesOrder`, `addSalesOrderLine`, `updateSalesOrderLine`, `removeSalesOrderLine`, `reserveInventoryForOrder`, `priceSalesOrder`, `confirmSalesOrder`, `cancelSalesOrder`
 - Posting: `postSalesOrder`, `allocateOrderToFulfillment`, `applyClientCredit`, `setDeliveryWindow`
 - Payments: `logPayment`, `allocatePayment`, `unallocatePayment`, `refundPayment`, `applyEarlyPayDiscount`
 - Vendor: `createVendorBill`, `approveVendorBill`, `scheduleVendorPayment`, `recordVendorPayment`, `voidVendorPayment`
 - Fulfillment: `createPickList`, `recordWeighAndPack`, `markOrderFulfilled`, `printLabels`, `adjustFulfillmentLine`
-- Connector: `approveConnectorRequest`, `rejectConnectorRequest`, `routeConnectorRequest`
+- Connector: `approveConnectorRequest`, `rejectConnectorRequest`
+- Matchmaking: `createCustomerNeed`, `updateCustomerNeed`, `createVendorSupply`, `updateVendorSupply`, `acceptMatchmakingMatch`, `dismissMatchmakingMatch`
 - Recovery: `createCorrectionJournalEntry`, `reverseCommandById`, `restoreFromBackupPoint`, `repriceOrder`
 - Closeout: `postPeriodAdjustments`, `lockPeriod`, `archivePeriod`
 
 ## Current Query Parity
 
-All 27 protected query endpoints have frontend surfaces:
+All 28 protected query endpoints have frontend surfaces:
 
 - Core: `dashboard`, `health`, `reference`, `grid`, `drilldown`, `workQueue`
 - Purchase, sales, and intake: `purchaseOrderLines`, `salesOrderLines`, `customerWorkspace`, `receiptPreview`, `salesSuggestions`
+- Matchmaking: `matchmakingBoard`
 - Recovery and audit: `recoverySearch`, `relatedCommands`, `supportPacket`, `snapshotDiff`, `findReplacePreview`, `reversalPreview`
 - Money and relationships: `paymentAllocationPreview`, `paymentAllocations`, `relationshipSummary`, `vendorPayments`
 - Fulfillment and media: `fulfillmentLines`, `inventoryMovements`, `photographyQueue`
@@ -72,5 +76,5 @@ Current proof:
 
 ```bash
 pnpm audit:parity
-# Backend/frontend parity OK: 54 commands and 27 query endpoints have frontend surfaces.
+# Backend/frontend parity OK: 63 surfaced commands, 1 internal command(s), and 28 query endpoints accounted for.
 ```

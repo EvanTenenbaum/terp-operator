@@ -5,6 +5,12 @@
 :root {
   color: #18211f;
   background: #f7f8f5;
+  --drawer-nub-width: 24px;
+  --drawer-peek-width: 280px;
+  --drawer-standard-width: 420px;
+  --drawer-wide-width: 60%;
+  --drawer-focus-width: 100%;
+  --tx-drawer-state: 180ms cubic-bezier(0.2, 0.8, 0.4, 1);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -67,6 +73,170 @@ kbd {
   @apply border-line bg-white font-semibold text-ink;
 }
 
+.nav-group {
+  @apply mt-1 grid gap-1;
+}
+
+.nav-group-label {
+  @apply px-2 pt-2 text-[9px] font-bold uppercase tracking-normal text-zinc-500;
+}
+
+.keel {
+  @apply grid h-12 shrink-0 grid-cols-[minmax(220px,360px)_minmax(240px,1fr)_auto] items-center gap-3 border-b border-line bg-white px-3;
+}
+
+.keel-search {
+  @apply min-w-0 max-w-none shrink-0;
+}
+
+.keel-chip-row {
+  @apply flex min-w-0 flex-1 items-center gap-1 overflow-x-auto;
+}
+
+.keel-chip {
+  @apply inline-flex h-8 shrink-0 items-center gap-1 border border-line bg-white px-2 text-sm font-medium text-zinc-700 hover:border-accent focus:outline-none focus-visible:shadow-focus;
+}
+
+.keel-chip-active {
+  @apply border-accent bg-amber/10 text-accent;
+  box-shadow: inset 0 -2px 0 #b06915;
+}
+
+.quick-action-menu {
+  @apply relative shrink-0;
+}
+
+.quick-action-popover {
+  @apply absolute left-0 top-9 z-30 grid min-w-48 gap-1 border border-line bg-white p-1 shadow-lg;
+}
+
+.quick-action-item {
+  @apply flex h-8 items-center gap-2 border border-transparent px-2 text-left text-sm text-zinc-700 hover:border-line hover:bg-panel focus:outline-none focus-visible:shadow-focus;
+}
+
+.quick-action-item-active {
+  @apply border-accent bg-amber/10 text-ink;
+}
+
+.keel-utilities {
+  @apply flex min-w-0 items-center gap-3 text-sm;
+}
+
+.keel-status-chip {
+  @apply inline-flex h-8 shrink-0 items-center gap-2 border border-line bg-panel px-2 text-xs font-medium text-zinc-700 hover:border-accent focus:outline-none focus-visible:shadow-focus;
+}
+
+.keel-chip-detail {
+  @apply border-l border-line pl-2 text-zinc-500;
+}
+
+.canvas-shell {
+  @apply flex min-h-0 flex-1 overflow-hidden bg-white;
+}
+
+.canvas-shell-focus {
+  @apply bg-panel;
+}
+
+.identity-ribbon {
+  @apply flex h-7 shrink-0 items-center gap-2 border-b border-line bg-panel px-3 text-xs text-zinc-700;
+}
+
+.identity-ribbon-button {
+  @apply inline-flex h-5 w-5 items-center justify-center border border-line bg-white text-ink hover:border-accent focus:outline-none focus-visible:shadow-focus;
+}
+
+.identity-ribbon-view {
+  @apply font-bold uppercase text-zinc-500;
+}
+
+.identity-ribbon-title {
+  @apply min-w-0 truncate font-semibold text-ink;
+}
+
+.identity-ribbon-detail {
+  @apply hidden min-w-0 truncate text-zinc-600 md:inline;
+}
+
+.context-drawer {
+  @apply shrink-0 border-l border-line bg-white;
+  transition: width var(--tx-drawer-state);
+}
+
+.context-drawer-closed {
+  width: var(--drawer-nub-width);
+}
+
+.context-drawer-peek {
+  width: var(--drawer-peek-width);
+}
+
+.context-drawer-standard {
+  width: var(--drawer-standard-width);
+}
+
+.context-drawer-wide {
+  width: var(--drawer-wide-width);
+}
+
+.context-drawer-focus {
+  width: var(--drawer-focus-width);
+}
+
+.context-drawer-reopen {
+  @apply shrink-0 border-l border-line bg-panel p-1;
+}
+
+.context-reopen-button {
+  @apply flex h-full min-h-24 w-8 flex-col items-center justify-center gap-2 border border-line bg-white text-[10px] font-bold uppercase text-zinc-600 hover:border-accent focus:outline-none focus-visible:shadow-focus;
+  writing-mode: vertical-rl;
+}
+
+.context-drawer-nub {
+  @apply flex h-full w-full flex-col items-center justify-center gap-2 bg-panel text-[10px] font-bold uppercase text-zinc-600 hover:bg-white focus:outline-none focus-visible:shadow-focus;
+  writing-mode: vertical-rl;
+}
+
+.context-drawer-header {
+  @apply flex h-12 items-center gap-2 border-b border-line bg-panel px-2;
+}
+
+.drawer-tabs {
+  @apply flex gap-1 overflow-x-auto border-b border-line bg-white px-2 py-1;
+}
+
+.drawer-tab {
+  @apply inline-flex h-7 shrink-0 items-center gap-1 border border-transparent px-2 text-xs font-medium text-zinc-600 hover:border-line hover:bg-panel focus:outline-none focus-visible:shadow-focus;
+}
+
+.drawer-tab-active {
+  @apply border-line bg-amber/10 text-ink;
+}
+
+.drawer-tab-index {
+  @apply text-[10px] font-bold text-zinc-500;
+}
+
+.context-drawer-body {
+  @apply h-[calc(100vh-6.75rem)] overflow-auto p-3;
+}
+
+.context-drawer-card {
+  @apply border border-line bg-white p-3;
+}
+
+.drawer-fact-row {
+  @apply flex items-center justify-between gap-3 border-b border-line py-2 text-xs text-zinc-600;
+}
+
+.drawer-fact-row strong {
+  @apply min-w-0 truncate text-right font-semibold text-ink;
+}
+
+.drawer-empty {
+  @apply flex items-center gap-2 border border-dashed border-line bg-panel p-3 text-sm text-zinc-600;
+}
+
 .primary-button,
 .secondary-button,
 .text-button,
@@ -76,6 +246,10 @@ kbd {
 
 .primary-button {
   @apply border-accent bg-accent px-3 text-white hover:bg-emerald-800;
+}
+
+.primary-button:disabled {
+  @apply border-zinc-300 bg-zinc-200 text-zinc-500 hover:bg-zinc-200;
 }
 
 .secondary-button {
@@ -256,6 +430,10 @@ kbd {
   @apply h-8 w-14 border border-line px-1 text-center outline-none focus:shadow-focus disabled:bg-panel;
 }
 
+.finder-add-button {
+  @apply px-2 text-xs;
+}
+
 .finder-match {
   @apply max-w-48 truncate text-[11px] text-zinc-600;
 }
@@ -291,6 +469,10 @@ kbd {
 
 .selection-pill.warning {
   @apply border-amber bg-amber/10 text-amber;
+}
+
+.selection-pill.danger {
+  @apply border-red-300 bg-red-50 text-red-700;
 }
 
 .compact-action {
@@ -358,6 +540,182 @@ kbd {
   @apply max-w-52 truncate text-[11px] text-zinc-600;
 }
 
+.transaction-ledger-workbench {
+  @apply grid gap-3;
+}
+
+.transaction-ledger-section {
+  @apply border border-line bg-white;
+}
+
+.transaction-ledger-section-header {
+  @apply flex flex-wrap items-center gap-2 border-b border-line bg-panel px-2 py-2;
+}
+
+.transaction-ledger-actions {
+  @apply ml-auto flex items-center gap-2;
+}
+
+.transaction-ledger-grid {
+  @apply overflow-auto bg-white;
+}
+
+.transaction-ledger-table {
+  @apply min-w-[1320px] w-full border-collapse text-left text-xs;
+}
+
+.transaction-ledger-table th {
+  @apply sticky top-0 z-10 border-b border-line bg-white px-2 py-2 font-semibold text-zinc-700;
+}
+
+.transaction-ledger-table td {
+  @apply border-b border-line px-2 py-1 align-middle;
+}
+
+.transaction-ledger-table input,
+.transaction-ledger-table select {
+  @apply h-8 w-full border border-line bg-white px-1 text-xs outline-none focus:shadow-focus;
+}
+
+.transaction-ledger-row-number {
+  @apply w-10 text-right font-mono text-[11px] text-zinc-500;
+}
+
+.transaction-ledger-impact {
+  @apply max-w-64 truncate text-[11px] text-zinc-600;
+}
+
+.transaction-ledger-posted-row {
+  @apply bg-panel/70 text-zinc-700;
+}
+
+.transaction-ledger-row-warning {
+  @apply bg-red-50;
+}
+
+.transaction-ledger-source {
+  @apply inline-flex h-6 items-center border border-line bg-white px-2 text-[11px] font-medium text-zinc-600;
+}
+
+.transaction-type-drawer {
+  @apply fixed bottom-0 right-0 top-0 z-50 grid w-full max-w-md content-start gap-3 overflow-auto border-l border-line bg-white p-4 shadow-xl;
+}
+
+.transaction-type-drawer-header {
+  @apply flex items-start justify-between gap-3 border-b border-line pb-3;
+}
+
+.transaction-type-drawer-header h3 {
+  @apply text-base font-bold text-ink;
+}
+
+.transaction-type-drawer-header p {
+  @apply mt-1 text-xs text-zinc-600;
+}
+
+.transaction-type-entity-set {
+  @apply grid gap-2 border border-line p-3 text-sm;
+}
+
+.transaction-type-entity-set legend {
+  @apply px-1 text-xs font-semibold text-zinc-600;
+}
+
+.transaction-type-entity-set label {
+  @apply flex items-center gap-2;
+}
+
+.transaction-type-defaults {
+  @apply grid grid-cols-2 gap-2;
+}
+
+.money-out-strip,
+.po-header-strip,
+.fulfillment-pack-strip,
+.receipt-impact-strip {
+  @apply flex flex-wrap items-center gap-2 border border-line bg-white p-2;
+}
+
+.money-out-strip {
+  @apply bg-panel;
+}
+
+.po-header-strip {
+  @apply justify-between;
+}
+
+.po-header-facts {
+  @apply flex flex-wrap items-center gap-2 text-xs text-zinc-700;
+}
+
+.po-header-facts span {
+  @apply border border-line bg-panel px-2 py-1;
+}
+
+.po-authoring-layout {
+  @apply grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px];
+}
+
+.po-authoring-main {
+  @apply grid min-w-0 gap-3;
+}
+
+.po-context-panel {
+  @apply border border-line bg-panel p-3;
+}
+
+.po-context-list {
+  @apply mt-2 grid gap-2 text-xs;
+}
+
+.po-context-row {
+  @apply flex items-center justify-between gap-2 border border-line bg-white px-2 py-1.5 text-left hover:border-accent focus:outline-none focus-visible:shadow-focus;
+}
+
+.po-total-strip {
+  @apply flex flex-wrap items-center justify-between gap-2 border border-line bg-emerald-50 p-2 text-sm;
+}
+
+.po-total-warning {
+  @apply font-semibold text-red-700;
+}
+
+.fulfillment-pack-strip {
+  @apply border-accent bg-emerald-50;
+}
+
+.receipt-impact-strip {
+  @apply border-amber bg-amber/10;
+}
+
+.closeout-blocker-row {
+  @apply flex items-center justify-between border border-line bg-panel px-3 py-2 text-left text-sm hover:border-accent focus:outline-none focus-visible:shadow-focus;
+}
+
+.connector-timeline {
+  @apply mt-3 grid gap-2 text-xs;
+}
+
+.connector-timeline-step {
+  @apply grid grid-cols-[auto_0.5fr_1fr] items-center gap-2 border-b border-line py-1.5 text-zinc-700;
+}
+
+.timeline-dot {
+  @apply h-2.5 w-2.5 border;
+}
+
+.timeline-dot-done {
+  @apply border-emerald-700 bg-emerald-500;
+}
+
+.timeline-dot-current {
+  @apply border-amber bg-amber;
+}
+
+.timeline-dot-blocked {
+  @apply border-red-700 bg-red-500;
+}
+
 .entity-result {
   @apply flex w-full items-center gap-2 border border-transparent px-3 py-2 text-left text-sm hover:border-line hover:bg-panel focus:outline-none focus-visible:shadow-focus;
 }
@@ -374,12 +732,66 @@ kbd {
   @apply border border-line bg-white p-2;
 }
 
+.metric-mini {
+  @apply flex items-center justify-between gap-2 border border-line bg-white px-3 py-2 text-sm;
+}
+
+.metric-mini strong {
+  @apply font-semibold text-ink;
+}
+
+.report-chip-row {
+  @apply flex flex-wrap items-center gap-1 border border-line bg-panel p-2;
+}
+
+.report-chip {
+  @apply inline-flex h-8 items-center border border-line bg-white px-2 text-sm font-medium text-zinc-700 hover:border-accent focus:outline-none focus-visible:shadow-focus;
+}
+
+.report-chip-active {
+  @apply border-accent bg-amber/10 text-accent;
+}
+
+.report-parameter-strip {
+  @apply flex flex-wrap items-center gap-2 border border-line bg-white p-2;
+}
+
+.report-filter-pill {
+  @apply inline-flex h-7 items-center gap-1 border border-line bg-panel px-2 text-xs font-medium text-zinc-700;
+}
+
+.report-table-wrap {
+  @apply min-h-0 overflow-auto p-3;
+}
+
+.report-table {
+  @apply w-full border-collapse text-left text-sm;
+}
+
+.report-table th {
+  @apply border-b border-line bg-panel px-2 py-2 text-xs font-semibold uppercase text-zinc-600;
+}
+
+.report-table td {
+  @apply border-b border-line px-2 py-2 text-zinc-700;
+}
+
+.report-row-link {
+  @apply inline-flex items-center gap-1 font-semibold text-ink hover:text-accent focus:outline-none focus-visible:shadow-focus;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-drawer {
+    transition-duration: 0ms;
+  }
+}
+
 .ag-theme-quartz {
   --ag-font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --ag-font-size: 12px;
-  --ag-row-height: 30px;
-  --ag-header-height: 32px;
+  --ag-font-size: 11px;
+  --ag-row-height: 28px;
+  --ag-header-height: 30px;
   --ag-list-item-height: 28px;
   --ag-border-color: #d8ded6;
   --ag-header-background-color: #f7f8f5;
@@ -387,7 +799,52 @@ kbd {
   --ag-selected-row-background-color: rgba(33, 110, 78, 0.12);
 }
 
+.ag-theme-quartz .ag-header-cell-label {
+  font-size: 10.5px;
+  line-height: 1.1;
+}
+
+.ag-theme-quartz .editable-cell {
+  background-image: linear-gradient(180deg, rgba(176, 105, 21, 0.08), rgba(176, 105, 21, 0.08));
+  box-shadow: inset 0 -1px 0 rgba(176, 105, 21, 0.45);
+}
+
+.ag-theme-quartz .row-number-cell {
+  color: #71717a;
+  font-weight: 700;
+  text-align: right;
+  background: #f7f8f5;
+}
+
 @media (max-width: 900px) {
+  .keel {
+    @apply h-auto grid-cols-1 items-stretch gap-2 px-2 py-2;
+  }
+
+  .keel-search {
+    @apply h-8;
+  }
+
+  .keel-search span {
+    @apply truncate;
+  }
+
+  .keel-chip-row {
+    @apply order-2 gap-1;
+  }
+
+  .keel-chip {
+    @apply h-9 px-3;
+  }
+
+  .keel-utilities {
+    @apply order-3 flex-wrap gap-2;
+  }
+
+  .keel-status-chip {
+    @apply h-7;
+  }
+
   nav {
     width: 58px !important;
   }

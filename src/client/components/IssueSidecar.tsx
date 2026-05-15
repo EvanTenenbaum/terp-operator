@@ -55,7 +55,6 @@ export function IssueSidecar({ row, view, onClose }: IssueSidecarProps) {
         <div className="row-history-header">
           <div>
             <h2 className="text-lg font-semibold text-ink">Issue / Credit / Refund</h2>
-            <p className="text-sm text-zinc-600">Preview the operator intent, then post through audited commands.</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close issue sidecar">
             <X className="h-4 w-4" aria-hidden="true" />
@@ -64,7 +63,7 @@ export function IssueSidecar({ row, view, onClose }: IssueSidecarProps) {
         <div className="row-history-list">
           <div className="selection-pill warning">
             <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-            Selected row: {String(row.orderNo ?? row.invoiceNo ?? row.reference ?? row.name ?? row.id)}
+            Selected row: {rowLabel(row)}
           </div>
           <div className="mt-4 grid gap-3">
             <label className="field-inline">
@@ -98,10 +97,14 @@ export function IssueSidecar({ row, view, onClose }: IssueSidecarProps) {
 }
 
 function impactPreview(action: string, amount: string, row: GridRow, view: ViewKey) {
-  if (action === 'refund') return `Marks payment ${String(row.reference ?? row.id)} refunded and clears unapplied amount.`;
-  if (action === 'credit') return `Applies $${money(Number(amount || 0))} credit to ${String(row.customer ?? row.name ?? row.customerId ?? row.id)}.`;
+  if (action === 'refund') return `Marks payment ${rowLabel(row)} refunded and clears unapplied amount.`;
+  if (action === 'credit') return `Applies $${money(Number(amount || 0))} credit to ${String(row.customer ?? row.name ?? rowLabel(row))}.`;
   if (action === 'dispute') return `Creates an open dispute entry for invoice ${String(row.invoiceNo ?? row.invoiceId)} plus correction journal trace.`;
   return `Posts a correction journal entry from ${view} for $${money(Number(amount || 0))}.`;
+}
+
+function rowLabel(row: GridRow) {
+  return String(row.orderNo ?? row.invoiceNo ?? row.reference ?? row.customer ?? row.name ?? row.vendor ?? row.billNo ?? row.batchCode ?? row.pickNo ?? 'selected row');
 }
 
 function money(value: number) {

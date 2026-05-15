@@ -1,10 +1,12 @@
 import {
-  Archive,
+  ArrowDown,
+  ArrowUp,
   BadgeDollarSign,
+  BarChart3,
   Boxes,
+  ChevronDown,
   ClipboardList,
   Gauge,
-  History,
   Inbox,
   Landmark,
   PackageCheck,
@@ -12,28 +14,66 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ReceiptText,
+  Search,
   ShoppingCart,
-  Truck
+  Settings
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { trpc } from '../api/trpc';
+import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
 import { useUiStore } from '../store/uiStore';
 import type { SessionUser, ViewKey } from '../../shared/types';
 
-const navItems: Array<{ view: ViewKey; label: string; hotkey?: string; icon: typeof Gauge }> = [
-  { view: 'dashboard', label: 'Dashboard', hotkey: '⌘1', icon: Gauge },
-  { view: 'purchaseOrders', label: 'Purchase Orders', icon: PackagePlus },
-  { view: 'intake', label: 'Intake', hotkey: '⌘2', icon: ClipboardList },
-  { view: 'sales', label: 'Sales', hotkey: '⌘3', icon: ShoppingCart },
-  { view: 'payments', label: 'Payments', hotkey: '⌘4', icon: BadgeDollarSign },
-  { view: 'inventory', label: 'Inventory', hotkey: '⌘5', icon: Boxes },
-  { view: 'clients', label: 'Client Ledger', hotkey: '⌘6', icon: ReceiptText },
-  { view: 'orders', label: 'Orders', icon: Inbox },
-  { view: 'vendors', label: 'Vendor Payouts', icon: Landmark },
-  { view: 'fulfillment', label: 'Fulfillment', icon: PackageCheck },
-  { view: 'connectors', label: 'Connectors', icon: Truck },
-  { view: 'recovery', label: 'Recovery', icon: History },
-  { view: 'closeout', label: 'Closeout', icon: Archive }
+type NavItem = { view: ViewKey; label: string; hotkey?: string; icon: typeof Gauge };
+
+const navGroups: Array<{ label: string; items: NavItem[] }> = [
+  {
+    label: 'Decide',
+    items: [
+      { view: 'dashboard', label: 'Dashboard', hotkey: '⌘1', icon: Gauge },
+      { view: 'reports', label: 'Reports', icon: BarChart3 }
+    ]
+  },
+  {
+    label: 'Procure',
+    items: [
+      { view: 'purchaseOrders', label: 'Purchase Orders', icon: PackagePlus },
+      { view: 'intake', label: 'Intake', hotkey: '⌘2', icon: ClipboardList },
+      { view: 'inventory', label: 'Inventory', hotkey: '⌘5', icon: Boxes }
+    ]
+  },
+  {
+    label: 'Sell',
+    items: [
+      { view: 'sales', label: 'Sales', hotkey: '⌘3', icon: ShoppingCart },
+      { view: 'matchmaking', label: 'Matchmaking', icon: Search },
+      { view: 'orders', label: 'Orders', icon: Inbox },
+      { view: 'fulfillment', label: 'Fulfillment', icon: PackageCheck },
+      { view: 'clients', label: 'Client Ledger', hotkey: '⌘6', icon: ReceiptText }
+    ]
+  },
+  {
+    label: 'Money',
+    items: [
+      { view: 'payments', label: 'Payments', hotkey: '⌘4', icon: BadgeDollarSign },
+      { view: 'vendors', label: 'Vendor Payouts', icon: Landmark }
+    ]
+  },
+  {
+    label: 'Admin',
+    items: [
+      { view: 'settings', label: 'Settings', icon: Settings }
+    ]
+  }
+];
+
+const keelChips: Array<{ label: string; view: ViewKey; launch: 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut'; icon: typeof Gauge; title: string }> = [
+  { label: 'New Sale', view: 'sales', launch: 'sale', icon: ShoppingCart, title: 'Start a new sale' },
+  { label: 'New PO', view: 'purchaseOrders', launch: 'purchaseOrder', icon: ClipboardList, title: 'Start a new purchase order' },
+  { label: 'Receive', view: 'intake', launch: 'receiving', icon: PackagePlus, title: 'Receive product into intake' },
+  { label: 'Money in', view: 'payments', launch: 'moneyIn', icon: ArrowDown, title: 'Open money in' },
+  { label: 'Money out', view: 'vendors', launch: 'moneyOut', icon: ArrowUp, title: 'Open money out' }
 ];
 
 export function SideNav({ user }: { user: SessionUser }) {
@@ -41,7 +81,6 @@ export function SideNav({ user }: { user: SessionUser }) {
   const setActiveView = useUiStore((state) => state.setActiveView);
   const sideNavCollapsed = useUiStore((state) => state.sideNavCollapsed);
   const toggleSideNav = useUiStore((state) => state.toggleSideNav);
-  const visibleNav = navItems.filter((item) => navVisibleForUser(item.view, user));
 
   return (
     <nav className={clsx('flex shrink-0 flex-col border-r border-line bg-panel p-2 transition-all', sideNavCollapsed ? 'w-16' : 'w-60')}>
@@ -55,20 +94,30 @@ export function SideNav({ user }: { user: SessionUser }) {
         </button>
       </div>
       <div className="mt-2 flex flex-1 flex-col gap-1 overflow-y-auto">
-        {visibleNav.map((item) => {
-          const Icon = item.icon;
+        {navGroups.map((group) => {
+          const visibleItems = group.items.filter((item) => viewVisibleForUser(item.view, user));
+          if (!visibleItems.length) return null;
           return (
-            <button
-              type="button"
-              key={item.view}
-              aria-label={item.label}
-              onClick={() => setActiveView(item.view)}
-              className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
-            >
-              <Icon className="h-4 w-4" aria-hidden="true" />
-              <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>{item.label}</span>
-              {item.hotkey && !sideNavCollapsed ? <kbd>{item.hotkey}</kbd> : null}
-            </button>
+            <div key={group.label} className="nav-group">
+              <div className={clsx('nav-group-label', sideNavCollapsed && 'sr-only')}>{group.label}</div>
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    type="button"
+                    key={item.view}
+                    data-testid={`sidenav-item-${item.view}`}
+                    aria-label={item.label}
+                    onClick={() => setActiveView(item.view)}
+                    className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                    <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>{item.label}</span>
+                    {item.hotkey && !sideNavCollapsed ? <kbd>{item.hotkey}</kbd> : null}
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
       </div>
@@ -76,38 +125,90 @@ export function SideNav({ user }: { user: SessionUser }) {
   );
 }
 
-function navVisibleForUser(view: ViewKey, user: SessionUser) {
-  if (user.role === 'owner' || user.role === 'manager') return true;
-  if (user.role === 'viewer') return ['dashboard', 'purchaseOrders', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors'].includes(view);
-  const email = user.email.toLowerCase();
-  const name = user.name.toLowerCase();
-  if (email.includes('sales') || name.includes('sales')) return ['dashboard', 'sales', 'orders', 'inventory', 'clients', 'connectors', 'payments'].includes(view);
-  if (email.includes('intake') || name.includes('intake')) return ['dashboard', 'purchaseOrders', 'intake', 'inventory', 'fulfillment', 'vendors', 'connectors'].includes(view);
-  return ['dashboard', 'purchaseOrders', 'intake', 'sales', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors'].includes(view);
-}
-
-export function TopBar({ user }: { user: SessionUser }) {
+export function Keel({ user }: { user: SessionUser }) {
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
+  const activeView = useUiStore((state) => state.activeView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
+  const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
+  const setActiveView = useUiStore((state) => state.setActiveView);
   const utils = trpc.useContext();
   const logout = trpc.auth.logout.useMutation({
     onSuccess: () => utils.auth.me.invalidate()
   });
   const health = trpc.queries.health.useQuery(undefined, { refetchInterval: 30_000 });
+  const visibleChips = keelChips.filter((chip) => viewVisibleForUser(chip.view, user) && startVisibleForUser(chip.launch, user));
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+    function closeOnOutside(event: MouseEvent) {
+      if (!actionMenuRef.current?.contains(event.target as Node)) setActionsOpen(false);
+    }
+    document.addEventListener('mousedown', closeOnOutside);
+    return () => document.removeEventListener('mousedown', closeOnOutside);
+  }, [actionsOpen]);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-line bg-white px-4">
-      <button type="button" className="command-search" onClick={() => setCommandPaletteOpen(true)}>
-        <span className="text-zinc-500">⌘K</span>
-        <span>Search commands, rows, and actions</span>
+    <header className="keel" aria-label="Global workspace keel">
+      <button type="button" className="command-search keel-search" onClick={() => setCommandPaletteOpen(true)}>
+        <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+        <span>Search</span>
+        <kbd className="ml-auto">⌘K</kbd>
       </button>
-      <div className="flex items-center gap-3 text-sm">
-        <div className="flex items-center gap-2">
+      <div className="keel-chip-row" aria-label="Start chips">
+        {visibleChips.length ? (
+          <div className="quick-action-menu" ref={actionMenuRef} onKeyDown={(event) => {
+            if (event.key === 'Escape') setActionsOpen(false);
+          }}>
+            <button
+              type="button"
+              className="keel-chip"
+              aria-haspopup="menu"
+              aria-expanded={actionsOpen}
+              onClick={() => setActionsOpen((value) => !value)}
+            >
+              <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+              <span>Quick actions</span>
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {actionsOpen ? (
+              <div className="quick-action-popover" role="menu" aria-label="Quick actions">
+                {visibleChips.map((chip) => {
+                  const Icon = chip.icon;
+                  return (
+                    <button
+                      key={chip.launch}
+                      type="button"
+                      role="menuitem"
+                      className={clsx('quick-action-item', activeView === chip.view && 'quick-action-item-active')}
+                      title={chip.title}
+                      onClick={() => {
+                        setActiveQuickLaunch(chip.launch);
+                        setActiveView(chip.view);
+                        setActionsOpen(false);
+                      }}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                      <span>{chip.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <button type="button" className="keel-chip" title="Find rows and commands" onClick={() => setCommandPaletteOpen(true)}>
+            <Search className="h-4 w-4" aria-hidden="true" />
+            <span>Find</span>
+          </button>
+        )}
+      </div>
+      <div className="keel-utilities">
+        <div className="keel-status-chip">
           <span className={clsx('h-3 w-3 border', health.data?.ok ? 'bg-emerald-500 border-emerald-700' : 'bg-amber border-amber')} aria-hidden="true" />
           <span>{health.data?.ok ? 'Healthy' : 'Needs attention'}</span>
         </div>
-        <span className="text-zinc-300">|</span>
-        <span className="font-medium text-ink">{user.name}</span>
-        <span className="rounded border border-line px-2 py-0.5 text-xs uppercase text-zinc-700">{user.role}</span>
+        <span className="min-w-0 truncate font-medium text-ink">{user.name}</span>
         <button type="button" className="text-button" onClick={() => logout.mutate()}>
           Sign out
         </button>
@@ -115,3 +216,5 @@ export function TopBar({ user }: { user: SessionUser }) {
     </header>
   );
 }
+
+export const TopBar = Keel;

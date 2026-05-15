@@ -1,0 +1,20 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:?set CADDY_ACME_EMAIL}
+      TERP_AGRO_STAGING_DOMAIN: ${TERP_AGRO_STAGING_DOMAIN:?set TERP_AGRO_STAGING_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/staging/Caddyfile:/etc/caddy/Caddyfile:ro
+      - terp-agro-caddy-data:/data
+      - terp-agro-caddy-config:/config
+
+volumes:
+  terp-agro-caddy-data:
+  terp-agro-caddy-config:

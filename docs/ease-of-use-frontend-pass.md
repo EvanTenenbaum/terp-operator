@@ -82,7 +82,7 @@ pnpm build
 Final results:
 
 - TypeScript: green.
-- Backend/frontend parity: 54 commands and 27 query endpoints covered.
+- Backend/frontend parity: 56 user-surfaceable commands, 1 internal connector-routing command, and 27 query endpoints covered.
 - Seed: regenerated demo data.
 - Playwright: 10 passed.
 - Production build: green.
