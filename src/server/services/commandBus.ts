@@ -182,6 +182,12 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return receivePurchaseOrder(tx, payload, commandId);
     case 'cancelPurchaseOrder':
       return cancelPurchaseOrder(tx, payload, commandId);
+    case 'rejectBatch':
+      return rejectBatch(tx, payload, commandId);
+    case 'flagBatch':
+      return flagBatch(tx, payload, commandId);
+    case 'verifyAllIntake':
+      return verifyAllIntake(tx, payload, commandId, reason);
     case 'adjustBatchQuantity':
       return adjustBatchQuantity(tx, payload, commandId, reason);
     case 'setInventoryStatus':
@@ -434,6 +440,7 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
     .returning();
 
   const affected = [receipt.id, ...batchIds];
+  const discrepancyNotes: string[] = [];
   for (const row of rows) {
     const subtotal = Number(row.intakeQty) * Number(row.unitCost);
     await tx.insert(purchaseReceiptLines).values({
@@ -445,9 +452,27 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
     });
     await tx.update(batches).set({ status: 'posted', availableQty: row.intakeQty, arrivalStatus: 'arrived', validationIssues: [], postedAt: new Date(), updatedAt: new Date() }).where(eq(batches.id, row.id));
     await tx.insert(inventoryMovements).values({ batchId: row.id, commandId, kind: 'intake_posted', qtyDelta: row.intakeQty, reason });
+    await tx.insert(photographyQueue).values({ batchId: row.id, status: 'open', notes: `Auto-queued from receipt ${receipt.receiptNo}.` });
+    if (row.purchaseOrderLineId) {
+      const [poLine] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, row.purchaseOrderLineId)).limit(1);
+      if (poLine) {
+        if (Number(poLine.qty) !== Number(row.intakeQty)) {
+          discrepancyNotes.push(`Intake discrepancy: expected ${Number(poLine.qty)} ${poLine.uom}, received ${Number(row.intakeQty)} ${row.uom} on ${new Date().toISOString().slice(0, 10)} (${row.name}).`);
+        }
+        await tx.update(purchaseOrderLines).set({ receivedQty: qtyScale(row.intakeQty), status: 'received', updatedAt: new Date() }).where(eq(purchaseOrderLines.id, poLine.id));
+      }
+    }
   }
   if (purchaseOrderId) {
     await tx.update(purchaseOrders).set({ status: 'received', receivedAt: new Date(), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+    if (discrepancyNotes.length) {
+      const [poRow] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+      const merged = [stringValue(poRow?.internalNotes), ...discrepancyNotes].filter(Boolean).join('\n');
+      await tx.update(purchaseOrders).set({ internalNotes: merged, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+    }
+    const poLineRows = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+    const actualPoTotal = poLineRows.reduce((sum: number, line: typeof purchaseOrderLines.$inferSelect) => sum + Number(line.receivedQty) * Number(line.unitCost), 0);
+    await tx.update(purchaseOrders).set({ total: moneyScale(actualPoTotal), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
   }
 
   const grouped = new Map<string, number>();
@@ -653,7 +678,17 @@ async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, co
   await tx.update(purchaseOrderLines).set({ status: 'planned', updatedAt: new Date() }).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
   await tx.update(purchaseOrders).set({ status: 'approved', orderedAt: new Date(), orderedBy: userId, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
   await recalcPurchaseOrder(tx, purchaseOrderId);
-  return { ok: true, commandId, affectedIds: [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)], toast: `${order.poNo} approved and ready to receive when product arrives.` };
+  const affected = [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)];
+  let createdCount = 0;
+  if (order.vendorId) {
+    const received = await receivePurchaseOrder(tx, { purchaseOrderId }, commandId);
+    affected.push(...received.affectedIds);
+    createdCount = Math.max(received.affectedIds.length - 1 - lines.length, 0);
+  }
+  const toast = createdCount
+    ? `${order.poNo} approved and ${createdCount} draft intake row(s) created.`
+    : `${order.poNo} approved and ready to receive when product arrives.`;
+  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast };
 }
 
 async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -724,6 +759,98 @@ async function cancelPurchaseOrder(tx: Tx, payload: Payload, commandId: string):
   await tx.update(purchaseOrders).set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
   await tx.update(purchaseOrderLines).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
   return { ok: true, commandId, affectedIds: [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)], toast: `${order.poNo} cancelled.` };
+}
+
+async function rejectBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const rejectionReason = requiredString(payload.reason, 'reason');
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  if (row.status === 'posted') throw new Error('Posted batches cannot be rejected. Use a reversal/correction instead.');
+  const stamp = new Date().toISOString();
+  const validationIssues = Array.isArray(row.validationIssues) ? [...row.validationIssues] : [];
+  validationIssues.push(`Rejected on ${stamp.slice(0, 10)}: ${rejectionReason}`);
+  await tx
+    .update(batches)
+    .set({ status: 'returned', validationIssues, availableQty: '0.000', notes: [row.notes, `Rejected on ${stamp.slice(0, 10)}: ${rejectionReason}`].filter(Boolean).join('\n'), updatedAt: new Date() })
+    .where(eq(batches.id, batchId));
+
+  const affected: string[] = [batchId];
+  if (row.purchaseOrderId) {
+    const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, row.purchaseOrderId)).limit(1);
+    if (order) {
+      const merged = [stringValue(order.internalNotes), `Rejected lot ${row.batchCode}: ${rejectionReason}`].filter(Boolean).join('\n');
+      await tx.update(purchaseOrders).set({ internalNotes: merged, updatedAt: new Date() }).where(eq(purchaseOrders.id, row.purchaseOrderId));
+      affected.push(order.id);
+    }
+    if (row.purchaseOrderLineId) {
+      const [poLine] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, row.purchaseOrderLineId)).limit(1);
+      if (poLine) {
+        const receivedDelta = Math.max(Number(poLine.receivedQty) - Number(row.intakeQty), 0);
+        await tx.update(purchaseOrderLines).set({ receivedQty: qtyScale(receivedDelta), updatedAt: new Date() }).where(eq(purchaseOrderLines.id, poLine.id));
+        affected.push(poLine.id);
+      }
+    }
+    const billRows = await tx.select().from(vendorBills).where(eq(vendorBills.purchaseOrderId, row.purchaseOrderId));
+    for (const bill of billRows as Array<typeof vendorBills.$inferSelect>) {
+      if (bill.status === 'paid' || bill.status === 'void') continue;
+      const next = Math.max(Number(bill.amount) - Number(row.intakeQty) * Number(row.unitCost), 0);
+      await tx.update(vendorBills).set({ amount: moneyScale(next), updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+      affected.push(bill.id);
+    }
+  }
+  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast: `${row.batchCode} rejected: ${rejectionReason}` };
+}
+
+async function flagBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
+  const flagReason = requiredString(payload.reason, 'reason');
+  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!row) throw new Error('Batch not found.');
+  const stamp = new Date().toISOString();
+  const validationIssues = Array.isArray(row.validationIssues) ? [...row.validationIssues] : [];
+  validationIssues.push(`Flagged on ${stamp.slice(0, 10)}: ${flagReason}`);
+  await tx.update(batches).set({ validationIssues, updatedAt: new Date() }).where(eq(batches.id, batchId));
+  const affected: string[] = [batchId];
+  if (row.purchaseOrderId) {
+    const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, row.purchaseOrderId)).limit(1);
+    if (order) {
+      const merged = [stringValue(order.internalNotes), `Flagged lot ${row.batchCode}: ${flagReason}`].filter(Boolean).join('\n');
+      await tx.update(purchaseOrders).set({ internalNotes: merged, updatedAt: new Date() }).where(eq(purchaseOrders.id, row.purchaseOrderId));
+      affected.push(order.id);
+    }
+  }
+  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast: `${row.batchCode} flagged: ${flagReason}` };
+}
+
+async function verifyAllIntake(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  const linkedBatches = await tx.select().from(batches).where(eq(batches.purchaseOrderId, purchaseOrderId));
+  const pending = (linkedBatches as Array<typeof batches.$inferSelect>).filter((row) => ['draft', 'ready', 'needs_fix'].includes(row.status));
+  if (!pending.length) throw new Error('No pending intake rows on this purchase order to verify.');
+  const affected: string[] = [purchaseOrderId];
+  for (const row of pending) {
+    if (row.purchaseOrderLineId) {
+      const [poLine] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, row.purchaseOrderLineId)).limit(1);
+      if (poLine && Number(poLine.qty) !== Number(row.intakeQty)) {
+        await tx.update(batches).set({ intakeQty: qtyScale(poLine.qty), availableQty: qtyScale(poLine.qty), validationIssues: [], updatedAt: new Date() }).where(eq(batches.id, row.id));
+      } else {
+        await tx.update(batches).set({ validationIssues: [], updatedAt: new Date() }).where(eq(batches.id, row.id));
+      }
+    } else {
+      await tx.update(batches).set({ validationIssues: [], updatedAt: new Date() }).where(eq(batches.id, row.id));
+    }
+    affected.push(row.id);
+  }
+  const refreshed = await tx.select().from(batches).where(inArray(batches.id, pending.map((row) => row.id)));
+  const postResult = await postPurchaseReceipt(tx, { batchIds: refreshed.map((row: typeof batches.$inferSelect) => row.id) }, commandId, reason);
+  affected.push(...postResult.affectedIds);
+  const stamp = new Date().toISOString().slice(0, 10);
+  const merged = [stringValue(order.internalNotes), `Intake verified on ${stamp} — all items accepted as expected.`].filter(Boolean).join('\n');
+  await tx.update(purchaseOrders).set({ internalNotes: merged, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast: `${order.poNo}: ${pending.length} intake row(s) verified and posted.` };
 }
 
 async function adjustBatchQuantity(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {

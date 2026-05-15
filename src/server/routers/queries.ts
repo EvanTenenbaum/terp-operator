@@ -493,6 +493,54 @@ export const queriesRouter = router({
       )
     ).rows;
   }),
+  intakeQueue: protectedProcedure.query(async () => {
+    const orders = (
+      await pool.query(
+        `select po.id, po.po_no as "poNo", v.name as vendor, po.vendor_id as "vendorId", po.status,
+                po.expected_date as "expectedDate", po.ordered_at as "orderedAt", po.received_at as "receivedAt",
+                po.total, po.internal_notes as "internalNotes", po.buyer_notes as "buyerNotes", po.created_at as "createdAt",
+                coalesce(sum(pol.qty), 0) as "expectedTotalQty",
+                coalesce(sum(pol.received_qty), 0) as "receivedTotalQty",
+                coalesce(sum(pol.qty * pol.unit_cost), 0) as "expectedTotal"
+         from purchase_orders po
+         left join vendors v on v.id = po.vendor_id
+         left join purchase_order_lines pol on pol.purchase_order_id = po.id
+         where po.status in ('approved','partially_received','received','ordered')
+           and exists (select 1 from batches b where b.purchase_order_id = po.id and b.archived_at is null and b.status in ('draft','ready','needs_fix','posted','returned'))
+         group by po.id, v.name
+         order by case po.status when 'approved' then 0 when 'partially_received' then 1 when 'ordered' then 2 when 'received' then 3 else 4 end,
+                  po.created_at desc`
+      )
+    ).rows;
+    const orderIds = orders.map((row) => row.id as string);
+    const batchRows = orderIds.length
+      ? (
+          await pool.query(
+            `select b.id, b.purchase_order_id as "purchaseOrderId", b.purchase_order_line_id as "purchaseOrderLineId",
+                    b.batch_code as "batchCode", b.name, b.category, b.intake_qty as "intakeQty",
+                    b.available_qty as "availableQty", b.unit_cost as "unitCost", b.unit_price as "unitPrice",
+                    b.uom, b.status, b.notes, b.validation_issues as "validationIssues",
+                    b.media_status as "mediaStatus", b.arrival_status as "arrivalStatus",
+                    b.vendor_id as "vendorId", b.tags, b.location, b.lot_code as "lotCode",
+                    pol.qty as "expectedQty", pol.unit_cost as "expectedUnitCost",
+                    b.created_at as "createdAt"
+             from batches b
+             left join purchase_order_lines pol on pol.id = b.purchase_order_line_id
+             where b.purchase_order_id = any($1::uuid[]) and b.archived_at is null
+             order by b.created_at`,
+            [orderIds]
+          )
+        ).rows
+      : [];
+    const grouped = new Map<string, typeof batchRows>();
+    for (const row of batchRows) {
+      const key = String(row.purchaseOrderId);
+      const list = grouped.get(key);
+      if (list) list.push(row);
+      else grouped.set(key, [row]);
+    }
+    return orders.map((order) => ({ ...order, batches: grouped.get(order.id as string) ?? [] }));
+  }),
   supportPacket: protectedProcedure.query(async () => {
     const [health, counts, errors, recent] = await Promise.all([
       getHealth(),
