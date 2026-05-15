@@ -52,6 +52,7 @@ import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
 import { normalizeTagSlug, parseTagInput } from '../../shared/tags';
+import { validateCostRange, rangeMidpoint } from '../../shared/priceRange';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -560,8 +561,11 @@ async function createPurchaseOrder(tx: Tx, payload: Payload, userId: string, com
       vendorId,
       expectedDate: dateOrNull(payload.expectedDate),
       orderedBy: userId,
+      paymentTerms: stringValue(payload.paymentTerms) || 'vendor_terms',
+      prepaymentAmount: moneyScale(Number(payload.prepaymentAmount ?? 0)),
       buyerNotes: stringValue(payload.buyerNotes) || null,
       internalNotes: stringValue(payload.internalNotes) || null,
+      externalNotes: stringValue(payload.externalNotes) || null,
       status: 'draft'
     })
     .returning();
@@ -596,8 +600,11 @@ async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string):
   const values: Record<string, unknown> = { updatedAt: new Date() };
   if (payload.vendorId != null) values.vendorId = stringValue(payload.vendorId) || null;
   if (payload.expectedDate !== undefined) values.expectedDate = dateOrNull(payload.expectedDate);
+  if (payload.paymentTerms !== undefined) values.paymentTerms = stringValue(payload.paymentTerms) || 'vendor_terms';
+  if (payload.prepaymentAmount !== undefined) values.prepaymentAmount = moneyScale(Number(payload.prepaymentAmount ?? 0));
   if (payload.buyerNotes !== undefined) values.buyerNotes = stringValue(payload.buyerNotes) || null;
   if (payload.internalNotes !== undefined) values.internalNotes = stringValue(payload.internalNotes) || null;
+  if (payload.externalNotes !== undefined) values.externalNotes = stringValue(payload.externalNotes) || null;
   if (payload.status !== undefined) {
     const nextStatus = stringValue(payload.status);
     if (!['draft', 'approved', 'ordered', 'partially_received'].includes(nextStatus)) throw new Error('Purchase order status is not valid for manual update.');
@@ -620,11 +627,28 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
   const tags = tagValue(payload.tags, decoded.tags);
   const qty = requiredNumber(payload.qty, 'qty');
   if (qty <= 0) throw new Error('Quantity must be greater than zero.');
+
+  // Cost validation: either unitCost OR cost range, not both
   const unitCost = Number(payload.unitCost ?? 0);
+  const costRangeLow = payload.costRangeLow != null ? Number(payload.costRangeLow) : null;
+  const costRangeHigh = payload.costRangeHigh != null ? Number(payload.costRangeHigh) : null;
+
+  const hasFixedCost = unitCost > 0;
+  const hasRange = costRangeLow != null && costRangeHigh != null;
+
+  if (hasFixedCost && hasRange) {
+    throw new Error('Cannot specify both unit cost and cost range.');
+  }
+
+  if (hasRange && !validateCostRange(costRangeLow, costRangeHigh)) {
+    throw new Error('Invalid cost range: low must be <= high and both must be positive.');
+  }
+
   if (!Number.isFinite(unitCost) || unitCost < 0) throw new Error('Unit cost cannot be negative.');
+
   const itemId = await ensureItem(tx, { ...payload, tags }, productName, category);
   await ensureTagCatalog(tx, tags);
-  const status = unitCost > 0 ? 'planned' : 'needs_fix';
+  const status = (hasFixedCost || hasRange) ? 'planned' : 'needs_fix';
   const [line] = await tx
     .insert(purchaseOrderLines)
     .values({
@@ -637,11 +661,15 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
       uom: stringValue(payload.uom) || 'lb',
       unitCost: moneyScale(unitCost),
       unitPrice: moneyScale(unitCost),
+      costRangeLow: costRangeLow != null ? moneyScale(costRangeLow) : null,
+      costRangeHigh: costRangeHigh != null ? moneyScale(costRangeHigh) : null,
       sourceCode: stringValue(payload.sourceCode) || order.poNo,
       shorthand: stringValue(payload.shorthand) || null,
       legacyMarker: stringValue(payload.legacyMarker) || stringValue(payload.ownershipStatus) || null,
       ownershipStatus: ownership(payload.ownershipStatus),
       notes: stringValue(payload.notes) || null,
+      internalNotes: stringValue(payload.internalNotes) || null,
+      externalNotes: stringValue(payload.externalNotes) || null,
       status
     })
     .returning();
@@ -670,6 +698,8 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   copyIfPresent(values, 'shorthand', payload.shorthand);
   copyIfPresent(values, 'legacyMarker', payload.legacyMarker);
   copyIfPresent(values, 'notes', payload.notes);
+  copyIfPresent(values, 'internalNotes', payload.internalNotes);
+  copyIfPresent(values, 'externalNotes', payload.externalNotes);
   if (payload.tags !== undefined) {
     values.tags = tagValue(payload.tags);
     await ensureTagCatalog(tx, values.tags as string[]);
@@ -681,14 +711,47 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
     if (qty < Number(line.receivedQty)) throw new Error('Quantity cannot be below already received quantity.');
     values.qty = qtyScale(qty);
   }
-  if (payload.unitCost !== undefined) {
-    const unitCost = requiredNumber(payload.unitCost, 'unitCost');
-    if (unitCost < 0) throw new Error('Unit cost cannot be negative.');
-    values.unitCost = moneyScale(unitCost);
+  // Handle cost updates (unitCost OR range)
+  if (payload.unitCost !== undefined || payload.costRangeLow !== undefined || payload.costRangeHigh !== undefined) {
+    const newUnitCost = payload.unitCost !== undefined ? Number(payload.unitCost) : Number(line.unitCost);
+    const newRangeLow = payload.costRangeLow !== undefined ? (payload.costRangeLow != null ? Number(payload.costRangeLow) : null) : (line.costRangeLow ? Number(line.costRangeLow) : null);
+    const newRangeHigh = payload.costRangeHigh !== undefined ? (payload.costRangeHigh != null ? Number(payload.costRangeHigh) : null) : (line.costRangeHigh ? Number(line.costRangeHigh) : null);
+
+    const hasFixedCost = newUnitCost > 0;
+    const hasRange = newRangeLow != null && newRangeHigh != null;
+
+    if (hasFixedCost && hasRange) {
+      throw new Error('Cannot specify both unit cost and cost range.');
+    }
+
+    if (hasRange && !validateCostRange(newRangeLow, newRangeHigh)) {
+      throw new Error('Invalid cost range: low must be <= high and both must be positive.');
+    }
+
+    if (payload.unitCost !== undefined) {
+      if (newUnitCost < 0) throw new Error('Unit cost cannot be negative.');
+      values.unitCost = moneyScale(newUnitCost);
+      values.unitPrice = values.unitCost;
+      // Clear range if setting fixed cost
+      if (newUnitCost > 0) {
+        values.costRangeLow = null;
+        values.costRangeHigh = null;
+      }
+    }
+
+    if (payload.costRangeLow !== undefined) values.costRangeLow = newRangeLow != null ? moneyScale(newRangeLow) : null;
+    if (payload.costRangeHigh !== undefined) values.costRangeHigh = newRangeHigh != null ? moneyScale(newRangeHigh) : null;
+
+    // Clear unitCost if setting range
+    if (hasRange && !hasFixedCost) {
+      values.unitCost = moneyScale(0);
+      values.unitPrice = moneyScale(0);
+    }
   }
-  if (payload.unitCost !== undefined) values.unitPrice = values.unitCost;
+
   const nextLine = { ...line, ...values } as Record<string, unknown>;
-  values.status = Number(nextLine.receivedQty ?? 0) >= Number(nextLine.qty ?? 0) ? 'received' : Number(nextLine.unitCost ?? 0) > 0 ? 'planned' : 'needs_fix';
+  const hasValidCost = Number(nextLine.unitCost ?? 0) > 0 || (nextLine.costRangeLow != null && nextLine.costRangeHigh != null);
+  values.status = Number(nextLine.receivedQty ?? 0) >= Number(nextLine.qty ?? 0) ? 'received' : hasValidCost ? 'planned' : 'needs_fix';
   await tx.update(purchaseOrderLines).set(values).where(eq(purchaseOrderLines.id, lineId));
   await recalcPurchaseOrder(tx, line.purchaseOrderId);
   return { ok: true, commandId, affectedIds: [line.purchaseOrderId, lineId], toast: 'Purchase order line updated.' };
@@ -2388,7 +2451,18 @@ function buildPricingSnapshot(lines: Array<typeof salesOrderLines.$inferSelect>,
 
 async function recalcPurchaseOrder(tx: Tx, purchaseOrderId: string) {
   const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
-  const total = lines.reduce((sum: number, line: typeof purchaseOrderLines.$inferSelect) => sum + Number(line.qty) * Number(line.unitCost), 0);
+  const total = lines.reduce((sum: number, line: typeof purchaseOrderLines.$inferSelect) => {
+    const qty = Number(line.qty);
+    let cost = Number(line.unitCost);
+
+    // If line has cost range instead of fixed cost, use midpoint for estimate
+    if (cost === 0 && line.costRangeLow != null && line.costRangeHigh != null) {
+      const midpoint = rangeMidpoint(Number(line.costRangeLow), Number(line.costRangeHigh));
+      cost = midpoint ?? 0;
+    }
+
+    return sum + qty * cost;
+  }, 0);
   await tx.update(purchaseOrders).set({ total: moneyScale(total), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
 }
 
@@ -2401,7 +2475,15 @@ function purchaseOrderLineIssues(line: Record<string, unknown>) {
   if (!stringValue(line.productName)) issues.push('enter product name.');
   if (!stringValue(line.category)) issues.push('enter category.');
   if (Number(line.qty ?? 0) <= 0) issues.push('enter quantity above zero.');
-  if (Number(line.unitCost ?? 0) <= 0) issues.push('enter unit cost above zero.');
+
+  // Check for either unitCost or valid cost range
+  const hasFixedCost = Number(line.unitCost ?? 0) > 0;
+  const hasRange = line.costRangeLow != null && line.costRangeHigh != null && Number(line.costRangeLow) > 0 && Number(line.costRangeHigh) > 0;
+
+  if (!hasFixedCost && !hasRange) {
+    issues.push('enter unit cost or cost range.');
+  }
+
   return issues;
 }
 
