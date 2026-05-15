@@ -92,6 +92,7 @@ export const purchaseOrders = pgTable(
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     total: numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
     orderedBy: uuid('ordered_by').references(() => users.id, { onDelete: 'set null' }),
+    paymentTerms: varchar('payment_terms', { length: 32 }).notNull().default('vendor_terms'),
     buyerNotes: text('buyer_notes'),
     internalNotes: text('internal_notes'),
     createdAt: now(),
