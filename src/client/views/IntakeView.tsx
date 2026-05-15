@@ -1,313 +1,434 @@
-import { ChevronDown, ChevronRight, ClipboardCheck, Copy, Plus, ReceiptText } from 'lucide-react';
-import { useState } from 'react';
-import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import type {
+  ColDef,
+  GetDetailRowDataParams,
+  GridApi,
+  GridReadyEvent,
+  ICellRendererParams,
+  NewValueParams,
+  ValueGetterParams
+} from 'ag-grid-community';
 import { trpc } from '../api/trpc';
-import { OperatorGrid } from '../components/OperatorGrid';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
-import type { CommandResult, GridRow } from '../../shared/types';
-import { parseTagInput } from '../../shared/tags';
 
-const intakeColumns: ColDef<GridRow>[] = [
-  { field: 'batchCode', headerName: 'Batch', pinned: 'left', editable: false, width: 150 },
-  { field: 'poNo', headerName: 'PO', editable: false, width: 130 },
-  { field: 'sourceCode', headerName: 'Code', editable: true, width: 110 },
-  { field: 'intakeDate', headerName: 'Date', editable: true, width: 150 },
-  { field: 'shorthand', headerName: 'Shorthand', editable: true, width: 145 },
-  { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
-  { field: 'name', editable: true, minWidth: 190 },
-  { field: 'category', editable: true, width: 120 },
-  { field: 'tags', editable: true, minWidth: 160 },
-  { field: 'vendor', editable: false, width: 160 },
-  { field: 'ticketCost', headerName: 'Ticket cost', editable: true, type: 'numericColumn', width: 120 },
-  { field: 'priceRange', headerName: 'Range', editable: true, width: 120 },
-  { field: 'intakeQty', headerName: 'intake_qty', editable: (params) => params.data?.status !== 'posted', type: 'numericColumn', width: 120 },
-  { field: 'availableQty', headerName: 'available_qty', editable: false, type: 'numericColumn', width: 130 },
-  { field: 'uom', editable: true, width: 90 },
-  { field: 'unitCost', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'ownershipStatus', headerName: 'Owner', editable: true, width: 110 },
-  { field: 'arrivalStatus', editable: true, width: 130 },
-  { field: 'arrivalConfirmed', editable: true, width: 130 },
-  { field: 'mediaStatus', headerName: 'Media', editable: true, width: 110 },
-  { field: 'validationIssues', headerName: 'Fix', width: 220 },
-  { field: 'location', editable: true, width: 120 },
-  { field: 'lotCode', editable: true, width: 120 },
-  { field: 'expirationDate', headerName: 'Expires', editable: true, width: 140 },
-  { field: 'notes', editable: true, minWidth: 180 },
-  { field: 'status', pinned: 'right', width: 125 }
-];
+interface IntakeBatchRow {
+  id: string;
+  purchaseOrderId: string;
+  purchaseOrderLineId: string | null;
+  batchCode: string;
+  name: string;
+  category: string;
+  intakeQty: string;
+  availableQty: string;
+  unitCost: string;
+  unitPrice: string;
+  uom: string;
+  status: string;
+  notes: string | null;
+  validationIssues: string[];
+  mediaStatus: string;
+  arrivalStatus: string;
+  vendorId: string | null;
+  tags: string[];
+  location: string;
+  lotCode: string | null;
+  expectedQty: string | null;
+  expectedUnitCost: string | null;
+  createdAt: string;
+}
 
-const EMPTY_ROWS: GridRow[] = [];
+interface IntakeOrderRow {
+  id: string;
+  poNo: string;
+  vendor: string | null;
+  vendorId: string | null;
+  status: string;
+  expectedDate: string | null;
+  orderedAt: string | null;
+  receivedAt: string | null;
+  total: string;
+  expectedTotal: string;
+  expectedTotalQty: string;
+  receivedTotalQty: string;
+  internalNotes: string | null;
+  buyerNotes: string | null;
+  createdAt: string;
+  batches: IntakeBatchRow[];
+}
+
+const EMPTY: IntakeOrderRow[] = [];
 
 export function IntakeView() {
-  const selectedRows = useUiStore((state) => state.selectedRows.intake);
-  const rows = selectedRows ?? EMPTY_ROWS;
-  const setSelectedRows = useUiStore((state) => state.setSelectedRows);
-  const grid = trpc.queries.grid.useQuery({ view: 'intake' });
-  const reference = trpc.queries.reference.useQuery();
+  const me = trpc.auth.me.useQuery();
+  const canWrite = me.data?.role !== 'viewer';
+  const intakeQueue = trpc.queries.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
   const { runCommand, isRunning } = useCommandRunner();
-  const firstVendor = reference.data?.vendors[0]?.id;
-  const [vendorId, setVendorId] = useState('');
-  const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
-  const [csvOpen, setCsvOpen] = useState(false);
-  const [intakeTrayOpen, setIntakeTrayOpen] = useState(false);
-  const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
-  const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
-  const [lotCode, setLotCode] = useState('');
-  const [expirationDate, setExpirationDate] = useState('');
-  const [rowTags, setRowTags] = useState('');
-  const defaultVendorId = vendorId || firstVendor;
-  const receiptPreview = trpc.queries.receiptPreview.useQuery({ batchIds: rows.map((row) => String(row.id)) }, { enabled: rows.length > 0 });
-  const selectedReady = rows.length > 0 && rows.every((row) => row.status === 'ready');
+  const pushToast = useUiStore((state) => state.pushToast);
 
-  async function onCellCommit(event: CellValueChangedEvent<GridRow>) {
-    if (!event.data?.id || event.colDef.field == null) return;
-    if (event.oldValue === event.newValue) return;
-    if (event.colDef.field === 'unitPrice') return;
-    await runCommand('updateBatch', { id: event.data.id, [event.colDef.field]: event.newValue }, `Inline intake edit: ${event.colDef.field}`);
-  }
+  const verifiedDraftsRef = useRef<Map<string, number>>(new Map());
+  const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmVerifyAllFor, setConfirmVerifyAllFor] = useState<IntakeOrderRow | null>(null);
 
-  async function createRow() {
-    const sourceCode = `DROP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
-    await runCommand('createBatch', {
-      vendorId: defaultVendorId,
-      sourceCode,
-      shorthand: 'Ins/candy',
-      name: 'New receiving line',
-      category: 'Infused',
-      tags: parseTagInput(rowTags),
-      intakeDate: new Date().toISOString(),
-      intakeQty: 1,
-      unitCost: 0,
-      ticketCost: 0,
-      priceRange: '',
-      ownershipStatus: 'UNKNOWN',
-      legacyMarker: 'T',
-      arrivalStatus: 'pending',
-      status: 'draft',
-      location: 'Receiving',
-      notes: ''
-    });
-  }
+  const orderRows = (intakeQueue.data ?? EMPTY) as IntakeOrderRow[];
 
-  async function duplicateRows() {
-    for (const row of rows) {
-      await runCommand('createBatch', {
-        vendorId: row.vendorId,
-        sourceCode: row.sourceCode,
-        shorthand: row.shorthand,
-        name: `${row.name} copy`,
-        category: row.category,
-        tags: row.tags,
-        intakeDate: row.intakeDate,
-        intakeQty: row.intakeQty,
-        unitCost: row.unitCost,
-        ticketCost: row.ticketCost,
-        priceRange: row.priceRange,
-        uom: row.uom,
-        ownershipStatus: row.ownershipStatus,
-        legacyMarker: row.legacyMarker,
-        arrivalStatus: row.arrivalStatus,
-        location: row.location,
-        lotCode: row.lotCode,
-        notes: row.notes,
-        status: 'draft'
+  const detailCellRendererParams = useMemo(
+    () => ({
+      detailGridOptions: {
+        columnDefs: buildBatchColumns(
+          canWrite,
+          (batchId, value) => {
+            verifiedDraftsRef.current.set(batchId, Number(value));
+          },
+          async (batchId, reason) => {
+            setBusy(true);
+            try {
+              await runCommand('flagBatch', { batchId, reason }, 'Flag intake lot from grid');
+            } finally {
+              setBusy(false);
+            }
+          },
+          async (batchId, reason) => {
+            setBusy(true);
+            try {
+              await runCommand('rejectBatch', { batchId, reason }, 'Reject intake lot from grid');
+            } finally {
+              setBusy(false);
+            }
+          },
+          async (batchId, currentNotes, addition) => {
+            setBusy(true);
+            try {
+              const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+              const actor = me.data?.name || 'operator';
+              const merged = [currentNotes, `[${stamp} ${actor}] ${addition}`].filter(Boolean).join('\n');
+              await runCommand('updateBatch', { id: batchId, notes: merged }, 'Update intake notes');
+            } finally {
+              setBusy(false);
+            }
+          }
+        ),
+        defaultColDef: { resizable: true, sortable: true } as ColDef<IntakeBatchRow>,
+        domLayout: 'autoHeight' as const
+      },
+      getDetailRowData: (params: GetDetailRowDataParams<IntakeOrderRow>) => {
+        params.successCallback(params.data?.batches ?? []);
+      }
+    }),
+    [canWrite, runCommand, me.data?.name]
+  );
+
+  const columnDefs = useMemo<ColDef<IntakeOrderRow>[]>(
+    () => [
+      {
+        field: 'poNo',
+        headerName: 'PO',
+        cellRenderer: 'agGroupCellRenderer',
+        pinned: 'left',
+        minWidth: 180
+      },
+      { field: 'vendor', headerName: 'Vendor', minWidth: 160 },
+      { field: 'status', minWidth: 140 },
+      {
+        headerName: 'Expected qty',
+        valueGetter: (params: ValueGetterParams<IntakeOrderRow>) =>
+          params.data ? Number(params.data.expectedTotalQty || 0).toFixed(3) : ''
+      },
+      {
+        headerName: 'Received qty',
+        valueGetter: (params: ValueGetterParams<IntakeOrderRow>) =>
+          params.data ? Number(params.data.receivedTotalQty || 0).toFixed(3) : ''
+      },
+      {
+        headerName: 'Expected $',
+        valueGetter: (params: ValueGetterParams<IntakeOrderRow>) =>
+          params.data ? `$${Number(params.data.expectedTotal || 0).toFixed(2)}` : ''
+      },
+      {
+        headerName: 'Verified $',
+        valueGetter: (params: ValueGetterParams<IntakeOrderRow>) =>
+          params.data ? `$${Number(params.data.total || 0).toFixed(2)}` : ''
+      },
+      {
+        headerName: 'Actions',
+        pinned: 'right',
+        minWidth: 280,
+        cellRenderer: (params: ICellRendererParams<IntakeOrderRow>) => {
+          const order = params.data;
+          if (!order) return null;
+          return (
+            <div className="flex h-full items-center gap-2">
+              <button
+                type="button"
+                className="primary-button compact-action"
+                disabled={!canWrite || busy || isRunning || !canVerifyIntake(order)}
+                onClick={() => void verifyIntakeForOrder(order)}
+              >
+                Verify intake
+              </button>
+              <button
+                type="button"
+                className="secondary-button compact-action"
+                disabled={!canWrite || busy || isRunning || !hasPendingBatches(order)}
+                onClick={() => setConfirmVerifyAllFor(order)}
+              >
+                Verify all
+              </button>
+            </div>
+          );
+        }
+      }
+    ],
+    [busy, isRunning, canWrite]
+  );
+
+  function canVerifyIntake(order: IntakeOrderRow) {
+    if (!order.batches?.length) return false;
+    if (!order.batches.some((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))) return false;
+    return order.batches
+      .filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))
+      .every((batch) => {
+        const drafted = verifiedDraftsRef.current.get(batch.id);
+        if (drafted != null && Number.isFinite(drafted)) return true;
+        return Number(batch.intakeQty) > 0;
       });
+  }
+
+  function hasPendingBatches(order: IntakeOrderRow) {
+    return order.batches?.some((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status)) ?? false;
+  }
+
+  async function verifyIntakeForOrder(order: IntakeOrderRow) {
+    setBusy(true);
+    try {
+      const pending = order.batches.filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status));
+      for (const batch of pending) {
+        const drafted = verifiedDraftsRef.current.get(batch.id);
+        if (drafted != null && Number.isFinite(drafted) && Number(drafted) !== Number(batch.intakeQty)) {
+          await runCommand(
+            'updateBatch',
+            { id: batch.id, intakeQty: drafted, availableQty: drafted },
+            'Apply verified intake quantity'
+          );
+        }
+      }
+      await runCommand(
+        'postPurchaseReceipt',
+        { batchIds: pending.map((batch) => batch.id) },
+        `Verify intake for ${order.poNo}`
+      );
+      verifiedDraftsRef.current.clear();
+    } finally {
+      setBusy(false);
     }
   }
 
-  async function markReady() {
-    for (const row of rows) await runCommand('updateBatch', { id: row.id, status: 'ready' }, 'Batch mark selected rows Ready');
-  }
-
-  async function processIntake() {
-    await runCommand('postPurchaseReceipt', { batchIds: rows.map((row) => row.id) }, 'Process selected intake rows');
-  }
-
-  async function importCsv(validateOnly: boolean) {
-    const result = await runCommand('importBatchesCsv', { csv: csvText, validateOnly }, validateOnly ? 'Validate intake CSV import' : 'Import validated intake CSV');
-    setCsvResult(result);
-    if (result.ok && !validateOnly) setCsvOpen(false);
-  }
-
-  async function deleteDraftRows() {
-    for (const row of rows) await runCommand('deleteBatch', { batchId: row.id }, 'Delete selected draft intake row');
-  }
-
-  async function setSelectedLotInfo() {
-    for (const row of rows) {
-      await runCommand('setBatchLotInfo', { batchId: row.id, lotCode: lotCode || row.lotCode, expirationDate: expirationDate || row.expirationDate }, 'Set selected intake lot info');
+  async function verifyAllForOrder(order: IntakeOrderRow) {
+    setBusy(true);
+    try {
+      await runCommand('verifyAllIntake', { purchaseOrderId: order.id }, `Verify all intake for ${order.poNo}`);
+      verifiedDraftsRef.current.clear();
+    } finally {
+      setBusy(false);
     }
   }
+
+  const onGridReady = useCallback((event: GridReadyEvent<IntakeOrderRow>) => {
+    apiRef.current = event.api;
+    event.api.sizeColumnsToFit();
+  }, []);
 
   return (
     <div className="view-stack">
-      <div className="control-band">
-        <label className="field-inline">
-          Vendor
-          <select className="select" value={vendorId} onChange={(event) => setVendorId(event.target.value)}>
-            <option value="">Default vendor</option>
-            {reference.data?.vendors.map((vendor) => (
-              <option key={vendor.id} value={vendor.id}>
-                {vendor.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
-          CSV import
+      <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
+        <div className="ag-theme-quartz grid-shell">
+          <AgGridReact<IntakeOrderRow>
+            rowData={orderRows}
+            columnDefs={columnDefs}
+            defaultColDef={{ sortable: true, resizable: true, filter: true, minWidth: 120 }}
+            masterDetail
+            detailRowAutoHeight
+            detailCellRendererParams={detailCellRendererParams}
+            getRowId={(params) => String(params.data.id)}
+            onGridReady={onGridReady}
+            loading={intakeQueue.isLoading || isRunning || busy}
+            isRowMaster={(data) => Boolean(data?.batches?.length)}
+            animateRows={false}
+          />
+        </div>
+        {!intakeQueue.isLoading && orderRows.length === 0 ? (
+          <div className="p-4 text-sm text-zinc-600">No approved purchase orders with linked intake batches yet. Approve a PO to populate this queue.</div>
+        ) : null}
+      </WorkspacePanel>
+      {confirmVerifyAllFor ? (
+        <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
+          <p className="text-sm text-zinc-700">
+            This will accept every pending batch on this PO as the expected quantity and post the receipt.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              className="primary-button compact-action"
+              disabled={busy || isRunning}
+              onClick={async () => {
+                const target = confirmVerifyAllFor;
+                setConfirmVerifyAllFor(null);
+                if (target) {
+                  await verifyAllForOrder(target);
+                  pushToast(`Verified all intake for ${target.poNo}.`, 'success');
+                }
+              }}
+            >
+              Yes — verify all
+            </button>
+            <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
+              Cancel
+            </button>
+          </div>
+        </WorkspacePanel>
+      ) : null}
+    </div>
+  );
+}
+
+function buildBatchColumns(
+  canWrite: boolean,
+  onVerifiedDraft: (batchId: string, value: number) => void,
+  onFlag: (batchId: string, reason: string) => Promise<void>,
+  onReject: (batchId: string, reason: string) => Promise<void>,
+  onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>
+): ColDef<IntakeBatchRow>[] {
+  return [
+    { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
+    { field: 'name', minWidth: 180 },
+    {
+      headerName: 'Expected qty',
+      valueGetter: (params: ValueGetterParams<IntakeBatchRow>) => (params.data?.expectedQty != null ? Number(params.data.expectedQty).toFixed(3) : ''),
+      editable: false,
+      minWidth: 120
+    },
+    {
+      field: 'intakeQty',
+      headerName: 'Verified qty',
+      editable: canWrite,
+      type: 'numericColumn',
+      minWidth: 140,
+      cellClass: (params) => {
+        const expected = Number(params.data?.expectedQty ?? 0);
+        const actual = Number(params.value ?? 0);
+        return expected && actual && expected !== actual ? 'intake-discrepancy' : '';
+      },
+      onCellValueChanged: (event: NewValueParams<IntakeBatchRow>) => {
+        if (!event.data?.id) return;
+        onVerifiedDraft(event.data.id, Number(event.newValue ?? 0));
+      },
+      cellStyle: (params) => {
+        const expected = Number(params.data?.expectedQty ?? 0);
+        const actual = Number(params.value ?? 0);
+        return expected && actual && expected !== actual ? { backgroundColor: '#fef9c3' } : null;
+      }
+    },
+    {
+      field: 'unitCost',
+      headerName: 'Unit cost',
+      type: 'numericColumn',
+      editable: false,
+      valueFormatter: (params) => `$${Number(params.value ?? 0).toFixed(2)}`,
+      minWidth: 110
+    },
+    { field: 'status', minWidth: 110 },
+    {
+      field: 'notes',
+      headerName: 'Notes',
+      editable: canWrite,
+      minWidth: 220,
+      cellEditor: 'agLargeTextCellEditor',
+      cellEditorPopup: true,
+      onCellValueChanged: (event: NewValueParams<IntakeBatchRow>) => {
+        if (!event.data?.id) return;
+        const addition = String(event.newValue ?? '').trim();
+        if (!addition || addition === event.oldValue) return;
+        void onAppendNote(event.data.id, event.data.notes ?? null, addition);
+      }
+    },
+    {
+      headerName: 'Actions',
+      pinned: 'right',
+      minWidth: 220,
+      cellRenderer: (params: ICellRendererParams<IntakeBatchRow>) => {
+        const row = params.data;
+        if (!row || !canWrite) return null;
+        return (
+          <BatchRowActions row={row} onFlag={onFlag} onReject={onReject} />
+        );
+      }
+    }
+  ];
+}
+
+function BatchRowActions({
+  row,
+  onFlag,
+  onReject
+}: {
+  row: IntakeBatchRow;
+  onFlag: (batchId: string, reason: string) => Promise<void>;
+  onReject: (batchId: string, reason: string) => Promise<void>;
+}) {
+  const [mode, setMode] = useState<'idle' | 'flag' | 'reject'>('idle');
+  const [reason, setReason] = useState('');
+
+  if (mode === 'idle') {
+    const disabled = row.status === 'returned' || row.status === 'posted';
+    return (
+      <div className="flex h-full items-center gap-1">
+        <button type="button" className="secondary-button compact-action" disabled={disabled} onClick={() => setMode('flag')}>
+          Flag
         </button>
-        <label className="field-inline grow">
-          Tags
-          <input className="input" value={rowTags} placeholder="premium, candy" onChange={(event) => setRowTags(event.target.value)} />
-        </label>
-        <label className="field-inline">
-          Lot code
-          <input className="input compact" value={lotCode} onChange={(event) => setLotCode(event.target.value)} />
-        </label>
-        <label className="field-inline">
-          Expiration
-          <input className="input compact" type="date" value={expirationDate} onChange={(event) => setExpirationDate(event.target.value)} />
-        </label>
-        <button className="secondary-button" type="button" disabled={!rows.length || (!lotCode && !expirationDate)} onClick={setSelectedLotInfo}>
-          Set lot info
+        <button type="button" className="secondary-button compact-action" disabled={disabled} onClick={() => setMode('reject')}>
+          Reject
         </button>
       </div>
-      {csvOpen ? (
-        <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <button className="secondary-button compact-action" type="button" disabled={!csvText.trim()} onClick={() => void importCsv(true)}>
-                Validate
-              </button>
-              <button className="primary-button compact-action" type="button" disabled={!csvResult?.ok || !csvText.trim()} onClick={() => void importCsv(false)}>
-                Import
-              </button>
-            </div>
-          </div>
-          <textarea className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus" value={csvText} onChange={(event) => setCsvText(event.target.value)} />
-          {csvResult ? (
-            <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
-          ) : null}
-        </WorkspacePanel>
-      ) : null}
-      <OperatorGrid
-        view="intake"
-        title="Inventory Intake"
-        rows={(grid.data ?? []) as GridRow[]}
-        columns={intakeColumns}
-        loading={grid.isLoading || isRunning}
-        onSelectionChange={(selection) => setSelectedRows('intake', selection)}
-        onCellCommit={onCellCommit}
-        selectionActions={(selection) => (
-          <>
-            <button type="button" className="primary-button compact-action" disabled={!selection.length} onClick={selectedReady ? processIntake : markReady}>
-              {selectedReady ? <ReceiptText className="h-4 w-4" aria-hidden="true" /> : <ClipboardCheck className="h-4 w-4" aria-hidden="true" />}
-              {selectedReady ? 'Post receipt' : 'Mark Ready'}
-            </button>
-            <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={() => setReceiptPreviewOpen(true)}>
-              Preview receipt
-            </button>
-            <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={() => setIntakeTrayOpen((value) => !value)} aria-expanded={intakeTrayOpen}>
-              {intakeTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-              Intake tray
-            </button>
-            {intakeTrayOpen ? (
-              <>
-                <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={duplicateRows}>
-                  <Copy className="h-4 w-4" aria-hidden="true" />
-                  Duplicate
-                </button>
-                <button type="button" className="secondary-button compact-action" disabled={!selection.length} onClick={deleteDraftRows}>
-                  Delete draft
-                </button>
-                <button type="button" className="secondary-button compact-action" disabled={!selection.length || (!lotCode && !expirationDate)} onClick={setSelectedLotInfo}>
-                  Set lot info
-                </button>
-              </>
-            ) : null}
-          </>
-        )}
-        actions={
-          <>
-            <button type="button" className="primary-button" onClick={createRow} disabled={!defaultVendorId}>
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              Receive Inventory
-            </button>
-          </>
-        }
+    );
+  }
+
+  return (
+    <div className="flex h-full items-center gap-1">
+      <input
+        className="input compact"
+        autoFocus
+        placeholder={`${mode === 'flag' ? 'Flag' : 'Reject'} reason`}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
       />
-      {rows.length ? (
-        <div className="control-band receipt-impact-strip">
-          <span className="selection-pill">{rows.length} selected</span>
-          <span className="selection-pill">Vendor {receiptPreview.data?.vendor || 'Mixed / missing'}</span>
-          <span className="selection-pill">Total ${receiptPreview.data?.total ?? '...'}</span>
-          <span className={receiptPreview.data?.ok ? 'selection-pill success' : 'selection-pill warning'}>
-            {receiptPreview.data?.ok ? 'Receipt ready' : `${receiptPreview.data?.conflicts.length ?? 0} fix`}
-          </span>
-          <button type="button" className="secondary-button compact-action" onClick={() => setReceiptPreviewOpen(true)}>
-            Receipt detail
-          </button>
-        </div>
-      ) : null}
-      {receiptPreviewOpen ? (
-        <WorkspacePanel panelId="intake:receipt-preview" title="Selected-row receipt preview" contentClassName="p-3">
-          <div className="flex items-start justify-between gap-3">
-            <button className="text-button" type="button" onClick={() => setReceiptPreviewOpen(false)}>
-              Close
-            </button>
-          </div>
-          {receiptPreview.data ? (
-            <div className="mt-3 grid gap-3">
-              <div className="grid gap-2 text-sm md:grid-cols-4">
-                <span className="selection-pill">Vendor {receiptPreview.data.vendor || 'Mixed / missing'}</span>
-                <span className="selection-pill">{receiptPreview.data.rows.length} row(s)</span>
-                <span className="selection-pill">Total ${receiptPreview.data.total}</span>
-                <span className={receiptPreview.data.ok ? 'selection-pill success' : 'selection-pill warning'}>{receiptPreview.data.ok ? 'Ready to post' : `${receiptPreview.data.conflicts.length} conflict(s)`}</span>
-              </div>
-              {receiptPreview.data.conflicts.length ? (
-                <div className="grid gap-1 text-sm text-red-700">
-                  {receiptPreview.data.conflicts.map((conflict) => (
-                    <div key={conflict}>{conflict}</div>
-                  ))}
-                </div>
-              ) : null}
-              <div className="finder-table-wrap max-h-64">
-                <table className="finder-table">
-                  <thead>
-                    <tr>
-                      <th>Batch</th>
-                      <th>Name</th>
-                      <th>Qty</th>
-                      <th>Cost</th>
-                      <th>Subtotal</th>
-                      <th>Marker</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {receiptPreview.data.rows.map((row) => (
-                      <tr key={String(row.id)}>
-                        <td>{String(row.batchCode)}</td>
-                        <td>{String(row.name)}</td>
-                        <td>{String(row.intakeQty)}</td>
-                        <td>${String(row.unitCost)}</td>
-                        <td>${Number(row.subtotal ?? 0).toFixed(2)}</td>
-                        <td>{String(row.legacyMarker ?? '')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <button className="primary-button w-fit" type="button" disabled={!receiptPreview.data.ok || !rows.length} onClick={processIntake}>
-                Post receipt from selected rows
-              </button>
-            </div>
-          ) : (
-            <div className="text-sm text-zinc-600">Loading preview...</div>
-          )}
-        </WorkspacePanel>
-      ) : null}
+      <button
+        type="button"
+        className="primary-button compact-action"
+        disabled={!reason.trim()}
+        onClick={async () => {
+          const trimmed = reason.trim();
+          if (!trimmed) return;
+          if (mode === 'flag') await onFlag(row.id, trimmed);
+          else await onReject(row.id, trimmed);
+          setMode('idle');
+          setReason('');
+        }}
+      >
+        {mode === 'flag' ? 'Flag' : 'Reject'}
+      </button>
+      <button
+        type="button"
+        className="secondary-button compact-action"
+        onClick={() => {
+          setMode('idle');
+          setReason('');
+        }}
+      >
+        Cancel
+      </button>
     </div>
   );
 }
