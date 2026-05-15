@@ -13,6 +13,7 @@ import type { GridRow, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import { parseTagInput } from '../../shared/tags';
+import { PAYMENT_TERMS_OPTIONS } from '../../shared/paymentTerms';
 
 const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
   purchaseOrders: [
@@ -20,12 +21,15 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'vendor', width: 190 },
     { field: 'status', width: 135 },
     { field: 'expectedDate', headerName: 'Expected', editable: true, width: 165 },
+    { field: 'paymentTerms', headerName: 'Terms', editable: true, width: 140 },
+    { field: 'prepaymentAmount', headerName: 'Prepay', editable: true, type: 'numericColumn', width: 115 },
     { field: 'total', type: 'numericColumn', width: 120 },
     { field: 'lines', width: 95 },
     { field: 'orderedQty', headerName: 'Ordered', type: 'numericColumn', width: 120 },
     { field: 'receivedQty', headerName: 'Received', type: 'numericColumn', width: 120 },
     { field: 'buyerNotes', headerName: 'Buyer notes', editable: true, minWidth: 220 },
     { field: 'internalNotes', headerName: 'Internal', editable: true, minWidth: 220 },
+    { field: 'externalNotes', headerName: 'External (vendor)', editable: true, minWidth: 220 },
     { field: 'orderedAt', width: 170 },
     { field: 'receivedAt', width: 170 },
     { field: 'createdAt', width: 170 }
@@ -161,12 +165,20 @@ const purchaseOrderLineColumns: ColDef<GridRow>[] = [
   { field: 'category', editable: true, width: 120 },
   { field: 'subcategory', editable: true, width: 140 },
   { field: 'unitCost', headerName: 'Unit cost', editable: true, type: 'numericColumn', width: 120 },
-  { field: 'costRange', headerName: 'Cost range', editable: true, width: 135 },
+  { field: 'costRangeLow', headerName: 'Range low', editable: true, type: 'numericColumn', width: 115 },
+  { field: 'costRangeHigh', headerName: 'Range high', editable: true, type: 'numericColumn', width: 115 },
   { field: 'qty', headerName: 'Units', editable: true, type: 'numericColumn', width: 105 },
   { field: 'uom', headerName: 'Unit type', editable: true, width: 110 },
-  { field: 'lineTotal', headerName: 'Row total', type: 'numericColumn', width: 120, valueGetter: (params) => Number(params.data?.qty ?? 0) * Number(params.data?.unitCost ?? 0) },
-  { field: 'paymentTerms', headerName: 'Payment terms', editable: true, width: 145 },
-  { field: 'notes', headerName: 'Vendor receipt notes', editable: true, minWidth: 190 },
+  { field: 'lineTotal', headerName: 'Row total', type: 'numericColumn', width: 120, valueGetter: (params) => {
+    const qty = Number(params.data?.qty ?? 0);
+    const unitCost = Number(params.data?.unitCost ?? 0);
+    if (unitCost > 0) return qty * unitCost;
+    const low = Number(params.data?.costRangeLow ?? 0);
+    const high = Number(params.data?.costRangeHigh ?? 0);
+    if (low > 0 && high > 0) return qty * ((low + high) / 2);
+    return 0;
+  } },
+  { field: 'externalNotes', headerName: 'Vendor receipt notes', editable: true, minWidth: 190 },
   { field: 'internalNotes', headerName: 'Internal notes', editable: true, minWidth: 180 },
   { field: 'tags', editable: true, minWidth: 160 },
   { field: 'receivedQty', headerName: 'Received', width: 120 },
@@ -204,6 +216,9 @@ export function PurchaseOrdersView() {
   const [expectedDate, setExpectedDate] = useState('');
   const [buyerNotes, setBuyerNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  const [externalNotes, setExternalNotes] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState('vendor_terms');
+  const [prepaymentAmount, setPrepaymentAmount] = useState('0');
   const [draftLines, setDraftLines] = useState<GridRow[]>([makePoDraftLine()]);
   const [newVendorOpen, setNewVendorOpen] = useState(false);
   const [newVendorName, setNewVendorName] = useState('');
@@ -222,7 +237,14 @@ export function PurchaseOrdersView() {
     .slice(0, 8);
   const selectedPoStatus = String(selectedPo?.status ?? '');
   const filledDraftLines = draftLines.filter((line) => String(line.productName ?? '').trim());
-  const approvalLineIssues = filledDraftLines.filter((line) => Number(line.qty ?? 0) <= 0 || Number(line.unitCost ?? 0) <= 0);
+  const approvalLineIssues = filledDraftLines.filter((line) => {
+    const hasQty = Number(line.qty ?? 0) > 0;
+    const hasUnitCost = Number(line.unitCost ?? 0) > 0;
+    const hasValidRange = (line.costRangeLow != null && line.costRangeHigh != null &&
+                           Number(line.costRangeLow) > 0 && Number(line.costRangeHigh) > 0 &&
+                           Number(line.costRangeLow) <= Number(line.costRangeHigh));
+    return !hasQty || (!hasUnitCost && !hasValidRange);
+  });
   const canApproveDraft = Boolean(defaultVendorId) && filledDraftLines.length > 0 && approvalLineIssues.length === 0;
 
   function openAuthoringWorkspace() {
@@ -264,13 +286,28 @@ export function PurchaseOrdersView() {
   async function saveDraftPo(options: { approve?: boolean } = {}) {
     if (!defaultVendorId) return null;
     const linesToSubmit = draftLines.filter((row) => String(row.productName ?? '').trim());
-    if (options.approve && (!linesToSubmit.length || linesToSubmit.some((row) => Number(row.qty ?? 0) <= 0 || Number(row.unitCost ?? 0) <= 0))) {
-      pushToast('Approve PO needs product, units, and unit cost on every filled line.', 'error');
+    if (options.approve && (!linesToSubmit.length || linesToSubmit.some((row) => {
+      const hasQty = Number(row.qty ?? 0) > 0;
+      const hasUnitCost = Number(row.unitCost ?? 0) > 0;
+      const hasValidRange = (row.costRangeLow != null && row.costRangeHigh != null &&
+                             Number(row.costRangeLow) > 0 && Number(row.costRangeHigh) > 0 &&
+                             Number(row.costRangeLow) <= Number(row.costRangeHigh));
+      return !hasQty || (!hasUnitCost && !hasValidRange);
+    }))) {
+      pushToast('Approve PO needs product, units, and either unit cost or valid cost range on every filled line.', 'error');
       return null;
     }
     const result = await runCommand(
       'createPurchaseOrder',
-      { vendorId: defaultVendorId, expectedDate: expectedDate || undefined, buyerNotes: buyerNotes || undefined, internalNotes: internalNotes || undefined },
+      {
+        vendorId: defaultVendorId,
+        expectedDate: expectedDate || undefined,
+        buyerNotes: buyerNotes || undefined,
+        internalNotes: internalNotes || undefined,
+        externalNotes: externalNotes || undefined,
+        paymentTerms: paymentTerms || 'vendor_terms',
+        prepaymentAmount: Number(prepaymentAmount || 0)
+      },
       options.approve ? 'Create purchase order draft before approval' : 'Save purchase order draft'
     );
     if (!result.ok || !result.affectedIds[0]) return null;
@@ -285,9 +322,11 @@ export function PurchaseOrdersView() {
           tags: parseTagInput(String(line.tags ?? '')),
           qty: Number(line.qty || 0),
           unitCost: Number(line.unitCost || 0),
+          costRangeLow: line.costRangeLow ? Number(line.costRangeLow) : undefined,
+          costRangeHigh: line.costRangeHigh ? Number(line.costRangeHigh) : undefined,
           uom: line.uom || unitTypeForCategory(String(line.category ?? '')),
-          notes: composePoLineNotes(line),
-          shorthand: line.costRange ? `Range: ${String(line.costRange)}` : undefined,
+          externalNotes: line.externalNotes || undefined,
+          internalNotes: line.internalNotes || undefined,
           ownershipStatus: 'UNKNOWN'
         },
         'Add purchase order line from authoring table'
@@ -300,6 +339,9 @@ export function PurchaseOrdersView() {
     setDraftLines([makePoDraftLine()]);
     setBuyerNotes('');
     setInternalNotes('');
+    setExternalNotes('');
+    setPaymentTerms('vendor_terms');
+    setPrepaymentAmount('0');
     setSelectedRows('purchaseOrders', [{ id: purchaseOrderId }]);
     return purchaseOrderId;
   }
@@ -321,17 +363,25 @@ export function PurchaseOrdersView() {
 
   async function updatePoCell(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
-    if (['expectedDate', 'buyerNotes', 'internalNotes'].includes(String(event.colDef.field))) {
-      await runCommand('updatePurchaseOrder', { purchaseOrderId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline purchase order edit: ${event.colDef.field}`);
+    const field = String(event.colDef.field);
+    if (['expectedDate', 'buyerNotes', 'internalNotes', 'externalNotes', 'paymentTerms', 'prepaymentAmount'].includes(field)) {
+      const value = field === 'prepaymentAmount' ? Number(event.newValue || 0) : event.newValue;
+      await runCommand('updatePurchaseOrder', { purchaseOrderId: event.data.id, [field]: value }, `Inline purchase order edit: ${field}`);
     }
   }
 
   async function updateLineCell(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
     const field = String(event.colDef.field);
-    const supported = ['productName', 'category', 'tags', 'qty', 'uom', 'unitCost', 'notes'];
+    const supported = ['productName', 'category', 'tags', 'qty', 'uom', 'unitCost', 'costRangeLow', 'costRangeHigh', 'notes', 'internalNotes', 'externalNotes'];
     if (!supported.includes(field)) return;
-    await runCommand('updatePurchaseOrderLine', { lineId: event.data.id, [field]: field === 'tags' ? parseTagInput(String(event.newValue ?? '')) : event.newValue }, `Inline purchase order line edit: ${field}`);
+    let value: string | string[] | number = event.newValue;
+    if (field === 'tags') {
+      value = parseTagInput(String(event.newValue ?? ''));
+    } else if (['unitCost', 'costRangeLow', 'costRangeHigh'].includes(field)) {
+      value = Number(event.newValue || 0);
+    }
+    await runCommand('updatePurchaseOrderLine', { lineId: event.data.id, [field]: value }, `Inline purchase order line edit: ${field}`);
   }
 
   async function runPurchaseOrderPrimary() {
@@ -340,7 +390,11 @@ export function PurchaseOrdersView() {
       await runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Receive selected purchase order to draft intake');
       return;
     }
-    await runCommand('approvePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Approve PO to receive queue');
+    if (selectedPoStatus === 'finalized') {
+      await runCommand('approvePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Approve finalized PO');
+      return;
+    }
+    await runCommand('finalizePurchaseOrder', { purchaseOrderId: selectedPo.id }, 'Finalize draft PO');
   }
 
   return (
@@ -414,6 +468,31 @@ export function PurchaseOrdersView() {
                 Internal notes
                 <input className="input" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
               </label>
+              <label className="field-inline grow">
+                External notes (vendor-visible)
+                <input className="input" value={externalNotes} onChange={(event) => setExternalNotes(event.target.value)} />
+              </label>
+              <label className="field-inline">
+                Payment terms
+                <select className="select" value={paymentTerms} onChange={(event) => setPaymentTerms(event.target.value)}>
+                  {PAYMENT_TERMS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field-inline">
+                Prepayment amount
+                <input
+                  className="input compact"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={prepaymentAmount}
+                  onChange={(event) => setPrepaymentAmount(event.target.value)}
+                />
+              </label>
             </div>
             {newVendorOpen ? (
               <div className="po-context-panel" role="region" aria-label="Add new vendor drawer">
@@ -452,7 +531,7 @@ export function PurchaseOrdersView() {
               onCellCommit={updateDraftLine}
               actions={
                 <>
-                  {approvalLineIssues.length ? <span className="selection-pill danger">{approvalLineIssues.length} filled line needs units and unit cost.</span> : null}
+                  {approvalLineIssues.length ? <span className="selection-pill danger">{approvalLineIssues.length} filled line needs units and cost (fixed or range).</span> : null}
                   <button className="secondary-button compact-action" type="button" onClick={() => addDraftLine()}>
                     <Plus className="h-4 w-4" aria-hidden="true" />
                     Add line row
@@ -460,7 +539,7 @@ export function PurchaseOrdersView() {
                   <button className="secondary-button compact-action" type="button" disabled={!defaultVendorId || isRunning} onClick={() => void saveDraftPo()}>
                     Save draft
                   </button>
-                  <button className="primary-button compact-action" type="button" disabled={isRunning || !canApproveDraft} title={approvalLineIssues.length ? 'Every filled PO line needs units and unit cost before approval.' : undefined} onClick={() => void saveDraftPo({ approve: true })}>
+                  <button className="primary-button compact-action" type="button" disabled={isRunning || !canApproveDraft} title={approvalLineIssues.length ? 'Every filled PO line needs units and either unit cost or valid cost range before approval.' : undefined} onClick={() => void saveDraftPo({ approve: true })}>
                     Approve PO
                   </button>
                 </>
@@ -471,7 +550,7 @@ export function PurchaseOrdersView() {
             <div className="po-total-strip">
               <span>PO total ${moneyish(poLinesTotal(draftLines))}</span>
               <span>Procurement cost only. Sales price stays in Sales.</span>
-              {approvalLineIssues.length ? <span className="po-total-warning">{approvalLineIssues.length} filled line needs units and unit cost.</span> : null}
+              {approvalLineIssues.length ? <span className="po-total-warning">{approvalLineIssues.length} filled line needs units and cost (fixed or range).</span> : null}
             </div>
           </div>
           <aside className="po-context-panel" aria-label="Vendor context">
@@ -539,6 +618,10 @@ export function PurchaseOrdersView() {
                   <button className="secondary-button compact-action" disabled={!selected.length || isRunning || !['approved', 'ordered', 'partially_received'].includes(selectedPoStatus)} onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Receive selected purchase order to draft intake')} type="button">
                     <PackagePlus className="h-4 w-4" aria-hidden="true" />
                     Draft intake
+                  </button>
+                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning || selectedPoStatus !== 'finalized'} onClick={() => runCommand('unfinalizePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Return finalized PO to draft for editing')} type="button">
+                    <Undo2 className="h-4 w-4" aria-hidden="true" />
+                    Unfinalize
                   </button>
                   <button className="secondary-button compact-action" disabled={!selected.length || isRunning} onClick={() => runCommand('cancelPurchaseOrder', { purchaseOrderId: selected[0].id }, 'Cancel selected purchase order')} type="button">
                     <Undo2 className="h-4 w-4" aria-hidden="true" />
@@ -627,12 +710,12 @@ function makePoDraftLine(seed: Partial<GridRow> = {}): GridRow {
     productName: seed.productName ?? '',
     category,
     subcategory: seed.subcategory ?? '',
-    costRange: seed.costRange ?? '',
+    costRangeLow: seed.costRangeLow ?? null,
+    costRangeHigh: seed.costRangeHigh ?? null,
     qty: seed.qty ?? 1,
     uom: seed.uom ?? unitTypeForCategory(category),
     unitCost: seed.unitCost ?? 0,
-    paymentTerms: seed.paymentTerms ?? 'Vendor terms',
-    notes: seed.notes ?? '',
+    externalNotes: seed.externalNotes ?? '',
     internalNotes: seed.internalNotes ?? '',
     tags: seed.tags ?? '',
     receivedQty: 0,
@@ -668,7 +751,8 @@ function purchaseOrderPrimaryLabel(status: string) {
   if (['approved', 'ordered', 'partially_received'].includes(status)) return 'Receive PO';
   if (status === 'received') return 'Received';
   if (status === 'cancelled') return 'Cancelled';
-  return 'Approve PO';
+  if (status === 'finalized') return 'Approve PO';
+  return 'Finalize PO';
 }
 
 function purchaseOrderPrimaryDisabled(status: string) {

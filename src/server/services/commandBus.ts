@@ -177,8 +177,14 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return updatePurchaseOrderLine(tx, payload, commandId);
     case 'removePurchaseOrderLine':
       return removePurchaseOrderLine(tx, payload, commandId);
+    case 'finalizePurchaseOrder':
+      return finalizePurchaseOrder(tx, payload, user.id, commandId);
+    case 'unfinalizePurchaseOrder':
+      return unfinalizePurchaseOrder(tx, payload, commandId);
     case 'approvePurchaseOrder':
       return approvePurchaseOrder(tx, payload, user.id, commandId);
+    case 'recordVendorPrepayment':
+      return recordVendorPrepayment(tx, payload, commandId);
     case 'receivePurchaseOrder':
       return receivePurchaseOrder(tx, payload, commandId);
     case 'cancelPurchaseOrder':
@@ -614,6 +620,18 @@ async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string):
   return { ok: true, commandId, affectedIds: [purchaseOrderId], toast: 'Purchase order updated.' };
 }
 
+/**
+ * Add a line item to a purchase order.
+ *
+ * COST MODES (XOR constraint):
+ * - Fixed cost: unitCost > 0, costRangeLow/High = NULL
+ * - Cost range: unitCost = 0, costRangeLow/High both set (low <= high)
+ * - Cannot use both modes simultaneously (enforced by DB constraint + validation)
+ *
+ * When cost range is used, PO total calculations use the midpoint: (low + high) / 2
+ * See: src/shared/priceRange.ts for range validation utilities
+ * See: migrations/0010_po_cost_range.sql for DB constraint
+ */
 async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const purchaseOrderId = requiredId(payload.purchaseOrderId, 'purchaseOrderId');
   const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
@@ -628,7 +646,7 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
   const qty = requiredNumber(payload.qty, 'qty');
   if (qty <= 0) throw new Error('Quantity must be greater than zero.');
 
-  // Cost validation: either unitCost OR cost range, not both
+  // Cost validation: either unitCost OR cost range, not both (XOR constraint)
   const unitCost = Number(payload.unitCost ?? 0);
   const costRangeLow = payload.costRangeLow != null ? Number(payload.costRangeLow) : null;
   const costRangeHigh = payload.costRangeHigh != null ? Number(payload.costRangeHigh) : null;
@@ -770,11 +788,120 @@ async function removePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   return { ok: true, commandId, affectedIds: [line.purchaseOrderId, lineId], toast: 'Purchase order line removed.' };
 }
 
+/**
+ * Finalize a draft purchase order, making it ready for approval.
+ *
+ * WORKFLOW: draft → finalized → approved → ordered → received
+ *                     ↑ (you are here)
+ *
+ * BREAKING CHANGE (May 2026): approvePurchaseOrder now REQUIRES finalized status.
+ * Previously, POs could go directly from draft → approved. Now there is a mandatory
+ * finalization step that validates the PO before approval.
+ *
+ * Validation: Same as approve - lines must exist, have valid costs (fixed OR range), and qty > 0
+ * See: migrations/0013_po_finalization.sql
+ */
+async function finalizePurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  if (order.status !== 'draft') throw new Error('Only draft purchase orders can be finalized.');
+
+  // Same validation as approve
+  const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
+  if (!lines.length) throw new Error('Add at least one product line before finalizing.');
+  const issues = lines.flatMap((line: typeof purchaseOrderLines.$inferSelect) =>
+    purchaseOrderLineIssues(line).map((issue) => `${line.productName}: ${issue}`)
+  );
+  if (issues.length) throw new Error(issues.join('; '));
+
+  await tx.update(purchaseOrders).set({
+    status: 'finalized',
+    finalizedAt: new Date(),
+    updatedAt: new Date()
+  }).where(eq(purchaseOrders.id, purchaseOrderId));
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [purchaseOrderId],
+    toast: `${order.poNo} finalized and ready for approval.`
+  };
+}
+
+/**
+ * Return a finalized purchase order to draft status for editing.
+ *
+ * WORKFLOW: draft ← finalized (you are here) ← approved ← ordered ← received
+ *
+ * Use case: After finalization, operator realizes they need to edit cost, quantity, or add lines.
+ * This command allows returning to draft state WITHOUT losing entered data.
+ *
+ * UI: "Unfinalize" button in More tray (only visible when status = 'finalized')
+ */
+async function unfinalizePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!order) throw new Error('Purchase order not found.');
+  if (order.status !== 'finalized') throw new Error('Only finalized purchase orders can be returned to draft.');
+
+  await tx.update(purchaseOrders).set({
+    status: 'draft',
+    finalizedAt: null,
+    updatedAt: new Date()
+  }).where(eq(purchaseOrders.id, purchaseOrderId));
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [purchaseOrderId],
+    toast: `${order.poNo} returned to draft.`
+  };
+}
+
+async function recordVendorPrepayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId, 'purchaseOrderId');
+  const amount = requiredNumber(payload.amount, 'amount');
+  if (amount <= 0) throw new Error('Prepayment amount must be greater than zero.');
+
+  const [po] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!po) throw new Error('Purchase order not found.');
+  if (po.status !== 'approved') throw new Error('Prepayment can only be recorded on approved purchase orders.');
+  if (amount > Number(po.prepaymentAmount)) {
+    throw new Error(`Prepayment amount cannot exceed ${po.prepaymentAmount}.`);
+  }
+
+  // Check if prepayment already recorded
+  const [existing] = await tx.select().from(vendorPayments)
+    .where(eq(vendorPayments.purchaseOrderId, purchaseOrderId))
+    .limit(1);
+
+  if (existing) throw new Error('Prepayment already recorded for this purchase order.');
+
+  // Create vendor payment record
+  const [payment] = await tx.insert(vendorPayments).values({
+    vendorBillId: null as unknown as string, // Will be linked when bill is created
+    purchaseOrderId,
+    amount: moneyScale(amount),
+    method: stringValue(payload.method) || 'cash',
+    reference: stringValue(payload.reference) || `PO ${po.poNo} prepayment`,
+    status: 'posted',
+    createdAt: new Date()
+  }).returning();
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [purchaseOrderId, payment.id],
+    toast: `Prepayment of $${amount} recorded for PO ${po.poNo}.`
+  };
+}
+
 async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
   if (!order) throw new Error('Purchase order not found.');
-  if (['cancelled', 'received'].includes(order.status)) throw new Error('This purchase order cannot be approved.');
+  if (order.status !== 'finalized') throw new Error('Purchase order must be finalized before approval.');
   const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
   if (!lines.length) throw new Error('Add at least one product line before approving this purchase order.');
   const issues = lines.flatMap((line: typeof purchaseOrderLines.$inferSelect) => purchaseOrderLineIssues(line).map((issue) => `${line.productName}: ${issue}`));
