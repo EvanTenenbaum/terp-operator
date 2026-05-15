@@ -93,6 +93,7 @@ export const purchaseOrders = pgTable(
     total: numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
     orderedBy: uuid('ordered_by').references(() => users.id, { onDelete: 'set null' }),
     paymentTerms: varchar('payment_terms', { length: 32 }).notNull().default('vendor_terms'),
+    prepaymentAmount: numeric('prepayment_amount', { precision: 12, scale: 2 }).notNull().default('0'),
     buyerNotes: text('buyer_notes'),
     internalNotes: text('internal_notes'),
     createdAt: now(),
@@ -316,6 +317,7 @@ export const vendorBills = pgTable('vendor_bills', {
 export const vendorPayments = pgTable('vendor_payments', {
   id: id(),
   vendorBillId: uuid('vendor_bill_id').references(() => vendorBills.id, { onDelete: 'cascade' }).notNull(),
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   method: varchar('method', { length: 32 }).notNull().default('cash'),
   reference: varchar('reference', { length: 180 }),
