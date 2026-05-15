@@ -13,6 +13,7 @@ import { trpc } from '../api/trpc';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
+import type { CommandResult } from '../../shared/types';
 
 interface IntakeBatchRow {
   id: string;
@@ -72,8 +73,36 @@ export function IntakeView() {
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmVerifyAllFor, setConfirmVerifyAllFor] = useState<IntakeOrderRow | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
+  const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
+  const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
+  const [previewOrder, setPreviewOrder] = useState<IntakeOrderRow | null>(null);
+  const previewBatchIds = previewOrder
+    ? previewOrder.batches
+        .filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))
+        .map((batch) => batch.id)
+    : [];
+  const receiptPreview = trpc.queries.receiptPreview.useQuery(
+    { batchIds: previewBatchIds },
+    { enabled: previewBatchIds.length > 0 }
+  );
 
   const orderRows = (intakeQueue.data ?? EMPTY) as IntakeOrderRow[];
+
+  async function importCsv(validateOnly: boolean) {
+    const result = await runCommand('importBatchesCsv', { csv: csvText, validateOnly }, validateOnly ? 'Validate intake CSV import' : 'Import validated intake CSV');
+    setCsvResult(result);
+    if (result.ok && !validateOnly) setCsvOpen(false);
+  }
+
+  async function deleteDraftBatch(batchId: string) {
+    setBusy(true);
+    try {
+      await runCommand('deleteBatch', { batchId }, 'Delete draft intake row from queue');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const detailCellRendererParams = useMemo(
     () => ({
@@ -109,7 +138,8 @@ export function IntakeView() {
             } finally {
               setBusy(false);
             }
-          }
+          },
+          deleteDraftBatch
         ),
         defaultColDef: { resizable: true, sortable: true } as ColDef<IntakeBatchRow>,
         domLayout: 'autoHeight' as const
@@ -155,7 +185,7 @@ export function IntakeView() {
       {
         headerName: 'Actions',
         pinned: 'right',
-        minWidth: 280,
+        minWidth: 360,
         cellRenderer: (params: ICellRendererParams<IntakeOrderRow>) => {
           const order = params.data;
           if (!order) return null;
@@ -176,6 +206,14 @@ export function IntakeView() {
                 onClick={() => setConfirmVerifyAllFor(order)}
               >
                 Verify all
+              </button>
+              <button
+                type="button"
+                className="secondary-button compact-action"
+                disabled={!hasPendingBatches(order)}
+                onClick={() => setPreviewOrder(order)}
+              >
+                Preview receipt
               </button>
             </div>
           );
@@ -243,6 +281,43 @@ export function IntakeView() {
 
   return (
     <div className="view-stack">
+      <div className="control-band">
+        <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
+          CSV import
+        </button>
+      </div>
+      {csvOpen ? (
+        <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                className="secondary-button compact-action"
+                type="button"
+                disabled={!csvText.trim() || isRunning || busy}
+                onClick={() => void importCsv(true)}
+              >
+                Validate
+              </button>
+              <button
+                className="primary-button compact-action"
+                type="button"
+                disabled={!csvResult?.ok || !csvText.trim() || isRunning || busy}
+                onClick={() => void importCsv(false)}
+              >
+                Import
+              </button>
+            </div>
+          </div>
+          <textarea
+            className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
+            value={csvText}
+            onChange={(event) => setCsvText(event.target.value)}
+          />
+          {csvResult ? (
+            <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
+          ) : null}
+        </WorkspacePanel>
+      ) : null}
       <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
         <div className="ag-theme-quartz grid-shell">
           <AgGridReact<IntakeOrderRow>
@@ -263,6 +338,64 @@ export function IntakeView() {
           <div className="p-4 text-sm text-zinc-600">No approved purchase orders with linked intake batches yet. Approve a PO to populate this queue.</div>
         ) : null}
       </WorkspacePanel>
+      {previewOrder ? (
+        <WorkspacePanel
+          panelId="intake:receipt-preview"
+          title={`Receipt preview — ${previewOrder.poNo}`}
+          contentClassName="p-3"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <button className="text-button" type="button" onClick={() => setPreviewOrder(null)}>
+              Close
+            </button>
+          </div>
+          {receiptPreview.data ? (
+            <div className="mt-3 grid gap-3">
+              <div className="grid gap-2 text-sm md:grid-cols-4">
+                <span className="selection-pill">Vendor {receiptPreview.data.vendor || 'Mixed / missing'}</span>
+                <span className="selection-pill">{receiptPreview.data.rows.length} row(s)</span>
+                <span className="selection-pill">Total ${receiptPreview.data.total}</span>
+                <span className={receiptPreview.data.ok ? 'selection-pill success' : 'selection-pill warning'}>
+                  {receiptPreview.data.ok ? 'Ready to post' : `${receiptPreview.data.conflicts.length} conflict(s)`}
+                </span>
+              </div>
+              {receiptPreview.data.conflicts.length ? (
+                <div className="grid gap-1 text-sm text-red-700">
+                  {receiptPreview.data.conflicts.map((conflict) => (
+                    <div key={conflict}>{conflict}</div>
+                  ))}
+                </div>
+              ) : null}
+              <div className="finder-table-wrap max-h-64">
+                <table className="finder-table">
+                  <thead>
+                    <tr>
+                      <th>Batch</th>
+                      <th>Name</th>
+                      <th>Qty</th>
+                      <th>Cost</th>
+                      <th>Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receiptPreview.data.rows.map((row) => (
+                      <tr key={String(row.id)}>
+                        <td>{String(row.batchCode)}</td>
+                        <td>{String(row.name)}</td>
+                        <td>{String(row.intakeQty)}</td>
+                        <td>${String(row.unitCost)}</td>
+                        <td>${Number(row.subtotal ?? 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-zinc-600">Loading preview...</div>
+          )}
+        </WorkspacePanel>
+      ) : null}
       {confirmVerifyAllFor ? (
         <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
           <p className="text-sm text-zinc-700">
@@ -299,7 +432,8 @@ function buildBatchColumns(
   onVerifiedDraft: (batchId: string, value: number) => void,
   onFlag: (batchId: string, reason: string) => Promise<void>,
   onReject: (batchId: string, reason: string) => Promise<void>,
-  onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>
+  onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
+  onDeleteDraft: (batchId: string) => Promise<void>
 ): ColDef<IntakeBatchRow>[] {
   return [
     { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
@@ -357,12 +491,12 @@ function buildBatchColumns(
     {
       headerName: 'Actions',
       pinned: 'right',
-      minWidth: 220,
+      minWidth: 260,
       cellRenderer: (params: ICellRendererParams<IntakeBatchRow>) => {
         const row = params.data;
         if (!row || !canWrite) return null;
         return (
-          <BatchRowActions row={row} onFlag={onFlag} onReject={onReject} />
+          <BatchRowActions row={row} onFlag={onFlag} onReject={onReject} onDeleteDraft={onDeleteDraft} />
         );
       }
     }
@@ -372,11 +506,13 @@ function buildBatchColumns(
 function BatchRowActions({
   row,
   onFlag,
-  onReject
+  onReject,
+  onDeleteDraft
 }: {
   row: IntakeBatchRow;
   onFlag: (batchId: string, reason: string) => Promise<void>;
   onReject: (batchId: string, reason: string) => Promise<void>;
+  onDeleteDraft: (batchId: string) => Promise<void>;
 }) {
   const [mode, setMode] = useState<'idle' | 'flag' | 'reject'>('idle');
   const [reason, setReason] = useState('');
@@ -390,6 +526,15 @@ function BatchRowActions({
         </button>
         <button type="button" className="secondary-button compact-action" disabled={disabled} onClick={() => setMode('reject')}>
           Reject
+        </button>
+        <button
+          type="button"
+          className="secondary-button compact-action"
+          disabled={row.status !== 'draft'}
+          title="Delete this draft batch"
+          onClick={() => void onDeleteDraft(row.id)}
+        >
+          Delete draft
         </button>
       </div>
     );
