@@ -117,6 +117,8 @@ export const purchaseOrderLines = pgTable(
     uom: varchar('uom', { length: 24 }).notNull().default('lb'),
     unitCost: numeric('unit_cost', { precision: 12, scale: 2 }).notNull().default('0'),
     unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull().default('0'),
+    costRangeLow: numeric('cost_range_low', { precision: 12, scale: 2 }),
+    costRangeHigh: numeric('cost_range_high', { precision: 12, scale: 2 }),
     sourceCode: varchar('source_code', { length: 120 }),
     shorthand: varchar('shorthand', { length: 120 }),
     legacyMarker: varchar('legacy_marker', { length: 120 }),
