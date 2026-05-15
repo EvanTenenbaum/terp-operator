@@ -94,8 +94,10 @@ export const purchaseOrders = pgTable(
     orderedBy: uuid('ordered_by').references(() => users.id, { onDelete: 'set null' }),
     paymentTerms: varchar('payment_terms', { length: 32 }).notNull().default('vendor_terms'),
     prepaymentAmount: numeric('prepayment_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+    finalizedAt: timestamp('finalized_at', { withTimezone: true }),
     buyerNotes: text('buyer_notes'),
     internalNotes: text('internal_notes'),
+    externalNotes: text('external_notes'),
     createdAt: now(),
     updatedAt: updated()
   },
@@ -126,6 +128,8 @@ export const purchaseOrderLines = pgTable(
     legacyMarker: varchar('legacy_marker', { length: 120 }),
     ownershipStatus: varchar('ownership_status', { length: 16 }).notNull().default('UNKNOWN'),
     notes: text('notes'),
+    internalNotes: text('internal_notes'),
+    externalNotes: text('external_notes'),
     status: varchar('status', { length: 32 }).notNull().default('planned'),
     createdAt: now(),
     updatedAt: updated()
