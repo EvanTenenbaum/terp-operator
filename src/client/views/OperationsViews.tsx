@@ -8,6 +8,7 @@ import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
+import { VendorContextDrawer } from '../components/VendorContextDrawer';
 import type { GridRow, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -212,6 +213,7 @@ export function PurchaseOrdersView() {
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [poTrayOpen, setPoTrayOpen] = useState(false);
   const [lineTrayOpen, setLineTrayOpen] = useState(false);
+  const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
   const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
@@ -390,6 +392,16 @@ export function PurchaseOrdersView() {
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 Add new vendor
               </button>
+              <button
+                className="secondary-button compact-action"
+                type="button"
+                onClick={() => setVendorDrawerOpen(true)}
+                disabled={!defaultVendorId}
+                title="View vendor context"
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                Context
+              </button>
               <label className="field-inline">
                 Expected
                 <input className="input compact" type="date" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} />
@@ -485,6 +497,21 @@ export function PurchaseOrdersView() {
           </aside>
         </section>
       ) : null}
+      {/* Vendor Context Drawer */}
+      <VendorContextDrawer
+        isOpen={vendorDrawerOpen}
+        onClose={() => setVendorDrawerOpen(false)}
+        vendor={selectedVendor ?? null}
+        relationshipData={vendorRelationship.data ?? null}
+        historicalProducts={historicalProducts}
+        onQuickAdd={(product) => {
+          addDraftLine({
+            productName: product.name,
+            unitCost: product.unitCost
+          });
+          setVendorDrawerOpen(false);
+        }}
+      />
       <OperatorGrid
         view="purchaseOrders"
         title="Recent purchase orders"

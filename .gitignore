@@ -8,4 +8,8 @@ playwright-report
 artifacts/
 .superpowers/
 
+# claude-handoff: bundles transit via iCloud, not git
+.claude-shared
+.claude-handoff/
+
 .DS_Store

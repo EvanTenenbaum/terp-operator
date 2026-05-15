@@ -1,0 +1,225 @@
+import { X } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
+
+function moneyish(value: unknown) {
+  const numberValue = Number(value ?? 0);
+  return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
+}
+
+type TabKey = 'context' | 'quickAdds' | 'history';
+
+interface VendorContextDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  vendor: {
+    id: string;
+    name: string;
+    termsDays: number;
+    notes?: string;
+  } | null;
+  relationshipData: {
+    bills?: Array<{ id: string }>;
+    vendorPayments?: Array<{ id: string }>;
+    purchaseOrders?: Array<{
+      id: string;
+      poNo: string;
+      status: string;
+      total: string;
+      createdAt: string;
+    }>;
+  } | null;
+  historicalProducts: Array<{
+    id: string;
+    name: string;
+    unitCost: string;
+  }>;
+  onQuickAdd: (product: { id: string; name: string; unitCost: string }) => void;
+}
+
+export function VendorContextDrawer({
+  isOpen,
+  onClose,
+  vendor,
+  relationshipData,
+  historicalProducts,
+  onQuickAdd
+}: VendorContextDrawerProps): React.ReactElement | null {
+  const [activeTab, setActiveTab] = useState<TabKey>('context');
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Overlay */}
+      <div
+        className="fixed inset-0 bg-black/20 z-40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Drawer */}
+      <aside
+        className="fixed top-0 right-0 h-screen w-[400px] bg-white shadow-2xl z-50 flex flex-col"
+        role="dialog"
+        aria-label="Vendor context drawer"
+      >
+        {/* Header */}
+        <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {vendor?.name ?? 'Vendor Context'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-gray-100 transition-colors"
+            aria-label="Close drawer"
+            type="button"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </header>
+
+        {/* Tabs */}
+        <nav className="flex border-b border-gray-200 px-6" role="tablist">
+          <button
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'context'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('context')}
+            role="tab"
+            aria-selected={activeTab === 'context'}
+            type="button"
+          >
+            Context
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'quickAdds'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('quickAdds')}
+            role="tab"
+            aria-selected={activeTab === 'quickAdds'}
+            type="button"
+          >
+            Quick Adds
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'history'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('history')}
+            role="tab"
+            aria-selected={activeTab === 'history'}
+            type="button"
+          >
+            Historical POs
+          </button>
+        </nav>
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {activeTab === 'context' && (
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Vendor</span>
+                <strong className="text-gray-900">{vendor?.name ?? '-'}</strong>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Terms</span>
+                <strong className="text-gray-900">
+                  {vendor ? `Net ${vendor.termsDays ?? 14} days` : '-'}
+                </strong>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Open bills</span>
+                <strong className="text-gray-900">
+                  {relationshipData?.bills?.length ?? 0}
+                </strong>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Payments</span>
+                <strong className="text-gray-900">
+                  {relationshipData?.vendorPayments?.length ?? 0}
+                </strong>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Prior POs</span>
+                <strong className="text-gray-900">
+                  {relationshipData?.purchaseOrders?.length ?? 0}
+                </strong>
+              </div>
+              {vendor?.notes && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="text-sm text-gray-600 mb-2">Notes</div>
+                  <div className="text-sm text-gray-900 whitespace-pre-wrap">
+                    {vendor.notes}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'quickAdds' && (
+            <div className="space-y-2">
+              {historicalProducts.length > 0 ? (
+                historicalProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    onClick={() => onQuickAdd(product)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-colors text-left"
+                    type="button"
+                  >
+                    <span className="text-sm font-medium text-gray-900">
+                      {product.name}
+                    </span>
+                    <strong className="text-sm text-gray-700">
+                      ${moneyish(product.unitCost)}
+                    </strong>
+                  </button>
+                ))
+              ) : (
+                <div className="text-center py-8 text-sm text-gray-500">
+                  No reusable vendor history yet.
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <div className="space-y-2">
+              {relationshipData?.purchaseOrders && relationshipData.purchaseOrders.length > 0 ? (
+                relationshipData.purchaseOrders.map((po) => (
+                  <div
+                    key={po.id}
+                    className="px-4 py-3 rounded-lg border border-gray-200 text-sm"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-gray-900">{po.poNo}</span>
+                      <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
+                        {po.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-gray-600">
+                      <span>{new Date(po.createdAt).toLocaleDateString()}</span>
+                      <strong className="text-gray-900">${moneyish(po.total)}</strong>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-sm text-gray-500">
+                  No historical POs found.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
