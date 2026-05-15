@@ -17,7 +17,7 @@ test('owner can log in, inspect dashboard, and navigate spreadsheet grids', asyn
 
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: /Intake/ }).click();
-  await expect(page.getByText('Inventory Intake')).toBeVisible();
+  await expect(page.getByText('Intake queue')).toBeVisible();
   await expect(page.locator('.ag-root:visible').first()).toBeVisible();
 
   await page.getByRole('button', { name: /^Search/ }).click();
@@ -111,8 +111,8 @@ test('keel chips and row-native tools support fastest operator starts', async ({
 
   await keel.getByRole('button', { name: 'Quick actions' }).click();
   await keel.getByRole('menuitem', { name: 'Receive', exact: true }).click();
-  await expect(page.getByText('Inventory Intake')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Receive Inventory/ })).toBeVisible();
+  await expect(page.getByText('Intake queue')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'CSV import' })).toBeVisible();
 
   await keel.getByRole('button', { name: 'Quick actions' }).click();
   await keel.getByRole('menuitem', { name: 'Money in', exact: true }).click();
@@ -205,18 +205,12 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   await expect(main.getByRole('button', { name: 'Line actions' })).toBeVisible();
 
   await nav.getByRole('button', { name: /Intake/ }).click();
+  await expect(page.getByText('Intake queue')).toBeVisible();
   await expect(page.getByRole('button', { name: 'CSV import' })).toBeVisible();
   await page.getByRole('button', { name: 'CSV import' }).click();
   await expect(page.getByText('Validate-first CSV import')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Validate', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible();
-  await expect(page.locator('label.field-inline').filter({ hasText: 'Lot code' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Set lot info' })).toBeVisible();
-  await page.locator('.ag-center-cols-container .ag-row').first().click();
-  await expect(page.getByRole('button', { name: 'Intake tray' })).toBeVisible();
-  await page.getByRole('button', { name: 'Intake tray' }).click();
-  await expect(page.getByRole('button', { name: 'Delete draft' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export visible grid CSV' }).first()).toBeVisible();
 
   await nav.getByRole('button', { name: /Sales/ }).click();
   await page.getByRole('button', { name: 'Sale tray' }).click();

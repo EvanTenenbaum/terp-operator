@@ -782,8 +782,10 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
     affected.push(...created.affectedIds, line.id);
     createdCount += created.affectedIds.length;
   }
-  if (!createdCount) throw new Error('Draft intake rows already exist for the selected purchase order lines.');
-  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast: `Materialized ${createdCount} draft intake row(s). Verify actual counts and discrepancy reasons before posting.` };
+  const toast = createdCount
+    ? `Materialized ${createdCount} draft intake row(s). Verify actual counts and discrepancy reasons before posting.`
+    : 'No new draft intake rows materialized — existing rows are ready for verification.';
+  return { ok: true, commandId, affectedIds: [...new Set(affected)], toast };
 }
 
 async function cancelPurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -2113,13 +2115,25 @@ async function postPeriodAdjustments(tx: Tx, payload: Payload, commandId: string
   return { ok: true, commandId, affectedIds: affected, toast: `${affected.length} period adjustment(s) posted.` };
 }
 
+// Serializes lockPeriod/archivePeriod for the same period by acquiring a
+// transaction-scoped Postgres advisory lock keyed on hashtext(period). Released
+// automatically on commit or rollback.
+async function acquirePeriodCloseoutLock(tx: Tx, period: string): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${period})::bigint)`);
+}
+
 async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
+  await acquirePeriodCloseoutLock(tx, period);
   const [existing] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
   if (existing) return { ok: true, commandId, affectedIds: [existing.id], toast: `${period} is already locked.` };
-  const safety = await getCloseoutSafety(pool, period);
+  const safety = await getCloseoutSafety(tx, period);
   if (safety.openWorkCount > 0) {
     throw new Error(`${period} cannot be locked yet: ${safety.blockers.map((blocker) => `${blocker.count} ${blocker.label.toLowerCase()}`).join(', ')}.`);
+  }
+  const recheck = await getCloseoutSafety(tx, period);
+  if (recheck.openWorkCount > 0) {
+    throw new Error(`${period} cannot be locked: unsafe work appeared during the lock attempt. Please retry.`);
   }
   const [lock] = await tx.insert(periodLocks).values({ period, lockedBy: userId, status: 'locked' }).returning();
   return { ok: true, commandId, affectedIds: [lock.id], toast: `${period} locked.` };
@@ -2127,7 +2141,8 @@ async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: s
 
 async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
-  const safety = await getCloseoutSafety(pool, period);
+  await acquirePeriodCloseoutLock(tx, period);
+  const safety = await getCloseoutSafety(tx, period);
   if (!safety.locked) throw new Error(`${period} must be locked before archiving.`);
   if (!safety.eligible) {
     throw new Error(`${period} cannot be archived: ${safety.blockers.map((blocker) => `${blocker.count} ${blocker.label.toLowerCase()}`).join(', ')}.`);

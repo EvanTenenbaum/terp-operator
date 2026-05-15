@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { pool } from '../db';
+import { db, pool } from '../db';
 import { protectedProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
@@ -631,7 +631,7 @@ export const queriesRouter = router({
     };
   }),
   closeoutPreview: protectedProcedure.input(z.object({ period: z.string().regex(/^\d{4}-\d{2}$/) })).query(async ({ input }) => {
-    return getCloseoutSafety(pool, input.period);
+    return getCloseoutSafety(db, input.period);
   }),
   csvExport: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input }) => {
     const rows = (await pool.query(gridSql(input.view))).rows;

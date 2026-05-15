@@ -1,6 +1,8 @@
-import type { Pool } from 'pg';
+import { sql, type SQL } from 'drizzle-orm';
 
-type Queryable = Pick<Pool, 'query'>;
+type Queryable = {
+  execute: (query: SQL) => Promise<{ rows: Record<string, unknown>[] }>;
+};
 
 export interface CloseoutBlocker {
   id: string;
@@ -19,6 +21,7 @@ export interface CloseoutSafety {
 }
 
 export async function getCloseoutSafety(db: Queryable, period: string): Promise<CloseoutSafety> {
+  const periodMatch = sql`to_char(created_at, 'YYYY-MM') = ${period}`;
   const [
     lock,
     unsafeBatches,
@@ -38,23 +41,29 @@ export async function getCloseoutSafety(db: Queryable, period: string): Promise<
     fulfillment,
     commands
   ] = await Promise.all([
-    countRows(db, 'period_locks', period, 'period = $1'),
-    countRows(db, 'batches', period, "to_char(created_at, 'YYYY-MM') = $1 and status in ('draft','needs_fix')"),
-    countRows(db, 'purchase_orders', period, "to_char(created_at, 'YYYY-MM') = $1 and status in ('draft','approved','ordered','partially_received')"),
-    countRows(db, 'connector_requests', period, "to_char(created_at, 'YYYY-MM') = $1 and status in ('open','pending_review','approved','accepted','routed','posting','failed')"),
-    countRows(db, 'pick_lists', period, "to_char(created_at, 'YYYY-MM') = $1 and status in ('open','packed')"),
+    countQuery(db, sql`select count(*)::int as count from period_locks where period = ${period}`),
+    countQuery(db, sql`select count(*)::int as count from batches where ${periodMatch} and status in ('draft','needs_fix')`),
+    countQuery(
+      db,
+      sql`select count(*)::int as count from purchase_orders where ${periodMatch} and status in ('draft','approved','ordered','partially_received')`
+    ),
+    countQuery(
+      db,
+      sql`select count(*)::int as count from connector_requests where ${periodMatch} and status in ('open','pending_review','approved','accepted','routed','posting','failed')`
+    ),
+    countQuery(db, sql`select count(*)::int as count from pick_lists where ${periodMatch} and status in ('open','packed')`),
     countFailedUnretriedCommands(db, period),
-    countRows(db, 'sales_orders', period, "to_char(created_at, 'YYYY-MM') = $1 and status = 'draft'"),
-    countRows(db, 'batches', period),
-    countRows(db, 'purchase_orders', period),
-    countRows(db, 'purchase_receipts', period),
-    countRows(db, 'sales_orders', period),
-    countRows(db, 'invoices', period),
-    countRows(db, 'payments', period),
-    countRows(db, 'vendor_bills', period),
-    countRows(db, 'connector_requests', period),
-    countRows(db, 'pick_lists', period),
-    countRows(db, 'command_journal', period)
+    countQuery(db, sql`select count(*)::int as count from sales_orders where ${periodMatch} and status = 'draft'`),
+    countQuery(db, sql`select count(*)::int as count from batches where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from purchase_orders where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from purchase_receipts where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from sales_orders where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from invoices where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from payments where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from vendor_bills where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from connector_requests where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from pick_lists where ${periodMatch}`),
+    countQuery(db, sql`select count(*)::int as count from command_journal where ${periodMatch}`)
   ]);
 
   const blockers = [
@@ -89,26 +98,25 @@ export async function getCloseoutSafety(db: Queryable, period: string): Promise<
   };
 }
 
-async function countRows(db: Queryable, table: string, period: string, where = "to_char(created_at, 'YYYY-MM') = $1") {
-  const result = await db.query(`select count(*)::int as count from ${table} where ${where}`, [period]);
-  return Number(result.rows[0]?.count ?? 0);
+async function countQuery(db: Queryable, query: SQL) {
+  const result = await db.execute(query);
+  return Number((result.rows[0] as { count?: number | string | null } | undefined)?.count ?? 0);
 }
 
 async function countFailedUnretriedCommands(db: Queryable, period: string) {
-  const result = await db.query(
-    `select count(*)::int as count
-     from command_journal failed
-     where to_char(failed.created_at, 'YYYY-MM') = $1
-       and failed.status = 'failed'
-       and not exists (
-         select 1
-         from command_journal retry
-         where retry.status = 'ok'
-           and retry.command_name = failed.command_name
-           and retry.input_payload = failed.input_payload
-           and retry.created_at > failed.created_at
-       )`,
-    [period]
-  );
-  return Number(result.rows[0]?.count ?? 0);
+  const result = await db.execute(sql`
+    select count(*)::int as count
+    from command_journal failed
+    where to_char(failed.created_at, 'YYYY-MM') = ${period}
+      and failed.status = 'failed'
+      and not exists (
+        select 1
+        from command_journal retry
+        where retry.status = 'ok'
+          and retry.command_name = failed.command_name
+          and retry.input_payload = failed.input_payload
+          and retry.created_at > failed.created_at
+      )
+  `);
+  return Number((result.rows[0] as { count?: number | string | null } | undefined)?.count ?? 0);
 }
