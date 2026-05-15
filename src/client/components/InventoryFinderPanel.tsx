@@ -9,6 +9,8 @@ export interface InventoryFinderBatch extends GridRow {
   sourceCode?: string | null;
   shorthand?: string | null;
   name?: string;
+  itemAlias?: string | null;
+  displayName?: string | null;
   category?: string;
   vendorId?: string | null;
   vendor?: string | null;
@@ -357,7 +359,14 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
                       <div className="text-[11px] text-zinc-500">{dateish(row.intakeDate)}</div>
                     </td>
                     <td>
-                      <div>{row.name}</div>
+                      {row.itemAlias ? (
+                        <div>
+                          <span style={{ color: '#eab308', marginRight: 4 }} title="Customer-facing alias">●</span>
+                          {row.itemAlias} <span className="text-[11px] text-zinc-500">— {row.name}</span>
+                        </div>
+                      ) : (
+                        <div>{row.name}</div>
+                      )}
                       <div className="text-[11px] text-zinc-500">{row.category} / {Array.isArray(row.tags) ? row.tags.join(', ') : ''}</div>
                     </td>
                     <td>

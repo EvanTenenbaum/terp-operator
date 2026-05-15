@@ -22,6 +22,8 @@ interface IntakeBatchRow {
   purchaseOrderLineId: string | null;
   batchCode: string;
   name: string;
+  itemId?: string | null;
+  itemAlias?: string | null;
   category: string;
   intakeQty: string;
   availableQty: string;
@@ -458,6 +460,14 @@ function buildBatchColumns(
   return [
     { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
     { field: 'name', minWidth: 180 },
+    {
+      field: 'itemAlias',
+      headerName: 'Customer alias',
+      editable: false,
+      minWidth: 160,
+      tooltipValueGetter: (params) =>
+        params.value ? `Customer-facing name: ${params.value}. Vendor/audit surfaces keep ${params.data?.name ?? 'canonical'}.` : 'No alias set; canonical name shown to customers.'
+    },
     {
       headerName: 'Expected qty',
       valueGetter: (params: ValueGetterParams<IntakeBatchRow>) => (params.data?.expectedQty != null ? Number(params.data.expectedQty).toFixed(3) : ''),

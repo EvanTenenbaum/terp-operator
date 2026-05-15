@@ -297,6 +297,8 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return reviewMatchmakingMatch(tx, payload, 'accepted', user.id, commandId);
     case 'dismissMatchmakingMatch':
       return reviewMatchmakingMatch(tx, payload, 'dismissed', user.id, commandId);
+    case 'setItemAlias':
+      return setItemAlias(tx, payload, commandId);
   }
 }
 
@@ -1037,6 +1039,28 @@ async function applyTags(tx: Tx, payload: Payload, commandId: string): Promise<C
   };
 }
 
+async function setItemAlias(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const itemId = requiredId(payload.itemId ?? payload.id, 'itemId');
+  const [item] = await tx.select().from(items).where(eq(items.id, itemId)).limit(1);
+  if (!item) throw new Error('Item not found.');
+  const rawAlias = payload.alias;
+  const trimmed = typeof rawAlias === 'string' ? rawAlias.trim() : '';
+  if (trimmed.length > 120) throw new Error('Alias must be 120 characters or fewer.');
+  const nextAlias = trimmed.length ? trimmed : null;
+  if ((item.alias ?? null) === nextAlias) {
+    return { ok: true, commandId, affectedIds: [itemId], toast: nextAlias ? `${item.name} alias already set to ${nextAlias}.` : `${item.name} has no alias.`, delta: { alias: nextAlias, unchanged: true } };
+  }
+  await tx.update(items).set({ alias: nextAlias, updatedAt: new Date() }).where(eq(items.id, itemId));
+  const toast = nextAlias ? `${item.name} alias set to ${nextAlias}.` : `${item.name} alias cleared.`;
+  return { ok: true, commandId, affectedIds: [itemId], toast, delta: { previousAlias: item.alias ?? null, alias: nextAlias } };
+}
+
+async function resolveItemAlias(tx: Tx, itemId: string | null | undefined): Promise<string | null> {
+  if (!itemId) return null;
+  const [row] = await tx.select({ alias: items.alias }).from(items).where(eq(items.id, itemId)).limit(1);
+  return row?.alias ?? null;
+}
+
 async function createSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const customerId = requiredId(payload.customerId, 'customerId');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
@@ -1060,12 +1084,14 @@ async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): P
   if (!itemName) throw new Error('Item name or source text is required for a draft sale line.');
   const unitPrice = payload.unitPrice != null ? requiredNumber(payload.unitPrice, 'unitPrice') : Number(batch?.unitPrice ?? 0);
   const validationIssues = salesLineValidationIssues({ ...payload, batchId: batch?.id ?? null, itemName, qty, unitPrice });
+  const displayName = batch?.itemId ? (await resolveItemAlias(tx, batch.itemId)) ?? itemName : itemName;
   const [line] = await tx
     .insert(salesOrderLines)
     .values({
       orderId,
       batchId: batch?.id ?? null,
       itemName,
+      displayName,
       qty: qtyScale(qty),
       unitPrice: moneyScale(unitPrice),
       unitCost: batch?.unitCost ?? moneyScale(0),
@@ -1111,6 +1137,7 @@ async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
       if (!batch || batch.status !== 'posted') throw new Error('Selected batch is not available for sale.');
       values.batchId = batch.id;
       values.itemName = batch.name;
+      values.displayName = batch.itemId ? (await resolveItemAlias(tx, batch.itemId)) ?? batch.name : batch.name;
       values.unitCost = batch.unitCost;
       values.sourceRowKey = stringValue(payload.sourceRowKey) || batch.batchCode;
       values.unresolvedSourceText = null;
@@ -1898,6 +1925,12 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
       await tx.update(purchaseReceipts).set({ status: 'reversed', updatedAt: new Date() }).where(eq(purchaseReceipts.id, receipt.id));
       affected.push(receipt.id);
     }
+  } else if (original.commandName === 'setItemAlias') {
+    for (const item of beforeSnapshot.items ?? []) {
+      const priorAlias = (item as Record<string, unknown>).alias ?? null;
+      await tx.update(items).set({ alias: priorAlias, updatedAt: new Date() }).where(eq(items.id, (item as { id: string }).id));
+      affected.push((item as { id: string }).id);
+    }
   } else if (['setInventoryStatus', 'transferInventoryLocation', 'transferInventoryOwnership'].includes(original.commandName)) {
     for (const batch of beforeSnapshot.batches ?? []) {
       const values: Record<string, unknown> = { updatedAt: new Date() };
@@ -2599,7 +2632,8 @@ async function snapshotByAffectedIds(ids: string[]) {
     ['customers', customers],
     ['paymentAllocations', paymentAllocations],
     ['clientLedgerEntries', clientLedgerEntries],
-    ['correctionJournalEntries', correctionJournalEntries]
+    ['correctionJournalEntries', correctionJournalEntries],
+    ['items', items]
   ] as const;
 
   for (const [name, table] of tablePairs) {
@@ -2678,6 +2712,7 @@ function collectIds(payload: Payload) {
     payload.allocationTargetId,
     payload.commandId,
     payload.backupId,
+    payload.itemId,
     ...(Array.isArray(payload.batchIds) ? payload.batchIds : []),
     ...(Array.isArray(payload.lineIds) ? payload.lineIds : []),
     ...(Array.isArray(payload.selectedIds) ? payload.selectedIds : [])

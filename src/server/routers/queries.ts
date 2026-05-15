@@ -23,10 +23,12 @@ export const queriesRouter = router({
                   from transaction_types
                   where is_active
                   order by is_system desc, direction, label`),
-      pool.query('select id, sku, name, category, tags from items order by name'),
+      pool.query('select id, sku, name, alias, category, tags from items order by name'),
       pool.query('select id, slug, label, color, description, is_active as "isActive" from tag_catalog where is_active order by label'),
       pool.query("select id, invoice_no as \"invoiceNo\", customer_id as \"customerId\", total, amount_paid as \"amountPaid\", status from invoices where status in ('open', 'partial') order by created_at"),
       pool.query(`select b.id, b.batch_code as "batchCode", b.name, b.category, b.vendor_id as "vendorId", v.name as vendor,
+                         b.item_id as "itemId", i.alias as "itemAlias",
+                         coalesce(i.alias, b.name) as "displayName",
                          b.available_qty as "availableQty", b.reserved_qty as "reservedQty", b.unit_price as "unitPrice",
                          b.unit_cost as "unitCost", b.uom, b.location, b.lot_code as "lotCode", b.source_code as "sourceCode",
                          b.shorthand, b.notes, b.intake_date as "intakeDate", b.ticket_cost as "ticketCost",
@@ -36,6 +38,7 @@ export const queriesRouter = router({
                          floor(extract(epoch from (now() - b.created_at)) / 86400)::int as "ageDays"
                   from batches b
                   left join vendors v on v.id = b.vendor_id
+                  left join items i on i.id = b.item_id
                   where b.status = 'posted' and b.available_qty > 0
                   order by b.created_at desc`),
       pool.query("select id, order_no as \"orderNo\", customer_id as \"customerId\", status, total from sales_orders where status in ('draft','confirmed','posted') order by created_at desc"),
@@ -230,7 +233,10 @@ export const queriesRouter = router({
     return (
       await pool.query(
         `select sol.id, sol.order_id as "orderId", sol.batch_id as "batchId", b.batch_code as "batchCode",
-                sol.item_name as "itemName", sol.qty, sol.unit_price as "unitPrice", sol.unit_cost as "unitCost",
+                sol.item_name as "itemName",
+                coalesce(sol.display_name, i.alias, sol.item_name) as "displayName",
+                i.alias as "itemAlias",
+                sol.qty, sol.unit_price as "unitPrice", sol.unit_cost as "unitCost",
                 sol.source_row_key as "sourceRowKey", sol.unresolved_source_text as "unresolvedSourceText",
                 sol.legacy_status_marker as "legacyStatusMarker", sol.packed, sol.inventory_posted as "inventoryPosted",
                 sol.payment_followup as "paymentFollowup", sol.validation_issues as "validationIssues", sol.status,
@@ -238,6 +244,7 @@ export const queriesRouter = router({
                 b.media_status as "mediaStatus", v.name as vendor
          from sales_order_lines sol
          left join batches b on b.id = sol.batch_id
+         left join items i on i.id = b.item_id
          left join vendors v on v.id = b.vendor_id
          where sol.order_id = $1
          order by sol.created_at`,
@@ -410,9 +417,14 @@ export const queriesRouter = router({
       pool.query('select id, customer_id as "customerId", order_no as label, status as detail, \'order\' as type from sales_orders where order_no ilike $1 or notes ilike $1 limit 8', [q]),
       pool.query('select id, customer_id as "customerId", invoice_no as label, status as detail, \'invoice\' as type from invoices where invoice_no ilike $1 limit 8', [q]),
       pool.query('select id, customer_id as "customerId", reference as label, amount as detail, \'payment\' as type from payments where reference ilike $1 or notes ilike $1 or location_bucket ilike $1 limit 8', [q]),
-      pool.query(`select id, vendor_id as "vendorId", batch_code as "batchCode", concat(batch_code, ' ', name) as label, concat(coalesce(source_code,''), ' ', coalesce(legacy_marker,''), ' ', coalesce(notes,'')) as detail, 'batch' as type
-                  from batches
-                  where batch_code ilike $1 or source_code ilike $1 or name ilike $1 or category ilike $1 or notes ilike $1 or legacy_marker ilike $1 or shorthand ilike $1 or price_range ilike $1 or tags::text ilike $1
+      pool.query(`select b.id, b.vendor_id as "vendorId", b.batch_code as "batchCode",
+                         concat(b.batch_code, ' ', coalesce(i.alias, b.name)) as label,
+                         concat(coalesce(b.source_code,''), ' ', coalesce(b.legacy_marker,''), ' ', coalesce(b.notes,'')) as detail,
+                         'batch' as type,
+                         case when i.alias is not null and i.alias ilike $1 and not (b.name ilike $1) then 'alias' else 'canonical' end as source
+                  from batches b
+                  left join items i on i.id = b.item_id
+                  where b.batch_code ilike $1 or b.source_code ilike $1 or b.name ilike $1 or i.alias ilike $1 or b.category ilike $1 or b.notes ilike $1 or b.legacy_marker ilike $1 or b.shorthand ilike $1 or b.price_range ilike $1 or b.tags::text ilike $1
                   limit 12`, [q]),
       pool.query(`select cn.id, cn.customer_id as "customerId", cn.need_code as "needCode",
                          concat(cn.need_code, ' ', cn.product_name) as label,
@@ -440,11 +452,13 @@ export const queriesRouter = router({
     return (
       await pool.query(
         `select fl.id, fl.pick_list_id as "pickListId", fl.order_line_id as "orderLineId", sol.item_name as "itemName",
+                coalesce(sol.display_name, i.alias, sol.item_name) as "displayName",
                 b.batch_code as "batchCode", fl.expected_qty as "expectedQty", fl.actual_qty as "actualQty",
                 fl.actual_weight as "actualWeight", fl.bag_code as "bagCode", fl.status, fl.updated_at as "updatedAt"
          from fulfillment_lines fl
          left join sales_order_lines sol on sol.id = fl.order_line_id
          left join batches b on b.id = fl.batch_id
+         left join items i on i.id = b.item_id
          where fl.pick_list_id = $1
          order by fl.created_at`,
         [input.pickListId]
@@ -522,10 +536,12 @@ export const queriesRouter = router({
                     b.uom, b.status, b.notes, b.validation_issues as "validationIssues",
                     b.media_status as "mediaStatus", b.arrival_status as "arrivalStatus",
                     b.vendor_id as "vendorId", b.tags, b.location, b.lot_code as "lotCode",
+                    b.item_id as "itemId", i.alias as "itemAlias",
                     pol.qty as "expectedQty", pol.unit_cost as "expectedUnitCost",
                     b.created_at as "createdAt"
              from batches b
              left join purchase_order_lines pol on pol.id = b.purchase_order_line_id
+             left join items i on i.id = b.item_id
              where b.purchase_order_id = any($1::uuid[]) and b.archived_at is null
              order by b.created_at`,
             [orderIds]
@@ -774,8 +790,12 @@ function gridSql(view: z.infer<typeof viewSchema>) {
                      b.unit_price as "unitPrice", b.location, b.lot_code as "lotCode", b.ownership_status as "ownershipStatus",
                      b.legacy_marker as "legacyMarker", b.arrival_confirmed as "arrivalConfirmed", b.arrival_status as "arrivalStatus",
                      b.validation_issues as "validationIssues", b.media_status as "mediaStatus", b.expiration_date as "expirationDate",
+                     b.item_id as "itemId", i.alias as "itemAlias",
                      b.notes, b.status, b.created_at as "createdAt"
-              from batches b left join vendors v on v.id = b.vendor_id left join purchase_orders po on po.id = b.purchase_order_id
+              from batches b
+              left join vendors v on v.id = b.vendor_id
+              left join purchase_orders po on po.id = b.purchase_order_id
+              left join items i on i.id = b.item_id
               where b.archived_at is null
               order by b.created_at desc`;
     case 'purchaseOrders':
@@ -822,12 +842,17 @@ function gridSql(view: z.infer<typeof viewSchema>) {
               from payments p left join customers c on c.id = p.customer_id
               order by p.created_at desc`;
     case 'inventory':
-      return `select b.id, b.batch_code as "batchCode", b.name, b.category, v.name as vendor, b.vendor_id as "vendorId", b.available_qty as "availableQty",
+      return `select b.id, b.batch_code as "batchCode", b.name, b.category, v.name as vendor, b.vendor_id as "vendorId",
+                     b.item_id as "itemId", i.alias as "itemAlias",
+                     coalesce(i.alias, b.name) as "displayName",
+                     b.available_qty as "availableQty",
                      b.reserved_qty as "reservedQty", b.uom, b.unit_cost as "unitCost", b.unit_price as "unitPrice",
                      b.tags, b.location, b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
                      b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus", b.status, b.lot_code as "lotCode", b.expiration_date as "expirationDate",
                      floor(extract(epoch from (now() - b.created_at)) / 86400)::int as "ageDays"
-              from batches b left join vendors v on v.id = b.vendor_id
+              from batches b
+              left join vendors v on v.id = b.vendor_id
+              left join items i on i.id = b.item_id
               where b.archived_at is null
               order by b.category, b.name`;
     case 'clients':

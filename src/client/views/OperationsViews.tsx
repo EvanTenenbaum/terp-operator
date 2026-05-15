@@ -63,7 +63,21 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
   ],
   inventory: [
     { field: 'batchCode', pinned: 'left', width: 150 },
-    { field: 'name', minWidth: 180 },
+    {
+      field: 'name',
+      minWidth: 200,
+      cellRenderer: (params: { value: unknown; data: GridRow }) => (
+        <span>
+          {params.data?.itemAlias ? (
+            <span title="Customer-facing alias active" style={{ color: '#eab308', marginRight: 4 }}>
+              ●
+            </span>
+          ) : null}
+          {String(params.value ?? '')}
+        </span>
+      )
+    },
+    { field: 'itemAlias', headerName: 'Alias', editable: true, minWidth: 180 },
     { field: 'category', width: 120 },
     { field: 'tags', editable: true, minWidth: 170 },
     { field: 'vendor', width: 180 },
@@ -826,6 +840,14 @@ export function InventoryView() {
         }
         if (['tags', 'legacyMarker', 'ownershipStatus', 'arrivalStatus', 'mediaStatus'].includes(String(event.colDef.field))) {
           runCommand('updateBatch', { batchId: event.data?.id, [String(event.colDef.field)]: event.newValue }, `Inline inventory edit: ${event.colDef.field}`);
+        }
+        if (event.colDef.field === 'itemAlias') {
+          const itemId = event.data?.itemId;
+          if (!itemId) return;
+          const next = typeof event.newValue === 'string' ? event.newValue.trim() : '';
+          const prior = typeof event.oldValue === 'string' ? event.oldValue.trim() : '';
+          if (next === prior) return;
+          runCommand('setItemAlias', { itemId, alias: next }, next ? `Set alias to ${next}` : 'Clear strain alias');
         }
       }}
     />
@@ -1704,7 +1726,8 @@ export function SettingsView() {
   const tabs = [
     { key: 'requests', label: 'Requests' },
     { key: 'actions', label: 'Action log' },
-    { key: 'archive', label: 'Archive' }
+    { key: 'archive', label: 'Archive' },
+    { key: 'strain-aliases', label: 'Strain aliases' }
   ] as const;
   const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? 'Settings';
   return (
@@ -1732,7 +1755,53 @@ export function SettingsView() {
       {activeTab === 'requests' ? <ConnectorsView /> : null}
       {activeTab === 'actions' ? <RecoveryView /> : null}
       {activeTab === 'archive' ? <CloseoutView /> : null}
+      {activeTab === 'strain-aliases' ? <StrainAliasesPanel /> : null}
     </div>
+  );
+}
+
+const strainAliasesColumns: ColDef<GridRow>[] = [
+  { field: 'name', headerName: 'Canonical name', pinned: 'left', minWidth: 220 },
+  { field: 'category', width: 140 },
+  { field: 'alias', headerName: 'Customer-facing alias', editable: true, minWidth: 240 },
+  { field: 'sku', headerName: 'SKU', width: 160 }
+];
+
+function StrainAliasesPanel() {
+  const reference = trpc.queries.reference.useQuery();
+  const { runCommand } = useCommandRunner();
+  const me = trpc.auth.me.useQuery();
+  const canEdit = me.data?.role === 'owner' || me.data?.role === 'manager';
+  const rows = ((reference.data?.items ?? []) as unknown as GridRow[]).map((row) => ({ ...row }));
+  return (
+    <section className="inline-panel" data-testid="strain-aliases-panel">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="section-title">Strain aliases</h2>
+          <p className="text-xs text-zinc-600">
+            Aliases replace the canonical strain name on customer-facing surfaces (inventory, sales lines, picks). Vendor and audit records keep the canonical name.
+          </p>
+        </div>
+      </div>
+      <div className="mt-3">
+        <OperatorGrid
+          view="settings"
+          title="Items"
+          rows={rows}
+          columns={strainAliasesColumns.map((col) => ({ ...col, editable: col.editable && canEdit }))}
+          loading={reference.isLoading}
+          onCellCommit={(event) => {
+            if (event.colDef.field !== 'alias') return;
+            const itemId = event.data?.id;
+            if (!itemId) return;
+            const next = typeof event.newValue === 'string' ? event.newValue.trim() : '';
+            const prior = typeof event.oldValue === 'string' ? event.oldValue.trim() : '';
+            if (next === prior) return;
+            runCommand('setItemAlias', { itemId, alias: next }, next ? `Set alias to ${next}` : 'Clear strain alias');
+          }}
+        />
+      </div>
+    </section>
   );
 }
 

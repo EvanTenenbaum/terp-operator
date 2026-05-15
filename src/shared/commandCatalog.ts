@@ -70,7 +70,8 @@ export const commandNames = [
   'createVendorSupply',
   'updateVendorSupply',
   'acceptMatchmakingMatch',
-  'dismissMatchmakingMatch'
+  'dismissMatchmakingMatch',
+  'setItemAlias'
 ] as const;
 
 export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
@@ -154,7 +155,8 @@ export const commandLabels: Record<CommandName, string> = {
   createVendorSupply: 'Create vendor stock',
   updateVendorSupply: 'Update vendor stock',
   acceptMatchmakingMatch: 'Accept match',
-  dismissMatchmakingMatch: 'Dismiss match'
+  dismissMatchmakingMatch: 'Dismiss match',
+  setItemAlias: 'Set strain alias'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -227,7 +229,8 @@ export const commandMinRole: Record<CommandName, Role> = {
   createVendorSupply: 'operator',
   updateVendorSupply: 'operator',
   acceptMatchmakingMatch: 'operator',
-  dismissMatchmakingMatch: 'operator'
+  dismissMatchmakingMatch: 'operator',
+  setItemAlias: 'manager'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -300,7 +303,8 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   createVendorSupply: { disposition: 'terminal', guidance: 'Close or edit the vendor stock row if it was entered by mistake.' },
   updateVendorSupply: { disposition: 'terminal', guidance: 'Use another update with the intended vendor stock values.' },
   acceptMatchmakingMatch: { disposition: 'offsettable', guidance: 'Dismiss the match or reopen the need/supply from the matchmaking grid.' },
-  dismissMatchmakingMatch: { disposition: 'offsettable', guidance: 'Accept a new or reopened match if the dismissal was accidental.' }
+  dismissMatchmakingMatch: { disposition: 'offsettable', guidance: 'Accept a new or reopened match if the dismissal was accidental.' },
+  setItemAlias: { disposition: 'reversible', guidance: 'Restores the prior alias value from the command snapshot.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

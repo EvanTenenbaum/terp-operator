@@ -35,7 +35,27 @@ const suggestionColumns: ColDef<GridRow>[] = [
 
 const lineColumns: ColDef<GridRow>[] = [
   { field: 'legacyStatusMarker', headerName: 'Raw', editable: true, width: 90, pinned: 'left' },
-  { field: 'itemName', headerName: 'Item / request', editable: true, minWidth: 190, pinned: 'left' },
+  {
+    field: 'displayName',
+    headerName: 'Customer label',
+    editable: false,
+    minWidth: 190,
+    pinned: 'left',
+    cellRenderer: (params: { value: unknown; data: GridRow }) => {
+      const fallback = params.value ?? params.data?.itemName ?? '';
+      return (
+        <span>
+          {params.data?.itemAlias ? (
+            <span title="Customer-facing alias" style={{ color: '#eab308', marginRight: 4 }}>
+              ●
+            </span>
+          ) : null}
+          {String(fallback)}
+        </span>
+      );
+    }
+  },
+  { field: 'itemName', headerName: 'Canonical', editable: true, minWidth: 170 },
   { field: 'batchCode', headerName: 'Source', width: 140 },
   { field: 'unresolvedSourceText', headerName: 'Unresolved source', editable: true, minWidth: 170 },
   { field: 'qty', editable: true, type: 'numericColumn', width: 95 },
