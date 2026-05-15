@@ -98,6 +98,8 @@ export const purchaseOrders = pgTable(
     buyerNotes: text('buyer_notes'),
     internalNotes: text('internal_notes'),
     externalNotes: text('external_notes'),
+    refereeRelationshipId: uuid('referee_relationship_id'),
+    refereeCreditAmount: numeric('referee_credit_amount', { precision: 12, scale: 2 }),
     createdAt: now(),
     updatedAt: updated()
   },
@@ -232,6 +234,8 @@ export const salesOrders = pgTable('sales_orders', {
   paymentFollowup: boolean('payment_followup').notNull().default(false),
   legacyStatusMarkers: varchar('legacy_status_markers', { length: 180 }),
   validationIssues: jsonb('validation_issues').$type<string[]>().notNull().default([]),
+  refereeRelationshipId: uuid('referee_relationship_id'),
+  refereeCreditAmount: numeric('referee_credit_amount', { precision: 12, scale: 2 }),
   postedAt: timestamp('posted_at', { withTimezone: true }),
   fulfilledAt: timestamp('fulfilled_at', { withTimezone: true }),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
@@ -585,6 +589,100 @@ export const session = pgTable('session', {
   expire: timestamp('expire', { withTimezone: false }).notNull()
 });
 
+export const referees = pgTable(
+  'referees',
+  {
+    id: id(),
+    name: varchar('name', { length: 180 }).notNull(),
+    email: varchar('email', { length: 240 }),
+    phone: varchar('phone', { length: 80 }),
+    taxId: varchar('tax_id', { length: 80 }),
+    balance: numeric('balance', { precision: 12, scale: 2 }).notNull().default('0'),
+    lifetimeEarned: numeric('lifetime_earned', { precision: 12, scale: 2 }).notNull().default('0'),
+    paymentMethod: varchar('payment_method', { length: 32 }).default('check'),
+    paymentDetails: text('payment_details'),
+    notes: text('notes'),
+    active: boolean('active').notNull().default(true),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    activeIdx: index('referees_active_idx').on(table.active),
+    balanceIdx: index('referees_balance_idx').on(table.balance),
+    nameIdx: index('referees_name_idx').on(table.name)
+  })
+);
+
+export const refereeRelationships = pgTable(
+  'referee_relationships',
+  {
+    id: id(),
+    refereeId: uuid('referee_id').references(() => referees.id, { onDelete: 'cascade' }).notNull(),
+    entityType: varchar('entity_type', { length: 16 }).notNull(),
+    entityId: uuid('entity_id').notNull(),
+    feeType: varchar('fee_type', { length: 16 }).notNull().default('percentage'),
+    feePercentage: numeric('fee_percentage', { precision: 5, scale: 2 }),
+    feeFixedAmount: numeric('fee_fixed_amount', { precision: 12, scale: 2 }),
+    applyByDefault: boolean('apply_by_default').notNull().default(true),
+    active: boolean('active').notNull().default(true),
+    notes: text('notes'),
+    effectiveFrom: timestamp('effective_from', { withTimezone: true }),
+    effectiveUntil: timestamp('effective_until', { withTimezone: true }),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    refereeIdx: index('referee_relationships_referee_idx').on(table.refereeId),
+    entityIdx: index('referee_relationships_entity_idx').on(table.entityType, table.entityId),
+    activeUniqueIdx: uniqueIndex('referee_relationships_active_unique').on(
+      table.refereeId,
+      table.entityType,
+      table.entityId
+    )
+  })
+);
+
+export const refereeCredits = pgTable(
+  'referee_credits',
+  {
+    id: id(),
+    refereeId: uuid('referee_id').references(() => referees.id, { onDelete: 'cascade' }).notNull(),
+    refereeRelationshipId: uuid('referee_relationship_id')
+      .references(() => refereeRelationships.id, { onDelete: 'cascade' })
+      .notNull(),
+    transactionType: varchar('transaction_type', { length: 32 }).notNull(),
+    transactionId: uuid('transaction_id').notNull(),
+    transactionNo: varchar('transaction_no', { length: 80 }).notNull(),
+    transactionTotal: numeric('transaction_total', { precision: 12, scale: 2 }).notNull(),
+    feeType: varchar('fee_type', { length: 16 }).notNull(),
+    feePercentage: numeric('fee_percentage', { precision: 5, scale: 2 }),
+    feeFixedAmount: numeric('fee_fixed_amount', { precision: 12, scale: 2 }),
+    creditAmount: numeric('credit_amount', { precision: 12, scale: 2 }).notNull(),
+    amountPaid: numeric('amount_paid', { precision: 12, scale: 2 }).notNull().default('0'),
+    status: varchar('status', { length: 32 }).notNull().default('accrued'),
+    paidViaTransactionId: uuid('paid_via_transaction_id'),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    voidedAt: timestamp('voided_at', { withTimezone: true }),
+    voidedReason: text('voided_reason'),
+    commandId: uuid('command_id'),
+    notes: text('notes'),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    refereeIdx: index('referee_credits_referee_idx').on(table.refereeId),
+    statusIdx: index('referee_credits_status_idx').on(table.status),
+    transactionIdx: index('referee_credits_transaction_idx').on(table.transactionType, table.transactionId),
+    unpaidIdx: index('referee_credits_unpaid_idx').on(table.refereeId, table.status),
+    paidAtIdx: index('referee_credits_paid_at_idx').on(table.paidAt),
+    balanceCalcIdx: index('referee_credits_balance_calc_idx').on(table.refereeId, table.status),
+    transactionUniqueIdx: uniqueIndex('referee_credits_transaction_unique').on(
+      table.transactionType,
+      table.transactionId
+    )
+  })
+);
+
 export type User = typeof users.$inferSelect;
 export type Batch = typeof batches.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
@@ -593,3 +691,6 @@ export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type SalesOrder = typeof salesOrders.$inferSelect;
 export type CustomerNeed = typeof customerNeeds.$inferSelect;
 export type VendorSupply = typeof vendorSupply.$inferSelect;
+export type Referee = typeof referees.$inferSelect;
+export type RefereeRelationship = typeof refereeRelationships.$inferSelect;
+export type RefereeCredit = typeof refereeCredits.$inferSelect;
