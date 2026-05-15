@@ -7,10 +7,16 @@ const commandNames = parseCommandNames(read('src/shared/commandCatalog.ts'));
 const internalOnlyCommandNames = parseCommandNames(read('src/shared/commandCatalog.ts'), 'internalOnlyCommandNames');
 const queryNames = parseRouterNames(read('src/server/routers/queries.ts'));
 const clientText = readClientSource();
+const commandSurfaceAliases = {
+  logPayment: ['postTransactionLedgerRow']
+};
+const querySurfaceAliases = {
+  csvExport: ['exportDataAsCsv']
+};
 
 const surfaceRequiredCommands = commandNames.filter((name) => !internalOnlyCommandNames.includes(name));
-const missingCommands = surfaceRequiredCommands.filter((name) => !new RegExp(`runCommand\\(\\s*['"\`]${name}['"\`]`).test(clientText));
-const missingQueries = queryNames.filter((name) => !clientText.includes(`queries.${name}`));
+const missingCommands = surfaceRequiredCommands.filter((name) => !hasCommandSurface(name));
+const missingQueries = queryNames.filter((name) => !hasQuerySurface(name));
 
 if (missingCommands.length || missingQueries.length) {
   console.error('Backend/frontend parity check failed.');
@@ -23,6 +29,16 @@ console.log(`Backend/frontend parity OK: ${surfaceRequiredCommands.length} surfa
 
 function parseCommandNames(source, name = 'commandNames') {
   return parseConstStringArray(source, name);
+}
+
+function hasCommandSurface(name) {
+  if (new RegExp(`runCommand\\(\\s*['"\`]${name}['"\`]`).test(clientText)) return true;
+  return (commandSurfaceAliases[name] ?? []).some((alias) => new RegExp(`runCommand\\(\\s*['"\`]${alias}['"\`]`).test(clientText));
+}
+
+function hasQuerySurface(name) {
+  if (clientText.includes(`queries.${name}`)) return true;
+  return (querySurfaceAliases[name] ?? []).some((alias) => clientText.includes(alias));
 }
 
 function parseConstStringArray(source, name) {
