@@ -26,6 +26,7 @@
     "ag-grid-community": "^32.3.3",
     "ag-grid-enterprise": "^32.3.3",
     "ag-grid-react": "^32.3.3",
+    "agentation": "^3.0.2",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
     "connect-pg-simple": "^10.0.0",
@@ -67,5 +68,10 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

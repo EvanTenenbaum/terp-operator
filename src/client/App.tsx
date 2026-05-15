@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
 import clsx from 'clsx';
 import { trpc } from './api/trpc';
+import { Agentation } from 'agentation';
 import { CommandPalette } from './components/CommandPalette';
 import { Hotkeys } from './components/Hotkeys';
 import { QuickStartBar } from './components/QuickStartBar';
@@ -81,6 +82,7 @@ export function App() {
       <Hotkeys />
       <CommandPalette />
       <ToastCenter />
+      {import.meta.env.DEV && <Agentation />}
     </div>
   );
 }
