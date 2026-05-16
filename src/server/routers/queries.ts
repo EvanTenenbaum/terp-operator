@@ -12,7 +12,7 @@ export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
   health: protectedProcedure.query(() => getHealth()),
   reference: protectedProcedure.query(async () => {
-    const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups] = await Promise.all([
+    const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships] = await Promise.all([
       pool.query('select id, name, credit_limit as "creditLimit", balance, tags from customers order by name'),
       pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
       pool.query("select id, name, role from users where role in ('owner','manager','operator') and active order by name"),
@@ -43,7 +43,23 @@ export const queriesRouter = router({
                   order by b.created_at desc`),
       pool.query("select id, order_no as \"orderNo\", customer_id as \"customerId\", status, total from sales_orders where status in ('draft','confirmed','posted') order by created_at desc"),
       pool.query("select id, po_no as \"poNo\", vendor_id as \"vendorId\", status, total from purchase_orders where status in ('draft','approved','ordered','partially_received') order by created_at desc"),
-      pool.query('select id, label, snapshot, created_at as "createdAt" from backup_snapshots order by created_at desc')
+      pool.query('select id, label, snapshot, created_at as "createdAt" from backup_snapshots order by created_at desc'),
+      pool.query('select id, name, email, balance, lifetime_earned as "lifetimeEarned", active from referees where active order by name'),
+      pool.query(`select rr.id, rr.referee_id as "refereeId", r.name as "refereeName",
+                         rr.entity_type as "entityType", rr.entity_id as "entityId",
+                         case
+                           when rr.entity_type = 'customer' then c.name
+                           when rr.entity_type = 'vendor' then v.name
+                         end as "entityName",
+                         rr.fee_type as "feeType", rr.fee_percentage as "feePercentage",
+                         rr.fee_fixed_amount as "feeFixedAmount", rr.apply_by_default as "applyByDefault",
+                         rr.active
+                  from referee_relationships rr
+                  join referees r on r.id = rr.referee_id
+                  left join customers c on c.id = rr.entity_id and rr.entity_type = 'customer'
+                  left join vendors v on v.id = rr.entity_id and rr.entity_type = 'vendor'
+                  where rr.active
+                  order by r.name, rr.entity_type, "entityName"`)
     ]);
     return {
       customers: customers.rows,
@@ -57,6 +73,8 @@ export const queriesRouter = router({
       activeOrders: orders.rows,
       activePurchaseOrders: purchaseOrders.rows,
       backupSnapshots: backups.rows,
+      referees: referees.rows,
+      refereeRelationships: refereeRelationships.rows,
       categories: ['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape'],
       priceBrackets: ['under-25', '25-100', '100-plus'],
       commands: commandNames

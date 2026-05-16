@@ -33,6 +33,9 @@ import {
   purchaseReceipts,
   purchaseOrderLines,
   purchaseOrders,
+  referees,
+  refereeRelationships,
+  refereeCredits,
   salesOrderLines,
   salesOrders,
   tagCatalog,
@@ -48,6 +51,16 @@ import { rowsToCsv, validateBatchCsv } from './csv';
 import { getCloseoutSafety } from './closeout';
 import { evaluatePrice, resolvePricingProfile } from './pricing';
 import { commandInputSchema } from '../../shared/schemas';
+import {
+  accrueRefereeCredit,
+  processRefereePayout,
+  createReferee,
+  updateReferee,
+  addRefereeRelationship,
+  updateRefereeRelationship,
+  deactivateRefereeRelationship,
+  voidRefereeCreditCommand
+} from './refereeCommands';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
@@ -306,6 +319,18 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return reviewMatchmakingMatch(tx, payload, 'dismissed', user.id, commandId);
     case 'setItemAlias':
       return setItemAlias(tx, payload, commandId);
+    case 'createReferee':
+      return createReferee(tx, payload, commandId);
+    case 'updateReferee':
+      return updateReferee(tx, payload, commandId);
+    case 'addRefereeRelationship':
+      return addRefereeRelationship(tx, payload, commandId);
+    case 'updateRefereeRelationship':
+      return updateRefereeRelationship(tx, payload, commandId);
+    case 'deactivateRefereeRelationship':
+      return deactivateRefereeRelationship(tx, payload, commandId);
+    case 'voidRefereeCredit':
+      return voidRefereeCreditCommand(tx, payload, commandId);
   }
 }
 
@@ -909,6 +934,27 @@ async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, co
   await tx.update(purchaseOrderLines).set({ status: 'planned', updatedAt: new Date() }).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
   await tx.update(purchaseOrders).set({ status: 'approved', orderedAt: new Date(), orderedBy: userId, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
   await recalcPurchaseOrder(tx, purchaseOrderId);
+
+  // Fetch refreshed order with total
+  const [freshOrder] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+
+  // Accrue referee credit if relationship specified
+  if (payload.refereeRelationshipId && payload.logRefereeCredit !== false && freshOrder) {
+    const { creditAmount } = await accrueRefereeCredit(tx, {
+      refereeRelationshipId: String(payload.refereeRelationshipId),
+      transactionType: 'purchase_order',
+      transactionId: freshOrder.id,
+      transactionNo: freshOrder.poNo,
+      transactionTotal: Number(freshOrder.total),
+      commandId
+    });
+
+    await tx.update(purchaseOrders).set({
+      refereeRelationshipId: String(payload.refereeRelationshipId),
+      refereeCreditAmount: creditAmount.toFixed(2)
+    }).where(eq(purchaseOrders.id, purchaseOrderId));
+  }
+
   const affected = [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)];
   let createdCount = 0;
   if (order.vendorId) {
@@ -1530,6 +1576,23 @@ async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Prom
   await tx.update(salesOrders).set({ status: 'posted', inventoryPosted: true, postedAt: new Date(), updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
   affected.push(invoice.id, customer.id);
 
+  // Accrue referee credit if relationship specified
+  if (payload.refereeRelationshipId && payload.logRefereeCredit !== false) {
+    const { creditAmount } = await accrueRefereeCredit(tx, {
+      refereeRelationshipId: String(payload.refereeRelationshipId),
+      transactionType: 'sales_order',
+      transactionId: freshOrder.id,
+      transactionNo: freshOrder.orderNo,
+      transactionTotal: Number(freshOrder.total),
+      commandId
+    });
+
+    await tx.update(salesOrders).set({
+      refereeRelationshipId: String(payload.refereeRelationshipId),
+      refereeCreditAmount: creditAmount.toFixed(2)
+    }).where(eq(salesOrders.id, orderId));
+  }
+
   return { ok: true, commandId, affectedIds: affected, toast: `${freshOrder.orderNo} posted and invoice ${invoice.invoiceNo} created.` };
 }
 
@@ -1872,6 +1935,42 @@ async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionU
   if (entityType === 'vendor' && direction === 'paying') {
     if (!['owner', 'manager'].includes(user.role)) throw new Error('Vendor payouts require manager access.');
     return postVendorLedgerPayment(tx, payload, transactionDate, commandId);
+  }
+
+  if (entityType === 'referee' && direction === 'paying') {
+    if (!['owner', 'manager'].includes(user.role)) throw new Error('Referee payouts require manager access.');
+    const refereeId = requiredId(payload.entityId, 'entityId');
+    const [referee] = await tx.select().from(referees).where(eq(referees.id, refereeId)).limit(1);
+    if (!referee) throw new Error('Referee not found.');
+
+    // Create correction journal entry for the payout transaction
+    const transactionId = randomUUID();
+    const correctionResult = await createCorrectionJournalEntry(
+      tx,
+      {
+        period: transactionDate.toISOString().slice(0, 7),
+        amount: -Math.abs(amount),
+        memo: `Referee payout: ${referee.name} ${notes || reference || ''}`.trim(),
+        date: transactionDate
+      },
+      commandId
+    );
+
+    // Process referee payout (marks credits as paid via FIFO)
+    const { creditsMarkedPaid, totalPaid } = await processRefereePayout(
+      tx,
+      refereeId,
+      amount,
+      transactionId,
+      commandId
+    );
+
+    return {
+      ok: true,
+      commandId,
+      affectedIds: [refereeId, ...correctionResult.affectedIds],
+      toast: `Paid $${totalPaid.toFixed(2)} to ${referee.name} (${creditsMarkedPaid} credit(s) marked paid).`
+    };
   }
 
   const entityLabel = stringValue(payload.entityName) || entityType;

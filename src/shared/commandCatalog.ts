@@ -74,7 +74,13 @@ export const commandNames = [
   'updateVendorSupply',
   'acceptMatchmakingMatch',
   'dismissMatchmakingMatch',
-  'setItemAlias'
+  'setItemAlias',
+  'createReferee',
+  'updateReferee',
+  'addRefereeRelationship',
+  'updateRefereeRelationship',
+  'deactivateRefereeRelationship',
+  'voidRefereeCredit'
 ] as const;
 
 export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
@@ -162,7 +168,13 @@ export const commandLabels: Record<CommandName, string> = {
   updateVendorSupply: 'Update vendor stock',
   acceptMatchmakingMatch: 'Accept match',
   dismissMatchmakingMatch: 'Dismiss match',
-  setItemAlias: 'Set strain alias'
+  setItemAlias: 'Set strain alias',
+  createReferee: 'Create referee',
+  updateReferee: 'Update referee',
+  addRefereeRelationship: 'Add referee relationship',
+  updateRefereeRelationship: 'Update referee relationship',
+  deactivateRefereeRelationship: 'Deactivate referee relationship',
+  voidRefereeCredit: 'Void referee credit'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -239,7 +251,13 @@ export const commandMinRole: Record<CommandName, Role> = {
   updateVendorSupply: 'operator',
   acceptMatchmakingMatch: 'operator',
   dismissMatchmakingMatch: 'operator',
-  setItemAlias: 'manager'
+  setItemAlias: 'manager',
+  createReferee: 'manager',
+  updateReferee: 'manager',
+  addRefereeRelationship: 'manager',
+  updateRefereeRelationship: 'manager',
+  deactivateRefereeRelationship: 'manager',
+  voidRefereeCredit: 'manager'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -316,7 +334,13 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   updateVendorSupply: { disposition: 'terminal', guidance: 'Use another update with the intended vendor stock values.' },
   acceptMatchmakingMatch: { disposition: 'offsettable', guidance: 'Dismiss the match or reopen the need/supply from the matchmaking grid.' },
   dismissMatchmakingMatch: { disposition: 'offsettable', guidance: 'Accept a new or reopened match if the dismissal was accidental.' },
-  setItemAlias: { disposition: 'reversible', guidance: 'Restores the prior alias value from the command snapshot.' }
+  setItemAlias: { disposition: 'reversible', guidance: 'Restores the prior alias value from the command snapshot.' },
+  createReferee: { disposition: 'terminal', guidance: 'Edit or deactivate the referee profile if it was created by mistake.' },
+  updateReferee: { disposition: 'terminal', guidance: 'Use another update with the intended referee values.' },
+  addRefereeRelationship: { disposition: 'terminal', guidance: 'Deactivate the referee relationship if it was added by mistake.' },
+  updateRefereeRelationship: { disposition: 'terminal', guidance: 'Use another update with the intended relationship values.' },
+  deactivateRefereeRelationship: { disposition: 'terminal', guidance: 'Add a new relationship if the deactivation was accidental.' },
+  voidRefereeCredit: { disposition: 'reversible', guidance: 'Restores the credit to accrued status and updates referee balance.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(
