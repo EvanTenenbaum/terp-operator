@@ -42,10 +42,13 @@ claude mcp add agentmemory -e AGENTMEMORY_URL=http://localhost:3111 -- npx -y @a
 After mini is running:
 
 ```bash
-# Connect to mini's server
-~/.agentmemory/connect-to-mini.sh <mini-ip> <secret>
+# 1. Establish SSH tunnel to mini
+ssh -fN -L 3111:localhost:3111 <mini-host>
 
-# Test in Claude Code
+# 2. Connect to mini's server (via tunnel)
+~/.agentmemory/connect-to-mini.sh <secret>
+
+# 3. Test in Claude Code
 /memory_profile
 /memory_smart_search "test"
 ```
@@ -58,7 +61,8 @@ After mini is running:
 - 🔍 **Semantic search** - find anything across all sessions
 - 🤝 **Shared memory** - both Claudes see the same context
 - 📊 **Auto-capture** - observations saved automatically
-- 🌐 **Web UI** - http://<mini-ip>:3113
+- 🔒 **Secure** - localhost-only binding with SSH tunnel
+- 🌐 **Web UI** - http://localhost:3113 (via SSH tunnel)
 
 ---
 

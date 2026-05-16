@@ -59,8 +59,8 @@ cat > ~/.agentmemory/.env << EOF
 # LLM Provider
 ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
 
-# Network - Listen on all interfaces for laptop connection
-HOST=0.0.0.0
+# Network - Localhost only (laptop connects via SSH tunnel)
+HOST=127.0.0.1
 PORT=3111
 
 # Security - Share this secret with laptop
@@ -69,6 +69,9 @@ AGENTMEMORY_SECRET=$SECRET
 # Embedding Provider (local = free, offline)
 EMBEDDING_PROVIDER=local
 
+# Database - Enable WAL mode for concurrent writes
+SQLITE_WAL=true
+
 # Search Tuning
 BM25_WEIGHT=0.4
 VECTOR_WEIGHT=0.6
@@ -76,7 +79,7 @@ TOKEN_BUDGET=2000
 
 # Features
 AGENTMEMORY_INJECT_CONTEXT=true
-AGENTMEMORY_AUTO_COMPRESS=false
+AGENTMEMORY_AUTO_COMPRESS=true
 AGENTMEMORY_SLOTS=false
 AGENTMEMORY_REFLECT=false
 GRAPH_EXTRACTION_ENABLED=false
@@ -157,20 +160,73 @@ claude mcp add agentmemory -e AGENTMEMORY_URL=http://localhost:3111 -- npx -y @a
 
 ## Part 2: Laptop Configuration (MacBook Pro)
 
-### 2.1 Update Laptop to Connect to Mini's Server
+### 2.1 Establish SSH Tunnel to Mini
 
 **Prerequisites**: You need from Part 1:
-- Mini's IP address (e.g., `192.168.1.100`)
+- Mini's hostname or IP address (e.g., `evans-mac-mini.local` or `192.168.1.100`)
 - Shared secret (64-character hex string from mini's .env)
+- SSH access to mini
+
+**Create persistent SSH tunnel**:
+
+```bash
+# Set mini hostname (use .local mDNS or IP)
+MINI_HOST="evans-mac-mini.local"  # Or use IP: 192.168.1.100
+
+# Create SSH tunnel (runs in background)
+ssh -fN -L 3111:localhost:3111 "$MINI_HOST"
+
+# Verify tunnel is active
+lsof -i :3111 | grep LISTEN
+```
+
+**Make tunnel persistent across reboots** (optional):
+
+```bash
+# Create launchd plist
+cat > ~/Library/LaunchAgents/com.agentmemory.tunnel.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.agentmemory.tunnel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/ssh</string>
+    <string>-N</string>
+    <string>-L</string>
+    <string>3111:localhost:3111</string>
+    <string>evans-mac-mini.local</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardErrorPath</key>
+  <string>/tmp/agentmemory-tunnel.err</string>
+  <key>StandardOutPath</key>
+  <string>/tmp/agentmemory-tunnel.out</string>
+</dict>
+</plist>
+EOF
+
+# Load the tunnel service
+launchctl load ~/Library/LaunchAgents/com.agentmemory.tunnel.plist
+```
+
+### 2.2 Configure Laptop MCP Server
+
+**Prerequisites**: SSH tunnel from 2.1 must be active.
 
 **Option A: Automated Script** (recommended)
 
 ```bash
-# Run the connection script
-~/.agentmemory/connect-to-mini.sh <mini-ip> <secret>
+# Update the script to use localhost (tunneled connection)
+SECRET="a1b2c3d4e5f6..."  # Your secret from mini setup
 
-# Example:
-~/.agentmemory/connect-to-mini.sh 192.168.1.100 a1b2c3d4e5f6...
+# Run connection script
+~/.agentmemory/connect-to-mini.sh localhost "$SECRET"
 ```
 
 **Option B: Manual Steps**
@@ -179,12 +235,11 @@ claude mcp add agentmemory -e AGENTMEMORY_URL=http://localhost:3111 -- npx -y @a
 # 1. Remove local MCP server
 claude mcp remove agentmemory
 
-# 2. Add remote MCP server
-MINI_IP="192.168.1.100"  # Replace with actual mini IP
+# 2. Add tunneled MCP server (connects via SSH tunnel to localhost:3111)
 SECRET="a1b2c3d4e5f6..."  # Replace with actual secret
 
 claude mcp add agentmemory \
-  -e AGENTMEMORY_URL="http://${MINI_IP}:3111" \
+  -e AGENTMEMORY_URL="http://localhost:3111" \
   -e AGENTMEMORY_SECRET="$SECRET" \
   -- npx -y @agentmemory/mcp
 
@@ -192,10 +247,10 @@ claude mcp add agentmemory \
 cat > ~/.agentmemory/.env << EOF
 # AgentMemory Client Configuration (Laptop)
 # Generated: $(date +%Y-%m-%d)
-# Role: Client - connects to mini's server
+# Role: Client - connects via SSH tunnel to mini's server
 
-# Server Connection
-AGENTMEMORY_URL=http://${MINI_IP}:3111
+# Server Connection (via SSH tunnel)
+AGENTMEMORY_URL=http://localhost:3111
 AGENTMEMORY_SECRET=$SECRET
 
 # Features (client-side settings)
@@ -204,11 +259,14 @@ AGENTMEMORY_TOOLS=core
 EOF
 ```
 
-### 2.2 Test Connection from Laptop
+### 2.3 Test Connection from Laptop
 
 ```bash
-# Test HTTP connection
-curl -H "Authorization: Bearer <secret>" http://<mini-ip>:3111/agentmemory/health
+# Verify SSH tunnel is active
+lsof -i :3111 | grep LISTEN
+
+# Test HTTP connection (via tunnel)
+curl -H "Authorization: Bearer <secret>" http://localhost:3111/agentmemory/health
 
 # Expected output:
 # {"status":"healthy"}
@@ -261,9 +319,18 @@ Expected: Should retrieve the memory saved on mini, proving cross-machine memory
 
 ### 3.4 View Shared Memory Web UI
 
-Open on either machine:
+**On mini** (direct access):
+```bash
+open http://localhost:3113
 ```
-http://<mini-ip>:3113
+
+**On laptop** (via SSH tunnel):
+```bash
+# Create tunnel for web UI
+ssh -fN -L 3113:localhost:3113 <mini-host>
+
+# Open in browser
+open http://localhost:3113
 ```
 
 You'll see:
@@ -290,22 +357,36 @@ cat ~/.agentmemory/server.log
 
 ### Laptop Can't Connect
 
-**Test network connectivity**:
+**Verify SSH tunnel is active**:
 ```bash
-ping <mini-ip>
-telnet <mini-ip> 3111
+# On laptop
+lsof -i :3111 | grep LISTEN
+
+# If not found, create tunnel
+ssh -fN -L 3111:localhost:3111 <mini-host>
 ```
 
-**Check firewall**:
+**Test SSH connectivity**:
 ```bash
-# On mini, allow port 3111 if needed
-# System Preferences → Security & Privacy → Firewall → Firewall Options
+# Verify SSH works
+ssh <mini-host> hostname
+
+# Test mini server directly via SSH
+ssh <mini-host> 'curl -s http://localhost:3111/agentmemory/health'
+```
+
+**Check tunnel is forwarding correctly**:
+```bash
+# On laptop, test via tunnel
+curl http://localhost:3111/agentmemory/health
+
+# Should return: {"status":"healthy"}
 ```
 
 **Verify secret matches**:
 ```bash
 # On mini:
-grep AGENTMEMORY_SECRET ~/.agentmemory/.env
+ssh <mini-host> 'grep AGENTMEMORY_SECRET ~/.agentmemory/.env'
 
 # On laptop:
 grep AGENTMEMORY_SECRET ~/.agentmemory/.env
@@ -363,16 +444,18 @@ curl http://localhost:3111/agentmemory/export > ~/agentmemory-backup-$(date +%Y%
 
 ## Production Deployment Checklist
 
-- [ ] Mini: agentmemory installed and configured
+- [ ] Mini: agentmemory installed and configured (HOST=127.0.0.1, AUTO_COMPRESS=true, SQLITE_WAL=true)
 - [ ] Mini: Server running (`agentmemory` command executed)
-- [ ] Mini: IP address documented
 - [ ] Mini: Shared secret generated and saved
 - [ ] Mini: MCP server added to Claude Code
-- [ ] Laptop: Connected to mini's server (script executed)
+- [ ] Laptop: SSH access to mini configured and tested
+- [ ] Laptop: SSH tunnel established (port 3111)
+- [ ] Laptop: Connected to mini's server via tunnel (script executed)
 - [ ] Laptop: Connection tested successfully
 - [ ] Both: Memory tools working in Claude Code
 - [ ] Cross-machine: Memory sharing verified
-- [ ] Optional: pm2 service configured for auto-start
+- [ ] Optional: pm2 service configured for auto-start on mini
+- [ ] Optional: launchd plist configured for tunnel auto-start on laptop
 - [ ] Optional: Backup cron job configured
 
 ---
@@ -398,11 +481,17 @@ tail -f ~/.agentmemory/server.log  # or pm2 logs agentmemory-server
 ### Laptop Commands
 
 ```bash
-# Connect to mini
-~/.agentmemory/connect-to-mini.sh <mini-ip> <secret>
+# Establish SSH tunnel (if not already running)
+ssh -fN -L 3111:localhost:3111 <mini-host>
+
+# Verify tunnel
+lsof -i :3111 | grep LISTEN
+
+# Connect to mini via tunnel
+~/.agentmemory/connect-to-mini.sh <secret>
 
 # Test connection
-curl -H "Authorization: Bearer <secret>" http://<mini-ip>:3111/agentmemory/health
+curl http://localhost:3111/agentmemory/health
 
 # Use memory tools in Claude Code
 /memory_profile

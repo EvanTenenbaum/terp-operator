@@ -1,8 +1,9 @@
 # AgentMemory Architecture & Cross-Machine Coordination
 
 **Date**: 2026-05-16  
-**Status**: Implemented on laptop-claude  
-**Decision Needed**: Cross-machine memory sharing strategy
+**Status**: Configured on laptop with security fixes, ready for mini deployment  
+**Architecture**: Mini server (localhost-only) + laptop client (SSH tunnel)  
+**Review**: Adversarially reviewed, 3 blocking security issues fixed
 
 ---
 
@@ -76,7 +77,9 @@ Laptop and mini Claude already have built-in memory at:
 
 ## Cross-Machine Architecture Options
 
-### Option A: Laptop Server + Mini Client (RECOMMENDED)
+**Note**: After adversarial review (2026-05-16), the deployment strategy has been updated to use SSH tunnels instead of direct network access for security. See `AGENTMEMORY_SECURITY_FIXES.md` for details.
+
+### Option A: Laptop Server + Mini Client
 
 **Setup**:
 - Laptop runs agentmemory server on `http://0.0.0.0:3111`
@@ -105,20 +108,36 @@ AGENTMEMORY_SECRET=<shared-secret>
 claude mcp add agentmemory -e AGENTMEMORY_URL=http://<laptop-ip>:3111 -e AGENTMEMORY_SECRET=<shared-secret> -- npx -y @agentmemory/mcp
 ```
 
-### Option B: Mini Server + Laptop Client
+### Option B: Mini Server + Laptop Client (RECOMMENDED)
 
 **Setup**:
-- Mini runs agentmemory server  
-- Laptop connects remotely
+- Mini runs agentmemory server on `127.0.0.1:3111` (localhost only)
+- Laptop connects via SSH tunnel
+- Both agents share the same memory store
 
 **Pros**:
 - ✅ Mini is always-on (more reliable)
-- ✅ Single memory store
+- ✅ Single memory store, no sync needed
+- ✅ Secure: SSH tunnel encryption, no LAN exposure
+- ✅ No firewall configuration needed
 
 **Cons**:
-- ❌ Same network dependencies as Option A
+- ❌ Requires SSH access to mini
+- ❌ Tunnel must be maintained
 
-**Implementation**: Same as Option A, reversed
+**Implementation**:
+```bash
+# On mini: Localhost-only binding
+HOST=127.0.0.1
+PORT=3111
+AGENTMEMORY_SECRET=<shared-secret>
+SQLITE_WAL=true
+AGENTMEMORY_AUTO_COMPRESS=true
+
+# On laptop: SSH tunnel + MCP server
+ssh -fN -L 3111:localhost:3111 <mini-host>
+claude mcp add agentmemory -e AGENTMEMORY_URL=http://localhost:3111 -e AGENTMEMORY_SECRET=<shared-secret> -- npx -y @agentmemory/mcp
+```
 
 ### Option C: Separate Instances
 
@@ -273,17 +292,19 @@ Within Claude Code, try:
 4. ⏳ Test MCP tools in Claude Code session
 5. ⏳ Monitor token usage and recall quality
 
-### Cross-Machine (Pending Decision)
-1. ❓ Choose deployment architecture (A/B/C/D)
-2. ❓ Configure network access if needed
-3. ❓ Install on mini if using shared server
-4. ❓ Test cross-machine memory sharing
+### Cross-Machine (In Progress)
+1. ✅ Architecture chosen: Option B (mini server + laptop client via SSH tunnel)
+2. ✅ Security fixes applied: localhost binding, SSH tunnel, WAL mode, auto-compress
+3. ⏳ Execute mini setup with secure configuration
+4. ⏳ Establish SSH tunnel from laptop
+5. ⏳ Test cross-machine memory sharing
 
 ### Production (Future)
 1. Set up monitoring and backups
-2. Configure auto-consolidation (`AGENTMEMORY_AUTO_COMPRESS=true`)
+2. ⏳ Auto-consolidation enabled (`AGENTMEMORY_AUTO_COMPRESS=true`)
 3. Enable advanced features (knowledge graph, reflection)
 4. Expand tool set (`AGENTMEMORY_TOOLS=all` for 51 tools)
+5. Consider federated architecture (separate indices for curated vs. observed memories)
 
 ---
 
@@ -295,13 +316,24 @@ Within Claude Code, try:
 
 ---
 
-## Questions for Evan
+## Adversarial Review Results (2026-05-16)
 
-1. **Cross-machine**: Should laptop and mini share memories? (Recommendation: Yes, via Option A)
-2. **Server location**: Which machine should run the agentmemory server? (Recommendation: Laptop for now, mini for production)
-3. **Test period**: How long to evaluate before cross-machine deployment? (Recommendation: 1-2 weeks)
-4. **Auto-start**: Should agentmemory run as a background service? (Recommendation: Not yet, manual start for testing)
+Three agents (risk-verifier, general-purpose, evidence-auditor) reviewed the integration proposal and identified:
+
+- **14 critical risks**: Concurrent write conflicts, network partition, plaintext secrets, unbounded growth, no monitoring, version mismatch, schema drift
+- **5 architectural challenges**: Federation justification, embedding model choice, file watching scalability, canonical format issues
+- **3 blocking fixes applied**: Localhost-only binding with SSH tunnel, SQLite WAL mode, auto-compression enabled
+
+**Key Decisions Made**:
+
+1. ✅ **Cross-machine**: Yes, via Option B (mini server + laptop client)
+2. ✅ **Security**: SSH tunnel instead of direct network access
+3. ✅ **Server location**: Mini (always-on, reliable)
+4. ✅ **Auto-compress**: Enabled to prevent unbounded growth
+5. ⏳ **Auto-start**: TBD after testing period
+
+See `docs/AGENTMEMORY_SECURITY_FIXES.md` for full security analysis and testing procedures.
 
 ---
 
-**Status**: AgentMemory ready to use on laptop-claude. Cross-machine coordination pending architecture decision.
+**Status**: AgentMemory configured with security fixes. Ready for mini deployment with secure configuration (localhost binding, SSH tunnel, WAL mode, auto-compression).

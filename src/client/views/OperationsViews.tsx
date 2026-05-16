@@ -1,5 +1,5 @@
 import { CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -226,7 +226,6 @@ export function PurchaseOrdersView() {
   const [newVendorContact, setNewVendorContact] = useState('');
   const [newVendorNotes, setNewVendorNotes] = useState('');
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
-  const [poTrayOpen, setPoTrayOpen] = useState(false);
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const defaultVendorId = vendorId;
@@ -246,6 +245,44 @@ export function PurchaseOrdersView() {
     return !hasQty || (!hasUnitCost && !hasValidRange);
   });
   const canApproveDraft = Boolean(defaultVendorId) && filledDraftLines.length > 0 && approvalLineIssues.length === 0;
+
+  const purchaseOrderExpansionConfig = useMemo(
+    () => ({
+      enabled: true,
+      actionsRenderer: (row: GridRow) => (
+        <>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning || !['approved', 'ordered', 'partially_received'].includes(String(row.status ?? ''))}
+            onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: row.id }, 'Receive selected purchase order to draft intake')}
+            type="button"
+          >
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Draft intake
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning || String(row.status ?? '') !== 'finalized'}
+            onClick={() => runCommand('unfinalizePurchaseOrder', { purchaseOrderId: row.id }, 'Return finalized PO to draft for editing')}
+            type="button"
+          >
+            <Undo2 className="h-4 w-4" aria-hidden="true" />
+            Unfinalize
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={() => runCommand('cancelPurchaseOrder', { purchaseOrderId: row.id }, 'Cancel selected purchase order')}
+            type="button"
+          >
+            <Undo2 className="h-4 w-4" aria-hidden="true" />
+            Cancel draft PO
+          </button>
+        </>
+      )
+    }),
+    [isRunning, runCommand]
+  );
 
   const purchaseOrderLineExpansionConfig = useMemo(
     () => ({
@@ -657,29 +694,10 @@ export function PurchaseOrdersView() {
                 {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
-              <button className="secondary-button compact-action" disabled={!selected.length} onClick={() => setPoTrayOpen((value) => !value)} aria-expanded={poTrayOpen} type="button">
-                {poTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-                More
-              </button>
-              {poTrayOpen ? (
-                <>
-                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning || !['approved', 'ordered', 'partially_received'].includes(selectedPoStatus)} onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Receive selected purchase order to draft intake')} type="button">
-                    <PackagePlus className="h-4 w-4" aria-hidden="true" />
-                    Draft intake
-                  </button>
-                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning || selectedPoStatus !== 'finalized'} onClick={() => runCommand('unfinalizePurchaseOrder', { purchaseOrderId: selected[0].id }, 'Return finalized PO to draft for editing')} type="button">
-                    <Undo2 className="h-4 w-4" aria-hidden="true" />
-                    Unfinalize
-                  </button>
-                  <button className="secondary-button compact-action" disabled={!selected.length || isRunning} onClick={() => runCommand('cancelPurchaseOrder', { purchaseOrderId: selected[0].id }, 'Cancel selected purchase order')} type="button">
-                    <Undo2 className="h-4 w-4" aria-hidden="true" />
-                    Cancel draft PO
-                  </button>
-                </>
-              ) : null}
             </>
           ) : null
         }
+        expansionConfig={canWrite ? purchaseOrderExpansionConfig : undefined}
       />
       {selectedPo ? (
         <>
@@ -1158,7 +1176,46 @@ export function ClientLedgerView() {
 export function VendorPayablesView() {
   const selectedRows = useUiStore((state) => state.selectedRows.vendors);
   const selectedBill = selectedRows?.[0];
-  const [payoutTrayOpen, setPayoutTrayOpen] = useState(false);
+  const { runCommand, isRunning } = useCommandRunner();
+
+  const vendorBillExpansionConfig = useMemo(
+    () => ({
+      enabled: true,
+      actionsRenderer: (row: GridRow) => (
+        <>
+          <button
+            className="primary-button compact-action"
+            disabled={isRunning}
+            onClick={() => runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill')}
+            type="button"
+          >
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            Approve
+          </button>
+          <button
+            className="primary-button compact-action"
+            disabled={isRunning}
+            onClick={() => runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment')}
+            type="button"
+          >
+            <CalendarClock className="h-4 w-4" aria-hidden="true" />
+            Schedule
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning || row.status !== 'scheduled'}
+            onClick={() => runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout')}
+            type="button"
+          >
+            <Landmark className="h-4 w-4" aria-hidden="true" />
+            Pay
+          </button>
+        </>
+      )
+    }),
+    [isRunning, runCommand]
+  );
+
   return (
     <GridJourney
       view="vendors"
@@ -1176,28 +1233,9 @@ export function VendorPayablesView() {
             {vendorPrimaryLabel(String(rows[0]?.status ?? ''))}
           </button>
           <span className="selection-pill">{rows[0] ? `${String(rows[0].billNo ?? 'Bill')} / ${String(rows[0].status ?? 'open')}` : 'Select bill'}</span>
-          <button className="secondary-button compact-action" disabled={!rows.length} onClick={() => setPayoutTrayOpen((value) => !value)} aria-expanded={payoutTrayOpen} type="button">
-            {payoutTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-            Payout tray
-          </button>
-          {payoutTrayOpen ? (
-            <>
-              <button className="secondary-button compact-action" disabled={!rows.length} onClick={() => runCommand('approveVendorBill', { vendorBillId: rows[0].id }, 'Approve vendor bill')} type="button">
-                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                Approve
-              </button>
-              <button className="secondary-button compact-action" disabled={!rows.length} onClick={() => runCommand('scheduleVendorPayment', { vendorBillId: rows[0].id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment')} type="button">
-                <CalendarClock className="h-4 w-4" aria-hidden="true" />
-                Schedule
-              </button>
-              <button className="secondary-button compact-action" disabled={!rows.length || rows[0].status !== 'scheduled'} onClick={() => runCommand('recordVendorPayment', { vendorBillId: rows[0].id }, 'Record vendor payout')} type="button">
-                <Landmark className="h-4 w-4" aria-hidden="true" />
-                Pay
-              </button>
-            </>
-          ) : null}
         </>
       )}
+      expansionConfig={vendorBillExpansionConfig}
     />
   );
 }
@@ -2000,13 +2038,21 @@ function GridJourney({
   title,
   actions,
   prelude,
-  onCellCommit
+  onCellCommit,
+  expansionConfig
 }: {
   view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings'>;
   title: string;
   actions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
   prelude?: (runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
   onCellCommit?: (event: CellValueChangedEvent<GridRow>, runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => void;
+  expansionConfig?: {
+    enabled: boolean;
+    actionsRenderer?: (row: GridRow) => ReactNode;
+    historyRenderer?: (row: GridRow) => ReactNode;
+    childrenRenderer?: (row: GridRow) => ReactNode;
+    isRowMaster?: (row: GridRow) => boolean;
+  };
 }) {
   const grid = trpc.queries.grid.useQuery({ view });
   const selectedRows = useUiStore((state) => state.selectedRows[view]);
@@ -2027,6 +2073,7 @@ function GridJourney({
         onSelectionChange={(rows) => setSelectedRows(view, rows)}
         onCellCommit={(event) => onCellCommit?.(event, runCommand)}
         actions={canWrite ? actions?.(selected, runCommand) : null}
+        expansionConfig={canWrite ? expansionConfig : undefined}
       />
     </div>
   );
