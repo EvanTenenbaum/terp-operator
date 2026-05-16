@@ -16,7 +16,8 @@ import {
   ReceiptText,
   Search,
   ShoppingCart,
-  Settings
+  Settings,
+  Users
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
@@ -57,7 +58,8 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     label: 'Money',
     items: [
       { view: 'payments', label: 'Payments', hotkey: '⌘4', icon: BadgeDollarSign },
-      { view: 'vendors', label: 'Vendor Payouts', icon: Landmark }
+      { view: 'vendors', label: 'Vendor Payouts', icon: Landmark },
+      { view: 'referees', label: 'Referees', icon: Users }
     ]
   },
   {

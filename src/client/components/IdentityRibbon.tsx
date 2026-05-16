@@ -21,6 +21,7 @@ const viewLabels: Record<ViewKey, string> = {
   connectors: 'Connectors',
   recovery: 'Recovery',
   closeout: 'Closeout',
+  referees: 'Referees',
   settings: 'Settings'
 };
 

@@ -6,7 +6,7 @@ import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 
-const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout']);
+const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees']);
 
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
@@ -909,6 +909,15 @@ function gridSql(view: z.infer<typeof viewSchema>) {
     case 'closeout':
       return `select id, period, status, control_totals as "controlTotals", csv_path as "csvPath", jsonl_path as "jsonlPath", pdf_path as "pdfPath", created_at as "createdAt"
               from archive_runs order by created_at desc`;
+    case 'referees':
+      return `select r.id, r.name, r.email, r.phone, r.balance, r.lifetime_earned as "lifetimeEarned",
+                     r.payment_method as "paymentMethod", r.payment_details as "paymentDetails",
+                     r.notes, r.active, r.created_at as "createdAt",
+                     count(distinct rr.id)::int as "relationshipsCount"
+              from referees r
+              left join referee_relationships rr on rr.referee_id = r.id and rr.active = true
+              group by r.id
+              order by r.created_at desc`;
   }
 }
 
@@ -946,7 +955,8 @@ function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],
     connectors: ['id', 'source', 'requestType', 'customer', 'status', 'operatorNotes', 'createdAt'],
     recovery: ['id', 'commandName', 'actorName', 'status', 'error', 'affectedIds', 'reversedByCommandId', 'createdAt'],
-    closeout: ['id', 'period', 'status', 'controlTotals', 'csvPath', 'jsonlPath', 'pdfPath', 'createdAt']
+    closeout: ['id', 'period', 'status', 'controlTotals', 'csvPath', 'jsonlPath', 'pdfPath', 'createdAt'],
+    referees: ['id', 'name', 'email', 'phone', 'balance', 'lifetimeEarned', 'paymentMethod', 'paymentDetails', 'notes', 'active', 'relationshipsCount', 'createdAt']
   };
   return map[view];
 }
