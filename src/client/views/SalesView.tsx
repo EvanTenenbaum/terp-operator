@@ -110,6 +110,42 @@ export function SalesView() {
 
   const sheetRows = useMemo(() => selectedSuggestions.slice(0, 8), [selectedSuggestions]);
 
+  const salesOrderExpansionConfig = useMemo(
+    () => ({
+      enabled: true,
+      actionsRenderer: (row: GridRow) => (
+        <>
+          <button
+            className="primary-button compact-action"
+            disabled={String(row.status ?? '') !== 'draft'}
+            onClick={() => runCommand('confirmSalesOrder', { orderId: row.id }, 'Confirm sales order')}
+            type="button"
+          >
+            <Send className="h-4 w-4" aria-hidden="true" />
+            Confirm order
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={String(row.status ?? '') !== 'confirmed'}
+            onClick={() => runCommand('reserveInventoryForOrder', { orderId: row.id }, 'Reserve exact inventory for order')}
+            type="button"
+          >
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Reserve inventory
+          </button>
+          <button
+            className="secondary-button compact-action"
+            onClick={() => runCommand('cancelSalesOrder', { orderId: row.id }, 'Cancel sales order')}
+            type="button"
+          >
+            Cancel order
+          </button>
+        </>
+      )
+    }),
+    [runCommand]
+  );
+
   useEffect(() => {
     if (activeCustomerId && activeCustomerId !== customerId) setCustomerId(activeCustomerId);
   }, [activeCustomerId, customerId]);
@@ -368,6 +404,7 @@ export function SalesView() {
         onSelectionChange={(selection) => setSelectedRows('sales', selection)}
         emptyTitle="No open sales shown"
         emptyChildren={customerId ? 'No lines yet.' : 'Choose a customer to start.'}
+        expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
       />
         <InventoryFinderPanel selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''} focusKey={customerId} addedBatchIds={addedBatchIds} initialSearch={salesRequestText} onAddBatch={addFinderBatch} />
       </div>
