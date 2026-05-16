@@ -7,7 +7,7 @@ import { useCommandRunner } from './useCommandRunner';
 import { WorkspacePanel } from './WorkspacePanel';
 
 type LedgerDirection = 'receiving' | 'paying';
-type LedgerEntityType = 'customer' | 'vendor' | 'staff' | 'other';
+type LedgerEntityType = 'customer' | 'vendor' | 'referee' | 'staff' | 'other';
 type LedgerStatus = 'draft' | 'posted' | 'needs_fix';
 
 interface LedgerDraft {
@@ -76,7 +76,7 @@ interface TypeDraft {
 
 const methods = ['cash', 'check', 'card', 'crypto', 'wire', 'journal'];
 const buckets = ['cash-file-a', 'cash-file-b', 'office', 'accounting', 'crypto-wallet', 'wire-clearing'];
-const entityTypes: LedgerEntityType[] = ['customer', 'vendor', 'staff', 'other'];
+const entityTypes: LedgerEntityType[] = ['customer', 'vendor', 'referee', 'staff', 'other'];
 const blankId = '00000000-0000-0000-0000-000000000000';
 
 export function QuickLedgerGrid() {
@@ -146,7 +146,7 @@ export function QuickLedgerGrid() {
   }
 
   async function commit(row: LedgerDraft) {
-    const issue = validate(row);
+    const issue = validate(row, reference.data);
     if (issue) {
       mark(row.id, { status: 'needs_fix', issue });
       return;
@@ -539,6 +539,7 @@ function makeTypeDraft(direction: LedgerDirection): TypeDraft {
 
 function defaultTransactionType(direction: LedgerDirection, entityType: LedgerEntityType) {
   if (direction === 'paying' && entityType === 'vendor') return 'vendor_product_payment';
+  if (direction === 'paying' && entityType === 'referee') return 'referee_payout';
   if (direction === 'paying' && entityType === 'staff') return 'staff_payment';
   if (direction === 'paying') return 'other_payment';
   if (entityType === 'customer') return 'client_payment';
@@ -561,6 +562,7 @@ function optionsForEntity(types: TransactionTypeOption[], direction: LedgerDirec
 function entityOptions(entityType: LedgerEntityType, reference: any): Array<{ id: string; name: string }> {
   if (entityType === 'customer') return reference?.customers ?? [];
   if (entityType === 'vendor') return reference?.vendors ?? [];
+  if (entityType === 'referee') return reference?.referees ?? [];
   if (entityType === 'staff') return reference?.staff ?? [];
   return [];
 }
@@ -606,13 +608,19 @@ function allocationTargets(row: LedgerDraft, reference: any, openBills: GridRow[
   return [{ type: 'unapplied', id: '', label: 'Manual journal / no target' }];
 }
 
-function validate(row: LedgerDraft) {
+function validate(row: LedgerDraft, reference: any) {
   const amount = Number(row.amount);
   if (!row.date) return 'Choose a transaction date.';
   if (!Number.isFinite(amount) || amount <= 0) return 'Amount must be greater than zero.';
   if (row.entityType === 'other' && !row.entityName.trim()) return 'Name the other entity before posting.';
   if (row.entityType !== 'other' && !row.entityId) return `Choose the ${row.entityType} before posting.`;
   if (row.direction === 'paying' && row.entityType === 'vendor' && row.transactionType === 'vendor_payout' && !row.allocationTargetId) return 'Choose the open bill before posting a vendor payout.';
+  if (row.direction === 'paying' && row.entityType === 'referee') {
+    const referee = (reference?.referees ?? []).find((r: any) => r.id === row.entityId);
+    if (referee && amount > Number(referee.balance ?? 0)) {
+      return `Amount exceeds referee balance $${(Number(referee.balance ?? 0)).toFixed(2)}`;
+    }
+  }
   return null;
 }
 
@@ -625,6 +633,13 @@ function ledgerImpact(row: LedgerDraft, reference: any, openBills: GridRow[]) {
     if (row.allocationTargetType === 'unapplied') return `Leaves $${money(amount)} unapplied`;
     if (row.allocationTargetType === 'selected_invoice') return `Applies to selected invoice, then tracks residual`;
     return `Applies up to $${money(Math.min(open, amount))}; $${money(Math.max(0, amount - open))} remains`;
+  }
+  if (row.direction === 'paying' && row.entityType === 'referee') {
+    const referee = (reference?.referees ?? []).find((r: any) => r.id === row.entityId);
+    if (!referee) return 'Choose referee for payout';
+    const balance = Number(referee.balance ?? 0);
+    if (amount > balance) return `⚠️ Amount exceeds balance $${money(balance)}`;
+    return `Pays $${money(amount)} from balance $${money(balance)}`;
   }
   if (row.direction === 'paying' && row.entityType === 'vendor') {
     if (row.transactionType === 'vendor_payout') {
