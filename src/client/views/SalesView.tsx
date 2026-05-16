@@ -102,7 +102,7 @@ export function SalesView() {
   const suggestions = trpc.queries.salesSuggestions.useQuery({
     customerId: customerId || undefined
   });
-  const { runCommand } = useCommandRunner();
+  const { runCommand, isRunning } = useCommandRunner();
   const workspaceOrder = workspace.data?.orders.find((order) => ['draft', 'confirmed'].includes(String(order.status))) ?? workspace.data?.orders[0];
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
   const orderLines = trpc.queries.salesOrderLines.useQuery({ orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedOrder?.id) });
@@ -117,8 +117,11 @@ export function SalesView() {
         <>
           <button
             className="primary-button compact-action"
-            disabled={String(row.status ?? '') !== 'draft'}
-            onClick={() => runCommand('confirmSalesOrder', { orderId: row.id }, 'Confirm sales order')}
+            disabled={isRunning || String(row.status ?? '') !== 'draft'}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('confirmSalesOrder', { orderId: row.id }, 'Confirm sales order');
+            }}
             type="button"
           >
             <Send className="h-4 w-4" aria-hidden="true" />
@@ -126,8 +129,11 @@ export function SalesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={String(row.status ?? '') !== 'confirmed'}
-            onClick={() => runCommand('reserveInventoryForOrder', { orderId: row.id }, 'Reserve exact inventory for order')}
+            disabled={isRunning || String(row.status ?? '') !== 'confirmed'}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('reserveInventoryForOrder', { orderId: row.id }, 'Reserve exact inventory for order');
+            }}
             type="button"
           >
             <PackagePlus className="h-4 w-4" aria-hidden="true" />
@@ -135,7 +141,11 @@ export function SalesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            onClick={() => runCommand('cancelSalesOrder', { orderId: row.id }, 'Cancel sales order')}
+            disabled={isRunning || ['fulfilled', 'shipped', 'cancelled'].includes(String(row.status ?? ''))}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('cancelSalesOrder', { orderId: row.id }, 'Cancel sales order');
+            }}
             type="button"
           >
             Cancel order
@@ -143,7 +153,7 @@ export function SalesView() {
         </>
       )
     }),
-    [runCommand]
+    [isRunning, runCommand]
   );
 
   useEffect(() => {

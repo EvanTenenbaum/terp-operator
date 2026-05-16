@@ -254,7 +254,10 @@ export function PurchaseOrdersView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !['approved', 'ordered', 'partially_received'].includes(String(row.status ?? ''))}
-            onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: row.id }, 'Receive selected purchase order to draft intake')}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('receivePurchaseOrder', { purchaseOrderId: row.id }, 'Receive selected purchase order to draft intake');
+            }}
             type="button"
           >
             <PackagePlus className="h-4 w-4" aria-hidden="true" />
@@ -263,7 +266,10 @@ export function PurchaseOrdersView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || String(row.status ?? '') !== 'finalized'}
-            onClick={() => runCommand('unfinalizePurchaseOrder', { purchaseOrderId: row.id }, 'Return finalized PO to draft for editing')}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('unfinalizePurchaseOrder', { purchaseOrderId: row.id }, 'Return finalized PO to draft for editing');
+            }}
             type="button"
           >
             <Undo2 className="h-4 w-4" aria-hidden="true" />
@@ -272,7 +278,10 @@ export function PurchaseOrdersView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning}
-            onClick={() => runCommand('cancelPurchaseOrder', { purchaseOrderId: row.id }, 'Cancel selected purchase order')}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('cancelPurchaseOrder', { purchaseOrderId: row.id }, 'Cancel selected purchase order');
+            }}
             type="button"
           >
             <Undo2 className="h-4 w-4" aria-hidden="true" />
@@ -1186,7 +1195,10 @@ export function VendorPayablesView() {
           <button
             className="primary-button compact-action"
             disabled={isRunning}
-            onClick={() => runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill')}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill');
+            }}
             type="button"
           >
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
@@ -1195,7 +1207,10 @@ export function VendorPayablesView() {
           <button
             className="primary-button compact-action"
             disabled={isRunning}
-            onClick={() => runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment')}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment');
+            }}
             type="button"
           >
             <CalendarClock className="h-4 w-4" aria-hidden="true" />
@@ -1203,8 +1218,11 @@ export function VendorPayablesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning || row.status !== 'scheduled'}
-            onClick={() => runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout')}
+            disabled={isRunning || String(row.status ?? '') !== 'scheduled'}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout');
+            }}
             type="button"
           >
             <Landmark className="h-4 w-4" aria-hidden="true" />
