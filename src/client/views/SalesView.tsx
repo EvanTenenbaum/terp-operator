@@ -156,6 +156,68 @@ export function SalesView() {
     [isRunning, runCommand]
   );
 
+  const salesLineExpansionConfig = useMemo(
+    () => ({
+      enabled: true,
+      actionsRenderer: (row: GridRow) => (
+        <>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={async () => {
+              if (!row.id || row.id.trim() === '') return;
+              await runCommand('updateSalesOrderLine', { lineId: row.id, packed: true }, 'Pack line');
+              await orderLines.refetch();
+            }}
+            type="button"
+          >
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Pack
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={async () => {
+              if (!row.id || row.id.trim() === '') return;
+              await runCommand('updateSalesOrderLine', { lineId: row.id, inventoryPosted: true }, 'Post to inventory');
+              await orderLines.refetch();
+            }}
+            type="button"
+          >
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Post inv
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={async () => {
+              if (!row.id || row.id.trim() === '') return;
+              await runCommand('updateSalesOrderLine', { lineId: row.id, paymentFollowup: true }, 'Payment follow-up');
+              await orderLines.refetch();
+            }}
+            type="button"
+          >
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Pay F-up
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={async () => {
+              if (!row.id || row.id.trim() === '') return;
+              await runCommand('removeSalesOrderLine', { lineId: row.id }, 'Remove line');
+              await orderLines.refetch();
+            }}
+            type="button"
+          >
+            Remove
+          </button>
+        </>
+      )
+    }),
+    [isRunning, runCommand, orderLines]
+  );
+
   useEffect(() => {
     if (activeCustomerId && activeCustomerId !== customerId) setCustomerId(activeCustomerId);
   }, [activeCustomerId, customerId]);
@@ -382,6 +444,7 @@ export function SalesView() {
                     <button className="secondary-button compact-action" type="button" disabled={!selectedOrder} onClick={reserveOrder}>Reserve</button>
                   </>
                 )}
+                expansionConfig={canWrite ? salesLineExpansionConfig : undefined}
               />
             </div>
             <div className="grid gap-2 text-sm">
