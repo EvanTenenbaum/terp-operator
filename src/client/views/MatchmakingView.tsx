@@ -1,5 +1,5 @@
 import { Check, Plus, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
@@ -156,6 +156,47 @@ export function MatchmakingView() {
     for (const row of selectedMatches) await runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss matchmaking row');
   }
 
+  const matchExpansionConfig = useMemo(
+    () => ({
+      enabled: true,
+      actionsRenderer: (row: GridRow) => (
+        <>
+          <button
+            className="primary-button compact-action"
+            disabled={isRunning}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('acceptMatchmakingMatch', { matchId: row.id }, 'Accept match');
+            }}
+            type="button"
+          >
+            <Check className="h-4 w-4" aria-hidden="true" />
+            Accept
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss match');
+            }}
+            type="button"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+            Dismiss
+          </button>
+        </>
+      ),
+      historyRenderer: (row: GridRow) => (
+        <div className="text-sm text-zinc-600">
+          <div className="font-medium mb-1">Match Reasoning:</div>
+          <div>{String(row.reasons ?? 'No reasoning provided')}</div>
+        </div>
+      )
+    }),
+    [isRunning, runCommand]
+  );
+
   return (
     <div className="view-stack">
       {canWrite ? (
@@ -304,6 +345,7 @@ export function MatchmakingView() {
         }
         emptyTitle="No matches yet"
         emptyChildren="Add a customer need and vendor stock with matching category or tags."
+        expansionConfig={canWrite ? matchExpansionConfig : undefined}
       />
 
       <div className="grid gap-3 xl:grid-cols-2">
