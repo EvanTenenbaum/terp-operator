@@ -790,49 +790,98 @@ function purchaseOrderPrimaryDisabled(status: string) {
 }
 
 export function OrdersView() {
+  const grid = trpc.queries.grid.useQuery({ view: 'orders' });
+  const reference = trpc.queries.reference.useQuery();
+  const selectedRows = useUiStore((state) => state.selectedRows.orders);
+  const selected = selectedRows ?? EMPTY_ROWS;
+  const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+  const { runCommand } = useCommandRunner();
+  const me = trpc.auth.me.useQuery();
+  const canWrite = me.data?.role !== 'viewer';
+  const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
+  const selectedOrder = selected[0];
+  const customerId = String(selectedOrder?.customerId ?? '');
+
+  async function handlePostOrder() {
+    if (!selectedOrder) return;
+    const payload: Record<string, unknown> = { orderId: selectedOrder.id };
+    if (refereeRelationshipId) {
+      payload.refereeRelationshipId = refereeRelationshipId;
+      payload.logRefereeCredit = true;
+    }
+    await runCommand('postSalesOrder', payload, 'Post selected order');
+    setRefereeRelationshipId('');
+  }
+
+  function onCellCommit(event: CellValueChangedEvent<GridRow>) {
+    if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
+    if (event.colDef.field === 'deliveryWindow') {
+      runCommand('setDeliveryWindow', { orderId: event.data.id, deliveryWindow: event.newValue }, 'Inline delivery window edit');
+      return;
+    }
+    if (['notes', 'packed', 'inventoryPosted', 'paymentFollowup'].includes(String(event.colDef.field))) {
+      runCommand('updateSalesOrderLine', { orderId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline order closeout edit: ${event.colDef.field}`);
+    }
+  }
+
+  const customerRelationships = (reference.data?.refereeRelationships ?? [])
+    .filter((rel: any) => rel.entityType === 'customer' && rel.entityId === customerId);
+
   return (
-    <GridJourney
-      view="orders"
-      title="Orders"
-      onCellCommit={(event, runCommand) => {
-        if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
-        if (event.colDef.field === 'deliveryWindow') {
-          runCommand('setDeliveryWindow', { orderId: event.data.id, deliveryWindow: event.newValue }, 'Inline delivery window edit');
-          return;
-        }
-        if (['notes', 'packed', 'inventoryPosted', 'paymentFollowup'].includes(String(event.colDef.field))) {
-          runCommand('updateSalesOrderLine', { orderId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline order closeout edit: ${event.colDef.field}`);
-        }
-      }}
-      actions={(rows, runCommand) => (
-        <>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('confirmSalesOrder', { orderId: rows[0].id }, 'Mark selected order Ready/Confirmed')} type="button">
-            <Check className="h-4 w-4" aria-hidden="true" />
-            Ready
-          </button>
-          <button className="primary-button" disabled={!rows.length} onClick={() => runCommand('postSalesOrder', { orderId: rows[0].id }, 'Post selected order')} type="button">
-            <Send className="h-4 w-4" aria-hidden="true" />
-            Post
-          </button>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('repriceOrder', { orderId: rows[0].id, strategy: 'clearance' }, 'Reprice selected order')} type="button">
-            <FileDown className="h-4 w-4" aria-hidden="true" />
-            Reprice
-          </button>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('allocateOrderToFulfillment', { orderId: rows[0].id }, 'Allocate order to fulfillment')} type="button">
-            <Truck className="h-4 w-4" aria-hidden="true" />
-            Fulfillment
-          </button>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('createPickList', { orderId: rows[0].id }, 'Create pick list for selected order')} type="button">
-            <ListChecks className="h-4 w-4" aria-hidden="true" />
-            Pick list
-          </button>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('cancelSalesOrder', { orderId: rows[0].id }, 'Cancel selected order')} type="button">
-            <Undo2 className="h-4 w-4" aria-hidden="true" />
-            Cancel
-          </button>
-        </>
-      )}
-    />
+    <div className="view-stack">
+      {canWrite && selectedOrder && customerRelationships.length > 0 ? (
+        <div className="control-band subtle-band">
+          <label className="field-inline">
+            Referee credit (optional)
+            <select className="select" value={refereeRelationshipId} onChange={(e) => setRefereeRelationshipId(e.target.value)}>
+              <option value="">No referee credit</option>
+              {customerRelationships.map((rel: any) => (
+                <option key={rel.id} value={rel.id}>
+                  {rel.refereeName} ({rel.feeType === 'percentage' ? `${rel.feePercentage}%` : rel.feeType === 'fixed' ? `$${rel.feeFixedAmount}` : `${rel.feePercentage}% + $${rel.feeFixedAmount}`})
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
+      <OperatorGrid
+        view="orders"
+        title="Orders"
+        rows={(grid.data ?? []) as GridRow[]}
+        columns={columnsByView.orders ?? []}
+        loading={grid.isLoading}
+        onSelectionChange={(rows) => setSelectedRows('orders', rows)}
+        onCellCommit={canWrite ? onCellCommit : undefined}
+        actions={canWrite ? (
+          <>
+            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('confirmSalesOrder', { orderId: selected[0].id }, 'Mark selected order Ready/Confirmed')} type="button">
+              <Check className="h-4 w-4" aria-hidden="true" />
+              Ready
+            </button>
+            <button className="primary-button" disabled={!selected.length} onClick={handlePostOrder} type="button">
+              <Send className="h-4 w-4" aria-hidden="true" />
+              Post
+            </button>
+            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('repriceOrder', { orderId: selected[0].id, strategy: 'clearance' }, 'Reprice selected order')} type="button">
+              <FileDown className="h-4 w-4" aria-hidden="true" />
+              Reprice
+            </button>
+            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('allocateOrderToFulfillment', { orderId: selected[0].id }, 'Allocate order to fulfillment')} type="button">
+              <Truck className="h-4 w-4" aria-hidden="true" />
+              Fulfillment
+            </button>
+            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('createPickList', { orderId: selected[0].id }, 'Create pick list for selected order')} type="button">
+              <ListChecks className="h-4 w-4" aria-hidden="true" />
+              Pick list
+            </button>
+            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('cancelSalesOrder', { orderId: selected[0].id }, 'Cancel selected order')} type="button">
+              <Undo2 className="h-4 w-4" aria-hidden="true" />
+              Cancel
+            </button>
+          </>
+        ) : null}
+      />
+    </div>
   );
 }
 
