@@ -1,5 +1,5 @@
 import { CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -227,7 +227,6 @@ export function PurchaseOrdersView() {
   const [newVendorNotes, setNewVendorNotes] = useState('');
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [poTrayOpen, setPoTrayOpen] = useState(false);
-  const [lineTrayOpen, setLineTrayOpen] = useState(false);
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
@@ -653,7 +652,34 @@ export function PurchaseOrdersView() {
               </button>
             ) : null}
           </section>
-          <OperatorGrid
+          {useMemo(
+            () => {
+              const purchaseOrderLineExpansionConfig = {
+                enabled: true,
+                actionsRenderer: (row: GridRow) => (
+                  <>
+                    <button
+                      className="primary-button compact-action"
+                      disabled={isRunning}
+                      onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo.id, lineIds: [row.id] }, 'Receive selected PO line to intake')}
+                      type="button"
+                    >
+                      <PackagePlus className="h-4 w-4" aria-hidden="true" />
+                      Draft line
+                    </button>
+                    <button
+                      className="secondary-button compact-action"
+                      disabled={isRunning}
+                      onClick={() => runCommand('removePurchaseOrderLine', { lineId: row.id }, 'Remove purchase order line')}
+                      type="button"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      Remove line
+                    </button>
+                  </>
+                )
+              };
+              return <OperatorGrid
             view="purchaseOrders"
             title={`${String(selectedPo.poNo ?? 'Selected PO')} Lines`}
             subtitle="Procurement cost lines"
@@ -674,29 +700,14 @@ export function PurchaseOrdersView() {
                     <PackagePlus className="h-4 w-4" aria-hidden="true" />
                     Draft selected lines
                   </button>
-                  <button
-                    className="secondary-button compact-action"
-                    disabled={!selectedLines.length}
-                    onClick={() => setLineTrayOpen((value) => !value)}
-                    type="button"
-                    aria-expanded={lineTrayOpen}
-                  >
-                    {lineTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-                    Line actions
-                  </button>
-                  {lineTrayOpen ? <button
-                    className="secondary-button compact-action"
-                    disabled={!selectedLines.length || isRunning}
-                    onClick={() => runCommand('removePurchaseOrderLine', { lineId: selectedLines[0].id }, 'Remove selected purchase order line')}
-                    type="button"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    Remove PO line
-                  </button> : null}
                 </>
               ) : null
             }
-          />
+            expansionConfig={canWrite ? purchaseOrderLineExpansionConfig : undefined}
+          />;
+            },
+            [isRunning, selectedPo.id, runCommand, canWrite, lines.data, lines.isLoading, selectedLines]
+          )}
         </>
       ) : null}
     </div>
