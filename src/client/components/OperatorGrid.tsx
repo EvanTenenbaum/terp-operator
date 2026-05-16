@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { CellValueChangedEvent, ColDef, GridApi, GridReadyEvent, SideBarDef, ValueGetterParams } from 'ag-grid-community';
+import type { CellValueChangedEvent, ColDef, GridApi, GridReadyEvent, SideBarDef, ValueGetterParams, ICellRendererParams } from 'ag-grid-community';
 import { Download, Search } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { EmptyState } from './EmptyState';
@@ -10,6 +10,8 @@ import { RowCommandHistoryDrawer } from './RowCommandHistoryDrawer';
 import { SelectionSummary } from './SelectionSummary';
 import { StatusPill } from './StatusPill';
 import { WorkspacePanel } from './WorkspacePanel';
+import { ExpansionPanel } from './ExpansionPanel';
+import { ExpansionChevronCell } from './ExpansionChevronColumn';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow, ViewKey } from '../../shared/types';
 
@@ -26,9 +28,16 @@ interface OperatorGridProps {
   onCellCommit?: (event: CellValueChangedEvent<GridRow>) => void;
   emptyTitle?: string;
   emptyChildren?: ReactNode;
+  expansionConfig?: {
+    enabled: boolean;
+    actionsRenderer?: (row: GridRow) => ReactNode;
+    historyRenderer?: (row: GridRow) => ReactNode;
+    childrenRenderer?: (row: GridRow) => ReactNode;
+    isRowMaster?: (row: GridRow) => boolean;
+  };
 }
 
-export function OperatorGrid({ view, title, subtitle, rows, columns, loading, actions, selectionActions, onSelectionChange, onCellCommit, emptyTitle, emptyChildren }: OperatorGridProps) {
+export function OperatorGrid({ view, title, subtitle, rows, columns, loading, actions, selectionActions, onSelectionChange, onCellCommit, emptyTitle, emptyChildren, expansionConfig }: OperatorGridProps) {
   const apiRef = useRef<GridApi<GridRow> | null>(null);
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
@@ -57,7 +66,38 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
     }),
     []
   );
-  const columnDefs = useMemo<ColDef<GridRow>[]>(() => withRowNumbers(withStatusRenderer(columns, canWrite)), [canWrite, columns]);
+  const columnDefs = useMemo<ColDef<GridRow>[]>(() => {
+    const baseColumns = withRowNumbers(withStatusRenderer(columns, canWrite));
+
+    // Add chevron column if expansion is enabled
+    if (expansionConfig?.enabled) {
+      const chevronColumn: ColDef<GridRow> = {
+        colId: 'expansion-chevron',
+        headerName: '',
+        width: 48,
+        minWidth: 48,
+        maxWidth: 48,
+        pinned: 'left',
+        lockPinned: true,
+        suppressMovable: true,
+        sortable: false,
+        filter: false,
+        resizable: false,
+        editable: false,
+        cellRenderer: (params: ICellRendererParams<GridRow>) => {
+          const isExpanded = params.node.expanded ?? false;
+          const onToggle = () => {
+            params.node.setExpanded(!isExpanded);
+          };
+          return <ExpansionChevronCell {...params} isExpanded={isExpanded} onToggle={onToggle} />;
+        }
+      };
+
+      return [baseColumns[0], chevronColumn, ...baseColumns.slice(1)];
+    }
+
+    return baseColumns;
+  }, [canWrite, columns, expansionConfig?.enabled]);
   const rowSelection = useMemo(
     () => ({
       mode: 'multiRow' as const,
@@ -121,6 +161,30 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
             sideBar={sideBar}
             loading={loading}
             getRowId={(params) => String(params.data.id)}
+            masterDetail={expansionConfig?.enabled ?? false}
+            detailRowAutoHeight={true}
+            detailCellRenderer={(params: ICellRendererParams<GridRow>) => {
+              if (!params.data) return null;
+              return (
+                <ExpansionPanel
+                  row={params.data}
+                  view={view}
+                  actionsRenderer={expansionConfig?.actionsRenderer}
+                  historyRenderer={expansionConfig?.historyRenderer}
+                  childrenRenderer={expansionConfig?.childrenRenderer}
+                />
+              );
+            }}
+            isRowMaster={(dataItem) => {
+              if (!expansionConfig?.enabled) return false;
+              if (expansionConfig.isRowMaster) return expansionConfig.isRowMaster(dataItem);
+              // Default: any row with actions/history/children can expand
+              return Boolean(
+                expansionConfig.actionsRenderer ||
+                expansionConfig.historyRenderer ||
+                expansionConfig.childrenRenderer
+              );
+            }}
             onGridReady={(event: GridReadyEvent<GridRow>) => {
               apiRef.current = event.api;
               event.api.setGridOption('quickFilterText', parsedFilter.freeText);
