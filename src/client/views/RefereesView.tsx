@@ -1,8 +1,10 @@
-import { Plus } from 'lucide-react';
+import { Plus, UserPlus } from 'lucide-react';
+import { useState } from 'react';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { RefereeRelationshipDialog } from '../components/RefereeRelationshipDialog';
 import type { GridRow } from '../../shared/types';
 
 const columns: ColDef<GridRow>[] = [
@@ -11,6 +13,7 @@ const columns: ColDef<GridRow>[] = [
   { field: 'phone', width: 150 },
   { field: 'balance', type: 'numericColumn', width: 130, headerName: 'Balance' },
   { field: 'lifetimeEarned', type: 'numericColumn', width: 150, headerName: 'Lifetime Earned' },
+  { field: 'relationshipsCount', headerName: 'Relationships', type: 'numericColumn', width: 140 },
   { field: 'paymentMethod', headerName: 'Payment Method', width: 150 },
   { field: 'active', width: 100 },
   { field: 'notes', editable: true, minWidth: 250 },
@@ -20,6 +23,7 @@ const columns: ColDef<GridRow>[] = [
 export function RefereesView() {
   const grid = trpc.queries.grid.useQuery({ view: 'referees' });
   const { runCommand } = useCommandRunner();
+  const [selectedReferee, setSelectedReferee] = useState<{ id: string; name: string } | null>(null);
 
   async function handleCreateReferee() {
     const name = prompt('Referee name:');
@@ -35,17 +39,23 @@ export function RefereesView() {
     });
   }
 
+  function handleAddRelationship(row: GridRow) {
+    setSelectedReferee({ id: row.id, name: String(row.name) });
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
         <h1 className="text-lg font-semibold text-zinc-900">Referees</h1>
-        <button
-          onClick={handleCreateReferee}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          New Referee
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleCreateReferee}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            New Referee
+          </button>
+        </div>
       </div>
       <div className="flex-1">
         <OperatorGrid
@@ -53,8 +63,23 @@ export function RefereesView() {
           title="Referees"
           rows={grid.data ?? []}
           columns={columns}
+          contextActions={(row) => [
+            {
+              label: 'Add Relationship',
+              icon: UserPlus,
+              onClick: () => handleAddRelationship(row)
+            }
+          ]}
         />
       </div>
+
+      {selectedReferee && (
+        <RefereeRelationshipDialog
+          refereeId={selectedReferee.id}
+          refereeName={selectedReferee.name}
+          onClose={() => setSelectedReferee(null)}
+        />
+      )}
     </div>
   );
 }

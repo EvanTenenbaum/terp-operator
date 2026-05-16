@@ -228,6 +228,7 @@ export function PurchaseOrdersView() {
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [poTrayOpen, setPoTrayOpen] = useState(false);
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
+  const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
   const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
@@ -245,6 +246,35 @@ export function PurchaseOrdersView() {
     return !hasQty || (!hasUnitCost && !hasValidRange);
   });
   const canApproveDraft = Boolean(defaultVendorId) && filledDraftLines.length > 0 && approvalLineIssues.length === 0;
+
+  const purchaseOrderLineExpansionConfig = useMemo(
+    () => ({
+      enabled: true,
+      actionsRenderer: (row: GridRow) => (
+        <>
+          <button
+            className="primary-button compact-action"
+            disabled={isRunning}
+            onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo?.id ?? '', lineIds: [row.id] }, 'Receive selected PO line to intake')}
+            type="button"
+          >
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Draft line
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={() => runCommand('removePurchaseOrderLine', { lineId: row.id }, 'Remove purchase order line')}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            Remove line
+          </button>
+        </>
+      )
+    }),
+    [isRunning, selectedPo?.id, runCommand]
+  );
 
   function openAuthoringWorkspace() {
     setAuthoringOpen(true);
@@ -332,7 +362,12 @@ export function PurchaseOrdersView() {
       );
     }
     if (options.approve) {
-      await runCommand('approvePurchaseOrder', { purchaseOrderId }, 'Approve PO to receive queue');
+      const payload: Record<string, unknown> = { purchaseOrderId };
+      if (refereeRelationshipId) {
+        payload.refereeRelationshipId = refereeRelationshipId;
+        payload.logRefereeCredit = true;
+      }
+      await runCommand('approvePurchaseOrder', payload, 'Approve PO to receive queue');
     }
     setAuthoringOpen(false);
     setDraftLines([makePoDraftLine()]);
@@ -341,6 +376,7 @@ export function PurchaseOrdersView() {
     setExternalNotes('');
     setPaymentTerms('vendor_terms');
     setPrepaymentAmount('0');
+    setRefereeRelationshipId('');
     setSelectedRows('purchaseOrders', [{ id: purchaseOrderId }]);
     return purchaseOrderId;
   }
@@ -491,6 +527,19 @@ export function PurchaseOrdersView() {
                   value={prepaymentAmount}
                   onChange={(event) => setPrepaymentAmount(event.target.value)}
                 />
+              </label>
+              <label className="field-inline">
+                Referee credit (optional)
+                <select className="select" value={refereeRelationshipId} onChange={(event) => setRefereeRelationshipId(event.target.value)}>
+                  <option value="">No referee credit</option>
+                  {(reference.data?.refereeRelationships ?? [])
+                    .filter((rel: any) => rel.entityType === 'vendor' && rel.entityId === defaultVendorId)
+                    .map((rel: any) => (
+                      <option key={rel.id} value={rel.id}>
+                        {rel.refereeName} ({rel.feeType === 'percentage' ? `${rel.feePercentage}%` : rel.feeType === 'fixed' ? `$${rel.feeFixedAmount}` : `${rel.feePercentage}% + $${rel.feeFixedAmount}`})
+                      </option>
+                    ))}
+                </select>
               </label>
             </div>
             {newVendorOpen ? (
@@ -652,34 +701,7 @@ export function PurchaseOrdersView() {
               </button>
             ) : null}
           </section>
-          {useMemo(
-            () => {
-              const purchaseOrderLineExpansionConfig = {
-                enabled: true,
-                actionsRenderer: (row: GridRow) => (
-                  <>
-                    <button
-                      className="primary-button compact-action"
-                      disabled={isRunning}
-                      onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo.id, lineIds: [row.id] }, 'Receive selected PO line to intake')}
-                      type="button"
-                    >
-                      <PackagePlus className="h-4 w-4" aria-hidden="true" />
-                      Draft line
-                    </button>
-                    <button
-                      className="secondary-button compact-action"
-                      disabled={isRunning}
-                      onClick={() => runCommand('removePurchaseOrderLine', { lineId: row.id }, 'Remove purchase order line')}
-                      type="button"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      Remove line
-                    </button>
-                  </>
-                )
-              };
-              return <OperatorGrid
+          <OperatorGrid
             view="purchaseOrders"
             title={`${String(selectedPo.poNo ?? 'Selected PO')} Lines`}
             subtitle="Procurement cost lines"
@@ -694,7 +716,7 @@ export function PurchaseOrdersView() {
                   <button
                     className="primary-button"
                     disabled={!selectedLines.length || isRunning}
-                    onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo.id, lineIds: selectedLines.map((line) => line.id) }, 'Receive selected PO lines to intake')}
+                    onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo?.id ?? '', lineIds: selectedLines.map((line) => line.id) }, 'Receive selected PO lines to intake')}
                     type="button"
                   >
                     <PackagePlus className="h-4 w-4" aria-hidden="true" />
@@ -704,10 +726,7 @@ export function PurchaseOrdersView() {
               ) : null
             }
             expansionConfig={canWrite ? purchaseOrderLineExpansionConfig : undefined}
-          />;
-            },
-            [isRunning, selectedPo.id, runCommand, canWrite, lines.data, lines.isLoading, selectedLines]
-          )}
+          />
         </>
       ) : null}
     </div>
