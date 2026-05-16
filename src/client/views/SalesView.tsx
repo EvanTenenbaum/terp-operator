@@ -164,10 +164,9 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning}
-            onClick={async () => {
+            onClick={() => {
               if (!row.id || row.id.trim() === '') return;
-              await runCommand('updateSalesOrderLine', { lineId: row.id, packed: true }, 'Pack line');
-              await orderLines.refetch();
+              runCommand('updateSalesOrderLine', { lineId: row.id, packed: true }, 'Pack line');
             }}
             type="button"
           >
@@ -177,10 +176,9 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning}
-            onClick={async () => {
+            onClick={() => {
               if (!row.id || row.id.trim() === '') return;
-              await runCommand('updateSalesOrderLine', { lineId: row.id, inventoryPosted: true }, 'Post to inventory');
-              await orderLines.refetch();
+              runCommand('updateSalesOrderLine', { lineId: row.id, inventoryPosted: true }, 'Post to inventory');
             }}
             type="button"
           >
@@ -190,10 +188,9 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning}
-            onClick={async () => {
+            onClick={() => {
               if (!row.id || row.id.trim() === '') return;
-              await runCommand('updateSalesOrderLine', { lineId: row.id, paymentFollowup: true }, 'Payment follow-up');
-              await orderLines.refetch();
+              runCommand('updateSalesOrderLine', { lineId: row.id, paymentFollowup: true }, 'Payment follow-up');
             }}
             type="button"
           >
@@ -203,10 +200,9 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning}
-            onClick={async () => {
+            onClick={() => {
               if (!row.id || row.id.trim() === '') return;
-              await runCommand('removeSalesOrderLine', { lineId: row.id }, 'Remove line');
-              await orderLines.refetch();
+              runCommand('removeSalesOrderLine', { lineId: row.id }, 'Remove line');
             }}
             type="button"
           >
@@ -215,7 +211,7 @@ export function SalesView() {
         </>
       )
     }),
-    [isRunning, runCommand, orderLines]
+    [isRunning, runCommand]
   );
 
   useEffect(() => {
