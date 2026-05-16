@@ -63,13 +63,19 @@ export function RefereesView() {
           title="Referees"
           rows={grid.data ?? []}
           columns={columns}
-          contextActions={(row) => [
-            {
-              label: 'Add Relationship',
-              icon: UserPlus,
-              onClick: () => handleAddRelationship(row)
-            }
-          ]}
+          selectionActions={(rows) => (
+            <>
+              <button
+                className="secondary-button compact-action"
+                disabled={!rows.length}
+                onClick={() => rows[0] && handleAddRelationship(rows[0])}
+                type="button"
+              >
+                <UserPlus className="h-4 w-4" />
+                Add Relationship
+              </button>
+            </>
+          )}
         />
       </div>
 
