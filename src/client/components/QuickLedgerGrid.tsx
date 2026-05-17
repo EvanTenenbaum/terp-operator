@@ -7,7 +7,7 @@ import { useCommandRunner } from './useCommandRunner';
 import { WorkspacePanel } from './WorkspacePanel';
 
 type LedgerDirection = 'receiving' | 'paying';
-type LedgerEntityType = 'customer' | 'vendor' | 'referee' | 'staff' | 'other';
+type LedgerEntityType = 'customer' | 'vendor' | 'referee' | 'staff' | 'processor' | 'other';
 type LedgerStatus = 'draft' | 'posted' | 'needs_fix';
 
 interface LedgerDraft {
@@ -27,6 +27,11 @@ interface LedgerDraft {
   notes: string;
   status: LedgerStatus;
   issue?: string;
+  // Processor fields (optional)
+  processorId?: string;
+  grossAmount?: string;
+  processingFeeTotal?: string;
+  userSplitPercent?: string;
 }
 
 interface PostedLedgerRow {
@@ -76,8 +81,47 @@ interface TypeDraft {
 
 const methods = ['cash', 'check', 'card', 'crypto', 'wire', 'journal'];
 const buckets = ['cash-file-a', 'cash-file-b', 'office', 'accounting', 'crypto-wallet', 'wire-clearing'];
-const entityTypes: LedgerEntityType[] = ['customer', 'vendor', 'referee', 'staff', 'other'];
+const entityTypes: LedgerEntityType[] = ['customer', 'vendor', 'referee', 'staff', 'processor', 'other'];
+const processorTransactionTypes = ['crypto_payment_in', 'crypto_cashout', 'check_payment_in'];
 const blankId = '00000000-0000-0000-0000-000000000000';
+
+// Client-side processor fee calculations (duplicated from server for UI calculations)
+function calculateProcessingFeeClient(
+  amount: number,
+  processor: { feeType: string; feePercentage: string | null; feeFixedAmount: string | null }
+): number {
+  const feePercentage = processor.feePercentage ? Number(processor.feePercentage) : 0;
+  const feeFixedAmount = processor.feeFixedAmount ? Number(processor.feeFixedAmount) : 0;
+
+  switch (processor.feeType) {
+    case 'percentage':
+      return Math.round((amount * feePercentage / 100) * 100) / 100;
+    case 'fixed':
+      return feeFixedAmount;
+    case 'hybrid':
+      const percentPart = Math.round((amount * feePercentage / 100) * 100) / 100;
+      return percentPart + feeFixedAmount;
+    default:
+      return 0;
+  }
+}
+
+function splitProcessingFeeClient(
+  feeTotal: number,
+  userSplitPercent: number
+): { userShare: number; processorShare: number } {
+  const userShare = Math.round((feeTotal * userSplitPercent / 100) * 100) / 100;
+  const processorShare = Math.round((feeTotal - userShare) * 100) / 100;
+  return { userShare, processorShare };
+}
+
+function calculateCustomerCreditClient(
+  grossAmount: number,
+  processorFeeShare: number,
+  userFeeShare: number
+): number {
+  return Math.round((grossAmount - processorFeeShare - userFeeShare) * 100) / 100;
+}
 
 export function QuickLedgerGrid() {
   const reference = trpc.queries.reference.useQuery();
@@ -521,7 +565,12 @@ function makeRow(direction: LedgerDirection): LedgerDraft {
     bucket: direction === 'paying' ? 'accounting' : 'cash-file-a',
     reference: '',
     notes: '',
-    status: 'draft'
+    status: 'draft',
+    // Processor fields
+    processorId: '',
+    grossAmount: '',
+    processingFeeTotal: '',
+    userSplitPercent: ''
   };
 }
 
