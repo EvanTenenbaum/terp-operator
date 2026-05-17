@@ -250,6 +250,7 @@ export const useUiStore = create<UiState>()(
   {
     name: 'terp-agro-ui',
     partialize: (state) => ({
+      activeView: state.activeView,
       sideNavCollapsed: state.sideNavCollapsed,
       collapsedPanels: state.collapsedPanels,
       activeQuickLaunch: state.activeQuickLaunch,

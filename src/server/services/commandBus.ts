@@ -605,6 +605,7 @@ async function createPurchaseOrder(tx: Tx, payload: Payload, userId: string, com
 
 async function createVendor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const name = requiredString(payload.name, 'name');
+  if (name.trim().length < 2) throw new Error('Vendor name must be at least 2 characters.');
   const termsDays = Number(payload.termsDays ?? 14);
   if (!Number.isFinite(termsDays) || termsDays < 0) throw new Error('Vendor payment terms must be zero or more days.');
   const [existing] = await tx.select().from(vendors).where(ilike(vendors.name, name.trim())).limit(1);

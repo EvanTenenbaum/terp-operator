@@ -129,12 +129,14 @@ export function CommandPalette() {
           <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
           <input
             autoFocus
-            className="h-9 flex-1 outline-none"
+            aria-label="Command palette search"
+            maxLength={200}
+            className="h-9 flex-1 truncate outline-none"
             placeholder="Type a command, table, client, or row ID"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          <button type="button" className="icon-button" onClick={() => setOpen(false)}>
+          <button type="button" className="icon-button" aria-label="Close command palette" onClick={() => setOpen(false)}>
             <X className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only">Close</span>
           </button>
