@@ -1,4 +1,10 @@
+import { eq } from 'drizzle-orm';
+import { paymentProcessors, processorFees } from '../schema';
 import type { PaymentProcessor } from '../schema';
+import type { CommandResult } from '../../shared/types';
+
+type Tx = any;
+type Payload = Record<string, unknown>;
 
 /**
  * Calculate processing fee based on processor configuration
@@ -78,4 +84,155 @@ export function calculateCustomerCredit(
   userFeeShare: number
 ): number {
   return Math.round((grossAmount - processorFeeShare - userFeeShare) * 100) / 100;
+}
+
+// =============================================================================
+// Command Handlers
+// =============================================================================
+
+/**
+ * Create a new payment processor
+ * @param tx - Database transaction
+ * @param payload - Processor configuration
+ * @param commandId - Command identifier
+ * @returns Command result with created processor ID
+ * @throws {Error} If validation fails
+ */
+export async function createPaymentProcessor(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  // Validation
+  if (payload.feeType === 'percentage' && payload.feePercentage == null) {
+    throw new Error('Percentage fee required for percentage fee type');
+  }
+  if (payload.feeType === 'fixed' && payload.feeFixedAmount == null) {
+    throw new Error('Fixed amount required for fixed fee type');
+  }
+  if (payload.feeType === 'hybrid' && (payload.feePercentage == null || payload.feeFixedAmount == null)) {
+    throw new Error('Both percentage and fixed amount required for hybrid fee type');
+  }
+  if (payload.feePercentage != null && Number(payload.feePercentage) < 0) {
+    throw new Error('Fee percentage cannot be negative');
+  }
+  if (payload.feeFixedAmount != null && Number(payload.feeFixedAmount) < 0) {
+    throw new Error('Fee fixed amount cannot be negative');
+  }
+  if (Number(payload.defaultUserSplit) < 0 || Number(payload.defaultProcessorSplit) < 0) {
+    throw new Error('Split percentages cannot be negative');
+  }
+  if (Number(payload.defaultUserSplit) + Number(payload.defaultProcessorSplit) !== 100) {
+    throw new Error('User split and processor split must add up to 100%');
+  }
+
+  const [processor] = await tx
+    .insert(paymentProcessors)
+    .values({
+      name: String(payload.name),
+      processorType: String(payload.processorType),
+      feeType: String(payload.feeType),
+      feePercentage: payload.feePercentage ? String(payload.feePercentage) : null,
+      feeFixedAmount: payload.feeFixedAmount ? String(payload.feeFixedAmount) : null,
+      defaultUserSplit: String(payload.defaultUserSplit),
+      defaultProcessorSplit: String(payload.defaultProcessorSplit),
+      notes: payload.notes ? String(payload.notes) : null,
+      active: true
+    })
+    .returning();
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [processor.id],
+    toast: `Processor "${processor.name}" created.`
+  };
+}
+
+/**
+ * Mark user fee as collected
+ * @param tx - Database transaction
+ * @param payload - Contains processorFeeId and optional collectedAt date
+ * @param commandId - Command identifier
+ * @returns Command result
+ */
+export async function markUserFeeCollected(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  let collectedDate = new Date();
+  if (payload.collectedAt) {
+    collectedDate = new Date(String(payload.collectedAt));
+    if (isNaN(collectedDate.getTime())) {
+      throw new Error('Invalid collectedAt date format');
+    }
+  }
+
+  await tx
+    .update(processorFees)
+    .set({
+      userFeeStatus: 'collected',
+      userFeeCollectedAt: collectedDate
+    })
+    .where(eq(processorFees.id, String(payload.processorFeeId)));
+
+  // Verify the update worked
+  const [updated] = await tx
+    .select()
+    .from(processorFees)
+    .where(eq(processorFees.id, String(payload.processorFeeId)));
+
+  if (!updated) {
+    throw new Error('Processor fee not found');
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [String(payload.processorFeeId)],
+    toast: 'User fee marked as collected.'
+  };
+}
+
+/**
+ * Update processor fee status (paid/unpaid)
+ * @param tx - Database transaction
+ * @param payload - Contains processorFeeId and status
+ * @param commandId - Command identifier
+ * @returns Command result
+ */
+export async function updateProcessorFeeStatus(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  if (payload.status !== 'paid' && payload.status !== 'unpaid') {
+    throw new Error('Status must be either "paid" or "unpaid"');
+  }
+
+  await tx
+    .update(processorFees)
+    .set({
+      processorFeeStatus: String(payload.status),
+      processorFeePaidAt: payload.status === 'paid' ? new Date() : null
+    })
+    .where(eq(processorFees.id, String(payload.processorFeeId)));
+
+  // Verify the update worked
+  const [updated] = await tx
+    .select()
+    .from(processorFees)
+    .where(eq(processorFees.id, String(payload.processorFeeId)));
+
+  if (!updated) {
+    throw new Error('Processor fee not found');
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [String(payload.processorFeeId)],
+    toast: `Processor fee marked as ${payload.status}.`
+  };
 }
