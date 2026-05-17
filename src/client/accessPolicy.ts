@@ -2,16 +2,16 @@ import type { QuickLaunchMode, SessionUser, ViewKey } from '../shared/types';
 
 type WorkLoop = 'owner' | 'manager' | 'sales' | 'intake' | 'warehouse' | 'operator' | 'viewer';
 
-const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment'];
+const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees'];
 
 const viewsByLoop: Record<WorkLoop, readonly ViewKey[]> = {
   owner: [...defaultOperatorViews, 'settings'],
   manager: [...defaultOperatorViews, 'settings'],
-  sales: ['dashboard', 'reports', 'sales', 'matchmaking', 'orders', 'inventory', 'clients', 'payments'],
+  sales: ['dashboard', 'reports', 'sales', 'matchmaking', 'orders', 'inventory', 'clients', 'payments', 'referees'],
   intake: ['dashboard', 'purchaseOrders', 'intake', 'matchmaking', 'inventory', 'fulfillment', 'vendors'],
   warehouse: ['dashboard', 'orders', 'inventory', 'fulfillment'],
   operator: defaultOperatorViews,
-  viewer: ['dashboard', 'reports', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment']
+  viewer: ['dashboard', 'reports', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees']
 };
 
 const startsByLoop: Record<WorkLoop, readonly QuickLaunchMode[]> = {
