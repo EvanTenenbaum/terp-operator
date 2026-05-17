@@ -59,7 +59,8 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { view: 'payments', label: 'Payments', hotkey: '⌘4', icon: BadgeDollarSign },
       { view: 'vendors', label: 'Vendor Payouts', icon: Landmark },
-      { view: 'referees', label: 'Referees', icon: Users }
+      { view: 'referees', label: 'Referees', icon: Users },
+      { view: 'processors', label: 'Processors', icon: BadgeDollarSign }
     ]
   },
   {

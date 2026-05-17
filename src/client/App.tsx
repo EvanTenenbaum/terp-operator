@@ -31,6 +31,7 @@ import {
   VendorPayablesView
 } from './views/OperationsViews';
 import { RefereesView } from './views/RefereesView';
+import { ProcessorsView } from './views/ProcessorsView';
 
 export function App() {
   const me = trpc.auth.me.useQuery();
@@ -87,6 +88,7 @@ export function App() {
             {activeView === 'recovery' ? <RecoveryView /> : null}
             {activeView === 'closeout' ? <CloseoutView /> : null}
             {activeView === 'referees' ? <RefereesView /> : null}
+            {activeView === 'processors' ? <ProcessorsView /> : null}
             {activeView === 'settings' ? <SettingsView /> : null}
           </main>
           <ContextDrawer />

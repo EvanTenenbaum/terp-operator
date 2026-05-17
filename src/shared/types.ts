@@ -80,6 +80,7 @@ export type ViewKey =
   | 'recovery'
   | 'closeout'
   | 'referees'
+  | 'processors'
   | 'settings';
 
 export interface SessionUser {

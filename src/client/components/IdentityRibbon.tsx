@@ -22,6 +22,7 @@ const viewLabels: Record<ViewKey, string> = {
   recovery: 'Recovery',
   closeout: 'Closeout',
   referees: 'Referees',
+  processors: 'Payment Processors',
   settings: 'Settings'
 };
 
