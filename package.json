@@ -20,6 +20,7 @@
     "db:seed:realistic:prod": "DEMO_SEED_SCENARIO=realistic_100d node dist/server/seed.js",
     "start:staging": "NODE_ENV=production pnpm db:migrate:prod && ALLOW_DEMO_SEED=true DEMO_SEED_SCENARIO=${DEMO_SEED_SCENARIO:-realistic_100d} pnpm db:seed:prod && DATABASE_SSL=${DATABASE_SSL:-false} pnpm audit:realistic-demo && NODE_ENV=production node dist/server/index.js",
     "staging:reset": "bash scripts/reset-staging-data.sh",
+    "test": "vitest",
     "test:e2e": "playwright test",
     "audit:parity": "node scripts/check-backend-frontend-parity.mjs",
     "audit:product-roadmap": "node scripts/check-product-roadmap.mjs",
@@ -76,7 +77,8 @@
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^4.1.6"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
