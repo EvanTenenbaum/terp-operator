@@ -1,18 +1,20 @@
 import { z } from 'zod';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db, pool } from '../db';
 import { protectedProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
+import { paymentProcessors, processorFees } from '../schema';
 
-const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees']);
+const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors']);
 
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
   health: protectedProcedure.query(() => getHealth()),
   reference: protectedProcedure.query(async () => {
-    const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships] = await Promise.all([
+    const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors] = await Promise.all([
       pool.query('select id, name, credit_limit as "creditLimit", balance, tags from customers order by name'),
       pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
       pool.query("select id, name, role from users where role in ('owner','manager','operator') and active order by name"),
@@ -59,7 +61,8 @@ export const queriesRouter = router({
                   left join customers c on c.id = rr.entity_id and rr.entity_type = 'customer'
                   left join vendors v on v.id = rr.entity_id and rr.entity_type = 'vendor'
                   where rr.active
-                  order by r.name, rr.entity_type, "entityName"`)
+                  order by r.name, rr.entity_type, "entityName"`),
+      pool.query('select id, name, processor_type as "processorType", fee_type as "feeType", fee_percentage as "feePercentage", fee_fixed_amount as "feeFixedAmount", active from payment_processors where active order by name')
     ]);
     return {
       customers: customers.rows,
@@ -75,6 +78,7 @@ export const queriesRouter = router({
       backupSnapshots: backups.rows,
       referees: referees.rows,
       refereeRelationships: refereeRelationships.rows,
+      processors: processors.rows,
       categories: ['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape'],
       priceBrackets: ['under-25', '25-100', '100-plus'],
       commands: commandNames
@@ -732,7 +736,63 @@ export const queriesRouter = router({
         params
       )
     ).rows;
-  })
+  }),
+  activeProcessors: protectedProcedure
+    .query(async () => {
+      return await db
+        .select()
+        .from(paymentProcessors)
+        .where(eq(paymentProcessors.active, true))
+        .orderBy(asc(paymentProcessors.name));
+    }),
+  processorWithTotals: protectedProcedure
+    .input(z.object({ processorId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const result = await db.execute(sql`
+        select p.id, p.name, p.processor_type as "processorType", p.fee_type as "feeType",
+               p.fee_percentage as "feePercentage", p.fee_fixed_amount as "feeFixedAmount",
+               p.default_user_split as "defaultUserSplit", p.default_processor_split as "defaultProcessorSplit",
+               p.notes, p.active, p.created_at as "createdAt", p.updated_at as "updatedAt",
+               coalesce(sum(pf.processing_fee_total), 0) as "totalFeesProcessed",
+               coalesce(sum(case when pf.user_fee_status = 'collectible' then pf.user_fee_share else 0 end), 0) as "userFeesCollectible",
+               coalesce(sum(case when pf.user_fee_status = 'collected' then pf.user_fee_share else 0 end), 0) as "userFeesCollected",
+               coalesce(sum(case when pf.processor_fee_status = 'unpaid' then pf.processor_fee_share else 0 end), 0) as "processorFeesUnpaid"
+        from payment_processors p
+        left join processor_fees pf on pf.processor_id = p.id
+        where p.id = ${input.processorId}
+        group by p.id
+      `);
+
+      if (result.rows.length === 0) return null;
+
+      return result.rows[0];
+    }),
+  processorFees: protectedProcedure
+    .input(z.object({
+      processorId: z.string().uuid().optional(),
+      userFeeStatus: z.enum(['collectible', 'collected']).optional(),
+      processorFeeStatus: z.enum(['paid', 'unpaid']).optional(),
+    }))
+    .query(async ({ input }) => {
+      const conditions = [];
+
+      if (input.processorId) {
+        conditions.push(eq(processorFees.processorId, input.processorId));
+      }
+      if (input.userFeeStatus) {
+        conditions.push(eq(processorFees.userFeeStatus, input.userFeeStatus));
+      }
+      if (input.processorFeeStatus) {
+        conditions.push(eq(processorFees.processorFeeStatus, input.processorFeeStatus));
+      }
+
+      return await db
+        .select()
+        .from(processorFees)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(processorFees.createdAt))
+        .limit(200);
+    })
 });
 
 type ReplaceTable = 'batches' | 'customers' | 'vendors' | 'sales_orders' | 'connector_requests';
@@ -925,6 +985,20 @@ function gridSql(view: z.infer<typeof viewSchema>) {
               left join referee_relationships rr on rr.referee_id = r.id and rr.active = true
               group by r.id
               order by r.created_at desc`;
+    case 'processors':
+      return `select p.id, p.name, p.processor_type as "processorType", p.fee_type as "feeType",
+                     p.fee_percentage as "feePercentage", p.fee_fixed_amount as "feeFixedAmount",
+                     p.default_user_split as "defaultUserSplit", p.default_processor_split as "defaultProcessorSplit",
+                     p.notes, p.active, p.created_at as "createdAt",
+                     coalesce(sum(pf.processing_fee_total), 0) as "totalFeesProcessed",
+                     coalesce(sum(case when pf.user_fee_status = 'collectible' then pf.user_fee_share else 0 end), 0) as "userFeesCollectible",
+                     coalesce(sum(case when pf.user_fee_status = 'collected' then pf.user_fee_share else 0 end), 0) as "userFeesCollected",
+                     coalesce(sum(case when pf.processor_fee_status = 'unpaid' then pf.processor_fee_share else 0 end), 0) as "processorFeesUnpaid",
+                     count(pf.id)::int as "relationshipsCount"
+              from payment_processors p
+              left join processor_fees pf on pf.processor_id = p.id
+              group by p.id
+              order by p.name`;
   }
 }
 
@@ -963,7 +1037,8 @@ function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     connectors: ['id', 'source', 'requestType', 'customer', 'status', 'operatorNotes', 'createdAt'],
     recovery: ['id', 'commandName', 'actorName', 'status', 'error', 'affectedIds', 'reversedByCommandId', 'createdAt'],
     closeout: ['id', 'period', 'status', 'controlTotals', 'csvPath', 'jsonlPath', 'pdfPath', 'createdAt'],
-    referees: ['id', 'name', 'email', 'phone', 'balance', 'lifetimeEarned', 'paymentMethod', 'paymentDetails', 'notes', 'active', 'relationshipsCount', 'createdAt']
+    referees: ['id', 'name', 'email', 'phone', 'balance', 'lifetimeEarned', 'paymentMethod', 'paymentDetails', 'notes', 'active', 'relationshipsCount', 'createdAt'],
+    processors: ['id', 'name', 'processorType', 'feeType', 'feePercentage', 'feeFixedAmount', 'defaultUserSplit', 'defaultProcessorSplit', 'notes', 'active', 'totalFeesProcessed', 'userFeesCollectible', 'userFeesCollected', 'processorFeesUnpaid', 'relationshipsCount', 'createdAt']
   };
   return map[view];
 }
