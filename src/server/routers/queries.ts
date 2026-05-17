@@ -62,7 +62,7 @@ export const queriesRouter = router({
                   left join vendors v on v.id = rr.entity_id and rr.entity_type = 'vendor'
                   where rr.active
                   order by r.name, rr.entity_type, "entityName"`),
-      pool.query('select id, name, processor_type as "processorType", fee_type as "feeType", fee_percentage as "feePercentage", fee_fixed_amount as "feeFixedAmount", active from payment_processors where active order by name')
+      pool.query('select id, name, processor_type as "processorType", fee_type as "feeType", fee_percentage as "feePercentage", fee_fixed_amount as "feeFixedAmount", default_user_split as "defaultUserSplit", default_processor_split as "defaultProcessorSplit", active from payment_processors where active order by name')
     ]);
     return {
       customers: customers.rows,
