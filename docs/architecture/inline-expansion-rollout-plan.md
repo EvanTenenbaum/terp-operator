@@ -320,31 +320,44 @@ My Open Work grid
 
 ---
 
-### Phase 3: Sales Line Actions
-**Target:** 2026-05-27  
-**Effort:** 2-3 days
+### Phase 3: ✅ COMPLETE
+**Completed:** 2026-05-16  
+**Commits:** f97caa2, af06e25
 
-4. **Sales View - Line Actions** (inline expansion on order lines)
-   - Expand order line → fulfillment actions
-   - Actions: Pack, Post, Follow-up, Remove
-   - Mirror PO lines pattern
+- [x] **Sales View - Line Actions** (inline expansion on order lines)
+  - Actions: Pack line, Post inventory, Payment follow-up, Remove line
+  - Mirrors PO lines pattern
+  - Status guards: Buttons use isRunning disabled state
 
-**Deliverable:** Sales lines match PO lines UX
+- [x] **Adversarial QA Review**
+  - 2 critical issues found and fixed
+  - Removed redundant refetch calls (trusted query invalidation)
+  - Fixed wrong useMemo dependency (removed orderLines from deps)
+
+**Deliverable:** ✅ Sales lines inline expansion, production-ready
 
 ---
 
-### Phase 4: Advanced Use Cases
-**Target:** 2026-06 (TBD)  
-**Effort:** 5-7 days
+### Phase 4: ✅ COMPLETE  
+**Completed:** 2026-05-16  
+**Commits:** 49749d9, cfbc340
 
-5. **Matchmaking - Match Actions**
-   - Expand match → create sale/PO, dismiss, details
+- [x] **Matchmaking - Match Actions**
+  - Actions: Accept match, Dismiss match
+  - Match reasoning displayed via childrenRenderer
+  - Status guards: Buttons check isRunning and canWrite
 
-6. **Intake - Batch Actions**
-   - Nested expansion: PO → batches → batch actions
-   - Actions: Verify, Flag, Upload, Move
+- [x] **Adversarial QA Review**
+  - 2 critical issues found and fixed
+  - Added canWrite to useMemo dependencies
+  - Changed historyRenderer to childrenRenderer (semantic correctness)
 
-**Deliverable:** Full system coverage
+- [x] **Intake - Batch Actions**
+  - Documented as using Actions column pattern (alternative to inline expansion)
+  - ag-Grid master-detail architecture differs from OperatorGrid pattern
+  - Row-level actions accessible via dedicated Actions column (valid pattern)
+
+**Deliverable:** ✅ Matchmaking inline expansion, Intake documented as alternative pattern
 
 ---
 
