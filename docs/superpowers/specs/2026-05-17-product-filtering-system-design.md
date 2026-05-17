@@ -30,8 +30,8 @@ Parallel to vendors table, tracks farmers/producers (separate from distributors)
 ```sql
 CREATE TABLE brands (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name varchar(180) NOT NULL,              -- Internal: "Johnson Family Farm"
-  alias varchar(180) NOT NULL,             -- Customer-facing: "Premium Local Grower A"
+  name varchar(80) NOT NULL,               -- Internal: "Johnson Family Farm"
+  alias varchar(80) NOT NULL DEFAULT 'Brand TBD',  -- Customer-facing: "Premium Local Grower A"
   notes text,
   active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -39,10 +39,10 @@ CREATE TABLE brands (
 );
 
 -- Unique constraints (partial index for reuse of deactivated brands)
-CREATE UNIQUE INDEX brands_name_idx ON brands(name) WHERE active = true;
-CREATE UNIQUE INDEX brands_alias_idx ON brands(alias) WHERE active = true;
+CREATE UNIQUE INDEX brands_name_active_idx ON brands(name) WHERE active = true;
+CREATE UNIQUE INDEX brands_alias_active_idx ON brands(alias) WHERE active = true;
 CREATE INDEX brands_active_idx ON brands(active);
-CREATE INDEX brands_alias_search_idx ON brands(alias);
+CREATE INDEX brands_name_idx ON brands(name);  -- For lookups during backfill
 ```
 
 #### `saved_filters` Table
@@ -54,18 +54,19 @@ CREATE TABLE saved_filters (
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name varchar(120) NOT NULL,
   description text,
-  target_view varchar(32) NOT NULL,        -- 'inventory', 'items', 'all', etc.
+  target_view varchar(32) NOT NULL CHECK (target_view IN ('inventory', 'items', 'purchase_orders', 'sales_orders', 'matchmaking', 'all')),
   filter_definition jsonb NOT NULL,
+  schema_version int NOT NULL DEFAULT 1,   -- For filter schema evolution
   is_global boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT valid_filter_definition CHECK (jsonb_typeof(filter_definition) = 'object'),
-  CONSTRAINT unique_filter_name UNIQUE (name, target_view)  -- Prevent duplicate filter names per view
+  CONSTRAINT unique_user_filter_name UNIQUE (user_id, name, target_view)  -- User-scoped filter names
 );
 
 CREATE INDEX saved_filters_user_view_idx ON saved_filters(user_id, target_view);
-CREATE INDEX saved_filters_global_idx ON saved_filters(is_global);
-CREATE INDEX saved_filters_definition_idx ON saved_filters USING gin(filter_definition);
+CREATE INDEX saved_filters_global_idx ON saved_filters(is_global) WHERE is_global = true;
+CREATE INDEX saved_filters_name_idx ON saved_filters(name);  -- For dropdown search
 ```
 
 ### Field Additions to Product Tables
