@@ -597,6 +597,9 @@ export const queriesRouter = router({
   snapshotDiff: protectedProcedure.input(z.object({ backupId: z.string().uuid() })).query(async ({ input }) => {
     const backup = (await pool.query('select id, label, snapshot from backup_snapshots where id = $1', [input.backupId])).rows[0];
     if (!backup) return null;
+    // [DYNAMIC-AUDIT-P1] previously this query omitted customers/vendors/
+    // payments/vendorBills, so snapshotDiff reported current=0 for them, which
+    // showed up as misleading negative deltas in the restore preview UI.
     const current = (
       await pool.query(
         `select
@@ -604,7 +607,11 @@ export const queriesRouter = router({
            (select count(*)::int from purchase_orders) as "purchaseOrders",
            (select count(*)::int from sales_orders) as orders,
            (select count(*)::int from invoices) as invoices,
-           (select count(*)::int from command_journal) as commands`
+           (select count(*)::int from command_journal) as commands,
+           (select count(*)::int from customers) as customers,
+           (select count(*)::int from vendors) as vendors,
+           (select count(*)::int from payments) as payments,
+           (select count(*)::int from vendor_bills) as "vendorBills"`
       )
     ).rows[0];
     const snapshotCounts = backup.snapshot?.counts ?? backup.snapshot ?? {};

@@ -1864,6 +1864,7 @@ async function reviewConnectorRequest(tx: Tx, payload: Payload, status: string, 
 
 async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
+  await assertPeriodUnlocked(tx, period);
   const amount = requiredNumber(payload.amount, 'amount');
   const memo = requiredString(payload.memo, 'memo');
   const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
@@ -2428,6 +2429,7 @@ async function restoreFromBackupPoint(tx: Tx, payload: Payload, commandId: strin
 
 async function postPeriodAdjustments(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
+  await assertPeriodUnlocked(tx, period);
   const adjustments = Array.isArray(payload.adjustments) ? payload.adjustments : [{ amount: payload.amount, memo: payload.memo }];
   const affected: string[] = [];
   for (const adjustment of adjustments as Array<Record<string, unknown>>) {
@@ -3226,6 +3228,14 @@ function periodValue(value: unknown) {
   const period = requiredString(value, 'period');
   if (!/^\d{4}-\d{2}$/.test(period)) throw new Error('Period must use YYYY-MM format.');
   return period;
+}
+
+// [DYNAMIC-AUDIT-P1] Guards write-side period commands from mutating a closed
+// period. createCorrectionJournalEntry and postPeriodAdjustments used to write
+// silently into locked periods, defeating the closeout boundary.
+async function assertPeriodUnlocked(tx: Tx, period: string) {
+  const [lock] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
+  if (lock) throw new Error(`${period} is locked. Unlock the period before posting adjustments.`);
 }
 
 function routeFromRequest(requestType: string) {
