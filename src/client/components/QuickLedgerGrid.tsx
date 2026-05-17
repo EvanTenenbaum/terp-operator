@@ -551,7 +551,7 @@ function DraftLedgerRow({
           <td>
             <input
               type="number"
-              value={row.processingFeeTotal || calculatedFee.toFixed(2)}
+              value={row.processingFeeTotal || calculatedFee.toFixed(2) || ''}
               onFocus={onFocus}
               onChange={(event) => onUpdate({ processingFeeTotal: event.target.value })}
               placeholder="Fee"
@@ -561,7 +561,7 @@ function DraftLedgerRow({
           <td>
             <input
               type="number"
-              value={row.userSplitPercent || (selectedProcessor ? selectedProcessor.defaultUserSplit : '')}
+              value={row.userSplitPercent || (selectedProcessor?.defaultUserSplit ?? '')}
               onFocus={onFocus}
               onChange={(event) => onUpdate({ userSplitPercent: event.target.value })}
               placeholder="%"

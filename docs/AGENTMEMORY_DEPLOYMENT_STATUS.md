@@ -1,7 +1,63 @@
 # AgentMemory Deployment Status
 
 **Date**: 2026-05-16  
-**Current Status**: Ready for mini deployment with security fixes applied
+**Current Status**: ✅ Hermes primary deployed, ✅ Laptop connected, ⏳ Mini backup pending
+
+**Primary Server**: DO droplet (100.116.15.113:3111) - Hermes  
+**Connected Clients**: Laptop (100.101.64.4), Hermes (localhost)  
+**Pending**: Mini backup configuration
+
+---
+
+## Current Deployment State
+
+### Primary Server (Hermes - DO Droplet)
+
+**Status**: ✅ DEPLOYED AND RUNNING
+
+- **Host**: agent-gw-01 (DO droplet)
+- **Tailscale IP**: 100.116.15.113
+- **Port**: 3111
+- **Secret**: 7c6a8e61963dc3bcbeb39f502621e887a15782bdad2f04511a9f45cbf3fef800
+- **Version**: agentmemory 0.9.16
+- **Uptime**: 6.5 minutes (started 2026-05-16)
+- **Health**: Healthy (status: connected, no alerts)
+- **Configuration**: Tailscale-only binding, SQLite WAL enabled, auto-compression enabled
+
+**MCP Server** (Hermes localhost):
+```yaml
+agentmemory:
+  command: npx
+  args: ["-y", "@agentmemory/mcp"]
+  env:
+    AGENTMEMORY_URL: "http://100.116.15.113:3111"
+    AGENTMEMORY_SECRET: "7c6a8e61963dc3bcbeb39f502621e887a15782bdad2f04511a9f45cbf3fef800"
+```
+
+### Laptop Client (MacBook Pro)
+
+**Status**: ✅ CONNECTED
+
+- **Tailscale IP**: 100.101.64.4
+- **Connection**: Via Tailscale to primary (100.116.15.113:3111)
+- **MCP Server**: Configured and added
+- **Fallback scripts**: Created (`fallback-to-mini.sh`, `restore-primary.sh`)
+- **Configuration**: `/Users/evan/.agentmemory/.env` updated
+
+**Connection Test**:
+```bash
+$ curl -H "Authorization: Bearer ..." http://100.116.15.113:3111/agentmemory/health
+{"status":"healthy"}
+```
+
+### Mini Backup (Mac Mini)
+
+**Status**: ⏳ PENDING CONFIGURATION
+
+- **Tailscale IP**: 100.71.65.30
+- **Hostname**: evans-mac-mini.local
+- **Role**: Backup server with nightly replication
+- **Next Steps**: Execute Prompt 2 (mini backup setup)
 
 ---
 
@@ -41,43 +97,57 @@ Three blocking issues were fixed in deployment documentation before mini setup:
 
 ## What's Next
 
-### Immediate (Mini Setup)
+### Mini Backup Setup (Ready to Execute)
+
+**All-in-one setup script created**: `docs/MINI_SETUP_SCRIPT.sh`
 
 Execute on Mac mini:
 
 ```bash
-# 1. Install agentmemory
-npm install -g @agentmemory/agentmemory
+# Option A: If on mini directly
+cd ~/work/terp-agro-operator-console
+bash docs/MINI_SETUP_SCRIPT.sh
 
-# 2. Run configuration script (generates secret, creates .env with secure settings)
-# See AGENTMEMORY_DEPLOYMENT_GUIDE.md Part 1.2-1.3
-
-# 3. Start server
-agentmemory
-# Select "Claude Code" when prompted
-
-# 4. Add MCP server to mini's Claude Code
-claude mcp add agentmemory -e AGENTMEMORY_URL=http://localhost:3111 -- npx -y @agentmemory/mcp
-
-# 5. Share the secret with laptop
-# (from ~/.agentmemory/.env)
+# Option B: If on laptop, copy and execute remotely
+scp docs/MINI_SETUP_SCRIPT.sh 100.71.65.30:~/mini-setup.sh
+ssh 100.71.65.30 "bash ~/mini-setup.sh"
 ```
 
-### After Mini Setup (Laptop Connection)
+**What it does**:
+- ✅ Installs agentmemory
+- ✅ Creates configuration (connects to Hermes primary)
+- ✅ Sets up nightly replication (2 AM cron)
+- ✅ Configures MCP server
+- ✅ Creates fallback scripts
+- ✅ Tests connection to primary
 
-Execute on MacBook Pro:
+**See**: `docs/MINI_SETUP_INSTRUCTIONS.md` for detailed instructions and troubleshooting.
 
-```bash
-# 1. Establish SSH tunnel
-ssh -fN -L 3111:localhost:3111 evans-mac-mini.local
+### Testing (All Machines)
 
-# 2. Connect via tunnel
-~/.agentmemory/connect-to-mini.sh <secret-from-mini>
+After mini setup completes, test on each machine:
 
-# 3. Test in Claude Code
+**Laptop** (already connected):
+```
 /memory_profile
-/memory_smart_search "test"
+/memory_save "Testing shared memory from laptop"
+/memory_smart_search "Hermes"
 ```
+
+**Mini** (after setup):
+```
+/memory_profile
+/memory_smart_search "laptop"
+/memory_save "Testing shared memory from mini"
+```
+
+**Hermes** (already connected):
+```
+/memory_profile
+/memory_smart_search "mini"
+```
+
+All three should see the same memories.
 
 ### Validation (Both Machines)
 
