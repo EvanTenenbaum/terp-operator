@@ -80,7 +80,10 @@ export const commandNames = [
   'addRefereeRelationship',
   'updateRefereeRelationship',
   'deactivateRefereeRelationship',
-  'voidRefereeCredit'
+  'voidRefereeCredit',
+  'createPaymentProcessor',
+  'markUserFeeCollected',
+  'updateProcessorFeeStatus'
 ] as const;
 
 export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
@@ -174,7 +177,10 @@ export const commandLabels: Record<CommandName, string> = {
   addRefereeRelationship: 'Add referee relationship',
   updateRefereeRelationship: 'Update referee relationship',
   deactivateRefereeRelationship: 'Deactivate referee relationship',
-  voidRefereeCredit: 'Void referee credit'
+  voidRefereeCredit: 'Void referee credit',
+  createPaymentProcessor: 'Create payment processor',
+  markUserFeeCollected: 'Mark user fee collected',
+  updateProcessorFeeStatus: 'Update processor fee status'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -257,7 +263,10 @@ export const commandMinRole: Record<CommandName, Role> = {
   addRefereeRelationship: 'manager',
   updateRefereeRelationship: 'manager',
   deactivateRefereeRelationship: 'manager',
-  voidRefereeCredit: 'manager'
+  voidRefereeCredit: 'manager',
+  createPaymentProcessor: 'manager',
+  markUserFeeCollected: 'manager',
+  updateProcessorFeeStatus: 'manager'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -340,7 +349,10 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   addRefereeRelationship: { disposition: 'terminal', guidance: 'Deactivate the referee relationship if it was added by mistake.' },
   updateRefereeRelationship: { disposition: 'terminal', guidance: 'Use another update with the intended relationship values.' },
   deactivateRefereeRelationship: { disposition: 'terminal', guidance: 'Add a new relationship if the deactivation was accidental.' },
-  voidRefereeCredit: { disposition: 'reversible', guidance: 'Restores the credit to accrued status and updates referee balance.' }
+  voidRefereeCredit: { disposition: 'reversible', guidance: 'Restores the credit to accrued status and updates referee balance.' },
+  createPaymentProcessor: { disposition: 'terminal', guidance: 'Edit or deactivate the payment processor if it was created by mistake.' },
+  markUserFeeCollected: { disposition: 'reversible', guidance: 'Reverses the fee collection record and updates user fee status.' },
+  updateProcessorFeeStatus: { disposition: 'terminal', guidance: 'Use another update with the intended fee status values.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

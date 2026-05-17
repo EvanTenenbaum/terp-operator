@@ -61,6 +61,11 @@ import {
   deactivateRefereeRelationship,
   voidRefereeCreditCommand
 } from './refereeCommands';
+import {
+  createPaymentProcessor,
+  markUserFeeCollected,
+  updateProcessorFeeStatus
+} from './processorCommands';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
@@ -331,6 +336,12 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return deactivateRefereeRelationship(tx, payload, commandId);
     case 'voidRefereeCredit':
       return voidRefereeCreditCommand(tx, payload, commandId);
+    case 'createPaymentProcessor':
+      return createPaymentProcessor(tx, payload, commandId);
+    case 'markUserFeeCollected':
+      return markUserFeeCollected(tx, payload, commandId);
+    case 'updateProcessorFeeStatus':
+      return updateProcessorFeeStatus(tx, payload, commandId);
   }
 }
 
