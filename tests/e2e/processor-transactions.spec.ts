@@ -40,7 +40,9 @@ test.describe('Processor Transactions', () => {
     // Select crypto payment transaction type
     // The third select is the transaction type selector
     const transactionTypeSelect = draftRow.locator('select').nth(2);
-    await transactionTypeSelect.selectOption({ label: /crypto.*payment/i });
+    // Note: Playwright's selectOption doesn't support regex in label, will need refinement
+    // For now, selecting by visible text that contains "crypto"
+    await transactionTypeSelect.selectOption({ label: 'Crypto payment (customer)' });
 
     // Fill processor fields (these only appear for processor transaction types)
     // Gross amount input (should have placeholder "Gross")
@@ -58,7 +60,7 @@ test.describe('Processor Transactions', () => {
 
     // Verify net amount display exists
     // The net amount should be visible in the row
-    await expect(draftRow.locator('td').filter({ hasText: /\$/ })).toHaveCount({ timeout: 5000, min: 1 });
+    await expect(draftRow.locator('td').filter({ hasText: /\$/ })).toHaveCount(1, { timeout: 5000 });
 
     // Commit transaction
     await draftRow.getByRole('button', { name: /Commit/ }).click();
@@ -101,7 +103,7 @@ test.describe('Processor Transactions', () => {
 
     // Select crypto cashout transaction type
     const transactionTypeSelect = draftRow.locator('select').nth(2);
-    await transactionTypeSelect.selectOption({ label: /crypto.*cashout/i });
+    await transactionTypeSelect.selectOption({ label: 'Crypto cashout (customer)' });
 
     // Fill processor fields
     await draftRow.getByPlaceholder('Gross').fill('100.00');
