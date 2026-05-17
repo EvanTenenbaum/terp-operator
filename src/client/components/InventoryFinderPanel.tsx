@@ -3,6 +3,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { trpc } from '../api/trpc';
 import type { GridRow } from '../../shared/types';
 import { WorkspacePanel } from './WorkspacePanel';
+import { FilterGroupInput } from '../../shared/filterSchemas';
+import { evaluateFilterGroup, calculateAgeDays } from '../utils/filterEvaluator';
+import { AdvancedFilterBuilder } from './AdvancedFilterBuilder';
+import { SavedFiltersDropdown } from './SavedFiltersDropdown';
 
 export interface InventoryFinderBatch extends GridRow {
   batchCode?: string;
@@ -49,6 +53,12 @@ const savedSlices = [
 
 export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatchIds = new Set(), initialSearch = '', onAddBatch }: InventoryFinderPanelProps) {
   const reference = trpc.queries.reference.useQuery();
+  const { data: savedFilters } = trpc.filters.listSavedFilters.useQuery({ targetView: 'inventory' });
+  const saveFilterMutation = trpc.filters.saveFilter.useMutation({
+    onSuccess: () => {
+      trpc.useContext().filters.listSavedFilters.invalidate();
+    }
+  });
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [vendorId, setVendorId] = useState('');
@@ -62,6 +72,8 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
   const [activeSlice, setActiveSlice] = useState('');
+  const [advancedFilter, setAdvancedFilter] = useState<FilterGroupInput | null>(null);
+  const [selectedSavedFilter, setSelectedSavedFilter] = useState<string | null>(null);
   const lastInitialSearch = useRef('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const rows = ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
@@ -92,11 +104,18 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
   }, [focusKey, selectedOrderId]);
 
   const filtered = useMemo(() => {
+    // Circuit breaker for large datasets
+    let rowsToFilter = rows;
+    if (rows.length > 10000) {
+      console.warn(`Large dataset (${rows.length} products) - truncating to 10,000 for performance`);
+      rowsToFilter = rows.slice(0, 10000);
+    }
+
     const parsed = parseFinderSearch(search);
     const terms = parsed.terms;
     const min = minQty ? Number(minQty) : null;
     const max = maxPrice ? Number(maxPrice) : parsed.maxPrice;
-    return rows
+    return rowsToFilter
       .filter((row) => {
         const tags = Array.isArray(row.tags) ? row.tags : [];
         const haystack = buildFinderHaystack(row, tags);
@@ -109,11 +128,25 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
         if (min != null && Number(row.availableQty ?? 0) < min) return false;
         if (max != null && Number(row.unitPrice ?? 0) > max) return false;
         if (agingOnly && Number(row.ageDays ?? 0) < 30) return false;
+
+        // Advanced filter evaluation
+        if (advancedFilter && advancedFilter.conditions.length > 0) {
+          // Add computed field for age filtering
+          const rowWithAge = {
+            ...row,
+            ageDays: row.ageDays ?? calculateAgeDays(row.intakeDate ?? null)
+          };
+
+          if (!evaluateFilterGroup(rowWithAge, advancedFilter)) {
+            return false;
+          }
+        }
+
         return true;
       })
       .sort((a, b) => Number(b.availableQty ?? 0) - Number(a.availableQty ?? 0))
       .slice(0, 80);
-  }, [agingOnly, category, location, maxPrice, minQty, ownership, rows, search, tag, vendorId]);
+  }, [agingOnly, category, location, maxPrice, minQty, ownership, rows, search, tag, vendorId, advancedFilter]);
 
   const compared = useMemo(() => rows.filter((row) => compareIds.has(row.id)).slice(0, 4), [compareIds, rows]);
   const activeFilterLabels = useMemo(
@@ -198,6 +231,36 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
     setQuantities((current) => ({ ...current, [batch.id]: '1' }));
   }
 
+  function loadSavedFilter(filterId: string) {
+    const saved = savedFilters?.find(f => f.id === filterId);
+    if (saved) {
+      setAdvancedFilter(saved.filterDefinition);
+      setSelectedSavedFilter(filterId);
+      setAdvancedOpen(true);
+    }
+  }
+
+  async function saveCurrentFilter() {
+    if (!advancedFilter) return;
+
+    const name = prompt('Enter filter name:');
+    if (!name) return;
+
+    const isGlobal = confirm('Make this filter available to all users?');
+
+    try {
+      await saveFilterMutation.mutateAsync({
+        name,
+        targetView: 'inventory',
+        filterDefinition: advancedFilter,
+        isGlobal
+      });
+      alert('Filter saved successfully!');
+    } catch (err) {
+      alert('Failed to save filter: ' + (err as Error).message);
+    }
+  }
+
   return (
     <WorkspacePanel
       panelId="sales:inventory-finder"
@@ -214,6 +277,20 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
       testId="inventory-finder"
     >
       <div>
+      {/* Saved filters dropdown */}
+      <div className="finder-chip-row" aria-label="Saved filters">
+        <SavedFiltersDropdown
+          savedFilters={savedFilters ?? []}
+          selectedId={selectedSavedFilter}
+          onSelect={loadSavedFilter}
+        />
+        {advancedFilter && advancedFilter.conditions.length > 0 && (
+          <button className="secondary-button compact-action" type="button" onClick={saveCurrentFilter}>
+            Save Current Filter
+          </button>
+        )}
+      </div>
+
       <div className="finder-chip-row" aria-label="Saved inventory slices">
         {savedSlices.map(([key, label]) => (
           <button className={activeSlice === key ? 'finder-chip success' : 'finder-chip'} type="button" key={key} onClick={() => applySlice(key)} aria-pressed={activeSlice === key}>
@@ -282,6 +359,16 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
           </>
         ) : null}
       </div>
+
+      {/* Advanced filter builder */}
+      {advancedOpen && (
+        <AdvancedFilterBuilder
+          filter={advancedFilter ?? { logic: 'AND', conditions: [] }}
+          onChange={setAdvancedFilter}
+          targetView="inventory"
+        />
+      )}
+
       <div className="finder-chip-row" aria-label="Active finder filters">
         <Filter className="h-4 w-4 text-zinc-500" aria-hidden="true" />
         {!selectedOrderId ? <span className="finder-chip warning">Choose customer to add</span> : null}

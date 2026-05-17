@@ -46,6 +46,7 @@
     "express-session": "^1.18.1",
     "helmet": "^8.0.0",
     "immer": "^10.1.1",
+    "lru-cache": "^11.3.6",
     "lucide-react": "^0.468.0",
     "pdfkit": "^0.15.2",
     "pg": "^8.13.1",
