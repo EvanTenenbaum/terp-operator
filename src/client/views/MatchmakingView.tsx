@@ -163,7 +163,7 @@ export function MatchmakingView() {
         <>
           <button
             className="primary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('acceptMatchmakingMatch', { matchId: row.id }, 'Accept match');
@@ -175,7 +175,7 @@ export function MatchmakingView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss match');
@@ -187,14 +187,14 @@ export function MatchmakingView() {
           </button>
         </>
       ),
-      historyRenderer: (row: GridRow) => (
+      childrenRenderer: (row: GridRow) => (
         <div className="text-sm text-zinc-600">
           <div className="font-medium mb-1">Match Reasoning:</div>
           <div>{String(row.reasons ?? 'No reasoning provided')}</div>
         </div>
       )
     }),
-    [isRunning, runCommand]
+    [isRunning, runCommand, canWrite]
   );
 
   return (
@@ -345,7 +345,7 @@ export function MatchmakingView() {
         }
         emptyTitle="No matches yet"
         emptyChildren="Add a customer need and vendor stock with matching category or tags."
-        expansionConfig={canWrite ? matchExpansionConfig : undefined}
+        expansionConfig={matchExpansionConfig}
       />
 
       <div className="grid gap-3 xl:grid-cols-2">
