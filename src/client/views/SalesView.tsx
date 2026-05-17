@@ -117,7 +117,7 @@ export function SalesView() {
         <>
           <button
             className="primary-button compact-action"
-            disabled={isRunning || String(row.status ?? '') !== 'draft'}
+            disabled={isRunning || !canWrite || String(row.status ?? '') !== 'draft'}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('confirmSalesOrder', { orderId: row.id }, 'Confirm sales order');
@@ -129,7 +129,7 @@ export function SalesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning || String(row.status ?? '') !== 'confirmed'}
+            disabled={isRunning || !canWrite || String(row.status ?? '') !== 'confirmed'}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('reserveInventoryForOrder', { orderId: row.id }, 'Reserve exact inventory for order');
@@ -141,7 +141,7 @@ export function SalesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning || ['fulfilled', 'shipped', 'cancelled'].includes(String(row.status ?? ''))}
+            disabled={isRunning || !canWrite || ['fulfilled', 'shipped', 'cancelled'].includes(String(row.status ?? ''))}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('cancelSalesOrder', { orderId: row.id }, 'Cancel sales order');
@@ -153,7 +153,7 @@ export function SalesView() {
         </>
       )
     }),
-    [isRunning, runCommand]
+    [isRunning, runCommand, canWrite]
   );
 
   const salesLineExpansionConfig = useMemo(
@@ -163,7 +163,7 @@ export function SalesView() {
         <>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('updateSalesOrderLine', { lineId: row.id, packed: true }, 'Pack line');
@@ -175,7 +175,7 @@ export function SalesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('updateSalesOrderLine', { lineId: row.id, inventoryPosted: true }, 'Post to inventory');
@@ -187,7 +187,7 @@ export function SalesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('updateSalesOrderLine', { lineId: row.id, paymentFollowup: true }, 'Payment follow-up');
@@ -199,7 +199,7 @@ export function SalesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('removeSalesOrderLine', { lineId: row.id }, 'Remove line');
@@ -211,7 +211,7 @@ export function SalesView() {
         </>
       )
     }),
-    [isRunning, runCommand]
+    [isRunning, runCommand, canWrite]
   );
 
   useEffect(() => {

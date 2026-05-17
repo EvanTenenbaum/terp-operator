@@ -15,6 +15,8 @@ import type { CommandName } from '../../shared/commandCatalog';
 import { parseTagInput } from '../../shared/tags';
 import { PAYMENT_TERMS_OPTIONS } from '../../shared/paymentTerms';
 
+const MS_PER_DAY = 86400000;
+
 const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
   purchaseOrders: [
     { field: 'poNo', headerName: 'PO', pinned: 'left', width: 150 },
@@ -253,7 +255,7 @@ export function PurchaseOrdersView() {
         <>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning || !['approved', 'ordered', 'partially_received'].includes(String(row.status ?? ''))}
+            disabled={isRunning || !canWrite || !['approved', 'ordered', 'partially_received'].includes(String(row.status ?? ''))}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('receivePurchaseOrder', { purchaseOrderId: row.id }, 'Receive selected purchase order to draft intake');
@@ -265,7 +267,7 @@ export function PurchaseOrdersView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning || String(row.status ?? '') !== 'finalized'}
+            disabled={isRunning || !canWrite || String(row.status ?? '') !== 'finalized'}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('unfinalizePurchaseOrder', { purchaseOrderId: row.id }, 'Return finalized PO to draft for editing');
@@ -277,7 +279,7 @@ export function PurchaseOrdersView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('cancelPurchaseOrder', { purchaseOrderId: row.id }, 'Cancel selected purchase order');
@@ -290,7 +292,7 @@ export function PurchaseOrdersView() {
         </>
       )
     }),
-    [isRunning, runCommand]
+    [isRunning, runCommand, canWrite]
   );
 
   const purchaseOrderLineExpansionConfig = useMemo(
@@ -300,8 +302,11 @@ export function PurchaseOrdersView() {
         <>
           <button
             className="primary-button compact-action"
-            disabled={isRunning}
-            onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo?.id ?? '', lineIds: [row.id] }, 'Receive selected PO line to intake')}
+            disabled={isRunning || !canWrite}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo?.id ?? '', lineIds: [row.id] }, 'Receive selected PO line to intake');
+            }}
             type="button"
           >
             <PackagePlus className="h-4 w-4" aria-hidden="true" />
@@ -309,8 +314,11 @@ export function PurchaseOrdersView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning}
-            onClick={() => runCommand('removePurchaseOrderLine', { lineId: row.id }, 'Remove purchase order line')}
+            disabled={isRunning || !canWrite}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              runCommand('removePurchaseOrderLine', { lineId: row.id }, 'Remove purchase order line');
+            }}
             type="button"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -319,7 +327,7 @@ export function PurchaseOrdersView() {
         </>
       )
     }),
-    [isRunning, selectedPo?.id, runCommand]
+    [isRunning, selectedPo?.id, runCommand, canWrite]
   );
 
   function openAuthoringWorkspace() {
@@ -1186,6 +1194,8 @@ export function VendorPayablesView() {
   const selectedRows = useUiStore((state) => state.selectedRows.vendors);
   const selectedBill = selectedRows?.[0];
   const { runCommand, isRunning } = useCommandRunner();
+  const me = trpc.auth.me.useQuery();
+  const canWrite = me.data?.role !== 'viewer';
 
   const vendorBillExpansionConfig = useMemo(
     () => ({
@@ -1194,7 +1204,7 @@ export function VendorPayablesView() {
         <>
           <button
             className="primary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill');
@@ -1206,10 +1216,10 @@ export function VendorPayablesView() {
           </button>
           <button
             className="primary-button compact-action"
-            disabled={isRunning}
+            disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
-              runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment');
+              runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + MS_PER_DAY).toISOString() }, 'Schedule vendor payment');
             }}
             type="button"
           >
@@ -1218,7 +1228,7 @@ export function VendorPayablesView() {
           </button>
           <button
             className="secondary-button compact-action"
-            disabled={isRunning || String(row.status ?? '') !== 'scheduled'}
+            disabled={isRunning || !canWrite || String(row.status ?? '') !== 'scheduled'}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout');
@@ -1231,7 +1241,7 @@ export function VendorPayablesView() {
         </>
       )
     }),
-    [isRunning, runCommand]
+    [isRunning, runCommand, canWrite]
   );
 
   return (
