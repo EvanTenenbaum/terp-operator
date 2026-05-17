@@ -296,6 +296,11 @@ export function QuickLedgerGrid() {
                   <th>Entity type</th>
                   <th>{entityHeader}</th>
                   <th>Payment type</th>
+                  <th>Gross</th>
+                  <th>Processor</th>
+                  <th>Fee</th>
+                  <th>Split %</th>
+                  <th>Net</th>
                   <th>PO / FIFO / target</th>
                   <th>Amount</th>
                   <th>Method</th>
@@ -469,6 +474,33 @@ function DraftLedgerRow({
   const targetOptions = allocationTargets(row, reference, openBills);
   const impact = row.issue ?? accessIssue ?? allocationPreview ?? ledgerImpact(row, reference, openBills);
 
+  // Processor-specific logic
+  const isProcessorTransaction = processorTransactionTypes.includes(row.transactionType);
+  const processors = reference?.processors ?? [];
+  const selectedProcessor = processors.find((p: any) => p.id === row.processorId);
+
+  let calculatedFee = 0;
+  let userShare = 0;
+  let processorShare = 0;
+  let customerCredit = 0;
+
+  if (isProcessorTransaction && selectedProcessor && row.grossAmount) {
+    const grossAmt = Number(row.grossAmount);
+    calculatedFee = row.processingFeeTotal
+      ? Number(row.processingFeeTotal)
+      : calculateProcessingFeeClient(grossAmt, selectedProcessor);
+
+    const splitPercent = row.userSplitPercent
+      ? Number(row.userSplitPercent)
+      : Number(selectedProcessor.defaultUserSplit);
+
+    const split = splitProcessingFeeClient(calculatedFee, splitPercent);
+    userShare = split.userShare;
+    processorShare = split.processorShare;
+
+    customerCredit = calculateCustomerCreditClient(grossAmt, processorShare, userShare);
+  }
+
   return (
     <tr className={row.status === 'needs_fix' ? 'transaction-ledger-row-warning' : undefined}>
       <td className="transaction-ledger-row-number">{rowNumber}</td>
@@ -493,6 +525,64 @@ function DraftLedgerRow({
           {transactionTypes.map((type) => <option key={type.slug} value={type.slug}>{type.label}</option>)}
         </select>
       </td>
+      {/* Processor fields - show if processor transaction type */}
+      {isProcessorTransaction ? (
+        <>
+          <td>
+            <input
+              type="number"
+              value={row.grossAmount || ''}
+              onFocus={onFocus}
+              onChange={(event) => onUpdate({ grossAmount: event.target.value })}
+              placeholder="Gross"
+              step="0.01"
+            />
+          </td>
+          <td>
+            <select
+              value={row.processorId || ''}
+              onFocus={onFocus}
+              onChange={(event) => onUpdate({ processorId: event.target.value })}
+            >
+              <option value="">Choose processor</option>
+              {processors.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </td>
+          <td>
+            <input
+              type="number"
+              value={row.processingFeeTotal || calculatedFee.toFixed(2)}
+              onFocus={onFocus}
+              onChange={(event) => onUpdate({ processingFeeTotal: event.target.value })}
+              placeholder="Fee"
+              step="0.01"
+            />
+          </td>
+          <td>
+            <input
+              type="number"
+              value={row.userSplitPercent || (selectedProcessor ? selectedProcessor.defaultUserSplit : '')}
+              onFocus={onFocus}
+              onChange={(event) => onUpdate({ userSplitPercent: event.target.value })}
+              placeholder="%"
+              step="1"
+              min="0"
+              max="100"
+            />
+          </td>
+          <td className="calculated-display">
+            {customerCredit > 0 ? `$${customerCredit.toFixed(2)}` : '-'}
+          </td>
+        </>
+      ) : (
+        <>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+        </>
+      )}
       <td>
         <select value={`${row.allocationTargetType}:${row.allocationTargetId}`} onFocus={onFocus} onChange={(event) => {
           const [allocationTargetType, allocationTargetId = ''] = event.target.value.split(':');
