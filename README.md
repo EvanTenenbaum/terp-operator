@@ -101,6 +101,32 @@ Core hotkeys:
 - `⌘⌥I` process intake
 - `⌘↩` confirm/post/allocate in the active grid
 
+## QA Infrastructure
+
+Comprehensive QA resources for manual and automated testing:
+
+```bash
+# Create test data
+pnpm exec tsx scripts/create-test-processor.ts
+
+# Run unit tests
+pnpm test processorCommands
+
+# Run E2E tests
+pnpm test:e2e
+```
+
+**QA Documentation:**
+- **Hub:** `docs/qa/README.md` - QA workflow and infrastructure guide
+- **Runbooks:** `docs/qa/payment-processor-qa-runbook.md` - Test scenarios with expected results
+- **Navigation:** `docs/qa/navigation-guide.md` - Critical guide for state-based routing
+- **Results:** `QA_RESULTS.md` - Latest QA run results
+
+**For Agents:** Before testing features, read the relevant QA runbook. Navigation uses state-based routing (sidebar clicks), NOT URL routing.
+
+**Recent Features:**
+- Payment processors with variable fees and splits ([#38](https://github.com/EvanTenenbaum/terp-agro-operator-console/issues/38))
+
 ## DigitalOcean Deployment
 
 1. Create a DigitalOcean droplet with Docker and Docker Compose.
