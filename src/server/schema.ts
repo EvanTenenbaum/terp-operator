@@ -683,6 +683,59 @@ export const refereeCredits = pgTable(
   })
 );
 
+export const paymentProcessors = pgTable(
+  'payment_processors',
+  {
+    id: id(),
+    name: varchar('name', { length: 180 }).notNull(),
+    processorType: varchar('processor_type', { length: 32 }).notNull(),
+    feeType: varchar('fee_type', { length: 16 }).notNull().default('hybrid'),
+    feePercentage: numeric('fee_percentage', { precision: 5, scale: 2 }),
+    feeFixedAmount: numeric('fee_fixed_amount', { precision: 12, scale: 2 }),
+    defaultUserSplit: numeric('default_user_split', { precision: 5, scale: 2 }).notNull(),
+    defaultProcessorSplit: numeric('default_processor_split', { precision: 5, scale: 2 }).notNull(),
+    notes: text('notes'),
+    active: boolean('active').notNull().default(true),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    typeIdx: index('payment_processors_type_idx').on(table.processorType),
+    activeIdx: index('payment_processors_active_idx').on(table.active)
+  })
+);
+
+export const processorFees = pgTable(
+  'processor_fees',
+  {
+    id: id(),
+    processorId: uuid('processor_id').references(() => paymentProcessors.id, { onDelete: 'cascade' }).notNull(),
+    transactionType: varchar('transaction_type', { length: 32 }).notNull(),
+    transactionId: uuid('transaction_id').notNull(),
+    transactionNo: varchar('transaction_no', { length: 80 }).notNull(),
+    transactionAmount: numeric('transaction_amount', { precision: 12, scale: 2 }).notNull(),
+    processingFeeTotal: numeric('processing_fee_total', { precision: 12, scale: 2 }).notNull(),
+    userFeeShare: numeric('user_fee_share', { precision: 12, scale: 2 }).notNull(),
+    processorFeeShare: numeric('processor_fee_share', { precision: 12, scale: 2 }).notNull(),
+    userFeeStatus: varchar('user_fee_status', { length: 16 }).notNull().default('collectible'),
+    userFeeCollectedAt: timestamp('user_fee_collected_at', { withTimezone: true }),
+    processorFeeStatus: varchar('processor_fee_status', { length: 16 }).notNull().default('paid'),
+    processorFeePaidAt: timestamp('processor_fee_paid_at', { withTimezone: true }),
+    processorFeePaidVia: uuid('processor_fee_paid_via'),
+    commandId: uuid('command_id'),
+    notes: text('notes'),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    processorIdx: index('processor_fees_processor_idx').on(table.processorId),
+    transactionIdx: index('processor_fees_transaction_idx').on(table.transactionType, table.transactionId),
+    userStatusIdx: index('processor_fees_user_status_idx').on(table.userFeeStatus),
+    processorStatusIdx: index('processor_fees_processor_status_idx').on(table.processorFeeStatus),
+    balanceCalcIdx: index('processor_fees_balance_calc_idx').on(table.processorId, table.userFeeStatus, table.processorFeeStatus)
+  })
+);
+
 export type User = typeof users.$inferSelect;
 export type Batch = typeof batches.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
@@ -694,3 +747,5 @@ export type VendorSupply = typeof vendorSupply.$inferSelect;
 export type Referee = typeof referees.$inferSelect;
 export type RefereeRelationship = typeof refereeRelationships.$inferSelect;
 export type RefereeCredit = typeof refereeCredits.$inferSelect;
+export type PaymentProcessor = typeof paymentProcessors.$inferSelect;
+export type ProcessorFee = typeof processorFees.$inferSelect;
