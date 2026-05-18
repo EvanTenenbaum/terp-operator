@@ -1,8 +1,16 @@
 # Feature Prioritization Decision: Photography Module → Pricing Rules v4
 
 **Date:** 2026-05-18
-**Status:** Drafted — awaiting written-form user review and design review gate
-**Decision driver:** Photography Module (#40) has live security vulnerabilities in placeholder code that must be fixed regardless of feature work, and a battle-tested design spec already in the repo. Pricing Rules v4 (#39) has greater spec uncertainty and needs schema work + spec porting before it is plannable.
+**Status:** Approved (verbal sections and written form); rationale corrected 2026-05-18 after codebase verification — see Correction note below
+**Decision driver:** Photography Module (#40) has a mature design spec already in the repo and clear user value (mobile upload workflow that does not exist today). Pricing Rules v4 (#39) has greater spec uncertainty and needs schema work + spec porting before it is plannable.
+
+> ## Correction (2026-05-18)
+>
+> The original version of this spec claimed Photography first because Phase 0 closes live security vulnerabilities (missing auth on upload/media routes, path traversal in multer, race condition in primary role assignment). **Codebase verification during writing-plans showed this claim was false.** There are no upload/media routes in the codebase, multer is not installed, and `batch_media` does not exist. The "vulnerabilities" listed in issue #40 are vulnerabilities in *planned* code that hasn't been written.
+>
+> The current photography implementation is a functional URL-attach system: `photographyQueue` table, `attachBatchPhoto` tRPC command, `PhotographyQueuePanel` React component. It takes a URL string. There is no file upload, so there is no attack surface to close pre-emptively.
+>
+> **The decision (Photography first) stands**, supported by: (a) spec maturity, (b) clear user value, (c) the larger build scope. The "live security risk" argument is removed. The 2026-05-17 Phase 0 plan also needs substantial rework (not a refresh) because it assumed Express+multer routes, an `auth/` folder, a `middleware/` folder, and migrations at 0016-0018 — none of which match current codebase. See `docs/superpowers/plans/2026-05-18-photography-module-phase-0-rework.md` (next deliverable).
 
 ---
 
@@ -21,10 +29,10 @@ Each feature's implementation plan includes its own unblocking work. Implementat
 
 ### Photography first
 
-- **Live security risk:** Issue #40's Phase 0 fixes close vulnerabilities that exist in the current placeholder code today: missing auth on upload/media routes, path traversal in multer, race condition in primary role assignment. These should be closed regardless of whether the feature ships.
-- **Spec maturity:** A complete design spec and three companion plans already exist in `docs/superpowers/specs/` and `docs/superpowers/plans/`, reviewed by five specialist agents.
-- **Concrete user pain:** 5-minute uploads → 30 seconds. Mobile field workflow that does not exist today.
-- **Predictable scope:** ~10-12 hours Phase 0 + 2-3 weeks Phase 1-3.
+- **Spec maturity:** A complete design spec and three companion plans already exist in `docs/superpowers/specs/` and `docs/superpowers/plans/`, reviewed by five specialist agents. (Plans need rework against current codebase — see Correction note — but the design spec direction is sound.)
+- **Concrete user value:** Replaces the current URL-string-only photography flow with true file upload + mobile capture. Mobile field workflow that does not exist today.
+- **Larger build scope:** Photography is the bigger build of the two open features; doing it first means the smaller follow-up (Pricing Rules) inherits a fresh memory of session patterns.
+- ~~**Live security risk**~~ — see Correction note. This rationale was removed after codebase verification showed the supposedly-vulnerable upload/media routes do not exist.
 
 ### Pricing Rules second
 
@@ -34,7 +42,7 @@ Each feature's implementation plan includes its own unblocking work. Implementat
 
 ### Why not parallel
 
-The user prefers sequential delivery. A hybrid option (Photography Phase 0 + Pricing Rules schema in parallel, then Pricing Rules implementation, then Photography Phase 1-3) was considered and rejected because it creates a 3-4 week context gap between Photography Phase 0 and Phase 1 — security fixes would land but the feature build that uses them would stall, which decays context and re-spawns review cost.
+The user prefers sequential delivery. A hybrid option (Photography Phase 0 + Pricing Rules schema in parallel, then Pricing Rules implementation, then Photography Phase 1-3) was considered and rejected because it creates a 3-4 week context gap between Photography Phase 0 and Phase 1 — the setup work would land but the feature build that uses it would stall, which decays context and re-spawns review cost.
 
 ---
 
@@ -42,7 +50,7 @@ The user prefers sequential delivery. A hybrid option (Photography Phase 0 + Pri
 
 | Phase | Scope | Source of truth |
 |---|---|---|
-| 1. Photography Phase 0 | Security fixes (auth middleware, path traversal mitigation, race condition fix, dependency install, routes directory, migration renumbering 0016-0018) | `docs/superpowers/plans/2026-05-17-photography-module-phase-0-fixes.md` |
+| 1. Photography Phase 0 | Foundation: install file-upload deps (multer, sharp, file-type), wire upload/serving auth using existing `auth.ts`/`rbac.ts`, plan migration numbers (0033+), create file-storage utility scaffolding | `docs/superpowers/plans/2026-05-18-photography-module-phase-0-rework.md` (this session's deliverable, replacing the 2026-05-17 plan whose codebase assumptions were wrong) |
 | 2. Photography Phase 1 | DB migrations, media validation + storage services, upload + serving routes, unit/integration tests | `docs/superpowers/plans/2026-05-17-photography-module.md` (Tasks 1-12) |
 | 3. Photography Phase 2 | Backend commands (upload, setRole, publish, delete), MediaView + sidebar nav, MediaUploadMobile component, E2E tests | Same plan (Tasks 13-18) |
 | 4. Photography Phase 3 | Monitoring (disk alerts, orphan detection), UX polish (offline queue, drag-drop, bulk ops), retention policies | Same plan (Phase 3 section) |
@@ -59,12 +67,12 @@ No phase advances until its predecessor's gate passes:
 
 | Gate | Pass conditions |
 |---|---|
-| Phase 0 → 1 | All Phase 0 acceptance criteria met (auth middleware in place, deps installed, routes dir exists, migrations renumbered 0016-0018, TypeScript compiles clean, Phase 0 tests pass) |
+| Phase 0 → 1 | All Phase 0 acceptance criteria met (deps installed, auth helper integrated with existing `auth.ts`/`rbac.ts`, migration numbers planned at 0033+, file-storage utility tested, TypeScript compiles clean, Phase 0 tests pass) |
 | Phase 1 → 2 | Migrations applied; upload + serving routes have integration tests passing; security tests pass (path traversal, auth, file spoofing) |
 | Phase 2 → 3 | Photographer flow works on real iPhone in <30s; office curation flow works; E2E suite passes |
 | Phase 3 → Pricing Rules | Photography fully shipped (feature flag default-on for ≥7 days, no rollback triggers fired); `/self-reflect` ran and knowledge captured |
 
-Phase 0 is a special case: if the larger Photography effort stalls, Phase 0 still merges as a standalone security PR. Security fixes do not wait for feature work.
+Phase 0 can still merge as a standalone scaffolding PR if the larger Photography effort stalls — the deps, auth integration, and utility scaffolding are non-destructive and useful even on their own.
 
 ---
 
@@ -92,7 +100,8 @@ These four trigger points (issue #39 itself, the new unblock issue, the label fi
 | Business pressure to ship Pricing Rules earlier | Medium | High | This decision is dated. If business need shifts, revisit this spec rather than silently flipping order. The `/tmp` spec port and schema work can be done in parallel by someone else without breaking the sequence. |
 | `/tmp/pricing-rules-v4-native-prompt.md` is lost before Pricing Rules is picked up | **MATERIALIZED** (file not found at session resume on 2026-05-18) | High | The detailed spec is gone. The remaining source of truth is the body of GitHub issue #39 itself (overview, schema, backend, frontend sections — but not the 649-line implementation prompt that was referenced). Pricing Rules brainstorming will need to re-derive the missing detail from scratch or from operator interviews. The new unblock issue captures this gap explicitly. |
 | Photography ships but Pricing Rules is forgotten | Low-Medium | Medium | Four GitHub tracking artifacts (see Deferral tracking section). |
-| Photography Phase 0 security fixes are urgent enough to need hotfix treatment | Unknown | High | Phase 0 can ship as a standalone PR ahead of the rest of the feature. Treat it as security work that happens to also unblock a feature, not the other way around. |
+| ~~Photography Phase 0 security fixes are urgent enough to need hotfix treatment~~ | **Removed** | — | After codebase verification, the original "live security vulnerability" claim was found to be incorrect. There is no urgent hotfix. Phase 0 is greenfield scaffolding work. |
+| 2026-05-17 Phase 0 plan was built on wrong assumptions about codebase (wrong file paths, wrong migration numbers, wrong architecture for upload routes) | **MATERIALIZED** (discovered 2026-05-18 during writing-plans verification) | High | Replace with `docs/superpowers/plans/2026-05-18-photography-module-phase-0-rework.md` (this session's deliverable). Mark the 2026-05-17 plan as superseded in its header. |
 
 ---
 
