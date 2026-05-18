@@ -16,12 +16,20 @@ const id = () => uuid('id').primaryKey().defaultRandom();
 const now = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const updated = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow();
 
+export const organizations = pgTable('organizations', {
+  id: id(),
+  name: varchar('name', { length: 180 }).notNull(),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
 export const users = pgTable('users', {
   id: id(),
   name: varchar('name', { length: 160 }).notNull(),
   email: varchar('email', { length: 240 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: varchar('role', { length: 32 }).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }),
   active: boolean('active').notNull().default(true),
   createdAt: now(),
   updatedAt: updated()
@@ -30,10 +38,25 @@ export const users = pgTable('users', {
 export const vendors = pgTable('vendors', {
   id: id(),
   name: varchar('name', { length: 180 }).notNull(),
+  alias: varchar('alias', { length: 80 }),
   termsDays: integer('terms_days').notNull().default(14),
   consignmentDefault: boolean('consignment_default').notNull().default(false),
   contact: text('contact'),
   notes: text('notes'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const brands = pgTable('brands', {
+  id: id(),
+  name: varchar('name', { length: 80 }).notNull(),
+  alias: varchar('alias', { length: 80 }).notNull().default('Brand TBD'),
+  notes: text('notes'),
+  active: boolean('active').notNull().default(true),
+  createdBy: uuid('created_by').references(() => users.id),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletedBy: uuid('deleted_by').references(() => users.id),
   createdAt: now(),
   updatedAt: updated()
 });
@@ -45,6 +68,24 @@ export const customers = pgTable('customers', {
   balance: numeric('balance', { precision: 12, scale: 2 }).notNull().default('0'),
   tags: text('tags').array().notNull().default([]),
   notes: text('notes'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const savedFilters = pgTable('saved_filters', {
+  id: id(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 120 }).notNull(),
+  description: text('description'),
+  targetView: varchar('target_view', { length: 32 }).notNull(),
+  filterDefinition: jsonb('filter_definition').notNull(),
+  schemaVersion: integer('schema_version').notNull().default(1),
+  isGlobal: boolean('is_global').notNull().default(false),
+  createdBy: uuid('created_by').references(() => users.id),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletedBy: uuid('deleted_by').references(() => users.id),
   createdAt: now(),
   updatedAt: updated()
 });
@@ -148,6 +189,7 @@ export const batches = pgTable(
     id: id(),
     itemId: uuid('item_id').references(() => items.id, { onDelete: 'set null' }),
     vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+    brandId: uuid('brand_id').references(() => brands.id, { onDelete: 'restrict' }),
     purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
     purchaseOrderLineId: uuid('purchase_order_line_id').references(() => purchaseOrderLines.id, { onDelete: 'set null' }),
     batchCode: varchar('batch_code', { length: 80 }).notNull().unique(),
@@ -155,6 +197,9 @@ export const batches = pgTable(
     shorthand: varchar('shorthand', { length: 120 }),
     name: varchar('name', { length: 180 }).notNull(),
     category: varchar('category', { length: 80 }).notNull(),
+    subcategory: varchar('subcategory', { length: 80 }),
+    brandAlias: varchar('brand_alias', { length: 80 }),
+    vendorAlias: varchar('vendor_alias', { length: 80 }),
     tags: text('tags').array().notNull().default([]),
     intakeQty: numeric('intake_qty', { precision: 12, scale: 3 }).notNull().default('0'),
     availableQty: numeric('available_qty', { precision: 12, scale: 3 }).notNull().default('0'),
@@ -176,6 +221,7 @@ export const batches = pgTable(
     validationIssues: jsonb('validation_issues').$type<string[]>().notNull().default([]),
     mediaStatus: varchar('media_status', { length: 32 }).notNull().default('open'),
     status: varchar('status', { length: 32 }).notNull().default('draft'),
+    sortId: integer('sort_id'),
     photoUrl: text('photo_url'),
     postedAt: timestamp('posted_at', { withTimezone: true }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
@@ -736,7 +782,10 @@ export const processorFees = pgTable(
   })
 );
 
+export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type Brand = typeof brands.$inferSelect;
+export type SavedFilter = typeof savedFilters.$inferSelect;
 export type Batch = typeof batches.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Vendor = typeof vendors.$inferSelect;
