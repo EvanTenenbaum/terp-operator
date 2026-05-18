@@ -1761,7 +1761,12 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
   if (amount === 0) throw new Error('Payment amount cannot be zero.');
   const method = stringValue(payload.method) || 'cash';
   const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
-  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+
+  // Lock customer row to prevent concurrent balance update races
+  const customerRows = await tx.execute<typeof customers.$inferSelect>(
+    sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${customerId} FOR UPDATE`
+  );
+  const customer = customerRows.rows[0];
   if (!customer) throw new Error('Customer not found.');
   const [payment] = await tx
     .insert(payments)
@@ -1827,12 +1832,24 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
 
 async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const paymentId = requiredId(payload.paymentId, 'paymentId');
-  const [payment] = await tx.select().from(payments).where(eq(payments.id, paymentId)).limit(1);
+
+  // Lock payment row to prevent concurrent allocation races
+  const paymentRows = await tx.execute<typeof payments.$inferSelect>(
+    sql`SELECT * FROM ${payments} WHERE ${payments.id} = ${paymentId} FOR UPDATE`
+  );
+  const payment = paymentRows.rows[0];
   if (!payment) throw new Error('Payment not found.');
   if (Number(payment.unappliedAmount) <= 0) throw new Error('Payment has no unapplied amount.');
+
+  // Lock invoices to prevent concurrent payment application races
   const invoicesToPay = payload.invoiceId
-    ? await tx.select().from(invoices).where(eq(invoices.id, requiredId(payload.invoiceId, 'invoiceId')))
-    : await tx.select().from(invoices).where(and(eq(invoices.customerId, payment.customerId), sql`${invoices.status} in ('open', 'partial')`)).orderBy(invoices.createdAt);
+    ? (await tx.execute<typeof invoices.$inferSelect>(
+        sql`SELECT * FROM ${invoices} WHERE ${invoices.id} = ${requiredId(payload.invoiceId, 'invoiceId')} FOR UPDATE`
+      )).rows
+    : (await tx.execute<typeof invoices.$inferSelect>(
+        sql`SELECT * FROM ${invoices} WHERE ${invoices.customerId} = ${payment.customerId} AND ${invoices.status} in ('open', 'partial') ORDER BY ${invoices.createdAt} FOR UPDATE`
+      )).rows;
+
   if (!invoicesToPay.length) throw new Error('No open invoice found for allocation.');
   let remaining = Number(payment.unappliedAmount);
   const affected = [paymentId];
@@ -1850,7 +1867,11 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
   await tx.update(payments).set({ unappliedAmount: moneyScale(remaining), updatedAt: new Date() }).where(eq(payments.id, paymentId));
   const totalAllocated = Number(payment.unappliedAmount) - remaining;
   if (payment.customerId && totalAllocated > 0) {
-    const [customer] = await tx.select().from(customers).where(eq(customers.id, payment.customerId)).limit(1);
+    // Lock customer row to prevent concurrent balance update races
+    const customerRows = await tx.execute<typeof customers.$inferSelect>(
+      sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${payment.customerId} FOR UPDATE`
+    );
+    const customer = customerRows.rows[0];
     const nextBalance = Number(customer.balance) - totalAllocated;
     await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
     const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'Auto-applied to oldest open invoices' }).returning();

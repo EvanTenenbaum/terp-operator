@@ -15,7 +15,19 @@ export function createApp(getIo: () => SocketServer) {
   app.set('trust proxy', 1);
   app.use(
     helmet({
-      contentSecurityPolicy: false
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for Vite HMR in dev
+          styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles
+          imgSrc: ["'self'", "data:", "blob:"], // Allow data URIs and blob URLs
+          connectSrc: ["'self'", "ws:", "wss:"], // Allow WebSocket for Socket.io and Vite HMR
+          fontSrc: ["'self'", "data:"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"]
+        }
+      }
     })
   );
   app.use(express.json({ limit: '4mb' }));
