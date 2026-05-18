@@ -1,0 +1,226 @@
+{
+  "generated": "2026-05-18T23:48:46.193Z",
+  "componentCount": 26,
+  "byCategory": {
+    "form": 3,
+    "navigation": 6,
+    "drawer": 8,
+    "grid": 7,
+    "other": 1,
+    "hook": 1
+  },
+  "components": [
+    {
+      "name": "AdvancedFilterBuilder",
+      "path": "src/client/components/AdvancedFilterBuilder.tsx",
+      "category": "form",
+      "exports": [
+        "AdvancedFilterBuilder"
+      ]
+    },
+    {
+      "name": "CommandPalette",
+      "path": "src/client/components/CommandPalette.tsx",
+      "category": "navigation",
+      "exports": [
+        "CommandPalette"
+      ]
+    },
+    {
+      "name": "ContextDrawer",
+      "path": "src/client/components/ContextDrawer.tsx",
+      "category": "drawer",
+      "exports": [
+        "ContextDrawer",
+        "getActiveDrawerStorageKey"
+      ]
+    },
+    {
+      "name": "EmptyState",
+      "path": "src/client/components/EmptyState.tsx",
+      "category": "grid",
+      "exports": [
+        "EmptyState"
+      ]
+    },
+    {
+      "name": "ExpansionChevronColumn",
+      "path": "src/client/components/ExpansionChevronColumn.tsx",
+      "category": "grid",
+      "exports": [
+        "ExpansionChevronCell"
+      ]
+    },
+    {
+      "name": "ExpansionPanel",
+      "path": "src/client/components/ExpansionPanel.tsx",
+      "category": "grid",
+      "exports": [
+        "ExpansionPanel"
+      ]
+    },
+    {
+      "name": "Hotkeys",
+      "path": "src/client/components/Hotkeys.tsx",
+      "category": "navigation",
+      "exports": [
+        "Hotkeys"
+      ]
+    },
+    {
+      "name": "IdentityRibbon",
+      "path": "src/client/components/IdentityRibbon.tsx",
+      "category": "navigation",
+      "exports": [
+        "IdentityRibbon"
+      ]
+    },
+    {
+      "name": "InventoryFinderPanel",
+      "path": "src/client/components/InventoryFinderPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "InventoryFinderBatch",
+        "InventoryFinderPanel"
+      ]
+    },
+    {
+      "name": "IssueSidecar",
+      "path": "src/client/components/IssueSidecar.tsx",
+      "category": "drawer",
+      "exports": [
+        "IssueSidecar"
+      ]
+    },
+    {
+      "name": "KpiCard",
+      "path": "src/client/components/KpiCard.tsx",
+      "category": "grid",
+      "exports": [
+        "KpiCard"
+      ]
+    },
+    {
+      "name": "OperatorGrid",
+      "path": "src/client/components/OperatorGrid.tsx",
+      "category": "grid",
+      "exports": [
+        "OperatorGrid"
+      ]
+    },
+    {
+      "name": "PhotographyQueuePanel",
+      "path": "src/client/components/PhotographyQueuePanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "PhotographyQueuePanel"
+      ]
+    },
+    {
+      "name": "QuickLedgerGrid",
+      "path": "src/client/components/QuickLedgerGrid.tsx",
+      "category": "grid",
+      "exports": [
+        "QuickLedgerGrid"
+      ]
+    },
+    {
+      "name": "RefereeRelationshipDialog",
+      "path": "src/client/components/RefereeRelationshipDialog.tsx",
+      "category": "form",
+      "exports": [
+        "RefereeRelationshipDialog"
+      ]
+    },
+    {
+      "name": "RelationshipDrawer",
+      "path": "src/client/components/RelationshipDrawer.tsx",
+      "category": "drawer",
+      "exports": [
+        "RelationshipDrawer"
+      ]
+    },
+    {
+      "name": "ReportsRouteShell",
+      "path": "src/client/components/ReportsRouteShell.tsx",
+      "category": "navigation",
+      "exports": [
+        "ReportsRouteShell"
+      ]
+    },
+    {
+      "name": "RowCommandHistoryDrawer",
+      "path": "src/client/components/RowCommandHistoryDrawer.tsx",
+      "category": "drawer",
+      "exports": [
+        "RowCommandHistoryDrawer"
+      ]
+    },
+    {
+      "name": "SavedFiltersDropdown",
+      "path": "src/client/components/SavedFiltersDropdown.tsx",
+      "category": "form",
+      "exports": [
+        "SavedFiltersDropdown"
+      ]
+    },
+    {
+      "name": "SelectionSummary",
+      "path": "src/client/components/SelectionSummary.tsx",
+      "category": "other",
+      "exports": [
+        "SelectionSummary"
+      ]
+    },
+    {
+      "name": "Shell",
+      "path": "src/client/components/Shell.tsx",
+      "category": "navigation",
+      "exports": [
+        "Keel",
+        "SideNav",
+        "TopBar"
+      ]
+    },
+    {
+      "name": "StatusPill",
+      "path": "src/client/components/StatusPill.tsx",
+      "category": "grid",
+      "exports": [
+        "StatusPill"
+      ]
+    },
+    {
+      "name": "ToastCenter",
+      "path": "src/client/components/ToastCenter.tsx",
+      "category": "navigation",
+      "exports": [
+        "ToastCenter"
+      ]
+    },
+    {
+      "name": "VendorContextDrawer",
+      "path": "src/client/components/VendorContextDrawer.tsx",
+      "category": "drawer",
+      "exports": [
+        "VendorContextDrawer"
+      ]
+    },
+    {
+      "name": "WorkspacePanel",
+      "path": "src/client/components/WorkspacePanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "WorkspacePanel"
+      ]
+    },
+    {
+      "name": "useCommandRunner",
+      "path": "src/client/components/useCommandRunner.ts",
+      "category": "hook",
+      "exports": [
+        "useCommandRunner"
+      ]
+    }
+  ]
+}
