@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import clsx from 'clsx';
 import { trpc } from './api/trpc';
@@ -33,9 +34,21 @@ import {
 import { RefereesView } from './views/RefereesView';
 import { ProcessorsView } from './views/ProcessorsView';
 
-export function App() {
+// Sync URL with activeView state
+function LocationSync() {
+  const location = useLocation();
+  const setActiveView = useUiStore((state) => state.setActiveView);
+
+  useEffect(() => {
+    const path = location.pathname.slice(1) || 'dashboard';
+    setActiveView(path as any);
+  }, [location, setActiveView]);
+
+  return null;
+}
+
+function AppContent() {
   const me = trpc.auth.me.useQuery();
-  const activeView = useUiStore((state) => state.activeView);
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
   const focusMode = useUiStore((state) => state.focusMode);
   const pushToast = useUiStore((state) => state.pushToast);
@@ -66,30 +79,35 @@ export function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-white text-ink">
+      <LocationSync />
       <SideNav user={me.data} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Keel user={me.data} />
         <IdentityRibbon />
         <div className={clsx('canvas-shell', (focusedPanelId || focusMode) && 'canvas-shell-focus')}>
           <main className={clsx('min-h-0 flex-1 overflow-auto', focusedPanelId || focusMode ? 'p-2' : 'p-4')}>
-            {activeView === 'dashboard' ? <DashboardView /> : null}
-            {activeView === 'reports' ? <ReportsRouteShell /> : null}
-            {activeView === 'purchaseOrders' ? <PurchaseOrdersView /> : null}
-            {activeView === 'intake' ? <IntakeView /> : null}
-            {activeView === 'sales' ? <SalesView /> : null}
-            {activeView === 'matchmaking' ? <MatchmakingView /> : null}
-            {activeView === 'orders' ? <OrdersView /> : null}
-            {activeView === 'payments' ? <PaymentsView /> : null}
-            {activeView === 'inventory' ? <InventoryView /> : null}
-            {activeView === 'clients' ? <ClientLedgerView /> : null}
-            {activeView === 'vendors' ? <VendorPayablesView /> : null}
-            {activeView === 'fulfillment' ? <FulfillmentView /> : null}
-            {activeView === 'connectors' ? <ConnectorsView /> : null}
-            {activeView === 'recovery' ? <RecoveryView /> : null}
-            {activeView === 'closeout' ? <CloseoutView /> : null}
-            {activeView === 'referees' ? <RefereesView /> : null}
-            {activeView === 'processors' ? <ProcessorsView /> : null}
-            {activeView === 'settings' ? <SettingsView /> : null}
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardView />} />
+              <Route path="/reports" element={<ReportsRouteShell />} />
+              <Route path="/purchaseOrders" element={<PurchaseOrdersView />} />
+              <Route path="/intake" element={<IntakeView />} />
+              <Route path="/sales" element={<SalesView />} />
+              <Route path="/matchmaking" element={<MatchmakingView />} />
+              <Route path="/orders" element={<OrdersView />} />
+              <Route path="/payments" element={<PaymentsView />} />
+              <Route path="/inventory" element={<InventoryView />} />
+              <Route path="/clients" element={<ClientLedgerView />} />
+              <Route path="/vendors" element={<VendorPayablesView />} />
+              <Route path="/fulfillment" element={<FulfillmentView />} />
+              <Route path="/connectors" element={<ConnectorsView />} />
+              <Route path="/recovery" element={<RecoveryView />} />
+              <Route path="/closeout" element={<CloseoutView />} />
+              <Route path="/referees" element={<RefereesView />} />
+              <Route path="/processors" element={<ProcessorsView />} />
+              <Route path="/settings" element={<SettingsView />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
           </main>
           <ContextDrawer />
         </div>
@@ -121,5 +139,13 @@ export function App() {
         />
       )}
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }

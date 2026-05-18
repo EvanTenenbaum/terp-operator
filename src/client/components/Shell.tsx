@@ -20,6 +20,7 @@ import {
   Users
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { trpc } from '../api/trpc';
 import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
@@ -80,8 +81,8 @@ const keelChips: Array<{ label: string; view: ViewKey; launch: 'sale' | 'purchas
 ];
 
 export function SideNav({ user }: { user: SessionUser }) {
+  const navigate = useNavigate();
   const activeView = useUiStore((state) => state.activeView);
-  const setActiveView = useUiStore((state) => state.setActiveView);
   const sideNavCollapsed = useUiStore((state) => state.sideNavCollapsed);
   const toggleSideNav = useUiStore((state) => state.toggleSideNav);
 
@@ -111,7 +112,7 @@ export function SideNav({ user }: { user: SessionUser }) {
                     key={item.view}
                     data-testid={`sidenav-item-${item.view}`}
                     aria-label={item.label}
-                    onClick={() => setActiveView(item.view)}
+                    onClick={() => navigate(`/${item.view}`)}
                     className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
                   >
                     <Icon className="h-4 w-4" aria-hidden="true" />
@@ -129,12 +130,12 @@ export function SideNav({ user }: { user: SessionUser }) {
 }
 
 export function Keel({ user }: { user: SessionUser }) {
+  const navigate = useNavigate();
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const activeView = useUiStore((state) => state.activeView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
   const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
-  const setActiveView = useUiStore((state) => state.setActiveView);
   const utils = trpc.useContext();
   const logout = trpc.auth.logout.useMutation({
     onSuccess: () => utils.auth.me.invalidate()
@@ -187,7 +188,7 @@ export function Keel({ user }: { user: SessionUser }) {
                       title={chip.title}
                       onClick={() => {
                         setActiveQuickLaunch(chip.launch);
-                        setActiveView(chip.view);
+                        navigate(`/${chip.view}`);
                         setActionsOpen(false);
                       }}
                     >
