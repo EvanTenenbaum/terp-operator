@@ -1,28 +1,115 @@
-# TERP Operator Claude Entry Point
+# Terp Operator - Claude Instructions
 
-Read `/Users/evan/AGENTS.md` first, then `AGENTS.md` in this repo.
+## Path Verification
+CRITICAL: Verify you are in the Terp Operator repo before any work:
+- Root path should be: `/Users/evan/work/terp-agro-operator-console`
+- Git remote: `terp-agro-operator-console`
+- If you see any other "terp" project paths, STOP and confirm
 
-This product is **TERP Operator**.
+## Startup Protocol
+1. Verify correct repo via git remote
+2. Check PM bundle freshness (if docs/agent-context exists)
+3. Load relevant bootstrap from docs/agent-context/bootstrap/ if available
 
-Canonical active repo:
+## Adversarial QA Protocol
+**Automatic cross-model review at all gates:**
+- Implementation by Claude → Review by Codex
+- Implementation by Codex → Review by Claude
+- Triggered automatically at Checkpoint and Full Gate QA levels
+- Use `cross-qa-decider` to determine if background cross-QA required
+- Use `codex-review-broker` to trigger Codex background QA
+- Use `evidence-auditor` for skeptical artifact review before closeout
 
-```text
-https://github.com/EvanTenenbaum/terp-operator
-```
+### When YOU (Claude) implement:
+- At Checkpoint/Full Gate: automatically invoke `codex-review-broker` for adversarial Codex review
+- Before closeout claims: invoke `evidence-auditor` for skeptical artifact review
+- Before "done" claims: invoke `closure-auditor` to challenge completion claims
 
-Older names such as `TERP Agro`, `terp-agro`, or `terp-agro-operator-console` can appear in paths, deployment files, database names, and historical docs. Treat those as legacy/internal identifiers for this same active codebase only when the git remote resolves to `EvanTenenbaum/terp-operator`. New agent-facing and product-facing work should say **TERP Operator**.
+### When Codex implements:
+- At Checkpoint/Full Gate: YOU provide adversarial review as Claude
+- Challenge assumptions, verify evidence, confirm no regressions
 
-Before substantial work, run:
+### Decision Flow:
+1. **Before any gate**: invoke `cross-qa-decider` to determine if background cross-QA required
+2. If cross-QA needed: invoke `codex-review-broker` with evidence packet
+3. **Never skip adversarial review** at Checkpoint or Full Gate
+4. **Model rotation is mandatory**: Claude reviews Codex, Codex reviews Claude
 
-```bash
-pnpm agent:doctor
-```
+## QA Gates
+- **Default**: Normal QA
+- **Escalate to Checkpoint**: Multi-file changes, auth/data flow, deprecated system proximity
+- **Escalate to Full Gate**: Security-sensitive, billing, operator-critical paths
+- At Checkpoint/Full Gate: automatic adversarial review via opposite model
 
-If you are not in the canonical repo, stop and move to the TERP Operator checkout. Do not edit deprecated TERP, TERP Numbers, archived TERP Agro, or other sibling repos unless Evan explicitly asks you to work in them.
+### QA Escalation Triggers:
+- **→ Checkpoint**: 3+ files, auth/data flow, deprecated proximity, operator workflow
+- **→ Full Gate**: security paths, billing, operator-critical, migrations
+
+### Evidence Requirements:
+- Proof commands must be run, not assumed
+- Actual output required before any success claim
+- Screenshots for UI changes at Checkpoint+
+- Test output for logic changes at Full Gate
+- "It should work" is NEVER acceptable at any gate
+
+## Skills to Use
+- `/architecture` - where things live, patterns (if available)
+- `/deprecated-systems` - avoid legacy code (if available)
+- `/verification-protocol` - QA gate choice, DoD rigor (if available)
+- `/roadmap-management` - task workflow (if available)
+- `/terp-long-run-autonomy` - unattended work coordination (if available)
+
+## Specialist Agents
+- `brokerage-fit-reviewer` - TERP product QA, workflow critique
+- `live-website-human-qa` - exploratory QA
+- `evidence-auditor` / `risk-verifier` / `closure-auditor` - skeptical review
+- `preflight-doctor` - setup/auth/path issues
+- `codex-review-broker` - trigger Codex adversarial review
+- `cross-qa-decider` - decide when cross-QA needed
+
+## Best Practices Auto-Loaded
+
+### 1. Verification Before Completion
+**Never claim done without evidence:**
+- Run verification commands
+- Capture actual output
+- Show passing tests
+- Provide artifacts (screenshots, logs, diffs)
+
+### 2. Skeptical Review Default
+**At any gate, be adversarial:**
+- Challenge implementation choices
+- Look for edge cases missed
+- Verify regressions haven't been introduced
+- Confirm tests actually test the fix
+
+### 3. Cross-Model Diversity
+**Different models see different issues:**
+- Syntax vs logic
+- Performance vs correctness
+- Security vs usability
+- Use this diversity intentionally
+
+### 4. No Performative Agreement
+**When receiving review feedback:**
+- Verify technically before accepting
+- Push back on incorrect feedback
+- Require evidence for claims
+- Use `/receiving-code-review` skill
+
+### 5. Gate Discipline
+**Gates are non-negotiable:**
+- Cannot be skipped
+- Cannot be weakened
+- Cannot be "assumed passing"
+- Must show evidence
+
+## Credentials
+- Load from `~/.codex/.env` unless explicitly overridden
 
 ---
 
-# Project Instructions
+# Project Instructions (Existing Metaswarm Configuration)
 
 This project uses [metaswarm](https://github.com/dsifry/metaswarm), a multi-agent orchestration framework for Claude Code. It provides 18 specialized agents, a 9-phase development workflow, and quality gates that enforce TDD, coverage thresholds, and spec-driven development.
 
@@ -229,4 +316,3 @@ Development patterns and standards are documented in `guides/`:
 <!-- Add project-specific notes, conventions, or constraints here.
      Examples: "Always use server components for data fetching",
      "The payments module is legacy — do not refactor without approval" -->
->>>>>>> 919f987 (Phase 1: Critical bug fixes with AQA validation)

@@ -1,0 +1,78 @@
+{
+  "version": "1.0",
+  "projectName": "terp-agro-operator-console",
+  "projectType": "fullstack-typescript",
+  "setupDate": "2026-05-17",
+  "configuration": {
+    "language": "TypeScript",
+    "framework": "React + Express + tRPC",
+    "packageManager": "pnpm",
+    "testRunner": "vitest",
+    "e2eRunner": "playwright",
+    "database": "PostgreSQL",
+    "orm": "Drizzle",
+    "buildTool": "vite + tsup"
+  },
+  "metaswarm": {
+    "coverageThreshold": 90,
+    "externalQA": ["codex"],
+    "qaLevel": "full-gate",
+    "browserVerification": "playwright-visual",
+    "orchestrationMode": "4-phase",
+    "phases": ["IMPLEMENT", "VALIDATE", "ADVERSARIAL_REVIEW", "COMMIT"]
+  },
+  "commands": {
+    "dev": "pnpm dev",
+    "test": "pnpm test",
+    "testE2E": "pnpm test:e2e",
+    "typecheck": "pnpm typecheck",
+    "build": "pnpm build",
+    "migrate": "pnpm db:migrate"
+  },
+  "paths": {
+    "migrations": "/migrations",
+    "backend": "/src/server",
+    "frontend": "/src/client",
+    "shared": "/src/shared",
+    "tests": "/src/tests",
+    "specs": "/docs/superpowers/specs"
+  },
+  "qaGates": {
+    "phase1": {
+      "name": "Database Foundation",
+      "checkpoints": ["migrations", "triggers", "views", "rollback"],
+      "adversarialReview": true,
+      "browserVerification": false
+    },
+    "phase2": {
+      "name": "Shared Type Definitions",
+      "checkpoints": ["schemas", "types", "compilation"],
+      "adversarialReview": true,
+      "browserVerification": false
+    },
+    "phase3": {
+      "name": "Backend Implementation",
+      "checkpoints": ["procedures", "ratelimit", "permissions", "sql-safety"],
+      "adversarialReview": true,
+      "browserVerification": false
+    },
+    "phase4": {
+      "name": "Frontend Implementation",
+      "checkpoints": ["components", "evaluator", "integration", "ui-verification"],
+      "adversarialReview": true,
+      "browserVerification": true
+    },
+    "phase5": {
+      "name": "Testing",
+      "checkpoints": ["unit", "integration", "performance", "security", "coverage"],
+      "adversarialReview": true,
+      "browserVerification": false
+    },
+    "phase6": {
+      "name": "Deployment",
+      "checkpoints": ["staging", "e2e-qa", "production", "monitoring"],
+      "adversarialReview": true,
+      "browserVerification": true
+    }
+  }
+}

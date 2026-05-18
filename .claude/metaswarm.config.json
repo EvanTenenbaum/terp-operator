@@ -1,0 +1,41 @@
+{
+  "enabled": true,
+  "autoGates": {
+    "planReview": true,
+    "designReview": true,
+    "implementationReview": true,
+    "adversarialReview": {
+      "enabled": true,
+      "crossModel": true,
+      "parallelReviewers": 3,
+      "mustAllPass": true
+    }
+  },
+  "reviewerPool": {
+    "architect": "metaswarm:architect-agent",
+    "security": "metaswarm:security-auditor-agent",
+    "codeReview": "metaswarm:code-review-agent",
+    "adversarial": {
+      "claude": "codex-review-broker",
+      "codex": "claude-adversarial-reviewer"
+    }
+  },
+  "qaLevels": {
+    "Normal": {
+      "adversarialReview": false,
+      "reviewers": []
+    },
+    "Checkpoint": {
+      "adversarialReview": true,
+      "crossModel": true,
+      "reviewers": ["codeReview", "adversarial"]
+    },
+    "FullGate": {
+      "adversarialReview": true,
+      "crossModel": true,
+      "parallelReview": true,
+      "reviewers": ["architect", "security", "codeReview", "adversarial"],
+      "mustAllPass": true
+    }
+  }
+}

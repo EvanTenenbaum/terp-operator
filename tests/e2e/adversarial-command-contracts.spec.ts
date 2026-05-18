@@ -364,4 +364,262 @@ test.describe('adversarial command contracts', () => {
     expect(confirmed.ok).toBe(true);
     expect(confirmed.delta.pricingSnapshot.lines[0]).toEqual(expect.objectContaining({ unitCost: expect.any(String), unitPrice: expect.any(String), minimumUnitPrice: expect.any(String), guardrails: [] }));
   });
+
+  test('idempotency key replay returns cached result for identical command and payload', async ({ page }) => {
+    await login(page);
+    const idempotencyKey = `test-idempotency-${crypto.randomUUID()}`;
+    const vendorName = `QA Vendor ${Date.now()}`;
+
+    // Helper function to run command with specific idempotency key
+    async function runWithKey(commandName: CommandName, commandPayload: Record<string, unknown>, key: string) {
+      return page.evaluate(
+        async ({ name, payload, idemKey }) => {
+          const body = {
+            0: {
+              json: {
+                name,
+                payload,
+                reason: 'idempotency test',
+                idempotencyKey: idemKey
+              }
+            }
+          };
+          const response = await fetch('/trpc/commands.run?batch=1', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          return { status: response.status, json: await response.json() };
+        },
+        { name: commandName, payload: commandPayload, idemKey: key }
+      );
+    }
+
+    // First request
+    const first = await runWithKey('createVendor', { name: vendorName, termsDays: 14 }, idempotencyKey);
+    expect(first.status).toBe(200);
+    const firstData = commandData(first);
+    expect(firstData.ok).toBe(true);
+    expect(firstData.affectedIds.length).toBeGreaterThan(0);
+    const vendorId = firstData.affectedIds[0];
+
+    // Second request with SAME key, SAME command, SAME payload (should replay)
+    const second = await runWithKey('createVendor', { name: vendorName, termsDays: 14 }, idempotencyKey);
+    expect(second.status).toBe(200);
+    const secondData = commandData(second);
+    expect(secondData.ok).toBe(true);
+    expect(secondData.affectedIds).toEqual([vendorId]); // Same vendor ID
+    expect(secondData.commandId).toBe(firstData.commandId); // Same command ID (replay)
+  });
+
+  test('idempotency key reused with different command name throws error', async ({ page }) => {
+    await login(page);
+    const idempotencyKey = `test-idempotency-collision-${crypto.randomUUID()}`;
+    const vendorName = `QA Vendor ${Date.now()}`;
+
+    async function runWithKey(commandName: CommandName, commandPayload: Record<string, unknown>, key: string) {
+      return page.evaluate(
+        async ({ name, payload, idemKey }) => {
+          const body = {
+            0: {
+              json: {
+                name,
+                payload,
+                reason: 'idempotency collision test',
+                idempotencyKey: idemKey
+              }
+            }
+          };
+          const response = await fetch('/trpc/commands.run?batch=1', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          return { status: response.status, json: await response.json() };
+        },
+        { name: commandName, payload: commandPayload, idemKey: key }
+      );
+    }
+
+    // First request: createVendor
+    const first = await runWithKey('createVendor', { name: vendorName, termsDays: 14 }, idempotencyKey);
+    expect(first.status).toBe(200);
+    expect(commandData(first).ok).toBe(true);
+
+    // Second request: DIFFERENT command (createBatch) with SAME key
+    const second = await runWithKey('createBatch', { name: 'QA Batch', category: 'Flower', intakeQty: 1, unitCost: 10, unitPrice: 15 }, idempotencyKey);
+    expect(second.status).toBe(500); // Should error
+    const error = commandError(second);
+    expect(error).toContain('Idempotency key reused with different command');
+    expect(error).toContain('createVendor');
+    expect(error).toContain('createBatch');
+  });
+
+  test('idempotency key reused with different payload throws error', async ({ page }) => {
+    await login(page);
+    const idempotencyKey = `test-idempotency-payload-${crypto.randomUUID()}`;
+    const vendorName1 = `QA Vendor ${Date.now()}-1`;
+    const vendorName2 = `QA Vendor ${Date.now()}-2`;
+
+    async function runWithKey(commandName: CommandName, commandPayload: Record<string, unknown>, key: string) {
+      return page.evaluate(
+        async ({ name, payload, idemKey }) => {
+          const body = {
+            0: {
+              json: {
+                name,
+                payload,
+                reason: 'idempotency payload test',
+                idempotencyKey: idemKey
+              }
+            }
+          };
+          const response = await fetch('/trpc/commands.run?batch=1', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          return { status: response.status, json: await response.json() };
+        },
+        { name: commandName, payload: commandPayload, idemKey: key }
+      );
+    }
+
+    // First request
+    const first = await runWithKey('createVendor', { name: vendorName1, termsDays: 14 }, idempotencyKey);
+    expect(first.status).toBe(200);
+    expect(commandData(first).ok).toBe(true);
+
+    // Second request: SAME command but DIFFERENT payload
+    const second = await runWithKey('createVendor', { name: vendorName2, termsDays: 30 }, idempotencyKey);
+    expect(second.status).toBe(500); // Should error
+    const error = commandError(second);
+    expect(error).toContain('Idempotency key reused with different payload');
+    expect(error).toContain('unique key');
+  });
+
+  test('idempotency key handles property order variations (same payload, different order)', async ({ page }) => {
+    await login(page);
+    const idempotencyKey = `test-idempotency-order-${crypto.randomUUID()}`;
+    const vendorName = `QA Vendor ${Date.now()}`;
+
+    async function runWithKey(commandName: CommandName, commandPayload: Record<string, unknown>, key: string) {
+      return page.evaluate(
+        async ({ name, payload, idemKey }) => {
+          const body = {
+            0: {
+              json: {
+                name,
+                payload,
+                reason: 'idempotency property order test',
+                idempotencyKey: idemKey
+              }
+            }
+          };
+          const response = await fetch('/trpc/commands.run?batch=1', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          return { status: response.status, json: await response.json() };
+        },
+        { name: commandName, payload: commandPayload, idemKey: key }
+      );
+    }
+
+    // First request: { name, termsDays }
+    const first = await runWithKey('createVendor', { name: vendorName, termsDays: 14 }, idempotencyKey);
+    expect(first.status).toBe(200);
+    const firstData = commandData(first);
+    expect(firstData.ok).toBe(true);
+    const vendorId = firstData.affectedIds[0];
+
+    // Second request: SAME payload but DIFFERENT property order { termsDays, name }
+    const second = await runWithKey('createVendor', { termsDays: 14, name: vendorName }, idempotencyKey);
+    expect(second.status).toBe(200);
+    const secondData = commandData(second);
+    expect(secondData.ok).toBe(true);
+    expect(secondData.affectedIds).toEqual([vendorId]); // Should replay, not create duplicate
+    expect(secondData.commandId).toBe(firstData.commandId); // Same command ID (replay)
+  });
+
+  test('idempotency handles concurrent requests with same key atomically', async ({ page }) => {
+    await login(page);
+    const idempotencyKey = `test-idempotency-concurrent-${crypto.randomUUID()}`;
+    const vendorName = `QA Vendor ${Date.now()}`;
+
+    async function runWithKey(commandName: CommandName, commandPayload: Record<string, unknown>, key: string) {
+      return page.evaluate(
+        async ({ name, payload, idemKey }) => {
+          const body = {
+            0: {
+              json: {
+                name,
+                payload,
+                reason: 'idempotency concurrent test',
+                idempotencyKey: idemKey
+              }
+            }
+          };
+          const response = await fetch('/trpc/commands.run?batch=1', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          return { status: response.status, json: await response.json() };
+        },
+        { name: commandName, payload: commandPayload, idemKey: key }
+      );
+    }
+
+    // Launch two concurrent requests with same idempotency key
+    const [first, second] = await Promise.all([
+      runWithKey('createVendor', { name: vendorName, termsDays: 14 }, idempotencyKey),
+      runWithKey('createVendor', { name: vendorName, termsDays: 14 }, idempotencyKey)
+    ]);
+
+    // Both requests should succeed (one executes, one replays)
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+
+    const firstData = commandData(first);
+    const secondData = commandData(second);
+
+    expect(firstData.ok).toBe(true);
+    expect(secondData.ok).toBe(true);
+
+    // CRITICAL: Both should reference the SAME command ID (proving replay, not duplicate execution)
+    expect(firstData.commandId).toBe(secondData.commandId);
+
+    // Both should reference the same vendor ID
+    expect(firstData.affectedIds).toEqual(secondData.affectedIds);
+
+    // Verify only ONE vendor was created (not two)
+    const reference = await trpcQuery(page, 'queries.reference');
+    const vendors = reference[0].result.data.json.vendors.filter((v: { name: string }) => v.name === vendorName);
+    expect(vendors.length).toBe(1); // Only one vendor created despite concurrent requests
+
+    // CRITICAL: Verify only ONE journal entry exists (not two with different statuses)
+    const journalCheck = await page.evaluate(
+      async (idemKey: string) => {
+        const response = await fetch('/trpc/queries.commandJournal?batch=1&input=' + encodeURIComponent(JSON.stringify({ 0: { json: null } })), {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' }
+        });
+        const data = await response.json();
+        const entries = data[0].result.data.json.filter((entry: { idempotencyKey: string }) => entry.idempotencyKey === idemKey);
+        return { count: entries.length, statuses: entries.map((e: { status: string }) => e.status) };
+      },
+      idempotencyKey
+    );
+
+    expect(journalCheck.count).toBe(1); // Only ONE journal entry
+    expect(journalCheck.statuses).toEqual(['ok']); // Status is 'ok', not 'pending' or mixed
+  });
 });

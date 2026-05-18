@@ -1,0 +1,84 @@
+{
+  "permissions": {
+    "allow": [
+      "read:docs/agent-context/**",
+      "bash:pnpm pm:launch:check",
+      "bash:git remote -v",
+      "bash:git worktree list",
+      "bash:git diff",
+      "bash:git status",
+      "agent:codex-review-broker",
+      "agent:cross-qa-decider",
+      "agent:evidence-auditor",
+      "agent:risk-verifier",
+      "agent:closure-auditor"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '🎯 Terp Operator - AQA enabled' && git remote -v | grep -q 'terp-agro-operator-console' || echo '⚠️  WARNING: Not in Terp Operator repo!'"
+          }
+        ]
+      }
+    ],
+    "beforeCommit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '🔍 Evaluating if cross-model QA needed...'"
+          }
+        ]
+      }
+    ],
+    "afterPlan": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '📋 Plan complete - adversarial review will trigger automatically at gate'"
+          }
+        ]
+      }
+    ]
+  },
+  "qa": {
+    "defaultLevel": "Normal",
+    "autoEscalate": {
+      "checkpoint": [
+        "multi-file changes (3+)",
+        "auth or data flow modifications",
+        "deprecated system proximity",
+        "operator workflow changes"
+      ],
+      "fullGate": [
+        "security-sensitive paths",
+        "billing logic",
+        "operator-critical features",
+        "data migration"
+      ]
+    },
+    "adversarialReview": {
+      "enabled": true,
+      "crossModel": true,
+      "triggerAt": ["Checkpoint", "FullGate"],
+      "modelRotation": {
+        "claude": "codex",
+        "codex": "claude"
+      }
+    }
+  },
+  "metaswarm": {
+    "enabled": true,
+    "autoReviewGates": true,
+    "planReviewGate": true,
+    "designReviewGate": true
+  }
+}

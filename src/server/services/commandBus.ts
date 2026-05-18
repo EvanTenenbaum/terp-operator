@@ -85,37 +85,141 @@ const qtyScale = (value: unknown) => Number(value ?? 0).toFixed(3);
 const code = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 999).toString().padStart(3, '0')}`;
 const oneWeek = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+/**
+ * Canonicalizes an object for comparison by sorting keys recursively.
+ * This ensures { a: 1, b: 2 } and { b: 2, a: 1 } produce identical strings.
+ * Includes circular reference detection to prevent stack overflow DoS.
+ */
+function canonicalStringify(obj: unknown, seen = new WeakSet<object>()): string {
+  if (obj === null || obj === undefined) return JSON.stringify(obj);
+  if (typeof obj !== 'object') return JSON.stringify(obj);
+
+  // Circular reference detection
+  if (seen.has(obj)) {
+    throw new Error('Circular reference detected in command payload');
+  }
+  seen.add(obj);
+
+  if (Array.isArray(obj)) {
+    return JSON.stringify(obj.map((item) => {
+      if (item && typeof item === 'object') {
+        return JSON.parse(canonicalStringify(item, seen));
+      }
+      return item;
+    }));
+  }
+
+  const sorted = Object.keys(obj as Record<string, unknown>)
+    .sort()
+    .reduce((acc, key) => {
+      const value = (obj as Record<string, unknown>)[key];
+      if (value !== undefined && typeof value === 'object' && value !== null) {
+        acc[key] = JSON.parse(canonicalStringify(value, seen));
+      } else {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as Record<string, unknown>);
+  return JSON.stringify(sorted);
+}
+
 export async function executeCommand(input: CommandInput, user: SessionUser, io: SocketServer): Promise<CommandResult> {
   assertCommandAccess(user, input.name);
 
-  const existing = await db.select().from(commandJournal).where(eq(commandJournal.idempotencyKey, input.idempotencyKey)).limit(1);
+  // Fast path: Check for existing command outside transaction
+  const existing = await db.select().from(commandJournal)
+    .where(eq(commandJournal.idempotencyKey, input.idempotencyKey))
+    .limit(1);
+
   if (existing[0]) {
+    // Verify command name matches
+    if (existing[0].commandName !== input.name) {
+      throw new Error(
+        `Idempotency key reused with different command. ` +
+        `Expected: ${existing[0].commandName}, Got: ${input.name}. ` +
+        `Use a unique key for each command.`
+      );
+    }
+
+    // Verify payload matches (canonical deep comparison)
+    const existingPayload = canonicalStringify(existing[0].inputPayload ?? {});
+    const currentPayload = canonicalStringify(input.payload ?? {});
+    if (existingPayload !== currentPayload) {
+      throw new Error(
+        `Idempotency key reused with different payload. ` +
+        `The same idempotency key cannot be used for different operations. ` +
+        `Use a unique key for each unique request.`
+      );
+    }
+
+    // Replay: return cached result immediately
     return existing[0].result as unknown as CommandResult;
   }
 
+  // No existing command - execute new one
   const commandId = randomUUID();
   const beforeSnapshot = await snapshotFromPayload(input.payload);
 
   try {
-    const result = await db.transaction(async (tx) => runCommand(tx, input.name, input.payload, user, commandId, input.reason));
-    const afterSnapshot = await snapshotByAffectedIds(result.affectedIds);
-    const storedResult = { ...result, toast: result.toast ?? 'Command completed.' };
+    const result = await db.transaction(async (tx) => {
+      // Double-check inside transaction for concurrent requests
+      const concurrentCheck = await tx.select().from(commandJournal)
+        .where(eq(commandJournal.idempotencyKey, input.idempotencyKey))
+        .limit(1);
 
-    await db.insert(commandJournal).values({
-      id: commandId,
-      commandName: input.name,
-      idempotencyKey: input.idempotencyKey,
-      actorId: user.id,
-      actorName: user.name,
-      actorRole: user.role,
-      reason: input.reason,
-      inputPayload: input.payload,
-      status: result.ok ? 'ok' : 'failed',
-      affectedIds: result.affectedIds,
-      beforeSnapshot,
-      afterSnapshot,
-      result: storedResult
+      if (concurrentCheck[0]) {
+        // Another request won the race - verify and replay
+        if (concurrentCheck[0].commandName !== input.name) {
+          throw new Error(
+            `Idempotency key reused with different command. ` +
+            `Expected: ${concurrentCheck[0].commandName}, Got: ${input.name}. ` +
+            `Use a unique key for each command.`
+          );
+        }
+
+        const existingPayload = canonicalStringify(concurrentCheck[0].inputPayload ?? {});
+        const currentPayload = canonicalStringify(input.payload ?? {});
+        if (existingPayload !== currentPayload) {
+          throw new Error(
+            `Idempotency key reused with different payload. ` +
+            `The same idempotency key cannot be used for different operations. ` +
+            `Use a unique key for each unique request.`
+          );
+        }
+
+        // Valid replay - return the cached result
+        return concurrentCheck[0].result as unknown as CommandResult;
+      }
+
+      // Execute command first
+      const commandResult = await runCommand(tx, input.name, input.payload, user, commandId, input.reason);
+
+      // Snapshot after execution
+      const afterSnapshot = await snapshotByAffectedIds(commandResult.affectedIds);
+      const storedResult = { ...commandResult, toast: commandResult.toast ?? 'Command completed.' };
+
+      // Insert journal with FINAL status (not pending)
+      // Unique constraint on idempotencyKey ensures atomicity
+      await tx.insert(commandJournal).values({
+        id: commandId,
+        commandName: input.name,
+        idempotencyKey: input.idempotencyKey,
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        reason: input.reason,
+        inputPayload: input.payload,
+        status: commandResult.ok ? 'ok' : 'failed',
+        affectedIds: commandResult.affectedIds,
+        beforeSnapshot,
+        afterSnapshot,
+        result: storedResult
+      });
+
+      return commandResult;
     });
+
+    const storedResult = { ...result, toast: result.toast ?? 'Command completed.' };
 
     await appendJsonlJournal({
       id: commandId,
@@ -1687,6 +1791,37 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
     const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, paymentId: payment.id, kind: 'down_payment', amount: moneyScale(-credit), balanceAfter: moneyScale(nextBalance), note: 'Negative payment recorded as buyer credit', createdAt: transactionDate }).returning();
     affected.push(entry.id);
   }
+
+  // Auto-execute allocation if allocationIntent is set to 'fifo' or 'selected_invoice'
+  const intent = payment.allocationIntent;
+  if (amount > 0 && (intent === 'fifo' || intent === 'selected_invoice')) {
+    try {
+      const allocationPayload: Payload = { paymentId: payment.id };
+      if (payload.invoiceId) {
+        allocationPayload.invoiceId = payload.invoiceId;
+      }
+      const allocationResult = await allocatePayment(tx, allocationPayload, commandId);
+      // Merge affected IDs from allocation
+      affected.push(...allocationResult.affectedIds.filter(id => !affected.includes(id)));
+      return {
+        ok: true,
+        commandId,
+        affectedIds: affected,
+        toast: `Payment logged and allocated for ${customer.name}. ${allocationResult.toast}`
+      };
+    } catch (allocationError) {
+      // If allocation fails (e.g., no open invoices), that's okay - payment is still logged
+      // Return payment logged confirmation without allocation
+      const errorMsg = allocationError instanceof Error ? allocationError.message : 'Unknown error';
+      return {
+        ok: true,
+        commandId,
+        affectedIds: affected,
+        toast: `Payment logged for ${customer.name}. Auto-allocation skipped: ${errorMsg}`
+      };
+    }
+  }
+
   return { ok: true, commandId, affectedIds: affected, toast: `Payment logged for ${customer.name}.` };
 }
 
@@ -2707,7 +2842,9 @@ async function recalcPurchaseOrder(tx: Tx, purchaseOrderId: string) {
 }
 
 function assertPurchaseOrderEditable(status: string) {
-  if (['received', 'cancelled'].includes(status)) throw new Error('Received or cancelled purchase orders cannot be edited.');
+  if (['approved', 'received', 'cancelled'].includes(status)) {
+    throw new Error('Approved, received, or cancelled purchase orders cannot be edited.');
+  }
 }
 
 function purchaseOrderLineIssues(line: Record<string, unknown>) {
