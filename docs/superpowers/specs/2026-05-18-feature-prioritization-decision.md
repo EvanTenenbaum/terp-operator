@@ -76,7 +76,7 @@ To ensure the deferral lives in GitHub and not just in this spec, the following 
    - Link to this prioritization spec
    - Explicit unblock checklist (subcategory column, brand column, backfill, port spec from `/tmp`, rewrite spec to use new dimensions)
    - Note that implementation is deferred until Photography Module (#40) ships
-2. **New GitHub issue created:** "Pricing Rules v4 Unblock — Schema additions for subcategory/brand" — scoped tightly so it can be picked up independently if bandwidth opens up.
+2. **New GitHub issue created (#42):** "Pricing Rules v4 Unblock — Schema additions for subcategory/brand" — scoped tightly so it can be picked up independently if bandwidth opens up.
 3. **`pricing-rules` label** added to #39 (and the new unblock issue) for discoverability.
 4. **Photography Phase 3 completion checklist** gains a final item: "Update issue #39 with next-steps reminder and link to Pricing Rules planning session."
 
@@ -103,7 +103,7 @@ This brainstorming session is complete when these artifacts exist and are commit
 1. This design doc at `docs/superpowers/specs/2026-05-18-feature-prioritization-decision.md`
 2. ~~`/tmp/pricing-rules-v4-native-prompt.md` copied into `docs/superpowers/specs/2026-05-18-pricing-rules-v4-source-prompt.md`~~ — **NOT POSSIBLE**: the file is already gone. The new unblock issue (item 4) records the loss explicitly so the future planner knows to re-derive missing spec detail.
 3. GitHub issue #39 updated with handoff comment and `pricing-rules` label
-4. New GitHub issue created for Pricing Rules v4 schema unblock work — must include note that `/tmp/pricing-rules-v4-native-prompt.md` was lost between the spec being written and Pricing Rules being picked up, so the planner cannot rely on it
+4. New GitHub issue #42 created for Pricing Rules v4 schema unblock work, with explicit note that `/tmp/pricing-rules-v4-native-prompt.md` was lost between the spec being written and Pricing Rules being picked up
 5. Photography Module implementation plan written via the `writing-plans` skill (the next step after this design is approved)
 
 ---
@@ -119,7 +119,8 @@ This brainstorming session is complete when these artifacts exist and are commit
 ## References
 
 - GitHub issue #40 — Photography Module: Mobile upload, media management, retention policies
-- GitHub issue #39 — Implement Customer Pricing Rules v4
+- GitHub issue #39 — Implement Customer Pricing Rules v4 (deferred; labeled `pricing-rules` + `status:blocked`)
+- GitHub issue #42 — Pricing Rules v4 Unblock: Schema additions for subcategory/brand (created 2026-05-18; independent pickup)
 - `docs/superpowers/specs/2026-05-17-photography-upgrade-design.md` — Photography design spec
 - `docs/superpowers/plans/2026-05-17-photography-module.md` — Photography full implementation plan
 - `docs/superpowers/plans/2026-05-17-photography-module-phase-0-fixes.md` — Photography Phase 0 fixes plan
