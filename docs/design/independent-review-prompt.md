@@ -343,7 +343,7 @@ Produce these in the repo. Use the namespace `docs/design/<your-namespace>/` so 
 - One commit per major deliverable (spec, wireframes, adversarial review, playbook, handoff).
 - Commit messages: `<namespace>(area): what changed`.
 - Push to `main` after each major deliverable.
-- Reference the GitHub repo: <https://github.com/EvanTenenbaum/terp-agro-operator-console>.
+- Reference the GitHub repo: <https://github.com/EvanTenenbaum/terp-operator>.
 
 ---
 

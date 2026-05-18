@@ -3,7 +3,7 @@ region: sfo
 services:
   - name: web
     github:
-      repo: EvanTenenbaum/terp-agro-operator-console
+      repo: EvanTenenbaum/terp-operator
       branch: "__BRANCH__"
       deploy_on_push: true
     dockerfile_path: Dockerfile

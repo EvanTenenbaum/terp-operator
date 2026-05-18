@@ -19,7 +19,7 @@
 6. **`docs/persona-journey-frontend-fit-audit.md`** — JY-01..JY-20 persona journey scoring.
 7. **`docs/workflow-gap-audit.md`** — J01..J10 implementation coverage.
 8. **TERP Numbers Master Manifest** (provided to the original designer in-conversation, not yet committed to repo) — 67-task operational audit + 28 operational gaps + journeys J01-J16 + scenarios S01-S20 + cockpit tables + contracts + hotkeys.
-9. **GitHub**: <https://github.com/EvanTenenbaum/terp-agro-operator-console>. `main` branch is where every commit lands. The design spec + wireframes were just committed.
+9. **GitHub**: <https://github.com/EvanTenenbaum/terp-operator>. `main` branch is where every commit lands. The design spec + wireframes were just committed.
 
 ---
 

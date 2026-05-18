@@ -1,10 +1,30 @@
-# TERP Agro Agent Instructions
+# TERP Operator Agent Instructions
 
 Follow `/Users/evan/AGENTS.md` first, then this file. If a deeper `AGENTS.md` is added later, the deeper file wins for its subtree.
 
+## Canonical Identity
+
+This product is **TERP Operator**. Use that name in new agent handoffs, product notes, QA reports, UI copy, and GitHub issues.
+
+The active GitHub source of truth is:
+
+```text
+https://github.com/EvanTenenbaum/terp-operator
+```
+
+Older local folders and historical docs may still say `terp-agro` or `terp-agro-operator-console`. Treat those as historical/internal identifiers only. The active repo is now `terp-operator`; the old GitHub slug is a redirect/legacy alias, not the preferred name. Do not infer that work belongs in the deprecated TERP, TERP Numbers, or old TERP Agro repositories because of those names.
+
+Before substantial work, run:
+
+```bash
+pnpm agent:doctor
+```
+
+If the doctor reports that you are outside the canonical repo, stop and redirect to the TERP Operator checkout instead of editing the nearest TERP-like folder. Legacy TERP-family repos are read-only reference material unless Evan explicitly asks otherwise.
+
 ## Project Posture
 
-TERP Agro is an operator console for dense, spreadsheet-native wholesale workflows. Prefer working product changes, runtime proof, and issue writeback over broad narration. Preserve existing worktree changes unless Evan explicitly asks you to revert them.
+TERP Operator is an operator console for dense, spreadsheet-native wholesale workflows. Prefer working product changes, runtime proof, and issue writeback over broad narration. Preserve existing worktree changes unless Evan explicitly asks you to revert them.
 
 ## GitHub Tracking Source Of Truth
 

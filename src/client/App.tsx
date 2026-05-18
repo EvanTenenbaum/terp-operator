@@ -59,7 +59,7 @@ export function App() {
   }, [me.data, pushToast, queryClient]);
 
   if (me.isLoading) {
-    return <div className="flex min-h-screen items-center justify-center bg-panel text-sm text-zinc-600">Loading TERP Agro...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-panel text-sm text-zinc-600">Loading TERP Operator...</div>;
   }
 
   if (!me.data) return <LoginView />;

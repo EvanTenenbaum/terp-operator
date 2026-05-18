@@ -1,6 +1,6 @@
 # GitHub Issue Tracking
 
-GitHub Issues are the TERP Agro source of truth for backlog, to-do, and known-issue tracking.
+GitHub Issues are the TERP Operator source of truth for backlog, to-do, and known-issue tracking.
 
 ## Issue Types
 

@@ -89,7 +89,7 @@ export function SideNav({ user }: { user: SessionUser }) {
     <nav className={clsx('flex shrink-0 flex-col border-r border-line bg-panel p-2 transition-all', sideNavCollapsed ? 'w-16' : 'w-60')}>
       <div className="flex items-start justify-between gap-2 px-2 py-3">
         <div className={clsx('min-w-0', sideNavCollapsed && 'sr-only')}>
-          <div className="text-lg font-bold text-ink">TERP Agro</div>
+          <div className="text-lg font-bold text-ink">TERP Operator</div>
           <div className="text-xs uppercase text-zinc-600">Operator Console</div>
         </div>
         <button type="button" className="icon-button" onClick={toggleSideNav} aria-label={sideNavCollapsed ? 'Expand navigation' : 'Collapse navigation'}>

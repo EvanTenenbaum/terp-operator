@@ -1,6 +1,8 @@
-# TERP Agro
+# TERP Operator
 
-TERP Agro is a self-hosted cannabis wholesale ERP operator console. It moves the Apple Numbers workflow into a web app without losing the spreadsheet-native operating model: dense grids, inline edits, explicit statuses, keyboard shortcuts, audited commands, and reversible postings.
+TERP Operator is a self-hosted cannabis wholesale ERP operator console. It moves the Apple Numbers workflow into a web app without losing the spreadsheet-native operating model: dense grids, inline edits, explicit statuses, keyboard shortcuts, audited commands, and reversible postings.
+
+Agent source of truth: this product is **TERP Operator**. The active GitHub repo is `EvanTenenbaum/terp-operator`; older paths/configuration may still contain `terp-agro` for continuity. Before substantial agent work, run `pnpm agent:doctor` and read `docs/agent-source-of-truth.md`.
 
 ## Architecture Overview
 
@@ -14,7 +16,7 @@ TERP Agro is a self-hosted cannabis wholesale ERP operator console. It moves the
 ## File Tree
 
 ```text
-terp-agro/
+terp-operator/
   src/client/              React operator console
   src/server/              Express, tRPC, Drizzle, commands
   src/shared/              Shared command/type/Zod contracts
@@ -125,7 +127,7 @@ pnpm test:e2e
 **For Agents:** Before testing features, read the relevant QA runbook. Navigation uses state-based routing (sidebar clicks), NOT URL routing.
 
 **Recent Features:**
-- Payment processors with variable fees and splits ([#38](https://github.com/EvanTenenbaum/terp-agro-operator-console/issues/38))
+- Payment processors with variable fees and splits ([#38](https://github.com/EvanTenenbaum/terp-operator/issues/38))
 
 ## DigitalOcean Deployment
 

@@ -14,5 +14,5 @@ io.on('connection', (socket) => {
 });
 
 httpServer.listen(env.PORT, () => {
-  console.log(`TERP Agro server listening on http://localhost:${env.PORT}`);
+  console.log(`TERP Operator server listening on http://localhost:${env.PORT}`);
 });

@@ -1,10 +1,11 @@
 {
-  "name": "terp-agro",
+  "name": "terp-operator",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.25.0",
   "type": "module",
   "scripts": {
+    "agent:doctor": "bash scripts/terp-operator-doctor.sh",
     "dev": "concurrently -k -n server,client \"tsx watch src/server/index.ts\" \"vite --host 0.0.0.0\"",
     "dev:e2e": "concurrently -k -n server,client \"tsx src/server/index.ts\" \"vite --host 0.0.0.0\"",
     "server:dev": "tsx watch src/server/index.ts",

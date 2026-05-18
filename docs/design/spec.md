@@ -8,7 +8,7 @@
   - `docs/design/wireframes/01-diagnosis.html` through `07-wireframes-batch-4.html` (rendered HTML wireframes W1-W28).
   - `docs/design/replication-playbook.md` — recipes (R1-R16) for extending the design coherently when implementers hit features the wireframes don't explicitly cover. Mandatory companion. See §22.
   - `docs/design/handoff-prompt.md` — briefing for the PM / roadmap-integration agent.
-- **Repo**: <https://github.com/EvanTenenbaum/terp-agro-operator-console>
+- **Repo**: <https://github.com/EvanTenenbaum/terp-operator>
 
 ---
 
@@ -1964,7 +1964,7 @@ The playbook is a living document — as new patterns earn their place during im
 
 ### GitHub
 
-`https://github.com/EvanTenenbaum/terp-agro-operator-console`
+`https://github.com/EvanTenenbaum/terp-operator`
 
 ---
 

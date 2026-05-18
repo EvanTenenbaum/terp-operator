@@ -318,7 +318,7 @@ async function insertSeedData() {
     result: { ok: true, commandId: 'seed-command-journal-0001', affectedIds: [], toast: 'Seed activity loaded.' }
   });
 
-  console.log('Seeded TERP Agro demo data.');
+  console.log('Seeded TERP Operator demo data.');
   console.log('Demo login: owner@terpagro.local / terp-demo');
   console.log(`Additional users: ${manager.email}, ${inventoryOperator.email}, ${salesOperator.email}, ${viewer.email}`);
 }

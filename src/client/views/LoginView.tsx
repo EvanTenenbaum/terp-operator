@@ -18,7 +18,7 @@ export function LoginView() {
           login.mutate({ email, password });
         }}
       >
-        <h1 className="text-xl font-bold text-ink">TERP Agro</h1>
+        <h1 className="text-xl font-bold text-ink">TERP Operator</h1>
         <p className="mt-1 text-sm text-zinc-600">Sign in with a seeded operator account.</p>
         <label className="mt-5 block text-sm font-medium text-ink" htmlFor="email">
           Email

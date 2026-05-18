@@ -184,7 +184,7 @@ export async function seedRealisticDemoData(config = realisticDemoConfigFromEnv(
     await db.update(customers).set({ balance: money(balance), updatedAt: new Date() }).where(eq(customers.id, customerId));
   }
 
-  console.log(`Seeded TERP Agro realistic demo data: ${config.days} days, ${money(totalRevenue)} revenue, ${money(flowerRevenue)} flower revenue.`);
+  console.log(`Seeded TERP Operator realistic demo data: ${config.days} days, ${money(totalRevenue)} revenue, ${money(flowerRevenue)} flower revenue.`);
   console.log('Demo login: owner@terpagro.local / terp-demo');
 }
 
