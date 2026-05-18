@@ -220,6 +220,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     });
 
     const storedResult = { ...result, toast: result.toast ?? 'Command completed.' };
+    const afterSnapshot = await snapshotByAffectedIds(result.affectedIds);
 
     await appendJsonlJournal({
       id: commandId,
@@ -1763,7 +1764,7 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
   const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
 
   // Lock customer row to prevent concurrent balance update races
-  const customerRows = await tx.execute<typeof customers.$inferSelect>(
+  const customerRows = await tx.execute(
     sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${customerId} FOR UPDATE`
   );
   const customer = customerRows.rows[0];
@@ -1834,7 +1835,7 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
   const paymentId = requiredId(payload.paymentId, 'paymentId');
 
   // Lock payment row to prevent concurrent allocation races
-  const paymentRows = await tx.execute<typeof payments.$inferSelect>(
+  const paymentRows = await tx.execute(
     sql`SELECT * FROM ${payments} WHERE ${payments.id} = ${paymentId} FOR UPDATE`
   );
   const payment = paymentRows.rows[0];
@@ -1843,10 +1844,10 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
 
   // Lock invoices to prevent concurrent payment application races
   const invoicesToPay = payload.invoiceId
-    ? (await tx.execute<typeof invoices.$inferSelect>(
+    ? (await tx.execute(
         sql`SELECT * FROM ${invoices} WHERE ${invoices.id} = ${requiredId(payload.invoiceId, 'invoiceId')} FOR UPDATE`
       )).rows
-    : (await tx.execute<typeof invoices.$inferSelect>(
+    : (await tx.execute(
         sql`SELECT * FROM ${invoices} WHERE ${invoices.customerId} = ${payment.customerId} AND ${invoices.status} in ('open', 'partial') ORDER BY ${invoices.createdAt} FOR UPDATE`
       )).rows;
 
@@ -1868,7 +1869,7 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
   const totalAllocated = Number(payment.unappliedAmount) - remaining;
   if (payment.customerId && totalAllocated > 0) {
     // Lock customer row to prevent concurrent balance update races
-    const customerRows = await tx.execute<typeof customers.$inferSelect>(
+    const customerRows = await tx.execute(
       sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${payment.customerId} FOR UPDATE`
     );
     const customer = customerRows.rows[0];

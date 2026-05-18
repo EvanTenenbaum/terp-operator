@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * URL Routing Validation (Issue #29)
@@ -10,7 +10,7 @@ import { test, expect } from '@playwright/test';
  * - URL refresh preserves view
  */
 
-async function login(page) {
+async function login(page: Page) {
   await page.goto('/');
   await page.fill('input[type="email"]', 'owner@terpagro.local');
   await page.fill('input[type="password"]', 'terp-demo');
