@@ -26,7 +26,8 @@
     "audit:parity": "node scripts/check-backend-frontend-parity.mjs",
     "audit:product-roadmap": "node scripts/check-product-roadmap.mjs",
     "audit:realistic-demo": "node scripts/audit-realistic-demo-data.mjs",
-    "audit:self": "pnpm typecheck && pnpm audit:parity && pnpm audit:product-roadmap && pnpm build"
+    "audit:self": "pnpm typecheck && pnpm audit:parity && pnpm audit:product-roadmap && pnpm build",
+    "docs:inventory": "tsx scripts/extract-component-inventory.ts"
   },
   "dependencies": {
     "@ag-grid-community/client-side-row-model": "^32.3.3",
