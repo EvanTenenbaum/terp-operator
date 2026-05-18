@@ -4,6 +4,7 @@ import { trpc } from '../api/trpc';
 import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
 import { useUiStore } from '../store/uiStore';
 import { useCommandRunner } from './useCommandRunner';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { GridRow, QuickLaunchMode, ViewKey } from '../../shared/types';
 
@@ -28,6 +29,7 @@ export function CommandPalette() {
   const advancedOpen = useUiStore((state) => state.commandPaletteAdvancedOpen);
   const setOpen = useUiStore((state) => state.setCommandPaletteOpen);
   const setAdvancedOpen = useUiStore((state) => state.setCommandPaletteAdvancedOpen);
+  const containerRef = useFocusTrap<HTMLDivElement>(open, () => setOpen(false));
   const selectedRows = useUiStore((state) => state.selectedRows);
   const activeView = useUiStore((state) => state.activeView);
   const setActiveView = useUiStore((state) => state.setActiveView);
@@ -124,7 +126,7 @@ export function CommandPalette() {
 
   return (
     <div className="fixed inset-0 z-40 bg-black/25 p-4" role="dialog" aria-modal="true" aria-label="Command palette">
-      <div className="mx-auto mt-12 flex max-h-[80vh] max-w-3xl flex-col border border-line bg-white shadow-xl">
+      <div ref={containerRef} className="mx-auto mt-12 flex max-h-[80vh] max-w-3xl flex-col border border-line bg-white shadow-xl">
         <div className="flex items-center gap-2 border-b border-line px-3 py-2">
           <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
           <input
