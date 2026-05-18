@@ -776,7 +776,12 @@ async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string):
  */
 async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const purchaseOrderId = requiredId(payload.purchaseOrderId, 'purchaseOrderId');
-  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+
+  // Lock PO row to prevent concurrent line addition and total recalc races
+  const orderRows = await tx.execute(
+    sql`SELECT * FROM ${purchaseOrders} WHERE ${purchaseOrders.id} = ${purchaseOrderId} FOR UPDATE`
+  );
+  const order = orderRows.rows[0];
   if (!order) throw new Error('Purchase order not found.');
   assertPurchaseOrderEditable(order.status);
   const decoded = decodeShorthand(stringValue(payload.shorthand));
@@ -846,7 +851,12 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
   const [line] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Purchase order line not found.');
-  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, line.purchaseOrderId)).limit(1);
+
+  // Lock PO row to prevent concurrent line update and total recalc races
+  const orderRows = await tx.execute(
+    sql`SELECT * FROM ${purchaseOrders} WHERE ${purchaseOrders.id} = ${line.purchaseOrderId} FOR UPDATE`
+  );
+  const order = orderRows.rows[0];
   if (!order) throw new Error('Purchase order not found.');
   assertPurchaseOrderEditable(order.status);
 
@@ -921,7 +931,12 @@ async function removePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
   const [line] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Purchase order line not found.');
-  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, line.purchaseOrderId)).limit(1);
+
+  // Lock PO row to prevent concurrent line removal and total recalc races
+  const orderRows = await tx.execute(
+    sql`SELECT * FROM ${purchaseOrders} WHERE ${purchaseOrders.id} = ${line.purchaseOrderId} FOR UPDATE`
+  );
+  const order = orderRows.rows[0];
   if (!order) throw new Error('Purchase order not found.');
   assertPurchaseOrderEditable(order.status);
   if (Number(line.receivedQty) > 0) throw new Error('Received purchase order lines cannot be removed. Use intake correction/reversal.');
@@ -1041,7 +1056,12 @@ async function recordVendorPrepayment(tx: Tx, payload: Payload, commandId: strin
 
 async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
-  const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+
+  // Lock PO row to prevent concurrent approval races
+  const orderRows = await tx.execute(
+    sql`SELECT * FROM ${purchaseOrders} WHERE ${purchaseOrders.id} = ${purchaseOrderId} FOR UPDATE`
+  );
+  const order = orderRows.rows[0];
   if (!order) throw new Error('Purchase order not found.');
   if (order.status !== 'finalized') throw new Error('Purchase order must be finalized before approval.');
   const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
@@ -1249,7 +1269,12 @@ async function verifyAllIntake(tx: Tx, payload: Payload, commandId: string, reas
 async function adjustBatchQuantity(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
   const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
   const delta = requiredNumber(payload.deltaQty ?? payload.qtyDelta, 'deltaQty');
-  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+
+  // Lock batch row to prevent concurrent quantity adjustment races
+  const batchRows = await tx.execute(
+    sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${batchId} FOR UPDATE`
+  );
+  const row = batchRows.rows[0];
   if (!row) throw new Error('Batch not found.');
   if (!reason && !stringValue(payload.reason)) throw new Error('Adjustment reason is required so inventory corrections stay traceable.');
   const nextQty = Number(row.availableQty) + delta;
@@ -1280,7 +1305,12 @@ async function transferInventoryLocation(tx: Tx, payload: Payload, commandId: st
   const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
   const location = requiredString(payload.location, 'location');
   const movementReason = requiredString(reason || payload.reason, 'reason');
-  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+
+  // Lock batch row to prevent concurrent location transfer races
+  const batchRows = await tx.execute(
+    sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${batchId} FOR UPDATE`
+  );
+  const row = batchRows.rows[0];
   if (!row) throw new Error('Batch not found.');
   if (row.location === location) {
     return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} is already in ${location}.`, delta: { location, unchanged: true } };
@@ -1295,7 +1325,12 @@ async function transferInventoryOwnership(tx: Tx, payload: Payload, commandId: s
   const ownershipStatus = ownership(payload.ownershipStatus);
   const movementReason = requiredString(reason || payload.reason, 'reason');
   const vendorId = payload.vendorId != null ? stringValue(payload.vendorId) || null : undefined;
-  const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
+
+  // Lock batch row to prevent concurrent ownership transfer races
+  const batchRows = await tx.execute(
+    sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${batchId} FOR UPDATE`
+  );
+  const row = batchRows.rows[0];
   if (!row) throw new Error('Batch not found.');
   if (ownershipStatus === 'C' && !(vendorId ?? row.vendorId)) throw new Error('Consigned inventory needs a vendor before ownership transfer.');
   if (row.ownershipStatus === ownershipStatus && (vendorId === undefined || row.vendorId === vendorId)) {
@@ -1635,7 +1670,12 @@ async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Prom
 
   await recalcOrder(tx, orderId);
   const [freshOrder] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
-  const [customer] = await tx.select().from(customers).where(eq(customers.id, freshOrder.customerId)).limit(1);
+
+  // Lock customer row to prevent concurrent balance update races
+  const customerRows = await tx.execute(
+    sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${freshOrder.customerId} FOR UPDATE`
+  );
+  const customer = customerRows.rows[0];
   if (!customer) throw new Error('Customer not found.');
   if (Number(customer.balance) + Number(freshOrder.total) > Number(customer.creditLimit)) {
     throw new Error(`${customer.name} would exceed credit limit. Request a credit override before posting.`);
@@ -1643,7 +1683,11 @@ async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Prom
 
   const affected = [orderId];
   for (const line of lines) {
-    const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId!)).limit(1);
+    // Lock batch row to prevent concurrent quantity update races
+    const batchRows = await tx.execute(
+      sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${line.batchId} FOR UPDATE`
+    );
+    const batch = batchRows.rows[0];
     const nextAvailable = Number(batch.availableQty) - Number(line.qty);
     const nextReserved = Math.max(0, Number(batch.reservedQty) - Number(line.qty));
     await tx.update(batches).set({ availableQty: qtyScale(nextAvailable), reservedQty: qtyScale(nextReserved), updatedAt: new Date() }).where(eq(batches.id, batch.id));
@@ -1885,8 +1929,17 @@ async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): P
   const allocationId = requiredId(payload.allocationId, 'allocationId');
   const [allocation] = await tx.select().from(paymentAllocations).where(eq(paymentAllocations.id, allocationId)).limit(1);
   if (!allocation) throw new Error('Allocation not found.');
-  const [payment] = await tx.select().from(payments).where(eq(payments.id, allocation.paymentId)).limit(1);
-  const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, allocation.invoiceId)).limit(1);
+
+  // Lock payment and invoice rows to prevent concurrent unallocation races
+  const paymentRows = await tx.execute(
+    sql`SELECT * FROM ${payments} WHERE ${payments.id} = ${allocation.paymentId} FOR UPDATE`
+  );
+  const payment = paymentRows.rows[0];
+
+  const invoiceRows = await tx.execute(
+    sql`SELECT * FROM ${invoices} WHERE ${invoices.id} = ${allocation.invoiceId} FOR UPDATE`
+  );
+  const invoice = invoiceRows.rows[0];
   await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, allocationId));
   await tx.update(payments).set({ unappliedAmount: moneyScale(Number(payment.unappliedAmount) + Number(allocation.amount)), updatedAt: new Date() }).where(eq(payments.id, payment.id));
   const paid = Math.max(0, Number(invoice.amountPaid) - Number(allocation.amount));
@@ -1905,7 +1958,12 @@ async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promi
 async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const invoiceId = requiredId(payload.invoiceId, 'invoiceId');
   const amount = requiredNumber(payload.amount, 'amount');
-  const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+
+  // Lock invoice row to prevent concurrent total adjustment races
+  const invoiceRows = await tx.execute(
+    sql`SELECT * FROM ${invoices} WHERE ${invoices.id} = ${invoiceId} FOR UPDATE`
+  );
+  const invoice = invoiceRows.rows[0];
   if (!invoice) throw new Error('Invoice not found.');
   const nextTotal = Math.max(0, Number(invoice.total) - amount);
   await tx.update(invoices).set({ total: moneyScale(nextTotal), status: Number(invoice.amountPaid) >= nextTotal ? 'paid' : invoice.status, updatedAt: new Date() }).where(eq(invoices.id, invoiceId));
@@ -1940,7 +1998,12 @@ async function scheduleVendorPayment(tx: Tx, payload: Payload, commandId: string
 
 async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const billId = requiredId(payload.vendorBillId ?? payload.id, 'vendorBillId');
-  const [bill] = await tx.select().from(vendorBills).where(eq(vendorBills.id, billId)).limit(1);
+
+  // Lock vendor bill row to prevent concurrent payment races
+  const billRows = await tx.execute(
+    sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.id} = ${billId} FOR UPDATE`
+  );
+  const bill = billRows.rows[0];
   if (!bill) throw new Error('Vendor bill not found.');
   if (bill.status !== 'scheduled' && payload.overrideUnscheduled !== true) {
     throw new Error('Schedule this vendor payment before recording payment. Scheduled means a real appointment/payment event exists.');
@@ -1960,7 +2023,12 @@ async function voidVendorPayment(tx: Tx, payload: Payload, commandId: string): P
   const [payment] = await tx.select().from(vendorPayments).where(eq(vendorPayments.id, paymentId)).limit(1);
   if (!payment) throw new Error('Vendor payment not found.');
   await tx.update(vendorPayments).set({ status: 'void' }).where(eq(vendorPayments.id, paymentId));
-  const [bill] = await tx.select().from(vendorBills).where(eq(vendorBills.id, payment.vendorBillId)).limit(1);
+
+  // Lock vendor bill row to prevent concurrent payment reversal races
+  const billRows = await tx.execute(
+    sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.id} = ${payment.vendorBillId} FOR UPDATE`
+  );
+  const bill = billRows.rows[0];
   await tx.update(vendorBills).set({ amountPaid: moneyScale(Math.max(0, Number(bill.amountPaid) - Number(payment.amount))), status: 'approved', dueReason: bill.consignmentTriggered ? 'Due because consigned inventory depleted' : 'Approved vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
   return { ok: true, commandId, affectedIds: [paymentId, bill.id], toast: 'Vendor payout voided.' };
 }
