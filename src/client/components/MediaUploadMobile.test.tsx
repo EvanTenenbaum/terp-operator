@@ -2,13 +2,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
-const runCommand = vi.fn().mockResolvedValue({ ok: true, toast: 'done' });
+const runCommand = vi.fn().mockResolvedValue({ ok: true, affectedIds: ['media-1'], commandId: 'cmd-1' });
 vi.mock('./useCommandRunner', () => ({
   useCommandRunner: () => ({ runCommand, isRunning: false })
 }));
 
-import { MediaUploadMobile } from './MediaUploadMobile';
+import { MediaUploadMobile, MediaUploadMobileRoute } from './MediaUploadMobile';
 
 describe('MediaUploadMobile', () => {
   let xhrMock: {
@@ -85,5 +86,75 @@ describe('MediaUploadMobile', () => {
         mediumPath: '/uploads/medium/file-1.jpg'
       })
     );
+  });
+
+  it('shows API thumbnail preview after runCommand returns affectedIds', async () => {
+    const user = userEvent.setup();
+    render(<MediaUploadMobile batchId="batch-1" />);
+
+    const file = new File(['fake-image'], 'photo.jpg', { type: 'image/jpeg' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    if (xhrMock.onload) {
+      xhrMock.onload();
+    }
+
+    await waitFor(() => {
+      expect(runCommand).toHaveBeenCalledTimes(1);
+    });
+
+    const img = await screen.findByRole('img', { name: 'photo.jpg' });
+    expect(img).toHaveAttribute('src', '/api/media/media-1/thumb');
+    expect(img).not.toHaveAttribute('src', '/uploads/thumbs/file-1.jpg');
+  });
+
+  it('falls back to file icon when runCommand returns no affectedIds', async () => {
+    runCommand.mockResolvedValueOnce({ ok: true, affectedIds: [], commandId: 'cmd-2' });
+
+    const user = userEvent.setup();
+    render(<MediaUploadMobile batchId="batch-1" />);
+
+    const file = new File(['fake-image'], 'photo.jpg', { type: 'image/jpeg' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    if (xhrMock.onload) {
+      xhrMock.onload();
+    }
+
+    await waitFor(() => {
+      expect(runCommand).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.queryByRole('img', { name: 'photo.jpg' })).not.toBeInTheDocument();
+    expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+  });
+});
+
+describe('MediaUploadMobileRoute', () => {
+  it('renders heading and upload button for valid batchId', () => {
+    render(
+      <MemoryRouter initialEntries={['/photography/mobile/batch-1']}>
+        <Routes>
+          <Route path="/photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('heading', { name: 'Mobile Media Upload' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Take Photo/Video' })).toBeInTheDocument();
+  });
+
+  it('shows missing batch message when batchId is absent', () => {
+    render(
+      <MemoryRouter initialEntries={['/photography/mobile/']}>
+        <Routes>
+          <Route path="/photography/mobile/:batchId?" element={<MediaUploadMobileRoute />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/batch id is required/i)).toBeInTheDocument();
   });
 });

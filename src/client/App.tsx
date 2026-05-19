@@ -34,6 +34,7 @@ import {
 import { RefereesView } from './views/RefereesView';
 import { ProcessorsView } from './views/ProcessorsView';
 import { MediaView } from './views/MediaView';
+import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 
 // Sync URL with activeView state
 function LocationSync() {
@@ -41,7 +42,7 @@ function LocationSync() {
   const setActiveView = useUiStore((state) => state.setActiveView);
 
   useEffect(() => {
-    const path = location.pathname.slice(1) || 'dashboard';
+    const path = location.pathname.slice(1).split('/')[0] || 'dashboard';
     setActiveView(path as any);
   }, [location, setActiveView]);
 
@@ -107,6 +108,7 @@ function AppContent() {
               <Route path="/referees" element={<RefereesView />} />
               <Route path="/processors" element={<ProcessorsView />} />
               <Route path="/photography" element={<MediaView />} />
+              <Route path="/photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
               <Route path="/settings" element={<SettingsView />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

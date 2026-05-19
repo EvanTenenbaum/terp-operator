@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { Camera, Check, X, Loader2, FileCheck } from 'lucide-react';
 import { useCommandRunner } from './useCommandRunner';
 
@@ -10,6 +11,7 @@ interface UploadResult {
   mimeType: string;
   thumbnailPath?: string;
   mediumPath?: string;
+  previewUrl?: string;
 }
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
@@ -55,12 +57,8 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
         if (xhr.status === 200) {
           try {
             const data = JSON.parse(xhr.responseText) as UploadResult;
-            setResult(data);
-            setStatus('success');
-
             const mediaType = data.mimeType.startsWith('video/') ? 'video' : 'photo';
-
-            await runCommand('uploadBatchMedia', {
+            const commandResult = await runCommand('uploadBatchMedia', {
               batchId,
               fileId: data.fileId,
               filePath: data.filePath,
@@ -72,6 +70,12 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
               mediumPath: data.mediumPath,
               isPrimary: false
             });
+            const mediaId = commandResult.affectedIds?.[0];
+            setResult({
+              ...data,
+              previewUrl: mediaId ? `/api/media/${mediaId}/thumb` : undefined
+            });
+            setStatus('success');
           } catch {
             setStatus('error');
             setErrorMessage('Upload failed. Please try again.');
@@ -189,9 +193,9 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
             <Check className="h-4 w-4" aria-hidden="true" />
             <span>Upload complete</span>
           </div>
-          {result.mimeType.startsWith('image/') && result.thumbnailPath ? (
+          {result.mimeType.startsWith('image/') && result.previewUrl ? (
             <img
-              src={result.thumbnailPath}
+              src={result.previewUrl}
               alt={result.originalFilename}
               className="h-24 w-24 border border-line object-cover"
               loading="lazy"
@@ -229,6 +233,19 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+export function MediaUploadMobileRoute() {
+  const { batchId } = useParams<{ batchId: string }>();
+  if (!batchId) {
+    return <div>Batch id is required.</div>;
+  }
+  return (
+    <div className="p-4">
+      <h1 className="text-lg font-semibold mb-4">Mobile Media Upload</h1>
+      <MediaUploadMobile batchId={batchId} />
     </div>
   );
 }

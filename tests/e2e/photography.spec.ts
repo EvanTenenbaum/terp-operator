@@ -27,3 +27,17 @@ test('photography queue is accessible and shows grid', async ({ page }) => {
     page.locator('.ag-root:visible').first().or(page.getByRole('heading', { name: 'No rows yet' }))
   ).toBeVisible();
 });
+
+test('mobile upload route is reachable and shows upload UI', async ({ page }) => {
+  test.setTimeout(60_000);
+  await waitForBackend(page);
+  await page.goto('/');
+  await page.getByLabel('Email').fill('owner@terpagro.local');
+  await page.getByLabel('Password').fill('terp-demo');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('navigation')).toBeVisible();
+
+  await page.goto('/photography/mobile/batch-1');
+  await expect(page.getByRole('heading', { name: 'Mobile Media Upload' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Take Photo/Video' })).toBeVisible();
+});
