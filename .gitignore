@@ -8,6 +8,9 @@ playwright-report
 artifacts/
 .superpowers/
 
+# vitest coverage artifacts
+coverage/
+
 # claude-handoff: bundles transit via iCloud, not git
 .claude-shared
 .claude-handoff/
