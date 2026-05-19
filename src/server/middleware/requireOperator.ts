@@ -31,7 +31,8 @@ export async function requireOperator(
 
     req.user = user;
     next();
-  } catch (_error) {
+  } catch (error) {
+    console.error('requireOperator auth check failed:', error);
     res.status(500).json({ error: 'Authentication check failed' });
   }
 }

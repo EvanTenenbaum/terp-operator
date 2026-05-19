@@ -69,6 +69,7 @@ describe('requireOperator middleware', () => {
   });
 
   it('returns 500 when getSessionUser throws', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(getSessionUser).mockRejectedValue(new Error('DB down'));
 
     await requireOperator(req as Request, res as Response, next);
@@ -76,5 +77,11 @@ describe('requireOperator middleware', () => {
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: 'Authentication check failed' });
     expect(next).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'requireOperator auth check failed:',
+      expect.any(Error)
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });
