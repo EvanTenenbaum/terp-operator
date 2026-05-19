@@ -4,6 +4,7 @@ import {
   BadgeDollarSign,
   BarChart3,
   Boxes,
+  Camera,
   ChevronDown,
   ClipboardList,
   Gauge,
@@ -42,7 +43,8 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { view: 'purchaseOrders', label: 'Purchase Orders', icon: PackagePlus },
       { view: 'intake', label: 'Intake', hotkey: '⌘2', icon: ClipboardList },
-      { view: 'inventory', label: 'Inventory', hotkey: '⌘5', icon: Boxes }
+      { view: 'inventory', label: 'Inventory', hotkey: '⌘5', icon: Boxes },
+      { view: 'photography', label: 'Photography', icon: Camera }
     ]
   },
   {
