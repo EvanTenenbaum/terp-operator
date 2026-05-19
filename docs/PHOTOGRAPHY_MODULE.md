@@ -26,6 +26,10 @@ Phase 0 (foundation) complete. Phase 1 (DB + upload route + serving route) pendi
 - Real upload route at `POST /api/upload/media` (Express, multer, requireOperator, uploadRateLimiter)
 - Real serving route at `GET /api/media/:id` (Express, requireOperator, mediaServeRateLimiter, streaming with range support)
 - tRPC commands: `uploadBatchMedia`, `setBatchMediaRole`, `publishBatchMedia`, `deleteBatchMedia`
+- Update `src/client/accessPolicy.ts` `defaultOperatorViews` to include `'photography'` — currently typed but invisible to all users
+- Replace placeholder label `'Photography'` in `src/client/components/IdentityRibbon.tsx:26` with final UX-approved label
+- Fill in the `'photography'` stubs in `src/server/routers/queries.ts` (gridSql line 1003, deterministicHeaders line 1045)
+- Document mounting order for `uploadRateLimiter` / `mediaServeRateLimiter` (must mount after `requireOperator` so `req.user.id` exists for keyGeneration)
 - Unit + integration tests
 - E2E test for upload flow
 
