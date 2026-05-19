@@ -25,3 +25,10 @@ export { recomputeAllCustomers } from './orchestrator';
 export { reconcileLimitDrift, type DriftReport, type DriftRow } from './reconciliation';
 export { enqueueCustomerRecompute, enqueueAllCustomers, type TriggerSource } from './enqueue';
 export { processOneRecompute } from './worker';
+export {
+  divergenceReport,
+  type DivergenceReport,
+  type DivergenceRow,
+  type DivergenceOptions,
+  type ShadowModeKpi
+} from './divergenceReport';
