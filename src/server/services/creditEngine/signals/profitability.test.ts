@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { scoreProfitability } from './profitability';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { pool } from '../../../db';
+import { scoreProfitability, computeProfitability } from './profitability';
 
 describe('scoreProfitability', () => {
   it('returns 50 when no revenue in window', () => {
@@ -31,5 +32,38 @@ describe('scoreProfitability', () => {
     expect(() => scoreProfitability({ revenue: -1, cogs: 0, dataCount: 1 })).toThrow();
     expect(() => scoreProfitability({ revenue: 100, cogs: -1, dataCount: 1 })).toThrow();
     expect(() => scoreProfitability({ revenue: 100, cogs: 50, dataCount: -1 })).toThrow();
+  });
+});
+
+describe('computeProfitability (integration)', () => {
+  let customerId = '';
+
+  beforeAll(async () => {
+    const { rows } = await pool.query<{ id: string }>(`
+      SELECT customer_id AS id FROM sales_orders
+       WHERE total > 0
+       GROUP BY customer_id
+       HAVING COUNT(*) >= 3
+       LIMIT 1
+    `);
+    if (rows.length === 0) {
+      throw new Error('No seeded customer with >= 3 sales orders; run pnpm db:seed:realistic');
+    }
+    customerId = rows[0].id;
+  });
+
+  it('returns a valid SignalResult shape against seeded data', async () => {
+    const result = await computeProfitability(pool, customerId);
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(['high', 'medium', 'low', 'none']).toContain(result.confidence);
+    expect(result.dataCount).toBeGreaterThan(0);
+  });
+
+  it('returns score=50 / confidence=none for an unknown customer', async () => {
+    const result = await computeProfitability(pool, '00000000-0000-0000-0000-000000000000');
+    expect(result.score).toBe(50);
+    expect(result.confidence).toBe('none');
+    expect(result.dataCount).toBe(0);
   });
 });

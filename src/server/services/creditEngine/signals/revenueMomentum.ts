@@ -1,3 +1,4 @@
+import type { Pool, PoolClient } from 'pg';
 import { bucketConfidence, type ConfidenceLevel } from '../confidence';
 
 export interface RevenueMomentumInput {
@@ -27,4 +28,45 @@ export function scoreRevenueMomentum(input: RevenueMomentumInput): SignalResult 
   const raw = 50 + (growthRatio - 1) * 50;
   const score = Math.max(0, Math.min(100, Math.round(raw)));
   return { score, confidence, dataCount: input.dataCount };
+}
+
+interface RevenueMomentumRow {
+  recent: string;
+  baseline: string;
+  cnt: string;
+}
+
+/**
+ * Fetches recent (last 90d) and baseline (180d window before that, i.e. 90-270d) invoice totals
+ * for `customerId` as of `now`, then delegates to scoreRevenueMomentum.
+ *
+ * Applies §1.0 universal input guards inline: total >= 0, created_at <= now, status != 'voided'.
+ */
+export async function computeRevenueMomentum(
+  client: Pool | PoolClient,
+  customerId: string,
+  now: Date = new Date()
+): Promise<SignalResult> {
+  const { rows } = await client.query<RevenueMomentumRow>(
+    `
+    SELECT
+      COALESCE(SUM(CASE WHEN inv.created_at >= $2::timestamptz - INTERVAL '90 days'
+                        THEN inv.total ELSE 0 END), 0)::text AS recent,
+      COALESCE(SUM(CASE WHEN inv.created_at >= $2::timestamptz - INTERVAL '270 days'
+                         AND inv.created_at <  $2::timestamptz - INTERVAL '90 days'
+                        THEN inv.total ELSE 0 END), 0)::text AS baseline,
+      COUNT(*)::text AS cnt
+    FROM invoices inv
+    WHERE inv.customer_id = $1
+      AND inv.created_at >= $2::timestamptz - INTERVAL '270 days'
+      AND inv.created_at <= $2::timestamptz
+      AND inv.total >= 0
+      AND inv.status != 'voided'
+    `,
+    [customerId, now]
+  );
+  const recent = Number(rows[0].recent);
+  const baseline = Number(rows[0].baseline);
+  const dataCount = Number(rows[0].cnt);
+  return scoreRevenueMomentum({ recent, baseline, dataCount });
 }

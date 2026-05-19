@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { scoreRevenueMomentum } from './revenueMomentum';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { pool } from '../../../db';
+import { scoreRevenueMomentum, computeRevenueMomentum } from './revenueMomentum';
 
 describe('scoreRevenueMomentum', () => {
   it('returns 50 when both windows have zero revenue (dataCount=0 → confidence none)', () => {
@@ -33,5 +34,45 @@ describe('scoreRevenueMomentum', () => {
     expect(() => scoreRevenueMomentum({ recent: -1, baseline: 100, dataCount: 1 })).toThrow();
     expect(() => scoreRevenueMomentum({ recent: 100, baseline: -1, dataCount: 1 })).toThrow();
     expect(() => scoreRevenueMomentum({ recent: 100, baseline: 100, dataCount: -1 })).toThrow();
+  });
+});
+
+describe('computeRevenueMomentum (integration)', () => {
+  let customerId = '';
+
+  beforeAll(async () => {
+    const { rows } = await pool.query<{ id: string }>(`
+      SELECT customer_id AS id FROM invoices
+       WHERE total > 0
+       GROUP BY customer_id
+       HAVING COUNT(*) >= 3
+       LIMIT 1
+    `);
+    if (rows.length === 0) {
+      throw new Error('No seeded customer with >= 3 invoices; run pnpm db:seed:realistic');
+    }
+    customerId = rows[0].id;
+  });
+
+  it('returns a valid SignalResult shape against seeded data', async () => {
+    const result = await computeRevenueMomentum(pool, customerId);
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(['high', 'medium', 'low', 'none']).toContain(result.confidence);
+    expect(result.dataCount).toBeGreaterThan(0);
+  });
+
+  it('returns score=50 / confidence=none for an unknown customer', async () => {
+    const result = await computeRevenueMomentum(pool, '00000000-0000-0000-0000-000000000000');
+    expect(result.score).toBe(50);
+    expect(result.confidence).toBe('none');
+    expect(result.dataCount).toBe(0);
+  });
+
+  it('accepts a deterministic clock (now param)', async () => {
+    // Pin "now" to far in the past so the customer has zero invoices in window.
+    const result = await computeRevenueMomentum(pool, customerId, new Date('2000-01-01T00:00:00Z'));
+    expect(result.dataCount).toBe(0);
+    expect(result.score).toBe(50);
   });
 });
