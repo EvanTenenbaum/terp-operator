@@ -792,6 +792,31 @@ export const queriesRouter = router({
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(processorFees.createdAt))
         .limit(200);
+    }),
+  refereeCredits: protectedProcedure
+    .input(z.object({ refereeId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const result = await db.execute(sql`
+        select rc.id,
+               rc.referee_id as "refereeId",
+               rc.referee_relationship_id as "refereeRelationshipId",
+               rc.transaction_type as "transactionType",
+               rc.transaction_id as "transactionId",
+               rc.transaction_no as "transactionNo",
+               rc.transaction_total as "transactionTotal",
+               rc.credit_amount as "creditAmount",
+               rc.amount_paid as "amountPaid",
+               rc.status,
+               rc.paid_at as "paidAt",
+               rc.voided_at as "voidedAt",
+               rc.voided_reason as "voidedReason",
+               rc.notes,
+               rc.created_at as "createdAt"
+        from referee_credits rc
+        where rc.referee_id = ${input.refereeId}
+        order by rc.created_at desc
+      `);
+      return result.rows;
     })
 });
 
@@ -886,7 +911,8 @@ function gridSql(view: z.infer<typeof viewSchema>) {
     case 'purchaseOrders':
       return `select po.id, po.po_no as "poNo", v.name as vendor, po.vendor_id as "vendorId", po.status,
                      po.expected_date as "expectedDate", po.ordered_at as "orderedAt", po.received_at as "receivedAt",
-                     po.cancelled_at as "cancelledAt", po.total, count(pol.id)::int as lines,
+                     po.cancelled_at as "cancelledAt", po.total, po.prepayment_amount as "prepaymentAmount",
+                     count(pol.id)::int as lines,
                      coalesce(sum(pol.qty), 0) as "orderedQty", coalesce(sum(pol.received_qty), 0) as "receivedQty",
                      po.buyer_notes as "buyerNotes", po.internal_notes as "internalNotes", po.created_at as "createdAt"
               from purchase_orders po

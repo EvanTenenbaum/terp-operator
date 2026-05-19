@@ -1,9 +1,10 @@
-import { CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
+import { CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
+import { RecordPrepaymentDialog } from '../components/RecordPrepaymentDialog';
 import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
@@ -221,6 +222,7 @@ export function PurchaseOrdersView() {
   const [externalNotes, setExternalNotes] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('vendor_terms');
   const [prepaymentAmount, setPrepaymentAmount] = useState('0');
+  const [prepaymentDialogOpen, setPrepaymentDialogOpen] = useState(false);
   const [draftLines, setDraftLines] = useState<GridRow[]>([makePoDraftLine()]);
   const [newVendorOpen, setNewVendorOpen] = useState(false);
   const [newVendorName, setNewVendorName] = useState('');
@@ -711,11 +713,40 @@ export function PurchaseOrdersView() {
                 {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
+              <button
+                className="secondary-button compact-action"
+                type="button"
+                disabled={
+                  !selected.length ||
+                  isRunning ||
+                  selectedPoStatus !== 'approved' ||
+                  Number(selectedPo?.prepaymentAmount ?? 0) <= 0
+                }
+                title={
+                  selectedPoStatus !== 'approved'
+                    ? 'PO must be approved before recording prepayment'
+                    : Number(selectedPo?.prepaymentAmount ?? 0) <= 0
+                    ? 'PO has no prepayment amount set'
+                    : 'Record vendor prepayment'
+                }
+                onClick={() => setPrepaymentDialogOpen(true)}
+              >
+                <CreditCard className="h-4 w-4" aria-hidden="true" />
+                Record Prepayment
+              </button>
             </>
           ) : null
         }
         expansionConfig={canWrite ? purchaseOrderExpansionConfig : undefined}
       />
+      {prepaymentDialogOpen && selectedPo ? (
+        <RecordPrepaymentDialog
+          purchaseOrderId={String(selectedPo.id)}
+          poNo={String(selectedPo.poNo ?? '')}
+          maxAmount={Number(selectedPo.prepaymentAmount ?? 0)}
+          onClose={() => setPrepaymentDialogOpen(false)}
+        />
+      ) : null}
       {selectedPo ? (
         <>
           <section className="po-header-strip" aria-label="Selected purchase order summary">
