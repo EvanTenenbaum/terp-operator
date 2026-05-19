@@ -81,6 +81,7 @@ export type ViewKey =
   | 'closeout'
   | 'referees'
   | 'processors'
+  | 'photography'
   | 'settings';
 
 export interface SessionUser {

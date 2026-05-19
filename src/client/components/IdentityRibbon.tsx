@@ -23,6 +23,7 @@ const viewLabels: Record<ViewKey, string> = {
   closeout: 'Closeout',
   referees: 'Referees',
   processors: 'Payment Processors',
+  photography: 'Photography',
   settings: 'Settings'
 };
 
