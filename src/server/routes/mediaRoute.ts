@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pool } from '../db';
 import { requireOperator } from '../middleware/requireOperator';
 import { mediaServeRateLimiter } from '../middleware/httpRateLimiters';
+import { requirePhotographyEnabled } from '../middleware/requirePhotographyEnabled';
 
 const router = express.Router();
 
@@ -34,6 +35,7 @@ function parseRangeHeader(
 
 router.get(
   '/api/media/:id',
+  requirePhotographyEnabled,
   requireOperator,
   mediaServeRateLimiter,
   async (req: Request, res: Response) => {
@@ -93,6 +95,7 @@ router.get(
 
 router.get(
   '/api/media/:id/thumb',
+  requirePhotographyEnabled,
   requireOperator,
   mediaServeRateLimiter,
   async (req: Request, res: Response) => {

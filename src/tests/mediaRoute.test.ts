@@ -40,11 +40,13 @@ const VIDEO_BYTES = Buffer.from(
 );
 
 let tmpRoot: string;
+let originalEnablePhotography: string | undefined;
 let app: ReturnType<typeof createApp>;
 
 beforeEach(async () => {
   vi.clearAllMocks();
   tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'mediaRoute-'));
+  originalEnablePhotography = process.env.ENABLE_PHOTOGRAPHY;
 
   const fakeIo = { on: vi.fn(), emit: vi.fn() } as unknown as Parameters<
     typeof createApp
@@ -63,6 +65,11 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  if (originalEnablePhotography === undefined) {
+    delete process.env.ENABLE_PHOTOGRAPHY;
+  } else {
+    process.env.ENABLE_PHOTOGRAPHY = originalEnablePhotography;
+  }
   await fsp.rm(tmpRoot, { recursive: true, force: true });
 });
 
@@ -167,6 +174,15 @@ describe('GET /api/media/:id', () => {
     expect(res.headers['content-disposition']).toBe('attachment');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['content-length']).toBe(String(VIDEO_BYTES.length));
+  });
+
+  it('returns 503 when ENABLE_PHOTOGRAPHY=false', async () => {
+    process.env.ENABLE_PHOTOGRAPHY = 'false';
+
+    const res = await request(app).get(`/api/media/${MEDIA_ID}`);
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'Photography feature is disabled' });
   });
 
   it('returns 206 Partial Content for video with Range: bytes=0-9', async () => {

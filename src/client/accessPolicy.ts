@@ -2,7 +2,7 @@ import type { QuickLaunchMode, SessionUser, ViewKey } from '../shared/types';
 
 type WorkLoop = 'owner' | 'manager' | 'sales' | 'intake' | 'warehouse' | 'operator' | 'viewer';
 
-const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'processors'];
+const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'processors', 'photography'];
 
 const viewsByLoop: Record<WorkLoop, readonly ViewKey[]> = {
   owner: [...defaultOperatorViews, 'settings'],

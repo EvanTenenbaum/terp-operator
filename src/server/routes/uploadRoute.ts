@@ -7,6 +7,7 @@ import path from 'node:path';
 
 import { requireOperator } from '../middleware/requireOperator';
 import { uploadRateLimiter } from '../middleware/httpRateLimiters';
+import { requirePhotographyEnabled } from '../middleware/requirePhotographyEnabled';
 import { checkDiskSpace } from '../utils/diskSpace';
 import { resolveBatchMediaPath } from '../utils/mediaStorage';
 import {
@@ -60,6 +61,7 @@ const upload = multer({
 
 router.post(
   '/api/upload/media',
+  requirePhotographyEnabled,
   requireOperator,
   uploadRateLimiter,
   (req: Request, res: Response, next: NextFunction) => {
