@@ -59,3 +59,43 @@ CREATE TABLE IF NOT EXISTS credit_engine_stance_history (
   post_state jsonb,
   affected_customer_count integer
 );
+
+CREATE TABLE IF NOT EXISTS customer_credit_assessments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  stance_id uuid NOT NULL REFERENCES credit_engine_stances(id) ON DELETE RESTRICT,
+  score_revenue_momentum   integer NOT NULL CHECK (score_revenue_momentum BETWEEN 0 AND 100),
+  score_cash_collection    integer NOT NULL CHECK (score_cash_collection BETWEEN 0 AND 100),
+  score_profitability      integer NOT NULL CHECK (score_profitability BETWEEN 0 AND 100),
+  score_debt_aging         integer NOT NULL CHECK (score_debt_aging BETWEEN 0 AND 100),
+  score_repayment_velocity integer NOT NULL CHECK (score_repayment_velocity BETWEEN 0 AND 100),
+  score_tenure_depth       integer NOT NULL CHECK (score_tenure_depth BETWEEN 0 AND 100),
+  confidence_revenue_momentum   varchar(8) NOT NULL,
+  confidence_cash_collection    varchar(8) NOT NULL,
+  confidence_profitability      varchar(8) NOT NULL,
+  confidence_debt_aging         varchar(8) NOT NULL,
+  confidence_repayment_velocity varchar(8) NOT NULL,
+  confidence_tenure_depth       varchar(8) NOT NULL,
+  overall_score    integer NOT NULL CHECK (overall_score BETWEEN 0 AND 100),
+  base_amount      numeric(12,2) NOT NULL CHECK (base_amount >= 0),
+  multiplier       numeric(5,2)  NOT NULL CHECK (multiplier >= 0 AND multiplier <= 10.0),
+  recommended_limit numeric(12,2) NOT NULL CHECK (recommended_limit >= 0 AND recommended_limit <= 100000000),
+  engine_max_applied numeric(12,2),
+  final_limit       numeric(12,2) NOT NULL CHECK (final_limit >= 0 AND final_limit <= 100000000),
+  triggered_by varchar(32) NOT NULL CHECK (triggered_by IN (
+    'event:postSalesOrder','event:confirmSalesOrder','event:recordPayment',
+    'event:allocatePayment','event:postLedgerRow','event:voidInvoice',
+    'event:reverseSalesOrder','event:disputeInvoice','event:resolveDispute',
+    'event:setEngineMax','event:setStance','event:stanceEdited',
+    'nightly','manualTrigger','shadowMode','bulkRevert','reconciliation'
+  )),
+  triggered_by_command_id uuid REFERENCES command_journal(id),
+  applied boolean NOT NULL,
+  idempotency_key text UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS customer_credit_assessments_customer_idx
+  ON customer_credit_assessments(customer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS customer_credit_assessments_stance_idx
+  ON customer_credit_assessments(stance_id);
