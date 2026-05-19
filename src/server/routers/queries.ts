@@ -1026,8 +1026,27 @@ function gridSql(view: z.infer<typeof viewSchema>) {
               group by p.id
               order by p.name`;
     case 'photography':
-      // TODO Phase 1: implement photography view
-      return `select null::uuid as id where false`;
+      // Batches needing photos surface first (no primary photo, oldest first),
+      // then batches that already have a primary photo trail behind. Uses the
+      // batch_media_summary view (migration 0036) for aggregate counts.
+      return `select
+                b.id,
+                b.id as "batchId",
+                b.batch_code as "batchCode",
+                b.name,
+                bms.media_updated_at as "mediaUpdatedAt",
+                bms.published_media_count as "publishedMediaCount",
+                bms.draft_media_count as "draftMediaCount",
+                bms.has_primary_photo as "hasPrimaryPhoto",
+                bms.has_primary_video as "hasPrimaryVideo",
+                b.created_at as "createdAt"
+              from batches b
+              left join batch_media_summary bms on bms.batch_id = b.id
+              where b.archived_at is null
+              order by
+                case when bms.has_primary_photo then 1 else 0 end asc,
+                bms.media_updated_at asc nulls first,
+                b.created_at asc`;
   }
 }
 
@@ -1068,8 +1087,7 @@ function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     closeout: ['id', 'period', 'status', 'controlTotals', 'csvPath', 'jsonlPath', 'pdfPath', 'createdAt'],
     referees: ['id', 'name', 'email', 'phone', 'balance', 'lifetimeEarned', 'paymentMethod', 'paymentDetails', 'notes', 'active', 'relationshipsCount', 'createdAt'],
     processors: ['id', 'name', 'processorType', 'feeType', 'feePercentage', 'feeFixedAmount', 'defaultUserSplit', 'defaultProcessorSplit', 'notes', 'active', 'totalFeesProcessed', 'userFeesCollectible', 'userFeesCollected', 'processorFeesUnpaid', 'relationshipsCount', 'createdAt'],
-    // TODO Phase 1: implement photography view
-    photography: []
+    photography: ['id', 'batchId', 'batchCode', 'name', 'mediaUpdatedAt', 'publishedMediaCount', 'draftMediaCount', 'hasPrimaryPhoto', 'hasPrimaryVideo', 'createdAt']
   };
   return map[view];
 }

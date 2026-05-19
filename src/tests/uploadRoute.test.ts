@@ -70,6 +70,7 @@ const JPEG_FIXTURE = Buffer.from([
 
 let tmpRoot: string;
 let originalStoragePath: string | undefined;
+let originalEnablePhotography: string | undefined;
 let app: ReturnType<typeof createApp>;
 
 beforeEach(async () => {
@@ -77,6 +78,7 @@ beforeEach(async () => {
   tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'uploadRoute-'));
   originalStoragePath = process.env.MEDIA_STORAGE_PATH;
   process.env.MEDIA_STORAGE_PATH = tmpRoot;
+  originalEnablePhotography = process.env.ENABLE_PHOTOGRAPHY;
 
   const fakeIo: any = { on: vi.fn(), emit: vi.fn() };
   app = createApp(() => fakeIo);
@@ -101,6 +103,11 @@ afterEach(async () => {
     delete process.env.MEDIA_STORAGE_PATH;
   } else {
     process.env.MEDIA_STORAGE_PATH = originalStoragePath;
+  }
+  if (originalEnablePhotography === undefined) {
+    delete process.env.ENABLE_PHOTOGRAPHY;
+  } else {
+    process.env.ENABLE_PHOTOGRAPHY = originalEnablePhotography;
   }
   await fsp.rm(tmpRoot, { recursive: true, force: true });
 });
@@ -195,6 +202,18 @@ describe('POST /api/upload/media', () => {
     // Verify the uploaded file ended up under tmpRoot/<batchId>/
     const batchDir = path.join(tmpRoot, BATCH_ID);
     expect(fs.existsSync(batchDir)).toBe(true);
+  });
+
+  it('returns 503 when ENABLE_PHOTOGRAPHY=false', async () => {
+    process.env.ENABLE_PHOTOGRAPHY = 'false';
+
+    const res = await request(app)
+      .post('/api/upload/media')
+      .field('batchId', BATCH_ID)
+      .attach('file', JPEG_FIXTURE, 'photo.jpg');
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'Photography feature is disabled' });
   });
 
   it('returns 507 when disk space pre-flight fails', async () => {

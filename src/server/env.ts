@@ -13,7 +13,13 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().min(16).default(DEV_SESSION_SECRET),
   VITE_AG_GRID_LICENSE_KEY: z.string().default(''),
   JOURNAL_DIR: z.string().default('./storage/journal'),
-  ARCHIVE_DIR: z.string().default('./storage/archives')
+  ARCHIVE_DIR: z.string().default('./storage/archives'),
+  // Photography feature flag. Defaults ON for dev; production toggles via deploy env.
+  // Any value other than 'true' (case-insensitive) disables the upload + serving routes.
+  ENABLE_PHOTOGRAPHY: z.string().optional().transform((value) => {
+    if (value === undefined) return true;
+    return value.toLowerCase() === 'true';
+  })
 });
 
 export const env = envSchema.parse(process.env);
