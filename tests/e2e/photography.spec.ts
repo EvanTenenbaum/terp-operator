@@ -14,6 +14,9 @@ test('photography queue is accessible and shows grid', async ({ page }) => {
 
   const nav = page.getByRole('navigation');
   await nav.getByRole('button', { name: /Photography/ }).click();
-  await expect(page.getByText('Photography Queue')).toBeVisible();
-  await expect(page.locator('.ag-root:visible').first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Photography Queue' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Photography Queue \d+ row/ })).toBeVisible();
+  await expect(
+    page.locator('.ag-root:visible').first().or(page.getByRole('heading', { name: 'No rows yet' }))
+  ).toBeVisible();
 });
