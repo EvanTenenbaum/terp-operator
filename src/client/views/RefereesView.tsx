@@ -1,10 +1,12 @@
-import { Plus, UserPlus } from 'lucide-react';
+import { FolderOpen, Pencil, Plus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { RefereeRelationshipDialog } from '../components/RefereeRelationshipDialog';
+import { RefereeDialog } from '../components/RefereeDialog';
+import { RefereeDetailPanel } from '../components/RefereeDetailPanel';
 import type { GridRow } from '../../shared/types';
 
 const columns: ColDef<GridRow>[] = [
@@ -23,8 +25,13 @@ const columns: ColDef<GridRow>[] = [
 export function RefereesView() {
   const grid = trpc.queries.grid.useQuery({ view: 'referees' });
   const { runCommand } = useCommandRunner();
-  const [selectedReferee, setSelectedReferee] = useState<{ id: string; name: string } | null>(null);
+  const [editingRow, setEditingRow] = useState<GridRow | null>(null);
+  const [addRelationshipFor, setAddRelationshipFor] = useState<{ id: string; name: string } | null>(null);
+  const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
 
+  // PRESERVED: existing prompt-based create flow. Do not remove — this is the
+  // only literal `runCommand('createReferee', ...)` call in the client and is
+  // required by the backend/frontend parity script.
   async function handleCreateReferee() {
     const name = prompt('Referee name:');
     if (!name) return;
@@ -37,10 +44,6 @@ export function RefereesView() {
       phone: phone || null,
       paymentMethod: 'check'
     });
-  }
-
-  function handleAddRelationship(row: GridRow) {
-    setSelectedReferee({ id: row.id, name: String(row.name) });
   }
 
   return (
@@ -63,27 +66,72 @@ export function RefereesView() {
           title="Referees"
           rows={grid.data ?? []}
           columns={columns}
-          selectionActions={(rows) => (
-            <>
-              <button
-                className="secondary-button compact-action"
-                disabled={!rows.length}
-                onClick={() => rows[0] && handleAddRelationship(rows[0])}
-                type="button"
-              >
-                <UserPlus className="h-4 w-4" />
-                Add Relationship
-              </button>
-            </>
-          )}
+          selectionActions={(rows) => {
+            const first = rows[0];
+            const refereeId = first ? String(first.id) : '';
+            const refereeName = first ? String(first.name) : '';
+            return (
+              <>
+                <button
+                  className="secondary-button compact-action"
+                  disabled={!first}
+                  onClick={() => first && setEditingRow(first)}
+                  type="button"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit Referee
+                </button>
+                <button
+                  className="secondary-button compact-action"
+                  disabled={!first}
+                  onClick={() => first && setAddRelationshipFor({ id: refereeId, name: refereeName })}
+                  type="button"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Add Relationship
+                </button>
+                <button
+                  className="secondary-button compact-action"
+                  disabled={!first}
+                  onClick={() => first && setDetailFor({ id: refereeId, name: refereeName })}
+                  type="button"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  Open Details
+                </button>
+              </>
+            );
+          }}
         />
       </div>
 
-      {selectedReferee && (
+      {editingRow && (
+        <RefereeDialog
+          refereeId={String(editingRow.id)}
+          initial={{
+            name: String(editingRow.name ?? ''),
+            email: String(editingRow.email ?? ''),
+            phone: String(editingRow.phone ?? ''),
+            paymentMethod: (editingRow.paymentMethod as 'check') ?? 'check',
+            notes: String(editingRow.notes ?? '')
+          }}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+
+      {addRelationshipFor && (
         <RefereeRelationshipDialog
-          refereeId={selectedReferee.id}
-          refereeName={selectedReferee.name}
-          onClose={() => setSelectedReferee(null)}
+          refereeId={addRelationshipFor.id}
+          refereeName={addRelationshipFor.name}
+          onClose={() => setAddRelationshipFor(null)}
+        />
+      )}
+
+      {detailFor && (
+        <RefereeDetailPanel
+          refereeId={detailFor.id}
+          refereeName={detailFor.name}
+          onClose={() => setDetailFor(null)}
         />
       )}
     </div>
