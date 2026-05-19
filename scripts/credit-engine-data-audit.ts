@@ -71,9 +71,28 @@ async function auditDueDate(): Promise<void> {
   console.log('');
 }
 
+async function auditDisputes(): Promise<void> {
+  const { rows } = await pool.query<{ status: string; cnt: string }>(`
+    SELECT status, COUNT(*)::text AS cnt
+    FROM invoice_disputes
+    GROUP BY status
+    ORDER BY cnt DESC
+  `);
+  console.log('--- invoice_disputes.status taxonomy ---');
+  if (rows.length === 0) {
+    console.log('(no rows in invoice_disputes — confirm "open" is the canonical filter value once data exists)');
+  } else {
+    for (const r of rows) {
+      console.log(`  status="${r.status}": ${r.cnt}`);
+    }
+  }
+  console.log('');
+}
+
 async function main(): Promise<void> {
   await auditUnitCost();
   await auditDueDate();
+  await auditDisputes();
   await pool.end();
 }
 
