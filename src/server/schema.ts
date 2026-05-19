@@ -882,3 +882,18 @@ export type MediaRetentionPolicy = typeof mediaRetentionPolicies.$inferSelect;
 export type NewMediaRetentionPolicy = typeof mediaRetentionPolicies.$inferInsert;
 export type MediaCleanupLog = typeof mediaCleanupLog.$inferSelect;
 export type NewMediaCleanupLog = typeof mediaCleanupLog.$inferInsert;
+
+// View: batch_media_summary (migration 0036). Queried via raw pool.query() in
+// Phase D tRPC routes; no pgTable definition needed for views. Counts are
+// returned as strings by node-postgres because COUNT() yields bigint in PG.
+export type BatchMediaSummary = {
+  batch_id: string;
+  batch_code: string;
+  name: string;
+  published_media_count: string;
+  draft_media_count: string;
+  total_media_count: string;
+  has_primary_photo: boolean;
+  has_primary_video: boolean;
+  media_updated_at: Date | null;
+};
