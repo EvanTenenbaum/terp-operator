@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Camera, Check, X, Loader2, FileCheck } from 'lucide-react';
 import { useCommandRunner } from './useCommandRunner';
@@ -23,11 +23,23 @@ interface MediaUploadMobileProps {
 export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const mountedRef = useRef(true);
   const [status, setStatus] = useState<UploadStatus>('idle');
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [result, setResult] = useState<UploadResult | null>(null);
   const { runCommand } = useCommandRunner();
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (xhrRef.current && typeof xhrRef.current.abort === 'function') {
+        xhrRef.current.abort();
+        xhrRef.current = null;
+      }
+    };
+  }, []);
 
   const handleFileSelect = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,6 +59,7 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
       xhrRef.current = xhr;
 
       xhr.upload.onprogress = (event) => {
+        if (!mountedRef.current) return;
         if (event.lengthComputable) {
           const percent = Math.round((event.loaded / event.total) * 100);
           setProgress(percent);
@@ -54,9 +67,11 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
       };
 
       xhr.onload = async () => {
+        if (!mountedRef.current) return;
         if (xhr.status === 200) {
+          let data: UploadResult;
           try {
-            const data = JSON.parse(xhr.responseText) as UploadResult;
+            data = JSON.parse(xhr.responseText) as UploadResult;
             const mediaType = data.mimeType.startsWith('video/') ? 'video' : 'photo';
             const commandResult = await runCommand('uploadBatchMedia', {
               batchId,
@@ -70,6 +85,7 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
               mediumPath: data.mediumPath,
               isPrimary: false
             });
+            if (!mountedRef.current) return;
             const mediaId = commandResult.affectedIds?.[0];
             setResult({
               ...data,
@@ -77,6 +93,22 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
             });
             setStatus('success');
           } catch {
+            if (!mountedRef.current) return;
+            // Best-effort cleanup of orphaned staged files
+            try {
+              await fetch('/api/upload/media/staged', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  filePath: data!.filePath,
+                  thumbnailPath: data!.thumbnailPath,
+                  mediumPath: data!.mediumPath
+                })
+              });
+            } catch {
+              // ignore cleanup failures
+            }
+            if (!mountedRef.current) return;
             setStatus('error');
             setErrorMessage('Upload failed. Please try again.');
           }
@@ -111,11 +143,13 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
       };
 
       xhr.onerror = () => {
+        if (!mountedRef.current) return;
         setStatus('error');
         setErrorMessage('Upload failed. Check connection and try again.');
       };
 
       xhr.onabort = () => {
+        if (!mountedRef.current) return;
         setStatus('idle');
         setProgress(0);
       };
