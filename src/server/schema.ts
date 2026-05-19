@@ -798,3 +798,32 @@ export type RefereeRelationship = typeof refereeRelationships.$inferSelect;
 export type RefereeCredit = typeof refereeCredits.$inferSelect;
 export type PaymentProcessor = typeof paymentProcessors.$inferSelect;
 export type ProcessorFee = typeof processorFees.$inferSelect;
+
+export const creditEngineStances = pgTable('credit_engine_stances', {
+  id: id(),
+  name: varchar('name', { length: 80 }).notNull().unique(),
+  description: text('description'),
+  weightRevenueMomentum: integer('weight_revenue_momentum').notNull(),
+  weightCashCollection: integer('weight_cash_collection').notNull(),
+  weightProfitability: integer('weight_profitability').notNull(),
+  weightDebtAging: integer('weight_debt_aging').notNull(),
+  weightRepaymentVelocity: integer('weight_repayment_velocity').notNull(),
+  weightTenureDepth: integer('weight_tenure_depth').notNull(),
+  isSeeded: boolean('is_seeded').notNull().default(false),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const creditEngineConfig = pgTable('credit_engine_config', {
+  id: id(),
+  globalDefaultStanceId: uuid('global_default_stance_id')
+    .notNull()
+    .references(() => creditEngineStances.id, { onDelete: 'restrict' }),
+  coldStartMinPostedInvoices: integer('cold_start_min_posted_invoices').notNull().default(3),
+  coldStartMinTenureDays: integer('cold_start_min_tenure_days').notNull().default(60),
+  manualOverrideReminderDefaultDays: integer('manual_override_reminder_default_days').notNull().default(60),
+  manualOverrideSnoozeCapDays: integer('manual_override_snooze_cap_days').notNull().default(365),
+  shadowMode: boolean('shadow_mode').notNull().default(true),
+  updatedAt: updated(),
+  updatedBy: uuid('updated_by').references(() => users.id)
+});
