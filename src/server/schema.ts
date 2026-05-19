@@ -835,6 +835,31 @@ export const batchMedia = pgTable(
   })
 );
 
+export const mediaRetentionPolicies = pgTable('media_retention_policies', {
+  id: id(),
+  name: varchar('name', { length: 180 }).notNull(),
+  description: text('description'),
+  // CHECK constraint days_to_keep > 0 enforced in migration SQL
+  daysToKeep: integer('days_to_keep').notNull(),
+  // CHECK constraint applies_to IN ('draft', 'replaced') enforced in migration SQL
+  appliesTo: varchar('applies_to', { length: 20 }).notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const mediaCleanupLog = pgTable('media_cleanup_log', {
+  id: id(),
+  policyId: uuid('policy_id').references(() => mediaRetentionPolicies.id, { onDelete: 'set null' }),
+  filesDeleted: integer('files_deleted').notNull(),
+  bytesFreed: bigint('bytes_freed', { mode: 'number' }).notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }).notNull(),
+  success: boolean('success').notNull().default(true),
+  errorMessage: text('error_message'),
+  createdAt: now()
+});
+
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Brand = typeof brands.$inferSelect;
@@ -853,3 +878,7 @@ export type PaymentProcessor = typeof paymentProcessors.$inferSelect;
 export type ProcessorFee = typeof processorFees.$inferSelect;
 export type BatchMedia = typeof batchMedia.$inferSelect;
 export type NewBatchMedia = typeof batchMedia.$inferInsert;
+export type MediaRetentionPolicy = typeof mediaRetentionPolicies.$inferSelect;
+export type NewMediaRetentionPolicy = typeof mediaRetentionPolicies.$inferInsert;
+export type MediaCleanupLog = typeof mediaCleanupLog.$inferSelect;
+export type NewMediaCleanupLog = typeof mediaCleanupLog.$inferInsert;
