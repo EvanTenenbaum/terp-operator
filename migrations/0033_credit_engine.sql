@@ -99,3 +99,29 @@ CREATE INDEX IF NOT EXISTS customer_credit_assessments_customer_idx
   ON customer_credit_assessments(customer_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS customer_credit_assessments_stance_idx
   ON customer_credit_assessments(stance_id);
+
+CREATE TABLE IF NOT EXISTS credit_recompute_queue (
+  id bigserial PRIMARY KEY,
+  customer_id uuid NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  enqueued_at timestamptz NOT NULL DEFAULT now(),
+  enqueued_by varchar(64) NOT NULL,
+  command_id uuid REFERENCES command_journal(id),
+  attempts integer NOT NULL DEFAULT 0,
+  last_attempted_at timestamptz,
+  last_error text,
+  status varchar(16) NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','processing','done','failed_terminal'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS credit_recompute_queue_pending_unique
+  ON credit_recompute_queue(customer_id) WHERE status = 'pending';
+
+CREATE INDEX IF NOT EXISTS credit_recompute_queue_status_idx
+  ON credit_recompute_queue(status, enqueued_at);
+
+CREATE TABLE IF NOT EXISTS user_dismissed_banners (
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  banner_key varchar(64) NOT NULL,
+  dismissed_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, banner_key)
+);
