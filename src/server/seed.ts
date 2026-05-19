@@ -42,6 +42,10 @@ async function seed() {
         client_ledger_entries, invoice_disputes, credit_overrides, connector_requests, fulfillment_lines, pick_lists,
         vendor_payments, vendor_bills, payment_allocations, payments, invoices, sales_order_lines, sales_orders,
         purchase_receipt_lines, purchase_receipts, inventory_movements, batches, purchase_order_lines, purchase_orders,
+        customer_credit_assessments, credit_recompute_queue,
+        credit_engine_config_history, credit_engine_stance_history,
+        credit_engine_config, credit_engine_stances,
+        user_dismissed_banners,
         items, customers, vendors, users
       restart identity cascade
     `);
@@ -51,6 +55,46 @@ async function seed() {
     } else {
       await insertSeedData();
     }
+
+    // ---- Credit Engine seed (Phase 1) ----
+    const stances = [
+      { name: 'Balanced',            description: 'Default; even-handed', revM: 20, cashC: 20, profit: 15, debt: 15, vel: 20, tenure: 10 },
+      { name: 'Prioritize Cash',     description: 'Reward customers who pay fast and pay in full', revM: 5,  cashC: 35, profit: 5,  debt: 20, vel: 30, tenure: 5  },
+      { name: 'Prioritize Revenue',  description: 'Reward growth and volume', revM: 35, cashC: 10, profit: 25, debt: 10, vel: 10, tenure: 10 },
+      { name: 'Conservative',        description: 'Penalize debt and slow payers heavily', revM: 5,  cashC: 25, profit: 10, debt: 35, vel: 20, tenure: 5  },
+      { name: 'Loyalty-Weighted',    description: 'Reward long-term customers', revM: 15, cashC: 15, profit: 15, debt: 15, vel: 15, tenure: 25 }
+    ];
+
+    let balancedStanceId: string | undefined;
+    for (const s of stances) {
+      const sum = s.revM + s.cashC + s.profit + s.debt + s.vel + s.tenure;
+      if (sum !== 100) {
+        throw new Error(`Stance ${s.name} weights sum to ${sum}, expected 100`);
+      }
+      const { rows } = await pool.query<{ id: string }>(
+        `INSERT INTO credit_engine_stances
+           (name, description, weight_revenue_momentum, weight_cash_collection,
+            weight_profitability, weight_debt_aging, weight_repayment_velocity,
+            weight_tenure_depth, is_seeded)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+         ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description
+         RETURNING id`,
+        [s.name, s.description, s.revM, s.cashC, s.profit, s.debt, s.vel, s.tenure]
+      );
+      if (s.name === 'Balanced') {
+        balancedStanceId = rows[0].id;
+      }
+    }
+    if (!balancedStanceId) {
+      throw new Error('Balanced stance was not seeded');
+    }
+
+    await pool.query(
+      `INSERT INTO credit_engine_config (global_default_stance_id, shadow_mode)
+       SELECT $1, true
+       WHERE NOT EXISTS (SELECT 1 FROM credit_engine_config)`,
+      [balancedStanceId]
+    );
   } finally {
     await pool.query('select pg_advisory_unlock($1)', [seedLockKey]);
   }
