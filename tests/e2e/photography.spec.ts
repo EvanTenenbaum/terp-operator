@@ -13,7 +13,14 @@ test('photography queue is accessible and shows grid', async ({ page }) => {
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   const nav = page.getByRole('navigation');
+  const gridResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('queries.grid') && response.url().includes('photography')
+  );
   await nav.getByRole('button', { name: /Photography/ }).click();
+  const gridResponse = await gridResponsePromise;
+  expect(gridResponse.ok()).toBe(true);
+
   await expect(page.getByRole('heading', { name: 'Photography Queue' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Photography Queue \d+ row/ })).toBeVisible();
   await expect(
