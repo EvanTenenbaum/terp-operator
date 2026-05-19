@@ -792,6 +792,31 @@ export const queriesRouter = router({
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(processorFees.createdAt))
         .limit(200);
+    }),
+  refereeCredits: protectedProcedure
+    .input(z.object({ refereeId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const result = await db.execute(sql`
+        select rc.id,
+               rc.referee_id as "refereeId",
+               rc.referee_relationship_id as "refereeRelationshipId",
+               rc.transaction_type as "transactionType",
+               rc.transaction_id as "transactionId",
+               rc.transaction_no as "transactionNo",
+               rc.transaction_total as "transactionTotal",
+               rc.credit_amount as "creditAmount",
+               rc.amount_paid as "amountPaid",
+               rc.status,
+               rc.paid_at as "paidAt",
+               rc.voided_at as "voidedAt",
+               rc.voided_reason as "voidedReason",
+               rc.notes,
+               rc.created_at as "createdAt"
+        from referee_credits rc
+        where rc.referee_id = ${input.refereeId}
+        order by rc.created_at desc
+      `);
+      return result.rows;
     })
 });
 
