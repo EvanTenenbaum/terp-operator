@@ -1,12 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const mockExecute = vi.fn();
-
-vi.mock('../db', () => ({
-  db: { execute: (...args: unknown[]) => mockExecute(...args) },
-  pool: { query: vi.fn(), on: vi.fn(), connect: vi.fn() },
-  pingDatabase: vi.fn(async () => true)
-}));
+// Mock state must survive module reset, so we keep the spy outside the factory.
+let mockExecute: ReturnType<typeof vi.fn>;
 
 const mockCtx = {
   req: {} as any,
@@ -17,7 +12,16 @@ const mockCtx = {
 
 describe('refereeCredits query', () => {
   beforeEach(() => {
-    mockExecute.mockReset();
+    // Reset the module registry so the queries router is reloaded with a fresh
+    // mock per test — without this, a previous test file's import of '../db'
+    // can cache the real module and our mock never applies.
+    vi.resetModules();
+    mockExecute = vi.fn();
+    vi.doMock('../db', () => ({
+      db: { execute: mockExecute },
+      pool: { query: vi.fn(), on: vi.fn(), connect: vi.fn() },
+      pingDatabase: vi.fn(async () => true)
+    }));
   });
 
   it('returns credits for the given referee ordered by created_at desc', async () => {
