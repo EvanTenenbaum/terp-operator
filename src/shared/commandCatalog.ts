@@ -83,7 +83,19 @@ export const commandNames = [
   'voidRefereeCredit',
   'createPaymentProcessor',
   'markUserFeeCollected',
-  'updateProcessorFeeStatus'
+  'updateProcessorFeeStatus',
+  'setCustomerCreditLimit',
+  'revertCustomerCreditToEngine',
+  'snoozeCustomerCreditReminder',
+  'setCustomerEngineMax',
+  'setCustomerStance',
+  'disableCreditEngineForCustomer',
+  'enableCreditEngineForCustomer',
+  'createCreditEngineStance',
+  'updateCreditEngineStance',
+  'deleteCreditEngineStance',
+  'setCreditEngineConfig',
+  'bulkRevertCustomersToEngine'
 ] as const;
 
 export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
@@ -180,7 +192,19 @@ export const commandLabels: Record<CommandName, string> = {
   voidRefereeCredit: 'Void referee credit',
   createPaymentProcessor: 'Create payment processor',
   markUserFeeCollected: 'Mark user fee collected',
-  updateProcessorFeeStatus: 'Update processor fee status'
+  updateProcessorFeeStatus: 'Update processor fee status',
+  setCustomerCreditLimit: 'Set customer credit limit',
+  revertCustomerCreditToEngine: 'Revert customer credit to engine',
+  snoozeCustomerCreditReminder: 'Snooze credit review reminder',
+  setCustomerEngineMax: 'Set customer engine max',
+  setCustomerStance: 'Set customer credit stance',
+  disableCreditEngineForCustomer: 'Disable credit engine for customer',
+  enableCreditEngineForCustomer: 'Enable credit engine for customer',
+  createCreditEngineStance: 'Create credit engine stance',
+  updateCreditEngineStance: 'Update credit engine stance',
+  deleteCreditEngineStance: 'Delete credit engine stance',
+  setCreditEngineConfig: 'Update credit engine config',
+  bulkRevertCustomersToEngine: 'Bulk revert customers to engine'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -266,7 +290,19 @@ export const commandMinRole: Record<CommandName, Role> = {
   voidRefereeCredit: 'manager',
   createPaymentProcessor: 'manager',
   markUserFeeCollected: 'manager',
-  updateProcessorFeeStatus: 'manager'
+  updateProcessorFeeStatus: 'manager',
+  setCustomerCreditLimit: 'manager',
+  revertCustomerCreditToEngine: 'manager',
+  snoozeCustomerCreditReminder: 'manager',
+  setCustomerEngineMax: 'manager',
+  setCustomerStance: 'manager',
+  disableCreditEngineForCustomer: 'owner',
+  enableCreditEngineForCustomer: 'owner',
+  createCreditEngineStance: 'owner',
+  updateCreditEngineStance: 'owner',
+  deleteCreditEngineStance: 'owner',
+  setCreditEngineConfig: 'owner',
+  bulkRevertCustomersToEngine: 'owner'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -352,7 +388,19 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   voidRefereeCredit: { disposition: 'reversible', guidance: 'Restores the credit to accrued status and updates referee balance.' },
   createPaymentProcessor: { disposition: 'terminal', guidance: 'Edit or deactivate the payment processor if it was created by mistake.' },
   markUserFeeCollected: { disposition: 'reversible', guidance: 'Reverses the fee collection record and updates user fee status.' },
-  updateProcessorFeeStatus: { disposition: 'terminal', guidance: 'Use another update with the intended fee status values.' }
+  updateProcessorFeeStatus: { disposition: 'terminal', guidance: 'Use another update with the intended fee status values.' },
+  setCustomerCreditLimit: { disposition: 'reversible', guidance: 'Use revertCustomerCreditToEngine to clear the manual override.' },
+  revertCustomerCreditToEngine: { disposition: 'reversible', guidance: 'Apply another manual credit limit with setCustomerCreditLimit if reversion was unintended.' },
+  snoozeCustomerCreditReminder: { disposition: 'reversible', guidance: 'Reset the snooze with another snooze call or by reverting to engine.' },
+  setCustomerEngineMax: { disposition: 'reversible', guidance: 'Call setCustomerEngineMax again with the prior cap or null to clear it.' },
+  setCustomerStance: { disposition: 'reversible', guidance: 'Call setCustomerStance with the prior stance id (or null for default).' },
+  disableCreditEngineForCustomer: { disposition: 'reversible', guidance: 'Use enableCreditEngineForCustomer to restore engine processing.' },
+  enableCreditEngineForCustomer: { disposition: 'reversible', guidance: 'Use disableCreditEngineForCustomer with a reason if disable is needed again.' },
+  createCreditEngineStance: { disposition: 'reversible', guidance: 'Delete the stance if it was created by mistake (only allowed when unused).' },
+  updateCreditEngineStance: { disposition: 'reversible', guidance: 'Call updateCreditEngineStance again with the prior values from stance history.' },
+  deleteCreditEngineStance: { disposition: 'terminal', guidance: 'Deleted stances cannot be reconstructed; recreate the stance with createCreditEngineStance if needed.' },
+  setCreditEngineConfig: { disposition: 'reversible', guidance: 'Call setCreditEngineConfig again with the prior values from config history.' },
+  bulkRevertCustomersToEngine: { disposition: 'terminal', guidance: 'Bulk rollout is terminal; per-customer manual overrides can be restored individually.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(
