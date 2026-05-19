@@ -911,7 +911,8 @@ function gridSql(view: z.infer<typeof viewSchema>) {
     case 'purchaseOrders':
       return `select po.id, po.po_no as "poNo", v.name as vendor, po.vendor_id as "vendorId", po.status,
                      po.expected_date as "expectedDate", po.ordered_at as "orderedAt", po.received_at as "receivedAt",
-                     po.cancelled_at as "cancelledAt", po.total, count(pol.id)::int as lines,
+                     po.cancelled_at as "cancelledAt", po.total, po.prepayment_amount as "prepaymentAmount",
+                     count(pol.id)::int as lines,
                      coalesce(sum(pol.qty), 0) as "orderedQty", coalesce(sum(pol.received_qty), 0) as "receivedQty",
                      po.buyer_notes as "buyerNotes", po.internal_notes as "internalNotes", po.created_at as "createdAt"
               from purchase_orders po
