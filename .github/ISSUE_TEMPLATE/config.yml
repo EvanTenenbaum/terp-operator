@@ -1,4 +1,4 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Report a bug or problem
     url: https://github.com/EvanTenenbaum/terp-operator/blob/main/docs/github-issue-tracking.md

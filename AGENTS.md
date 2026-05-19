@@ -65,7 +65,7 @@ When creating or updating issues:
 
 - Use labels from `.github/labels.yml` when possible.
 - Include exact route, command, file path, screenshot/log path, browser URL, or test output when available.
-- Keep runtime bugs separate from annotation-driven product/UX work.
+- Keep runtime bugs separate from annotation-driven UX observations and product gaps.
 - Separate `product gap`, `fixture gap`, `coverage gap`, `runtime bug`, and `expectation gap` in the issue body when that distinction matters.
 - Prefer acceptance criteria and verification steps over vague desired-state prose.
 - Link related PRs, commits, docs, artifacts, or earlier issues.

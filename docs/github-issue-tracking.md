@@ -57,7 +57,7 @@ Use the `Known issue` form in `.github/ISSUE_TEMPLATE/known_issue.yml` so every 
 - Mark uncertain findings as `status:needs-triage`; do not silently bury them in chat.
 - If demo data drift causes a false failure, classify it as `fixture gap` in a Known issue.
 - If a test is missing for a real workflow, classify it as `coverage gap`.
-- If the app works as designed but the design is insufficient, classify it as `product gap`.
+- If the app works as designed but the design is insufficient, classify it as `product gap`. A product gap tracks a shortfall in current behavior — not a proposal for new capability. If correcting the gap requires designing new functionality, route to `docs/roadmap/` instead.
 - If the expectation was wrong or obsolete, classify it as `expectation gap`.
 
 ## Labels
