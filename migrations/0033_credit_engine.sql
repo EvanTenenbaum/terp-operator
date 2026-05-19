@@ -125,3 +125,30 @@ CREATE TABLE IF NOT EXISTS user_dismissed_banners (
   dismissed_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, banner_key)
 );
+
+ALTER TABLE customers
+  ADD COLUMN IF NOT EXISTS engine_max numeric(12,2),
+  ADD COLUMN IF NOT EXISTS stance_id uuid REFERENCES credit_engine_stances(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS credit_limit_source varchar(16) NOT NULL DEFAULT 'manual'
+    CHECK (credit_limit_source IN ('engine', 'manual')),
+  ADD COLUMN IF NOT EXISTS engine_enabled boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS engine_disabled_at timestamptz,
+  ADD COLUMN IF NOT EXISTS engine_disabled_by uuid REFERENCES users(id),
+  ADD COLUMN IF NOT EXISTS engine_disabled_reason text,
+  ADD COLUMN IF NOT EXISTS last_assessment_id uuid REFERENCES customer_credit_assessments(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS credit_limit_manual_set_at timestamptz,
+  ADD COLUMN IF NOT EXISTS credit_limit_manual_set_by uuid REFERENCES users(id),
+  ADD COLUMN IF NOT EXISTS credit_limit_manual_reason text,
+  ADD COLUMN IF NOT EXISTS credit_limit_reminder_days integer,
+  ADD COLUMN IF NOT EXISTS credit_limit_last_reviewed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS credit_limit_snooze_count integer NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS customers_credit_limit_source_idx ON customers(credit_limit_source)
+  WHERE credit_limit_source = 'manual';
+CREATE INDEX IF NOT EXISTS customers_engine_disabled_idx ON customers(engine_disabled_at)
+  WHERE engine_disabled_at IS NOT NULL;
+
+ALTER TABLE customers
+  ADD CONSTRAINT customers_engine_source_has_assessment CHECK (
+    credit_limit_source = 'manual' OR last_assessment_id IS NOT NULL
+  ) NOT VALID;
