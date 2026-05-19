@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: TERP Operator agent tracking guide
+  - name: Report a bug or problem
     url: https://github.com/EvanTenenbaum/terp-operator/blob/main/docs/github-issue-tracking.md
-    about: Read how agents should use GitHub Issues for backlog, to-do, and known-issue tracking.
+    about: Use GitHub Issues for bugs, runtime failures, data drift, test gaps, and confusing UX.
+  - name: Propose a feature or capability
+    url: https://github.com/EvanTenenbaum/terp-operator/blob/main/docs/roadmap/README.md
+    about: Feature work, epics, and sub-roadmaps belong in repo roadmap docs under docs/roadmap/.

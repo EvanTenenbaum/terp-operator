@@ -1,14 +1,14 @@
 # GitHub Issue Tracking
 
-GitHub Issues are the TERP Operator source of truth for backlog, to-do, and known-issue tracking.
+GitHub Issues are the TERP Operator source of truth for **bugs, runtime failures, data drift, test gaps, confusing UX, and other problems**.
 
-## Issue Types
+They are **not** for feature development, sub-roadmaps, epics, or capability proposals. That work belongs in repo roadmap docs under `docs/roadmap/`.
 
-- **Backlog item**: planned product, UX, workflow, or architecture work.
-- **To-do**: a small concrete follow-up with a clear action.
+## Issue Type
+
 - **Known issue**: confirmed or suspected bug, runtime failure, confusing UX, data drift, or test gap.
 
-Use the forms in `.github/ISSUE_TEMPLATE/` so every issue has enough context for another agent to pick it up without re-discovery.
+Use the `Known issue` form in `.github/ISSUE_TEMPLATE/known_issue.yml` so every issue has enough context for another agent to pick it up without re-discovery.
 
 ## Agent Workflow
 
@@ -18,31 +18,33 @@ Use the forms in `.github/ISSUE_TEMPLATE/` so every issue has enough context for
    gh issue list --state open --search "<keywords>"
    ```
 
-2. Choose the right form:
+2. Classify before tracking:
+
+   - Is this a bug, failure, gap, or problem? → Open a Known issue.
+   - Is this a feature, epic, or capability proposal? → Add or update a doc in `docs/roadmap/` instead.
+
+3. Create with the Known issue form:
 
    ```bash
-   gh issue create --template backlog_item.yml --title "Backlog: <operator outcome>"
-   gh issue create --template todo.yml --title "To-do: <specific task>"
    gh issue create --template known_issue.yml --title "Known issue: <short symptom>"
    ```
 
-3. Label consistently:
+4. Label consistently:
 
-   - Tracking: `tracking:backlog`, `tracking:todo`, `tracking:known-issue`
+   - Tracking: `tracking:known-issue`
    - Status: `status:needs-triage`, `status:ready`, `status:blocked`, `status:in-progress`, `status:verified`
    - Source: `source:agent`, `source:annotation`
    - Area: `area:ux`, `area:runtime`, `area:data`, `area:qa`
    - Risk: `risk:high`
 
-4. Keep issue bodies evidence-first:
+5. Keep issue bodies evidence-first:
 
    - Route, command, component, file path, or exact workflow step.
-   - Expected vs actual behavior for issues.
-   - Acceptance criteria for backlog and to-do work.
+   - Expected vs actual behavior.
    - Verification commands or browser proof.
    - Links to artifacts, screenshots, traces, PRs, docs, or commits.
 
-5. Close with proof:
+6. Close with proof:
 
    ```bash
    gh issue comment <number> --body "Closed with evidence: <command/browser/deploy proof>."
@@ -66,8 +68,6 @@ The desired label set lives in `.github/labels.yml`. If labels are missing in Gi
 while IFS='|' read -r name color description; do
   gh label create "$name" --color "$color" --description "$description" --force
 done <<'LABELS'
-tracking:backlog|1d76db|Planned product, UX, workflow, or architecture work.
-tracking:todo|0e8a16|Small concrete follow-up task.
 tracking:known-issue|d73a4a|Confirmed or suspected bug, runtime failure, confusing UX, data drift, or test gap.
 status:needs-triage|fbca04|Needs owner, priority, or scope decision.
 status:ready|0e8a16|Ready for implementation.
