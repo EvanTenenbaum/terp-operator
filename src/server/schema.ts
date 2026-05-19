@@ -1,4 +1,5 @@
 import {
+  bigserial,
   boolean,
   index,
   integer,
@@ -826,4 +827,74 @@ export const creditEngineConfig = pgTable('credit_engine_config', {
   shadowMode: boolean('shadow_mode').notNull().default(true),
   updatedAt: updated(),
   updatedBy: uuid('updated_by').references(() => users.id)
+});
+
+export const customerCreditAssessments = pgTable('customer_credit_assessments', {
+  id: id(),
+  customerId: uuid('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  stanceId: uuid('stance_id').notNull().references(() => creditEngineStances.id, { onDelete: 'restrict' }),
+  scoreRevenueMomentum: integer('score_revenue_momentum').notNull(),
+  scoreCashCollection: integer('score_cash_collection').notNull(),
+  scoreProfitability: integer('score_profitability').notNull(),
+  scoreDebtAging: integer('score_debt_aging').notNull(),
+  scoreRepaymentVelocity: integer('score_repayment_velocity').notNull(),
+  scoreTenureDepth: integer('score_tenure_depth').notNull(),
+  confidenceRevenueMomentum: varchar('confidence_revenue_momentum', { length: 8 }).notNull(),
+  confidenceCashCollection: varchar('confidence_cash_collection', { length: 8 }).notNull(),
+  confidenceProfitability: varchar('confidence_profitability', { length: 8 }).notNull(),
+  confidenceDebtAging: varchar('confidence_debt_aging', { length: 8 }).notNull(),
+  confidenceRepaymentVelocity: varchar('confidence_repayment_velocity', { length: 8 }).notNull(),
+  confidenceTenureDepth: varchar('confidence_tenure_depth', { length: 8 }).notNull(),
+  overallScore: integer('overall_score').notNull(),
+  baseAmount: numeric('base_amount', { precision: 12, scale: 2 }).notNull(),
+  multiplier: numeric('multiplier', { precision: 5, scale: 2 }).notNull(),
+  recommendedLimit: numeric('recommended_limit', { precision: 12, scale: 2 }).notNull(),
+  engineMaxApplied: numeric('engine_max_applied', { precision: 12, scale: 2 }),
+  finalLimit: numeric('final_limit', { precision: 12, scale: 2 }).notNull(),
+  triggeredBy: varchar('triggered_by', { length: 32 }).notNull(),
+  triggeredByCommandId: uuid('triggered_by_command_id').references(() => commandJournal.id),
+  applied: boolean('applied').notNull(),
+  idempotencyKey: text('idempotency_key').unique(),
+  createdAt: now()
+});
+
+export const creditRecomputeQueue = pgTable('credit_recompute_queue', {
+  // SQL column is `bigserial`. Drizzle bigserial mode 'bigint' returns it as a JS bigint
+  // to avoid Number precision loss past 2^53.
+  id: bigserial('id', { mode: 'bigint' }).primaryKey(),
+  customerId: uuid('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  enqueuedAt: timestamp('enqueued_at', { withTimezone: true }).notNull().defaultNow(),
+  enqueuedBy: varchar('enqueued_by', { length: 64 }).notNull(),
+  commandId: uuid('command_id').references(() => commandJournal.id),
+  attempts: integer('attempts').notNull().default(0),
+  lastAttemptedAt: timestamp('last_attempted_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  status: varchar('status', { length: 16 }).notNull().default('pending')
+});
+
+export const creditEngineConfigHistory = pgTable('credit_engine_config_history', {
+  id: id(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  changedBy: uuid('changed_by').notNull().references(() => users.id),
+  commandId: uuid('command_id').references(() => commandJournal.id),
+  preState: jsonb('pre_state').notNull(),
+  postState: jsonb('post_state').notNull()
+});
+
+export const creditEngineStanceHistory = pgTable('credit_engine_stance_history', {
+  id: id(),
+  stanceId: uuid('stance_id').notNull(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  changedBy: uuid('changed_by').notNull().references(() => users.id),
+  commandId: uuid('command_id').references(() => commandJournal.id),
+  action: varchar('action', { length: 16 }).notNull(),
+  preState: jsonb('pre_state'),
+  postState: jsonb('post_state'),
+  affectedCustomerCount: integer('affected_customer_count')
+});
+
+export const userDismissedBanners = pgTable('user_dismissed_banners', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bannerKey: varchar('banner_key', { length: 64 }).notNull(),
+  dismissedAt: timestamp('dismissed_at', { withTimezone: true }).notNull().defaultNow()
 });
