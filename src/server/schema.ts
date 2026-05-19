@@ -1,4 +1,7 @@
+import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
+  bigint,
   boolean,
   index,
   integer,
@@ -782,6 +785,81 @@ export const processorFees = pgTable(
   })
 );
 
+export const batchMedia = pgTable(
+  'batch_media',
+  {
+    id: id(),
+    batchId: uuid('batch_id').references(() => batches.id, { onDelete: 'cascade' }).notNull(),
+    // File information
+    filePath: text('file_path').notNull(),
+    originalFilename: varchar('original_filename', { length: 255 }).notNull(),
+    fileSize: bigint('file_size', { mode: 'number' }).notNull(),
+    mimeType: varchar('mime_type', { length: 100 }).notNull(),
+    thumbnailPath: text('thumbnail_path'),
+    mediumPath: text('medium_path'),
+    // Media classification (CHECK constraints enforced in migration SQL)
+    mediaType: varchar('media_type', { length: 20 }).notNull(),
+    role: varchar('role', { length: 30 }).notNull().default('additional'),
+    // Status & lifecycle (CHECK constraint enforced in migration SQL)
+    status: varchar('status', { length: 20 }).notNull().default('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    replacedAt: timestamp('replaced_at', { withTimezone: true }),
+    replacedBy: uuid('replaced_by').references((): AnyPgColumn => batchMedia.id, { onDelete: 'set null' }),
+    // Metadata
+    uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+    notes: text('notes'),
+    // Timestamps
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    batchIdx: index('batch_media_batch_idx').on(table.batchId),
+    statusIdx: index('batch_media_status_idx').on(table.status),
+    roleIdx: index('batch_media_role_idx').on(table.role),
+    replacedIdx: index('batch_media_replaced_idx')
+      .on(table.replacedAt)
+      .where(sql`${table.replacedAt} IS NOT NULL`),
+    createdIdx: index('batch_media_created_idx').on(table.createdAt),
+    uploadedByIdx: index('batch_media_uploaded_by_idx').on(table.uploadedBy),
+    // Partial unique indexes ensure at most one published, non-replaced primary photo/video per batch
+    primaryPhotoUnique: uniqueIndex('batch_media_primary_photo_unique')
+      .on(table.batchId)
+      .where(
+        sql`${table.role} = 'primary_photo' AND ${table.status} = 'published' AND ${table.replacedAt} IS NULL`
+      ),
+    primaryVideoUnique: uniqueIndex('batch_media_primary_video_unique')
+      .on(table.batchId)
+      .where(
+        sql`${table.role} = 'primary_video' AND ${table.status} = 'published' AND ${table.replacedAt} IS NULL`
+      )
+  })
+);
+
+export const mediaRetentionPolicies = pgTable('media_retention_policies', {
+  id: id(),
+  name: varchar('name', { length: 180 }).notNull(),
+  description: text('description'),
+  // CHECK constraint days_to_keep > 0 enforced in migration SQL
+  daysToKeep: integer('days_to_keep').notNull(),
+  // CHECK constraint applies_to IN ('draft', 'replaced') enforced in migration SQL
+  appliesTo: varchar('applies_to', { length: 20 }).notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const mediaCleanupLog = pgTable('media_cleanup_log', {
+  id: id(),
+  policyId: uuid('policy_id').references(() => mediaRetentionPolicies.id, { onDelete: 'set null' }),
+  filesDeleted: integer('files_deleted').notNull(),
+  bytesFreed: bigint('bytes_freed', { mode: 'number' }).notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }).notNull(),
+  success: boolean('success').notNull().default(true),
+  errorMessage: text('error_message'),
+  createdAt: now()
+});
+
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Brand = typeof brands.$inferSelect;
@@ -798,3 +876,24 @@ export type RefereeRelationship = typeof refereeRelationships.$inferSelect;
 export type RefereeCredit = typeof refereeCredits.$inferSelect;
 export type PaymentProcessor = typeof paymentProcessors.$inferSelect;
 export type ProcessorFee = typeof processorFees.$inferSelect;
+export type BatchMedia = typeof batchMedia.$inferSelect;
+export type NewBatchMedia = typeof batchMedia.$inferInsert;
+export type MediaRetentionPolicy = typeof mediaRetentionPolicies.$inferSelect;
+export type NewMediaRetentionPolicy = typeof mediaRetentionPolicies.$inferInsert;
+export type MediaCleanupLog = typeof mediaCleanupLog.$inferSelect;
+export type NewMediaCleanupLog = typeof mediaCleanupLog.$inferInsert;
+
+// View: batch_media_summary (migration 0036). Queried via raw pool.query() in
+// Phase D tRPC routes; no pgTable definition needed for views. Counts are
+// returned as strings by node-postgres because COUNT() yields bigint in PG.
+export type BatchMediaSummary = {
+  batch_id: string;
+  batch_code: string;
+  name: string;
+  published_media_count: string;
+  draft_media_count: string;
+  total_media_count: string;
+  has_primary_photo: boolean;
+  has_primary_video: boolean;
+  media_updated_at: Date | null;
+};

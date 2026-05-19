@@ -1,6 +1,6 @@
 # Photography Module Implementation Plan
 
-> **MIGRATION RENUMBERING (decided 2026-05-18):** Use 0033/0034/0035 instead of any older 0043/0044/0045 or 0016/0017/0018 references found in this document. The current head migration is 0032.
+> **MIGRATION RENUMBERING (decided 2026-05-18, revised post-PR#46-merge):** Use **0034/0035/0036** instead of any older 0043/0044/0045 or 0016/0017/0018 references found in this document. Number 0033 is reserved for the in-flight `feature/credit-engine-phase-0-1-v2` branch (operator decision: credit-engine keeps 0033, Photography Phase B moves to 0034+). Current head migration on main is 0032.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
