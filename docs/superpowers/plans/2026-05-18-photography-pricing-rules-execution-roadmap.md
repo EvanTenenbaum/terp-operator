@@ -49,14 +49,12 @@ Total: **5-7 calendar weeks, ~185-235 person-hours** (calibrated upward from ori
    - Confirmed as of 2026-05-18: `feature/credit-engine-phase-0-1-v2` has commit `325a040` adding `migrations/0033_credit_engine.sql`
    - Decide merge order with operator (Evan): if credit-engine lands first, photography moves to **0034-0036**; if photography lands first, credit-engine rebases
    - Document the decision in this roadmap and propagate to the Phase 1 plan's header
-2. **Open-PR audit (NEW, blocks Phase D file scope):**
-   - Run `gh pr list --state open --json number,title,headRefName`
-   - PR #46 (TER-1070 backend/frontend parity, 10 surfaces) is open — likely touches `src/server/routers/queries.ts` and possibly `src/client/accessPolicy.ts`. Map its file scope: `gh pr diff 46 --name-only`
-   - If overlap with Phase D Tasks 15-17 exists, decide: (a) wait for #46 to merge before Phase D, or (b) coordinate rebase with #46 author
-3. **Coverage config fix (NEW, blocks any "coverage gate" enforcement):**
-   - `.coverage-thresholds.json` `enforcement.command` is `pytest --cov --cov-fail-under=100` — this is a Python tool against a TypeScript codebase, silently broken
-   - Either fix to `pnpm test:coverage` (add a vitest coverage script if it doesn't exist) or explicitly downgrade the coverage gate from "blocking" to "advisory" until vitest coverage is wired up
-   - Without this, the CLAUDE.md coverage gate is theatrical
+2. **Open-PR audit (NEW, blocks Phase D file scope):** **COMPLETED 2026-05-18.** Findings:
+   - **PR #46 (TER-1070, 5,361 additions)** modifies `src/server/routers/queries.ts` (adds `refereeCredits` query — direct overlap with Phase D Task 15a/15b), `src/client/views/OperationsViews.tsx`, `.coverage-thresholds.json`, `package.json`, `vitest.config.ts`, plus 11 new client components/tests
+   - **Coverage config:** PR #46 has ALREADY migrated `.coverage-thresholds.json` from pytest to vitest (per PR body D1(b) decision) and installed `@vitest/coverage-v8` + `@testing-library/react` + `jsdom`
+   - **Recommended sequencing:** PR #46 merges FIRST, then PR #47, then Phase B begins. Rationale: PR #46 establishes the vitest+coverage infrastructure that Phase B/D tests need; #46 also fixes the coverage config problem this roadmap originally listed as Task 3.
+   - **Alternative:** If PR #46 is in review hold, PR #47 can merge first and PR #46 rebases. The queries.ts conflict is mechanical (different stub locations) and resolvable in <30 min by the second-merging PR's author.
+3. **Coverage config fix:** **RESOLVED** by PR #46 — see Task 2 above. This task is no longer required if #46 lands before Phase B; otherwise becomes a Phase B prerequisite.
 4. PR #47 review monitoring via `gh pr view 47 --comments`
 5. Address review comments using subagent dispatch per comment cluster (`metaswarm:handling-pr-comments` skill)
 6. Re-request review if substantive changes
