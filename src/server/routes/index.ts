@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import uploadRoute from './uploadRoute';
+import mediaRoute from './mediaRoute';
 
 /**
  * Register custom Express HTTP routes that are outside the tRPC surface.
@@ -11,6 +12,5 @@ import uploadRoute from './uploadRoute';
  */
 export function registerHttpRoutes(app: Express): void {
   app.use(uploadRoute);
-  // Phase 1+ will also register:
-  //   app.use(mediaRoute);   // GET /api/media/:id (authenticated streaming)
+  app.use(mediaRoute);
 }
