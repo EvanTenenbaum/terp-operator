@@ -58,7 +58,7 @@ This triggers the full pipeline: Research → Plan → Design Review Gate → Wo
 | `/self-reflect` | Extract learnings after a PR merge |
 | `/handle-pr-comments` | Handle PR review comments |
 | `/brainstorm` | Refine an idea before implementation |
-| `/create-issue` | Create a well-structured GitHub Issue |
+| `/create-issue` | Create a well-structured GitHub Issue for known issues, bugs, and problems only. Features and capabilities go in `docs/roadmap/`. |
 | `/external-tools-health` | Check status of external AI tools (Codex, Gemini) |
 | `/setup` | Interactive guided setup — detects project, configures metaswarm |
 | `/update` | Update metaswarm to latest version |
