@@ -66,6 +66,7 @@ import {
   markUserFeeCollected,
   updateProcessorFeeStatus
 } from './processorCommands';
+import { enqueueCustomerRecompute } from './creditEngine';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
@@ -1627,6 +1628,7 @@ async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): P
   const belowGuardrail = pricingSnapshot.lines.find((line) => line.guardrails.length > 0);
   if (belowGuardrail) throw new Error(`${belowGuardrail.itemName} is below pricing guardrails. Reprice before confirming.`);
   await tx.update(salesOrders).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  await enqueueCustomerRecompute(tx, order.customerId, 'event:confirmSalesOrder', commandId);
   return { ok: true, commandId, affectedIds: [orderId], toast: `${order.orderNo} confirmed.`, delta: { pricingSnapshot } };
 }
 
@@ -1754,6 +1756,7 @@ async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Prom
     }).where(eq(salesOrders.id, orderId));
   }
 
+  await enqueueCustomerRecompute(tx, customer.id, 'event:postSalesOrder', commandId);
   return { ok: true, commandId, affectedIds: affected, toast: `${freshOrder.orderNo} posted and invoice ${invoice.invoiceNo} created.` };
 }
 
@@ -1842,6 +1845,10 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
     affected.push(entry.id);
   }
 
+  // Enqueue credit recompute for this customer. Idempotent at the pending-row
+  // level — if allocatePayment also enqueues below, the second insert is a no-op.
+  await enqueueCustomerRecompute(tx, customerId, 'event:recordPayment', commandId);
+
   // Auto-execute allocation if allocationIntent is set to 'fifo' or 'selected_invoice'
   const intent = payment.allocationIntent;
   if (amount > 0 && (intent === 'fifo' || intent === 'selected_invoice')) {
@@ -1921,6 +1928,9 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
     await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
     const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'Auto-applied to oldest open invoices' }).returning();
     affected.push(payment.customerId, entry.id);
+  }
+  if (payment.customerId) {
+    await enqueueCustomerRecompute(tx, payment.customerId, 'event:allocatePayment', commandId);
   }
   return { ok: true, commandId, affectedIds: affected, toast: `Allocated ${moneyScale(totalAllocated)} to oldest open invoices.` };
 }
@@ -2111,11 +2121,22 @@ async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId:
     affected.push(...(await applyFindReplace(tx, payload.findReplace as Payload)));
   }
   if (payload.invoiceId) {
+    const invoiceId = requiredId(payload.invoiceId, 'invoiceId');
     const [dispute] = await tx
       .insert(invoiceDisputes)
-      .values({ invoiceId: requiredId(payload.invoiceId, 'invoiceId'), reason: stringValue(payload.reason) || memo, status: 'open' })
+      .values({ invoiceId, reason: stringValue(payload.reason) || memo, status: 'open' })
       .returning();
     affected.push(dispute.id);
+    // Filing an invoice dispute is credit-relevant: signals already exclude
+    // disputed invoices from debtAging. Enqueue if we can resolve the customer.
+    const [invoiceRow] = await tx
+      .select({ customerId: invoices.customerId })
+      .from(invoices)
+      .where(eq(invoices.id, invoiceId))
+      .limit(1);
+    if (invoiceRow?.customerId) {
+      await enqueueCustomerRecompute(tx, invoiceRow.customerId, 'event:disputeInvoice', commandId);
+    }
   }
   return { ok: true, commandId, affectedIds: affected, toast: payload.invoiceId ? 'Correction journal and invoice dispute posted.' : 'Correction journal entry posted.' };
 }
@@ -2138,6 +2159,10 @@ async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionU
     const signedAmount = ['buyer_credit', 'down_payment', 'customer_down_payment'].includes(transactionType) ? -Math.abs(amount) : amount;
     let clientAllocationIntent = allocationTargetType === 'selected_invoice' ? 'selected' : allocationIntent;
     const customerId = requiredId(payload.entityId, 'entityId');
+    // Enqueue credit recompute up-front so this command's source name wins
+    // over the downstream logPayment/allocatePayment enqueues (idempotent: the
+    // partial unique index makes subsequent inserts a no-op).
+    await enqueueCustomerRecompute(tx, customerId, 'event:postLedgerRow', commandId);
     if (signedAmount > 0 && clientAllocationIntent === 'fifo') {
       const [openInvoice] = await tx
         .select({ id: invoices.id })
@@ -2380,6 +2405,10 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
   if (original.status !== 'ok') throw new Error('Only successful commands can be reversed.');
 
   const affected = [originalId];
+  // Collect customer IDs affected by this reversal so we can enqueue credit
+  // recomputes at the end. Idempotent — duplicates collapse via the partial
+  // unique pending index.
+  const customersToRecompute = new Set<string>();
   const snapshot = original.afterSnapshot as Record<string, any>;
   const beforeSnapshot = original.beforeSnapshot as Record<string, any>;
   const policy = reversalPolicies[original.commandName as CommandName];
@@ -2407,6 +2436,7 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
             .values({ customerId: customer.id, invoiceId: invoice.id, kind: 'sale_reversal', amount: moneyScale(-Number(invoice.total)), balanceAfter: moneyScale(nextBalance), note: `Reversal of ${original.commandName}` })
             .returning();
           affected.push(customer.id, entry.id);
+          customersToRecompute.add(customer.id);
         }
       }
       affected.push(invoice.id);
@@ -2486,6 +2516,9 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
       }
       await tx.update(payments).set({ status: 'reversed', unappliedAmount: '0.00', updatedAt: new Date() }).where(eq(payments.id, currentPayment.id));
       affected.push(currentPayment.id);
+      if (currentPayment.customerId) {
+        customersToRecompute.add(currentPayment.customerId);
+      }
       if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
         const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
         if (customer) {
@@ -2520,6 +2553,7 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
               .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: payment?.id, kind: 'allocation_reversal', amount: moneyScale(Number(currentAllocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Payment allocation reversal' })
               .returning();
             affected.push(customer.id, entry.id);
+            customersToRecompute.add(customer.id);
           }
         }
       }
@@ -2546,11 +2580,15 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
                 .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: currentPayment.id, kind: 'allocation_reversal', amount: moneyScale(Number(allocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Transaction ledger allocation reversal' })
                 .returning();
               affected.push(customer.id, entry.id);
+              customersToRecompute.add(customer.id);
             }
           }
           affected.push(invoice.id);
         }
         affected.push(allocation.id);
+      }
+      if (currentPayment.customerId) {
+        customersToRecompute.add(currentPayment.customerId);
       }
       if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
         const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
@@ -2648,6 +2686,12 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
   }
 
   await tx.update(commandJournal).set({ reversedByCommandId: commandId }).where(eq(commandJournal.id, originalId));
+  // Enqueue credit recompute for every customer affected by this reversal.
+  // Use 'event:reverseSalesOrder' as the generic reversal source; idempotent
+  // dedupe collapses any duplicates across branches.
+  for (const cid of customersToRecompute) {
+    await enqueueCustomerRecompute(tx, cid, 'event:reverseSalesOrder', commandId);
+  }
   return { ok: true, commandId, affectedIds: affected, toast: `Reversed ${original.commandName}.` };
 }
 
