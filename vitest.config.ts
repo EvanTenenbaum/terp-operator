@@ -9,6 +9,12 @@ export default defineConfig({
     ],
     globals: true,
     environment: 'node',
+    // Integration tests share a single Postgres database; running multiple
+    // test files in parallel causes races on global tables like
+    // `credit_recompute_queue` and `customers`. Disable file parallelism so
+    // each file owns the DB while it runs. (Tests within a file remain
+    // sequential by default.)
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],

@@ -32,3 +32,37 @@ export async function enqueueCustomerRecompute(
     [customerId, source, commandId]
   );
 }
+
+export interface EnqueueAllOptions {
+  stanceId?: string | null;
+  skipEngineDisabled?: boolean;
+}
+
+/**
+ * Bulk-enqueue every customer (or filtered subset). Uses INSERT ... SELECT with
+ * ON CONFLICT DO NOTHING to collapse duplicates against the pending-unique index.
+ * Returns the number of rows actually inserted (not the input count).
+ */
+export async function enqueueAllCustomers(
+  client: Pool | PoolClient,
+  source: TriggerSource,
+  options: EnqueueAllOptions = {}
+): Promise<{ enqueued: number }> {
+  const filters: string[] = [];
+  const params: (string | null)[] = [source];
+  if (options.stanceId !== undefined) {
+    filters.push(`stance_id IS NOT DISTINCT FROM $${params.length + 1}`);
+    params.push(options.stanceId);
+  }
+  if (options.skipEngineDisabled) {
+    filters.push(`engine_disabled_at IS NULL`);
+  }
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+  const { rowCount } = await client.query(
+    `INSERT INTO credit_recompute_queue (customer_id, enqueued_by, status)
+     SELECT id, $1, 'pending' FROM customers ${whereClause}
+     ON CONFLICT (customer_id) WHERE status = 'pending' DO NOTHING`,
+    params
+  );
+  return { enqueued: rowCount ?? 0 };
+}
