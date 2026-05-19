@@ -8,6 +8,7 @@ import { createContext } from './trpc';
 import { sessionMiddleware } from './auth';
 import { env, isProd } from './env';
 import { getHealth } from './services/metrics';
+import { registerHttpRoutes } from './routes';
 
 export function createApp(getIo: () => SocketServer) {
   const app = express();
@@ -32,6 +33,8 @@ export function createApp(getIo: () => SocketServer) {
   );
   app.use(express.json({ limit: '4mb' }));
   app.use(sessionMiddleware);
+
+  registerHttpRoutes(app);
 
   app.get('/api/health', async (_req, res) => {
     res.json(await getHealth());
