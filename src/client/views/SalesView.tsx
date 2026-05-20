@@ -9,6 +9,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
+import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { buildCustomerOfferCsv } from './SalesView.csvExport';
 
 const orderColumns: ColDef<GridRow>[] = [
@@ -423,6 +424,7 @@ export function SalesView() {
               <span>{(workspace.data?.customer?.tags ?? []).join(', ')}</span>
             </div>
           </div>
+          <ShadowModeBanner />
           {showCreditIndicator && !isIndicatorDismissed && engineRecommendation != null ? (
             <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
               <span>

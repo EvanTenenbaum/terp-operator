@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { trpc } from '../../api/trpc';
 import { useCommandRunner } from '../useCommandRunner';
 import { EditCreditLimitModal } from './EditCreditLimitModal';
+import { ShadowModeBanner } from './ShadowModeBanner';
 import {
   formatMoney,
   formatDateish,
@@ -208,6 +209,7 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
 
   return (
     <div className="grid gap-3">
+      <ShadowModeBanner />
       <div className="context-drawer-card">
         <h2 className="mt-1 truncate text-base font-semibold text-ink">{customer.name}</h2>
         <div className="mt-3 grid gap-2">
