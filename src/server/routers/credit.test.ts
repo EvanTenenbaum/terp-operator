@@ -533,3 +533,421 @@ describe('credit.creditRecomputeQueueHealth', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// customerCreditStatus
+// ---------------------------------------------------------------------------
+
+describe('credit.customerCreditStatus', () => {
+  const customerId = '11111111-1111-1111-1111-111111111111';
+
+  it('throws FORBIDDEN for viewer', async () => {
+    const caller = makeCaller('viewer');
+    await expectForbidden(caller.customerCreditStatus({ customerId }));
+  });
+
+  it('throws FORBIDDEN for operator', async () => {
+    const caller = makeCaller('operator');
+    await expectForbidden(caller.customerCreditStatus({ customerId }));
+  });
+
+  it('returns full status for manager (happy path)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-19T00:00:00Z'));
+
+    const manualSetAt = new Date('2026-01-19T00:00:00Z'); // 120 days ago
+    const lastReviewedAt = new Date('2026-05-09T00:00:00Z'); // 10 days ago
+
+    stubPoolQueries([
+      // 1) customer
+      {
+        rows: [
+          {
+            id: customerId,
+            name: 'Acme',
+            credit_limit: '1000.00',
+            balance: '250.00',
+            credit_limit_source: 'manual',
+            engine_enabled: true,
+            engine_max: null,
+            engine_disabled_at: null,
+            engine_disabled_reason: null,
+            credit_limit_manual_set_at: manualSetAt,
+            credit_limit_manual_reason: 'operator override',
+            credit_limit_reminder_days: null,
+            credit_limit_last_reviewed_at: lastReviewedAt,
+            credit_limit_snooze_count: 0,
+            stance_id: null,
+            created_at: new Date('2025-01-01T00:00:00Z')
+          }
+        ]
+      },
+      // 2) config
+      {
+        rows: [
+          {
+            global_default_stance_id: 's1',
+            cold_start_min_posted_invoices: 3,
+            cold_start_min_tenure_days: 60,
+            manual_override_reminder_default_days: 60,
+            manual_override_snooze_cap_days: 365,
+            shadow_mode: true
+          }
+        ]
+      },
+      // 3) latest assessment
+      {
+        rows: [
+          {
+            id: 'a1',
+            created_at: new Date('2026-05-01T00:00:00Z'),
+            triggered_by: 'scheduled',
+            applied: true,
+            final_limit: '800.00',
+            recommended_limit: '850.00',
+            base_amount: '400.00',
+            multiplier: '2.00',
+            overall_score: 72,
+            score_revenue_momentum: 70,
+            score_cash_collection: 75,
+            score_profitability: 68,
+            score_debt_aging: 80,
+            score_repayment_velocity: 65,
+            score_tenure_depth: 78,
+            confidence_revenue_momentum: 'high',
+            confidence_cash_collection: 'high',
+            confidence_profitability: 'medium',
+            confidence_debt_aging: 'high',
+            confidence_repayment_velocity: 'medium',
+            confidence_tenure_depth: 'high',
+            stance_id: 's1'
+          }
+        ]
+      },
+      // 4) stance query (effectiveStanceId = s1 from config default)
+      {
+        rows: [
+          {
+            id: 's1',
+            name: 'Default',
+            weight_revenue_momentum: 15,
+            weight_cash_collection: 20,
+            weight_profitability: 15,
+            weight_debt_aging: 20,
+            weight_repayment_velocity: 15,
+            weight_tenure_depth: 15
+          }
+        ]
+      },
+      // 5) invoice count
+      { rows: [{ cnt: '5' }] }
+    ]);
+
+    const caller = makeCaller('manager');
+    const result = await caller.customerCreditStatus({ customerId });
+
+    expect(result.customer.creditLimit).toBe(1000);
+    expect(result.customer.balance).toBe(250);
+    expect(result.customer.creditLimitSource).toBe('manual');
+    expect(result.effectiveStance).toMatchObject({
+      id: 's1',
+      name: 'Default',
+      isCustomerOverride: false
+    });
+    expect(result.latestAssessment).toMatchObject({
+      finalLimit: 800,
+      baseAmount: 400
+    });
+    expect(result.engineRecommendationDelta).toMatchObject({
+      deltaDollars: 200,
+      direction: 'above'
+    });
+    expect(result.shadowMode).toBe(true);
+    expect(result.reminder.staleReminderActive).toBe(false);
+    expect(result.reminder.nearSnoozeCap).toBe(false);
+    expect(result.reminder.snoozeCapReached).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('throws NOT_FOUND when customer missing and does not query further', async () => {
+    const spy = stubPoolQueries([{ rows: [] }]);
+    const caller = makeCaller('manager');
+    await expect(caller.customerCreditStatus({ customerId })).rejects.toMatchObject({
+      code: 'NOT_FOUND'
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets staleReminderActive when review is older than reminder days', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-19T00:00:00Z'));
+
+    const lastReviewedAt = new Date('2026-01-01T00:00:00Z'); // 138 days ago
+
+    stubPoolQueries([
+      {
+        rows: [
+          {
+            id: customerId,
+            name: 'Acme',
+            credit_limit: '1000.00',
+            balance: '250.00',
+            credit_limit_source: 'manual',
+            engine_enabled: true,
+            engine_max: null,
+            engine_disabled_at: null,
+            engine_disabled_reason: null,
+            credit_limit_manual_set_at: new Date('2026-01-01T00:00:00Z'),
+            credit_limit_manual_reason: null,
+            credit_limit_reminder_days: null,
+            credit_limit_last_reviewed_at: lastReviewedAt,
+            credit_limit_snooze_count: 0,
+            stance_id: null,
+            created_at: new Date('2025-01-01T00:00:00Z')
+          }
+        ]
+      },
+      {
+        rows: [
+          {
+            global_default_stance_id: 's1',
+            cold_start_min_posted_invoices: 3,
+            cold_start_min_tenure_days: 60,
+            manual_override_reminder_default_days: 60,
+            manual_override_snooze_cap_days: 365,
+            shadow_mode: false
+          }
+        ]
+      },
+      { rows: [] },
+      {
+        rows: [
+          {
+            id: 's1',
+            name: 'Default',
+            weight_revenue_momentum: 15,
+            weight_cash_collection: 20,
+            weight_profitability: 15,
+            weight_debt_aging: 20,
+            weight_repayment_velocity: 15,
+            weight_tenure_depth: 15
+          }
+        ]
+      },
+      { rows: [{ cnt: '5' }] }
+    ]);
+
+    const caller = makeCaller('manager');
+    const result = await caller.customerCreditStatus({ customerId });
+    expect(result.reminder.staleReminderActive).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('sets nearSnoozeCap when manual set date is within 30 days of cap', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-19T00:00:00Z'));
+
+    // 350 days ago -> daysToSnoozeCap = 15
+    const manualSetAt = new Date(Date.now() - 350 * 86_400_000);
+
+    stubPoolQueries([
+      {
+        rows: [
+          {
+            id: customerId,
+            name: 'Acme',
+            credit_limit: '1000.00',
+            balance: '0',
+            credit_limit_source: 'manual',
+            engine_enabled: true,
+            engine_max: null,
+            engine_disabled_at: null,
+            engine_disabled_reason: null,
+            credit_limit_manual_set_at: manualSetAt,
+            credit_limit_manual_reason: null,
+            credit_limit_reminder_days: null,
+            credit_limit_last_reviewed_at: manualSetAt,
+            credit_limit_snooze_count: 0,
+            stance_id: null,
+            created_at: new Date('2025-01-01T00:00:00Z')
+          }
+        ]
+      },
+      {
+        rows: [
+          {
+            global_default_stance_id: 's1',
+            cold_start_min_posted_invoices: 3,
+            cold_start_min_tenure_days: 60,
+            manual_override_reminder_default_days: 60,
+            manual_override_snooze_cap_days: 365,
+            shadow_mode: false
+          }
+        ]
+      },
+      { rows: [] },
+      {
+        rows: [
+          {
+            id: 's1',
+            name: 'Default',
+            weight_revenue_momentum: 15,
+            weight_cash_collection: 20,
+            weight_profitability: 15,
+            weight_debt_aging: 20,
+            weight_repayment_velocity: 15,
+            weight_tenure_depth: 15
+          }
+        ]
+      },
+      { rows: [{ cnt: '0' }] }
+    ]);
+
+    const caller = makeCaller('manager');
+    const result = await caller.customerCreditStatus({ customerId });
+    expect(result.reminder.daysToSnoozeCap).toBe(15);
+    expect(result.reminder.nearSnoozeCap).toBe(true);
+    expect(result.reminder.snoozeCapReached).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it('sets snoozeCapReached when manual set date is past the cap', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-19T00:00:00Z'));
+
+    // 400 days ago -> daysToSnoozeCap = -35
+    const manualSetAt = new Date(Date.now() - 400 * 86_400_000);
+
+    stubPoolQueries([
+      {
+        rows: [
+          {
+            id: customerId,
+            name: 'Acme',
+            credit_limit: '1000.00',
+            balance: '0',
+            credit_limit_source: 'manual',
+            engine_enabled: true,
+            engine_max: null,
+            engine_disabled_at: null,
+            engine_disabled_reason: null,
+            credit_limit_manual_set_at: manualSetAt,
+            credit_limit_manual_reason: null,
+            credit_limit_reminder_days: null,
+            credit_limit_last_reviewed_at: manualSetAt,
+            credit_limit_snooze_count: 0,
+            stance_id: null,
+            created_at: new Date('2025-01-01T00:00:00Z')
+          }
+        ]
+      },
+      {
+        rows: [
+          {
+            global_default_stance_id: 's1',
+            cold_start_min_posted_invoices: 3,
+            cold_start_min_tenure_days: 60,
+            manual_override_reminder_default_days: 60,
+            manual_override_snooze_cap_days: 365,
+            shadow_mode: false
+          }
+        ]
+      },
+      { rows: [] },
+      {
+        rows: [
+          {
+            id: 's1',
+            name: 'Default',
+            weight_revenue_momentum: 15,
+            weight_cash_collection: 20,
+            weight_profitability: 15,
+            weight_debt_aging: 20,
+            weight_repayment_velocity: 15,
+            weight_tenure_depth: 15
+          }
+        ]
+      },
+      { rows: [{ cnt: '0' }] }
+    ]);
+
+    const caller = makeCaller('manager');
+    const result = await caller.customerCreditStatus({ customerId });
+    expect(result.reminder.daysToSnoozeCap).toBe(-35);
+    expect(result.reminder.nearSnoozeCap).toBe(false);
+    expect(result.reminder.snoozeCapReached).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it('uses customer stance_id when set and marks isCustomerOverride true', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-19T00:00:00Z'));
+
+    stubPoolQueries([
+      {
+        rows: [
+          {
+            id: customerId,
+            name: 'Acme',
+            credit_limit: '500.00',
+            balance: '0',
+            credit_limit_source: 'engine',
+            engine_enabled: true,
+            engine_max: null,
+            engine_disabled_at: null,
+            engine_disabled_reason: null,
+            credit_limit_manual_set_at: null,
+            credit_limit_manual_reason: null,
+            credit_limit_reminder_days: null,
+            credit_limit_last_reviewed_at: null,
+            credit_limit_snooze_count: 0,
+            stance_id: 's2',
+            created_at: new Date('2025-01-01T00:00:00Z')
+          }
+        ]
+      },
+      {
+        rows: [
+          {
+            global_default_stance_id: 's1',
+            cold_start_min_posted_invoices: 3,
+            cold_start_min_tenure_days: 60,
+            manual_override_reminder_default_days: 60,
+            manual_override_snooze_cap_days: 365,
+            shadow_mode: false
+          }
+        ]
+      },
+      { rows: [] },
+      {
+        rows: [
+          {
+            id: 's2',
+            name: 'Aggressive',
+            weight_revenue_momentum: 25,
+            weight_cash_collection: 15,
+            weight_profitability: 20,
+            weight_debt_aging: 10,
+            weight_repayment_velocity: 15,
+            weight_tenure_depth: 15
+          }
+        ]
+      },
+      { rows: [{ cnt: '10' }] }
+    ]);
+
+    const caller = makeCaller('manager');
+    const result = await caller.customerCreditStatus({ customerId });
+    expect(result.effectiveStance).toMatchObject({
+      id: 's2',
+      name: 'Aggressive',
+      isCustomerOverride: true
+    });
+
+    vi.useRealTimers();
+  });
+});

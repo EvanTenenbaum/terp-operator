@@ -4,6 +4,7 @@ import { pool } from '../db';
 import { assertRole } from '../rbac';
 import { protectedProcedure, router } from '../trpc';
 import { divergenceReport } from '../services/creditEngine/divergenceReport';
+import { isColdStartReady } from '../services/creditEngine/coldStart';
 import type { Role } from '../../shared/types';
 
 /**
@@ -225,6 +226,48 @@ interface QueueHealthRowRaw {
   done_count: string;
   failed_terminal_count: string;
   stale_processing_count: string;
+}
+
+// ---------------------------------------------------------------------------
+// 6) customerCreditStatus
+// ---------------------------------------------------------------------------
+
+const customerCreditStatusInput = z.object({
+  customerId: z.string().uuid()
+});
+
+interface CustomerRowRaw {
+  id: string;
+  name: string;
+  credit_limit: string;
+  balance: string;
+  credit_limit_source: 'engine' | 'manual';
+  engine_enabled: boolean;
+  engine_max: string | null;
+  engine_disabled_at: Date | null;
+  engine_disabled_reason: string | null;
+  credit_limit_manual_set_at: Date | null;
+  credit_limit_manual_reason: string | null;
+  credit_limit_reminder_days: number | null;
+  credit_limit_last_reviewed_at: Date | null;
+  credit_limit_snooze_count: number;
+  stance_id: string | null;
+  created_at: Date;
+}
+
+interface StanceLiteRaw {
+  id: string;
+  name: string;
+  weight_revenue_momentum: number;
+  weight_cash_collection: number;
+  weight_profitability: number;
+  weight_debt_aging: number;
+  weight_repayment_velocity: number;
+  weight_tenure_depth: number;
+}
+
+interface CountRaw {
+  cnt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -570,7 +613,289 @@ export const creditRouter = router({
       failedTerminalCount: Number(r?.failed_terminal_count ?? 0),
       staleProcessingCount: Number(r?.stale_processing_count ?? 0)
     };
-  })
+  }),
+
+  /**
+   * Compact customer credit status for the Customer Credit Panel (Phase 6b).
+   * Manager+.
+   *
+   * Returns everything the UI needs in one round-trip: customer snapshot,
+   * effective stance, latest assessment, cold-start gate, reminder math,
+   * engine-vs-manual delta, and global shadow-mode flag.
+   */
+  customerCreditStatus: managerOrOwnerProcedure
+    .input(customerCreditStatusInput)
+    .query(async ({ input }) => {
+      const { customerId } = input;
+
+      const customerResult = await pool.query<CustomerRowRaw>(
+        `SELECT id,
+                name,
+                credit_limit::text AS credit_limit,
+                balance::text AS balance,
+                credit_limit_source,
+                engine_enabled,
+                engine_max::text AS engine_max,
+                engine_disabled_at,
+                engine_disabled_reason,
+                credit_limit_manual_set_at,
+                credit_limit_manual_reason,
+                credit_limit_reminder_days,
+                credit_limit_last_reviewed_at,
+                credit_limit_snooze_count,
+                stance_id,
+                created_at
+         FROM customers
+         WHERE id = $1`,
+        [customerId]
+      );
+
+      if (customerResult.rows.length === 0) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
+      }
+
+      const customer = customerResult.rows[0];
+
+      const [configResult, assessmentResult] = await Promise.all([
+        pool.query<ConfigRowRaw>(
+          `SELECT global_default_stance_id,
+                  cold_start_min_posted_invoices,
+                  cold_start_min_tenure_days,
+                  manual_override_reminder_default_days,
+                  manual_override_snooze_cap_days,
+                  shadow_mode
+           FROM credit_engine_config
+           LIMIT 1`
+        ),
+        pool.query<AssessmentRowRaw>(
+          `SELECT id,
+                  created_at,
+                  triggered_by,
+                  applied,
+                  final_limit::text AS final_limit,
+                  recommended_limit::text AS recommended_limit,
+                  base_amount::text AS base_amount,
+                  multiplier::text AS multiplier,
+                  overall_score,
+                  score_revenue_momentum,
+                  score_cash_collection,
+                  score_profitability,
+                  score_debt_aging,
+                  score_repayment_velocity,
+                  score_tenure_depth,
+                  confidence_revenue_momentum,
+                  confidence_cash_collection,
+                  confidence_profitability,
+                  confidence_debt_aging,
+                  confidence_repayment_velocity,
+                  confidence_tenure_depth,
+                  stance_id
+           FROM customer_credit_assessments
+           WHERE customer_id = $1
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [customerId]
+        )
+      ]);
+
+      const configRow = configResult.rows[0];
+      if (!configRow) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'credit_engine_config row missing'
+        });
+      }
+
+      const latestAssessmentRaw = assessmentResult.rows[0] ?? null;
+      const latestAssessment = latestAssessmentRaw ? mapAssessmentRow(latestAssessmentRaw) : null;
+
+      const effectiveStanceId = customer.stance_id ?? configRow.global_default_stance_id;
+      let effectiveStance: {
+        id: string;
+        name: string;
+        isCustomerOverride: boolean;
+        weights: {
+          revenueMomentum: number;
+          cashCollection: number;
+          profitability: number;
+          debtAging: number;
+          repaymentVelocity: number;
+          tenureDepth: number;
+        };
+      } | null = null;
+
+      if (effectiveStanceId) {
+        const stanceResult = await pool.query<StanceLiteRaw>(
+          `SELECT id,
+                  name,
+                  weight_revenue_momentum,
+                  weight_cash_collection,
+                  weight_profitability,
+                  weight_debt_aging,
+                  weight_repayment_velocity,
+                  weight_tenure_depth
+           FROM credit_engine_stances
+           WHERE id = $1`,
+          [effectiveStanceId]
+        );
+        const stanceRow = stanceResult.rows[0];
+        if (stanceRow) {
+          effectiveStance = {
+            id: stanceRow.id,
+            name: stanceRow.name,
+            isCustomerOverride: customer.stance_id !== null,
+            weights: {
+              revenueMomentum: stanceRow.weight_revenue_momentum,
+              cashCollection: stanceRow.weight_cash_collection,
+              profitability: stanceRow.weight_profitability,
+              debtAging: stanceRow.weight_debt_aging,
+              repaymentVelocity: stanceRow.weight_repayment_velocity,
+              tenureDepth: stanceRow.weight_tenure_depth
+            }
+          };
+        }
+      }
+
+      const now = new Date();
+      const invoicesResult = await pool.query<CountRaw>(
+        `SELECT COUNT(*)::text AS cnt
+         FROM invoices
+         WHERE customer_id = $1
+           AND status IN ('open','posted','partial','paid')
+           AND total >= 0
+           AND created_at <= $2::timestamptz`,
+        [customerId, now]
+      );
+      const invoicesPosted = Number(invoicesResult.rows[0]?.cnt ?? 0);
+      const tenureDays = Math.max(
+        0,
+        Math.floor((now.getTime() - customer.created_at.getTime()) / 86_400_000)
+      );
+      // Base amount: prefer the latest assessment base when available;
+      // fall back to 0 rather than calling engine service helpers directly.
+      const baseAmount = latestAssessment?.baseAmount ?? 0;
+      const isWarming = !isColdStartReady({
+        postedInvoiceCount: invoicesPosted,
+        tenureDays,
+        computedBase: baseAmount,
+        config: {
+          minPostedInvoices: configRow.cold_start_min_posted_invoices,
+          minTenureDays: configRow.cold_start_min_tenure_days
+        }
+      });
+
+      const effectiveReminderDays =
+        customer.credit_limit_reminder_days ?? configRow.manual_override_reminder_default_days;
+
+      const daysSinceReview =
+        customer.credit_limit_last_reviewed_at !== null
+          ? Math.max(
+              0,
+              Math.floor(
+                (now.getTime() - new Date(customer.credit_limit_last_reviewed_at).getTime()) /
+                  86_400_000
+              )
+            )
+          : customer.credit_limit_manual_set_at !== null
+            ? Math.max(
+                0,
+                Math.floor(
+                  (now.getTime() - new Date(customer.credit_limit_manual_set_at).getTime()) /
+                    86_400_000
+                )
+              )
+            : null;
+
+      const staleReminderActive =
+        customer.credit_limit_source === 'manual' &&
+        daysSinceReview !== null &&
+        daysSinceReview > effectiveReminderDays;
+
+      const snoozeCapDays = configRow.manual_override_snooze_cap_days;
+      const daysToSnoozeCap =
+        customer.credit_limit_source === 'manual' && customer.credit_limit_manual_set_at !== null
+          ? snoozeCapDays -
+            Math.floor(
+              (now.getTime() - new Date(customer.credit_limit_manual_set_at).getTime()) /
+                86_400_000
+            )
+          : null;
+
+      const nearSnoozeCap =
+        customer.credit_limit_source === 'manual' &&
+        daysToSnoozeCap !== null &&
+        daysToSnoozeCap >= 0 &&
+        daysToSnoozeCap <= 30;
+
+      const snoozeCapReached =
+        customer.credit_limit_source === 'manual' &&
+        daysToSnoozeCap !== null &&
+        daysToSnoozeCap <= 0;
+
+      let engineRecommendationDelta: {
+        deltaDollars: number;
+        deltaPct: number;
+        direction: 'above' | 'below' | 'within';
+        ownerElevationThreshold: number;
+      } | null = null;
+
+      if (latestAssessment && latestAssessment.finalLimit > 0) {
+        const deltaDollars = Number(customer.credit_limit) - latestAssessment.finalLimit;
+        const deltaPct = deltaDollars / latestAssessment.finalLimit;
+        const direction =
+          Math.abs(deltaPct) <= 0.05 || Math.abs(deltaDollars) < 1
+            ? 'within'
+            : deltaDollars > 0
+              ? 'above'
+              : 'below';
+        engineRecommendationDelta = {
+          deltaDollars,
+          deltaPct,
+          direction,
+          ownerElevationThreshold: 1.5 * latestAssessment.finalLimit
+        };
+      }
+
+      return {
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          creditLimit: Number(customer.credit_limit),
+          balance: Number(customer.balance),
+          creditLimitSource: customer.credit_limit_source,
+          engineEnabled: customer.engine_enabled,
+          engineMax: customer.engine_max === null ? null : Number(customer.engine_max),
+          engineDisabledAt: customer.engine_disabled_at ?? null,
+          engineDisabledReason: customer.engine_disabled_reason ?? null,
+          creditLimitManualSetAt: customer.credit_limit_manual_set_at ?? null,
+          creditLimitManualReason: customer.credit_limit_manual_reason ?? null,
+          creditLimitReminderDays: customer.credit_limit_reminder_days ?? null,
+          creditLimitLastReviewedAt: customer.credit_limit_last_reviewed_at ?? null,
+          creditLimitSnoozeCount: customer.credit_limit_snooze_count
+        },
+        effectiveStance,
+        latestAssessment,
+        coldStart: {
+          invoicesPosted,
+          invoicesRequired: configRow.cold_start_min_posted_invoices,
+          tenureDays,
+          tenureRequired: configRow.cold_start_min_tenure_days,
+          baseAmount,
+          isWarming
+        },
+        reminder: {
+          effectiveReminderDays,
+          daysSinceReview,
+          staleReminderActive,
+          snoozeCapDays,
+          daysToSnoozeCap,
+          nearSnoozeCap,
+          snoozeCapReached
+        },
+        engineRecommendationDelta,
+        shadowMode: configRow.shadow_mode
+      };
+    })
 });
 
 // Exported for unit tests so they can build mock callers without exporting

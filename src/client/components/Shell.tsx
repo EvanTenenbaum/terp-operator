@@ -14,6 +14,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ReceiptText,
+  Scale,
   Search,
   ShoppingCart,
   Settings,
@@ -52,7 +53,8 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
       { view: 'matchmaking', label: 'Matchmaking', icon: Search },
       { view: 'orders', label: 'Orders', icon: Inbox },
       { view: 'fulfillment', label: 'Fulfillment', icon: PackageCheck },
-      { view: 'clients', label: 'Client Ledger', hotkey: '⌘6', icon: ReceiptText }
+      { view: 'clients', label: 'Client Ledger', hotkey: '⌘6', icon: ReceiptText },
+      { view: 'credit-review', label: 'Credit Review', icon: Scale }
     ]
   },
   {
@@ -85,6 +87,13 @@ export function SideNav({ user }: { user: SessionUser }) {
   const activeView = useUiStore((state) => state.activeView);
   const sideNavCollapsed = useUiStore((state) => state.sideNavCollapsed);
   const toggleSideNav = useUiStore((state) => state.toggleSideNav);
+  const isManagerOrOwner = user.role === 'manager' || user.role === 'owner';
+  const badgeQuery = trpc.credit.creditReviewQueue.useQuery(undefined, {
+    enabled: isManagerOrOwner,
+    refetchInterval: 60_000
+  });
+  const badgeCounts = badgeQuery.data?.counts;
+  const badgeTotal = badgeCounts ? badgeCounts.staleManual + badgeCounts.engineDisabled + badgeCounts.nearSnoozeCap : 0;
 
   return (
     <nav className={clsx('flex shrink-0 flex-col border-r border-line bg-panel p-2 transition-all', sideNavCollapsed ? 'w-16' : 'w-60')}>
@@ -106,6 +115,7 @@ export function SideNav({ user }: { user: SessionUser }) {
               <div className={clsx('nav-group-label', sideNavCollapsed && 'sr-only')}>{group.label}</div>
               {visibleItems.map((item) => {
                 const Icon = item.icon;
+                const showBadge = item.view === 'credit-review' && badgeTotal > 0 && !sideNavCollapsed;
                 return (
                   <button
                     type="button"
@@ -117,6 +127,11 @@ export function SideNav({ user }: { user: SessionUser }) {
                   >
                     <Icon className="h-4 w-4" aria-hidden="true" />
                     <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>{item.label}</span>
+                    {showBadge ? (
+                      <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+                        {badgeTotal > 99 ? '99+' : badgeTotal}
+                      </span>
+                    ) : null}
                     {item.hotkey && !sideNavCollapsed ? <kbd>{item.hotkey}</kbd> : null}
                   </button>
                 );

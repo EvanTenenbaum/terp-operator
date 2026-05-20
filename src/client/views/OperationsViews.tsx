@@ -7,9 +7,10 @@ import { OperatorGrid } from '../components/OperatorGrid';
 import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
-import type { GridRow, ViewKey } from '../../shared/types';
+import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import { parseTagInput } from '../../shared/tags';
@@ -1979,13 +1980,18 @@ function blockerTarget(blockerId?: string): { view: ViewKey; filter: string; fil
 export function SettingsView() {
   const activeTab = useUiStore((state) => state.activeSettingsTab);
   const setActiveTab = useUiStore((state) => state.setActiveSettingsTab);
-  const tabs = [
+  const me = trpc.auth.me.useQuery();
+  const isOwner = me.data?.role === 'owner';
+  const tabs: Array<{ key: SettingsTab; label: string }> = [
     { key: 'requests', label: 'Requests' },
     { key: 'actions', label: 'Action log' },
     { key: 'archive', label: 'Archive' },
-    { key: 'strain-aliases', label: 'Strain aliases' }
-  ] as const;
-  const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? 'Settings';
+    { key: 'strain-aliases', label: 'Strain aliases' },
+    ...(isOwner ? [{ key: 'credit-engine' as SettingsTab, label: 'Credit Engine' }] : [])
+  ];
+  const visibleTabKeys = new Set(tabs.map((t) => t.key));
+  const effectiveTab = visibleTabKeys.has(activeTab) ? activeTab : tabs[0].key;
+  const activeTabLabel = tabs.find((tab) => tab.key === effectiveTab)?.label ?? 'Settings';
   return (
     <div className="view-stack">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2000,18 +2006,19 @@ export function SettingsView() {
             key={tab.key}
             type="button"
             role="tab"
-            aria-selected={activeTab === tab.key}
-            className={activeTab === tab.key ? 'report-chip report-chip-active' : 'report-chip'}
+            aria-selected={effectiveTab === tab.key}
+            className={effectiveTab === tab.key ? 'report-chip report-chip-active' : 'report-chip'}
             onClick={() => setActiveTab(tab.key)}
           >
             {tab.label}
           </button>
         ))}
       </div>
-      {activeTab === 'requests' ? <ConnectorsView /> : null}
-      {activeTab === 'actions' ? <RecoveryView /> : null}
-      {activeTab === 'archive' ? <CloseoutView /> : null}
-      {activeTab === 'strain-aliases' ? <StrainAliasesPanel /> : null}
+      {effectiveTab === 'requests' ? <ConnectorsView /> : null}
+      {effectiveTab === 'actions' ? <RecoveryView /> : null}
+      {effectiveTab === 'archive' ? <CloseoutView /> : null}
+      {effectiveTab === 'strain-aliases' ? <StrainAliasesPanel /> : null}
+      {effectiveTab === 'credit-engine' ? <CreditEngineSettingsPanel /> : null}
     </div>
   );
 }
@@ -2061,6 +2068,124 @@ function StrainAliasesPanel() {
   );
 }
 
+function CreditEngineSettingsPanel() {
+  const { data, isLoading } = trpc.credit.creditEngineStances.useQuery();
+  const { runCommand, isRunning } = useCommandRunner();
+  const [stanceId, setStanceId] = useState('');
+  const [coldStartInvoices, setColdStartInvoices] = useState('');
+  const [coldStartTenure, setColdStartTenure] = useState('');
+  const [reminderDays, setReminderDays] = useState('');
+  const [snoozeCapDays, setSnoozeCapDays] = useState('');
+  const [shadowMode, setShadowMode] = useState(false);
+
+  useEffect(() => {
+    if (!data) return;
+    setStanceId(data.config.globalDefaultStanceId);
+    setColdStartInvoices(String(data.config.coldStartMinPostedInvoices));
+    setColdStartTenure(String(data.config.coldStartMinTenureDays));
+    setReminderDays(String(data.config.manualOverrideReminderDefaultDays));
+    setSnoozeCapDays(String(data.config.manualOverrideSnoozeCapDays));
+    setShadowMode(data.config.shadowMode);
+  }, [data]);
+
+  const shadowDisabled = data?.config.shadowMode === false;
+
+  async function handleSave() {
+    const payload: Record<string, unknown> = {};
+    if (stanceId) payload.globalDefaultStanceId = stanceId;
+    if (coldStartInvoices !== '') payload.coldStartMinPostedInvoices = Number(coldStartInvoices);
+    if (coldStartTenure !== '') payload.coldStartMinTenureDays = Number(coldStartTenure);
+    if (reminderDays !== '') payload.manualOverrideReminderDefaultDays = Number(reminderDays);
+    if (snoozeCapDays !== '') payload.manualOverrideSnoozeCapDays = Number(snoozeCapDays);
+    payload.shadowMode = shadowMode;
+    await runCommand('setCreditEngineConfig', payload, 'Update credit engine settings');
+  }
+
+  return (
+    <section className="inline-panel" data-testid="credit-engine-settings-panel">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="section-title">Credit Engine Settings</h2>
+          <p className="text-xs text-zinc-600">Global config and read-only stance overview.</p>
+        </div>
+      </div>
+      {isLoading ? (
+        <div className="mt-3 text-sm text-zinc-600">Loading engine config...</div>
+      ) : (
+        <>
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            <label className="field-inline">
+              Default stance
+              <select className="select" value={stanceId} onChange={(e) => setStanceId(e.target.value)}>
+                <option value="">Select stance</option>
+                {data?.stances.map((stance) => (
+                  <option key={stance.id} value={stance.id}>
+                    {stance.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field-inline">
+              Cold-start invoices
+              <input className="input compact" type="number" min="0" value={coldStartInvoices} onChange={(e) => setColdStartInvoices(e.target.value)} />
+            </label>
+            <label className="field-inline">
+              Cold-start tenure (days)
+              <input className="input compact" type="number" min="0" value={coldStartTenure} onChange={(e) => setColdStartTenure(e.target.value)} />
+            </label>
+            <label className="field-inline">
+              Reminder days
+              <input className="input compact" type="number" min="0" value={reminderDays} onChange={(e) => setReminderDays(e.target.value)} />
+            </label>
+            <label className="field-inline">
+              Snooze cap (days)
+              <input className="input compact" type="number" min="0" value={snoozeCapDays} onChange={(e) => setSnoozeCapDays(e.target.value)} />
+            </label>
+            <label className="field-inline flex items-center gap-2">
+              <input type="checkbox" checked={shadowMode} disabled={shadowDisabled} onChange={(e) => setShadowMode(e.target.checked)} />
+              <span>Shadow mode</span>
+              {shadowDisabled ? <span className="text-xs text-zinc-500">Cannot re-enable once disabled</span> : null}
+            </label>
+          </div>
+          <div className="mt-3">
+            <button className="primary-button" type="button" disabled={isRunning} onClick={handleSave}>
+              Save settings
+            </button>
+          </div>
+          <div className="mt-6">
+            <h3 className="section-title">Stances</h3>
+            <p className="text-xs text-zinc-600 mb-2">Stance create/edit is command-backed follow-up work.</p>
+            <div className="finder-table-wrap">
+              <table className="finder-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Weights</th>
+                    <th>Customers</th>
+                    <th>Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data?.stances.map((stance) => (
+                    <tr key={stance.id}>
+                      <td>{stance.name}</td>
+                      <td>{stance.description ?? '-'}</td>
+                      <td>{formatWeightsSummary(stance.weights)}</td>
+                      <td>{stance.customerCount}</td>
+                      <td>{stance.isSeeded ? 'Seeded' : 'Custom'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function GridJourney({
   view,
   title,
@@ -2069,7 +2194,7 @@ function GridJourney({
   onCellCommit,
   expansionConfig
 }: {
-  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings'>;
+  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings' | 'credit-review'>;
   title: string;
   actions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
   prelude?: (runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;

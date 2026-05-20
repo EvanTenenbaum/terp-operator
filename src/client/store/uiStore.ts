@@ -312,7 +312,7 @@ export function currentDrawerForState(state: Pick<UiState, 'activeDrawerEntityBy
 }
 
 function launchForView(view: ViewKey): QuickLaunchMode | null {
-  if (['reports', 'settings', 'connectors', 'recovery', 'closeout'].includes(view)) return null;
+  if (['reports', 'settings', 'connectors', 'recovery', 'closeout', 'credit-review'].includes(view)) return null;
   if (view === 'purchaseOrders') return 'purchaseOrder';
   if (view === 'sales' || view === 'orders') return 'sale';
   if (view === 'matchmaking') return 'customerNeed';
@@ -339,6 +339,7 @@ function inferDrawerEntity(view: ViewKey, row: GridRow): DrawerEntityRef {
   if (view === 'closeout') return { entityType: 'closeout', entityId: row.id };
   if (view === 'settings') return { entityType: 'settings', entityId: row.id };
   if (view === 'reports') return { entityType: 'report', entityId: row.id };
+  if (view === 'credit-review') return { entityType: 'customer', entityId: row.customerId ? String(row.customerId) : row.id };
   if (row.vendorId) return { entityType: 'vendor', entityId: String(row.vendorId) };
   if (row.customerId) return { entityType: 'customer', entityId: String(row.customerId) };
   return { entityType: 'queue', entityId: null };

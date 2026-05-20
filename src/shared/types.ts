@@ -38,7 +38,7 @@ export type Status =
 export type OwnershipStatus = 'C' | 'OFC' | 'UNKNOWN';
 export type ArrivalStatus = 'pending' | 'arrived' | 'cancelled';
 export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut' | 'customerNeed' | 'vendorSupply';
-export type SettingsTab = 'requests' | 'actions' | 'archive' | 'strain-aliases';
+export type SettingsTab = 'requests' | 'actions' | 'archive' | 'strain-aliases' | 'credit-engine';
 
 export type PaymentMethod = 'cash' | 'check' | 'card' | 'crypto' | 'wire';
 
@@ -81,6 +81,7 @@ export type ViewKey =
   | 'closeout'
   | 'referees'
   | 'processors'
+  | 'credit-review'
   | 'settings';
 
 export interface SessionUser {

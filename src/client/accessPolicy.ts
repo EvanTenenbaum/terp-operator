@@ -4,9 +4,11 @@ type WorkLoop = 'owner' | 'manager' | 'sales' | 'intake' | 'warehouse' | 'operat
 
 const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'processors'];
 
+const managerPlusViews: readonly ViewKey[] = [...defaultOperatorViews, 'settings', 'credit-review'];
+
 const viewsByLoop: Record<WorkLoop, readonly ViewKey[]> = {
-  owner: [...defaultOperatorViews, 'settings'],
-  manager: [...defaultOperatorViews, 'settings'],
+  owner: managerPlusViews,
+  manager: managerPlusViews,
   sales: ['dashboard', 'reports', 'sales', 'matchmaking', 'orders', 'inventory', 'clients', 'payments', 'referees'],
   intake: ['dashboard', 'purchaseOrders', 'intake', 'matchmaking', 'inventory', 'fulfillment', 'vendors'],
   warehouse: ['dashboard', 'orders', 'inventory', 'fulfillment'],
