@@ -40,6 +40,10 @@ interface UiState {
   routeHistory: RouteHistoryEntry[];
   toasts: Toast[];
   announcement: string;
+  // Credit engine Phase 6f: shadow-mode orientation banner dismissal. Persisted
+  // (non-sensitive per-user preference), but reset whenever the engine reports
+  // shadowMode === false so operators rediscover the warning after a config flip.
+  dismissedShadowBanner: boolean;
   setActiveView: (view: ViewKey) => void;
   setActiveCustomerId: (customerId: string | null) => void;
   setActiveQuickLaunch: (mode: QuickLaunchMode | null) => void;
@@ -66,6 +70,7 @@ interface UiState {
   goBackRouteHistory: () => void;
   pushToast: (message: string, tone?: Toast['tone']) => void;
   dismissToast: (id: string) => void;
+  setDismissedShadowBanner: (dismissed: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -92,6 +97,7 @@ export const useUiStore = create<UiState>()(
     routeHistory: [],
     toasts: [],
     announcement: '',
+    dismissedShadowBanner: false,
     setActiveView: (view) =>
       set((state) => {
         if (state.activeView !== view) {
@@ -267,6 +273,10 @@ export const useUiStore = create<UiState>()(
     dismissToast: (id) =>
       set((state) => {
         state.toasts = state.toasts.filter((toast) => toast.id !== id);
+      }),
+    setDismissedShadowBanner: (dismissed) =>
+      set((state) => {
+        state.dismissedShadowBanner = dismissed;
       })
   })),
   {
@@ -284,7 +294,8 @@ export const useUiStore = create<UiState>()(
       activeQuickLaunch: state.activeQuickLaunch,
       activeSettingsTab: state.activeSettingsTab,
       drawerByView: state.drawerByView,
-      gridColumnPrefs: state.gridColumnPrefs
+      gridColumnPrefs: state.gridColumnPrefs,
+      dismissedShadowBanner: state.dismissedShadowBanner
     })
   }
   )

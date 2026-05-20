@@ -37,7 +37,8 @@ describe('uiStore persist partialize (UX-A1 — shared workstation leakage)', ()
       gridColumnPrefs: {},
       routeHistory: [],
       toasts: [],
-      announcement: ''
+      announcement: '',
+      dismissedShadowBanner: false
     });
   });
 
@@ -69,5 +70,11 @@ describe('uiStore persist partialize (UX-A1 — shared workstation leakage)', ()
     // it stores per-(view+entity) drawer open/tab state keyed by storage key,
     // not the active entity reference itself.
     expect(persisted).toHaveProperty('drawerByView');
+  });
+
+  it('persists dismissedShadowBanner (per-user preference, non-sensitive)', () => {
+    useUiStore.getState().setDismissedShadowBanner(true);
+    const persisted = readPersisted();
+    expect(persisted).toHaveProperty('dismissedShadowBanner', true);
   });
 });

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { useUiStore } from '../store/uiStore';
 import type { ViewKey } from '../../shared/types';
 
@@ -53,6 +54,9 @@ export function CreditReviewView() {
 
   return (
     <div className="flex h-full flex-col">
+      <div className="px-4">
+        <ShadowModeBanner />
+      </div>
       <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
         <h1 className="text-lg font-semibold text-zinc-900">Credit Review</h1>
         <div className="flex items-center gap-3">
