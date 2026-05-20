@@ -15,6 +15,7 @@ coverage/
 # claude-handoff: bundles transit via iCloud, not git
 .claude-shared
 .claude-handoff/
+.claude/worktrees/
 
 .DS_Store
 storage/media/*
