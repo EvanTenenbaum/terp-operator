@@ -91,6 +91,29 @@ import { isLandedCostInRange, parsePriceRange, rangeMidpoint, validateCostRange 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
 export type Tx = any;
+
+/**
+ * Per-command list of `result.delta.*` keys that must NOT be persisted in the
+ * command journal (DB row OR on-disk JSONL). The command handler is free to
+ * return the raw value to the caller in the live CommandResult — but the
+ * journal-bound copy gets these fields replaced with the sentinel string
+ * `'<redacted>'`. Without this, secrets returned to the client via delta
+ * (e.g. mintPhotoUploadToken's raw bearer token, #93 F1) would land in the
+ * DB and the JSONL audit, defeating their sha256-at-rest design.
+ */
+const SENSITIVE_DELTA_FIELDS_BY_COMMAND: Readonly<Record<string, readonly string[]>> = {
+  mintPhotoUploadToken: ['token']
+};
+
+export function redactSensitiveDeltaFields(commandName: string, result: CommandResult): CommandResult {
+  const sensitive = SENSITIVE_DELTA_FIELDS_BY_COMMAND[commandName];
+  if (!sensitive || !result.delta || typeof result.delta !== 'object') return result;
+  const redacted: Record<string, unknown> = { ...(result.delta as Record<string, unknown>) };
+  for (const key of sensitive) {
+    if (key in redacted) redacted[key] = '<redacted>';
+  }
+  return { ...result, delta: redacted };
+}
 type Payload = Record<string, unknown>;
 
 const moneyScale = (value: unknown) => {
@@ -232,14 +255,16 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       const afterSnapshot = await snapshotByAffectedIds(commandResult.affectedIds);
       const storedResult = { ...commandResult, toast: commandResult.toast ?? 'Command completed.' };
 
-      // Finalize the claimed row (UPDATE — not re-INSERT).
+      // Finalize the claimed row (UPDATE — not re-INSERT — per #92's atomic
+      // idempotency claim). result is passed through redactSensitiveDeltaFields
+      // so secrets (e.g. mintPhotoUploadToken raw token, #93 F1) never persist.
       await tx
         .update(commandJournal)
         .set({
           status: commandResult.ok ? 'ok' : 'failed',
           affectedIds: commandResult.affectedIds,
           afterSnapshot,
-          result: storedResult as unknown as Record<string, unknown>
+          result: redactSensitiveDeltaFields(input.name, storedResult) as unknown as Record<string, unknown>
         })
         .where(eq(commandJournal.id, commandId));
 
@@ -249,6 +274,8 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     const storedResult = { ...result, toast: result.toast ?? 'Command completed.' };
     const afterSnapshot = await snapshotByAffectedIds(result.affectedIds);
 
+    // JSONL on-disk audit also receives the redacted copy — the raw token
+    // must never appear on disk either (#93 F1 follow-up from adversarial QA).
     await appendJsonlJournal({
       id: commandId,
       commandName: input.name,
@@ -258,7 +285,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       inputPayload: input.payload,
       beforeSnapshot,
       afterSnapshot,
-      result: storedResult,
+      result: redactSensitiveDeltaFields(input.name, storedResult),
       createdAt: new Date().toISOString()
     });
 
