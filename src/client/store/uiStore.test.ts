@@ -38,7 +38,8 @@ describe('uiStore persist partialize (UX-A1 — shared workstation leakage)', ()
       routeHistory: [],
       toasts: [],
       announcement: '',
-      dismissedShadowBanner: false
+      dismissedShadowBanner: false,
+      showMargin: true
     });
   });
 
@@ -76,5 +77,58 @@ describe('uiStore persist partialize (UX-A1 — shared workstation leakage)', ()
     useUiStore.getState().setDismissedShadowBanner(true);
     const persisted = readPersisted();
     expect(persisted).toHaveProperty('dismissedShadowBanner', true);
+  });
+});
+
+describe('uiStore showMargin (#63 — operator margin visibility toggle)', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    useUiStore.setState({
+      activeView: 'dashboard',
+      activeCustomerId: null,
+      activeQuickLaunch: 'sale',
+      activeSettingsTab: 'requests',
+      salesRequestText: '',
+      selectedRows: {},
+      commandPaletteOpen: false,
+      commandPaletteAdvancedOpen: false,
+      rightPanelOpen: false,
+      sideNavCollapsed: false,
+      drilldownMetric: null,
+      collapsedPanels: {},
+      focusedPanelId: null,
+      focusMode: false,
+      drawerByView: {},
+      activeDrawerEntityByView: {},
+      gridFilters: {},
+      gridColumnPrefs: {},
+      routeHistory: [],
+      toasts: [],
+      announcement: '',
+      dismissedShadowBanner: false,
+      showMargin: true
+    });
+  });
+
+  it('defaults showMargin to true (operators see margin by default)', () => {
+    expect(useUiStore.getState().showMargin).toBe(true);
+  });
+
+  it('setShowMargin(false) flips the flag in memory', () => {
+    useUiStore.getState().setShowMargin(false);
+    expect(useUiStore.getState().showMargin).toBe(false);
+  });
+
+  it('persists showMargin (benign per-user UX preference)', () => {
+    useUiStore.getState().setShowMargin(false);
+    const persisted = readPersisted();
+    expect(persisted).toHaveProperty('showMargin', false);
+  });
+
+  it('persists showMargin === true when toggled back on', () => {
+    useUiStore.getState().setShowMargin(false);
+    useUiStore.getState().setShowMargin(true);
+    const persisted = readPersisted();
+    expect(persisted).toHaveProperty('showMargin', true);
   });
 });
