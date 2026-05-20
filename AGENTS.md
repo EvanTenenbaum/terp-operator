@@ -44,27 +44,28 @@ If the doctor reports that you are outside the canonical repo, stop and redirect
 
 TERP Operator is an operator console for dense, spreadsheet-native wholesale workflows. Prefer working product changes, runtime proof, and issue writeback over broad narration. Preserve existing worktree changes unless Evan explicitly asks you to revert them.
 
-## GitHub Tracking Source Of Truth
+## GitHub Issue Tracking
 
-Use GitHub Issues as the source of truth for backlog, to-do, and known-issue tracking. Do not create a separate durable tracker in docs, chat, or local files unless the user explicitly asks for an export or handoff artifact.
+Use GitHub Issues **only** for bugs, runtime failures, data drift, test gaps, confusing UX, fixture gaps, coverage gaps, expectation gaps, and other problems.
 
-Use these issue forms:
-
-- `Backlog item`: product, UX, architecture, or workflow work that should be planned before implementation.
-- `To-do`: small concrete follow-up work with a clear owner/action.
-- `Known issue`: confirmed or strongly suspected bugs, runtime failures, confusing UX, data drift, or test gaps.
+Do **not** use GitHub Issues for feature development, sub-roadmaps, epics, or capability proposals. That work belongs in repo roadmap docs under `docs/roadmap/`.
 
 Before creating a new issue:
 
-1. Search existing open issues with `gh issue list --state open --search "<keywords>"`.
-2. Reuse or update an existing issue when it is the same work.
-3. Create a new issue only when the finding is distinct enough to track independently.
+1. **Classify the finding**: is it a bug/problem or a feature/capability? If uncertain, classify before tracking.
+2. Search existing open issues with `gh issue list --state open --search "<keywords>"`.
+3. Reuse or update an existing issue when it is the same work.
+4. Create a new issue only when the finding is distinct enough to track independently.
+
+Use the `Known issue` form for all problem-oriented issues:
+
+- Confirmed or strongly suspected bugs, runtime failures, confusing UX, data drift, or test gaps.
 
 When creating or updating issues:
 
 - Use labels from `.github/labels.yml` when possible.
 - Include exact route, command, file path, screenshot/log path, browser URL, or test output when available.
-- Keep runtime bugs separate from annotation-driven product/UX work.
+- Keep runtime bugs separate from annotation-driven UX observations and product gaps.
 - Separate `product gap`, `fixture gap`, `coverage gap`, `runtime bug`, and `expectation gap` in the issue body when that distinction matters.
 - Prefer acceptance criteria and verification steps over vague desired-state prose.
 - Link related PRs, commits, docs, artifacts, or earlier issues.
@@ -80,8 +81,6 @@ When closing issues:
 ```bash
 gh issue list --state open --search "purchase order label:tracking:known-issue"
 gh issue create --template known_issue.yml --title "Known issue: <short symptom>"
-gh issue create --template backlog_item.yml --title "Backlog: <operator outcome>"
-gh issue create --template todo.yml --title "To-do: <specific task>"
 gh issue view <number> --comments
 gh issue comment <number> --body "Evidence: ..."
 ```

@@ -40,7 +40,7 @@ body:
     id: classification
     attributes:
       label: Classification
-      description: Keep product, fixture, coverage, runtime, and expectation gaps distinct.
+      description: Keep gap types distinct. A product gap is a shortfall in existing behavior — not a new feature proposal. If the work requires designing new functionality, use docs/roadmap/ instead of this form.
       options:
         - runtime bug
         - product gap
