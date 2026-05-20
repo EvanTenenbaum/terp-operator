@@ -87,7 +87,7 @@ import { isLandedCostInRange, parsePriceRange, rangeMidpoint, validateCostRange 
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
-type Tx = any;
+export type Tx = any;
 type Payload = Record<string, unknown>;
 
 const moneyScale = (value: unknown) => {
@@ -3329,10 +3329,13 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
   return { ok: true, commandId, affectedIds: [supplyId, ...matchIds], toast: 'Vendor stock updated.', delta: { matchCount: matchIds.length } };
 }
 
-async function reviewMatchmakingMatch(tx: Tx, payload: Payload, status: 'accepted' | 'dismissed', userId: string, commandId: string): Promise<CommandResult> {
+export async function reviewMatchmakingMatch(tx: Tx, payload: Payload, status: 'accepted' | 'dismissed', userId: string, commandId: string): Promise<CommandResult> {
   const matchId = requiredId(payload.matchId ?? payload.id, 'matchId');
   const [match] = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.id, matchId)).limit(1);
   if (!match) throw new Error('Match not found.');
+  if (match.status !== 'open') {
+    throw new Error(`Match ${matchId} is already ${match.status} — use reopenMatchmakingMatch first to change its status.`);
+  }
   await tx.update(matchmakingMatches).set({ status, reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
   const affected = new Set([matchId, match.customerNeedId, match.vendorSupplyId]);
   if (status === 'accepted') {
