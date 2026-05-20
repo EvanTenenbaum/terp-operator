@@ -887,6 +887,28 @@ export const mediaCleanupLog = pgTable('media_cleanup_log', {
   createdAt: now()
 });
 
+// Photo Upload Tokens — tokenized share links for photographer mobile upload
+// (issue #73). See migrations/0042_photo_upload_tokens.sql and
+// src/server/services/photoUploadTokens.ts for the security model.
+export const photoUploadTokens = pgTable(
+  'photo_upload_tokens',
+  {
+    id: id(),
+    batchId: uuid('batch_id').references(() => batches.id, { onDelete: 'cascade' }).notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    issuedBy: uuid('issued_by').references(() => users.id).notNull(),
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    useCount: integer('use_count').notNull().default(0)
+  },
+  (table) => ({
+    batchIdx: index('photo_upload_tokens_batch_idx').on(table.batchId),
+    expiresIdx: index('photo_upload_tokens_expires_idx').on(table.expiresAt)
+  })
+);
+
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Brand = typeof brands.$inferSelect;
