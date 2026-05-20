@@ -21,11 +21,11 @@ function intakeOnlyUser(): SessionUser {
   // Hint the workLoop -> 'intake' via email/name substring matching in
   // accessPolicy.workLoopForUser(). Role must NOT be owner/manager/viewer
   // for that heuristic to apply.
-  return { id: 'u-intake', name: 'Intake Operator', email: 'intake@example.test', role: 'operator' };
+  return { id: 'u-intake', name: 'Intake Operator', email: 'intake@example.test', role: 'operator', workLoop: null };
 }
 
 function salesOnlyUser(): SessionUser {
-  return { id: 'u-sales', name: 'Sales Operator', email: 'sales@example.test', role: 'operator' };
+  return { id: 'u-sales', name: 'Sales Operator', email: 'sales@example.test', role: 'operator', workLoop: null };
 }
 
 describe('SideNav — Cmd+1..6 hotkey chips gating (#34 FE-L4)', () => {
