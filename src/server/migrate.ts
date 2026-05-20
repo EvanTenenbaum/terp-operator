@@ -18,6 +18,157 @@ export function isConcurrentMigration(sql: string): boolean {
   return /\bconcurrently\b/i.test(sql);
 }
 
+/**
+ * Split SQL into individual statements on semicolons that are outside
+ * comments, quoted strings, and dollar-quoted blocks.
+ */
+function splitSqlStatements(sql: string): string[] {
+  const statements: string[] = [];
+  let current = '';
+  let i = 0;
+
+  let inSingleLineComment = false;
+  let inMultiLineComment = false;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let dollarTag: string | null = null;
+
+  while (i < sql.length) {
+    const ch = sql[i];
+    const next = sql[i + 1];
+
+    if (inSingleLineComment) {
+      if (ch === '\n') {
+        inSingleLineComment = false;
+      }
+      current += ch;
+      i++;
+      continue;
+    }
+
+    if (inMultiLineComment) {
+      if (ch === '*' && next === '/') {
+        inMultiLineComment = false;
+        current += '*/';
+        i += 2;
+      } else {
+        current += ch;
+        i++;
+      }
+      continue;
+    }
+
+    if (inSingleQuote) {
+      if (ch === "'" && next === "'") {
+        current += "''";
+        i += 2;
+      } else if (ch === "'") {
+        inSingleQuote = false;
+        current += ch;
+        i++;
+      } else {
+        current += ch;
+        i++;
+      }
+      continue;
+    }
+
+    if (inDoubleQuote) {
+      if (ch === '"' && next === '"') {
+        current += '""';
+        i += 2;
+      } else if (ch === '"') {
+        inDoubleQuote = false;
+        current += ch;
+        i++;
+      } else {
+        current += ch;
+        i++;
+      }
+      continue;
+    }
+
+    if (dollarTag !== null) {
+      if (ch === '$') {
+        let j = i + 1;
+        let tag = '';
+        while (j < sql.length && /[a-zA-Z0-9_]/.test(sql[j])) {
+          tag += sql[j];
+          j++;
+        }
+        if (j < sql.length && sql[j] === '$' && tag === dollarTag) {
+          current += '$' + tag + '$';
+          i = j + 1;
+          dollarTag = null;
+          continue;
+        }
+      }
+      current += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '-' && next === '-') {
+      inSingleLineComment = true;
+      current += '--';
+      i += 2;
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      inMultiLineComment = true;
+      current += '/*';
+      i += 2;
+      continue;
+    }
+
+    if (ch === "'") {
+      inSingleQuote = true;
+      current += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '"') {
+      inDoubleQuote = true;
+      current += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '$') {
+      let j = i + 1;
+      let tag = '';
+      while (j < sql.length && /[a-zA-Z0-9_]/.test(sql[j])) {
+        tag += sql[j];
+        j++;
+      }
+      if (j < sql.length && sql[j] === '$') {
+        dollarTag = tag;
+        current += '$' + tag + '$';
+        i = j + 1;
+        continue;
+      }
+    }
+
+    if (ch === ';') {
+      statements.push(current);
+      current = '';
+      i++;
+      continue;
+    }
+
+    current += ch;
+    i++;
+  }
+
+  if (current.trim().length > 0) {
+    statements.push(current);
+  }
+
+  return statements.map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
 export interface RunMigrationsOptions {
   pool: Pool;
   migrationDir: string;
@@ -77,7 +228,10 @@ export async function runMigrations(options: RunMigrationsOptions): Promise<void
         // before running the migration body, then leave it (the connection
         // is released back to the pool which resets per-session GUCs).
         await client.query("set statement_timeout = 0");
-        await client.query(sql);
+        const statements = splitSqlStatements(sql);
+        for (const stmt of statements) {
+          await client.query(stmt);
+        }
         await client.query('insert into schema_migrations (name) values ($1)', [file]);
         log(`Applied ${file} (auto-commit; CONCURRENTLY detected; statement_timeout=0 for this session)`);
       } else {

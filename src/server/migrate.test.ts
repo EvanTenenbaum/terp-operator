@@ -208,4 +208,78 @@ describe('runMigrations', () => {
     // Client released
     expect(client.released).toBe(true);
   });
+
+  it('splits concurrent multi-statement migrations into separate client.query calls', async () => {
+    const dir = await makeMigrationDir({
+      '0043_performance_indexes.sql': `
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_a ON t (a);
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_b ON t (b);
+      `
+    });
+    const { pool, clients } = makePool();
+
+    await runMigrations({ pool, migrationDir: dir });
+
+    expect(clients).toHaveLength(1);
+    const client = clients[0]!;
+    const sqls = client.queries.map((q) => q.sql.trim());
+
+    // No explicit transaction control
+    const lowerSqls = sqls.map((s) => s.toLowerCase());
+    expect(lowerSqls.some((s) => s.startsWith('begin'))).toBe(false);
+    expect(lowerSqls.some((s) => s.startsWith('commit'))).toBe(false);
+    expect(lowerSqls.some((s) => s.startsWith('rollback'))).toBe(false);
+
+    // Each CREATE INDEX CONCURRENTLY must be its own query
+    const createIndexQueries = sqls.filter((s) =>
+      s.toLowerCase().includes('create index concurrently')
+    );
+    expect(createIndexQueries).toHaveLength(2);
+    expect(createIndexQueries[0]).toMatch(/idx_a/);
+    expect(createIndexQueries[1]).toMatch(/idx_b/);
+
+    // schema_migrations insert happens after the index statements
+    const insertIdx = lowerSqls.findIndex((s) =>
+      s.includes('insert into schema_migrations')
+    );
+    const firstIdx = lowerSqls.findIndex((s) =>
+      s.includes('create index concurrently')
+    );
+    expect(insertIdx).toBeGreaterThan(firstIdx);
+    expect(insertIdx).toBe(lowerSqls.length - 1);
+
+    expect(client.released).toBe(true);
+  });
+
+  it('does not split inside double-quoted identifiers in concurrent migrations', async () => {
+    const dir = await makeMigrationDir({
+      '0001_quoted_semicolon.sql': `
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx;foo" ON "bar;baz" ("qux;quux");
+        CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_plain ON t (c);
+      `
+    });
+    const { pool, clients } = makePool();
+
+    await runMigrations({ pool, migrationDir: dir });
+
+    expect(clients).toHaveLength(1);
+    const client = clients[0]!;
+    const sqls = client.queries.map((q) => q.sql.trim());
+
+    // Should still produce exactly two CREATE INDEX statements
+    const createIndexQueries = sqls.filter((s) =>
+      s.toLowerCase().includes('create index concurrently')
+    );
+    expect(createIndexQueries).toHaveLength(2);
+
+    // First statement must still contain the full quoted identifier with the semicolon
+    expect(createIndexQueries[0]).toMatch(/idx;foo/);
+    expect(createIndexQueries[0]).toMatch(/bar;baz/);
+    expect(createIndexQueries[0]).toMatch(/qux;quux/);
+
+    // Second statement is the plain one
+    expect(createIndexQueries[1]).toMatch(/idx_plain/);
+
+    expect(client.released).toBe(true);
+  });
 });
