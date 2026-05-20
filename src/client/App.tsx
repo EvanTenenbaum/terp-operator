@@ -5,6 +5,7 @@ import { io } from 'socket.io-client';
 import clsx from 'clsx';
 import { trpc } from './api/trpc';
 import { Agentation } from 'agentation';
+import { invalidateAffectedQueries } from './components/useCommandRunner';
 import { CommandPalette } from './components/CommandPalette';
 import { ContextDrawer } from './components/ContextDrawer';
 import { Hotkeys } from './components/Hotkeys';
@@ -63,13 +64,16 @@ function AppContent() {
     if (!me.data) return;
     const currentUserId = me.data.id;
     const socket = io(import.meta.env.VITE_SOCKET_URL ?? '/', { withCredentials: true });
-    socket.on('command:completed', (event: { toast?: string; actorId?: string }) => {
+    socket.on('command:completed', (event: { toast?: string; actorId?: string; affectedIds?: string[] }) => {
       if (event.toast && event.actorId !== currentUserId) pushToast(event.toast, 'success');
-      queryClient.invalidateQueries();
+      // Cross-tab targeted invalidation — see #44. The WS payload already
+      // carries the affectedIds the originating command reported, so we can
+      // refetch only the queries that reference those entities.
+      void invalidateAffectedQueries(queryClient, event.affectedIds ?? []);
     });
-    socket.on('command:failed', (event: { toast?: string; actorId?: string }) => {
+    socket.on('command:failed', (event: { toast?: string; actorId?: string; affectedIds?: string[] }) => {
       if (event.toast && event.actorId !== currentUserId) pushToast(event.toast, 'error');
-      queryClient.invalidateQueries();
+      void invalidateAffectedQueries(queryClient, event.affectedIds ?? []);
     });
     return () => {
       socket.close();
