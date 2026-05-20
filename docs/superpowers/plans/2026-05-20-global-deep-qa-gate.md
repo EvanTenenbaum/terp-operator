@@ -1,6 +1,6 @@
 # Implementation Plan: Global Deep QA Gate
 
-**Date:** 2026-05-20  
+**Date:** 2026-05-20
 **Status:** Implemented locally; not committed
 > Note: No commit, stage, or push was requested for this change.
 

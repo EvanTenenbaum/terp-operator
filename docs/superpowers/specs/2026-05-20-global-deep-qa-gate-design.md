@@ -1,7 +1,7 @@
 # Global Deep QA Gate Design
 
-**Date:** 2026-05-20  
-**Status:** Approved and implemented locally  
+**Date:** 2026-05-20
+**Status:** Approved and implemented locally
 **Applies to:** OpenCode, Claude/Codex-style global instructions, GitHub-visible repo instructions
 
 **Canonical source:** `/Users/evantenenbaum/AGENTS.md` is the canonical global gate source for local and global agent files. GitHub-visible repo files must be self-contained because they cannot assume local paths.
@@ -72,7 +72,7 @@ Must include all of the following:
 
 ## Non-Blockers Rule
 
-Blocking issues first.  
+Blocking issues first.
 Non-blocking issues that affect system efficacy, user experience, reliability, confidence, or operator workflow must be:
 
 - Fixed in-scope, **or**
