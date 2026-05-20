@@ -1966,6 +1966,10 @@ async function loadCategoriesForLines(
 }
 
 export async function setLineLandedCost(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  // Validate landedCost / basis up front so existing error messages and call
+  // sites keep working (kept lineId/landedCost/basis checks explicit to match
+  // existing tests' phrasing) and also parse the FULL payload so the new
+  // exception fields are validated before any DB read.
   const lineId = requiredId(payload.lineId, 'lineId');
   const landedCost = Number(payload.landedCost);
   if (!Number.isFinite(landedCost) || landedCost < 0) throw new Error('Landed cost must be a non-negative number.');
@@ -1975,25 +1979,64 @@ export async function setLineLandedCost(tx: Tx, payload: Payload, commandId: str
     throw new Error(`Invalid landed cost basis: ${basisRaw}. Allowed: manual, pick-low, pick-mid, pick-high.`);
   }
   const basis = basisParse.data;
+
+  // [#64 PR-1] Full-payload parse so exceptionReason/exceptionNote fail fast
+  // with a clear message and are normalized (trim) before use. Existing
+  // free-form `reason` payload field is preserved (no behaviour change).
+  const fullParse = setLineLandedCostPayloadSchema.safeParse({ ...payload, basis });
+  if (!fullParse.success) {
+    const detail = fullParse.error.issues.map((i) => i.message).join('; ');
+    throw new Error(`Invalid setLineLandedCost payload: ${detail || 'malformed payload.'}`);
+  }
+  const exceptionReason = fullParse.data.exceptionReason;
+  const exceptionNote = fullParse.data.exceptionNote;
+
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Sales order line not found.');
+
+  let belowRangeException: { reason: string; note?: string; belowRange: true; priceRange: { low: number; high: number } } | undefined;
+
   if (line.batchId) {
     const [batch] = await tx.select({ priceRange: batches.priceRange }).from(batches).where(eq(batches.id, line.batchId)).limit(1);
     const range = parsePriceRange(batch?.priceRange ?? null);
     if (range && !isLandedCostInRange(landedCost, batch.priceRange)) {
-      throw new Error(`Landed cost $${landedCost.toFixed(2)} is outside the batch COGS range $${range.low}–$${range.high}.`);
+      // ABOVE range remains a hard reject in PR-1 — vendor approval / above-range
+      // overrides are intentionally deferred to PR-2.
+      if (landedCost > range.high) {
+        throw new Error(`Landed cost $${landedCost.toFixed(2)} is outside the batch COGS range $${range.low}–$${range.high}.`);
+      }
+      // BELOW range: must carry a structured exception reason. The PricingPanel
+      // shows an operator picker for this; direct-API callers must supply it
+      // explicitly. Without it, we reject with a message that names the picker.
+      if (!exceptionReason) {
+        throw new Error(
+          `Landed cost $${landedCost.toFixed(2)} is below the batch COGS range $${range.low}–$${range.high}. Provide an exception reason (keep-margin, waive-margin, take-loss, or vendor-approval-pending) to record this override.`
+        );
+      }
+      belowRangeException = {
+        reason: exceptionReason,
+        ...(exceptionNote ? { note: exceptionNote } : {}),
+        belowRange: true,
+        priceRange: { low: range.low, high: range.high }
+      };
     }
   }
+
   await tx
     .update(salesOrderLines)
     .set({ unitCost: moneyScale(landedCost), unitCostResolved: true, landedCostBasis: basis, updatedAt: new Date() })
     .where(eq(salesOrderLines.id, lineId));
+
+  const delta: Record<string, unknown> = { lineId, landedCost: moneyScale(landedCost), basis };
+  if (belowRangeException) delta.exception = belowRangeException;
+  const toastSuffix = belowRangeException ? ` (below-range override: ${belowRangeException.reason})` : '';
+
   return {
     ok: true,
     commandId,
     affectedIds: [lineId],
-    toast: `Landed COGS resolved to $${landedCost.toFixed(2)} (${basis}).`,
-    delta: { lineId, landedCost: moneyScale(landedCost), basis }
+    toast: `Landed COGS resolved to $${landedCost.toFixed(2)} (${basis})${toastSuffix}.`,
+    delta
   };
 }
 

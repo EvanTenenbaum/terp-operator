@@ -3,7 +3,17 @@ import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
 import { parsePriceRange } from '../../shared/priceRange';
 import { applyPricingRule, resolvePricingRuleEntry } from '../../shared/inventoryPricingShared';
+import { landedCostExceptionReasons, type LandedCostExceptionReason } from '../../shared/schemas';
 import type { CustomerPricingRule, PricingRuleApplication, PricingRuleEntry } from '../../shared/types';
+
+// Operator-vocabulary labels for the structured below-range exception reasons
+// (see [#64 PR-1] setLineLandedCostPayloadSchema.exceptionReason).
+const EXCEPTION_REASON_LABELS: Record<LandedCostExceptionReason, string> = {
+  'keep-margin': 'Keep margin (vendor absorbs)',
+  'waive-margin': 'Waive margin (we absorb)',
+  'take-loss': 'Take loss (below cost, on purpose)',
+  'vendor-approval-pending': 'Vendor approval pending'
+};
 
 function moneyFmt(value: unknown) {
   const n = Number(value ?? 0);
@@ -36,12 +46,26 @@ export function OrderPricingPanel({ orderId, customerId }: OrderPricingPanelProp
   const relationship = trpc.queries.relationshipSummary.useQuery({ customerId }, { enabled: Boolean(customerId) });
   const { runCommand, isRunning } = useCommandRunner();
   const [customCogs, setCustomCogs] = useState<Record<string, string>>({});
+  // Per-line structured below-range exception state ([#64 PR-1]).
+  const [customExceptionReason, setCustomExceptionReason] = useState<Record<string, LandedCostExceptionReason | ''>>({});
+  const [customExceptionNote, setCustomExceptionNote] = useState<Record<string, string>>({});
 
   const customerRule = asRule((relationship.data?.customer as Record<string, unknown> | undefined)?.pricingRule);
   const defaultsRule = asRule(reference.data?.defaultPricingRule);
 
-  async function setCogs(lineId: string, landedCost: number, basis: 'manual' | 'pick-low' | 'pick-mid' | 'pick-high') {
-    await runCommand('setLineLandedCost', { lineId, landedCost, basis }, `Resolve landed COGS via ${basis}`);
+  async function setCogs(
+    lineId: string,
+    landedCost: number,
+    basis: 'manual' | 'pick-low' | 'pick-mid' | 'pick-high',
+    exception?: { reason: LandedCostExceptionReason; note?: string }
+  ) {
+    const payload: Record<string, unknown> = { lineId, landedCost, basis };
+    if (exception) {
+      payload.exceptionReason = exception.reason;
+      if (exception.note && exception.note.trim() !== '') payload.exceptionNote = exception.note.trim();
+    }
+    const reasonLabel = exception ? `Resolve landed COGS via ${basis} (below-range: ${exception.reason})` : `Resolve landed COGS via ${basis}`;
+    await runCommand('setLineLandedCost', payload, reasonLabel);
     await lines.refetch();
   }
 
@@ -96,34 +120,92 @@ export function OrderPricingPanel({ orderId, customerId }: OrderPricingPanelProp
                       <button type="button" className="text-button" disabled={isRunning} onClick={() => setCogs(lineId, range.high, 'pick-high')} data-testid={`pick-high-${lineId}`}>High ${moneyFmt(range.high)}</button>
                       {(() => {
                         const customNum = Number(customValue);
-                        const customInRange = customValue !== '' && Number.isFinite(customNum) && customNum >= range.low && customNum <= range.high;
-                        const customOutOfRange = customValue !== '' && !customInRange;
+                        const customValid = customValue !== '' && Number.isFinite(customNum);
+                        const customInRange = customValid && customNum >= range.low && customNum <= range.high;
+                        const customBelowRange = customValid && customNum < range.low;
+                        const customAboveRange = customValid && customNum > range.high;
+                        const reasonChoice = customExceptionReason[lineId] ?? '';
+                        const noteValue = customExceptionNote[lineId] ?? '';
+                        // [#64 PR-1] In-range or below-range-with-reason → allow.
+                        // Above-range remains a hard reject (no reason picker rescues it).
+                        const canSubmit = customValid && (customInRange || (customBelowRange && reasonChoice !== ''));
+                        // `min` attribute is intentionally dropped so the browser does not
+                        // block typing below-range values; the server + reason picker now
+                        // own the floor rule. `max` is retained as a passive above-range
+                        // browser hint — above-range is still a hard reject server-side,
+                        // and this just nudges browsers to scroll/clamp accordingly without
+                        // being load-bearing for validation.
                         return (
                           <>
                             <input
                               type="number"
-                              min={range.low}
                               max={range.high}
                               step="0.01"
                               value={customValue}
                               onChange={(event) => setCustomCogs((current) => ({ ...current, [lineId]: event.target.value }))}
                               placeholder="custom"
-                              className={`border px-2 py-1 text-xs ${customOutOfRange ? 'border-red-400' : 'border-line'}`}
+                              aria-label="Custom landed COGS"
+                              className={`border px-2 py-1 text-xs ${customAboveRange ? 'border-red-400' : customBelowRange ? 'border-amber-400' : 'border-line'}`}
                               style={{ width: 110 }}
                               data-testid={`pick-custom-input-${lineId}`}
                             />
-                            {customOutOfRange ? (
+                            {customAboveRange ? (
                               <span className="text-xs text-red-600" data-testid={`pick-custom-range-error-${lineId}`}>
-                                Must be ${moneyFmt(range.low)}–${moneyFmt(range.high)}
+                                Above range — max ${moneyFmt(range.high)}
                               </span>
+                            ) : null}
+                            {customBelowRange ? (
+                              <>
+                                <span className="text-xs text-amber-700" data-testid={`pick-custom-below-range-warning-${lineId}`}>
+                                  Below ${moneyFmt(range.low)} floor — pick reason:
+                                </span>
+                                <select
+                                  className="border border-line px-2 py-1 text-xs"
+                                  value={reasonChoice}
+                                  onChange={(event) =>
+                                    setCustomExceptionReason((current) => ({
+                                      ...current,
+                                      [lineId]: event.target.value as LandedCostExceptionReason | ''
+                                    }))
+                                  }
+                                  aria-label="Below-range exception reason"
+                                  data-testid={`pick-custom-exception-reason-${lineId}`}
+                                >
+                                  <option value="">Select reason…</option>
+                                  {landedCostExceptionReasons.map((reason) => (
+                                    <option key={reason} value={reason}>
+                                      {EXCEPTION_REASON_LABELS[reason]}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="text"
+                                  className="border border-line px-2 py-1 text-xs"
+                                  style={{ width: 180 }}
+                                  value={noteValue}
+                                  maxLength={500}
+                                  placeholder="optional note"
+                                  aria-label="Below-range exception note"
+                                  onChange={(event) =>
+                                    setCustomExceptionNote((current) => ({ ...current, [lineId]: event.target.value }))
+                                  }
+                                  data-testid={`pick-custom-exception-note-${lineId}`}
+                                />
+                              </>
                             ) : null}
                             <button
                               type="button"
                               className="text-button"
-                              disabled={isRunning || !customInRange}
+                              disabled={isRunning || !canSubmit}
                               onClick={() => {
-                                void setCogs(lineId, customNum, 'manual');
+                                const exception =
+                                  customBelowRange && reasonChoice !== ''
+                                    ? { reason: reasonChoice as LandedCostExceptionReason, note: noteValue }
+                                    : undefined;
+                                void setCogs(lineId, customNum, 'manual', exception);
                                 setCustomCogs((current) => ({ ...current, [lineId]: '' }));
+                                setCustomExceptionReason((current) => ({ ...current, [lineId]: '' }));
+                                setCustomExceptionNote((current) => ({ ...current, [lineId]: '' }));
                               }}
                               data-testid={`pick-custom-${lineId}`}
                             >

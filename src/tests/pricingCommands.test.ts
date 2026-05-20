@@ -113,7 +113,11 @@ describe('setLineLandedCost', () => {
     await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 150, basis: 'manual' }, 'cmd-2')).rejects.toThrow(/outside the batch COGS range/);
   });
 
-  it('rejects out-of-range below the floor', async () => {
+  it('rejects out-of-range below the floor when no exceptionReason is supplied', async () => {
+    // [#64 PR-1] Below-range without a structured exception reason still
+    // rejects, but the message now names the reason picker so operators know
+    // exactly how to unblock themselves. See pricing-floor exception tests
+    // below for the GREEN path (below-range + exceptionReason → allowed).
     const tx: any = {
       select: makeTxForSelect([
         () => [{ id: LINE_ID, batchId: BATCH_ID }],
@@ -122,7 +126,7 @@ describe('setLineLandedCost', () => {
       update: makeUpdate()
     };
 
-    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 10, basis: 'manual' }, 'cmd-3')).rejects.toThrow(/outside the batch COGS range/);
+    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 10, basis: 'manual' }, 'cmd-3')).rejects.toThrow(/below the batch COGS range/);
   });
 
   it('accepts any non-negative landed cost when batch has no priceRange', async () => {
@@ -164,6 +168,194 @@ describe('setLineLandedCost', () => {
     await expect(
       setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 50, basis: 'something-bogus' }, 'cmd-bad-basis')
     ).rejects.toThrow(/basis/i);
+  });
+
+  // ---------------------------------------------------------------------
+  // #64 PR-1: below-range landed COGS with structured exception reasons
+  // ---------------------------------------------------------------------
+
+  it('rejects below-range landed COGS when no structured exceptionReason is supplied', async () => {
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate()
+    };
+    // 25 is below the 50-100 floor — must reject and steer operator to the reason picker.
+    await expect(
+      setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 25, basis: 'manual' }, 'cmd-below-no-reason')
+    ).rejects.toThrow(/exception reason/i);
+  });
+
+  it('allows below-range landed COGS when a structured exceptionReason is supplied', async () => {
+    let updateValues: any = null;
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate((value) => (updateValues = value))
+    };
+
+    const result = await setLineLandedCost(
+      tx,
+      {
+        lineId: LINE_ID,
+        landedCost: 25,
+        basis: 'manual',
+        exceptionReason: 'keep-margin',
+        exceptionNote: 'Acme committed to absorb shortfall'
+      },
+      'cmd-below-with-reason'
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updateValues.unitCost).toBe('25.00');
+    expect(updateValues.unitCostResolved).toBe(true);
+    expect(updateValues.landedCostBasis).toBe('manual');
+
+    const delta = result.delta as Record<string, unknown>;
+    expect(delta).toMatchObject({ lineId: LINE_ID, landedCost: '25.00', basis: 'manual' });
+    const exception = delta.exception as Record<string, unknown>;
+    expect(exception).toMatchObject({
+      reason: 'keep-margin',
+      note: 'Acme committed to absorb shortfall',
+      belowRange: true,
+      priceRange: { low: 50, high: 100 }
+    });
+  });
+
+  it('still rejects ABOVE-range landed COGS even when an exceptionReason is supplied (above-range remains a hard reject in PR-1)', async () => {
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate()
+    };
+    await expect(
+      setLineLandedCost(
+        tx,
+        { lineId: LINE_ID, landedCost: 150, basis: 'manual', exceptionReason: 'take-loss' },
+        'cmd-above-with-reason'
+      )
+    ).rejects.toThrow(/outside the batch COGS range/);
+  });
+
+  it('rejects an unknown exceptionReason value before touching the line', async () => {
+    let updateCalled = false;
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: vi.fn(() => {
+        updateCalled = true;
+        return { set: vi.fn(() => ({ where: vi.fn(() => Promise.resolve()) })) };
+      })
+    };
+    await expect(
+      setLineLandedCost(
+        tx,
+        { lineId: LINE_ID, landedCost: 25, basis: 'manual', exceptionReason: 'not-a-real-reason' },
+        'cmd-below-bad-reason'
+      )
+    ).rejects.toThrow();
+    expect(updateCalled).toBe(false);
+  });
+
+  it('does NOT require exceptionReason for in-range pick-low/pick-mid/pick-high or in-range manual', async () => {
+    // Sequence of two select calls per setLineLandedCost invocation.
+    let updateValues: any = null;
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate((value) => (updateValues = value))
+    };
+    const result = await setLineLandedCost(
+      tx,
+      { lineId: LINE_ID, landedCost: 60, basis: 'manual' },
+      'cmd-in-range-manual'
+    );
+    expect(result.ok).toBe(true);
+    expect(updateValues.unitCostResolved).toBe(true);
+    const delta = result.delta as Record<string, unknown>;
+    expect(delta.exception).toBeUndefined();
+  });
+
+  // QA review finding #1: below-range success with exceptionReason but no
+  // exceptionNote must leave delta.exception.note absent (not "" or null).
+  // The journal consumer downstream relies on absence semantics, not falsy.
+  it('omits delta.exception.note when below-range succeeds with no exceptionNote', async () => {
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate()
+    };
+    const result = await setLineLandedCost(
+      tx,
+      { lineId: LINE_ID, landedCost: 30, basis: 'manual', exceptionReason: 'take-loss' },
+      'cmd-below-no-note'
+    );
+    expect(result.ok).toBe(true);
+    const exception = (result.delta as Record<string, unknown>).exception as Record<string, unknown>;
+    expect(exception.reason).toBe('take-loss');
+    expect(exception.belowRange).toBe(true);
+    expect('note' in exception).toBe(false);
+    expect(exception.note).toBeUndefined();
+  });
+
+  // QA review finding #2: success toast must carry the structured reason so
+  // operators see the audit context without opening the journal.
+  it('includes the structured reason in the success toast for below-range overrides', async () => {
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate()
+    };
+    const result = await setLineLandedCost(
+      tx,
+      { lineId: LINE_ID, landedCost: 25, basis: 'manual', exceptionReason: 'keep-margin' },
+      'cmd-below-toast'
+    );
+    expect(result.ok).toBe(true);
+    expect(result.toast).toMatch(/below-range override: keep-margin/);
+  });
+
+  // QA review finding #4: whitespace-only exceptionNote must normalize to
+  // absent. Schema .trim() makes "   " → "", and the command excludes empty
+  // notes from the delta. This test pins that contract end-to-end.
+  it('treats a whitespace-only exceptionNote as absent (not "" or "   ") in the delta', async () => {
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate()
+    };
+    const result = await setLineLandedCost(
+      tx,
+      {
+        lineId: LINE_ID,
+        landedCost: 25,
+        basis: 'manual',
+        exceptionReason: 'waive-margin',
+        exceptionNote: '     '
+      },
+      'cmd-below-whitespace-note'
+    );
+    expect(result.ok).toBe(true);
+    const exception = (result.delta as Record<string, unknown>).exception as Record<string, unknown>;
+    expect(exception.reason).toBe('waive-margin');
+    expect('note' in exception).toBe(false);
+    expect(exception.note).toBeUndefined();
   });
 });
 

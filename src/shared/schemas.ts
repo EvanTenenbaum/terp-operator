@@ -108,11 +108,35 @@ export const customerPricingRuleSchema = z.object({
   categories: z.record(pricingRuleEntrySchema).optional()
 });
 
+// [#64 PR-1] Structured exception reasons for BELOW-range landed COGS.
+// The operator vocabulary is fixed and small so the journal/report layer can
+// aggregate it. ABOVE-range landed COGS remains a hard reject in PR-1; it does
+// not gain an exception path here.
+//
+// Meanings (operator-facing):
+//   keep-margin             — taking a lower landed cost to protect the sale margin we already promised
+//   waive-margin            — accepting reduced margin to land the deal/volume
+//   take-loss               — knowingly booking below cost (e.g. spoilage avoidance, relationship spend)
+//   vendor-approval-pending — vendor has agreed/will agree to the lower landed cost; full vendor-bill workflow is downstream (PR-2)
+export const landedCostExceptionReasons = [
+  'keep-margin',
+  'waive-margin',
+  'take-loss',
+  'vendor-approval-pending'
+] as const;
+
+export type LandedCostExceptionReason = (typeof landedCostExceptionReasons)[number];
+
 export const setLineLandedCostPayloadSchema = z.object({
   lineId: z.string().uuid(),
   landedCost: z.coerce.number().min(0),
   basis: z.enum(['manual', 'pick-low', 'pick-mid', 'pick-high']).default('manual'),
-  reason: z.string().max(500).optional()
+  reason: z.string().max(500).optional(),
+  // Optional structured exception metadata. The command-bus enforces that
+  // exceptionReason is REQUIRED for below-range landed COGS and IGNORED for
+  // in-range and pick-* calls (see commandBus.setLineLandedCost).
+  exceptionReason: z.enum(landedCostExceptionReasons).optional(),
+  exceptionNote: z.string().trim().max(500).optional()
 });
 
 export const setCustomerPricingRulePayloadSchema = z.object({

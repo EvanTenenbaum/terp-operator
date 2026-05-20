@@ -114,6 +114,63 @@ describe('setLineLandedCostPayloadSchema', () => {
       })
     ).toThrow();
   });
+
+  // #64 PR-1: structured exception reasons for below-range landed COGS.
+  it('accepts a structured exceptionReason from the canonical enum', () => {
+    for (const reason of ['keep-margin', 'waive-margin', 'take-loss', 'vendor-approval-pending'] as const) {
+      const parsed = setLineLandedCostPayloadSchema.parse({
+        lineId: '11111111-1111-1111-1111-111111111111',
+        landedCost: 50,
+        basis: 'manual',
+        exceptionReason: reason
+      });
+      expect(parsed.exceptionReason).toBe(reason);
+    }
+  });
+
+  it('rejects an unknown exceptionReason string', () => {
+    expect(() =>
+      setLineLandedCostPayloadSchema.parse({
+        lineId: '11111111-1111-1111-1111-111111111111',
+        landedCost: 50,
+        basis: 'manual',
+        exceptionReason: 'because-i-said-so'
+      })
+    ).toThrow(/exceptionReason/i);
+  });
+
+  it('accepts an optional exceptionNote up to 500 chars', () => {
+    const parsed = setLineLandedCostPayloadSchema.parse({
+      lineId: '11111111-1111-1111-1111-111111111111',
+      landedCost: 50,
+      basis: 'manual',
+      exceptionReason: 'keep-margin',
+      exceptionNote: 'Below floor — Acme will absorb the shortfall to land the deal'
+    });
+    expect(parsed.exceptionNote).toBe('Below floor — Acme will absorb the shortfall to land the deal');
+  });
+
+  it('rejects an exceptionNote longer than 500 chars', () => {
+    expect(() =>
+      setLineLandedCostPayloadSchema.parse({
+        lineId: '11111111-1111-1111-1111-111111111111',
+        landedCost: 50,
+        basis: 'manual',
+        exceptionReason: 'take-loss',
+        exceptionNote: 'x'.repeat(501)
+      })
+    ).toThrow();
+  });
+
+  it('treats exceptionReason as optional (backward-compatible with in-range/pick-* calls)', () => {
+    const parsed = setLineLandedCostPayloadSchema.parse({
+      lineId: '11111111-1111-1111-1111-111111111111',
+      landedCost: 75,
+      basis: 'pick-mid'
+    });
+    expect(parsed.exceptionReason).toBeUndefined();
+    expect(parsed.exceptionNote).toBeUndefined();
+  });
 });
 
 describe('setCustomerPricingRulePayloadSchema', () => {

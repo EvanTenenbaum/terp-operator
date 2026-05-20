@@ -120,6 +120,101 @@ describe('OrderPricingPanel', () => {
     render(<OrderPricingPanel orderId={ORDER_ID} />);
     expect(screen.getByText(/No lines on this order yet/)).toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------
+  // #64 PR-1: below-range custom landed COGS UI — structured exception reasons
+  // ---------------------------------------------------------------------
+
+  function renderBelowRangeOrderPricingPanel() {
+    runCommandMock.mockClear();
+    linesQueryMock.mockReturnValue({
+      data: [
+        {
+          id: 'line-1',
+          itemName: 'Range A',
+          status: 'draft',
+          batchCategory: 'Flower',
+          qty: '1',
+          unitPrice: '0',
+          unitCost: '0',
+          unitCostResolved: false,
+          landedCostBasis: null,
+          priceRange: '50-100'
+        }
+      ],
+      refetch: vi.fn()
+    });
+    referenceQueryMock.mockReturnValue({ data: { defaultPricingRule: {} } });
+    relationshipQueryMock.mockReturnValue({ data: { customer: { pricingRule: {} } } });
+    render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} />);
+  }
+
+  it('shows an exception reason picker when the custom landed COGS is below the batch range floor', () => {
+    renderBelowRangeOrderPricingPanel();
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '25' } });
+    // Picker is only visible/relevant once value drops below the floor.
+    expect(screen.getByTestId('pick-custom-exception-reason-line-1')).toBeInTheDocument();
+  });
+
+  it('disables Set custom for below-range value until an exception reason is chosen', () => {
+    renderBelowRangeOrderPricingPanel();
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '25' } });
+    const setBtn = screen.getByTestId('pick-custom-line-1') as HTMLButtonElement;
+    expect(setBtn.disabled).toBe(true);
+    fireEvent.change(screen.getByTestId('pick-custom-exception-reason-line-1'), { target: { value: 'keep-margin' } });
+    expect(setBtn.disabled).toBe(false);
+  });
+
+  it('calls setLineLandedCost with exceptionReason + exceptionNote when below-range custom is committed', async () => {
+    renderBelowRangeOrderPricingPanel();
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '25' } });
+    fireEvent.change(screen.getByTestId('pick-custom-exception-reason-line-1'), { target: { value: 'waive-margin' } });
+    fireEvent.change(screen.getByTestId('pick-custom-exception-note-line-1'), { target: { value: 'Held to win volume' } });
+    fireEvent.click(screen.getByTestId('pick-custom-line-1'));
+
+    expect(runCommandMock).toHaveBeenCalledWith(
+      'setLineLandedCost',
+      {
+        lineId: 'line-1',
+        landedCost: 25,
+        basis: 'manual',
+        exceptionReason: 'waive-margin',
+        exceptionNote: 'Held to win volume'
+      },
+      expect.any(String)
+    );
+  });
+
+  it('still blocks above-range custom value (Set custom disabled, no reason picker rescues it)', () => {
+    renderBelowRangeOrderPricingPanel();
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '150' } });
+    const setBtn = screen.getByTestId('pick-custom-line-1') as HTMLButtonElement;
+    expect(setBtn.disabled).toBe(true);
+    // No reason picker for above-range (above-range is a hard reject in PR-1).
+    expect(screen.queryByTestId('pick-custom-exception-reason-line-1')).not.toBeInTheDocument();
+  });
+
+  it('does NOT show the exception reason picker for an in-range custom value', () => {
+    renderBelowRangeOrderPricingPanel();
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '75' } });
+    expect(screen.queryByTestId('pick-custom-exception-reason-line-1')).not.toBeInTheDocument();
+    const setBtn = screen.getByTestId('pick-custom-line-1') as HTMLButtonElement;
+    expect(setBtn.disabled).toBe(false);
+  });
+
+  // QA review finding #3: assistive-tech users need programmatic labels on
+  // the new below-range exception controls. data-testid identifiers are not
+  // exposed to screen readers, so we assert accessible names directly.
+  it('labels the below-range exception reason select and note input for screen readers', () => {
+    renderBelowRangeOrderPricingPanel();
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '25' } });
+    expect(screen.getByLabelText(/below-range exception reason/i)).toBe(
+      screen.getByTestId('pick-custom-exception-reason-line-1')
+    );
+    expect(screen.getByLabelText(/below-range exception note/i)).toBe(
+      screen.getByTestId('pick-custom-exception-note-line-1')
+    );
+  });
 });
 
 describe('CustomerPricingPanel', () => {
