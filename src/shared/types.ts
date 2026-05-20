@@ -90,6 +90,17 @@ export interface SessionUser {
   name: string;
   email: string;
   role: Role;
+  /**
+   * Explicit work-loop assignment (`sales` | `intake` | `warehouse` | `operator`).
+   *
+   * Set by operators/admins via the user record. When null/undefined, the
+   * client falls back to the legacy substring derivation on email/name (see
+   * `legacyWorkLoopFromSubstring` in `src/client/accessPolicy.ts`) so users
+   * without an explicit backfill don't lose their navigation. New users
+   * created post-migration `0044_users_work_loop.sql` should always have this
+   * set explicitly.
+   */
+  workLoop: string | null;
 }
 
 export interface CommandResult {

@@ -15,7 +15,7 @@ import type { Role, SessionUser } from '../../shared/types';
  */
 
 function makeUser(role: Role): SessionUser {
-  return { id: '00000000-0000-0000-0000-000000000001', name: 'Test', email: 't@x', role };
+  return { id: '00000000-0000-0000-0000-000000000001', name: 'Test', email: 't@x', role, workLoop: null };
 }
 
 function makeCaller(role: Role | null) {
