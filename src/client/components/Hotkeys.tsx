@@ -124,7 +124,7 @@ export function Hotkeys() {
             ownershipStatus: row.ownershipStatus,
             location: row.location,
             status: 'draft'
-          });
+          }, 'Hotkey duplicate intake row');
         }
       }
       if (event.altKey && event.shiftKey && event.key.toLowerCase() === 'r') {

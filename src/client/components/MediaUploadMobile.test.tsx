@@ -106,7 +106,8 @@ describe('MediaUploadMobile', () => {
         isPrimary: false,
         thumbnailPath: '/uploads/thumbs/file-1.jpg',
         mediumPath: '/uploads/medium/file-1.jpg'
-      })
+      }),
+      'Upload batch media from mobile capture'
     );
   });
 

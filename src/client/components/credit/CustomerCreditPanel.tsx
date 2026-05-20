@@ -369,7 +369,7 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
               type="button"
               className="secondary-button"
               onClick={() =>
-                runCommand('revertCustomerCreditToEngine', { customerId })
+                runCommand('revertCustomerCreditToEngine', { customerId }, 'Revert manual credit limit to engine')
               }
               disabled={isRunning}
             >
@@ -384,7 +384,7 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
                 runCommand('snoozeCustomerCreditReminder', {
                   customerId,
                   newReminderDays: 60,
-                })
+                }, 'Snooze customer credit reminder by 60 days')
               }
               disabled={isRunning}
             >

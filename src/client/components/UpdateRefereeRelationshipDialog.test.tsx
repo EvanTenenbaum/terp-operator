@@ -50,7 +50,8 @@ describe('UpdateRefereeRelationshipDialog', () => {
     await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(runCommand).toHaveBeenCalledWith(
       'updateRefereeRelationship',
-      expect.objectContaining({ relationshipId: 'rel-1', feeType: 'percentage' })
+      expect.objectContaining({ relationshipId: 'rel-1', feeType: 'percentage' }),
+      'Update referee relationship'
     );
   });
 

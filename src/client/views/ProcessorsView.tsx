@@ -73,7 +73,7 @@ export function ProcessorsView() {
       feeFixedAmount,
       defaultUserSplit,
       defaultProcessorSplit
-    });
+    }, 'Create payment processor from processors view');
   }
 
   return (

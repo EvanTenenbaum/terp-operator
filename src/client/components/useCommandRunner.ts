@@ -72,11 +72,15 @@ export function useCommandRunner() {
   });
 
   return {
+    // `reason` is mandatory: every command write is journaled with actor +
+    // idempotency key + reason (issue #25). Callers that legitimately lack
+    // a user-supplied reason MUST still pass an explicit internal default
+    // (e.g. `Internal: ${commandName}`) so the audit row is never NULL.
     runCommand: (name: CommandName, payload: Record<string, unknown> = {}, reason?: string) =>
       mutation.mutateAsync({
         name,
         payload,
-        reason,
+        reason: reason && reason.trim().length >= 3 ? reason : `Internal: ${name}`,
         idempotencyKey: `${name}-${crypto.randomUUID()}`
       }),
     isRunning: mutation.isLoading

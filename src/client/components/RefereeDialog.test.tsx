@@ -47,7 +47,8 @@ describe('RefereeDialog', () => {
     await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(runCommand).toHaveBeenCalledWith(
       'updateReferee',
-      expect.objectContaining({ refereeId: 'ref-1', name: 'Jane Doe' })
+      expect.objectContaining({ refereeId: 'ref-1', name: 'Jane Doe' }),
+      'Update referee profile'
     );
   });
 

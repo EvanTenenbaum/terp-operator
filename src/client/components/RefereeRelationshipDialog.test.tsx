@@ -149,7 +149,8 @@ describe('RefereeRelationshipDialog', () => {
         entityId: 'cust-1',
         feeType: 'percentage',
         feePercentage: 5
-      })
+      }),
+      expect.any(String)
     );
     expect(window.alert).not.toHaveBeenCalled();
   });

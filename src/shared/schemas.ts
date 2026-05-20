@@ -16,7 +16,16 @@ export const loginSchema = z.object({
 export const commandInputSchema = z.object({
   name: commandNameSchema,
   idempotencyKey: z.string().min(8, 'Idempotency key is required for every write.'),
-  reason: z.string().max(500).optional(),
+  // Every command write must record a non-trivial reason for the immutable
+  // audit journal (see issue #25). Direct-API callers and the tRPC
+  // `commands.run` mutation both validate against this schema; if `reason` is
+  // missing, blank, or shorter than 3 characters, the request is rejected
+  // before any side effects are taken.
+  reason: z
+    .string()
+    .trim()
+    .min(3, 'Reason must be at least 3 characters and explain why the command was issued.')
+    .max(500, 'Reason must be 500 characters or fewer.'),
   payload: z.record(z.unknown()).default({})
 });
 

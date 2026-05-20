@@ -32,7 +32,8 @@ describe('RecordPrepaymentDialog', () => {
     await user.click(screen.getByRole('button', { name: /record prepayment/i }));
     expect(runCommand).toHaveBeenCalledWith(
       'recordVendorPrepayment',
-      expect.objectContaining({ purchaseOrderId: 'po-1' })
+      expect.objectContaining({ purchaseOrderId: 'po-1' }),
+      'Record vendor prepayment for purchase order'
     );
   });
 

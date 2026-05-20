@@ -84,7 +84,7 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
               thumbnailPath: data.thumbnailPath,
               mediumPath: data.mediumPath,
               isPrimary: false
-            });
+            }, 'Upload batch media from mobile capture');
             if (!mountedRef.current) return;
             const mediaId = commandResult.affectedIds?.[0];
             setResult({

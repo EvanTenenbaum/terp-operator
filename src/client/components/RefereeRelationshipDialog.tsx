@@ -78,7 +78,7 @@ export function RefereeRelationshipDialog({ refereeId, refereeName, onClose }: R
       payload.feeFixedAmount = parseFloat(feeFixedAmount);
     }
 
-    const result = await runCommand('addRefereeRelationship', payload);
+    const result = await runCommand('addRefereeRelationship', payload, 'Add referee relationship');
     if (result.ok) {
       onClose();
     }
