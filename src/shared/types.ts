@@ -38,7 +38,7 @@ export type Status =
 export type OwnershipStatus = 'C' | 'OFC' | 'UNKNOWN';
 export type ArrivalStatus = 'pending' | 'arrived' | 'cancelled';
 export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut' | 'customerNeed' | 'vendorSupply';
-export type SettingsTab = 'requests' | 'actions' | 'archive' | 'strain-aliases';
+export type SettingsTab = 'requests' | 'actions' | 'archive' | 'strain-aliases' | 'pricing';
 
 export type PaymentMethod = 'cash' | 'check' | 'card' | 'crypto' | 'wire';
 
@@ -129,4 +129,25 @@ export interface GridRow {
   status?: Status;
   validationIssues?: string[];
   [key: string]: unknown;
+}
+
+export type PricingBasis = 'percent' | 'dollar';
+
+export interface PricingRuleEntry {
+  basis: PricingBasis;
+  amount: number;
+}
+
+export interface CustomerPricingRule {
+  default?: PricingRuleEntry;
+  categories?: Record<string, PricingRuleEntry>;
+}
+
+export type LandedCostBasisName = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual' | 'override';
+
+export interface PricingRuleApplication {
+  basis: PricingBasis;
+  amount: number;
+  source: 'customer-category' | 'customer-default' | 'settings-category' | 'settings-default' | 'fallback';
+  category?: string;
 }

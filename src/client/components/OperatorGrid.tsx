@@ -1,7 +1,20 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { CellValueChangedEvent, ColDef, GridApi, GridReadyEvent, SideBarDef, ValueGetterParams, ICellRendererParams } from 'ag-grid-community';
-import { Download, Search } from 'lucide-react';
+import type {
+  CellValueChangedEvent,
+  ColDef,
+  ColumnMovedEvent,
+  ColumnPinnedEvent,
+  ColumnResizedEvent,
+  ColumnVisibleEvent,
+  GridApi,
+  GridReadyEvent,
+  ICellRendererParams,
+  SideBarDef,
+  SortChangedEvent,
+  ValueGetterParams
+} from 'ag-grid-community';
+import { Columns3, Download, RotateCcw, Search, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { EmptyState } from './EmptyState';
 import { IssueSidecar } from './IssueSidecar';
@@ -14,6 +27,16 @@ import { ExpansionPanel } from './ExpansionPanel';
 import { ExpansionChevronCell } from './ExpansionChevronColumn';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow, ViewKey } from '../../shared/types';
+import {
+  applyGridFilter,
+  columnIdentities,
+  columnStateToPrefs,
+  filterChips,
+  mergeColumnDefsWithPrefs,
+  parseGridFilter,
+  removeFilterChip,
+  serializeGridFilter
+} from './gridFilterUtils';
 
 interface OperatorGridProps {
   view: ViewKey;
@@ -28,6 +51,7 @@ interface OperatorGridProps {
   onCellCommit?: (event: CellValueChangedEvent<GridRow>) => void;
   emptyTitle?: string;
   emptyChildren?: ReactNode;
+  tableKey?: string;
   expansionConfig?: {
     enabled: boolean;
     actionsRenderer?: (row: GridRow) => ReactNode;
@@ -37,7 +61,22 @@ interface OperatorGridProps {
   };
 }
 
-export function OperatorGrid({ view, title, subtitle, rows, columns, loading, actions, selectionActions, onSelectionChange, onCellCommit, emptyTitle, emptyChildren, expansionConfig }: OperatorGridProps) {
+export function OperatorGrid({
+  view,
+  title,
+  subtitle,
+  rows,
+  columns,
+  loading,
+  actions,
+  selectionActions,
+  onSelectionChange,
+  onCellCommit,
+  emptyTitle,
+  emptyChildren,
+  tableKey,
+  expansionConfig
+}: OperatorGridProps) {
   const apiRef = useRef<GridApi<GridRow> | null>(null);
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
@@ -47,10 +86,17 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
   const [issueRow, setIssueRow] = useState<GridRow | null>(null);
   const storedGridFilter = useUiStore((state) => state.gridFilters[view] ?? '');
   const setStoredGridFilter = useUiStore((state) => state.setGridFilter);
+  const resolvedTableKey = tableKey ?? `view:${view}`;
+  const storedColumnPrefs = useUiStore((state) => state.gridColumnPrefs[resolvedTableKey]);
+  const setGridColumnPrefs = useUiStore((state) => state.setGridColumnPrefs);
+  const resetGridColumnPrefs = useUiStore((state) => state.resetGridColumnPrefs);
   const [quickFilter, setQuickFilter] = useState(storedGridFilter);
   const parsedFilter = useMemo(() => parseGridFilter(quickFilter), [quickFilter]);
   const renderedRows = useMemo(() => applyGridFilter(rows, parsedFilter), [parsedFilter, rows]);
   const panelId = useMemo(() => `grid:${view}:${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [title, view]);
+
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
+
   const defaultColDef = useMemo<ColDef<GridRow>>(
     () => ({
       sortable: true,
@@ -66,10 +112,13 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
     }),
     []
   );
-  const columnDefs = useMemo<ColDef<GridRow>[]>(() => {
-    const baseColumns = withRowNumbers(withStatusRenderer(columns, canWrite));
 
-    // Add chevron column if expansion is enabled
+  const columnDefs = useMemo<ColDef<GridRow>[]>(() => {
+    const baseColumns = mergeColumnDefsWithPrefs(
+      withRowNumbers(withStatusRenderer(columns, canWrite)),
+      storedColumnPrefs
+    );
+
     if (expansionConfig?.enabled) {
       const chevronColumn: ColDef<GridRow> = {
         colId: 'expansion-chevron',
@@ -97,7 +146,11 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
     }
 
     return baseColumns;
-  }, [canWrite, columns, expansionConfig?.enabled]);
+  }, [canWrite, columns, expansionConfig?.enabled, storedColumnPrefs]);
+
+  const columnIdents = useMemo(() => columnIdentities(columns), [columns]);
+  const chips = useMemo(() => filterChips(parsedFilter), [parsedFilter]);
+
   const rowSelection = useMemo(
     () => ({
       mode: 'multiRow' as const,
@@ -115,6 +168,37 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
     apiRef.current?.setGridOption('quickFilterText', parseGridFilter(storedGridFilter).freeText);
   }, [storedGridFilter]);
 
+  const writeQuickFilter = useCallback(
+    (next: string) => {
+      setQuickFilter(next);
+      setStoredGridFilter(view, next);
+      apiRef.current?.setGridOption('quickFilterText', parseGridFilter(next).freeText);
+    },
+    [setStoredGridFilter, view]
+  );
+
+  const persistColumnState = useCallback(() => {
+    if (!apiRef.current) return;
+    const state = apiRef.current.getColumnState() as Parameters<typeof columnStateToPrefs>[0];
+    setGridColumnPrefs(resolvedTableKey, columnStateToPrefs(state));
+  }, [resolvedTableKey, setGridColumnPrefs]);
+
+  const setColumnHidden = useCallback(
+    (colId: string, hide: boolean) => {
+      apiRef.current?.setColumnsVisible([colId], !hide);
+      persistColumnState();
+    },
+    [persistColumnState]
+  );
+
+  const removeChip = useCallback(
+    (field: string, value: string) => {
+      const next = removeFilterChip(parsedFilter, field, value);
+      writeQuickFilter(serializeGridFilter(next));
+    },
+    [parsedFilter, writeQuickFilter]
+  );
+
   return (
     <WorkspacePanel
       panelId={panelId}
@@ -126,21 +210,42 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
             <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
             <input
               className="h-full w-44 bg-transparent outline-none"
-              placeholder="Filter grid"
+              placeholder="Filter grid (field:value)"
               value={quickFilter}
-              onChange={(event) => {
-                setQuickFilter(event.target.value);
-                setStoredGridFilter(view, event.target.value);
-                apiRef.current?.setGridOption('quickFilterText', parseGridFilter(event.target.value).freeText);
-              }}
+              onChange={(event) => writeQuickFilter(event.target.value)}
             />
           </label>
           {canWrite ? actions : null}
+          <div className="relative">
+            <button
+              type="button"
+              className="icon-button"
+              title="Columns"
+              aria-haspopup="menu"
+              aria-expanded={columnsMenuOpen}
+              onClick={() => setColumnsMenuOpen((prev) => !prev)}
+            >
+              <Columns3 className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">Columns</span>
+            </button>
+            {columnsMenuOpen ? (
+              <ColumnsMenu
+                identities={columnIdents}
+                hiddenById={hiddenColumnsByPrefs(storedColumnPrefs)}
+                onToggle={setColumnHidden}
+                onReset={() => {
+                  resetGridColumnPrefs(resolvedTableKey);
+                  apiRef.current?.resetColumnState();
+                }}
+                onClose={() => setColumnsMenuOpen(false)}
+              />
+            ) : null}
+          </div>
           <button
             type="button"
             className="icon-button"
             title="Export visible grid CSV"
-            onClick={() => apiRef.current?.exportDataAsCsv({ fileName: `terp-agro-${view}.csv` })}
+            onClick={() => apiRef.current?.exportDataAsCsv({ fileName: `terp-operator-${view}.csv` })}
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only">Export visible grid CSV</span>
@@ -148,6 +253,26 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
         </>
       }
     >
+      {chips.length ? (
+        <div className="flex flex-wrap items-center gap-1 px-2 py-1" data-testid="grid-filter-chips">
+          {chips.map((chip) => (
+            <button
+              key={`${chip.field}:${chip.value}`}
+              type="button"
+              className="selection-pill"
+              title="Remove filter"
+              onClick={() => removeChip(chip.field, chip.value)}
+            >
+              {chip.field}:{chip.value}
+              <X className="ml-1 inline h-3 w-3" aria-hidden="true" />
+            </button>
+          ))}
+          <button type="button" className="icon-button" title="Clear filters" onClick={() => writeQuickFilter('')}>
+            <RotateCcw className="h-3 w-3" aria-hidden="true" />
+            <span className="sr-only">Clear filters</span>
+          </button>
+        </div>
+      ) : null}
       <div className="ag-theme-quartz grid-shell">
         {renderedRows.length || loading ? (
           <AgGridReact<GridRow>
@@ -178,7 +303,6 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
             isRowMaster={(dataItem) => {
               if (!expansionConfig?.enabled) return false;
               if (expansionConfig.isRowMaster) return expansionConfig.isRowMaster(dataItem);
-              // Default: any row with actions/history/children can expand
               return Boolean(
                 expansionConfig.actionsRenderer ||
                 expansionConfig.historyRenderer ||
@@ -188,8 +312,19 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
             onGridReady={(event: GridReadyEvent<GridRow>) => {
               apiRef.current = event.api;
               event.api.setGridOption('quickFilterText', parsedFilter.freeText);
-              event.api.sizeColumnsToFit();
+              if (storedColumnPrefs?.length) {
+                event.api.applyColumnState({ state: storedColumnPrefs as Parameters<typeof event.api.applyColumnState>[0]['state'], applyOrder: true });
+              } else {
+                event.api.sizeColumnsToFit();
+              }
             }}
+            onColumnMoved={(_event: ColumnMovedEvent<GridRow>) => persistColumnState()}
+            onColumnResized={(event: ColumnResizedEvent<GridRow>) => {
+              if (event.finished) persistColumnState();
+            }}
+            onColumnVisible={(_event: ColumnVisibleEvent<GridRow>) => persistColumnState()}
+            onColumnPinned={(_event: ColumnPinnedEvent<GridRow>) => persistColumnState()}
+            onSortChanged={(_event: SortChangedEvent<GridRow>) => persistColumnState()}
             onSelectionChanged={() => {
               const selected = apiRef.current?.getSelectedRows() ?? [];
               setSelectedRows(selected);
@@ -209,35 +344,70 @@ export function OperatorGrid({ view, title, subtitle, rows, columns, loading, ac
   );
 }
 
-interface ParsedGridFilter {
-  freeText: string;
-  fields: Record<string, string[]>;
-}
-
-function parseGridFilter(value: string): ParsedGridFilter {
-  const fields: Record<string, string[]> = {};
-  const freeText: string[] = [];
-  for (const part of value.split(/\s+/).filter(Boolean)) {
-    const [rawKey, ...rawRest] = part.split(':');
-    const rest = rawRest.join(':');
-    if (rawKey && rest) {
-      fields[rawKey] = rest.split(',').map((entry) => entry.trim().toLowerCase()).filter(Boolean);
-    } else {
-      freeText.push(part);
-    }
+function hiddenColumnsByPrefs(prefs: ReturnType<typeof useUiStore.getState>['gridColumnPrefs'][string] | undefined) {
+  const hidden = new Set<string>();
+  for (const pref of prefs ?? []) {
+    if (pref.hide) hidden.add(pref.colId);
   }
-  return { freeText: freeText.join(' '), fields };
+  return hidden;
 }
 
-function applyGridFilter(rows: GridRow[], filter: ParsedGridFilter) {
-  const entries = Object.entries(filter.fields);
-  if (!entries.length) return rows;
-  return rows.filter((row) =>
-    entries.every(([field, allowed]) => {
-      if (!allowed.length) return true;
-      const value = String(row[field] ?? '').toLowerCase();
-      return allowed.some((candidate) => value === candidate || value.includes(candidate));
-    })
+function ColumnsMenu({
+  identities,
+  hiddenById,
+  onToggle,
+  onReset,
+  onClose
+}: {
+  identities: Array<{ id: string; label: string }>;
+  hiddenById: Set<string>;
+  onToggle: (id: string, hide: boolean) => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="menu"
+      className="inline-panel"
+      style={{
+        position: 'absolute',
+        right: 0,
+        top: '2rem',
+        zIndex: 30,
+        minWidth: '220px',
+        maxHeight: '320px',
+        overflow: 'auto',
+        background: 'white',
+        border: '1px solid var(--line, #e4e4e7)',
+        padding: '0.5rem'
+      }}
+      onMouseLeave={onClose}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <strong className="text-xs uppercase tracking-wide">Columns</strong>
+        <button type="button" className="icon-button" onClick={onReset} title="Reset column layout">
+          <RotateCcw className="h-3 w-3" aria-hidden="true" />
+          <span className="sr-only">Reset</span>
+        </button>
+      </div>
+      <ul className="text-sm">
+        {identities.map((col) => {
+          const hidden = hiddenById.has(col.id);
+          return (
+            <li key={col.id}>
+              <label className="flex items-center gap-2 py-0.5">
+                <input
+                  type="checkbox"
+                  checked={!hidden}
+                  onChange={(event) => onToggle(col.id, !event.target.checked)}
+                />
+                <span>{col.label || col.id}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

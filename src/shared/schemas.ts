@@ -66,6 +66,9 @@ export const salesOrderPayloadSchema = z.object({
   batchId: z.string().uuid().optional(),
   qty: z.coerce.number().positive().optional(),
   unitPrice: z.coerce.number().min(0).optional(),
+  unitCost: z.coerce.number().min(0).optional(),
+  landedCost: z.coerce.number().min(0).optional(),
+  landedCostBasis: z.enum(['fixed', 'pick-low', 'pick-mid', 'pick-high', 'manual', 'override']).optional(),
   strategy: z.string().optional(),
   deliveryWindow: z.string().optional(),
   sourceRowKey: z.string().optional(),
@@ -76,6 +79,32 @@ export const salesOrderPayloadSchema = z.object({
   paymentFollowup: z.boolean().optional(),
   notes: z.string().optional(),
   status: z.string().optional()
+});
+
+export const pricingRuleEntrySchema = z.object({
+  basis: z.enum(['percent', 'dollar']),
+  amount: z.coerce.number().min(0).max(1000)
+});
+
+export const customerPricingRuleSchema = z.object({
+  default: pricingRuleEntrySchema.optional(),
+  categories: z.record(pricingRuleEntrySchema).optional()
+});
+
+export const setLineLandedCostPayloadSchema = z.object({
+  lineId: z.string().uuid(),
+  landedCost: z.coerce.number().min(0),
+  basis: z.enum(['manual', 'pick-low', 'pick-mid', 'pick-high', 'override']).default('manual'),
+  reason: z.string().max(500).optional()
+});
+
+export const setCustomerPricingRulePayloadSchema = z.object({
+  customerId: z.string().uuid(),
+  pricingRule: customerPricingRuleSchema
+});
+
+export const setDefaultPricingRulePayloadSchema = z.object({
+  pricingRule: customerPricingRuleSchema
 });
 
 export const paymentPayloadSchema = z.object({

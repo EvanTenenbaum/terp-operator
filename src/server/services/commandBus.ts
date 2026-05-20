@@ -39,6 +39,7 @@ import {
   refereeCredits,
   salesOrderLines,
   salesOrders,
+  systemSettings,
   tagCatalog,
   transactionTypes,
   vendorBills,
@@ -50,8 +51,12 @@ import { assertCommandAccess } from '../rbac';
 import { appendJsonlJournal } from './journal';
 import { rowsToCsv, validateBatchCsv } from './csv';
 import { getCloseoutSafety } from './closeout';
-import { evaluatePrice, resolvePricingProfile } from './pricing';
-import { commandInputSchema } from '../../shared/schemas';
+import { applyPricingRule, asCustomerPricingRule, evaluatePrice, resolvePricingProfile, resolvePricingRuleEntry } from './pricing';
+import {
+  commandInputSchema,
+  customerPricingRuleSchema,
+  setLineLandedCostPayloadSchema
+} from '../../shared/schemas';
 import {
   accrueRefereeCredit,
   processRefereePayout,
@@ -72,7 +77,7 @@ import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
 import { normalizeTagSlug, parseTagInput } from '../../shared/tags';
-import { validateCostRange, rangeMidpoint } from '../../shared/priceRange';
+import { isLandedCostInRange, parsePriceRange, rangeMidpoint, validateCostRange } from '../../shared/priceRange';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -457,6 +462,12 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return markUserFeeCollected(tx, payload, commandId);
     case 'updateProcessorFeeStatus':
       return updateProcessorFeeStatus(tx, payload, commandId);
+    case 'setLineLandedCost':
+      return setLineLandedCost(tx, payload, commandId);
+    case 'setCustomerPricingRule':
+      return setCustomerPricingRule(tx, payload, commandId);
+    case 'setDefaultPricingRule':
+      return setDefaultPricingRule(tx, payload, commandId);
   }
 }
 
@@ -1651,6 +1662,7 @@ async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): P
   const unitPrice = payload.unitPrice != null ? requiredNumber(payload.unitPrice, 'unitPrice') : Number(batch?.unitPrice ?? 0);
   const validationIssues = salesLineValidationIssues({ ...payload, batchId: batch?.id ?? null, itemName, qty, unitPrice });
   const displayName = batch?.itemId ? (await resolveItemAlias(tx, batch.itemId)) ?? itemName : itemName;
+  const hasRange = Boolean(batch?.priceRange && parsePriceRange(batch.priceRange));
   const [line] = await tx
     .insert(salesOrderLines)
     .values({
@@ -1665,6 +1677,8 @@ async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): P
       unresolvedSourceText: unresolvedSourceText || null,
       legacyStatusMarker: stringValue(payload.legacyStatusMarker) || null,
       validationIssues,
+      unitCostResolved: !hasRange,
+      landedCostBasis: hasRange ? null : 'fixed',
       status: validationIssues.length ? 'needs_fix' : 'draft'
     })
     .returning();
@@ -1707,8 +1721,13 @@ async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
       values.unitCost = batch.unitCost;
       values.sourceRowKey = stringValue(payload.sourceRowKey) || batch.batchCode;
       values.unresolvedSourceText = null;
+      const newHasRange = Boolean(batch.priceRange && parsePriceRange(batch.priceRange));
+      values.unitCostResolved = !newHasRange;
+      values.landedCostBasis = newHasRange ? null : 'fixed';
     } else {
       values.batchId = null;
+      values.unitCostResolved = true;
+      values.landedCostBasis = 'fixed';
     }
   }
   copyIfPresent(values, 'itemName', payload.itemName);
@@ -1756,15 +1775,39 @@ async function reserveInventoryForOrder(tx: Tx, payload: Payload, commandId: str
   return { ok: true, commandId, affectedIds: affected, toast: 'Inventory reserved for order.' };
 }
 
-async function priceSalesOrder(tx: Tx, payload: Payload, commandId: string, toast = 'Sales order priced.'): Promise<CommandResult> {
+export async function priceSalesOrder(tx: Tx, payload: Payload, commandId: string, toast = 'Sales order priced.'): Promise<CommandResult> {
   const orderId = requiredId(payload.orderId, 'orderId');
   const strategy = stringValue(payload.strategy) || 'standard';
-  const multiplier = strategy === 'premium' ? 1.08 : strategy === 'clearance' ? 0.92 : 1;
   const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
   if (!order) throw new Error('Sales order not found.');
   const [customer] = order.customerId ? await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1) : [];
-  const profile = resolvePricingProfile(strategy, customer?.tags ?? []);
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+
+  if (strategy === 'customer-rule') {
+    const unresolved = lines.find((line: typeof salesOrderLines.$inferSelect) => !line.unitCostResolved);
+    if (unresolved) throw new Error(`${unresolved.itemName} has unresolved landed COGS. Resolve every range-priced line before applying the customer pricing rule.`);
+    const customerRule = asCustomerPricingRule(customer?.pricingRule ?? null);
+    const defaultsRule = await loadDefaultPricingRule(tx);
+    const ruleAppliedLines: Array<Record<string, unknown>> = [];
+    for (const line of lines) {
+      const category = await categoryForLine(tx, line);
+      const rule = resolvePricingRuleEntry(customerRule, defaultsRule, category);
+      const finalUnitPrice = applyPricingRule(Number(line.unitCost), rule);
+      await tx.update(salesOrderLines).set({ unitPrice: moneyScale(finalUnitPrice), updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
+      ruleAppliedLines.push({ lineId: line.id, itemName: line.itemName, ruleSource: rule.source, unitPrice: moneyScale(finalUnitPrice) });
+    }
+    await recalcOrder(tx, orderId, strategy);
+    return {
+      ok: true,
+      commandId,
+      affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)],
+      toast: `${toast} Customer pricing rule applied to ${ruleAppliedLines.length} line(s).`,
+      delta: { strategy, ruleAppliedLines }
+    };
+  }
+
+  const multiplier = strategy === 'premium' ? 1.08 : strategy === 'clearance' ? 0.92 : 1;
+  const profile = resolvePricingProfile(strategy, customer?.tags ?? []);
   const guardrailHits: Array<Record<string, unknown>> = [];
   for (const line of lines) {
     const base = Number(line.unitPrice);
@@ -1787,7 +1830,103 @@ async function priceSalesOrder(tx: Tx, payload: Payload, commandId: string, toas
   };
 }
 
-async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+async function loadDefaultPricingRule(tx: Tx) {
+  const rows = await tx.select().from(systemSettings).where(eq(systemSettings.key, 'pricing.defaults')).limit(1);
+  return asCustomerPricingRule(rows[0]?.value ?? null);
+}
+
+async function categoryForLine(tx: Tx, line: typeof salesOrderLines.$inferSelect): Promise<string | undefined> {
+  if (!line.batchId) return undefined;
+  const [batch] = await tx.select({ category: batches.category }).from(batches).where(eq(batches.id, line.batchId)).limit(1);
+  return batch?.category ?? undefined;
+}
+
+export async function setLineLandedCost(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const lineId = requiredId(payload.lineId, 'lineId');
+  const landedCost = Number(payload.landedCost);
+  if (!Number.isFinite(landedCost) || landedCost < 0) throw new Error('Landed cost must be a non-negative number.');
+  const basisRaw = stringValue(payload.basis) || 'manual';
+  const basisParse = setLineLandedCostPayloadSchema.shape.basis.safeParse(basisRaw);
+  if (!basisParse.success) {
+    throw new Error(`Invalid landed cost basis: ${basisRaw}. Allowed: manual, pick-low, pick-mid, pick-high, override.`);
+  }
+  const basis = basisParse.data;
+  const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Sales order line not found.');
+  if (line.batchId) {
+    const [batch] = await tx.select({ priceRange: batches.priceRange }).from(batches).where(eq(batches.id, line.batchId)).limit(1);
+    const range = parsePriceRange(batch?.priceRange ?? null);
+    if (range && !isLandedCostInRange(landedCost, batch.priceRange)) {
+      throw new Error(`Landed cost $${landedCost.toFixed(2)} is outside the batch COGS range $${range.low}–$${range.high}.`);
+    }
+  }
+  await tx
+    .update(salesOrderLines)
+    .set({ unitCost: moneyScale(landedCost), unitCostResolved: true, landedCostBasis: basis, updatedAt: new Date() })
+    .where(eq(salesOrderLines.id, lineId));
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [lineId],
+    toast: `Landed COGS resolved to $${landedCost.toFixed(2)} (${basis}).`,
+    delta: { lineId, landedCost: moneyScale(landedCost), basis }
+  };
+}
+
+export async function setCustomerPricingRule(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const pricingRule = validatePricingRulePayload(payload.pricingRule);
+  const [existing] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!existing) throw new Error('Customer not found.');
+  await tx
+    .update(customers)
+    .set({ pricingRule, updatedAt: new Date() })
+    .where(eq(customers.id, customerId));
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [customerId],
+    toast: 'Customer pricing rule updated (internal only).',
+    delta: { customerId, pricingRule, priorPricingRule: existing.pricingRule }
+  };
+}
+
+export async function setDefaultPricingRule(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const pricingRule = validatePricingRulePayload(payload.pricingRule);
+  const [existing] = await tx.select().from(systemSettings).where(eq(systemSettings.key, 'pricing.defaults')).limit(1);
+  let affectedId: string;
+  if (existing) {
+    await tx
+      .update(systemSettings)
+      .set({ value: pricingRule, updatedAt: new Date() })
+      .where(eq(systemSettings.key, 'pricing.defaults'));
+    affectedId = existing.id;
+  } else {
+    const inserted = await tx
+      .insert(systemSettings)
+      .values({ key: 'pricing.defaults', value: pricingRule })
+      .returning();
+    affectedId = inserted[0]?.id ?? 'pricing.defaults';
+  }
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [affectedId],
+    toast: 'Default pricing rule updated (internal only).',
+    delta: { key: 'pricing.defaults', pricingRule, priorPricingRule: existing?.value ?? null }
+  };
+}
+
+function validatePricingRulePayload(value: unknown): Record<string, unknown> {
+  const parsed = customerPricingRuleSchema.safeParse(value ?? {});
+  if (!parsed.success) {
+    const detail = parsed.error.issues.map((issue) => issue.message).join('; ');
+    throw new Error(`Invalid pricing rule: ${detail || 'malformed payload.'}`);
+  }
+  return parsed.data as Record<string, unknown>;
+}
+
+export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const orderId = requiredId(payload.orderId, 'orderId');
   await recalcOrder(tx, orderId);
   const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
@@ -1796,6 +1935,8 @@ async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): P
   if (!lines.length) throw new Error('Order needs at least one line.');
   const unresolved = lines.find((line: typeof salesOrderLines.$inferSelect) => salesLineValidationIssues(line).length);
   if (unresolved) throw new Error(`${unresolved.itemName} needs resolution before confirming: ${salesLineValidationIssues(unresolved).join(' ')} ${await candidateSourceText(tx, unresolved)}`);
+  const unresolvedCogs = lines.find((line: typeof salesOrderLines.$inferSelect) => !line.unitCostResolved);
+  if (unresolvedCogs) throw new Error(`${unresolvedCogs.itemName} has unresolved landed COGS. Resolve the COGS range before confirming the order.`);
   const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
   if (Number(customer.balance) + Number(order.total) > Number(customer.creditLimit)) {
@@ -1820,7 +1961,7 @@ async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Pr
   return { ok: true, commandId, affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)], toast: 'Sales order cancelled and reservations released.' };
 }
 
-async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const orderId = requiredId(payload.orderId, 'orderId');
   const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
   if (!order) throw new Error('Sales order not found.');
@@ -1830,6 +1971,8 @@ async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Prom
   if (!lines.length) throw new Error('Order needs lines before posting.');
   const unresolved = lines.find((line: typeof salesOrderLines.$inferSelect) => salesLineValidationIssues(line).length);
   if (unresolved) throw new Error(`${unresolved.itemName} needs resolution before posting: ${salesLineValidationIssues(unresolved).join(' ')} ${await candidateSourceText(tx, unresolved)}`);
+  const unresolvedCogs = lines.find((line: typeof salesOrderLines.$inferSelect) => !line.unitCostResolved);
+  if (unresolvedCogs) throw new Error(`${unresolvedCogs.itemName} has unresolved landed COGS. Resolve the COGS range before posting the order.`);
   const sourceKeys = new Set<string>();
   for (const line of lines) {
     const sourceKey = line.sourceRowKey || line.batchId;
@@ -2815,6 +2958,47 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
     for (const request of snapshot.connectorRequests ?? []) {
       await tx.update(connectorRequests).set({ status: 'open', routedTo: null, updatedAt: new Date() }).where(eq(connectorRequests.id, request.id));
       affected.push(request.id);
+    }
+  } else if (original.commandName === 'setCustomerPricingRule') {
+    for (const customer of beforeSnapshot.customers ?? []) {
+      const priorRule = ((customer as Record<string, unknown>).pricingRule ?? {}) as Record<string, unknown>;
+      await tx
+        .update(customers)
+        .set({ pricingRule: priorRule, updatedAt: new Date() })
+        .where(eq(customers.id, (customer as { id: string }).id));
+      affected.push((customer as { id: string }).id);
+    }
+  } else if (original.commandName === 'setDefaultPricingRule') {
+    const delta = ((original.result as Record<string, unknown> | null)?.delta ?? {}) as Record<string, unknown>;
+    const priorRule = (delta.priorPricingRule ?? null) as Record<string, unknown> | null;
+    const [current] = await tx.select().from(systemSettings).where(eq(systemSettings.key, 'pricing.defaults')).limit(1);
+    if (priorRule === null) {
+      if (current) {
+        await tx.delete(systemSettings).where(eq(systemSettings.key, 'pricing.defaults'));
+        affected.push(current.id);
+      }
+    } else if (current) {
+      await tx
+        .update(systemSettings)
+        .set({ value: priorRule, updatedAt: new Date() })
+        .where(eq(systemSettings.key, 'pricing.defaults'));
+      affected.push(current.id);
+    } else {
+      const [row] = await tx.insert(systemSettings).values({ key: 'pricing.defaults', value: priorRule }).returning();
+      if (row) affected.push(row.id);
+    }
+  } else if (original.commandName === 'setLineLandedCost') {
+    for (const line of beforeSnapshot.salesOrderLines ?? []) {
+      await tx
+        .update(salesOrderLines)
+        .set({
+          unitCost: moneyScale((line as Record<string, unknown>).unitCost),
+          unitCostResolved: Boolean((line as Record<string, unknown>).unitCostResolved),
+          landedCostBasis: ((line as Record<string, unknown>).landedCostBasis as string | null) ?? null,
+          updatedAt: new Date()
+        })
+        .where(eq(salesOrderLines.id, (line as { id: string }).id));
+      affected.push((line as { id: string }).id);
     }
   } else if (['createCorrectionJournalEntry', 'postPeriodAdjustments'].includes(original.commandName)) {
     for (const entry of snapshot.correctionJournalEntries ?? []) {

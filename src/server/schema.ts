@@ -70,6 +70,7 @@ export const customers = pgTable('customers', {
   creditLimit: numeric('credit_limit', { precision: 12, scale: 2 }).notNull().default('0'),
   balance: numeric('balance', { precision: 12, scale: 2 }).notNull().default('0'),
   tags: text('tags').array().notNull().default([]),
+  pricingRule: jsonb('pricing_rule').$type<Record<string, unknown>>().notNull().default({}),
   notes: text('notes'),
   createdAt: now(),
   updatedAt: updated()
@@ -308,7 +309,17 @@ export const salesOrderLines = pgTable('sales_order_lines', {
   inventoryPosted: boolean('inventory_posted').notNull().default(false),
   paymentFollowup: boolean('payment_followup').notNull().default(false),
   validationIssues: jsonb('validation_issues').$type<string[]>().notNull().default([]),
+  unitCostResolved: boolean('unit_cost_resolved').notNull().default(false),
+  landedCostBasis: varchar('landed_cost_basis', { length: 32 }),
   status: varchar('status', { length: 32 }).notNull().default('draft'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const systemSettings = pgTable('system_settings', {
+  id: id(),
+  key: varchar('key', { length: 80 }).notNull().unique(),
+  value: jsonb('value').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: now(),
   updatedAt: updated()
 });

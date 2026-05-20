@@ -14,8 +14,8 @@ export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
   health: protectedProcedure.query(() => getHealth()),
   reference: protectedProcedure.query(async () => {
-    const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors] = await Promise.all([
-      pool.query('select id, name, credit_limit as "creditLimit", balance, tags from customers order by name'),
+    const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors, pricingDefaults] = await Promise.all([
+      pool.query('select id, name, credit_limit as "creditLimit", balance, tags, pricing_rule as "pricingRule" from customers order by name'),
       pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
       pool.query("select id, name, role from users where role in ('owner','manager','operator') and active order by name"),
       pool.query(`select id, slug, label, direction, allowed_entity_types as "allowedEntityTypes",
@@ -62,7 +62,8 @@ export const queriesRouter = router({
                   left join vendors v on v.id = rr.entity_id and rr.entity_type = 'vendor'
                   where rr.active
                   order by r.name, rr.entity_type, "entityName"`),
-      pool.query('select id, name, processor_type as "processorType", fee_type as "feeType", fee_percentage as "feePercentage", fee_fixed_amount as "feeFixedAmount", default_user_split as "defaultUserSplit", default_processor_split as "defaultProcessorSplit", active from payment_processors where active order by name')
+      pool.query('select id, name, processor_type as "processorType", fee_type as "feeType", fee_percentage as "feePercentage", fee_fixed_amount as "feeFixedAmount", default_user_split as "defaultUserSplit", default_processor_split as "defaultProcessorSplit", active from payment_processors where active order by name'),
+      pool.query("select value from system_settings where key = 'pricing.defaults' limit 1")
     ]);
     return {
       customers: customers.rows,
@@ -79,6 +80,7 @@ export const queriesRouter = router({
       referees: referees.rows,
       refereeRelationships: refereeRelationships.rows,
       processors: processors.rows,
+      defaultPricingRule: pricingDefaults.rows[0]?.value ?? {},
       categories: ['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape'],
       priceBrackets: ['under-25', '25-100', '100-plus'],
       commands: commandNames
@@ -259,10 +261,12 @@ export const queriesRouter = router({
                 coalesce(sol.display_name, i.alias, sol.item_name) as "displayName",
                 i.alias as "itemAlias",
                 sol.qty, sol.unit_price as "unitPrice", sol.unit_cost as "unitCost",
+                sol.unit_cost_resolved as "unitCostResolved", sol.landed_cost_basis as "landedCostBasis",
                 sol.source_row_key as "sourceRowKey", sol.unresolved_source_text as "unresolvedSourceText",
                 sol.legacy_status_marker as "legacyStatusMarker", sol.packed, sol.inventory_posted as "inventoryPosted",
                 sol.payment_followup as "paymentFollowup", sol.validation_issues as "validationIssues", sol.status,
                 b.available_qty as "availableQty", b.legacy_marker as "legacyMarker", b.price_range as "priceRange",
+                b.category as "batchCategory",
                 b.media_status as "mediaStatus", v.name as vendor
          from sales_order_lines sol
          left join batches b on b.id = sol.batch_id
@@ -386,7 +390,7 @@ export const queriesRouter = router({
     ).rows;
   }),
   relationshipSummary: protectedProcedure.input(z.object({ customerId: z.string().uuid().optional(), vendorId: z.string().uuid().optional() })).query(async ({ input }) => {
-    const customer = input.customerId ? (await pool.query('select id, name, balance, credit_limit as "creditLimit", tags, notes from customers where id = $1', [input.customerId])).rows[0] : null;
+    const customer = input.customerId ? (await pool.query('select id, name, balance, credit_limit as "creditLimit", tags, notes, pricing_rule as "pricingRule" from customers where id = $1', [input.customerId])).rows[0] : null;
     const vendor = input.vendorId ? (await pool.query('select id, name, terms_days as "termsDays", notes from vendors where id = $1', [input.vendorId])).rows[0] : customer ? (await pool.query('select id, name, terms_days as "termsDays", notes from vendors where lower(name) = lower($1)', [customer.name])).rows[0] : null;
     const [orders, invoicesRows, paymentsRows, purchaseOrderRows, bills, vendorPaymentsRows, ledgerRows, creditRows, disputeRows, receiptRows, commands] = await Promise.all([
       customer ? pool.query('select id, order_no as "orderNo", status, total, created_at as "createdAt" from sales_orders where customer_id = $1 order by created_at desc limit 20', [customer.id]) : { rows: [] },
@@ -958,6 +962,7 @@ function gridSql(view: z.infer<typeof viewSchema>) {
                      coalesce(i.alias, b.name) as "displayName",
                      b.available_qty as "availableQty",
                      b.reserved_qty as "reservedQty", b.uom, b.unit_cost as "unitCost", b.unit_price as "unitPrice",
+                     b.price_range as "priceRange",
                      b.tags, b.location, b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
                      b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus", b.status, b.lot_code as "lotCode", b.expiration_date as "expirationDate",
                      floor(extract(epoch from (now() - b.created_at)) / 86400)::int as "ageDays"
@@ -1078,7 +1083,7 @@ function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     matchmaking: ['id', 'needCode', 'customer', 'needProduct', 'category', 'needTags', 'qtyMin', 'qtyMax', 'targetPrice', 'neededBy', 'urgency', 'supplyCode', 'vendor', 'vendorProduct', 'supplyTags', 'availableQty', 'askingPrice', 'availableDate', 'score', 'reasons', 'status', 'createdAt'],
     orders: ['id', 'orderNo', 'customer', 'status', 'total', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes', 'invoiceNo', 'invoiceStatus'],
     payments: ['id', 'customer', 'direction', 'category', 'method', 'amount', 'unappliedAmount', 'allocationIntent', 'impactPreview', 'reference', 'locationBucket', 'notes', 'status', 'createdAt'],
-    inventory: ['id', 'batchCode', 'name', 'category', 'tags', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
+    inventory: ['id', 'batchCode', 'name', 'category', 'tags', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'priceRange', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
     clients: ['id', 'name', 'creditLimit', 'balance', 'tags', 'notes', 'invoiceCount'],
     vendors: ['id', 'vendor', 'billNo', 'poNo', 'purchaseOrderId', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],
