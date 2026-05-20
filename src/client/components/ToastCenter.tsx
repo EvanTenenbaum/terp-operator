@@ -8,7 +8,11 @@ export function ToastCenter() {
   const announcement = useUiStore((state) => state.announcement);
 
   useEffect(() => {
-    const timers = toasts.map((toast) => window.setTimeout(() => dismissToast(toast.id), 4200));
+    // #21 slice 2 (UX-A4): only success/info toasts auto-dismiss. Error toasts
+    // stay until the operator clicks them so transient failures aren't missed.
+    const timers = toasts
+      .filter((toast) => toast.tone !== 'error')
+      .map((toast) => window.setTimeout(() => dismissToast(toast.id), 4200));
     return () => timers.forEach(window.clearTimeout);
   }, [toasts, dismissToast]);
 

@@ -8,6 +8,7 @@ import { Agentation } from 'agentation';
 import { invalidateAffectedQueries } from './components/useCommandRunner';
 import { CommandPalette } from './components/CommandPalette';
 import { ContextDrawer } from './components/ContextDrawer';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Hotkeys } from './components/Hotkeys';
 import { IdentityRibbon } from './components/IdentityRibbon';
 import { ReportsRouteShell } from './components/ReportsRouteShell';
@@ -156,8 +157,10 @@ function AppContent() {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

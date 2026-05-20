@@ -13,6 +13,7 @@ import type {
 import { trpc } from '../api/trpc';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useUiStore } from '../store/uiStore';
 import type { CommandResult } from '../../shared/types';
 
@@ -82,6 +83,14 @@ export function IntakeView() {
   const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
   const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [previewOrder, setPreviewOrder] = useState<IntakeOrderRow | null>(null);
+  // #21 slice 3 (UX-A9): inline confirm panels each get a focus trap so Tab
+  // stays in-panel and Escape collapses them, matching CommandPalette /
+  // RefereeRelationshipDialog. The trap activates only when its panel is open.
+  const csvImportFocusRef = useFocusTrap<HTMLDivElement>(csvOpen, () => setCsvOpen(false));
+  const confirmVerifyAllFocusRef = useFocusTrap<HTMLDivElement>(
+    confirmVerifyAllFor !== null,
+    () => setConfirmVerifyAllFor(null)
+  );
   const previewBatchIds = previewOrder
     ? previewOrder.batches
         .filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))
@@ -311,34 +320,36 @@ export function IntakeView() {
       </div>
       {csvOpen ? (
         <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                className="secondary-button compact-action"
-                type="button"
-                disabled={!csvText.trim() || isRunning || busy}
-                onClick={() => void importCsv(true)}
-              >
-                Validate
-              </button>
-              <button
-                className="primary-button compact-action"
-                type="button"
-                disabled={!csvResult?.ok || !csvText.trim() || isRunning || busy}
-                onClick={() => void importCsv(false)}
-              >
-                Import
-              </button>
+          <div ref={csvImportFocusRef}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  className="secondary-button compact-action"
+                  type="button"
+                  disabled={!csvText.trim() || isRunning || busy}
+                  onClick={() => void importCsv(true)}
+                >
+                  Validate
+                </button>
+                <button
+                  className="primary-button compact-action"
+                  type="button"
+                  disabled={!csvResult?.ok || !csvText.trim() || isRunning || busy}
+                  onClick={() => void importCsv(false)}
+                >
+                  Import
+                </button>
+              </div>
             </div>
+            <textarea
+              className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
+              value={csvText}
+              onChange={(event) => setCsvText(event.target.value)}
+            />
+            {csvResult ? (
+              <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
+            ) : null}
           </div>
-          <textarea
-            className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
-            value={csvText}
-            onChange={(event) => setCsvText(event.target.value)}
-          />
-          {csvResult ? (
-            <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
-          ) : null}
         </WorkspacePanel>
       ) : null}
       <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
@@ -421,28 +432,30 @@ export function IntakeView() {
       ) : null}
       {confirmVerifyAllFor ? (
         <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
-          <p className="text-sm text-zinc-700">
-            This will accept every pending batch on this PO as the expected quantity and post the receipt.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              className="primary-button compact-action"
-              disabled={busy || isRunning}
-              onClick={async () => {
-                const target = confirmVerifyAllFor;
-                setConfirmVerifyAllFor(null);
-                if (target) {
-                  await verifyAllForOrder(target);
-                  pushToast(`Verified all intake for ${target.poNo}.`, 'success');
-                }
-              }}
-            >
-              Yes — verify all
-            </button>
-            <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
-              Cancel
-            </button>
+          <div ref={confirmVerifyAllFocusRef}>
+            <p className="text-sm text-zinc-700">
+              This will accept every pending batch on this PO as the expected quantity and post the receipt.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="primary-button compact-action"
+                disabled={busy || isRunning}
+                onClick={async () => {
+                  const target = confirmVerifyAllFor;
+                  setConfirmVerifyAllFor(null);
+                  if (target) {
+                    await verifyAllForOrder(target);
+                    pushToast(`Verified all intake for ${target.poNo}.`, 'success');
+                  }
+                }}
+              >
+                Yes — verify all
+              </button>
+              <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
+                Cancel
+              </button>
+            </div>
           </div>
         </WorkspacePanel>
       ) : null}
