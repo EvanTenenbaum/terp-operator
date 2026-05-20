@@ -163,6 +163,30 @@ export function OperatorGrid({
   );
   const cellSelection = useMemo(() => ({ handle: { mode: 'range' as const } }), []);
   const sideBar = useMemo<SideBarDef>(() => ({ toolPanels: ['columns', 'filters'], hiddenByDefault: true }), []);
+  // #34 FE-M5 / FE-L2 — accessible names for AG Grid floating-filter inputs,
+  // sort affordances, and column-menu chevrons. AG Grid ships English
+  // defaults for these keys but pinning them here documents intent and
+  // protects against future locale-bundle swaps that would silently drop
+  // the accessible names.
+  const localeText = useMemo<Record<string, string>>(
+    () => ({
+      ariaFilterInput: 'filter input',
+      ariaFilterValue: 'filter value',
+      ariaFilterFromValue: 'filter from value',
+      ariaFilterToValue: 'filter to value',
+      ariaFilteringOperator: 'filtering operator',
+      ariaFilterMenuOpen: 'open filter menu',
+      ariaFilterColumn: 'press CTRL ENTER to open filter for column',
+      ariaSortableColumn: 'press ENTER to sort column',
+      ariaMenuColumn: 'press ALT DOWN to open column menu',
+      ariaColumnFiltered: 'column filtered',
+      ariaInputEditor: 'input editor',
+      ariaLabelColumnFilter: 'column filter',
+      ariaLabelColumnMenu: 'column menu',
+      ariaLabelCellEditor: 'cell editor'
+    }),
+    []
+  );
 
   useEffect(() => {
     setQuickFilter(storedGridFilter);
@@ -209,7 +233,9 @@ export function OperatorGrid({
         <>
           <label className="flex h-8 items-center gap-2 border border-line bg-white px-2 text-sm">
             <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+            <span className="sr-only">Filter {title} grid</span>
             <input
+              aria-label={`Filter ${title} grid`}
               className="h-full w-44 bg-transparent outline-none"
               placeholder="Filter grid (field:value)"
               value={quickFilter}
@@ -290,6 +316,7 @@ export function OperatorGrid({
             undoRedoCellEditing
             sideBar={sideBar}
             loading={loading}
+            localeText={localeText}
             getRowId={(params) => String(params.data.id)}
             masterDetail={expansionConfig?.enabled ?? false}
             detailRowAutoHeight={true}

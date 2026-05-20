@@ -118,6 +118,16 @@ export function SideNav({ user }: { user: SessionUser }) {
               {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const showBadge = item.view === 'credit-review' && badgeTotal > 0 && !sideNavCollapsed;
+                // #34 FE-L4 — defence-in-depth: only render the Cmd+N hotkey
+                // chip when the lane is actually enterable for this operator.
+                // visibleItems already filters by viewVisibleForUser, but
+                // gating the chip directly here means a future refactor that
+                // loosens visibleItems can't silently leak a chip for a lane
+                // that fires the "lane not part of this operator workspace"
+                // toast when hit.
+                const showHotkey = Boolean(
+                  item.hotkey && !sideNavCollapsed && viewVisibleForUser(item.view, user)
+                );
                 return (
                   <button
                     type="button"
@@ -134,7 +144,7 @@ export function SideNav({ user }: { user: SessionUser }) {
                         {badgeTotal > 99 ? '99+' : badgeTotal}
                       </span>
                     ) : null}
-                    {item.hotkey && !sideNavCollapsed ? <kbd>{item.hotkey}</kbd> : null}
+                    {showHotkey ? <kbd>{item.hotkey}</kbd> : null}
                   </button>
                 );
               })}
