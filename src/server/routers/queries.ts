@@ -310,7 +310,10 @@ export const queriesRouter = router({
       ),
       pool.query('select id, invoice_no as "invoiceNo", total, amount_paid as "amountPaid", status, due_date as "dueDate" from invoices where customer_id = $1 order by created_at desc limit 20', [input.customerId]),
       pool.query('select id, method, amount, unapplied_amount as "unappliedAmount", reference, location_bucket as "locationBucket", category, direction, created_at as "createdAt" from payments where customer_id = $1 order by created_at desc limit 20', [input.customerId]),
-      pool.query(`select id, command_name as "commandName", actor_name as "actorName", status, created_at as "createdAt", result from command_journal where affected_ids::text ilike $1 order by created_at desc limit 20`, [`%${input.customerId}%`])
+      // Use = ANY so the GIN index on affected_ids (migration 0043) is chosen.
+      // The ::text ILIKE pattern defeats the index because Postgres has to cast
+      // the array to text before applying the LIKE.
+      pool.query(`select id, command_name as "commandName", actor_name as "actorName", status, created_at as "createdAt", result from command_journal where $1 = any(affected_ids) order by created_at desc limit 20`, [input.customerId])
     ]);
     return { customer: customer.rows[0], orders: orders.rows, invoices: invoices.rows, payments: payments.rows, recentCommands: recentCommands.rows };
   }),
@@ -413,7 +416,10 @@ export const queriesRouter = router({
           )
         : { rows: [] },
       vendor ? pool.query('select id, receipt_no as "receiptNo", total, status, created_at as "createdAt" from purchase_receipts where vendor_id = $1 order by created_at desc limit 20', [vendor.id]) : { rows: [] },
-      pool.query(`select id, command_name as "commandName", actor_name as "actorName", status, created_at as "createdAt" from command_journal where affected_ids::text ilike $1 or affected_ids::text ilike $2 order by created_at desc limit 20`, [`%${input.customerId ?? ''}%`, `%${input.vendorId ?? vendor?.id ?? ''}%`])
+      // Use = ANY for GIN-eligible scan. Pass empty-string placeholders rather
+      // than nulls because the SQL operator requires a non-null left operand;
+      // the no-match outcome is identical (empty string never matches a UUID).
+      pool.query(`select id, command_name as "commandName", actor_name as "actorName", status, created_at as "createdAt" from command_journal where $1 = any(affected_ids) or $2 = any(affected_ids) order by created_at desc limit 20`, [input.customerId ?? '', input.vendorId ?? vendor?.id ?? ''])
     ]);
     return {
       customer,
