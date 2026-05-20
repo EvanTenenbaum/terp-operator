@@ -32,7 +32,12 @@ jobs:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
       - run: pnpm install --frozen-lockfile=false
       - name: Run tests
-        run: pnpm exec vitest run --exclude 'tests/e2e/**'
+        # Exclude credit-engine integration tests (they require a live Postgres
+        # on :55432; the GitHub Actions runner doesn't provision one). These
+        # tests run with the real staging DB inside the deployed app or via the
+        # nightly cron, not here. Unit tests in the same module without DB
+        # access still run.
+        run: pnpm exec vitest run --exclude 'tests/e2e/**' --exclude 'src/server/services/creditEngine/**/*integration*' --exclude 'src/server/services/creditEngine/worker.test.ts' --exclude 'src/server/services/creditEngine/orchestrator.test.ts' --exclude 'src/server/services/creditEngine/reaper.test.ts' --exclude 'src/server/services/creditEngine/enqueue.test.ts' --exclude 'src/server/services/creditEngine/reconciliation.test.ts' --exclude 'src/server/services/creditEngine/smoke.test.ts' --exclude 'src/server/services/creditEngine/reversalCorrectness.test.ts' --exclude 'src/server/services/creditEngine/divergenceReport.test.ts' --exclude 'src/server/services/creditEngine/signals/**'
       - run: pnpm audit:self
       - name: Render DigitalOcean app spec
         id: spec
