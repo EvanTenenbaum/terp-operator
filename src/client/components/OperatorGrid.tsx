@@ -37,6 +37,7 @@ import {
   removeFilterChip,
   serializeGridFilter
 } from './gridFilterUtils';
+import { buildCsvExportOptions } from './OperatorGrid.csvExport';
 
 interface OperatorGridProps {
   view: ViewKey;
@@ -245,7 +246,11 @@ export function OperatorGrid({
             type="button"
             className="icon-button"
             title="Export visible grid CSV"
-            onClick={() => apiRef.current?.exportDataAsCsv({ fileName: `terp-operator-${view}.csv` })}
+            onClick={() =>
+              apiRef.current?.exportDataAsCsv(
+                buildCsvExportOptions({ view, role: me.data?.role })
+              )
+            }
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only">Export visible grid CSV</span>

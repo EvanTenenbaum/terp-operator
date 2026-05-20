@@ -9,6 +9,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
+import { buildCustomerOfferCsv } from './SalesView.csvExport';
 
 const orderColumns: ColDef<GridRow>[] = [
   { field: 'orderNo', pinned: 'left', width: 150 },
@@ -551,8 +552,10 @@ function csvValue(value: unknown) {
 }
 
 function exportCustomerOffer(rows: GridRow[]) {
-  const headers = ['itemName', 'qty', 'unitPrice', 'sourceRowKey'];
-  const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n');
+  // UX-A2 (#15): customer-facing export must skip rows whose media is not
+  // customer-share-ready and must NOT include cost/margin headers. The
+  // header set and share-ready filter live in SalesView.csvExport.
+  const csv = buildCustomerOfferCsv(rows);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

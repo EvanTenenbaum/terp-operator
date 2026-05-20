@@ -155,7 +155,13 @@ export function Keel({ user }: { user: SessionUser }) {
   const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
   const utils = trpc.useContext();
   const logout = trpc.auth.logout.useMutation({
-    onSuccess: () => utils.auth.me.invalidate()
+    onSuccess: () => {
+      // UX-A1 (#15): clear persisted UI state on logout so the next operator
+      // on a shared workstation does not inherit column/nav/drawer preferences
+      // from the previous operator.
+      useUiStore.persist.clearStorage();
+      return utils.auth.me.invalidate();
+    }
   });
   const health = trpc.queries.health.useQuery(undefined, { refetchInterval: 30_000 });
   const visibleChips = keelChips.filter((chip) => viewVisibleForUser(chip.view, user) && startVisibleForUser(chip.launch, user));

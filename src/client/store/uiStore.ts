@@ -270,7 +270,13 @@ export const useUiStore = create<UiState>()(
       })
   })),
   {
+    // Persist key intentionally retains legacy 'terp-agro-ui' name (see PR #66)
+    // to preserve operator preference continuity across the rename.
     name: 'terp-agro-ui',
+    // UX-A1 (#15): activeDrawerEntityByView and gridFilters are NOT persisted.
+    // On a shared workstation, those would leak the previous operator's drawer
+    // entity UUIDs (customer/vendor/PO) and operator-typed search text (often
+    // containing customer names) to the next operator before auth.me resolves.
     partialize: (state) => ({
       activeView: state.activeView,
       sideNavCollapsed: state.sideNavCollapsed,
@@ -278,8 +284,6 @@ export const useUiStore = create<UiState>()(
       activeQuickLaunch: state.activeQuickLaunch,
       activeSettingsTab: state.activeSettingsTab,
       drawerByView: state.drawerByView,
-      activeDrawerEntityByView: state.activeDrawerEntityByView,
-      gridFilters: state.gridFilters,
       gridColumnPrefs: state.gridColumnPrefs
     })
   }
