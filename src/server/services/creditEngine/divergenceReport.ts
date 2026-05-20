@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
+import { creditEngineMetrics, logCreditEngineEvent } from './metrics';
 
 /**
  * Divergence report (spec §10 + §15.4).
@@ -318,6 +319,41 @@ export async function divergenceReport(
   }
 
   const passes = passesTolerance && blockerCount === 0 && noConfidenceApplied === 0;
+
+  // Phase 7 observability (issue #68). Record one divergence_observed
+  // increment per classified customer with a recommendation. Labels split
+  // "within tolerance" from "outside tolerance" so dashboards can chart the
+  // rate independent of population size. Best-effort — never throws.
+  try {
+    if (outsideTolerance > 0) {
+      creditEngineMetrics.increment(
+        'credit_engine.divergence_observed',
+        { result: 'outside_tolerance' },
+        outsideTolerance
+      );
+    }
+    if (withinTolerance > 0) {
+      creditEngineMetrics.increment(
+        'credit_engine.divergence_observed',
+        { result: 'within_tolerance' },
+        withinTolerance
+      );
+    }
+    logCreditEngineEvent('credit_engine.divergence_report', {
+      total_customers: rawRows.length,
+      with_recommendation: customersWithRecommendation,
+      within_tolerance: withinTolerance,
+      outside_tolerance: outsideTolerance,
+      pct_within_tolerance: Number(pctWithinTolerance.toFixed(2)),
+      blocker_count: blockerCount,
+      no_confidence_applied: noConfidenceApplied,
+      passes,
+      tolerance_fraction: toleranceFraction,
+      pass_threshold_fraction: passThresholdFraction
+    });
+  } catch {
+    // Observability must never break the report.
+  }
 
   return {
     rows: reportRows,
