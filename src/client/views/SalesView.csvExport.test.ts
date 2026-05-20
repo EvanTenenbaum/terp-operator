@@ -93,4 +93,28 @@ describe('buildCustomerOfferCsv (UX-A2)', () => {
     const lines = csv.split('\n').filter((line) => line.length > 0);
     expect(lines).toHaveLength(1); // just the header
   });
+
+  // Regression guard for #63 (operator margin visibility toggle):
+  // The customer-facing CSV is independent of the operator UI margin toggle.
+  // Margin/cost MUST never leak into the customer-facing CSV regardless of
+  // the operator's screen-time setting. PR #80 already filters; this is the
+  // belt-and-braces regression test so the export side stays gated.
+  it('never includes margin/cost terms in the customer offer (regression for #63)', () => {
+    const csv = buildCustomerOfferCsv(sampleRows);
+    const lower = csv.toLowerCase();
+    expect(lower).not.toContain('cost');
+    expect(lower).not.toContain('margin');
+    expect(lower).not.toContain('internal');
+    expect(lower).not.toContain('landed');
+    expect(lower).not.toContain('cogs');
+    // Numeric values from cost/margin columns must not appear either
+    expect(csv).not.toContain('600');
+    expect(csv).not.toContain('400');
+    expect(csv).not.toContain('580');
+    expect(csv).not.toContain('500');
+    expect(csv).not.toContain('300');
+    expect(csv).not.toContain('480');
+    expect(csv).not.toContain('700');
+    expect(csv).not.toContain('690');
+  });
 });

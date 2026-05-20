@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, FileText, PackagePlus, Send } from 'lucide-react';
+import { ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackagePlus, Send } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -11,6 +11,7 @@ import type { GridRow } from '../../shared/types';
 import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
 import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { buildCustomerOfferCsv } from './SalesView.csvExport';
+import { selectVisibleSalesColumns } from './SalesView.columns';
 
 const orderColumns: ColDef<GridRow>[] = [
   { field: 'orderNo', pinned: 'left', width: 150 },
@@ -98,6 +99,13 @@ export function SalesView() {
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const setActiveCustomerId = useUiStore((state) => state.setActiveCustomerId);
   const salesRequestText = useUiStore((state) => state.salesRequestText);
+  // #63: operator margin visibility toggle (Sales workspace only — customer-
+  // facing exports are independently gated, see SalesView.csvExport.ts).
+  const showMargin = useUiStore((state) => state.showMargin);
+  const setShowMargin = useUiStore((state) => state.setShowMargin);
+  const visibleOrderColumns = useMemo(() => selectVisibleSalesColumns(showMargin, orderColumns), [showMargin]);
+  const visibleSuggestionColumns = useMemo(() => selectVisibleSalesColumns(showMargin, suggestionColumns), [showMargin]);
+  const visibleLineColumns = useMemo(() => selectVisibleSalesColumns(showMargin, lineColumns), [showMargin]);
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const orders = trpc.queries.grid.useQuery({ view: 'sales' });
@@ -348,7 +356,10 @@ export function SalesView() {
   }
 
   function exportSheet() {
-    const headers = sheetMode === 'internal' ? ['batchCode', 'name', 'category', 'vendor', 'availableQty', 'unitPrice', 'unitCost', 'estimatedMargin', 'reason'] : ['batchCode', 'name', 'category', 'availableQty', 'unitPrice', 'tags'];
+    const internalHeaders = showMargin
+      ? ['batchCode', 'name', 'category', 'vendor', 'availableQty', 'unitPrice', 'unitCost', 'estimatedMargin', 'reason']
+      : ['batchCode', 'name', 'category', 'vendor', 'availableQty', 'unitPrice', 'reason'];
+    const headers = sheetMode === 'internal' ? internalHeaders : ['batchCode', 'name', 'category', 'availableQty', 'unitPrice', 'tags'];
     const csv = [headers.join(','), ...sheetRows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -389,6 +400,20 @@ export function SalesView() {
         <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
           {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
           Sale tray
+        </button>
+        {/* #63: operator-only margin visibility toggle. Hides cost/margin columns
+            in the operator grid when screen-sharing with a customer. Customer-
+            facing CSV exports are independently gated (#15 / #80). */}
+        <button
+          className="secondary-button compact-action"
+          type="button"
+          onClick={() => setShowMargin(!showMargin)}
+          aria-pressed={showMargin}
+          title={showMargin ? 'Hide margin/cost columns (customer-safe view)' : 'Show margin/cost columns'}
+          data-testid="sales-show-margin-toggle"
+        >
+          {showMargin ? <Eye className="h-4 w-4" aria-hidden="true" /> : <EyeOff className="h-4 w-4" aria-hidden="true" />}
+          {showMargin ? 'Margin shown' : 'Margin hidden'}
         </button>
       </div> : null}
       {canWrite && saleToolsOpen ? (
@@ -469,7 +494,7 @@ export function SalesView() {
                 view="sales"
                 title="Customer Draft Lines"
                 rows={(orderLines.data ?? []) as GridRow[]}
-                columns={lineColumns}
+                columns={visibleLineColumns}
                 loading={false}
                 onSelectionChange={setSelectedLines}
                 onCellCommit={canWrite ? onLineCommit : undefined}
@@ -512,7 +537,7 @@ export function SalesView() {
           view="sales"
         title="Sales Orders"
         rows={(orders.data ?? []) as GridRow[]}
-        columns={orderColumns}
+        columns={visibleOrderColumns}
         loading={orders.isLoading && !customerId}
         onSelectionChange={(selection) => setSelectedRows('sales', selection)}
         emptyTitle="No open sales shown"
@@ -526,7 +551,7 @@ export function SalesView() {
           view="sales"
           title="Smart Suggestions / Buyer Fit"
           rows={(suggestions.data ?? []) as GridRow[]}
-          columns={suggestionColumns}
+          columns={visibleSuggestionColumns}
           loading={suggestions.isLoading}
           onSelectionChange={setSelectedSuggestions}
         />
@@ -538,7 +563,7 @@ export function SalesView() {
               <div className="font-semibold text-ink">{String(row.name)}</div>
               <div className="text-zinc-600">{String(row.category)} · {String(row.availableQty)} available</div>
               <div className="mt-2 font-medium">${String(row.unitPrice)}</div>
-              {sheetMode === 'internal' ? <div className="text-xs text-zinc-500">Cost ${String(row.unitCost)} · margin ${String(row.estimatedMargin)}</div> : null}
+              {sheetMode === 'internal' && showMargin ? <div className="text-xs text-zinc-500" data-testid="sheet-cost-margin">Cost ${String(row.unitCost)} · margin ${String(row.estimatedMargin)}</div> : null}
               {sheetMode === 'internal' ? <div className="text-xs text-zinc-500">{String(row.reason)}</div> : null}
             </div>
           ))}

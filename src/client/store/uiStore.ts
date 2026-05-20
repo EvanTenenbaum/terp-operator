@@ -44,6 +44,12 @@ interface UiState {
   // (non-sensitive per-user preference), but reset whenever the engine reports
   // shadowMode === false so operators rediscover the warning after a config flip.
   dismissedShadowBanner: boolean;
+  // #63: operator-only Sales Builder margin visibility toggle. Default true so
+  // margin/cost columns stay visible to operators; toggled off during screen
+  // sharing or customer-facing demos. Persisted as a benign per-user UX
+  // preference, like dismissedShadowBanner. Customer-facing exports are
+  // independently gated (PR #80 / #15) and do NOT read this flag.
+  showMargin: boolean;
   setActiveView: (view: ViewKey) => void;
   setActiveCustomerId: (customerId: string | null) => void;
   setActiveQuickLaunch: (mode: QuickLaunchMode | null) => void;
@@ -71,6 +77,7 @@ interface UiState {
   pushToast: (message: string, tone?: Toast['tone']) => void;
   dismissToast: (id: string) => void;
   setDismissedShadowBanner: (dismissed: boolean) => void;
+  setShowMargin: (show: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -98,6 +105,7 @@ export const useUiStore = create<UiState>()(
     toasts: [],
     announcement: '',
     dismissedShadowBanner: false,
+    showMargin: true,
     setActiveView: (view) =>
       set((state) => {
         if (state.activeView !== view) {
@@ -277,6 +285,11 @@ export const useUiStore = create<UiState>()(
     setDismissedShadowBanner: (dismissed) =>
       set((state) => {
         state.dismissedShadowBanner = dismissed;
+      }),
+    setShowMargin: (show) =>
+      set((state) => {
+        state.showMargin = show;
+        state.announcement = show ? 'Margin visible.' : 'Margin hidden.';
       })
   })),
   {
@@ -295,7 +308,9 @@ export const useUiStore = create<UiState>()(
       activeSettingsTab: state.activeSettingsTab,
       drawerByView: state.drawerByView,
       gridColumnPrefs: state.gridColumnPrefs,
-      dismissedShadowBanner: state.dismissedShadowBanner
+      dismissedShadowBanner: state.dismissedShadowBanner,
+      // #63: persist operator margin visibility — see comment on UiState.showMargin.
+      showMargin: state.showMargin
     })
   }
   )
