@@ -3320,32 +3320,124 @@ async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: s
   return { ok: true, commandId, affectedIds: [lock.id], toast: `${period} locked.` };
 }
 
-async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+/**
+ * archivePeriod (#19 slice 3 / EDGE-04) — two-phase commit so file writes
+ * cannot hold DB row locks open.
+ *
+ * Phase 1 (inside an inner `db.transaction()`):
+ *   - Acquire the period-closeout advisory lock.
+ *   - Verify the period is locked and closeout-eligible.
+ *   - Capture the batch + command-journal snapshots used by phase 2's
+ *     file writers. These reads happen inside the tx so they reflect a
+ *     consistent point-in-time view; the captured arrays travel out of
+ *     the tx and feed the post-commit phase.
+ *   - Insert an `archive_runs` row with status='in_progress' and NULL
+ *     file paths (paths aren't known until phase 2). The row carries the
+ *     final control totals so a partial-failure run is identifiable.
+ *   - Stamp `batches.archived_at` and `sales_orders.archived_at` for the
+ *     period. These are intentionally inside the tx so the period's
+ *     immutability invariant lands atomically with the archive_runs row.
+ *
+ * After this inner tx commits there are no row locks held by archivePeriod.
+ *
+ * Phase 2 (after commit, outside any transaction):
+ *   - `fs.mkdir`, then write CSV, JSONL, PDF.
+ *   - On success: `db.update(archiveRuns).set({ status: 'archived', csvPath,
+ *     jsonlPath, pdfPath })` against the phase-1 row.
+ *   - On failure: `db.update(archiveRuns).set({ status: 'failed_file_write',
+ *     error })` and rethrow the underlying error up to executeCommand. The
+ *     partial DB state (batches.archived_at, sales_orders.archived_at,
+ *     the archive_runs row itself) stays committed — the operator can
+ *     identify the failed run and retry just file generation.
+ *
+ * Note on the surrounding wrapper: the `runCommand` dispatcher calls this
+ * with a `tx` it created via `db.transaction()`. archivePeriod ignores
+ * that tx entirely for its own DB work and uses an inner `db.transaction()`
+ * instead. The outer tx ends up with no archivePeriod-related row writes,
+ * which is the whole point — we cannot perform file work while the outer
+ * tx is open. The outer tx still owns the commandJournal status='ok'
+ * update; that update lands only if this function returns successfully.
+ */
+async function archivePeriod(_tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  return archivePeriodImpl(payload, commandId);
+}
+
+async function archivePeriodImpl(payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
-  await acquirePeriodCloseoutLock(tx, period);
-  const safety = await getCloseoutSafety(tx, period);
-  if (!safety.locked) throw new Error(`${period} must be locked before archiving.`);
-  if (!safety.eligible) {
-    throw new Error(`${period} cannot be archived: ${safety.blockers.map((blocker) => `${blocker.count} ${blocker.label.toLowerCase()}`).join(', ')}.`);
-  }
-
-  await fs.mkdir(env.ARCHIVE_DIR, { recursive: true });
   const archiveBase = path.join(env.ARCHIVE_DIR, period);
-  const batchRows = await tx.select().from(batches).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
-  const journalRows = await tx.select().from(commandJournal).where(sql`to_char(${commandJournal.createdAt}, 'YYYY-MM') = ${period}`).orderBy(commandJournal.createdAt);
-  const controlTotals = safety.controlTotals;
-
   const csvPath = `${archiveBase}-batches.csv`;
   const jsonlPath = `${archiveBase}-commands.jsonl`;
   const pdfPath = `${archiveBase}-summary.pdf`;
-  await fs.writeFile(csvPath, rowsToCsv(batchRows as unknown as Array<Record<string, unknown>>, ['id', 'batchCode', 'name', 'category', 'intakeQty', 'availableQty', 'status']), 'utf8');
-  await fs.writeFile(jsonlPath, journalRows.map((row: typeof commandJournal.$inferSelect) => JSON.stringify(row)).join('\n'), 'utf8');
-  await writeArchivePdf(pdfPath, period, controlTotals);
-  const [archive] = await tx.insert(archiveRuns).values({ period, controlTotals, csvPath, jsonlPath, pdfPath, status: 'archived' }).returning();
-  await tx.update(batches).set({ archivedAt: new Date() }).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
-  await tx.update(salesOrders).set({ archivedAt: new Date() }).where(sql`to_char(${salesOrders.createdAt}, 'YYYY-MM') = ${period}`);
-  return { ok: true, commandId, affectedIds: [archive.id], toast: `${period} archived with matching control totals.`, delta: { controlTotals, csvPath, jsonlPath, pdfPath } };
+
+  // ------------------------------------------------------------------
+  // Phase 1 — DB-only work inside its own transaction.
+  // ------------------------------------------------------------------
+  const phase1 = await db.transaction(async (tx) => {
+    await acquirePeriodCloseoutLock(tx, period);
+    const safety = await getCloseoutSafety(tx, period);
+    if (!safety.locked) throw new Error(`${period} must be locked before archiving.`);
+    if (!safety.eligible) {
+      throw new Error(`${period} cannot be archived: ${safety.blockers.map((blocker) => `${blocker.count} ${blocker.label.toLowerCase()}`).join(', ')}.`);
+    }
+    const batchRows = await tx
+      .select()
+      .from(batches)
+      .where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
+    const journalRows = await tx
+      .select()
+      .from(commandJournal)
+      .where(sql`to_char(${commandJournal.createdAt}, 'YYYY-MM') = ${period}`)
+      .orderBy(commandJournal.createdAt);
+    const controlTotals = safety.controlTotals;
+
+    const [archive] = await tx
+      .insert(archiveRuns)
+      .values({ period, controlTotals, status: 'in_progress', csvPath: null, jsonlPath: null, pdfPath: null })
+      .returning();
+    await tx.update(batches).set({ archivedAt: new Date() }).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
+    await tx.update(salesOrders).set({ archivedAt: new Date() }).where(sql`to_char(${salesOrders.createdAt}, 'YYYY-MM') = ${period}`);
+
+    return { archiveId: archive.id as string, batchRows, journalRows, controlTotals };
+  });
+
+  // ------------------------------------------------------------------
+  // Phase 2 — File writes happen here, AFTER the tx has committed and all
+  // row locks have been released. A hang in fs/PDF generation no longer
+  // affects other writers; a failure here flips the row to
+  // 'failed_file_write' but leaves the DB-side snapshot durable.
+  // ------------------------------------------------------------------
+  try {
+    await fs.mkdir(env.ARCHIVE_DIR, { recursive: true });
+    await fs.writeFile(csvPath, rowsToCsv(phase1.batchRows as unknown as Array<Record<string, unknown>>, ['id', 'batchCode', 'name', 'category', 'intakeQty', 'availableQty', 'status']), 'utf8');
+    await fs.writeFile(jsonlPath, phase1.journalRows.map((row: typeof commandJournal.$inferSelect) => JSON.stringify(row)).join('\n'), 'utf8');
+    await writeArchivePdf(pdfPath, period, phase1.controlTotals);
+    await db
+      .update(archiveRuns)
+      .set({ status: 'archived', csvPath, jsonlPath, pdfPath })
+      .where(eq(archiveRuns.id, phase1.archiveId));
+  } catch (fileWriteError) {
+    const message = fileWriteError instanceof Error ? fileWriteError.message : String(fileWriteError);
+    await db
+      .update(archiveRuns)
+      .set({ status: 'failed_file_write', error: message })
+      .where(eq(archiveRuns.id, phase1.archiveId));
+    throw fileWriteError;
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [phase1.archiveId],
+    toast: `${period} archived with matching control totals.`,
+    delta: { controlTotals: phase1.controlTotals, csvPath, jsonlPath, pdfPath }
+  };
 }
+
+// Test-only re-export for src/server/services/archivePeriod.test.ts. Keeps
+// the production dispatcher signature (`archivePeriod(tx, payload, commandId)`)
+// stable while letting the test exercise the two-phase implementation
+// without going through the outer commandJournal claim path.
+export const __archivePeriodImpl = archivePeriodImpl;
 
 async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const customerId = requiredId(payload.customerId, 'customerId');

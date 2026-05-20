@@ -583,11 +583,21 @@ export const periodLocks = pgTable('period_locks', {
 export const archiveRuns = pgTable('archive_runs', {
   id: id(),
   period: varchar('period', { length: 7 }).notNull(),
+  // status lifecycle (issue #19 slice 3 / EDGE-04):
+  //   'in_progress'        — phase 1 (DB-only) committed, files not yet written
+  //   'archived'           — phase 2 succeeded; csv/jsonl/pdf paths are populated
+  //   'failed_file_write'  — phase 2 failed; `error` carries the cause, paths may be NULL
   status: varchar('status', { length: 32 }).notNull().default('archived'),
   controlTotals: jsonb('control_totals').$type<Record<string, unknown>>().notNull().default({}),
-  csvPath: text('csv_path').notNull(),
-  jsonlPath: text('jsonl_path').notNull(),
-  pdfPath: text('pdf_path').notNull(),
+  // Path columns are nullable because phase-1 rows commit before the
+  // post-commit file writer has decided the final paths. They are
+  // populated when status flips to 'archived'.
+  csvPath: text('csv_path'),
+  jsonlPath: text('jsonl_path'),
+  pdfPath: text('pdf_path'),
+  // Captured failure reason for status='failed_file_write' rows so an
+  // operator can identify which run to retry. Never read on the hot path.
+  error: text('error'),
   createdAt: now()
 });
 
