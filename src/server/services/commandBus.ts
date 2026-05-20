@@ -182,6 +182,12 @@ function canonicalStringify(obj: unknown, seen = new WeakSet<object>()): string 
  *      catch-path also UPDATEs (never re-INSERTs) the existing in-flight
  *      row, so unique-violations cannot escape into the tRPC envelope and
  *      leak SQL text (#24).
+ *
+ *   4. DOWNSTREAM OBSERVERS: The DB `command_journal` row is authoritative.
+ *      JSONL on-disk audit and socket broadcasts are best-effort downstream
+ *      observers; if they throw after the DB transaction commits, the error
+ *      is logged but not rethrown and the DB status is NOT flipped (#12
+ *      slice 2). A stale pending-claim sweeper is out of scope.
  */
 export async function executeCommand(input: CommandInput, user: SessionUser, io: SocketServer): Promise<CommandResult> {
   assertCommandAccess(user, input.name);
@@ -250,7 +256,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
   // WINNER PATH — we own the claim. Execute the command.
   // ------------------------------------------------------------------------
   try {
-    const result = await db.transaction(async (tx) => {
+    const { commandResult, afterSnapshot, storedResult } = await db.transaction(async (tx) => {
       const commandResult = await runCommand(tx, input.name, input.payload, user, commandId, input.reason);
       const afterSnapshot = await snapshotByAffectedIds(commandResult.affectedIds);
       const storedResult = { ...commandResult, toast: commandResult.toast ?? 'Command completed.' };
@@ -268,34 +274,42 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         })
         .where(eq(commandJournal.id, commandId));
 
-      return commandResult;
+      return { commandResult, afterSnapshot, storedResult };
     });
-
-    const storedResult = { ...result, toast: result.toast ?? 'Command completed.' };
-    const afterSnapshot = await snapshotByAffectedIds(result.affectedIds);
 
     // JSONL on-disk audit also receives the redacted copy — the raw token
     // must never appear on disk either (#93 F1 follow-up from adversarial QA).
-    await appendJsonlJournal({
-      id: commandId,
-      commandName: input.name,
-      actor: user,
-      idempotencyKey: input.idempotencyKey,
-      reason: input.reason,
-      inputPayload: input.payload,
-      beforeSnapshot,
-      afterSnapshot,
-      result: redactSensitiveDeltaFields(input.name, storedResult),
-      createdAt: new Date().toISOString()
-    });
+    // Reuses the transaction-derived afterSnapshot already persisted to
+    // command_journal; later #12 snapshot/lock-order work should make snapshot
+    // reads transaction-aware.
+    try {
+      await appendJsonlJournal({
+        id: commandId,
+        commandName: input.name,
+        actor: user,
+        idempotencyKey: input.idempotencyKey,
+        reason: input.reason,
+        inputPayload: input.payload,
+        beforeSnapshot,
+        afterSnapshot,
+        result: redactSensitiveDeltaFields(input.name, storedResult),
+        createdAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('[commandBus] appendJsonlJournal failed after commit:', e instanceof Error ? e.message : e);
+    }
 
-    io.emit('command:completed', {
-      commandId,
-      commandName: input.name,
-      actorId: user.id,
-      affectedIds: result.affectedIds,
-      toast: storedResult.toast
-    });
+    try {
+      io.emit('command:completed', {
+        commandId,
+        commandName: input.name,
+        actorId: user.id,
+        affectedIds: commandResult.affectedIds,
+        toast: storedResult.toast
+      });
+    } catch (e) {
+      console.warn('[commandBus] socket emit failed after commit:', e instanceof Error ? e.message : e);
+    }
 
     return storedResult;
   } catch (error) {
@@ -321,21 +335,32 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         error: rawMessage
       })
       .where(eq(commandJournal.id, commandId));
-    await appendJsonlJournal({
-      id: commandId,
-      commandName: input.name,
-      actor: user,
-      idempotencyKey: input.idempotencyKey,
-      reason: input.reason,
-      inputPayload: input.payload,
-      beforeSnapshot,
-      result: failed,
-      error: rawMessage,
-      createdAt: new Date().toISOString()
-    });
+
+    try {
+      await appendJsonlJournal({
+        id: commandId,
+        commandName: input.name,
+        actor: user,
+        idempotencyKey: input.idempotencyKey,
+        reason: input.reason,
+        inputPayload: input.payload,
+        beforeSnapshot,
+        result: failed,
+        error: rawMessage,
+        createdAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('[commandBus] appendJsonlJournal failed on failure path:', e instanceof Error ? e.message : e);
+    }
+
     // Socket emit is broadcast to all connected clients — must use scrubbed
     // message, not the raw one.
-    io.emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
+    try {
+      io.emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
+    } catch (e) {
+      console.warn('[commandBus] socket emit failed on failure path:', e instanceof Error ? e.message : e);
+    }
+
     return failed;
   }
 }
