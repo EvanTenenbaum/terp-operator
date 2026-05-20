@@ -231,3 +231,107 @@ describe('POST /api/upload/media', () => {
     expect(res.body.error).toMatch(/disk space/i);
   });
 });
+
+describe('DELETE /api/upload/media/staged', () => {
+  it('returns 401 when there is no session user', async () => {
+    vi.mocked(getSessionUser).mockResolvedValueOnce(null);
+
+    const res = await request(app)
+      .delete('/api/upload/media/staged')
+      .send({ filePath: path.join(tmpRoot, BATCH_ID, 'file.jpg') });
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: 'Authentication required' });
+  });
+
+  it('returns 403 when the user is below operator role (viewer)', async () => {
+    vi.mocked(getSessionUser).mockResolvedValueOnce({
+      id: 'v1',
+      name: 'Viewer',
+      email: 'v@example.com',
+      role: 'viewer'
+    });
+
+    const res = await request(app)
+      .delete('/api/upload/media/staged')
+      .send({ filePath: path.join(tmpRoot, BATCH_ID, 'file.jpg') });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Operator access required' });
+  });
+
+  it('returns 400 when filePath is missing', async () => {
+    const res = await request(app)
+      .delete('/api/upload/media/staged')
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+  });
+
+  it('deletes the main file and optional thumbnail/medium under MEDIA_STORAGE_PATH', async () => {
+    const batchDir = path.join(tmpRoot, BATCH_ID);
+    await fsp.mkdir(batchDir, { recursive: true });
+
+    const filePath = path.join(batchDir, 'file.jpg');
+    const thumbnailPath = path.join(batchDir, 'thumb.jpg');
+    const mediumPath = path.join(batchDir, 'medium.jpg');
+
+    await fsp.writeFile(filePath, 'main');
+    await fsp.writeFile(thumbnailPath, 'thumb');
+    await fsp.writeFile(mediumPath, 'medium');
+
+    const res = await request(app)
+      .delete('/api/upload/media/staged')
+      .send({ filePath, thumbnailPath, mediumPath });
+
+    expect(res.status).toBe(200);
+    expect(fs.existsSync(filePath)).toBe(false);
+    expect(fs.existsSync(thumbnailPath)).toBe(false);
+    expect(fs.existsSync(mediumPath)).toBe(false);
+  });
+
+  it('tolerates missing files so cleanup is idempotent', async () => {
+    const filePath = path.join(tmpRoot, BATCH_ID, 'nonexistent.jpg');
+
+    const res = await request(app)
+      .delete('/api/upload/media/staged')
+      .send({ filePath });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 400 for a path outside MEDIA_STORAGE_PATH (path traversal)', async () => {
+    const res = await request(app)
+      .delete('/api/upload/media/staged')
+      .send({ filePath: '/etc/passwd' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/unsafe path/i);
+  });
+
+  it('returns 400 when thumbnailPath is outside MEDIA_STORAGE_PATH even if filePath is safe', async () => {
+    const batchDir = path.join(tmpRoot, BATCH_ID);
+    await fsp.mkdir(batchDir, { recursive: true });
+    const safeFile = path.join(batchDir, 'file.jpg');
+    await fsp.writeFile(safeFile, 'main');
+
+    const res = await request(app)
+      .delete('/api/upload/media/staged')
+      .send({ filePath: safeFile, thumbnailPath: '/etc/passwd' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/unsafe path/i);
+    // Safe file should remain untouched
+    expect(fs.existsSync(safeFile)).toBe(true);
+  });
+
+  it('returns 400 for a relative path that resolves outside MEDIA_STORAGE_PATH', async () => {
+    const res = await request(app)
+      .delete('/api/upload/media/staged')
+      .send({ filePath: path.join(tmpRoot, '..', 'outside.txt') });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/unsafe path/i);
+  });
+});

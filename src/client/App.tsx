@@ -34,14 +34,18 @@ import {
 import { RefereesView } from './views/RefereesView';
 import { ProcessorsView } from './views/ProcessorsView';
 import { CreditReviewView } from './views/CreditReviewView';
+import { MediaView } from './views/MediaView';
+import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 
-// Sync URL with activeView state
+// Sync URL with activeView state.
+// Nested routes intentionally use the first path segment as activeView
+// (e.g. /photography/mobile/:batchId -> photography).
 function LocationSync() {
   const location = useLocation();
   const setActiveView = useUiStore((state) => state.setActiveView);
 
   useEffect(() => {
-    const path = location.pathname.slice(1) || 'dashboard';
+    const path = location.pathname.slice(1).split('/')[0] || 'dashboard';
     setActiveView(path as any);
   }, [location, setActiveView]);
 
@@ -107,6 +111,8 @@ function AppContent() {
               <Route path="/referees" element={<RefereesView />} />
               <Route path="/processors" element={<ProcessorsView />} />
               <Route path="/credit-review" element={<CreditReviewView />} />
+              <Route path="/photography" element={<MediaView />} />
+              <Route path="/photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
               <Route path="/settings" element={<SettingsView />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

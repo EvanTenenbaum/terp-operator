@@ -99,7 +99,10 @@ export const commandNames = [
   'updateCreditEngineStance',
   'deleteCreditEngineStance',
   'setCreditEngineConfig',
-  'bulkRevertCustomersToEngine'
+  'bulkRevertCustomersToEngine',
+  'setLineLandedCost',
+  'setCustomerPricingRule',
+  'setDefaultPricingRule'
 ] as const;
 
 export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
@@ -212,7 +215,10 @@ export const commandLabels: Record<CommandName, string> = {
   updateCreditEngineStance: 'Update credit engine stance',
   deleteCreditEngineStance: 'Delete credit engine stance',
   setCreditEngineConfig: 'Update credit engine config',
-  bulkRevertCustomersToEngine: 'Bulk revert customers to engine'
+  bulkRevertCustomersToEngine: 'Bulk revert customers to engine',
+  setLineLandedCost: 'Set landed COGS',
+  setCustomerPricingRule: 'Set customer pricing rule',
+  setDefaultPricingRule: 'Set default pricing rule'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -314,7 +320,10 @@ export const commandMinRole: Record<CommandName, Role> = {
   updateCreditEngineStance: 'owner',
   deleteCreditEngineStance: 'owner',
   setCreditEngineConfig: 'owner',
-  bulkRevertCustomersToEngine: 'owner'
+  bulkRevertCustomersToEngine: 'owner',
+  setLineLandedCost: 'operator',
+  setCustomerPricingRule: 'manager',
+  setDefaultPricingRule: 'manager'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -416,7 +425,10 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   updateCreditEngineStance: { disposition: 'reversible', guidance: 'Call updateCreditEngineStance again with the prior values from stance history.' },
   deleteCreditEngineStance: { disposition: 'terminal', guidance: 'Deleted stances cannot be reconstructed; recreate the stance with createCreditEngineStance if needed.' },
   setCreditEngineConfig: { disposition: 'reversible', guidance: 'Call setCreditEngineConfig again with the prior values from config history.' },
-  bulkRevertCustomersToEngine: { disposition: 'terminal', guidance: 'Bulk rollout is terminal; per-customer manual overrides can be restored individually.' }
+  bulkRevertCustomersToEngine: { disposition: 'terminal', guidance: 'Bulk rollout is terminal; per-customer manual overrides can be restored individually.' },
+  setLineLandedCost: { disposition: 'reversible', guidance: 'Restores the prior landed COGS, basis, and resolution flag from the command snapshot.' },
+  setCustomerPricingRule: { disposition: 'reversible', guidance: 'Restores the prior customer pricing rule from the command snapshot.' },
+  setDefaultPricingRule: { disposition: 'reversible', guidance: 'Restores the prior default pricing rule from the command snapshot.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

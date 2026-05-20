@@ -205,7 +205,7 @@ function tabForIndex(view: ViewKey, index: number) {
     connectors: ['relationship', 'request', 'source', 'history'],
     recovery: ['undo', 'target', 'history'],
     closeout: ['control-totals', 'open-work', 'artifacts'],
-    settings: ['requests', 'actions', 'archive']
+    settings: ['requests', 'actions', 'archive', 'strain-aliases', 'pricing']
   };
   return tabsByView[view]?.[index] ?? null;
 }

@@ -29,17 +29,29 @@ export function evaluateFilterGroup(
     return false;
   }
 
-  const results = group.conditions.map(condition => {
-    if ('field' in condition) {
-      return evaluateCondition(row, condition);
-    } else {
-      return evaluateFilterGroup(row, condition, depth + 1);
-    }
-  });
+  const { conditions, logic } = group;
 
-  return group.logic === 'AND'
-    ? results.every(Boolean)
-    : results.some(Boolean);
+  if (conditions.length === 0) {
+    return logic === 'AND';
+  }
+
+  if (logic === 'AND') {
+    for (const condition of conditions) {
+      const result = 'field' in condition
+        ? evaluateCondition(row, condition)
+        : evaluateFilterGroup(row, condition, depth + 1);
+      if (!result) return false;
+    }
+    return true;
+  } else {
+    for (const condition of conditions) {
+      const result = 'field' in condition
+        ? evaluateCondition(row, condition)
+        : evaluateFilterGroup(row, condition, depth + 1);
+      if (result) return true;
+    }
+    return false;
+  }
 }
 
 function evaluateCondition(row: Record<string, any>, condition: FilterCondition): boolean {
@@ -157,11 +169,55 @@ function evaluateCondition(row: Record<string, any>, condition: FilterCondition)
   }
 }
 
+const _MS_PER_DAY = 86400000;
+
+// Cumulative day-of-year offsets for each month start (non-leap year, 0-indexed).
+const _MDAY = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+
+// Epoch days since 1970-01-01 for dates in 1970-2099.
+// Uses right-shift and bitwise AND — no Math.floor, no Date.UTC, no allocations.
+// Correctness note: treats any year where (y & 3) === 0 as a leap year; this is
+// accurate for 1970-2099 (2100 is the next non-leap century year, outside typical range).
+function _epochDay(y: number, m: number, d: number): number {
+  const leapAdj = (m > 2 && (y & 3) === 0) ? 1 : 0;
+  return (y - 1970) * 365 + ((y - 1969) >> 2) + _MDAY[m - 1] + leapAdj + d - 1;
+}
+
+// Today's UTC epoch day, cached at module load.
+// Refreshed lazily when Date.now() crosses the next UTC midnight boundary.
+// Hot path reads _todayEpochDay directly — no Date.now() per call.
+let _todayEpochDay = (Date.now() / _MS_PER_DAY) | 0;
+let _nextMidnightMs = (_todayEpochDay + 1) * _MS_PER_DAY;
+
+// Refresh the today cache; call after midnight in long-lived server processes.
+export function _refreshTodayEpochDay(): void {
+  const now = Date.now();
+  if (now >= _nextMidnightMs) {
+    _todayEpochDay = (now / _MS_PER_DAY) | 0;
+    _nextMidnightMs = (_todayEpochDay + 1) * _MS_PER_DAY;
+  }
+}
+
 // Calculate age in days for client-side evaluation
 export function calculateAgeDays(intakeDate: string | Date | null): number | null {
   if (!intakeDate) return null;
-  const intake = new Date(intakeDate);
-  const now = new Date();
-  const diffMs = now.getTime() - intake.getTime();
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  let intakeEpochDay: number;
+  if (intakeDate instanceof Date) {
+    intakeEpochDay = (intakeDate.getTime() / _MS_PER_DAY) | 0;
+  } else {
+    const s = intakeDate;
+    if (s.length >= 10 && s.charCodeAt(4) === 45 && s.charCodeAt(7) === 45) {
+      // Fast path: YYYY-MM-DD or ISO string — pure integer arithmetic, no Date.UTC
+      const y = (s.charCodeAt(0) - 48) * 1000 + (s.charCodeAt(1) - 48) * 100 +
+                (s.charCodeAt(2) - 48) * 10  + (s.charCodeAt(3) - 48);
+      const m = (s.charCodeAt(5) - 48) * 10 + (s.charCodeAt(6) - 48);
+      const d = (s.charCodeAt(8) - 48) * 10 + (s.charCodeAt(9) - 48);
+      intakeEpochDay = _epochDay(y, m, d);
+    } else {
+      const ms = Date.parse(s);
+      if (isNaN(ms)) return null;
+      intakeEpochDay = (ms / _MS_PER_DAY) | 0;
+    }
+  }
+  return _todayEpochDay - intakeEpochDay;
 }

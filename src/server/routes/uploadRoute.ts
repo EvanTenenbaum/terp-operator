@@ -15,7 +15,7 @@ import {
   sanitizeFilename,
   validateMagicBytes
 } from '../services/mediaValidation';
-import { convertHeicToJpeg, generateThumbnails } from '../services/mediaStorage';
+import { convertHeicToJpeg, generateThumbnails, deleteMedia } from '../services/mediaStorage';
 
 const router = express.Router();
 
@@ -151,6 +151,48 @@ router.post(
         await fsp.unlink(file.path).catch(() => {});
       }
       return res.status(500).json({ error: 'Upload failed' });
+    }
+  }
+);
+
+router.delete(
+  '/api/upload/media/staged',
+  requirePhotographyEnabled,
+  requireOperator,
+  async (req: Request, res: Response) => {
+    const { filePath, thumbnailPath, mediumPath } = req.body as {
+      filePath?: string;
+      thumbnailPath?: string;
+      mediumPath?: string;
+    };
+
+    if (!filePath || typeof filePath !== 'string') {
+      return res.status(400).json({ error: 'filePath is required' });
+    }
+
+    const storageRoot = path.resolve(getMediaStoragePath());
+
+    function isSafePath(p: string): boolean {
+      const resolved = path.resolve(p);
+      return resolved.startsWith(storageRoot + path.sep) || resolved === storageRoot;
+    }
+
+    const pathsToDelete = [filePath, thumbnailPath, mediumPath].filter(
+      (p): p is string => typeof p === 'string'
+    );
+
+    for (const p of pathsToDelete) {
+      if (!isSafePath(p)) {
+        return res.status(400).json({ error: 'Unsafe path: path must be within media storage' });
+      }
+    }
+
+    try {
+      await deleteMedia(filePath, thumbnailPath, mediumPath);
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error('Cleanup route error:', error);
+      return res.status(500).json({ error: 'Cleanup failed' });
     }
   }
 );

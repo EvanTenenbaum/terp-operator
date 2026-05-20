@@ -1,5 +1,6 @@
 import { Clipboard, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
+import { CustomerPricingPanel, OrderPricingPanel } from './PricingPanel';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { GridRow, ViewKey } from '../../shared/types';
 
@@ -12,6 +13,7 @@ interface RelationshipDrawerProps {
 export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerProps) {
   const customerId = inferCustomerId(row, view);
   const vendorId = inferVendorId(row, view);
+  const orderId = inferOrderId(row, view);
   const summary = trpc.queries.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(row && (customerId || vendorId)) });
   if (!row || (!customerId && !vendorId)) return null;
   const data = summary.data;
@@ -81,10 +83,19 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
           <RelationshipSection title="Vendor bills" rows={data?.bills ?? []} columns={['billNo', 'status', 'amount', 'amountPaid', 'dueReason']} />
           <RelationshipSection title="Vendor payments" rows={data?.vendorPayments ?? []} columns={['billNo', 'amount', 'method', 'reference']} />
           <RelationshipSection title="Recent commands" rows={data?.commands ?? []} columns={['commandName', 'actorName', 'status', 'createdAt']} />
+          {orderId ? <OrderPricingPanel orderId={orderId} customerId={customerId} /> : null}
+          {customerId ? <CustomerPricingPanel customerId={customerId} /> : null}
         </div>
       </aside>
     </>
   );
+}
+
+function inferOrderId(row: GridRow | null, view: ViewKey) {
+  if (!row) return undefined;
+  if (typeof row.orderId === 'string') return row.orderId;
+  if ((view === 'orders' || view === 'sales' || view === 'fulfillment') && typeof row.id === 'string') return row.id;
+  return undefined;
 }
 
 function RelationshipSection({ title, rows, columns }: { title: string; rows: GridRow[]; columns: string[] }) {

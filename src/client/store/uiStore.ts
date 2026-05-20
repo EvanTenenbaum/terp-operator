@@ -9,6 +9,15 @@ interface Toast {
   tone: 'success' | 'error' | 'info';
 }
 
+export interface GridColumnPref {
+  colId: string;
+  hide?: boolean;
+  width?: number;
+  pinned?: 'left' | 'right' | null;
+  sort?: 'asc' | 'desc' | null;
+  sortIndex?: number | null;
+}
+
 interface UiState {
   activeView: ViewKey;
   activeCustomerId: string | null;
@@ -27,6 +36,7 @@ interface UiState {
   drawerByView: Record<string, DrawerState>;
   activeDrawerEntityByView: Partial<Record<ViewKey, DrawerEntityRef>>;
   gridFilters: Partial<Record<ViewKey, string>>;
+  gridColumnPrefs: Record<string, GridColumnPref[]>;
   routeHistory: RouteHistoryEntry[];
   toasts: Toast[];
   announcement: string;
@@ -50,6 +60,8 @@ interface UiState {
   toggleDrawer: (view: ViewKey) => void;
   cycleDrawer: (view: ViewKey) => void;
   setGridFilter: (view: ViewKey, filter: string) => void;
+  setGridColumnPrefs: (tableKey: string, prefs: GridColumnPref[]) => void;
+  resetGridColumnPrefs: (tableKey: string) => void;
   pushRouteHistory: (entry: Omit<RouteHistoryEntry, 'timestamp'>) => void;
   goBackRouteHistory: () => void;
   pushToast: (message: string, tone?: Toast['tone']) => void;
@@ -76,6 +88,7 @@ export const useUiStore = create<UiState>()(
     drawerByView: {},
     activeDrawerEntityByView: {},
     gridFilters: {},
+    gridColumnPrefs: {},
     routeHistory: [],
     toasts: [],
     announcement: '',
@@ -214,6 +227,15 @@ export const useUiStore = create<UiState>()(
         state.gridFilters[view] = filter;
         state.announcement = filter ? `Filtered ${view}.` : `Cleared ${view} filter.`;
       }),
+    setGridColumnPrefs: (tableKey, prefs) =>
+      set((state) => {
+        state.gridColumnPrefs[tableKey] = prefs;
+      }),
+    resetGridColumnPrefs: (tableKey) =>
+      set((state) => {
+        delete state.gridColumnPrefs[tableKey];
+        state.announcement = 'Column layout reset.';
+      }),
     pushRouteHistory: (entry) =>
       set((state) => {
         pushRouteEntry(state, entry);
@@ -257,7 +279,8 @@ export const useUiStore = create<UiState>()(
       activeSettingsTab: state.activeSettingsTab,
       drawerByView: state.drawerByView,
       activeDrawerEntityByView: state.activeDrawerEntityByView,
-      gridFilters: state.gridFilters
+      gridFilters: state.gridFilters,
+      gridColumnPrefs: state.gridColumnPrefs
     })
   }
   )
