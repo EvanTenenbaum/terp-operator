@@ -8,6 +8,7 @@ import type { Server as SocketServer } from 'socket.io';
 import { z } from 'zod';
 import { db, pool } from '../db';
 import { env } from '../env';
+import { scrubDatabaseError } from '../trpc';
 import {
   archiveRuns,
   backupSnapshots,
@@ -136,98 +137,109 @@ function canonicalStringify(obj: unknown, seen = new WeakSet<object>()): string 
   return JSON.stringify(sorted);
 }
 
+/**
+ * Execute a command with atomic idempotency-key claim.
+ *
+ * Concurrency model (fixes #12 slice 1 / ARCH-02 and #24 / DYN-H1):
+ *
+ *   1. ATOMIC CLAIM: INSERT a "pending" journal row using
+ *      `ON CONFLICT (idempotency_key) DO NOTHING RETURNING ...`. The row that
+ *      is actually returned IS the claim. If no row comes back, another
+ *      caller already owns this key — we never run the command.
+ *
+ *   2. LOSER PATH: SELECT the existing row, validate command_name + payload
+ *      hash, then either replay the cached result (status='ok' or 'failed')
+ *      or throw a SAFE message ("Command already in progress for this
+ *      idempotency key.") if the winner is still running.
+ *
+ *   3. SUCCESS PATH: Run the command inside a transaction, then UPDATE the
+ *      pending row to status='ok'/'failed' with the final result. The
+ *      catch-path also UPDATEs (never re-INSERTs) the existing in-flight
+ *      row, so unique-violations cannot escape into the tRPC envelope and
+ *      leak SQL text (#24).
+ */
 export async function executeCommand(input: CommandInput, user: SessionUser, io: SocketServer): Promise<CommandResult> {
   assertCommandAccess(user, input.name);
 
-  // Fast path: Check for existing command outside transaction
-  const existing = await db.select().from(commandJournal)
-    .where(eq(commandJournal.idempotencyKey, input.idempotencyKey))
-    .limit(1);
-
-  if (existing[0]) {
-    // Verify command name matches
-    if (existing[0].commandName !== input.name) {
-      throw new Error(
-        `Idempotency key reused with different command. ` +
-        `Expected: ${existing[0].commandName}, Got: ${input.name}. ` +
-        `Use a unique key for each command.`
-      );
-    }
-
-    // Verify payload matches (canonical deep comparison)
-    const existingPayload = canonicalStringify(existing[0].inputPayload ?? {});
-    const currentPayload = canonicalStringify(input.payload ?? {});
-    if (existingPayload !== currentPayload) {
-      throw new Error(
-        `Idempotency key reused with different payload. ` +
-        `The same idempotency key cannot be used for different operations. ` +
-        `Use a unique key for each unique request.`
-      );
-    }
-
-    // Replay: return cached result immediately
-    return existing[0].result as unknown as CommandResult;
-  }
-
-  // No existing command - execute new one
   const commandId = randomUUID();
   const beforeSnapshot = await snapshotFromPayload(input.payload);
 
+  // ------------------------------------------------------------------------
+  // ATOMIC CLAIM
+  // ------------------------------------------------------------------------
+  const claimRows = await db
+    .insert(commandJournal)
+    .values({
+      id: commandId,
+      commandName: input.name,
+      idempotencyKey: input.idempotencyKey,
+      actorId: user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      reason: input.reason,
+      inputPayload: input.payload,
+      status: 'pending',
+      affectedIds: [],
+      beforeSnapshot,
+      afterSnapshot: {},
+      result: {}
+    })
+    .onConflictDoNothing({ target: commandJournal.idempotencyKey })
+    .returning();
+
+  if (claimRows.length === 0) {
+    // Lost the race. Read the row that beat us.
+    const [existing] = await db
+      .select()
+      .from(commandJournal)
+      .where(eq(commandJournal.idempotencyKey, input.idempotencyKey))
+      .limit(1);
+
+    if (!existing) {
+      // Transient: the conflicting row vanished between INSERT and SELECT
+      // (e.g. an admin cleanup). Surface a safe, retryable error.
+      throw new Error('Idempotency claim failed: please retry.');
+    }
+
+    // Validate command_name + payload — same-key reuse with different
+    // command or payload returns a 409-equivalent with a safe message.
+    if (existing.commandName !== input.name) {
+      throw new Error('Idempotency key reused with different command or payload.');
+    }
+    const existingPayload = canonicalStringify(existing.inputPayload ?? {});
+    const currentPayload = canonicalStringify(input.payload ?? {});
+    if (existingPayload !== currentPayload) {
+      throw new Error('Idempotency key reused with different command or payload.');
+    }
+
+    if (existing.status === 'pending') {
+      // Winner still running. Safe message — no SQL leak.
+      throw new Error('Command already in progress for this idempotency key.');
+    }
+
+    // Replay cached result (status 'ok' or 'failed').
+    return existing.result as unknown as CommandResult;
+  }
+
+  // ------------------------------------------------------------------------
+  // WINNER PATH — we own the claim. Execute the command.
+  // ------------------------------------------------------------------------
   try {
     const result = await db.transaction(async (tx) => {
-      // Double-check inside transaction for concurrent requests
-      const concurrentCheck = await tx.select().from(commandJournal)
-        .where(eq(commandJournal.idempotencyKey, input.idempotencyKey))
-        .limit(1);
-
-      if (concurrentCheck[0]) {
-        // Another request won the race - verify and replay
-        if (concurrentCheck[0].commandName !== input.name) {
-          throw new Error(
-            `Idempotency key reused with different command. ` +
-            `Expected: ${concurrentCheck[0].commandName}, Got: ${input.name}. ` +
-            `Use a unique key for each command.`
-          );
-        }
-
-        const existingPayload = canonicalStringify(concurrentCheck[0].inputPayload ?? {});
-        const currentPayload = canonicalStringify(input.payload ?? {});
-        if (existingPayload !== currentPayload) {
-          throw new Error(
-            `Idempotency key reused with different payload. ` +
-            `The same idempotency key cannot be used for different operations. ` +
-            `Use a unique key for each unique request.`
-          );
-        }
-
-        // Valid replay - return the cached result
-        return concurrentCheck[0].result as unknown as CommandResult;
-      }
-
-      // Execute command first
       const commandResult = await runCommand(tx, input.name, input.payload, user, commandId, input.reason);
-
-      // Snapshot after execution
       const afterSnapshot = await snapshotByAffectedIds(commandResult.affectedIds);
       const storedResult = { ...commandResult, toast: commandResult.toast ?? 'Command completed.' };
 
-      // Insert journal with FINAL status (not pending)
-      // Unique constraint on idempotencyKey ensures atomicity
-      await tx.insert(commandJournal).values({
-        id: commandId,
-        commandName: input.name,
-        idempotencyKey: input.idempotencyKey,
-        actorId: user.id,
-        actorName: user.name,
-        actorRole: user.role,
-        reason: input.reason,
-        inputPayload: input.payload,
-        status: commandResult.ok ? 'ok' : 'failed',
-        affectedIds: commandResult.affectedIds,
-        beforeSnapshot,
-        afterSnapshot,
-        result: storedResult
-      });
+      // Finalize the claimed row (UPDATE — not re-INSERT).
+      await tx
+        .update(commandJournal)
+        .set({
+          status: commandResult.ok ? 'ok' : 'failed',
+          affectedIds: commandResult.affectedIds,
+          afterSnapshot,
+          result: storedResult as unknown as Record<string, unknown>
+        })
+        .where(eq(commandJournal.id, commandId));
 
       return commandResult;
     });
@@ -258,24 +270,28 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
 
     return storedResult;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Command failed.';
-    const failed: CommandResult = { ok: false, commandId, affectedIds: [], toast: message };
-    await db.insert(commandJournal).values({
-      id: commandId,
-      commandName: input.name,
-      idempotencyKey: input.idempotencyKey,
-      actorId: user.id,
-      actorName: user.name,
-      actorRole: user.role,
-      reason: input.reason,
-      inputPayload: input.payload,
-      status: 'failed',
-      affectedIds: [],
-      beforeSnapshot,
-      afterSnapshot: {},
-      result: failed as unknown as Record<string, unknown>,
-      error: message
-    });
+    // Scrub any Postgres/Drizzle error text before it flows into result.toast.
+    // The catch path returns failed as a normal tRPC response, which bypasses
+    // the errorFormatter — so an authenticated caller could still enumerate
+    // schema by triggering FK/unique violations from inside a command without
+    // this guard (#24 catch-path follow-up surfaced by adversarial QA).
+    const { safeMessage } = scrubDatabaseError(error);
+    const rawMessage = error instanceof Error ? error.message : 'Command failed.';
+    const failed: CommandResult = { ok: false, commandId, affectedIds: [], toast: safeMessage };
+    // UPDATE the existing in-flight row to 'failed' — DO NOT re-INSERT.
+    // The previous design tried to insert a new row with the same
+    // idempotencyKey here, which raced the unique index and leaked the
+    // full INSERT statement through the tRPC envelope (#24 DYN-H1).
+    await db
+      .update(commandJournal)
+      .set({
+        status: 'failed',
+        result: failed as unknown as Record<string, unknown>,
+        // Preserve the raw message server-side (NOT exposed to clients —
+        // the journal is read by reverseCommandById + admin tools only).
+        error: rawMessage
+      })
+      .where(eq(commandJournal.id, commandId));
     await appendJsonlJournal({
       id: commandId,
       commandName: input.name,
@@ -285,10 +301,12 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       inputPayload: input.payload,
       beforeSnapshot,
       result: failed,
-      error: message,
+      error: rawMessage,
       createdAt: new Date().toISOString()
     });
-    io.emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: message });
+    // Socket emit is broadcast to all connected clients — must use scrubbed
+    // message, not the raw one.
+    io.emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
     return failed;
   }
 }
