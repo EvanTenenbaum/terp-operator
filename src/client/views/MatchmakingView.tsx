@@ -1,4 +1,4 @@
-import { Check, Plus, X } from 'lucide-react';
+import { Check, Plus, RotateCcw, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -159,34 +159,57 @@ export function MatchmakingView() {
   const matchExpansionConfig = useMemo(
     () => ({
       enabled: true,
-      actionsRenderer: (row: GridRow) => (
-        <>
-          <button
-            className="primary-button compact-action"
-            disabled={isRunning || !canWrite}
-            onClick={() => {
-              if (!row.id || row.id.trim() === '') return;
-              runCommand('acceptMatchmakingMatch', { matchId: row.id }, 'Accept match');
-            }}
-            type="button"
-          >
-            <Check className="h-4 w-4" aria-hidden="true" />
-            Accept
-          </button>
-          <button
-            className="secondary-button compact-action"
-            disabled={isRunning || !canWrite}
-            onClick={() => {
-              if (!row.id || row.id.trim() === '') return;
-              runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss match');
-            }}
-            type="button"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-            Dismiss
-          </button>
-        </>
-      ),
+      actionsRenderer: (row: GridRow) => {
+        const status = typeof row.status === 'string' ? row.status : '';
+        const isOpen = status === 'open';
+        const isClosed = status === 'accepted' || status === 'dismissed';
+        return (
+          <>
+            {isOpen ? (
+              <>
+                <button
+                  className="primary-button compact-action"
+                  disabled={isRunning || !canWrite}
+                  onClick={() => {
+                    if (!row.id || row.id.trim() === '') return;
+                    runCommand('acceptMatchmakingMatch', { matchId: row.id }, 'Accept match');
+                  }}
+                  type="button"
+                >
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                  Accept
+                </button>
+                <button
+                  className="secondary-button compact-action"
+                  disabled={isRunning || !canWrite}
+                  onClick={() => {
+                    if (!row.id || row.id.trim() === '') return;
+                    runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss match');
+                  }}
+                  type="button"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                  Dismiss
+                </button>
+              </>
+            ) : null}
+            {isClosed ? (
+              <button
+                className="secondary-button compact-action"
+                disabled={isRunning || !canWrite}
+                onClick={() => {
+                  if (!row.id || row.id.trim() === '') return;
+                  runCommand('reopenMatchmakingMatch', { matchId: row.id }, 'Reopen for review');
+                }}
+                type="button"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                Reopen
+              </button>
+            ) : null}
+          </>
+        );
+      },
       childrenRenderer: (row: GridRow) => (
         <div className="text-sm text-zinc-600">
           <div className="font-medium mb-1">Match Reasoning:</div>
