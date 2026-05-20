@@ -336,6 +336,35 @@ describe('divergenceReport (integration)', () => {
       }
     });
 
+    it('reversed invoices are NOT counted as open (no blocker even when engine=0)', async () => {
+      // Verifies the divergenceReport.open_invoices CTE excludes 'reversed'
+      // status. Without this exclusion, a customer with a single reversed
+      // invoice + engine recommendation of $0 would falsely register as a
+      // blocker and tank the shadow→live KPI.
+      const { customerId, teardown } = await makeScopedCustomer({
+        name: 'div-rev-blocker',
+        creditLimit: 5000,
+        source: 'manual',
+        finalLimit: 0,
+        confidences: 'all_medium',
+        withOpenInvoice: false
+      });
+      // Insert a reversed invoice with a balance > 0 — should NOT count as open.
+      const invRes = await pool.query<{ id: string }>(
+        `INSERT INTO invoices (invoice_no, customer_id, status, total, amount_paid, due_date)
+         VALUES ($1, $2, 'reversed', '5000.00', '0.00', now() + interval '30 days')
+         RETURNING id`,
+        ['REV-' + randomUUID().slice(0, 12), customerId]
+      );
+      try {
+        const report = await divergenceReport(pool, { filterCustomerIds: [customerId] });
+        expect(report.kpi.blockerCount).toBe(0);
+      } finally {
+        await pool.query(`DELETE FROM invoices WHERE id = $1`, [invRes.rows[0].id]);
+        await teardown();
+      }
+    });
+
     it('flags noConfidenceApplied when applied=true and all six confidences=none', async () => {
       const { customerId, teardown } = await makeScopedCustomer({
         name: 'div-noconf',

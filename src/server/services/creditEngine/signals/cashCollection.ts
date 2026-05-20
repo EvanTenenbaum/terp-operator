@@ -47,7 +47,7 @@ export async function computeCashCollection(
       AND inv.created_at >= $2::timestamptz - INTERVAL '365 days'
       AND inv.created_at <= $2::timestamptz
       AND inv.total >= 0
-      AND inv.status != 'voided'
+      AND inv.status NOT IN ('reversed', 'voided')
     `,
     [customerId, now]
   );

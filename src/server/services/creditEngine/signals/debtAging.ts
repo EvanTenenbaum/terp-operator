@@ -51,7 +51,10 @@ interface DebtAgingRow {
  * Fetches outstanding invoice balances for `customerId` as of `now`, excluding any
  * invoices with an active dispute (status IN ('open','investigating')).
  *
- * Open-balance criterion: status IN ('open','partial','posted') AND total > amount_paid.
+ * Open-balance criterion: status IN ('open','partial') AND total > amount_paid.
+ * Actual invoice statuses are `open | partial | paid | reversed`; we restrict
+ * to the unpaid-but-issued subset. (Legacy `posted` and `voided` defensively
+ * tolerated via the explicit IN allow-list and reversed exclusion.)
  *
  * Note: Phase 0 audit confirmed disputes use both 'open' and 'investigating' as active
  * statuses (see docs/credit-engine-data-audit-2026-05-18.md).
@@ -68,11 +71,10 @@ export async function computeDebtAging(
       GREATEST(0, EXTRACT(EPOCH FROM ($2::timestamptz - inv.due_date)) / 86400)::text       AS days_overdue
     FROM invoices inv
     WHERE inv.customer_id = $1
-      AND inv.status IN ('open', 'partial', 'posted')
+      AND inv.status IN ('open', 'partial')
       AND inv.total > inv.amount_paid
       AND inv.total >= 0
       AND inv.created_at <= $2::timestamptz
-      AND inv.status != 'voided'
       AND NOT EXISTS (
         SELECT 1 FROM invoice_disputes d
         WHERE d.invoice_id = inv.id

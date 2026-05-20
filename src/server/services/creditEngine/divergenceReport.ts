@@ -172,9 +172,14 @@ export async function divergenceReport(
       ORDER BY customer_id, created_at DESC
     ),
     open_invoices AS (
+      -- Actual invoice statuses: open | partial | paid | reversed. A
+      -- "currently-transacting" customer is one with at least one issued
+      -- invoice that is not yet paid AND not reversed. Legacy 'void'/'voided'
+      -- markers are excluded defensively in case any historical row carries
+      -- them; the application writes 'reversed' for cancellations.
       SELECT customer_id, true AS has_open
       FROM invoices
-      WHERE status NOT IN ('paid', 'void')
+      WHERE status NOT IN ('paid', 'reversed', 'void', 'voided')
         AND total > amount_paid
       GROUP BY customer_id
     )

@@ -245,8 +245,11 @@ describe('setCustomerCreditLimit', () => {
 // ----- revertCustomerCreditToEngine -----
 
 describe('revertCustomerCreditToEngine', () => {
-  it('happy path: clears manual override fields', async () => {
-    const selectMap = singleSelect(customers, { id: CUSTOMER_ID });
+  it('happy path: clears manual override fields when assessment exists', async () => {
+    const selectMap = singleSelect(customers, {
+      id: CUSTOMER_ID,
+      lastAssessmentId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1'
+    });
     const { tx, state } = makeTx(selectMap);
     const result = await revertCustomerCreditToEngine(tx, { customerId: CUSTOMER_ID }, COMMAND_ID);
     expect(result.ok).toBe(true);
@@ -267,6 +270,30 @@ describe('revertCustomerCreditToEngine', () => {
     await expect(
       revertCustomerCreditToEngine(tx, { customerId: CUSTOMER_ID }, COMMAND_ID)
     ).rejects.toThrow('Customer not found.');
+  });
+
+  it('rejects revert when customer has no assessment (CHECK constraint guard)', async () => {
+    // Mirrors the customers_engine_source_has_assessment CHECK constraint:
+    // source='engine' requires last_assessment_id IS NOT NULL. Throw a clear
+    // error BEFORE the UPDATE so callers get a friendly message instead of
+    // a raw constraint violation.
+    const selectMap = singleSelect(customers, { id: CUSTOMER_ID, lastAssessmentId: null });
+    const { tx, state } = makeTx(selectMap);
+    await expect(
+      revertCustomerCreditToEngine(tx, { customerId: CUSTOMER_ID }, COMMAND_ID)
+    ).rejects.toThrow('Customer must have a credit assessment before reverting to engine.');
+    // No UPDATE issued, no enqueue.
+    expect(state.updates).toHaveLength(0);
+    expect(state.queries).toHaveLength(0);
+  });
+
+  it('rejects revert when lastAssessmentId is undefined (defensive)', async () => {
+    // Some Drizzle adapters omit null columns instead of returning null.
+    const selectMap = singleSelect(customers, { id: CUSTOMER_ID });
+    const { tx } = makeTx(selectMap);
+    await expect(
+      revertCustomerCreditToEngine(tx, { customerId: CUSTOMER_ID }, COMMAND_ID)
+    ).rejects.toThrow('Customer must have a credit assessment before reverting to engine.');
   });
 });
 
@@ -949,15 +976,74 @@ describe('setCreditEngineConfig', () => {
       setCreditEngineConfig(tx, { shadowMode: 'no' }, USER_ID, COMMAND_ID)
     ).rejects.toThrow('shadowMode must be a boolean');
   });
+
+  it('rejects re-enabling shadow mode once it has been disabled (one-way-down)', async () => {
+    // Persisted config has shadowMode=false; payload attempts to flip back to
+    // true. Must be rejected server-side regardless of the UI affordance.
+    const liveConfig = { ...baseConfig, shadowMode: false };
+    const selectMap = new Map<unknown, unknown[][]>([[creditEngineConfig, [[liveConfig]]]]);
+    const { tx, state } = makeTx(selectMap);
+    await expect(
+      setCreditEngineConfig(tx, { shadowMode: true }, USER_ID, COMMAND_ID)
+    ).rejects.toThrow('Shadow mode cannot be re-enabled once it has been disabled.');
+    // No UPDATE issued, no history row written.
+    expect(state.updates).toHaveLength(0);
+    expect(state.inserts).toHaveLength(0);
+  });
+
+  it('allows shadowMode=false when persisted is already false (idempotent no-op)', async () => {
+    // Setting shadowMode=false when it's already false should succeed: it
+    // only writes the audit row and any other changed fields. This protects
+    // operators who toggle other settings after going live.
+    const liveConfig = { ...baseConfig, shadowMode: false };
+    const selectMap = new Map<unknown, unknown[][]>([[creditEngineConfig, [[liveConfig]]]]);
+    const { tx, state } = makeTx(selectMap);
+    const result = await setCreditEngineConfig(
+      tx,
+      { shadowMode: false },
+      USER_ID,
+      COMMAND_ID
+    );
+    expect(result.ok).toBe(true);
+    expect(state.updates[0].set).toMatchObject({ shadowMode: false });
+  });
+
+  it('rejects manualOverrideSnoozeCapDays below the 30-day server minimum', async () => {
+    // The credit-review queue computes a "near snooze cap" badge using
+    // `cap - 30`; a cap below 30 makes the badge math nonsense. Reject it
+    // server-side so the UI cannot push the queue into a broken state.
+    const selectMap = new Map<unknown, unknown[][]>([[creditEngineConfig, [[baseConfig]]]]);
+    const { tx } = makeTx(selectMap);
+    await expect(
+      setCreditEngineConfig(tx, { manualOverrideSnoozeCapDays: 29 }, USER_ID, COMMAND_ID)
+    ).rejects.toThrow('manualOverrideSnoozeCapDays must be at least 30.');
+  });
+
+  it('allows manualOverrideSnoozeCapDays at exactly 30', async () => {
+    const selectMap = new Map<unknown, unknown[][]>([[creditEngineConfig, [[baseConfig]]]]);
+    const { tx, state } = makeTx(selectMap);
+    const result = await setCreditEngineConfig(
+      tx,
+      { manualOverrideSnoozeCapDays: 30 },
+      USER_ID,
+      COMMAND_ID
+    );
+    expect(result.ok).toBe(true);
+    expect(state.updates[0].set).toMatchObject({ manualOverrideSnoozeCapDays: 30 });
+  });
 });
 
 // ----- bulkRevertCustomersToEngine -----
 
 describe('bulkRevertCustomersToEngine', () => {
-  it('happy path: owner flips multiple customers and disables shadow mode', async () => {
+  it('happy path: owner flips eligible customers and disables shadow mode', async () => {
     const selectMap = new Map<unknown, unknown[][]>([
-      // First select: find customers matching filter
-      [customers, [[{ id: CUSTOMER_ID }, { id: STANCE_ID }]]], // pretend two customer ids
+      // First customers select: eligible candidates with assessments.
+      [customers, [
+        [{ id: CUSTOMER_ID }, { id: STANCE_ID }],
+        // Second customers select: skipped candidates without assessment.
+        []
+      ]],
       [
         creditEngineConfig,
         [[{ id: CONFIG_ID, shadowMode: true, globalDefaultStanceId: STANCE_ID, coldStartMinPostedInvoices: 3, coldStartMinTenureDays: 60, manualOverrideReminderDefaultDays: 60, manualOverrideSnoozeCapDays: 365 }]]
@@ -968,6 +1054,7 @@ describe('bulkRevertCustomersToEngine', () => {
     expect(result.ok).toBe(true);
     expect(result.affectedIds).toHaveLength(2);
     expect(result.toast).toContain('Reverted 2 customer');
+    expect(result.toast).not.toContain('skipped');
     // Two updates: one mass update of customers, one shadow_mode flip on config
     const customerUpdate = state.updates.find((u) => u.table === customers);
     expect(customerUpdate?.set).toMatchObject({ creditLimitSource: 'engine' });
@@ -982,7 +1069,8 @@ describe('bulkRevertCustomersToEngine', () => {
 
   it('happy path: no eligible customers means no updates beyond shadow toggle', async () => {
     const selectMap = new Map<unknown, unknown[][]>([
-      [customers, [[]]],
+      // Eligible candidates AND skipped candidates both empty.
+      [customers, [[], []]],
       [
         creditEngineConfig,
         [[{ id: CONFIG_ID, shadowMode: false, globalDefaultStanceId: STANCE_ID, coldStartMinPostedInvoices: 3, coldStartMinTenureDays: 60, manualOverrideReminderDefaultDays: 60, manualOverrideSnoozeCapDays: 365 }]]
@@ -998,9 +1086,57 @@ describe('bulkRevertCustomersToEngine', () => {
     expect(state.inserts.find((i) => i.table === creditEngineConfigHistory)).toBeUndefined();
   });
 
+  it('filters customers without assessment and reports them as skipped', async () => {
+    // Eligible: one customer with assessment. Skipped: two manual customers
+    // missing last_assessment_id — the bulk UPDATE must not touch them or
+    // the customers_engine_source_has_assessment CHECK constraint would
+    // raise. They should appear in the toast as `skipped`.
+    const selectMap = new Map<unknown, unknown[][]>([
+      [customers, [
+        [{ id: CUSTOMER_ID }], // eligible
+        [{ id: STANCE_ID }, { id: STANCE_ID_2 }] // skipped (no assessment)
+      ]]
+    ]);
+    const { tx, state } = makeTx(selectMap);
+    const result = await bulkRevertCustomersToEngine(
+      tx,
+      { flipShadowMode: false },
+      OWNER,
+      COMMAND_ID
+    );
+    expect(result.ok).toBe(true);
+    expect(result.affectedIds).toEqual([CUSTOMER_ID]);
+    expect(result.toast).toMatch(/Reverted 1 customer.*2 skipped \(no assessment yet\)/);
+    // Only the eligible customer is updated.
+    const customerUpdate = state.updates.find((u) => u.table === customers);
+    expect(customerUpdate?.set).toMatchObject({ creditLimitSource: 'engine' });
+  });
+
+  it('reports skipped even when zero eligible customers', async () => {
+    const selectMap = new Map<unknown, unknown[][]>([
+      [customers, [
+        [], // none eligible
+        [{ id: STANCE_ID }] // one skipped
+      ]]
+    ]);
+    const { tx } = makeTx(selectMap);
+    const result = await bulkRevertCustomersToEngine(
+      tx,
+      { flipShadowMode: false },
+      OWNER,
+      COMMAND_ID
+    );
+    expect(result.ok).toBe(true);
+    expect(result.affectedIds).toEqual([]);
+    expect(result.toast).toMatch(/Reverted 0 customer.*1 skipped \(no assessment yet\)/);
+  });
+
   it('honors flipShadowMode=false', async () => {
     const selectMap = new Map<unknown, unknown[][]>([
-      [customers, [[{ id: CUSTOMER_ID }]]]
+      [customers, [
+        [{ id: CUSTOMER_ID }], // eligible
+        [] // no skipped
+      ]]
     ]);
     const { tx, state } = makeTx(selectMap);
     const result = await bulkRevertCustomersToEngine(

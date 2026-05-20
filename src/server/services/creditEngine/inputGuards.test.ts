@@ -7,14 +7,14 @@ import {
 } from './inputGuards';
 
 describe('input guard clauses', () => {
-  it('invoice guard rejects negative totals, future dates, and voided rows', () => {
+  it('invoice guard rejects negative totals, future dates, and reversed/voided rows', () => {
     expect(invoiceGuardClause('inv')).toBe(
-      `inv.total >= 0 AND inv.created_at <= now() AND inv.status != 'voided'`
+      `inv.total >= 0 AND inv.created_at <= now() AND inv.status NOT IN ('reversed', 'voided')`
     );
   });
-  it('sales_order guard rejects negative totals, future-posted, and voided rows', () => {
+  it('sales_order guard rejects negative totals, future-posted, and reversed/voided rows', () => {
     expect(salesOrderGuardClause('so')).toBe(
-      `so.total >= 0 AND so.created_at <= now() AND so.status != 'voided'`
+      `so.total >= 0 AND so.created_at <= now() AND so.status NOT IN ('reversed', 'voided')`
     );
   });
   it('sales_order_lines guard rejects non-positive qty and unit_cost', () => {

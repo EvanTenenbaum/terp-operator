@@ -7,11 +7,13 @@ import { randomUUID } from 'node:crypto';
 
 /**
  * Reversal correctness (integration): verifies that signal queries — which all
- * apply the §1.0 universal input guard `status != 'voided'` — correctly exclude
- * voided invoices from aggregates. This test does NOT depend on commandBus
- * enqueue hooks firing; it tests the engine's reaction to schema-level state,
- * which is the contract Architect F6 requires: a post → void cycle must leave
- * signal aggregates equivalent to "the invoice never existed."
+ * apply the §1.0 universal input guard `status NOT IN ('reversed', 'voided')`
+ * — correctly exclude cancelled invoices from aggregates. This test does NOT
+ * depend on commandBus enqueue hooks firing; it tests the engine's reaction
+ * to schema-level state, which is the contract Architect F6 requires: a
+ * post → reverse cycle must leave signal aggregates equivalent to "the
+ * invoice never existed." Legacy 'voided' is also tolerated for the same
+ * exclusion behavior.
  */
 describe('reversal correctness (integration)', () => {
   let customerId: string;
@@ -69,5 +71,33 @@ describe('reversal correctness (integration)', () => {
     // Voided invoice no longer contributes
     const debtAfter = await computeDebtAging(pool, customerId);
     expect(debtAfter.score).toBe(100); // back to perfect — nothing open
+  });
+
+  it('reversed invoice (application cancellation marker) excluded from aggregates', async () => {
+    // The application writes status='reversed' for invoice cancellations
+    // (see commandBus reverseCommand). The signal queries must treat
+    // 'reversed' the same as 'voided' — equivalent to "the invoice never
+    // existed" for credit purposes.
+    const { rows: openRows } = await pool.query<{ id: string }>(
+      `INSERT INTO invoices (invoice_no, customer_id, status, total, amount_paid, due_date, created_at)
+       VALUES ($1, $2, 'open', 2000, 0, now() - INTERVAL '5 days', now() - INTERVAL '1 minute') RETURNING id`,
+      ['REV-' + randomUUID().slice(0, 8), customerId]
+    );
+    const invoiceId = openRows[0].id;
+
+    // Open contributes
+    const debtBefore = await computeDebtAging(pool, customerId);
+    expect(debtBefore.dataCount).toBeGreaterThan(0);
+
+    // Reverse it
+    await pool.query(`UPDATE invoices SET status = 'reversed' WHERE id = $1`, [invoiceId]);
+
+    // Reversed invoice no longer contributes to debt aging, cash, or revenue.
+    const debt = await computeDebtAging(pool, customerId);
+    expect(debt.score).toBe(100);
+    const cash = await computeCashCollection(pool, customerId);
+    expect(cash.score).toBe(50); // no data
+    const rev = await computeRevenueMomentum(pool, customerId);
+    expect(rev.score).toBe(50); // no data
   });
 });

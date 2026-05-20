@@ -3619,6 +3619,17 @@ export async function revertCustomerCreditToEngine(
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
 
+  // Deterministic precondition: the DB CHECK constraint
+  // `customers_engine_source_has_assessment` forbids credit_limit_source='engine'
+  // when last_assessment_id IS NULL. Reject the revert with a clear error
+  // BEFORE issuing the UPDATE so callers (UI / scripts / tests) get a friendly
+  // message instead of a raw constraint violation.
+  if (customer.lastAssessmentId === null || customer.lastAssessmentId === undefined) {
+    throw new Error(
+      'Customer must have a credit assessment before reverting to engine.'
+    );
+  }
+
   await tx
     .update(customers)
     .set({
@@ -4016,8 +4027,25 @@ export async function setCreditEngineConfig(
       values[key] = num;
     }
   }
+  // Enforce a server-side minimum on the snooze cap. The credit-review queue
+  // computes a "near snooze cap" badge using `cap - 30`; if the cap were set
+  // below 30 the badge math would silently go negative and bin every manual
+  // override into "near cap" forever. We require a minimum of 30 days.
+  if (
+    values.manualOverrideSnoozeCapDays !== undefined &&
+    (values.manualOverrideSnoozeCapDays as number) < 30
+  ) {
+    throw new Error('manualOverrideSnoozeCapDays must be at least 30.');
+  }
   if (payload.shadowMode !== undefined) {
     if (typeof payload.shadowMode !== 'boolean') throw new Error('shadowMode must be a boolean.');
+    // One-way-down rule: shadow mode can only transition true -> false. Once
+    // the operator has flipped the engine live (shadowMode=false), re-enabling
+    // shadow mode is rejected server-side. This protects the audit trail and
+    // matches the UI's disabled-checkbox affordance in CreditEngineSettingsPanel.
+    if (payload.shadowMode === true && existing.shadowMode === false) {
+      throw new Error('Shadow mode cannot be re-enabled once it has been disabled.');
+    }
     values.shadowMode = payload.shadowMode;
   }
 
@@ -4071,7 +4099,15 @@ export async function bulkRevertCustomersToEngine(
   const flipShadowMode = payload.flipShadowMode !== false; // default true: rollout intent
   void force;
 
-  const conditions = [eq(customers.creditLimitSource, 'manual')];
+  // Deterministic eligibility: the customers_engine_source_has_assessment
+  // CHECK constraint forbids source='engine' when last_assessment_id IS NULL.
+  // Filter the candidate set to customers that satisfy the constraint so the
+  // bulk UPDATE cannot raise a constraint violation. Customers without an
+  // assessment are reported as skipped instead of silently dropped.
+  const conditions = [
+    eq(customers.creditLimitSource, 'manual'),
+    sql`last_assessment_id IS NOT NULL`
+  ];
   if (skipEngineDisabled) conditions.push(sql`engine_disabled_at IS NULL`);
 
   const affectedCustomers = await tx
@@ -4079,6 +4115,19 @@ export async function bulkRevertCustomersToEngine(
     .from(customers)
     .where(and(...conditions));
   const affectedIds = affectedCustomers.map((row: { id: string }) => row.id);
+
+  // Count candidates that match the filter EXCEPT for the assessment gate,
+  // so we can report how many were skipped because they lacked an assessment.
+  const skippedConditions = [
+    eq(customers.creditLimitSource, 'manual'),
+    sql`last_assessment_id IS NULL`
+  ];
+  if (skipEngineDisabled) skippedConditions.push(sql`engine_disabled_at IS NULL`);
+  const skippedRows = await tx
+    .select({ id: customers.id })
+    .from(customers)
+    .where(and(...skippedConditions));
+  const skippedNoAssessment = skippedRows.length;
 
   if (affectedIds.length > 0) {
     await tx
@@ -4126,11 +4175,16 @@ export async function bulkRevertCustomersToEngine(
     }
   }
 
+  const toast =
+    skippedNoAssessment > 0
+      ? `Reverted ${affectedIds.length} customer(s) to engine credit limit; ${skippedNoAssessment} skipped (no assessment yet)`
+      : `Reverted ${affectedIds.length} customer(s) to engine credit limit`;
+
   return {
     ok: true,
     commandId,
     affectedIds,
-    toast: `Reverted ${affectedIds.length} customer(s) to engine credit limit`
+    toast
   };
 }
 

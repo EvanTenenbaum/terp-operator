@@ -40,7 +40,9 @@ interface RevenueMomentumRow {
  * Fetches recent (last 90d) and baseline (180d window before that, i.e. 90-270d) invoice totals
  * for `customerId` as of `now`, then delegates to scoreRevenueMomentum.
  *
- * Applies §1.0 universal input guards inline: total >= 0, created_at <= now, status != 'voided'.
+ * Applies §1.0 universal input guards inline: total >= 0, created_at <= now,
+ * status NOT IN ('reversed', 'voided') — reversed is the application-level
+ * cancellation marker, voided is tolerated defensively for legacy rows.
  */
 export async function computeRevenueMomentum(
   client: Pool | PoolClient,
@@ -61,7 +63,7 @@ export async function computeRevenueMomentum(
       AND inv.created_at >= $2::timestamptz - INTERVAL '270 days'
       AND inv.created_at <= $2::timestamptz
       AND inv.total >= 0
-      AND inv.status != 'voided'
+      AND inv.status NOT IN ('reversed', 'voided')
     `,
     [customerId, now]
   );

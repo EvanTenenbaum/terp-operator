@@ -658,10 +658,21 @@ describe('credit.customerCreditStatus', () => {
       finalLimit: 800,
       baseAmount: 400
     });
+    // engineRecommendationDelta is now computed against recommendedLimit
+    // (the pre-clamp engine recommendation), matching the command-server
+    // formula. Latest assessment has finalLimit=800 (clamped by engineMax in
+    // future Phases) and recommendedLimit=850. Current limit is 1000.
+    //   deltaDollars = 1000 - 850 = 150
+    //   ownerElevationThreshold = 1.5 * 850 = 1275
     expect(result.engineRecommendationDelta).toMatchObject({
-      deltaDollars: 200,
-      direction: 'above'
+      deltaDollars: 150,
+      direction: 'above',
+      recommendedLimit: 850,
+      ownerElevationThreshold: 1275
     });
+    // finalLimit remains visible on latestAssessment for the UI's "limit"
+    // surface; the elevation threshold no longer multiplies finalLimit.
+    expect(result.latestAssessment?.finalLimit).toBe(800);
     expect(result.shadowMode).toBe(true);
     expect(result.reminder.staleReminderActive).toBe(false);
     expect(result.reminder.nearSnoozeCap).toBe(false);

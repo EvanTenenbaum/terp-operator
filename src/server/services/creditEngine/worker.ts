@@ -396,7 +396,9 @@ async function loadStanceWeights(client: PoolClient, stanceId: string): Promise<
  *   - 12mo invoice totals: array of invoice.total over last 365d, valid
  * Returns max(avgMonthly, median(totals)) via computeBaseAmount.
  *
- * Applies §1.0 universal guards inline: total >= 0, not voided, created_at <= now.
+ * Applies §1.0 universal guards inline: total >= 0, not reversed/voided,
+ * created_at <= now. The application-level cancellation marker is 'reversed';
+ * legacy 'voided' is tolerated defensively.
  */
 async function computeBaseFromDb(
   client: PoolClient,
@@ -412,7 +414,7 @@ async function computeBaseFromDb(
          AND created_at >= $2::timestamptz - INTERVAL '365 days'
          AND created_at <= $2::timestamptz
          AND total >= 0
-         AND status != 'voided'
+         AND status NOT IN ('reversed', 'voided')
     )
     SELECT
       COALESCE(
@@ -440,8 +442,12 @@ async function computeBaseFromDb(
 
 /**
  * Counts invoices considered "posted" for the cold-start gate.
- * §1.0 guard: total >= 0, created_at <= now. Status is the union of
- * states where the invoice has been issued and is not voided.
+ *
+ * §1.0 guard: total >= 0, created_at <= now. The actual invoice statuses are
+ * `open | partial | paid | reversed`; "posted" here means "invoice was issued
+ * and is not reversed" (paid invoices still count as posted history toward
+ * cold-start eligibility — see spec §5.3 cold-start gate). Reversed invoices
+ * are explicitly excluded; legacy `voided` is also excluded defensively.
  */
 async function countPostedInvoices(
   client: PoolClient,
@@ -452,7 +458,7 @@ async function countPostedInvoices(
     `SELECT COUNT(*)::text AS cnt
        FROM invoices
       WHERE customer_id = $1
-        AND status IN ('open','posted','partial','paid')
+        AND status IN ('open','partial','paid')
         AND total >= 0
         AND created_at <= $2::timestamptz`,
     [customerId, now]

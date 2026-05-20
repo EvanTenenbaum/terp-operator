@@ -92,6 +92,7 @@ interface CustomerCreditStatus {
     deltaPct: number;
     direction: 'above' | 'below' | 'within';
     ownerElevationThreshold: number;
+    recommendedLimit: number;
   } | null;
   shadowMode: boolean;
 }
@@ -418,7 +419,11 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
       <EditCreditLimitModal
         customerId={customerId}
         currentLimit={customer.creditLimit}
-        engineRecommendation={status.latestAssessment?.finalLimit ?? null}
+        // "Engine recommends" surfaces the pre-clamp recommendation
+        // (`recommendedLimit`), matching the command-server formula that
+        // gates owner elevation on 1.5 * recommendedLimit. `finalLimit` is
+        // shown separately under the latest assessment block above.
+        engineRecommendation={status.latestAssessment?.recommendedLimit ?? null}
         ownerElevationThreshold={
           status.engineRecommendationDelta?.ownerElevationThreshold ?? null
         }

@@ -31,8 +31,9 @@ interface ProfitabilityRow {
 /**
  * Computes revenue (sum of sales_orders.total) and COGS (sum of sales_order_lines.qty * unit_cost)
  * for `customerId` over the last 365 days as of `now`.
- * Applies §1.0 input guards: sales orders (total >= 0, not voided, created_at <= now)
- * and order lines (qty > 0, unit_cost > 0).
+ * Applies §1.0 input guards: sales orders (total >= 0, not reversed/voided,
+ * created_at <= now) and order lines (qty > 0, unit_cost > 0). Sales orders
+ * are reversed (not voided) by the application; voided is tolerated defensively.
  */
 export async function computeProfitability(
   client: Pool | PoolClient,
@@ -48,7 +49,7 @@ export async function computeProfitability(
         AND so.created_at >= $2::timestamptz - INTERVAL '365 days'
         AND so.created_at <= $2::timestamptz
         AND so.total >= 0
-        AND so.status != 'voided'
+        AND so.status NOT IN ('reversed', 'voided')
     ),
     line_cogs AS (
       SELECT COALESCE(SUM(sol.qty * sol.unit_cost), 0) AS cogs

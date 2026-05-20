@@ -443,7 +443,12 @@ export const creditRouter = router({
       }
       const reminderDefaultDays = cfg.manual_override_reminder_default_days;
       const snoozeCapDays = cfg.manual_override_snooze_cap_days;
-      const nearCapThresholdDays = snoozeCapDays - 30;
+      // Defensive clamp: setCreditEngineConfig enforces snoozeCapDays >= 30, but
+      // historical configs (or direct DB writes during migration) might have a
+      // smaller value. A negative threshold would classify every manual
+      // override as `near_snooze_cap`, swamping the queue. Floor at zero so
+      // the badge math degrades gracefully.
+      const nearCapThresholdDays = Math.max(0, snoozeCapDays - 30);
 
       // Choose ORDER BY safely (whitelist enforced by zod enum above; no
       // user-supplied SQL ever reaches the query string).
@@ -757,11 +762,16 @@ export const creditRouter = router({
       }
 
       const now = new Date();
+      // Posted-invoice count for the cold-start gate. Mirrors
+      // worker.countPostedInvoices exactly: actual invoice statuses are
+      // open|partial|paid|reversed and we count any issued (non-reversed)
+      // invoice, which matches the spec §5.3 cold-start definition
+      // ("≥3 posted invoices").
       const invoicesResult = await pool.query<CountRaw>(
         `SELECT COUNT(*)::text AS cnt
          FROM invoices
          WHERE customer_id = $1
-           AND status IN ('open','posted','partial','paid')
+           AND status IN ('open','partial','paid')
            AND total >= 0
            AND created_at <= $2::timestamptz`,
         [customerId, now]
@@ -837,11 +847,19 @@ export const creditRouter = router({
         deltaPct: number;
         direction: 'above' | 'below' | 'within';
         ownerElevationThreshold: number;
+        recommendedLimit: number;
       } | null = null;
 
-      if (latestAssessment && latestAssessment.finalLimit > 0) {
-        const deltaDollars = Number(customer.credit_limit) - latestAssessment.finalLimit;
-        const deltaPct = deltaDollars / latestAssessment.finalLimit;
+      if (latestAssessment && latestAssessment.recommendedLimit > 0) {
+        // "Engine recommends" surfaces the pre-clamp recommendation
+        // (`recommendedLimit`). The owner-elevation threshold mirrors the
+        // command-server formula in commandBus.setCustomerCreditLimit:
+        // amounts above 1.5x the engine recommendation require owner role.
+        // `finalLimit` (recommendation clamped by engine_max) is still
+        // surfaced in latestAssessment for the "applied"/limit view.
+        const recommendedLimit = latestAssessment.recommendedLimit;
+        const deltaDollars = Number(customer.credit_limit) - recommendedLimit;
+        const deltaPct = deltaDollars / recommendedLimit;
         const direction =
           Math.abs(deltaPct) <= 0.05 || Math.abs(deltaDollars) < 1
             ? 'within'
@@ -852,7 +870,8 @@ export const creditRouter = router({
           deltaDollars,
           deltaPct,
           direction,
-          ownerElevationThreshold: 1.5 * latestAssessment.finalLimit
+          ownerElevationThreshold: 1.5 * recommendedLimit,
+          recommendedLimit
         };
       }
 
