@@ -6,6 +6,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 
 import { requireOperator } from '../middleware/requireOperator';
+import { requireOperatorOrUploadToken } from '../middleware/requireOperatorOrUploadToken';
 import { uploadRateLimiter } from '../middleware/httpRateLimiters';
 import { requirePhotographyEnabled } from '../middleware/requirePhotographyEnabled';
 import { checkDiskSpace } from '../utils/diskSpace';
@@ -16,6 +17,8 @@ import {
   validateMagicBytes
 } from '../services/mediaValidation';
 import { convertHeicToJpeg, generateThumbnails, deleteMedia } from '../services/mediaStorage';
+import { db } from '../db';
+import { batchMedia } from '../schema';
 
 const router = express.Router();
 
@@ -62,7 +65,7 @@ const upload = multer({
 router.post(
   '/api/upload/media',
   requirePhotographyEnabled,
-  requireOperator,
+  requireOperatorOrUploadToken,
   uploadRateLimiter,
   (req: Request, res: Response, next: NextFunction) => {
     upload.single('file')(req, res, (err: unknown) => {
@@ -86,6 +89,22 @@ router.post(
         return res
           .status(400)
           .json({ error: 'No file uploaded — missing batchId or file' });
+      }
+
+      // If this request was authenticated via an upload token, enforce that
+      // the multipart body's batchId equals the batchId the token was minted
+      // for. This is defense-in-depth: the middleware already verified the
+      // token against the batchId in the query string, but multer wrote the
+      // file using the body's batchId, so a mismatched body would land the
+      // upload in the wrong directory.
+      if (req.uploadContext) {
+        const bodyBatchId = (req.body as { batchId?: string } | undefined)?.batchId;
+        if (bodyBatchId !== req.uploadContext.batchId) {
+          await fsp.unlink(file.path).catch(() => {});
+          return res.status(403).json({
+            error: 'Upload token does not match this batch'
+          });
+        }
       }
 
       // Refine size limit by mimetype (multer enforced the 200MB ceiling)
@@ -136,6 +155,34 @@ router.post(
         mediumPath = thumbs.medium;
       }
 
+      // Token-authenticated flow (issue #73): the photographer has no tRPC
+      // session, so the upload route auto-registers the batch_media row using
+      // the token's issuer as the uploadedBy attribution. Status stays
+      // `draft` (same default as the operator flow) — operators publish/role
+      // the media from the management UI afterwards.
+      let mediaId: string | undefined;
+      if (req.uploadContext) {
+        const isVideo = finalMimeType.startsWith('video/');
+        const [row] = await db
+          .insert(batchMedia)
+          .values({
+            batchId: req.uploadContext.batchId,
+            filePath: finalPath,
+            originalFilename: file.originalname,
+            fileSize: file.size,
+            mimeType: finalMimeType,
+            thumbnailPath: thumbnailPath ?? null,
+            mediumPath: mediumPath ?? null,
+            mediaType: isVideo ? 'video' : 'photo',
+            role: 'additional',
+            status: 'draft',
+            uploadedBy: req.uploadContext.issuedBy,
+            notes: `Uploaded via tokenized share link (tokenId=${req.uploadContext.tokenId})`
+          })
+          .returning();
+        mediaId = row?.id;
+      }
+
       return res.json({
         fileId,
         filePath: finalPath,
@@ -143,7 +190,8 @@ router.post(
         fileSize: file.size,
         mimeType: finalMimeType,
         thumbnailPath,
-        mediumPath
+        mediumPath,
+        mediaId
       });
     } catch (error) {
       console.error('Upload route error:', error);

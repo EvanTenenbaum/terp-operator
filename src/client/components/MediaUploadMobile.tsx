@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Camera, Check, X, Loader2, FileCheck } from 'lucide-react';
 import { useCommandRunner } from './useCommandRunner';
 
@@ -12,15 +12,26 @@ interface UploadResult {
   thumbnailPath?: string;
   mediumPath?: string;
   previewUrl?: string;
+  // Populated by the server when the token-auth flow auto-registers the
+  // batch_media row (issue #73). When present, the client SKIPS the followup
+  // `uploadBatchMedia` tRPC call since the photographer is not session-authed.
+  mediaId?: string;
 }
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
 interface MediaUploadMobileProps {
   batchId: string;
+  /**
+   * Optional upload share token from the URL (issue #73). When present,
+   * the upload request is authenticated via `Authorization: Bearer <token>`
+   * instead of the operator session cookie. The token is upload-only and
+   * scoped to this batch.
+   */
+  uploadToken?: string;
 }
 
-export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
+export function MediaUploadMobile({ batchId, uploadToken }: MediaUploadMobileProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const mountedRef = useRef(true);
@@ -72,21 +83,32 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
           let data: UploadResult | undefined;
           try {
             data = JSON.parse(xhr.responseText) as UploadResult;
-            const mediaType = data.mimeType.startsWith('video/') ? 'video' : 'photo';
-            const commandResult = await runCommand('uploadBatchMedia', {
-              batchId,
-              fileId: data.fileId,
-              filePath: data.filePath,
-              originalFilename: data.originalFilename,
-              fileSize: data.fileSize,
-              mimeType: data.mimeType,
-              mediaType,
-              thumbnailPath: data.thumbnailPath,
-              mediumPath: data.mediumPath,
-              isPrimary: false
-            }, 'Upload batch media from mobile capture');
+            let mediaId: string | undefined;
+            if (uploadToken) {
+              // Token-authenticated flow: the server already created the
+              // batch_media row (see uploadRoute.ts). The photographer has no
+              // tRPC session so we MUST NOT call runCommand here.
+              mediaId = data.mediaId;
+            } else {
+              // Session-authenticated flow: register the batch_media row via
+              // the command bus (preserves all existing audit + journal
+              // behavior for operator-driven uploads).
+              const mediaType = data.mimeType.startsWith('video/') ? 'video' : 'photo';
+              const commandResult = await runCommand('uploadBatchMedia', {
+                batchId,
+                fileId: data.fileId,
+                filePath: data.filePath,
+                originalFilename: data.originalFilename,
+                fileSize: data.fileSize,
+                mimeType: data.mimeType,
+                mediaType,
+                thumbnailPath: data.thumbnailPath,
+                mediumPath: data.mediumPath,
+                isPrimary: false
+              }, 'Upload batch media from mobile capture');
+              mediaId = commandResult.affectedIds?.[0];
+            }
             if (!mountedRef.current) return;
-            const mediaId = commandResult.affectedIds?.[0];
             setResult({
               ...data,
               previewUrl: mediaId ? `/api/media/${mediaId}/thumb` : undefined
@@ -156,7 +178,13 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
         setProgress(0);
       };
 
-      xhr.open('POST', '/api/upload/media');
+      const uploadUrl = uploadToken
+        ? `/api/upload/media?batchId=${encodeURIComponent(batchId)}`
+        : '/api/upload/media';
+      xhr.open('POST', uploadUrl);
+      if (uploadToken) {
+        xhr.setRequestHeader('Authorization', `Bearer ${uploadToken}`);
+      }
       xhr.send(formData);
 
       // Reset file input so the same file can be selected again
@@ -275,13 +303,15 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
 
 export function MediaUploadMobileRoute() {
   const { batchId } = useParams<{ batchId: string }>();
+  const [searchParams] = useSearchParams();
+  const uploadToken = searchParams.get('token') ?? undefined;
   if (!batchId) {
     return <div>Batch id is required.</div>;
   }
   return (
     <div className="p-4">
       <h1 className="text-lg font-semibold mb-4">Mobile Media Upload</h1>
-      <MediaUploadMobile batchId={batchId} />
+      <MediaUploadMobile batchId={batchId} uploadToken={uploadToken} />
     </div>
   );
 }

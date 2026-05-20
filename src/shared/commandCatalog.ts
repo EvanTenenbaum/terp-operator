@@ -103,7 +103,9 @@ export const commandNames = [
   'bulkRevertCustomersToEngine',
   'setLineLandedCost',
   'setCustomerPricingRule',
-  'setDefaultPricingRule'
+  'setDefaultPricingRule',
+  'mintPhotoUploadToken',
+  'revokePhotoUploadToken'
 ] as const;
 
 export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
@@ -220,7 +222,9 @@ export const commandLabels: Record<CommandName, string> = {
   bulkRevertCustomersToEngine: 'Bulk revert customers to engine',
   setLineLandedCost: 'Set landed COGS',
   setCustomerPricingRule: 'Set customer pricing rule',
-  setDefaultPricingRule: 'Set default pricing rule'
+  setDefaultPricingRule: 'Set default pricing rule',
+  mintPhotoUploadToken: 'Mint photo upload share link',
+  revokePhotoUploadToken: 'Revoke photo upload share link'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -326,7 +330,9 @@ export const commandMinRole: Record<CommandName, Role> = {
   bulkRevertCustomersToEngine: 'owner',
   setLineLandedCost: 'operator',
   setCustomerPricingRule: 'manager',
-  setDefaultPricingRule: 'manager'
+  setDefaultPricingRule: 'manager',
+  mintPhotoUploadToken: 'manager',
+  revokePhotoUploadToken: 'manager'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -432,7 +438,9 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   bulkRevertCustomersToEngine: { disposition: 'terminal', guidance: 'Bulk rollout is terminal; per-customer manual overrides can be restored individually.' },
   setLineLandedCost: { disposition: 'reversible', guidance: 'Restores the prior landed COGS, basis, and resolution flag from the command snapshot.' },
   setCustomerPricingRule: { disposition: 'reversible', guidance: 'Restores the prior customer pricing rule from the command snapshot.' },
-  setDefaultPricingRule: { disposition: 'reversible', guidance: 'Restores the prior default pricing rule from the command snapshot.' }
+  setDefaultPricingRule: { disposition: 'reversible', guidance: 'Restores the prior default pricing rule from the command snapshot.' },
+  mintPhotoUploadToken: { disposition: 'reversible', guidance: 'Use revokePhotoUploadToken with the returned tokenId to invalidate the share link immediately.' },
+  revokePhotoUploadToken: { disposition: 'terminal', guidance: 'Mint a new photo upload share link if the revoke was accidental — the previous raw token is unrecoverable.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

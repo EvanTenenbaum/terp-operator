@@ -81,6 +81,8 @@ import {
 import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
 import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
+import { photoUploadTokens } from '../schema';
+import { createHash, randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
 import { normalizeTagSlug, parseTagInput } from '../../shared/tags';
@@ -89,6 +91,29 @@ import { isLandedCostInRange, parsePriceRange, rangeMidpoint, validateCostRange 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
 export type Tx = any;
+
+/**
+ * Per-command list of `result.delta.*` keys that must NOT be persisted in the
+ * command journal (DB row OR on-disk JSONL). The command handler is free to
+ * return the raw value to the caller in the live CommandResult — but the
+ * journal-bound copy gets these fields replaced with the sentinel string
+ * `'<redacted>'`. Without this, secrets returned to the client via delta
+ * (e.g. mintPhotoUploadToken's raw bearer token, #93 F1) would land in the
+ * DB and the JSONL audit, defeating their sha256-at-rest design.
+ */
+const SENSITIVE_DELTA_FIELDS_BY_COMMAND: Readonly<Record<string, readonly string[]>> = {
+  mintPhotoUploadToken: ['token']
+};
+
+export function redactSensitiveDeltaFields(commandName: string, result: CommandResult): CommandResult {
+  const sensitive = SENSITIVE_DELTA_FIELDS_BY_COMMAND[commandName];
+  if (!sensitive || !result.delta || typeof result.delta !== 'object') return result;
+  const redacted: Record<string, unknown> = { ...(result.delta as Record<string, unknown>) };
+  for (const key of sensitive) {
+    if (key in redacted) redacted[key] = '<redacted>';
+  }
+  return { ...result, delta: redacted };
+}
 type Payload = Record<string, unknown>;
 
 const moneyScale = (value: unknown) => {
@@ -230,14 +255,16 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       const afterSnapshot = await snapshotByAffectedIds(commandResult.affectedIds);
       const storedResult = { ...commandResult, toast: commandResult.toast ?? 'Command completed.' };
 
-      // Finalize the claimed row (UPDATE — not re-INSERT).
+      // Finalize the claimed row (UPDATE — not re-INSERT — per #92's atomic
+      // idempotency claim). result is passed through redactSensitiveDeltaFields
+      // so secrets (e.g. mintPhotoUploadToken raw token, #93 F1) never persist.
       await tx
         .update(commandJournal)
         .set({
           status: commandResult.ok ? 'ok' : 'failed',
           affectedIds: commandResult.affectedIds,
           afterSnapshot,
-          result: storedResult as unknown as Record<string, unknown>
+          result: redactSensitiveDeltaFields(input.name, storedResult) as unknown as Record<string, unknown>
         })
         .where(eq(commandJournal.id, commandId));
 
@@ -247,6 +274,8 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     const storedResult = { ...result, toast: result.toast ?? 'Command completed.' };
     const afterSnapshot = await snapshotByAffectedIds(result.affectedIds);
 
+    // JSONL on-disk audit also receives the redacted copy — the raw token
+    // must never appear on disk either (#93 F1 follow-up from adversarial QA).
     await appendJsonlJournal({
       id: commandId,
       commandName: input.name,
@@ -256,7 +285,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       inputPayload: input.payload,
       beforeSnapshot,
       afterSnapshot,
-      result: storedResult,
+      result: redactSensitiveDeltaFields(input.name, storedResult),
       createdAt: new Date().toISOString()
     });
 
@@ -518,6 +547,10 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return setCustomerPricingRule(tx, payload, commandId);
     case 'setDefaultPricingRule':
       return setDefaultPricingRule(tx, payload, commandId);
+    case 'mintPhotoUploadToken':
+      return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
+    case 'revokePhotoUploadToken':
+      return revokePhotoUploadTokenCommand(tx, payload, commandId);
   }
 }
 
@@ -2015,6 +2048,97 @@ function validatePricingRulePayload(value: unknown): Record<string, unknown> {
     throw new Error(`Invalid pricing rule: ${detail || 'malformed payload.'}`);
   }
   return parsed.data as Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// Photo Upload Tokens (issue #73)
+// Mint / revoke tokenized share links for the photographer mobile upload
+// flow. The raw token value is returned ONCE to the caller; only the sha256
+// hash is persisted. See src/server/services/photoUploadTokens.ts for the
+// runtime verification path used by the upload middleware.
+//
+// IMPORTANT: the raw token MUST NOT appear in the journal payload, snapshot,
+// or toast — only the tokenId and expiresAt are safe to persist. The mint
+// command returns the raw token via the `result.delta` channel for the UI to
+// display once and then discard.
+// ---------------------------------------------------------------------------
+
+const PHOTO_UPLOAD_TOKEN_MAX_TTL_MINUTES = 24 * 60;
+
+async function mintPhotoUploadTokenCommand(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId, 'batchId');
+  const ttlMinutes = requiredNumber(payload.ttlMinutes, 'ttlMinutes');
+  if (!Number.isInteger(ttlMinutes) || ttlMinutes <= 0) {
+    throw new Error('ttlMinutes must be a positive integer.');
+  }
+  if (ttlMinutes > PHOTO_UPLOAD_TOKEN_MAX_TTL_MINUTES) {
+    throw new Error(`ttlMinutes must be <= ${PHOTO_UPLOAD_TOKEN_MAX_TTL_MINUTES} (24 hours).`);
+  }
+
+  // Confirm the batch exists so we don't issue tokens for unknown batches.
+  const [batchRow] = await tx.select({ id: batches.id }).from(batches).where(eq(batches.id, batchId)).limit(1);
+  if (!batchRow) throw new Error('Batch not found.');
+
+  const rawToken = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60_000);
+
+  const [inserted] = await tx
+    .insert(photoUploadTokens)
+    .values({
+      batchId,
+      tokenHash,
+      issuedBy: userId,
+      expiresAt
+    })
+    .returning();
+
+  if (!inserted) throw new Error('Failed to mint photo upload token.');
+
+  // Return raw token to caller via `delta`. This is the ONLY place it appears
+  // outside the photographer's clipboard/URL. We intentionally do NOT put it
+  // on `affectedIds`, `toast`, or any journal-visible field — the command
+  // journal snapshot only records the token row id and expiry.
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [inserted.id],
+    toast: `Upload share link minted (expires ${expiresAt.toISOString()}).`,
+    delta: {
+      token: rawToken,
+      tokenId: inserted.id,
+      batchId,
+      expiresAt: expiresAt.toISOString()
+    }
+  };
+}
+
+async function revokePhotoUploadTokenCommand(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const tokenId = requiredId(payload.tokenId, 'tokenId');
+
+  const updated = await tx
+    .update(photoUploadTokens)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(photoUploadTokens.id, tokenId), sql`${photoUploadTokens.revokedAt} IS NULL`))
+    .returning();
+
+  if (!updated.length) throw new Error('Upload token not found or already revoked.');
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [tokenId],
+    toast: 'Upload share link revoked.'
+  };
 }
 
 export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {

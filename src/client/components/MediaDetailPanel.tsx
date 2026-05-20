@@ -12,8 +12,10 @@ export function MediaDetailPanel({ batchId }: MediaDetailPanelProps) {
   const query = trpc.queries.batchMediaList.useQuery({ batchId });
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+  const canMintShareLink = me.data?.role === 'manager' || me.data?.role === 'owner';
   const { runCommand } = useCommandRunner();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [shareLink, setShareLink] = useState<{ url: string; expiresAt: string; tokenId: string } | null>(null);
 
   const mobileUrl = `${window.location.origin}/photography/mobile/${batchId}`;
 
@@ -27,24 +29,74 @@ export function MediaDetailPanel({ batchId }: MediaDetailPanelProps) {
     window.open(mobileUrl, '_blank', 'noopener,noreferrer');
   }
 
+  async function handleMintShareLink() {
+    // Mint a 120-minute upload-only share link for a field photographer.
+    // The raw token is returned exactly once in result.delta and embedded in
+    // the share URL — neither the token nor the URL is ever persisted in
+    // client state once the photographer has used it.
+    const result = await runCommand(
+      'mintPhotoUploadToken',
+      { batchId, ttlMinutes: 120 },
+      'Mint upload-only share link for field photographer'
+    );
+    const delta = result.delta as { token?: string; tokenId?: string; expiresAt?: string } | undefined;
+    if (delta?.token && delta?.tokenId && delta?.expiresAt) {
+      const url = `${mobileUrl}?token=${encodeURIComponent(delta.token)}`;
+      setShareLink({ url, expiresAt: delta.expiresAt, tokenId: delta.tokenId });
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url).catch(() => {});
+      }
+    }
+  }
+
+  async function handleRevokeShareLink() {
+    if (!shareLink) return;
+    await runCommand(
+      'revokePhotoUploadToken',
+      { tokenId: shareLink.tokenId },
+      'Revoke upload share link'
+    );
+    setShareLink(null);
+  }
+
   return (
     <WorkspacePanel
       panelId={`media-detail:${batchId}`}
       title="Batch Media"
       actions={
-        navigator.clipboard ? (
-          <button type="button" className="secondary-button compact-action" onClick={copyMobileLink}>
-            <Copy className="h-4 w-4" aria-hidden="true" />
-            Copy mobile upload link
-          </button>
-        ) : (
-          <button type="button" className="secondary-button compact-action" onClick={openMobileUpload}>
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            Open mobile upload
-          </button>
-        )
+        <div className="flex flex-wrap gap-2">
+          {navigator.clipboard ? (
+            <button type="button" className="secondary-button compact-action" onClick={copyMobileLink}>
+              <Copy className="h-4 w-4" aria-hidden="true" />
+              Copy mobile upload link
+            </button>
+          ) : (
+            <button type="button" className="secondary-button compact-action" onClick={openMobileUpload}>
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              Open mobile upload
+            </button>
+          )}
+          {canMintShareLink && (
+            <button type="button" className="secondary-button compact-action" onClick={handleMintShareLink}>
+              <Copy className="h-4 w-4" aria-hidden="true" />
+              Mint share link (2h)
+            </button>
+          )}
+        </div>
       }
     >
+      {shareLink && (
+        <div className="border border-line bg-amber-50 p-3 text-sm">
+          <div className="font-medium text-amber-900">Share link minted — copy now, it will not be shown again.</div>
+          <div className="mt-1 break-all font-mono text-xs text-amber-800">{shareLink.url}</div>
+          <div className="mt-1 text-xs text-amber-700">
+            Expires {new Date(shareLink.expiresAt).toLocaleString()}.{' '}
+            <button type="button" className="underline" onClick={handleRevokeShareLink}>
+              Revoke now
+            </button>
+          </div>
+        </div>
+      )}
       {query.isLoading ? (
         <div className="p-4 text-sm text-zinc-600">Loading media...</div>
       ) : query.isError ? (
