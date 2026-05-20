@@ -69,9 +69,17 @@ export async function runMigrations(options: RunMigrationsOptions): Promise<void
       if (concurrent) {
         // Concurrent DDL cannot run inside an explicit transaction. Run the
         // migration body in auto-commit, then record it.
+        //
+        // The pool's default statement_timeout (60s per PR #91) is too
+        // aggressive for CREATE INDEX CONCURRENTLY on a large table — the
+        // GIN build on command_journal.affected_ids after the realistic_100d
+        // seed routinely exceeds 60s. Disable the cap for this session
+        // before running the migration body, then leave it (the connection
+        // is released back to the pool which resets per-session GUCs).
+        await client.query("set statement_timeout = 0");
         await client.query(sql);
         await client.query('insert into schema_migrations (name) values ($1)', [file]);
-        log(`Applied ${file} (auto-commit; CONCURRENTLY detected)`);
+        log(`Applied ${file} (auto-commit; CONCURRENTLY detected; statement_timeout=0 for this session)`);
       } else {
         await client.query('begin');
         try {
