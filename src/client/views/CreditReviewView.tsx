@@ -106,38 +106,39 @@ export function CreditReviewView() {
         ) : rows.length === 0 ? (
           <div className="text-sm text-zinc-600">No items in this queue.</div>
         ) : (
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm" aria-label="Credit review queue">
             <thead>
               <tr className="border-b border-line text-xs font-semibold uppercase text-zinc-500">
-                <th className="py-2 pr-4">Customer</th>
-                <th className="py-2 pr-4">Limit</th>
-                <th className="py-2 pr-4">Engine Rec</th>
-                <th className="py-2 pr-4">Source</th>
-                <th className="py-2 pr-4">Days since review</th>
-                <th className="py-2 pr-4">Days to snooze cap</th>
-                <th className="py-2 pr-4">Manual reason</th>
-                <th className="py-2 pr-4">Engine disabled reason</th>
-                <th className="py-2 pr-4">Actions</th>
+                <th scope="col" className="py-1.5 pr-4">Customer</th>
+                <th scope="col" className="py-1.5 pr-4">Limit</th>
+                <th scope="col" className="py-1.5 pr-4">Engine Rec</th>
+                <th scope="col" className="py-1.5 pr-4">Source</th>
+                <th scope="col" className="py-1.5 pr-4">Days since review</th>
+                <th scope="col" className="py-1.5 pr-4">Days to snooze cap</th>
+                <th scope="col" className="py-1.5 pr-4">Manual reason</th>
+                <th scope="col" className="py-1.5 pr-4">Engine disabled reason</th>
+                <th scope="col" className="py-1.5 pr-4">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.customerId} className="border-b border-line hover:bg-panel">
-                  <td className="py-2 pr-4 font-medium text-ink">{row.customerName}</td>
-                  <td className="py-2 pr-4">${row.creditLimit.toLocaleString()}</td>
-                  <td className="py-2 pr-4">
+                  <th scope="row" className="py-1.5 pr-4 text-left font-medium text-ink">{row.customerName}</th>
+                  <td className="py-1.5 pr-4">${row.creditLimit.toLocaleString()}</td>
+                  <td className="py-1.5 pr-4">
                     {row.engineRecommendation !== null ? `$${row.engineRecommendation.toLocaleString()}` : '-'}
                   </td>
-                  <td className="py-2 pr-4 capitalize">{row.source}</td>
-                  <td className="py-2 pr-4">{row.daysSinceReview ?? '-'}</td>
-                  <td className="py-2 pr-4">{row.daysToSnoozeCap ?? '-'}</td>
-                  <td className="py-2 pr-4 text-zinc-600">{row.manualReason ?? '-'}</td>
-                  <td className="py-2 pr-4 text-zinc-600">{row.engineDisabledReason ?? '-'}</td>
-                  <td className="py-2 pr-4">
+                  <td className="py-1.5 pr-4 capitalize">{row.source}</td>
+                  <td className="py-1.5 pr-4">{row.daysSinceReview ?? '-'}</td>
+                  <td className="py-1.5 pr-4">{row.daysToSnoozeCap ?? '-'}</td>
+                  <td className="py-1.5 pr-4 text-zinc-600">{row.manualReason ?? '-'}</td>
+                  <td className="py-1.5 pr-4 text-zinc-600">{row.engineDisabledReason ?? '-'}</td>
+                  <td className="py-1.5 pr-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         className="text-button text-xs"
+                        aria-label={`Open profile for ${row.customerName}`}
                         onClick={() => openProfile(row.customerId)}
                       >
                         Open profile
@@ -147,6 +148,7 @@ export function CreditReviewView() {
                           type="button"
                           className="secondary-button compact-action text-xs"
                           disabled={isRunning}
+                          aria-label={`Revert ${row.customerName} to engine credit limit`}
                           onClick={() =>
                             runCommand('revertCustomerCreditToEngine', { customerId: row.customerId }, 'Revert manual credit limit to engine from credit review')
                           }
@@ -159,6 +161,7 @@ export function CreditReviewView() {
                           type="button"
                           className="secondary-button compact-action text-xs"
                           disabled={isRunning}
+                          aria-label={`Snooze stale credit reminder for ${row.customerName} by 60 days`}
                           onClick={() =>
                             runCommand('snoozeCustomerCreditReminder', { customerId: row.customerId, newReminderDays: 60 }, 'Snooze stale credit reminder from credit review')
                           }
@@ -171,6 +174,7 @@ export function CreditReviewView() {
                           type="button"
                           className="secondary-button compact-action text-xs"
                           disabled={isRunning}
+                          aria-label={`Re-enable credit engine for ${row.customerName}`}
                           onClick={() =>
                             runCommand('enableCreditEngineForCustomer', { customerId: row.customerId }, 'Re-enable credit engine from credit review')
                           }

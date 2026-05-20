@@ -263,7 +263,7 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
                 <strong>{status.shadowMode ? 'On' : 'Off'}</strong>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-1.5" role="list" aria-label="Credit signal chips">
               {Object.entries(SIGNAL_LABELS).map(([key, label]) => {
                 const score =
                   status.latestAssessment!.scores[key as keyof typeof status.latestAssessment.scores];
@@ -273,7 +273,8 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
                 return (
                   <div
                     key={key}
-                    className="flex items-center justify-between rounded border border-line bg-panel px-2 py-1 text-xs"
+                    role="listitem"
+                    className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-2 py-0.5 text-xs"
                   >
                     <span className="text-zinc-600">{label}</span>
                     <span className="font-semibold text-ink">
@@ -284,7 +285,17 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
               })}
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div
+            className="mt-4 border-t border-line pt-3"
+            data-testid="credit-no-signals-empty-state"
+          >
+            <h3 className="section-title">Engine recommendation</h3>
+            <p className="mt-2 text-xs text-zinc-600">
+              No signals yet — engine recommendation is unavailable until invoices appear.
+            </p>
+          </div>
+        )}
 
         {status.coldStart.isWarming ? (
           <div className="mt-4 border-t border-line pt-3">

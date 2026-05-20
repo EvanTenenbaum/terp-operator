@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useCommandRunner } from '../useCommandRunner';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { formatMoney } from './creditPanelUtils';
 
 export interface EditCreditLimitModalProps {
@@ -25,6 +26,13 @@ export function EditCreditLimitModal({
   const [amount, setAmount] = useState(String(currentLimit));
   const [reason, setReason] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Focus-trap + Escape-to-close. Escape is gated by !isRunning so an in-flight
+  // save cannot be abandoned mid-write (mirrors the pattern from
+  // RefereeRelationshipDialog and CommandPalette).
+  const dialogRef = useFocusTrap<HTMLDivElement>(open, () => {
+    if (!isRunning) onClose();
+  });
 
   useEffect(() => {
     if (open) {
@@ -71,7 +79,7 @@ export function EditCreditLimitModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="edit-credit-limit-title">
+      <div ref={dialogRef} className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="edit-credit-limit-title">
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Customer credit</p>
@@ -86,16 +94,16 @@ export function EditCreditLimitModal({
             {engineRecommendation !== null ? <> · Engine recommends <strong>{formatMoney(engineRecommendation)}</strong></> : <> · No engine recommendation yet</>}
           </div>
 
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label htmlFor="edit-credit-limit-amount" className="grid gap-1 text-sm font-medium text-zinc-700">
             New credit limit
-            <input className="input" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} aria-invalid={amountError !== null} />
-            {amountError ? <span className="text-xs text-red-600">{amountError}</span> : null}
+            <input id="edit-credit-limit-amount" className="input" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} aria-invalid={amountError !== null} aria-describedby={amountError ? 'edit-credit-limit-amount-error' : undefined} />
+            {amountError ? <span id="edit-credit-limit-amount-error" className="text-xs text-red-600">{amountError}</span> : null}
           </label>
 
-          <label className="grid gap-1 text-sm font-medium text-zinc-700">
+          <label htmlFor="edit-credit-limit-reason" className="grid gap-1 text-sm font-medium text-zinc-700">
             Reason
-            <textarea className="input min-h-24" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why should this manual limit be used?" aria-invalid={reasonError !== null} />
-            {reasonError ? <span className="text-xs text-red-600">{reasonError}</span> : <span className="text-xs text-zinc-500">Minimum 4 characters. This is recorded in the command journal.</span>}
+            <textarea id="edit-credit-limit-reason" className="input min-h-24" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why should this manual limit be used?" aria-invalid={reasonError !== null} aria-describedby={reasonError ? 'edit-credit-limit-reason-error' : 'edit-credit-limit-reason-help'} />
+            {reasonError ? <span id="edit-credit-limit-reason-error" className="text-xs text-red-600">{reasonError}</span> : <span id="edit-credit-limit-reason-help" className="text-xs text-zinc-500">Minimum 4 characters. This is recorded in the command journal.</span>}
           </label>
 
           {needsOwner ? (
