@@ -43,7 +43,8 @@ export async function getSessionUser(req: Request): Promise<SessionUser | null> 
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role as SessionUser['role']
+    role: user.role as SessionUser['role'],
+    workLoop: user.workLoop ?? null
   };
 }
 

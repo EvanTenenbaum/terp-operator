@@ -225,7 +225,8 @@ describe('POST /api/upload/media — share-token auth', () => {
       id: 'op1',
       name: 'Op',
       email: 'op@example.com',
-      role: 'operator'
+      role: 'operator',
+      workLoop: null
     });
 
     const res = await request(app)

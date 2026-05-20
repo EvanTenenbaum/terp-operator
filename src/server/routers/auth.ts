@@ -33,7 +33,8 @@ export const authRouter = router({
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      workLoop: user.workLoop ?? null
     };
   }),
   logout: publicProcedure.mutation(async ({ ctx }) => {

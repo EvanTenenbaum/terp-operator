@@ -60,7 +60,8 @@ beforeEach(async () => {
     id: 'op1',
     name: 'Op',
     email: 'op@example.com',
-    role: 'operator'
+    role: 'operator',
+    workLoop: null
   });
 });
 
@@ -88,7 +89,8 @@ describe('GET /api/media/:id', () => {
       id: 'v1',
       name: 'Viewer',
       email: 'v@example.com',
-      role: 'viewer'
+      role: 'viewer',
+      workLoop: null
     });
 
     const res = await request(app).get(`/api/media/${MEDIA_ID}`);

@@ -23,8 +23,8 @@ const CONFIG_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const USER_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const COMMAND_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
-const MANAGER: SessionUser = { id: USER_ID, name: 'Manager', email: 'm@x', role: 'manager' };
-const OWNER: SessionUser = { id: USER_ID, name: 'Owner', email: 'o@x', role: 'owner' };
+const MANAGER: SessionUser = { id: USER_ID, name: 'Manager', email: 'm@x', role: 'manager', workLoop: null };
+const OWNER: SessionUser = { id: USER_ID, name: 'Owner', email: 'o@x', role: 'owner', workLoop: null };
 
 interface RecordedInsert {
   table: unknown;

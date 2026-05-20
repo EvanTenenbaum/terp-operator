@@ -7,7 +7,7 @@ const mockCtx = {
   req: {} as any,
   res: {} as any,
   io: {} as any,
-  user: { id: 'test-user-id', name: 'Test', email: 'test@test.com', role: 'manager' as const }
+  user: { id: 'test-user-id', name: 'Test', email: 'test@test.com', role: 'manager' as const, workLoop: null }
 };
 
 describe('refereeCredits query', () => {

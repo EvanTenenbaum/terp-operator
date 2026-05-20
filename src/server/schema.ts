@@ -36,6 +36,10 @@ export const users = pgTable('users', {
   role: varchar('role', { length: 32 }).notNull(),
   organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }),
   active: boolean('active').notNull().default(true),
+  // Explicit work-loop assignment — see migrations/0044_users_work_loop.sql.
+  // Null means "fall back to the legacy substring heuristic on email/name"
+  // (see legacyWorkLoopFromSubstring in src/client/accessPolicy.ts).
+  workLoop: varchar('work_loop', { length: 32 }),
   createdAt: now(),
   updatedAt: updated()
 });

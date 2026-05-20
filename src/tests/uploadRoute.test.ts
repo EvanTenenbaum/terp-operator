@@ -88,7 +88,8 @@ beforeEach(async () => {
     id: 'op1',
     name: 'Op',
     email: 'op@example.com',
-    role: 'operator'
+    role: 'operator',
+    workLoop: null
   });
 
   // Default magic bytes to valid JPEG
@@ -130,7 +131,8 @@ describe('POST /api/upload/media', () => {
       id: 'v1',
       name: 'Viewer',
       email: 'v@example.com',
-      role: 'viewer'
+      role: 'viewer',
+      workLoop: null
     });
 
     const res = await request(app)
@@ -249,7 +251,8 @@ describe('DELETE /api/upload/media/staged', () => {
       id: 'v1',
       name: 'Viewer',
       email: 'v@example.com',
-      role: 'viewer'
+      role: 'viewer',
+      workLoop: null
     });
 
     const res = await request(app)

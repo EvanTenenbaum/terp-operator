@@ -35,7 +35,7 @@ describe('requireOperator middleware', () => {
 
   it('returns 403 when the user is below operator role', async () => {
     vi.mocked(getSessionUser).mockResolvedValue({
-      id: 'u1', name: 'Viewer', email: 'v@example.com', role: 'viewer'
+      id: 'u1', name: 'Viewer', email: 'v@example.com', role: 'viewer', workLoop: null
     });
 
     await requireOperator(req as Request, res as Response, next);
@@ -47,20 +47,20 @@ describe('requireOperator middleware', () => {
 
   it('attaches the user to req and calls next() for an operator', async () => {
     vi.mocked(getSessionUser).mockResolvedValue({
-      id: 'u2', name: 'Op', email: 'op@example.com', role: 'operator'
+      id: 'u2', name: 'Op', email: 'op@example.com', role: 'operator', workLoop: null
     });
 
     await requireOperator(req as Request, res as Response, next);
 
     expect((req as any).user).toEqual({
-      id: 'u2', name: 'Op', email: 'op@example.com', role: 'operator'
+      id: 'u2', name: 'Op', email: 'op@example.com', role: 'operator', workLoop: null
     });
     expect(next).toHaveBeenCalledTimes(1);
   });
 
   it('calls next() for roles above operator (manager, owner)', async () => {
     vi.mocked(getSessionUser).mockResolvedValue({
-      id: 'u3', name: 'Mgr', email: 'm@example.com', role: 'manager'
+      id: 'u3', name: 'Mgr', email: 'm@example.com', role: 'manager', workLoop: null
     });
 
     await requireOperator(req as Request, res as Response, next);
