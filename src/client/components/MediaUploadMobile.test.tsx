@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -9,11 +9,23 @@ vi.mock('./useCommandRunner', () => ({
   useCommandRunner: () => ({ runCommand, isRunning: false })
 }));
 
+const originalFetch = globalThis.fetch;
 const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-Object.defineProperty(globalThis, 'fetch', {
-  value: fetchMock,
-  writable: true,
-  configurable: true
+
+beforeAll(() => {
+  Object.defineProperty(globalThis, 'fetch', {
+    value: fetchMock,
+    writable: true,
+    configurable: true
+  });
+});
+
+afterAll(() => {
+  Object.defineProperty(globalThis, 'fetch', {
+    value: originalFetch,
+    writable: true,
+    configurable: true
+  });
 });
 
 import { MediaUploadMobile, MediaUploadMobileRoute } from './MediaUploadMobile';

@@ -69,7 +69,7 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
       xhr.onload = async () => {
         if (!mountedRef.current) return;
         if (xhr.status === 200) {
-          let data: UploadResult;
+          let data: UploadResult | undefined;
           try {
             data = JSON.parse(xhr.responseText) as UploadResult;
             const mediaType = data.mimeType.startsWith('video/') ? 'video' : 'photo';
@@ -95,18 +95,20 @@ export function MediaUploadMobile({ batchId }: MediaUploadMobileProps) {
           } catch {
             if (!mountedRef.current) return;
             // Best-effort cleanup of orphaned staged files
-            try {
-              await fetch('/api/upload/media/staged', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  filePath: data!.filePath,
-                  thumbnailPath: data!.thumbnailPath,
-                  mediumPath: data!.mediumPath
-                })
-              });
-            } catch {
-              // ignore cleanup failures
+            if (data) {
+              try {
+                await fetch('/api/upload/media/staged', {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    filePath: data.filePath,
+                    thumbnailPath: data.thumbnailPath,
+                    mediumPath: data.mediumPath
+                  })
+                });
+              } catch {
+                // ignore cleanup failures
+              }
             }
             if (!mountedRef.current) return;
             setStatus('error');

@@ -36,7 +36,9 @@ import { ProcessorsView } from './views/ProcessorsView';
 import { MediaView } from './views/MediaView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 
-// Sync URL with activeView state
+// Sync URL with activeView state.
+// Nested routes intentionally use the first path segment as activeView
+// (e.g. /photography/mobile/:batchId -> photography).
 function LocationSync() {
   const location = useLocation();
   const setActiveView = useUiStore((state) => state.setActiveView);
