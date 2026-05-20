@@ -18,4 +18,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm typecheck
+      # Phase 7 — credit-engine CI gate hardening (issue #68). Pin the
+      # negative-role matrix + metrics unit tests as explicit CI steps so a
+      # new credit-router procedure landing without a role gate (or a metric
+      # rename) fails the build BEFORE typecheck/build masks it. These run
+      # without a database — they stub pool.query.
+      - run: pnpm exec vitest run src/server/routers/credit.negativeRoles.test.ts
+      - run: pnpm exec vitest run src/server/services/creditEngine/metrics.test.ts
       - run: pnpm build

@@ -15,6 +15,7 @@ import { computeProfitability } from './signals/profitability';
 import { computeDebtAging } from './signals/debtAging';
 import { computeRepaymentVelocity } from './signals/repaymentVelocity';
 import { computeTenureDepth } from './signals/tenureDepth';
+import { creditEngineMetrics, logCreditEngineEvent } from './metrics';
 
 /**
  * Result of `processOneRecompute`.
@@ -292,6 +293,47 @@ export async function processOneRecompute(
       );
 
       await client.query('COMMIT');
+
+      // Phase 7 observability (issue #68). Counters + structured log line per
+      // decision. Recorded AFTER COMMIT so we don't double-count rolled-back
+      // transactions. Best-effort — logging/metric errors must not surface to
+      // the caller because the database work has already succeeded.
+      try {
+        creditEngineMetrics.increment('credit_engine.decision_issued', {
+          applied: String(applied),
+          triggered_by: enqueuedBy
+        });
+        if (applied) {
+          creditEngineMetrics.increment('credit_engine.override_applied', {
+            triggered_by: enqueuedBy
+          });
+        }
+        if (config.shadowMode) {
+          creditEngineMetrics.increment('credit_engine.shadow_mode_miss', {
+            triggered_by: enqueuedBy
+          });
+        }
+        logCreditEngineEvent('credit_engine.decision', {
+          customer_id: customerId,
+          assessment_id: assessmentId,
+          stance_id: stanceId,
+          applied,
+          shadow_mode: config.shadowMode,
+          engine_disabled: engineDisabled,
+          cold_start_ready: coldStartReady,
+          overall_score: overallScore,
+          base_amount: base,
+          multiplier,
+          recommended_limit: rawRecommended,
+          final_limit: finalLimit,
+          engine_max: engineMax,
+          triggered_by: enqueuedBy,
+          command_id: commandId
+        });
+      } catch {
+        // Never let observability take down the worker.
+      }
+
       return { skipped: false, assessmentId, applied, finalLimit };
     } catch (err) {
       // Roll back the in-flight work txn. The claim transaction already
