@@ -8,6 +8,7 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
+import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
 
 const orderColumns: ColDef<GridRow>[] = [
   { field: 'orderNo', pinned: 'left', width: 150 },
@@ -89,6 +90,7 @@ export function SalesView() {
   const [addedBatchIds, setAddedBatchIds] = useState<Set<string>>(new Set());
   const [saleToolsOpen, setSaleToolsOpen] = useState(false);
   const [autoStartedCustomerIds, setAutoStartedCustomerIds] = useState<Set<string>>(new Set());
+  const [dismissedCreditIndicators, setDismissedCreditIndicators] = useState<Set<string>>(new Set());
   const customerSelectRef = useRef<HTMLSelectElement | null>(null);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
@@ -102,11 +104,30 @@ export function SalesView() {
   const suggestions = trpc.queries.salesSuggestions.useQuery({
     customerId: customerId || undefined
   });
+  const creditStatus = trpc.credit.customerCreditStatus.useQuery(
+    { customerId },
+    { enabled: Boolean(customerId && (me.data?.role === 'manager' || me.data?.role === 'owner')) }
+  );
   const { runCommand, isRunning } = useCommandRunner();
   const workspaceOrder = workspace.data?.orders.find((order) => ['draft', 'confirmed'].includes(String(order.status))) ?? workspace.data?.orders[0];
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
   const orderLines = trpc.queries.salesOrderLines.useQuery({ orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedOrder?.id) });
   const selectedOrderStatus = String(selectedOrder?.status ?? '');
+
+  const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
+  const balance = Number(workspace.data?.customer?.balance ?? 0);
+  const orderTotal = Number(selectedOrder?.total ?? 0);
+  const manualLimit = creditStatus.data?.customer.creditLimit ?? 0;
+  const engineRecommendation = creditStatus.data?.latestAssessment?.recommendedLimit ?? null;
+  const showCreditIndicator = isManagerOrOwner && selectedOrder != null && shouldShowSalesCreditIndicator({
+    balance,
+    orderTotal,
+    manualLimit,
+    engineRecommendation,
+    source: creditStatus.data?.customer.creditLimitSource ?? '',
+  });
+  const indicatorKey = `${customerId}:${String(selectedOrder?.id ?? '')}`;
+  const isIndicatorDismissed = dismissedCreditIndicators.has(indicatorKey);
 
   const sheetRows = useMemo(() => selectedSuggestions.slice(0, 8), [selectedSuggestions]);
 
@@ -401,6 +422,26 @@ export function SalesView() {
               <span>{(workspace.data?.customer?.tags ?? []).join(', ')}</span>
             </div>
           </div>
+          {showCreditIndicator && !isIndicatorDismissed && engineRecommendation != null ? (
+            <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+              <span>
+                ⓘ Engine recommends a lower limit for this customer ({formatMoney(engineRecommendation)}). Order is OK against current manual limit ({formatMoney(manualLimit)}).
+              </span>
+              <button
+                type="button"
+                className="font-medium text-amber-700 hover:text-amber-900"
+                onClick={() => {
+                  setDismissedCreditIndicators((prev) => {
+                    const next = new Set(prev);
+                    next.add(indicatorKey);
+                    return next;
+                  });
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          ) : null}
           <div className="mt-3 grid gap-3 xl:grid-cols-[1.1fr_0.9fr]">
             <div className="grid gap-3">
               {canWrite ? <div className="control-band subtle-band">

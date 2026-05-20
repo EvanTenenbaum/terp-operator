@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "Coverage thresholds for orchestrator agents and CI. Portable across projects — adjust values per-repo. Scoped to files modified by TER-1070 (see vitest.config.ts coverage.include).",
+  "$comment": "Repo-wide minimum coverage floor for orchestrator agents and CI. These values are the floor — vitest.config.ts may enforce a stricter ceiling on a focused subtree (e.g. 100% on src/server/services/creditEngine/**). The repo-wide floor and the per-feature ceiling are intentionally separate: the floor protects unrelated areas of the codebase from regressing while the ceiling drives feature-level discipline. If you tighten one, do not loosen the other.",
   "thresholds": {
     "lines": 80,
     "branches": 75,
@@ -11,6 +11,6 @@
     "command": "pnpm exec vitest run --coverage --exclude=src/tests/performance.test.ts",
     "blockPRCreation": true,
     "blockTaskCompletion": true,
-    "description": "Orchestrator agents MUST check coverage against these thresholds before marking any task complete or creating a PR. Coverage is scoped to files modified by this work (see vitest.config.ts coverage.include). If coverage drops below any threshold, the task fails."
+    "description": "Orchestrator agents MUST check coverage against these thresholds before marking any task complete or creating a PR. These are repo-wide minimums; vitest.config.ts may enforce a stricter per-subtree ceiling via coverage.include + coverage.thresholds (e.g. 100% on src/server/services/creditEngine/**). If coverage drops below this floor anywhere, or below the configured ceiling on the focused subtree, the task fails."
   }
 }

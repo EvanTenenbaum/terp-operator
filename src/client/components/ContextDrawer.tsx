@@ -4,6 +4,7 @@ import { trpc } from '../api/trpc';
 import { activeEntityForState, defaultDrawerState, defaultTabForEntity, drawerStorageKey, queueDrawerEntity, storedDrawerForState, useUiStore } from '../store/uiStore';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { DrawerStateName, GridRow, ViewKey } from '../../shared/types';
+import { CustomerCreditPanel } from './credit/CustomerCreditPanel';
 
 const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   queue: [
@@ -15,6 +16,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'profile', label: 'Profile' },
     { key: 'balance', label: 'Balance' },
     { key: 'purchases', label: 'Purchases' },
+    { key: 'credit', label: 'Credit' },
     { key: 'notes', label: 'Notes' },
     { key: 'history', label: 'History' }
   ],
@@ -178,6 +180,16 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   const vendorId = inferVendorId(row, activeView, entityType, entityId);
   const relationship = trpc.queries.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
   const facts = compactFacts(row, entityType, relationship.data);
+  if (activeTab === 'credit') {
+    if (customerId) {
+      return <CustomerCreditPanel customerId={customerId} />;
+    }
+    return (
+      <div className="context-drawer-card">
+        <div className="drawer-empty">No customer selected.</div>
+      </div>
+    );
+  }
   if (activeTab === 'relationship' && (customerId || vendorId)) {
     return <RelationshipContext data={relationship.data} row={row} />;
   }

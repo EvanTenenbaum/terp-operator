@@ -17,6 +17,11 @@ import {
   commandJournal,
   connectorRequests,
   correctionJournalEntries,
+  creditEngineConfig,
+  creditEngineConfigHistory,
+  creditEngineStanceHistory,
+  creditEngineStances,
+  customerCreditAssessments,
   customers,
   customerNeeds,
   fulfillmentLines,
@@ -72,6 +77,7 @@ import {
   markUserFeeCollected,
   updateProcessorFeeStatus
 } from './processorCommands';
+import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
 import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -462,6 +468,30 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return markUserFeeCollected(tx, payload, commandId);
     case 'updateProcessorFeeStatus':
       return updateProcessorFeeStatus(tx, payload, commandId);
+    case 'setCustomerCreditLimit':
+      return setCustomerCreditLimit(tx, payload, user, commandId);
+    case 'revertCustomerCreditToEngine':
+      return revertCustomerCreditToEngine(tx, payload, commandId);
+    case 'snoozeCustomerCreditReminder':
+      return snoozeCustomerCreditReminder(tx, payload, commandId);
+    case 'setCustomerEngineMax':
+      return setCustomerEngineMax(tx, payload, commandId);
+    case 'setCustomerStance':
+      return setCustomerStance(tx, payload, commandId);
+    case 'disableCreditEngineForCustomer':
+      return disableCreditEngineForCustomer(tx, payload, user.id, commandId);
+    case 'enableCreditEngineForCustomer':
+      return enableCreditEngineForCustomer(tx, payload, commandId);
+    case 'createCreditEngineStance':
+      return createCreditEngineStance(tx, payload, user.id, commandId);
+    case 'updateCreditEngineStance':
+      return updateCreditEngineStance(tx, payload, user.id, commandId);
+    case 'deleteCreditEngineStance':
+      return deleteCreditEngineStance(tx, payload, user.id, commandId);
+    case 'setCreditEngineConfig':
+      return setCreditEngineConfig(tx, payload, user.id, commandId);
+    case 'bulkRevertCustomersToEngine':
+      return bulkRevertCustomersToEngine(tx, payload, user, commandId);
     case 'setLineLandedCost':
       return setLineLandedCost(tx, payload, commandId);
     case 'setCustomerPricingRule':
@@ -1987,6 +2017,7 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
   const belowGuardrail = pricingSnapshot.lines.find((line) => line.guardrails.length > 0);
   if (belowGuardrail) throw new Error(`${belowGuardrail.itemName} is below pricing guardrails. Reprice before confirming.`);
   await tx.update(salesOrders).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  await enqueueCustomerRecompute(tx, order.customerId, 'event:confirmSalesOrder', commandId);
   return { ok: true, commandId, affectedIds: [orderId], toast: `${order.orderNo} confirmed.`, delta: { pricingSnapshot } };
 }
 
@@ -2116,6 +2147,7 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
     }).where(eq(salesOrders.id, orderId));
   }
 
+  await enqueueCustomerRecompute(tx, customer.id, 'event:postSalesOrder', commandId);
   return { ok: true, commandId, affectedIds: affected, toast: `${freshOrder.orderNo} posted and invoice ${invoice.invoiceNo} created.` };
 }
 
@@ -2204,6 +2236,10 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
     affected.push(entry.id);
   }
 
+  // Enqueue credit recompute for this customer. Idempotent at the pending-row
+  // level — if allocatePayment also enqueues below, the second insert is a no-op.
+  await enqueueCustomerRecompute(tx, customerId, 'event:recordPayment', commandId);
+
   // Auto-execute allocation if allocationIntent is set to 'fifo' or 'selected_invoice'
   const intent = payment.allocationIntent;
   if (amount > 0 && (intent === 'fifo' || intent === 'selected_invoice')) {
@@ -2283,6 +2319,9 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
     await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
     const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'Auto-applied to oldest open invoices' }).returning();
     affected.push(payment.customerId, entry.id);
+  }
+  if (payment.customerId) {
+    await enqueueCustomerRecompute(tx, payment.customerId, 'event:allocatePayment', commandId);
   }
   return { ok: true, commandId, affectedIds: affected, toast: `Allocated ${moneyScale(totalAllocated)} to oldest open invoices.` };
 }
@@ -2473,11 +2512,22 @@ async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId:
     affected.push(...(await applyFindReplace(tx, payload.findReplace as Payload)));
   }
   if (payload.invoiceId) {
+    const invoiceId = requiredId(payload.invoiceId, 'invoiceId');
     const [dispute] = await tx
       .insert(invoiceDisputes)
-      .values({ invoiceId: requiredId(payload.invoiceId, 'invoiceId'), reason: stringValue(payload.reason) || memo, status: 'open' })
+      .values({ invoiceId, reason: stringValue(payload.reason) || memo, status: 'open' })
       .returning();
     affected.push(dispute.id);
+    // Filing an invoice dispute is credit-relevant: signals already exclude
+    // disputed invoices from debtAging. Enqueue if we can resolve the customer.
+    const [invoiceRow] = await tx
+      .select({ customerId: invoices.customerId })
+      .from(invoices)
+      .where(eq(invoices.id, invoiceId))
+      .limit(1);
+    if (invoiceRow?.customerId) {
+      await enqueueCustomerRecompute(tx, invoiceRow.customerId, 'event:disputeInvoice', commandId);
+    }
   }
   return { ok: true, commandId, affectedIds: affected, toast: payload.invoiceId ? 'Correction journal and invoice dispute posted.' : 'Correction journal entry posted.' };
 }
@@ -2500,6 +2550,10 @@ async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionU
     const signedAmount = ['buyer_credit', 'down_payment', 'customer_down_payment'].includes(transactionType) ? -Math.abs(amount) : amount;
     let clientAllocationIntent = allocationTargetType === 'selected_invoice' ? 'selected' : allocationIntent;
     const customerId = requiredId(payload.entityId, 'entityId');
+    // Enqueue credit recompute up-front so this command's source name wins
+    // over the downstream logPayment/allocatePayment enqueues (idempotent: the
+    // partial unique index makes subsequent inserts a no-op).
+    await enqueueCustomerRecompute(tx, customerId, 'event:postLedgerRow', commandId);
     if (signedAmount > 0 && clientAllocationIntent === 'fifo') {
       const [openInvoice] = await tx
         .select({ id: invoices.id })
@@ -2742,6 +2796,10 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
   if (original.status !== 'ok') throw new Error('Only successful commands can be reversed.');
 
   const affected = [originalId];
+  // Collect customer IDs affected by this reversal so we can enqueue credit
+  // recomputes at the end. Idempotent — duplicates collapse via the partial
+  // unique pending index.
+  const customersToRecompute = new Set<string>();
   const snapshot = original.afterSnapshot as Record<string, any>;
   const beforeSnapshot = original.beforeSnapshot as Record<string, any>;
   const policy = reversalPolicies[original.commandName as CommandName];
@@ -2769,6 +2827,7 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
             .values({ customerId: customer.id, invoiceId: invoice.id, kind: 'sale_reversal', amount: moneyScale(-Number(invoice.total)), balanceAfter: moneyScale(nextBalance), note: `Reversal of ${original.commandName}` })
             .returning();
           affected.push(customer.id, entry.id);
+          customersToRecompute.add(customer.id);
         }
       }
       affected.push(invoice.id);
@@ -2848,6 +2907,9 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
       }
       await tx.update(payments).set({ status: 'reversed', unappliedAmount: '0.00', updatedAt: new Date() }).where(eq(payments.id, currentPayment.id));
       affected.push(currentPayment.id);
+      if (currentPayment.customerId) {
+        customersToRecompute.add(currentPayment.customerId);
+      }
       if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
         const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
         if (customer) {
@@ -2882,6 +2944,7 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
               .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: payment?.id, kind: 'allocation_reversal', amount: moneyScale(Number(currentAllocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Payment allocation reversal' })
               .returning();
             affected.push(customer.id, entry.id);
+            customersToRecompute.add(customer.id);
           }
         }
       }
@@ -2908,11 +2971,15 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
                 .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: currentPayment.id, kind: 'allocation_reversal', amount: moneyScale(Number(allocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Transaction ledger allocation reversal' })
                 .returning();
               affected.push(customer.id, entry.id);
+              customersToRecompute.add(customer.id);
             }
           }
           affected.push(invoice.id);
         }
         affected.push(allocation.id);
+      }
+      if (currentPayment.customerId) {
+        customersToRecompute.add(currentPayment.customerId);
       }
       if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
         const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
@@ -3051,6 +3118,12 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
   }
 
   await tx.update(commandJournal).set({ reversedByCommandId: commandId }).where(eq(commandJournal.id, originalId));
+  // Enqueue credit recompute for every customer affected by this reversal.
+  // Use 'event:reverseSalesOrder' as the generic reversal source; idempotent
+  // dedupe collapses any duplicates across branches.
+  for (const cid of customersToRecompute) {
+    await enqueueCustomerRecompute(tx, cid, 'event:reverseSalesOrder', commandId);
+  }
   return { ok: true, commandId, affectedIds: affected, toast: `Reversed ${original.commandName}.` };
 }
 
@@ -3639,6 +3712,708 @@ async function writeBagManifest(tx: Tx, pickListId: string) {
   await tx.update(pickLists).set({ manifestPath, updatedAt: new Date() }).where(eq(pickLists.id, pickListId));
   return manifestPath;
 }
+
+// ----- Phase 4: credit-engine override + engine-management commands -----
+
+interface StanceWeightsInput {
+  revenueMomentum: number;
+  cashCollection: number;
+  profitability: number;
+  debtAging: number;
+  repaymentVelocity: number;
+  tenureDepth: number;
+}
+
+function parseStanceWeights(value: unknown): StanceWeightsInput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('weights must be an object with six signal weights.');
+  }
+  const obj = value as Record<string, unknown>;
+  const keys: Array<keyof StanceWeightsInput> = [
+    'revenueMomentum',
+    'cashCollection',
+    'profitability',
+    'debtAging',
+    'repaymentVelocity',
+    'tenureDepth'
+  ];
+  const weights = {} as StanceWeightsInput;
+  for (const key of keys) {
+    const raw = obj[key];
+    if (raw === undefined || raw === null) throw new Error(`weights.${key} is required.`);
+    const num = Number(raw);
+    if (!Number.isFinite(num) || !Number.isInteger(num)) {
+      throw new Error(`weights.${key} must be an integer.`);
+    }
+    if (num < 0 || num > 100) throw new Error(`weights.${key} must be between 0 and 100.`);
+    weights[key] = num;
+  }
+  const sum =
+    weights.revenueMomentum + weights.cashCollection + weights.profitability +
+    weights.debtAging + weights.repaymentVelocity + weights.tenureDepth;
+  if (sum !== 100) throw new Error('weights must sum to 100.');
+  return weights;
+}
+
+function maxWeight(weights: StanceWeightsInput) {
+  return Math.max(
+    weights.revenueMomentum,
+    weights.cashCollection,
+    weights.profitability,
+    weights.debtAging,
+    weights.repaymentVelocity,
+    weights.tenureDepth
+  );
+}
+
+function assertExtremeWeightsAcknowledged(weights: StanceWeightsInput, payload: Payload) {
+  if (maxWeight(weights) <= 50) return;
+  if (payload.acknowledgeExtremeWeights !== true) {
+    throw new Error('Extreme weight (>50) requires acknowledgeExtremeWeights=true.');
+  }
+  const justification = stringValue(payload.extremeWeightJustification);
+  if (justification.length < 12) {
+    throw new Error('extremeWeightJustification must be at least 12 characters.');
+  }
+}
+
+function weightsToColumns(weights: StanceWeightsInput) {
+  return {
+    weightRevenueMomentum: weights.revenueMomentum,
+    weightCashCollection: weights.cashCollection,
+    weightProfitability: weights.profitability,
+    weightDebtAging: weights.debtAging,
+    weightRepaymentVelocity: weights.repaymentVelocity,
+    weightTenureDepth: weights.tenureDepth
+  };
+}
+
+export async function setCustomerCreditLimit(
+  tx: Tx,
+  payload: Payload,
+  user: SessionUser,
+  commandId: string
+): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const amount = requiredNumber(payload.amount, 'amount');
+  if (amount < 0) throw new Error('amount must be greater than or equal to zero.');
+  const reason = stringValue(payload.reason);
+  if (reason.length < 4) throw new Error('reason must be at least 4 characters.');
+
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+
+  const [latestAssessment] = await tx
+    .select()
+    .from(customerCreditAssessments)
+    .where(eq(customerCreditAssessments.customerId, customerId))
+    .orderBy(desc(customerCreditAssessments.createdAt))
+    .limit(1);
+  const recommended = latestAssessment ? Number(latestAssessment.recommendedLimit) : 0;
+  const threshold = 1.5 * recommended;
+  if (amount > threshold && user.role !== 'owner') {
+    throw new Error(
+      `Setting credit limit above 1.5x the engine recommendation requires owner role. Engine recommended ${recommended.toFixed(2)}; requested ${amount.toFixed(2)}.`
+    );
+  }
+
+  await tx
+    .update(customers)
+    .set({
+      creditLimit: moneyScale(amount),
+      creditLimitSource: 'manual',
+      creditLimitManualSetAt: new Date(),
+      creditLimitManualSetBy: user.id,
+      creditLimitManualReason: reason,
+      creditLimitLastReviewedAt: new Date(),
+      creditLimitSnoozeCount: 0,
+      updatedAt: new Date()
+    })
+    .where(eq(customers.id, customerId));
+
+  await enqueueCustomerRecompute(tx, customerId, 'manualTrigger', commandId);
+  return { ok: true, commandId, affectedIds: [customerId], toast: 'Manual credit limit set' };
+}
+
+export async function revertCustomerCreditToEngine(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+
+  // Deterministic precondition: the DB CHECK constraint
+  // `customers_engine_source_has_assessment` forbids credit_limit_source='engine'
+  // when last_assessment_id IS NULL. Reject the revert with a clear error
+  // BEFORE issuing the UPDATE so callers (UI / scripts / tests) get a friendly
+  // message instead of a raw constraint violation.
+  if (customer.lastAssessmentId === null || customer.lastAssessmentId === undefined) {
+    throw new Error(
+      'Customer must have a credit assessment before reverting to engine.'
+    );
+  }
+
+  await tx
+    .update(customers)
+    .set({
+      creditLimitSource: 'engine',
+      creditLimitManualSetAt: null,
+      creditLimitManualSetBy: null,
+      creditLimitManualReason: null,
+      creditLimitLastReviewedAt: null,
+      creditLimitSnoozeCount: 0,
+      updatedAt: new Date()
+    })
+    .where(eq(customers.id, customerId));
+
+  await enqueueCustomerRecompute(tx, customerId, 'manualTrigger', commandId);
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [customerId],
+    toast: 'Reverted to engine credit limit'
+  };
+}
+
+export async function snoozeCustomerCreditReminder(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const newReminderDays = payload.newReminderDays;
+  let parsedReminderDays: number | null = null;
+  if (newReminderDays !== undefined && newReminderDays !== null) {
+    const num = Number(newReminderDays);
+    if (!Number.isFinite(num) || !Number.isInteger(num) || num <= 0) {
+      throw new Error('newReminderDays must be a positive integer.');
+    }
+    parsedReminderDays = num;
+  }
+
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+
+  const [config] = await tx.select().from(creditEngineConfig).limit(1);
+  if (!config) throw new Error('Credit engine config is missing.');
+
+  const setAt = customer.creditLimitManualSetAt ? new Date(customer.creditLimitManualSetAt) : null;
+  if (!setAt) {
+    throw new Error('Customer has no manual override to snooze.');
+  }
+  const ageMs = Date.now() - setAt.getTime();
+  const capMs = Number(config.manualOverrideSnoozeCapDays) * 24 * 60 * 60 * 1000;
+  if (ageMs > capMs) {
+    throw new Error(
+      `Manual override is older than the ${config.manualOverrideSnoozeCapDays}-day snooze cap. Re-set the override or revert to engine.`
+    );
+  }
+
+  const values: Record<string, unknown> = {
+    creditLimitLastReviewedAt: new Date(),
+    creditLimitSnoozeCount: (customer.creditLimitSnoozeCount ?? 0) + 1,
+    updatedAt: new Date()
+  };
+  if (parsedReminderDays !== null) values.creditLimitReminderDays = parsedReminderDays;
+
+  await tx.update(customers).set(values).where(eq(customers.id, customerId));
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [customerId],
+    toast: 'Reminder snoozed'
+  };
+}
+
+export async function setCustomerEngineMax(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const raw = payload.engineMax;
+  let engineMax: string | null = null;
+  if (raw !== null && raw !== undefined) {
+    const num = Number(raw);
+    if (!Number.isFinite(num)) throw new Error('engineMax must be a number or null.');
+    if (num < 0) throw new Error('engineMax must be greater than or equal to zero.');
+    engineMax = moneyScale(num);
+  }
+
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+
+  await tx.update(customers).set({ engineMax, updatedAt: new Date() }).where(eq(customers.id, customerId));
+  await enqueueCustomerRecompute(tx, customerId, 'event:setEngineMax', commandId);
+  return { ok: true, commandId, affectedIds: [customerId], toast: 'Engine max set' };
+}
+
+export async function setCustomerStance(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const raw = payload.stanceId;
+  let stanceId: string | null = null;
+  if (raw !== null && raw !== undefined && raw !== '') {
+    stanceId = requiredId(raw, 'stanceId');
+    const [stance] = await tx
+      .select()
+      .from(creditEngineStances)
+      .where(eq(creditEngineStances.id, stanceId))
+      .limit(1);
+    if (!stance) throw new Error('Stance not found.');
+  }
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+
+  await tx.update(customers).set({ stanceId, updatedAt: new Date() }).where(eq(customers.id, customerId));
+  await enqueueCustomerRecompute(tx, customerId, 'event:setStance', commandId);
+  return { ok: true, commandId, affectedIds: [customerId], toast: 'Stance updated' };
+}
+
+export async function disableCreditEngineForCustomer(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const reason = stringValue(payload.reason);
+  if (reason.length < 4) throw new Error('reason must be at least 4 characters.');
+
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+
+  const values: Record<string, unknown> = {
+    engineDisabledAt: new Date(),
+    engineDisabledBy: userId,
+    engineDisabledReason: reason,
+    updatedAt: new Date()
+  };
+  if (customer.creditLimitSource === 'engine') {
+    values.creditLimitSource = 'manual';
+  }
+  await tx.update(customers).set(values).where(eq(customers.id, customerId));
+  // Reference the commandId in journaling via inventoryMovements? No — engine disable doesn't
+  // touch inventory. The command_journal row is written by the bus itself.
+  void commandId;
+  return { ok: true, commandId, affectedIds: [customerId], toast: 'Engine disabled for customer' };
+}
+
+export async function enableCreditEngineForCustomer(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+  if (!customer) throw new Error('Customer not found.');
+
+  await tx
+    .update(customers)
+    .set({
+      engineDisabledAt: null,
+      engineDisabledBy: null,
+      engineDisabledReason: null,
+      updatedAt: new Date()
+    })
+    .where(eq(customers.id, customerId));
+  await enqueueCustomerRecompute(tx, customerId, 'manualTrigger', commandId);
+  return { ok: true, commandId, affectedIds: [customerId], toast: 'Engine re-enabled for customer' };
+}
+
+export async function createCreditEngineStance(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const name = requiredString(payload.name, 'name');
+  const description = stringValue(payload.description) || null;
+  const weights = parseStanceWeights(payload.weights);
+  assertExtremeWeightsAcknowledged(weights, payload);
+
+  const [row] = await tx
+    .insert(creditEngineStances)
+    .values({
+      name,
+      description,
+      ...weightsToColumns(weights)
+    })
+    .returning();
+  if (!row) throw new Error('Failed to insert credit engine stance.');
+
+  const postState = {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    weights: {
+      revenueMomentum: row.weightRevenueMomentum,
+      cashCollection: row.weightCashCollection,
+      profitability: row.weightProfitability,
+      debtAging: row.weightDebtAging,
+      repaymentVelocity: row.weightRepaymentVelocity,
+      tenureDepth: row.weightTenureDepth
+    }
+  };
+
+  await tx.insert(creditEngineStanceHistory).values({
+    stanceId: row.id,
+    changedBy: userId,
+    commandId,
+    action: 'create',
+    preState: null,
+    postState,
+    affectedCustomerCount: 0
+  });
+
+  return { ok: true, commandId, affectedIds: [row.id], toast: 'Stance created' };
+}
+
+export async function updateCreditEngineStance(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const stanceId = requiredId(payload.stanceId, 'stanceId');
+  const [existing] = await tx
+    .select()
+    .from(creditEngineStances)
+    .where(eq(creditEngineStances.id, stanceId))
+    .limit(1);
+  if (!existing) throw new Error('Stance not found.');
+
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  let weightsChanged = false;
+  if (payload.name !== undefined) values.name = requiredString(payload.name, 'name');
+  if (payload.description !== undefined) {
+    values.description = stringValue(payload.description) || null;
+  }
+  let weights: StanceWeightsInput | null = null;
+  if (payload.weights !== undefined) {
+    weights = parseStanceWeights(payload.weights);
+    assertExtremeWeightsAcknowledged(weights, payload);
+    Object.assign(values, weightsToColumns(weights));
+    const prior: StanceWeightsInput = {
+      revenueMomentum: existing.weightRevenueMomentum,
+      cashCollection: existing.weightCashCollection,
+      profitability: existing.weightProfitability,
+      debtAging: existing.weightDebtAging,
+      repaymentVelocity: existing.weightRepaymentVelocity,
+      tenureDepth: existing.weightTenureDepth
+    };
+    weightsChanged =
+      prior.revenueMomentum !== weights.revenueMomentum ||
+      prior.cashCollection !== weights.cashCollection ||
+      prior.profitability !== weights.profitability ||
+      prior.debtAging !== weights.debtAging ||
+      prior.repaymentVelocity !== weights.repaymentVelocity ||
+      prior.tenureDepth !== weights.tenureDepth;
+  }
+
+  await tx.update(creditEngineStances).set(values).where(eq(creditEngineStances.id, stanceId));
+
+  const [{ count: affectedCount }] = await tx
+    .select({ count: sql<number>`count(*)::int` })
+    .from(customers)
+    .where(eq(customers.stanceId, stanceId));
+
+  const preState = {
+    id: existing.id,
+    name: existing.name,
+    description: existing.description,
+    weights: {
+      revenueMomentum: existing.weightRevenueMomentum,
+      cashCollection: existing.weightCashCollection,
+      profitability: existing.weightProfitability,
+      debtAging: existing.weightDebtAging,
+      repaymentVelocity: existing.weightRepaymentVelocity,
+      tenureDepth: existing.weightTenureDepth
+    }
+  };
+  const postState = {
+    id: existing.id,
+    name: (values.name as string | undefined) ?? existing.name,
+    description: payload.description !== undefined ? (values.description as string | null) : existing.description,
+    weights: weights ?? preState.weights
+  };
+
+  await tx.insert(creditEngineStanceHistory).values({
+    stanceId,
+    changedBy: userId,
+    commandId,
+    action: 'update',
+    preState,
+    postState,
+    affectedCustomerCount: Number(affectedCount ?? 0)
+  });
+
+  if (weightsChanged) {
+    await enqueueAllCustomers(tx, 'event:stanceEdited', { stanceId });
+  }
+
+  const toast = weightsChanged
+    ? 'Stance updated; recomputing affected customers'
+    : 'Stance updated';
+  return { ok: true, commandId, affectedIds: [stanceId], toast };
+}
+
+export async function deleteCreditEngineStance(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const stanceId = requiredId(payload.stanceId, 'stanceId');
+  const [existing] = await tx
+    .select()
+    .from(creditEngineStances)
+    .where(eq(creditEngineStances.id, stanceId))
+    .limit(1);
+  if (!existing) throw new Error('Stance not found.');
+
+  const [config] = await tx.select().from(creditEngineConfig).limit(1);
+  if (config && config.globalDefaultStanceId === stanceId) {
+    throw new Error('Cannot delete the global default stance.');
+  }
+
+  const [{ count: usage }] = await tx
+    .select({ count: sql<number>`count(*)::int` })
+    .from(customers)
+    .where(eq(customers.stanceId, stanceId));
+  if (Number(usage ?? 0) > 0) {
+    throw new Error('Cannot delete a stance that is still assigned to customers.');
+  }
+
+  const preState = {
+    id: existing.id,
+    name: existing.name,
+    description: existing.description,
+    weights: {
+      revenueMomentum: existing.weightRevenueMomentum,
+      cashCollection: existing.weightCashCollection,
+      profitability: existing.weightProfitability,
+      debtAging: existing.weightDebtAging,
+      repaymentVelocity: existing.weightRepaymentVelocity,
+      tenureDepth: existing.weightTenureDepth
+    }
+  };
+
+  await tx.delete(creditEngineStances).where(eq(creditEngineStances.id, stanceId));
+  await tx.insert(creditEngineStanceHistory).values({
+    stanceId,
+    changedBy: userId,
+    commandId,
+    action: 'delete',
+    preState,
+    postState: null,
+    affectedCustomerCount: 0
+  });
+
+  return { ok: true, commandId, affectedIds: [stanceId], toast: 'Stance deleted' };
+}
+
+export async function setCreditEngineConfig(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const [existing] = await tx.select().from(creditEngineConfig).limit(1);
+  if (!existing) throw new Error('Credit engine config row is missing.');
+
+  const values: Record<string, unknown> = { updatedAt: new Date(), updatedBy: userId };
+  if (payload.globalDefaultStanceId !== undefined) {
+    const stanceId = requiredId(payload.globalDefaultStanceId, 'globalDefaultStanceId');
+    const [stance] = await tx
+      .select()
+      .from(creditEngineStances)
+      .where(eq(creditEngineStances.id, stanceId))
+      .limit(1);
+    if (!stance) throw new Error('globalDefaultStanceId does not reference an existing stance.');
+    values.globalDefaultStanceId = stanceId;
+  }
+  for (const key of [
+    'coldStartMinPostedInvoices',
+    'coldStartMinTenureDays',
+    'manualOverrideReminderDefaultDays',
+    'manualOverrideSnoozeCapDays'
+  ] as const) {
+    if (payload[key] !== undefined) {
+      const num = Number(payload[key]);
+      if (!Number.isFinite(num) || !Number.isInteger(num) || num < 0) {
+        throw new Error(`${key} must be a non-negative integer.`);
+      }
+      values[key] = num;
+    }
+  }
+  // Enforce a server-side minimum on the snooze cap. The credit-review queue
+  // computes a "near snooze cap" badge using `cap - 30`; if the cap were set
+  // below 30 the badge math would silently go negative and bin every manual
+  // override into "near cap" forever. We require a minimum of 30 days.
+  if (
+    values.manualOverrideSnoozeCapDays !== undefined &&
+    (values.manualOverrideSnoozeCapDays as number) < 30
+  ) {
+    throw new Error('manualOverrideSnoozeCapDays must be at least 30.');
+  }
+  if (payload.shadowMode !== undefined) {
+    if (typeof payload.shadowMode !== 'boolean') throw new Error('shadowMode must be a boolean.');
+    // One-way-down rule: shadow mode can only transition true -> false. Once
+    // the operator has flipped the engine live (shadowMode=false), re-enabling
+    // shadow mode is rejected server-side. This protects the audit trail and
+    // matches the UI's disabled-checkbox affordance in CreditEngineSettingsPanel.
+    if (payload.shadowMode === true && existing.shadowMode === false) {
+      throw new Error('Shadow mode cannot be re-enabled once it has been disabled.');
+    }
+    values.shadowMode = payload.shadowMode;
+  }
+
+  await tx.update(creditEngineConfig).set(values).where(eq(creditEngineConfig.id, existing.id));
+
+  const preState = {
+    globalDefaultStanceId: existing.globalDefaultStanceId,
+    coldStartMinPostedInvoices: existing.coldStartMinPostedInvoices,
+    coldStartMinTenureDays: existing.coldStartMinTenureDays,
+    manualOverrideReminderDefaultDays: existing.manualOverrideReminderDefaultDays,
+    manualOverrideSnoozeCapDays: existing.manualOverrideSnoozeCapDays,
+    shadowMode: existing.shadowMode
+  };
+  const postState = {
+    globalDefaultStanceId: (values.globalDefaultStanceId as string | undefined) ?? existing.globalDefaultStanceId,
+    coldStartMinPostedInvoices:
+      (values.coldStartMinPostedInvoices as number | undefined) ?? existing.coldStartMinPostedInvoices,
+    coldStartMinTenureDays:
+      (values.coldStartMinTenureDays as number | undefined) ?? existing.coldStartMinTenureDays,
+    manualOverrideReminderDefaultDays:
+      (values.manualOverrideReminderDefaultDays as number | undefined) ?? existing.manualOverrideReminderDefaultDays,
+    manualOverrideSnoozeCapDays:
+      (values.manualOverrideSnoozeCapDays as number | undefined) ?? existing.manualOverrideSnoozeCapDays,
+    shadowMode: (values.shadowMode as boolean | undefined) ?? existing.shadowMode
+  };
+
+  await tx.insert(creditEngineConfigHistory).values({
+    changedBy: userId,
+    commandId,
+    preState,
+    postState
+  });
+
+  return { ok: true, commandId, affectedIds: [existing.id], toast: 'Engine config updated' };
+}
+
+export async function bulkRevertCustomersToEngine(
+  tx: Tx,
+  payload: Payload,
+  user: SessionUser,
+  commandId: string
+): Promise<CommandResult> {
+  if (user.role !== 'owner') {
+    throw new Error('bulkRevertCustomersToEngine requires owner role.');
+  }
+  const filter = (payload.filter && typeof payload.filter === 'object' && !Array.isArray(payload.filter))
+    ? (payload.filter as Record<string, unknown>)
+    : {};
+  const skipEngineDisabled = filter.skipEngineDisabled !== false; // default true
+  const force = payload.force === true;
+  const flipShadowMode = payload.flipShadowMode !== false; // default true: rollout intent
+  void force;
+
+  // Deterministic eligibility: the customers_engine_source_has_assessment
+  // CHECK constraint forbids source='engine' when last_assessment_id IS NULL.
+  // Filter the candidate set to customers that satisfy the constraint so the
+  // bulk UPDATE cannot raise a constraint violation. Customers without an
+  // assessment are reported as skipped instead of silently dropped.
+  const conditions = [
+    eq(customers.creditLimitSource, 'manual'),
+    sql`last_assessment_id IS NOT NULL`
+  ];
+  if (skipEngineDisabled) conditions.push(sql`engine_disabled_at IS NULL`);
+
+  const affectedCustomers = await tx
+    .select({ id: customers.id })
+    .from(customers)
+    .where(and(...conditions));
+  const affectedIds = affectedCustomers.map((row: { id: string }) => row.id);
+
+  // Count candidates that match the filter EXCEPT for the assessment gate,
+  // so we can report how many were skipped because they lacked an assessment.
+  const skippedConditions = [
+    eq(customers.creditLimitSource, 'manual'),
+    sql`last_assessment_id IS NULL`
+  ];
+  if (skipEngineDisabled) skippedConditions.push(sql`engine_disabled_at IS NULL`);
+  const skippedRows = await tx
+    .select({ id: customers.id })
+    .from(customers)
+    .where(and(...skippedConditions));
+  const skippedNoAssessment = skippedRows.length;
+
+  if (affectedIds.length > 0) {
+    await tx
+      .update(customers)
+      .set({
+        creditLimitSource: 'engine',
+        creditLimitManualSetAt: null,
+        creditLimitManualSetBy: null,
+        creditLimitManualReason: null,
+        creditLimitLastReviewedAt: null,
+        creditLimitSnoozeCount: 0,
+        updatedAt: new Date()
+      })
+      .where(inArray(customers.id, affectedIds));
+    await enqueueAllCustomers(tx, 'bulkRevert', { skipEngineDisabled });
+  }
+
+  if (flipShadowMode) {
+    const [config] = await tx.select().from(creditEngineConfig).limit(1);
+    if (config && config.shadowMode) {
+      await tx
+        .update(creditEngineConfig)
+        .set({ shadowMode: false, updatedAt: new Date(), updatedBy: user.id })
+        .where(eq(creditEngineConfig.id, config.id));
+      await tx.insert(creditEngineConfigHistory).values({
+        changedBy: user.id,
+        commandId,
+        preState: {
+          globalDefaultStanceId: config.globalDefaultStanceId,
+          coldStartMinPostedInvoices: config.coldStartMinPostedInvoices,
+          coldStartMinTenureDays: config.coldStartMinTenureDays,
+          manualOverrideReminderDefaultDays: config.manualOverrideReminderDefaultDays,
+          manualOverrideSnoozeCapDays: config.manualOverrideSnoozeCapDays,
+          shadowMode: config.shadowMode
+        },
+        postState: {
+          globalDefaultStanceId: config.globalDefaultStanceId,
+          coldStartMinPostedInvoices: config.coldStartMinPostedInvoices,
+          coldStartMinTenureDays: config.coldStartMinTenureDays,
+          manualOverrideReminderDefaultDays: config.manualOverrideReminderDefaultDays,
+          manualOverrideSnoozeCapDays: config.manualOverrideSnoozeCapDays,
+          shadowMode: false
+        }
+      });
+    }
+  }
+
+  const toast =
+    skippedNoAssessment > 0
+      ? `Reverted ${affectedIds.length} customer(s) to engine credit limit; ${skippedNoAssessment} skipped (no assessment yet)`
+      : `Reverted ${affectedIds.length} customer(s) to engine credit limit`;
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds,
+    toast
+  };
+}
+
+// ----- end Phase 4 -----
 
 function collectIds(payload: Payload) {
   const values = [

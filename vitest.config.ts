@@ -14,6 +14,12 @@ export default defineConfig({
     // `// @vitest-environment jsdom` at the top of each test file.
     environment: 'node',
     setupFiles: ['./src/client/test-setup.ts'],
+    // Integration tests share a single Postgres database; running multiple
+    // test files in parallel causes races on global tables like
+    // `credit_recompute_queue` and `customers`. Disable file parallelism so
+    // each file owns the DB while it runs. (Tests within a file remain
+    // sequential by default.)
+    fileParallelism: false,
     // v8 coverage instrumentation can multiply test time 3-4x. Bump from the
     // 5s default so userEvent interactions and dynamic imports don't time out
     // under coverage. Without coverage, tests complete in <2s.
@@ -21,29 +27,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
-      include: [
-        'src/client/components/RecordPrepaymentDialog.tsx',
-        'src/client/components/RefereeDialog.tsx',
-        'src/client/components/UpdateRefereeRelationshipDialog.tsx',
-        'src/client/components/DeactivateRefereeRelationshipDialog.tsx',
-        'src/client/components/VoidRefereeCreditDialog.tsx',
-        'src/client/components/RefereeRelationshipsList.tsx',
-        'src/client/components/RefereeCreditsList.tsx',
-        'src/client/components/RefereeDetailPanel.tsx',
-        'src/client/components/ProcessorFeesGrid.tsx',
-        'src/client/components/ProcessorDetailPanel.tsx',
-        'src/server/services/refereeCredits.test.ts'
+      include: ['src/server/services/creditEngine/**/*.ts'],
+      exclude: [
+        'src/server/services/creditEngine/**/*.test.ts',
+        'src/server/services/creditEngine/index.ts'
       ],
       thresholds: {
-        // v8 coverage counts every arrow callback (inline event handlers, JSX
-        // conditional branches, mocked deps) as a "function". The achievable
-        // function ratio on a React+tRPC codebase with mainly behavioral tests
-        // sits around 60%. Statements/lines/branches are the more meaningful
-        // gates here.
-        lines: 80,
-        functions: 60,
-        branches: 75,
-        statements: 80
+        lines: 100,
+        branches: 100,
+        functions: 100,
+        statements: 100
       }
     }
   }

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
   bigint,
+  bigserial,
   boolean,
   index,
   integer,
@@ -72,6 +73,20 @@ export const customers = pgTable('customers', {
   tags: text('tags').array().notNull().default([]),
   pricingRule: jsonb('pricing_rule').$type<Record<string, unknown>>().notNull().default({}),
   notes: text('notes'),
+  engineMax: numeric('engine_max', { precision: 12, scale: 2 }),
+  stanceId: uuid('stance_id'),
+  creditLimitSource: varchar('credit_limit_source', { length: 16 }).notNull().default('manual'),
+  engineEnabled: boolean('engine_enabled').notNull().default(false),
+  engineDisabledAt: timestamp('engine_disabled_at', { withTimezone: true }),
+  engineDisabledBy: uuid('engine_disabled_by'),
+  engineDisabledReason: text('engine_disabled_reason'),
+  lastAssessmentId: uuid('last_assessment_id'),
+  creditLimitManualSetAt: timestamp('credit_limit_manual_set_at', { withTimezone: true }),
+  creditLimitManualSetBy: uuid('credit_limit_manual_set_by'),
+  creditLimitManualReason: text('credit_limit_manual_reason'),
+  creditLimitReminderDays: integer('credit_limit_reminder_days'),
+  creditLimitLastReviewedAt: timestamp('credit_limit_last_reviewed_at', { withTimezone: true }),
+  creditLimitSnoozeCount: integer('credit_limit_snooze_count').notNull().default(0),
   createdAt: now(),
   updatedAt: updated()
 });
@@ -887,6 +902,7 @@ export type RefereeRelationship = typeof refereeRelationships.$inferSelect;
 export type RefereeCredit = typeof refereeCredits.$inferSelect;
 export type PaymentProcessor = typeof paymentProcessors.$inferSelect;
 export type ProcessorFee = typeof processorFees.$inferSelect;
+
 export type BatchMedia = typeof batchMedia.$inferSelect;
 export type NewBatchMedia = typeof batchMedia.$inferInsert;
 export type MediaRetentionPolicy = typeof mediaRetentionPolicies.$inferSelect;
@@ -908,3 +924,103 @@ export type BatchMediaSummary = {
   has_primary_video: boolean;
   media_updated_at: Date | null;
 };
+
+export const creditEngineStances = pgTable('credit_engine_stances', {
+  id: id(),
+  name: varchar('name', { length: 80 }).notNull().unique(),
+  description: text('description'),
+  weightRevenueMomentum: integer('weight_revenue_momentum').notNull(),
+  weightCashCollection: integer('weight_cash_collection').notNull(),
+  weightProfitability: integer('weight_profitability').notNull(),
+  weightDebtAging: integer('weight_debt_aging').notNull(),
+  weightRepaymentVelocity: integer('weight_repayment_velocity').notNull(),
+  weightTenureDepth: integer('weight_tenure_depth').notNull(),
+  isSeeded: boolean('is_seeded').notNull().default(false),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const creditEngineConfig = pgTable('credit_engine_config', {
+  id: id(),
+  globalDefaultStanceId: uuid('global_default_stance_id')
+    .notNull()
+    .references(() => creditEngineStances.id, { onDelete: 'restrict' }),
+  coldStartMinPostedInvoices: integer('cold_start_min_posted_invoices').notNull().default(3),
+  coldStartMinTenureDays: integer('cold_start_min_tenure_days').notNull().default(60),
+  manualOverrideReminderDefaultDays: integer('manual_override_reminder_default_days').notNull().default(60),
+  manualOverrideSnoozeCapDays: integer('manual_override_snooze_cap_days').notNull().default(365),
+  shadowMode: boolean('shadow_mode').notNull().default(true),
+  updatedAt: updated(),
+  updatedBy: uuid('updated_by').references(() => users.id)
+});
+
+export const customerCreditAssessments = pgTable('customer_credit_assessments', {
+  id: id(),
+  customerId: uuid('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  stanceId: uuid('stance_id').notNull().references(() => creditEngineStances.id, { onDelete: 'restrict' }),
+  scoreRevenueMomentum: integer('score_revenue_momentum').notNull(),
+  scoreCashCollection: integer('score_cash_collection').notNull(),
+  scoreProfitability: integer('score_profitability').notNull(),
+  scoreDebtAging: integer('score_debt_aging').notNull(),
+  scoreRepaymentVelocity: integer('score_repayment_velocity').notNull(),
+  scoreTenureDepth: integer('score_tenure_depth').notNull(),
+  confidenceRevenueMomentum: varchar('confidence_revenue_momentum', { length: 8 }).notNull(),
+  confidenceCashCollection: varchar('confidence_cash_collection', { length: 8 }).notNull(),
+  confidenceProfitability: varchar('confidence_profitability', { length: 8 }).notNull(),
+  confidenceDebtAging: varchar('confidence_debt_aging', { length: 8 }).notNull(),
+  confidenceRepaymentVelocity: varchar('confidence_repayment_velocity', { length: 8 }).notNull(),
+  confidenceTenureDepth: varchar('confidence_tenure_depth', { length: 8 }).notNull(),
+  overallScore: integer('overall_score').notNull(),
+  baseAmount: numeric('base_amount', { precision: 12, scale: 2 }).notNull(),
+  multiplier: numeric('multiplier', { precision: 5, scale: 2 }).notNull(),
+  recommendedLimit: numeric('recommended_limit', { precision: 12, scale: 2 }).notNull(),
+  engineMaxApplied: numeric('engine_max_applied', { precision: 12, scale: 2 }),
+  finalLimit: numeric('final_limit', { precision: 12, scale: 2 }).notNull(),
+  triggeredBy: varchar('triggered_by', { length: 32 }).notNull(),
+  triggeredByCommandId: uuid('triggered_by_command_id').references(() => commandJournal.id),
+  applied: boolean('applied').notNull(),
+  idempotencyKey: text('idempotency_key').unique(),
+  createdAt: now()
+});
+
+export const creditRecomputeQueue = pgTable('credit_recompute_queue', {
+  // SQL column is `bigserial`. Drizzle bigserial mode 'bigint' returns it as a JS bigint
+  // to avoid Number precision loss past 2^53.
+  id: bigserial('id', { mode: 'bigint' }).primaryKey(),
+  customerId: uuid('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  enqueuedAt: timestamp('enqueued_at', { withTimezone: true }).notNull().defaultNow(),
+  enqueuedBy: varchar('enqueued_by', { length: 64 }).notNull(),
+  commandId: uuid('command_id').references(() => commandJournal.id),
+  attempts: integer('attempts').notNull().default(0),
+  lastAttemptedAt: timestamp('last_attempted_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  status: varchar('status', { length: 16 }).notNull().default('pending')
+});
+
+export const creditEngineConfigHistory = pgTable('credit_engine_config_history', {
+  id: id(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  changedBy: uuid('changed_by').notNull().references(() => users.id),
+  commandId: uuid('command_id').references(() => commandJournal.id),
+  preState: jsonb('pre_state').notNull(),
+  postState: jsonb('post_state').notNull()
+});
+
+export const creditEngineStanceHistory = pgTable('credit_engine_stance_history', {
+  id: id(),
+  stanceId: uuid('stance_id').notNull(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  changedBy: uuid('changed_by').notNull().references(() => users.id),
+  commandId: uuid('command_id').references(() => commandJournal.id),
+  action: varchar('action', { length: 16 }).notNull(),
+  preState: jsonb('pre_state'),
+  postState: jsonb('post_state'),
+  affectedCustomerCount: integer('affected_customer_count')
+});
+
+export const userDismissedBanners = pgTable('user_dismissed_banners', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bannerKey: varchar('banner_key', { length: 64 }).notNull(),
+  dismissedAt: timestamp('dismissed_at', { withTimezone: true }).notNull().defaultNow()
+});
+

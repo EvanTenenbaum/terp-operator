@@ -33,6 +33,7 @@ import {
 } from './views/OperationsViews';
 import { RefereesView } from './views/RefereesView';
 import { ProcessorsView } from './views/ProcessorsView';
+import { CreditReviewView } from './views/CreditReviewView';
 import { MediaView } from './views/MediaView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 
@@ -109,6 +110,7 @@ function AppContent() {
               <Route path="/closeout" element={<CloseoutView />} />
               <Route path="/referees" element={<RefereesView />} />
               <Route path="/processors" element={<ProcessorsView />} />
+              <Route path="/credit-review" element={<CreditReviewView />} />
               <Route path="/photography" element={<MediaView />} />
               <Route path="/photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
               <Route path="/settings" element={<SettingsView />} />
