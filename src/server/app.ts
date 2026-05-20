@@ -37,7 +37,8 @@ export function createApp(getIo: () => SocketServer) {
   registerHttpRoutes(app);
 
   app.get('/api/health', async (_req, res) => {
-    res.json(await getHealth());
+    const health = await getHealth();
+    res.status(health.ok ? 200 : 503).json(health);
   });
 
   app.get('/api/client-config', (_req, res) => {
