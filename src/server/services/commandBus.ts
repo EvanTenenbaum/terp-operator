@@ -820,7 +820,9 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
   const costRangeHigh = payload.costRangeHigh != null ? Number(payload.costRangeHigh) : null;
 
   const hasFixedCost = unitCost > 0;
-  const hasRange = costRangeLow != null && costRangeHigh != null;
+  // Range is only "present" when both bounds are positive — 0/0 plus a fixed unit cost
+  // should not flag as ambiguous (and would not be a real range anyway).
+  const hasRange = costRangeLow != null && costRangeHigh != null && costRangeLow > 0 && costRangeHigh > 0;
 
   if (hasFixedCost && hasRange) {
     throw new Error('Cannot specify both unit cost and cost range.');
@@ -909,7 +911,8 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
     const newRangeHigh = payload.costRangeHigh !== undefined ? (payload.costRangeHigh != null ? Number(payload.costRangeHigh) : null) : (line.costRangeHigh ? Number(line.costRangeHigh) : null);
 
     const hasFixedCost = newUnitCost > 0;
-    const hasRange = newRangeLow != null && newRangeHigh != null;
+    // Range is only "present" when both bounds are positive; see addPurchaseOrderLine for rationale.
+    const hasRange = newRangeLow != null && newRangeHigh != null && newRangeLow > 0 && newRangeHigh > 0;
 
     if (hasFixedCost && hasRange) {
       throw new Error('Cannot specify both unit cost and cost range.');
@@ -1788,21 +1791,42 @@ export async function priceSalesOrder(tx: Tx, payload: Payload, commandId: strin
     if (unresolved) throw new Error(`${unresolved.itemName} has unresolved landed COGS. Resolve every range-priced line before applying the customer pricing rule.`);
     const customerRule = asCustomerPricingRule(customer?.pricingRule ?? null);
     const defaultsRule = await loadDefaultPricingRule(tx);
+    const categoryByBatch = await loadCategoriesForLines(tx, lines);
+    const guardrailProfile = resolvePricingProfile('standard', customer?.tags ?? []);
     const ruleAppliedLines: Array<Record<string, unknown>> = [];
     for (const line of lines) {
-      const category = await categoryForLine(tx, line);
+      const category = line.batchId ? categoryByBatch.get(String(line.batchId)) : undefined;
       const rule = resolvePricingRuleEntry(customerRule, defaultsRule, category);
-      const finalUnitPrice = applyPricingRule(Number(line.unitCost), rule);
-      await tx.update(salesOrderLines).set({ unitPrice: moneyScale(finalUnitPrice), updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
-      ruleAppliedLines.push({ lineId: line.id, itemName: line.itemName, ruleSource: rule.source, unitPrice: moneyScale(finalUnitPrice) });
+      const unitCost = Number(line.unitCost);
+      const candidate = applyPricingRule(unitCost, rule);
+      const evaluated = evaluatePrice({
+        unitCost,
+        basisUnitPrice: candidate,
+        candidateUnitPrice: candidate,
+        profile: guardrailProfile
+      });
+      await tx.update(salesOrderLines).set({ unitPrice: moneyScale(evaluated.unitPrice), updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
+      ruleAppliedLines.push({
+        lineId: line.id,
+        itemName: line.itemName,
+        ruleSource: rule.source,
+        unitPrice: moneyScale(evaluated.unitPrice),
+        candidateUnitPrice: moneyScale(candidate),
+        guardrails: evaluated.guardrails,
+        guardrailAdjusted: evaluated.adjusted,
+        minimumUnitPrice: moneyScale(evaluated.minimumUnitPrice)
+      });
     }
     await recalcOrder(tx, orderId, strategy);
+    const guardrailLifts = ruleAppliedLines.filter((entry) => entry.guardrailAdjusted).length;
     return {
       ok: true,
       commandId,
       affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)],
-      toast: `${toast} Customer pricing rule applied to ${ruleAppliedLines.length} line(s).`,
-      delta: { strategy, ruleAppliedLines }
+      toast: guardrailLifts
+        ? `${toast} Customer pricing rule applied to ${ruleAppliedLines.length} line(s). ${guardrailLifts} lifted to guardrails.`
+        : `${toast} Customer pricing rule applied to ${ruleAppliedLines.length} line(s).`,
+      delta: { strategy, ruleAppliedLines, pricingProfile: guardrailProfile }
     };
   }
 
@@ -1835,10 +1859,27 @@ async function loadDefaultPricingRule(tx: Tx) {
   return asCustomerPricingRule(rows[0]?.value ?? null);
 }
 
-async function categoryForLine(tx: Tx, line: typeof salesOrderLines.$inferSelect): Promise<string | undefined> {
-  if (!line.batchId) return undefined;
-  const [batch] = await tx.select({ category: batches.category }).from(batches).where(eq(batches.id, line.batchId)).limit(1);
-  return batch?.category ?? undefined;
+async function loadCategoriesForLines(
+  tx: Tx,
+  lines: Array<typeof salesOrderLines.$inferSelect>
+): Promise<Map<string, string | undefined>> {
+  const batchIds = Array.from(
+    new Set(
+      lines
+        .map((line) => (line.batchId ? String(line.batchId) : null))
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  if (!batchIds.length) return new Map();
+  const rows = await tx
+    .select({ id: batches.id, category: batches.category })
+    .from(batches)
+    .where(inArray(batches.id, batchIds));
+  const map = new Map<string, string | undefined>();
+  for (const row of rows as Array<{ id: string; category: string | null }>) {
+    map.set(String(row.id), row.category ?? undefined);
+  }
+  return map;
 }
 
 export async function setLineLandedCost(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1848,7 +1889,7 @@ export async function setLineLandedCost(tx: Tx, payload: Payload, commandId: str
   const basisRaw = stringValue(payload.basis) || 'manual';
   const basisParse = setLineLandedCostPayloadSchema.shape.basis.safeParse(basisRaw);
   if (!basisParse.success) {
-    throw new Error(`Invalid landed cost basis: ${basisRaw}. Allowed: manual, pick-low, pick-mid, pick-high, override.`);
+    throw new Error(`Invalid landed cost basis: ${basisRaw}. Allowed: manual, pick-low, pick-mid, pick-high.`);
   }
   const basis = basisParse.data;
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);

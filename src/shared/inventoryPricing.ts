@@ -65,3 +65,16 @@ function moneyish(value: unknown) {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
 }
+
+/**
+ * Numeric sort/export value for inventory unit cost.
+ * Prefers the range midpoint when a well-formed priceRange exists, otherwise the numeric unitCost.
+ * Returned value drives column sorting and CSV export; the display string still comes from
+ * formatInventoryUnitCost so users see "$30–$50" while the grid sorts by 40.
+ */
+export function inventoryUnitCostSortValue(input: { unitCost?: number | string | null; priceRange?: string | null }): number {
+  const range = parsePriceRange(input.priceRange ?? null);
+  if (range) return (range.low + range.high) / 2;
+  const numeric = Number(input.unitCost ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+}

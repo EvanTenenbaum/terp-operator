@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   asCustomerPricingRule,
   computeInventoryUnitPrice,
-  formatInventoryUnitCost
+  formatInventoryUnitCost,
+  inventoryUnitCostSortValue
 } from '../shared/inventoryPricing';
 
 describe('computeInventoryUnitPrice', () => {
@@ -96,6 +97,34 @@ describe('formatInventoryUnitCost', () => {
 
   it('formats decimal cost', () => {
     expect(formatInventoryUnitCost({ unitCost: 12.345, priceRange: null })).toBe('$12.35');
+  });
+});
+
+describe('inventoryUnitCostSortValue', () => {
+  it('returns midpoint when a well-formed price range exists', () => {
+    expect(inventoryUnitCostSortValue({ unitCost: 0, priceRange: '30-50' })).toBe(40);
+  });
+
+  it('returns numeric unit cost when no range is present', () => {
+    expect(inventoryUnitCostSortValue({ unitCost: 42, priceRange: null })).toBe(42);
+  });
+
+  it('falls back to unit cost when the range string is malformed', () => {
+    expect(inventoryUnitCostSortValue({ unitCost: 25, priceRange: 'bogus' })).toBe(25);
+  });
+
+  it('returns 0 when neither cost nor range is available', () => {
+    expect(inventoryUnitCostSortValue({ unitCost: null, priceRange: null })).toBe(0);
+  });
+
+  it('orders a range row between two fixed-cost rows when sorted ascending', () => {
+    const rows = [
+      { unitCost: 100, priceRange: null },
+      { unitCost: 0, priceRange: '30-50' },
+      { unitCost: 20, priceRange: null }
+    ];
+    const sorted = [...rows].sort((a, b) => inventoryUnitCostSortValue(a) - inventoryUnitCostSortValue(b));
+    expect(sorted.map((r) => inventoryUnitCostSortValue(r))).toEqual([20, 40, 100]);
   });
 });
 

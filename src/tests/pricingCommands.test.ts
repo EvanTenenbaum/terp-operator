@@ -326,17 +326,19 @@ describe('priceSalesOrder with customer-rule strategy', () => {
     const tx: any = {
       select: vi.fn(() => ({
         from: (_table: any) => {
-          // call sequence: orders, customers, salesOrderLines, batches(l1), batches(l2), orders(recalc), salesOrderLines(recalc)
-          // After lines we have category lookups inside the loop
+          // Sequence after prefetch refactor:
+          //   0 orders, 1 customers, 2 salesOrderLines, 3 systemSettings,
+          //   4 batches(all line.batchIds in one call), 5 recalcOrder lines
           const responses: Row[][] = [
-            [{ id: ORDER_ID, customerId: CUSTOMER_ID, orderNo: 'SO-1' }], // orders
-            [{ id: CUSTOMER_ID, tags: [], pricingRule: customerRule, name: 'C' }], // customer
-            lines, // lines
-            [{ key: 'pricing.defaults', value: { default: { basis: 'percent', amount: 0.3 } } }], // systemSettings (loadDefaultPricingRule, after the unresolved check)
-            [{ category: 'Flower' }], // batches(l1)
-            [{ category: 'Vape' }], // batches(l2)
-            lines.map(l => ({ ...l, unitPrice: '0', qty: '1' })), // recalcOrder: lines
-            [{ id: ORDER_ID, customerId: CUSTOMER_ID, orderNo: 'SO-1', status: 'draft' }] // recalcOrder may not select orders
+            [{ id: ORDER_ID, customerId: CUSTOMER_ID, orderNo: 'SO-1' }],
+            [{ id: CUSTOMER_ID, tags: [], pricingRule: customerRule, name: 'C' }],
+            lines,
+            [{ key: 'pricing.defaults', value: { default: { basis: 'percent', amount: 0.3 } } }],
+            [
+              { id: 'b1', category: 'Flower' },
+              { id: 'b2', category: 'Vape' }
+            ],
+            lines.map((l) => ({ ...l, unitPrice: '0', qty: '1' }))
           ];
           const rows = responses[selectCall] ?? [];
           selectCall += 1;
@@ -366,11 +368,11 @@ describe('priceSalesOrder with customer-rule strategy', () => {
     const delta = result.delta as Record<string, unknown>;
     const ruleAppliedLines = delta.ruleAppliedLines as Array<Record<string, unknown>>;
     expect(ruleAppliedLines).toHaveLength(3);
-    // line 1: Flower category → customer-category (50%) → 50 * 1.5 = 75
+    // line 1: Flower category → customer-category (50%) → 50 * 1.5 = 75 (above margin floor of 60)
     expect(ruleAppliedLines[0]).toMatchObject({ ruleSource: 'customer-category', unitPrice: '75.00' });
-    // line 2: Vape category (not in customer.categories), falls to customer-default (20%) → 100 * 1.2 = 120
+    // line 2: Vape category (not in customer.categories), falls to customer-default (20%) → 100 * 1.2 = 120 (at margin floor)
     expect(ruleAppliedLines[1]).toMatchObject({ ruleSource: 'customer-default', unitPrice: '120.00' });
-    // line 3: no batch (no category), falls to customer-default → 25 * 1.2 = 30
+    // line 3: no batch (no category), falls to customer-default → 25 * 1.2 = 30 (at margin floor)
     expect(ruleAppliedLines[2]).toMatchObject({ ruleSource: 'customer-default', unitPrice: '30.00' });
   });
 
@@ -394,7 +396,7 @@ describe('priceSalesOrder with customer-rule strategy', () => {
             [{ id: CUSTOMER_ID, tags: [], pricingRule: {}, name: 'C' }],
             lines,
             [{ key: 'pricing.defaults', value: settingsRule }],
-            [{ category: 'Flower' }],
+            [{ id: 'b1', category: 'Flower' }],
             lines
           ];
           const rows = responses[selectCall] ?? [];
@@ -424,10 +426,60 @@ describe('priceSalesOrder with customer-rule strategy', () => {
     expect(result.ok).toBe(true);
     const delta = result.delta as Record<string, unknown>;
     const ruleAppliedLines = delta.ruleAppliedLines as Array<Record<string, unknown>>;
-    // line 1: Flower → settings-category dollar +50 → 100 + 50 = 150
+    // line 1: Flower → settings-category dollar +50 → 100 + 50 = 150 (above margin floor 120)
     expect(ruleAppliedLines[0]).toMatchObject({ ruleSource: 'settings-category', unitPrice: '150.00' });
-    // line 2: no category → settings-default 25% → 40 * 1.25 = 50
+    // line 2: no category → settings-default 25% → 40 * 1.25 = 50 (at margin floor 48)
     expect(ruleAppliedLines[1]).toMatchObject({ ruleSource: 'settings-default', unitPrice: '50.00' });
+  });
+
+  it('lifts a candidate price up to the margin guardrail floor and reports the adjustment in the delta', async () => {
+    // Rule produces a candidate below the standard pricing profile minimum margin floor (20% of cost).
+    // cost = 100, rule = percent 0.05 → candidate 105; margin floor = 120 → final 120 (lifted).
+    const lines = [
+      { id: 'l1', itemName: 'Cheap', batchId: null, qty: '1', unitCost: '100', unitPrice: '0', unitCostResolved: true }
+    ];
+    let selectCall = 0;
+    const tx: any = {
+      select: vi.fn(() => ({
+        from: (_table: any) => {
+          const responses: Row[][] = [
+            [{ id: ORDER_ID, customerId: CUSTOMER_ID, orderNo: 'SO-1' }],
+            [{ id: CUSTOMER_ID, tags: [], pricingRule: {}, name: 'C' }],
+            lines,
+            [{ key: 'pricing.defaults', value: { default: { basis: 'percent', amount: 0.05 } } }],
+            // No batchIds, so no batches query is issued — next select is recalcOrder lines.
+            lines
+          ];
+          const rows = responses[selectCall] ?? [];
+          selectCall += 1;
+          const p: any = Promise.resolve(rows);
+          const limit = vi.fn(() => Promise.resolve(rows));
+          const where = vi.fn(() => {
+            const wp: any = Promise.resolve(rows);
+            wp.limit = limit;
+            return wp;
+          });
+          p.where = where;
+          p.limit = limit;
+          return p;
+        }
+      })),
+      update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(() => Promise.resolve()) })) })),
+      insert: makeInsert()
+    };
+
+    const result = await priceSalesOrder(tx, { orderId: ORDER_ID, strategy: 'customer-rule' }, 'cmd-pr-guardrail');
+    expect(result.ok).toBe(true);
+    const delta = result.delta as Record<string, unknown>;
+    const lineEntry = (delta.ruleAppliedLines as Array<Record<string, unknown>>)[0];
+    expect(lineEntry).toMatchObject({
+      ruleSource: 'settings-default',
+      unitPrice: '120.00',
+      candidateUnitPrice: '105.00',
+      guardrailAdjusted: true,
+      minimumUnitPrice: '120.00'
+    });
+    expect((lineEntry.guardrails as string[]).includes('min_margin')).toBe(true);
   });
 });
 

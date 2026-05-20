@@ -143,7 +143,7 @@ export interface CustomerPricingRule {
   categories?: Record<string, PricingRuleEntry>;
 }
 
-export type LandedCostBasisName = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual' | 'override';
+export type LandedCostBasisName = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual';
 
 export interface PricingRuleApplication {
   basis: PricingBasis;

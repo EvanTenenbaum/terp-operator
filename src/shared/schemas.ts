@@ -68,7 +68,7 @@ export const salesOrderPayloadSchema = z.object({
   unitPrice: z.coerce.number().min(0).optional(),
   unitCost: z.coerce.number().min(0).optional(),
   landedCost: z.coerce.number().min(0).optional(),
-  landedCostBasis: z.enum(['fixed', 'pick-low', 'pick-mid', 'pick-high', 'manual', 'override']).optional(),
+  landedCostBasis: z.enum(['fixed', 'pick-low', 'pick-mid', 'pick-high', 'manual']).optional(),
   strategy: z.string().optional(),
   deliveryWindow: z.string().optional(),
   sourceRowKey: z.string().optional(),
@@ -81,10 +81,18 @@ export const salesOrderPayloadSchema = z.object({
   status: z.string().optional()
 });
 
-export const pricingRuleEntrySchema = z.object({
-  basis: z.enum(['percent', 'dollar']),
-  amount: z.coerce.number().min(0).max(1000)
-});
+// Percent basis: amount is a decimal markup multiplier (0.30 = 30%); cap at 2 = 200%.
+// Dollar basis: amount is dollars added to landed COGS; cap at 100000 for sanity.
+export const pricingRuleEntrySchema = z.discriminatedUnion('basis', [
+  z.object({
+    basis: z.literal('percent'),
+    amount: z.coerce.number().min(0).max(2, 'Percent markup must be a decimal (0.30 = 30%); maximum 2.00 (= 200%).')
+  }),
+  z.object({
+    basis: z.literal('dollar'),
+    amount: z.coerce.number().min(0).max(100000, 'Dollar markup must be between 0 and 100000.')
+  })
+]);
 
 export const customerPricingRuleSchema = z.object({
   default: pricingRuleEntrySchema.optional(),
@@ -94,7 +102,7 @@ export const customerPricingRuleSchema = z.object({
 export const setLineLandedCostPayloadSchema = z.object({
   lineId: z.string().uuid(),
   landedCost: z.coerce.number().min(0),
-  basis: z.enum(['manual', 'pick-low', 'pick-mid', 'pick-high', 'override']).default('manual'),
+  basis: z.enum(['manual', 'pick-low', 'pick-mid', 'pick-high']).default('manual'),
   reason: z.string().max(500).optional()
 });
 

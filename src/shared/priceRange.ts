@@ -3,7 +3,7 @@ export interface ParsedPriceRange {
   high: number;
 }
 
-export type LandedCostBasis = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual' | 'override';
+export type LandedCostBasis = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual';
 
 const PRICE_RANGE_RE = /^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/;
 

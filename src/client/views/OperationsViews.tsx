@@ -20,7 +20,8 @@ import { PAYMENT_TERMS_OPTIONS } from '../../shared/paymentTerms';
 import {
   asCustomerPricingRule,
   computeInventoryUnitPrice,
-  formatInventoryUnitCost
+  formatInventoryUnitCost,
+  inventoryUnitCostSortValue
 } from '../../shared/inventoryPricing';
 
 const MS_PER_DAY = 86400000;
@@ -1106,7 +1107,17 @@ export function InventoryView() {
         <InventoryRowActions rows={rows} vendors={vendors} runCommand={runCommand} />
       )}
       onCellCommit={(event, runCommand) => {
-        if (event.colDef.field === 'unitPrice') runCommand('setBatchPrice', { batchId: event.data?.id, unitPrice: event.newValue }, 'Inline inventory price edit');
+        if (event.colDef.field === 'unitPrice') {
+          if (event.oldValue === event.newValue) return;
+          // Derived/auto unit price: do not write back. The cell is non-editable in that state,
+          // but guard here too in case ag-grid emits a commit for a no-op interaction.
+          const stored = Number(event.data?.unitPrice);
+          const hasStoredPrice = Number.isFinite(stored) && stored > 0;
+          if (!hasStoredPrice) return;
+          const next = Number(event.newValue);
+          if (!Number.isFinite(next)) return;
+          runCommand('setBatchPrice', { batchId: event.data?.id, unitPrice: next }, 'Inline inventory price edit');
+        }
         if (event.colDef.field === 'availableQty') {
           runCommand(
             'adjustBatchQuantity',
@@ -1160,18 +1171,40 @@ function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricing
     {
       field: 'unitCost',
       headerName: 'Unit cost',
+      type: 'numericColumn',
       minWidth: 130,
       valueGetter: (params) =>
+        inventoryUnitCostSortValue({
+          unitCost: params.data?.unitCost as number | string | null | undefined,
+          priceRange: (params.data?.priceRange as string | null | undefined) ?? null
+        }),
+      cellRenderer: (params: { data?: GridRow }) =>
         formatInventoryUnitCost({
           unitCost: params.data?.unitCost as number | string | null | undefined,
           priceRange: (params.data?.priceRange as string | null | undefined) ?? null
         }),
+      comparator: (_a, _b, nodeA, nodeB) => {
+        const av = inventoryUnitCostSortValue({
+          unitCost: nodeA?.data?.unitCost as number | string | null | undefined,
+          priceRange: (nodeA?.data?.priceRange as string | null | undefined) ?? null
+        });
+        const bv = inventoryUnitCostSortValue({
+          unitCost: nodeB?.data?.unitCost as number | string | null | undefined,
+          priceRange: (nodeB?.data?.priceRange as string | null | undefined) ?? null
+        });
+        return av - bv;
+      },
       cellClass: 'numeric-display-cell'
     },
     {
       field: 'unitPrice',
       headerName: 'Unit price',
-      editable: true,
+      // Editable only when a stored batch unitPrice exists — otherwise the cell shows
+      // a derived auto-price and accidental edits would silently overwrite the rule output.
+      editable: (params) => {
+        const stored = Number(params.data?.unitPrice);
+        return Number.isFinite(stored) && stored > 0;
+      },
       type: 'numericColumn',
       width: 120,
       valueGetter: (params) => {
@@ -1187,11 +1220,23 @@ function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricing
         });
         return Number(derived.unitPrice.toFixed(2));
       },
-      valueSetter: (params) => {
-        const next = Number(params.newValue);
-        if (!Number.isFinite(next)) return false;
-        if (params.data) (params.data as GridRow).unitPrice = next;
-        return true;
+      cellRenderer: (params: { value: unknown; data?: GridRow }) => {
+        const stored = Number(params.data?.unitPrice);
+        const isAuto = !(Number.isFinite(stored) && stored > 0);
+        const display = Number(params.value ?? 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+        return (
+          <span>
+            ${display}
+            {isAuto ? (
+              <em
+                title="Auto-derived from pricing rule — set a stored unit price on the batch to override."
+                style={{ marginLeft: 4, fontSize: 10, color: '#6b7280', fontStyle: 'normal' }}
+              >
+                Auto
+              </em>
+            ) : null}
+          </span>
+        );
       }
     },
     { field: 'location', width: 120 },
