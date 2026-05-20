@@ -356,7 +356,10 @@ export function SalesView() {
   }
 
   function exportSheet() {
-    const headers = sheetMode === 'internal' ? ['batchCode', 'name', 'category', 'vendor', 'availableQty', 'unitPrice', 'unitCost', 'estimatedMargin', 'reason'] : ['batchCode', 'name', 'category', 'availableQty', 'unitPrice', 'tags'];
+    const internalHeaders = showMargin
+      ? ['batchCode', 'name', 'category', 'vendor', 'availableQty', 'unitPrice', 'unitCost', 'estimatedMargin', 'reason']
+      : ['batchCode', 'name', 'category', 'vendor', 'availableQty', 'unitPrice', 'reason'];
+    const headers = sheetMode === 'internal' ? internalHeaders : ['batchCode', 'name', 'category', 'availableQty', 'unitPrice', 'tags'];
     const csv = [headers.join(','), ...sheetRows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
