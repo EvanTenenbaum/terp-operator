@@ -43,6 +43,10 @@ These repos are legacy/reference material unless Evan explicitly asks for work t
 
 If an old doc says `TERP Agro`, read it as historical context for TERP Operator unless the task is explicitly about archaeology, migration, or comparison with deprecated projects.
 
+## Issue vs Roadmap Split
+
+For the distinction between GitHub Issues (bugs, problems, and known issues) and roadmap docs (features, epics, persistent initiatives), see [`docs/github-issue-tracking.md`](github-issue-tracking.md) and [`docs/roadmap/README.md`](roadmap/README.md).
+
 ## Machine Layout Guidance
 
 Preferred checkout directory name on every machine:

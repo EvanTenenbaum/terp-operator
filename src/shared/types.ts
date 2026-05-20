@@ -82,6 +82,7 @@ export type ViewKey =
   | 'referees'
   | 'processors'
   | 'credit-review'
+  | 'photography'
   | 'settings';
 
 export interface SessionUser {

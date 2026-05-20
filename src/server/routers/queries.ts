@@ -8,7 +8,7 @@ import { getCloseoutSafety } from '../services/closeout';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { paymentProcessors, processorFees } from '../schema';
 
-const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors']);
+const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors', 'photography']);
 
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
@@ -792,6 +792,31 @@ export const queriesRouter = router({
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(processorFees.createdAt))
         .limit(200);
+    }),
+  refereeCredits: protectedProcedure
+    .input(z.object({ refereeId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const result = await db.execute(sql`
+        select rc.id,
+               rc.referee_id as "refereeId",
+               rc.referee_relationship_id as "refereeRelationshipId",
+               rc.transaction_type as "transactionType",
+               rc.transaction_id as "transactionId",
+               rc.transaction_no as "transactionNo",
+               rc.transaction_total as "transactionTotal",
+               rc.credit_amount as "creditAmount",
+               rc.amount_paid as "amountPaid",
+               rc.status,
+               rc.paid_at as "paidAt",
+               rc.voided_at as "voidedAt",
+               rc.voided_reason as "voidedReason",
+               rc.notes,
+               rc.created_at as "createdAt"
+        from referee_credits rc
+        where rc.referee_id = ${input.refereeId}
+        order by rc.created_at desc
+      `);
+      return result.rows;
     })
 });
 
@@ -886,7 +911,8 @@ function gridSql(view: z.infer<typeof viewSchema>) {
     case 'purchaseOrders':
       return `select po.id, po.po_no as "poNo", v.name as vendor, po.vendor_id as "vendorId", po.status,
                      po.expected_date as "expectedDate", po.ordered_at as "orderedAt", po.received_at as "receivedAt",
-                     po.cancelled_at as "cancelledAt", po.total, count(pol.id)::int as lines,
+                     po.cancelled_at as "cancelledAt", po.total, po.prepayment_amount as "prepaymentAmount",
+                     count(pol.id)::int as lines,
                      coalesce(sum(pol.qty), 0) as "orderedQty", coalesce(sum(pol.received_qty), 0) as "receivedQty",
                      po.buyer_notes as "buyerNotes", po.internal_notes as "internalNotes", po.created_at as "createdAt"
               from purchase_orders po
@@ -999,6 +1025,28 @@ function gridSql(view: z.infer<typeof viewSchema>) {
               left join processor_fees pf on pf.processor_id = p.id
               group by p.id
               order by p.name`;
+    case 'photography':
+      // Batches needing photos surface first (no primary photo, oldest first),
+      // then batches that already have a primary photo trail behind. Uses the
+      // batch_media_summary view (migration 0036) for aggregate counts.
+      return `select
+                b.id,
+                b.id as "batchId",
+                b.batch_code as "batchCode",
+                b.name,
+                bms.media_updated_at as "mediaUpdatedAt",
+                bms.published_media_count as "publishedMediaCount",
+                bms.draft_media_count as "draftMediaCount",
+                bms.has_primary_photo as "hasPrimaryPhoto",
+                bms.has_primary_video as "hasPrimaryVideo",
+                b.created_at as "createdAt"
+              from batches b
+              left join batch_media_summary bms on bms.batch_id = b.id
+              where b.archived_at is null
+              order by
+                case when bms.has_primary_photo then 1 else 0 end asc,
+                bms.media_updated_at asc nulls first,
+                b.created_at asc`;
   }
 }
 
@@ -1038,7 +1086,8 @@ function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     recovery: ['id', 'commandName', 'actorName', 'status', 'error', 'affectedIds', 'reversedByCommandId', 'createdAt'],
     closeout: ['id', 'period', 'status', 'controlTotals', 'csvPath', 'jsonlPath', 'pdfPath', 'createdAt'],
     referees: ['id', 'name', 'email', 'phone', 'balance', 'lifetimeEarned', 'paymentMethod', 'paymentDetails', 'notes', 'active', 'relationshipsCount', 'createdAt'],
-    processors: ['id', 'name', 'processorType', 'feeType', 'feePercentage', 'feeFixedAmount', 'defaultUserSplit', 'defaultProcessorSplit', 'notes', 'active', 'totalFeesProcessed', 'userFeesCollectible', 'userFeesCollected', 'processorFeesUnpaid', 'relationshipsCount', 'createdAt']
+    processors: ['id', 'name', 'processorType', 'feeType', 'feePercentage', 'feeFixedAmount', 'defaultUserSplit', 'defaultProcessorSplit', 'notes', 'active', 'totalFeesProcessed', 'userFeesCollectible', 'userFeesCollected', 'processorFeesUnpaid', 'relationshipsCount', 'createdAt'],
+    photography: ['id', 'batchId', 'batchCode', 'name', 'mediaUpdatedAt', 'publishedMediaCount', 'draftMediaCount', 'hasPrimaryPhoto', 'hasPrimaryVideo', 'createdAt']
   };
   return map[view];
 }

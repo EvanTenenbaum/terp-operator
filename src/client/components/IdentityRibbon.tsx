@@ -24,6 +24,7 @@ const viewLabels: Record<ViewKey, string> = {
   referees: 'Referees',
   processors: 'Payment Processors',
   'credit-review': 'Credit Review',
+  photography: 'Photography',
   settings: 'Settings'
 };
 

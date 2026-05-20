@@ -12,6 +12,7 @@ import {
   archiveRuns,
   backupSnapshots,
   batches,
+  batchMedia,
   clientLedgerEntries,
   commandJournal,
   connectorRequests,
@@ -72,6 +73,7 @@ import {
   updateProcessorFeeStatus
 } from './processorCommands';
 import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
+import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
@@ -338,6 +340,14 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return updateBatch(tx, payload, commandId, 'Lot information updated.');
     case 'attachBatchPhoto':
       return attachBatchPhoto(tx, payload, user.id, commandId);
+    case 'deleteBatchMedia':
+      return deleteBatchMedia(tx, payload, commandId);
+    case 'publishBatchMedia':
+      return publishBatchMedia(tx, payload, commandId);
+    case 'setBatchMediaRole':
+      return setBatchMediaRole(tx, payload, commandId);
+    case 'uploadBatchMedia':
+      return uploadBatchMedia(tx, payload, user.id, commandId);
     case 'importBatchesCsv':
       return importBatchesCsv(tx, payload, commandId);
     case 'applyTags':
@@ -1379,6 +1389,174 @@ async function attachBatchPhoto(tx: Tx, payload: Payload, userId: string, comman
   await tx.update(batches).set({ photoUrl, mediaStatus: 'done', updatedAt: new Date() }).where(eq(batches.id, batchId));
   await tx.insert(photographyQueue).values({ batchId, requestedBy: userId, status: 'done', notes: stringValue(payload.notes) || null });
   return { ok: true, commandId, affectedIds: [batchId], toast: 'Batch photo attached.' };
+}
+
+// ---------------------------------------------------------------------------
+// Photography Module — file-upload media commands (Phase D Tasks 13-14)
+// These commands manage the batch_media table populated by the /api/upload/media
+// route. They run in parallel with the legacy URL-attach flow (attachBatchPhoto).
+// ---------------------------------------------------------------------------
+
+const ALLOWED_MEDIA_TYPES = new Set(['photo', 'video']);
+const ALLOWED_MEDIA_ROLES = new Set(['primary_photo', 'primary_video', 'additional']);
+
+export async function uploadBatchMedia(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const batchId = requiredId(payload.batchId, 'batchId');
+  const filePath = requiredString(payload.filePath, 'filePath');
+  const originalFilename = requiredString(payload.originalFilename, 'originalFilename');
+  const fileSize = requiredNumber(payload.fileSize, 'fileSize');
+  if (fileSize < 0) throw new Error('fileSize must be non-negative.');
+  const mimeType = requiredString(payload.mimeType, 'mimeType');
+  const mediaType = requiredString(payload.mediaType, 'mediaType');
+  if (!ALLOWED_MEDIA_TYPES.has(mediaType)) {
+    throw new Error(`mediaType must be one of: ${[...ALLOWED_MEDIA_TYPES].join(', ')}.`);
+  }
+  const thumbnailPath = stringValue(payload.thumbnailPath) || null;
+  const mediumPath = stringValue(payload.mediumPath) || null;
+  const notes = stringValue(payload.notes) || null;
+
+  const [row] = await tx
+    .insert(batchMedia)
+    .values({
+      batchId,
+      filePath,
+      originalFilename,
+      fileSize,
+      mimeType,
+      thumbnailPath,
+      mediumPath,
+      mediaType,
+      role: 'additional',
+      status: 'draft',
+      uploadedBy: userId,
+      notes
+    })
+    .returning();
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [row.id],
+    toast: `Media uploaded (${originalFilename}).`
+  };
+}
+
+export async function setBatchMediaRole(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const mediaId = requiredId(payload.mediaId, 'mediaId');
+  const role = requiredString(payload.role, 'role');
+  if (!ALLOWED_MEDIA_ROLES.has(role)) {
+    throw new Error(`role must be one of: ${[...ALLOWED_MEDIA_ROLES].join(', ')}.`);
+  }
+
+  // Lock the target row to prevent concurrent role changes on the same row.
+  const targetRows = await tx.execute(
+    sql`SELECT id, batch_id, role, status FROM ${batchMedia} WHERE ${batchMedia.id} = ${mediaId} FOR UPDATE`
+  );
+  const target = targetRows.rows[0];
+  if (!target) throw new Error('Batch media row not found.');
+
+  // If promoting to a primary role, also lock any existing published primary
+  // for the same batch+role so two concurrent ops can't both claim the slot.
+  if (role === 'primary_photo' || role === 'primary_video') {
+    await tx.execute(
+      sql`SELECT id FROM ${batchMedia}
+          WHERE batch_id = ${target.batch_id}
+            AND role = ${role}
+            AND status = 'published'
+            AND replaced_at IS NULL
+          FOR UPDATE`
+    );
+  }
+
+  try {
+    await tx
+      .update(batchMedia)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(batchMedia.id, mediaId))
+      .returning();
+  } catch (err) {
+    const code = (err as { code?: string } | null)?.code;
+    const message = err instanceof Error ? err.message : String(err);
+    if (code === '23505' || /unique/i.test(message)) {
+      throw new Error('Another media row is already the primary for this batch. Demote it first or replace it.');
+    }
+    throw err;
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [mediaId],
+    toast: `Media role set to ${role}.`
+  };
+}
+
+export async function publishBatchMedia(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const mediaId = requiredId(payload.mediaId, 'mediaId');
+  const now = new Date();
+
+  const updated = await tx
+    .update(batchMedia)
+    .set({ status: 'published', publishedAt: now, updatedAt: now })
+    .where(and(eq(batchMedia.id, mediaId), eq(batchMedia.status, 'draft')))
+    .returning();
+
+  if (!updated.length) {
+    throw new Error('Batch media not found or not in draft status.');
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [mediaId],
+    toast: 'Media published.'
+  };
+}
+
+export async function deleteBatchMedia(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const mediaId = requiredId(payload.mediaId, 'mediaId');
+
+  const rows = await tx
+    .select()
+    .from(batchMedia)
+    .where(eq(batchMedia.id, mediaId));
+  const row = rows[0];
+  if (!row) throw new Error('Batch media row not found.');
+
+  await tx.delete(batchMedia).where(eq(batchMedia.id, mediaId));
+
+  // Best-effort: delete files; DB row is source of truth.
+  try {
+    await deleteMedia(row.filePath, row.thumbnailPath ?? undefined, row.mediumPath ?? undefined);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // eslint-disable-next-line no-console
+    console.warn(`[deleteBatchMedia] file cleanup failed for ${mediaId}: ${message}`);
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [mediaId],
+    toast: 'Media deleted.'
+  };
 }
 
 async function importBatchesCsv(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {

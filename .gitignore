@@ -5,6 +5,7 @@ storage/journal/*.jsonl
 storage/archives/*
 test-results
 playwright-report
+coverage/
 artifacts/
 .superpowers/
 
@@ -16,3 +17,8 @@ coverage/
 .claude-handoff/
 
 .DS_Store
+storage/media/*
+!storage/media/.gitkeep
+!storage/media/.thumbnails
+storage/media/.thumbnails/*
+!storage/media/.thumbnails/.gitkeep
