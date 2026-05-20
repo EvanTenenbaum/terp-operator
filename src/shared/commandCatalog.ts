@@ -108,7 +108,25 @@ export const commandNames = [
   'revokePhotoUploadToken'
 ] as const;
 
-export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
+// Commands whose frontend surface is deferred to a follow-up. The parity
+// audit allows these to exist in commandNames without a runCommand call in
+// src/client/. Each entry MUST link to a tracking issue.
+//
+// - setCustomerEngineMax / setCustomerStance / disableCreditEngineForCustomer
+//   / createCreditEngineStance / updateCreditEngineStance / deleteCreditEngineStance
+//   / bulkRevertCustomersToEngine: filed at #111 (Credit Engine admin surfaces
+//   missing from PR #50's Settings → Credit Engine panel — only the global
+//   config form landed; per-stance + per-customer admin actions deferred).
+export const internalOnlyCommandNames = [
+  'routeConnectorRequest',
+  'setCustomerEngineMax',
+  'setCustomerStance',
+  'disableCreditEngineForCustomer',
+  'createCreditEngineStance',
+  'updateCreditEngineStance',
+  'deleteCreditEngineStance',
+  'bulkRevertCustomersToEngine'
+] as const;
 
 export type CommandName = (typeof commandNames)[number];
 
