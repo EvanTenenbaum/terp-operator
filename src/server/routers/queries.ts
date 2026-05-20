@@ -8,7 +8,10 @@ import { getCloseoutSafety } from '../services/closeout';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { paymentProcessors, processorFees } from '../schema';
 
-const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors', 'photography']);
+// Exported so the HTTP CSV export route (`/api/export/:view.csv`, see #35
+// FE-M1) can share the same view whitelist, SQL, and column ordering as the
+// in-app tRPC export, keeping the two surfaces in lockstep.
+export const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors', 'photography']);
 
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(() => getDashboardData()),
@@ -191,6 +194,12 @@ export const queriesRouter = router({
     return (await pool.query(drilldownSql(input.metricKey))).rows;
   }),
   recoverySearch: protectedProcedure.input(z.object({ q: z.string().default('') })).query(async ({ input }) => {
+    // [#35 DYN-M3] Previously the WHERE clause only matched UUIDs
+    // (`affected_ids::text`) and metadata columns. Operators searching by a
+    // human-readable name like "Harbor Wellness" got `[]` because the
+    // toast/reason text was never queried. Extend the match to include the
+    // toast inside `result` and the operator-supplied `reason`. The query
+    // stays parameterized; no string interpolation of user input.
     const q = `%${input.q.trim()}%`;
     return (
       await pool.query(
@@ -202,6 +211,8 @@ export const queriesRouter = router({
             or command_name ilike $1
             or actor_name ilike $1
             or affected_ids::text ilike $1
+            or result->>'toast' ilike $1
+            or reason ilike $1
          order by created_at desc
          limit 80`,
         [q]
@@ -901,7 +912,7 @@ function matchmakingSql() {
                    mm.score desc, mm.updated_at desc`;
 }
 
-function gridSql(view: z.infer<typeof viewSchema>) {
+export function gridSql(view: z.infer<typeof viewSchema>) {
   switch (view) {
     case 'reports':
       return `select key as id, label, value, definition, severity, checked_at as "createdAt"
@@ -1097,7 +1108,7 @@ function drilldownSql(metricKey: string) {
   }
 }
 
-function deterministicHeaders(view: z.infer<typeof viewSchema>) {
+export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
   const map: Record<z.infer<typeof viewSchema>, string[]> = {
     reports: ['id', 'label', 'value', 'definition', 'severity', 'createdAt'],
     intake: ['id', 'batchCode', 'poNo', 'purchaseOrderId', 'sourceCode', 'intakeDate', 'shorthand', 'legacyMarker', 'name', 'category', 'tags', 'vendor', 'ticketCost', 'priceRange', 'intakeQty', 'availableQty', 'uom', 'unitCost', 'unitPrice', 'location', 'lotCode', 'expirationDate', 'ownershipStatus', 'arrivalStatus', 'arrivalConfirmed', 'validationIssues', 'mediaStatus', 'notes', 'status'],

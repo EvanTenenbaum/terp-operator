@@ -128,7 +128,19 @@ export const paymentPayloadSchema = z.object({
   paymentId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
   invoiceId: z.string().uuid().optional(),
-  amount: z.coerce.number(),
+  // [#35 DYN-L2 / DYN-L3] Bound the payment amount and require cent
+  // alignment. Previously `z.coerce.number()` accepted `1e10` and silently
+  // truncated values like `5.001` to `5.00` via downstream `.toFixed(2)`
+  // calls. Operators now see a clear validation error instead of either
+  // outcome.
+  amount: z
+    .coerce.number()
+    .min(-1_000_000, 'Payment amount must be at least -1,000,000.')
+    .max(1_000_000, 'Payment amount must be at most 1,000,000.')
+    .refine(
+      (n) => Number.isFinite(n) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6,
+      'Amount must be cent-aligned (at most 2 decimal places).'
+    ),
   method: paymentMethodSchema.default('cash'),
   reference: z.string().optional(),
   locationBucket: z.string().optional(),
