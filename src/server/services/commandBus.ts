@@ -466,6 +466,8 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
       return reviewMatchmakingMatch(tx, payload, 'accepted', user.id, commandId);
     case 'dismissMatchmakingMatch':
       return reviewMatchmakingMatch(tx, payload, 'dismissed', user.id, commandId);
+    case 'reopenMatchmakingMatch':
+      return reopenMatchmakingMatch(tx, payload, user.id, commandId);
     case 'setItemAlias':
       return setItemAlias(tx, payload, commandId);
     case 'createReferee':
@@ -3345,6 +3347,33 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
   await tx.update(vendorSupply).set(values).where(eq(vendorSupply.id, supplyId));
   const matchIds = await rebuildMatchesForSupply(tx, supplyId);
   return { ok: true, commandId, affectedIds: [supplyId, ...matchIds], toast: 'Vendor stock updated.', delta: { matchCount: matchIds.length } };
+}
+
+/**
+ * reopenMatchmakingMatch — reverse path for the #27 status guard.
+ *
+ * Flips an accepted or dismissed match back to `'open'` so reviewers can re-decide.
+ *
+ * Sibling-match note: when a match was originally accepted, `reviewMatchmakingMatch`
+ * auto-dismissed sibling matches that shared the same customer need or vendor supply.
+ * Reopening this match does NOT automatically restore those siblings — those
+ * dismissals were independent decisions and stay dismissed. Operators who need a
+ * specific sibling re-evaluated must reopen it explicitly with another
+ * `reopenMatchmakingMatch` call.
+ *
+ * The accepted-side parent flips on `customerNeeds.status = 'matched'` and
+ * `vendorSupply.status = 'held_for_match'` are likewise NOT reverted here; those
+ * are owned by the wider matchmaking workflow and not part of the reverse path.
+ */
+export async function reopenMatchmakingMatch(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const matchId = requiredId(payload.matchId ?? payload.id, 'matchId');
+  const [match] = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.id, matchId)).limit(1);
+  if (!match) throw new Error('Match not found.');
+  if (match.status === 'open') {
+    throw new Error(`Match ${matchId} is already open; nothing to reopen.`);
+  }
+  await tx.update(matchmakingMatches).set({ status: 'open', reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
+  return { ok: true, commandId, affectedIds: [matchId], toast: 'Match reopened.' };
 }
 
 export async function reviewMatchmakingMatch(tx: Tx, payload: Payload, status: 'accepted' | 'dismissed', userId: string, commandId: string): Promise<CommandResult> {
