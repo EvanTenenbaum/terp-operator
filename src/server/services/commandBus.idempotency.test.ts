@@ -171,6 +171,7 @@ vi.mock('./mediaStorage', () => ({
 // Import AFTER mocks are installed.
 import { executeCommand } from './commandBus';
 import * as dbModule from '../db';
+import { commandJournal } from '../schema';
 
 // Cast the mocked module to expose the test-only helpers.
 const mocked = dbModule as unknown as typeof dbModule & {
@@ -514,7 +515,7 @@ describe('journal finalization transaction boundary (#12 slice 2)', () => {
             onConflictDoNothing: vi.fn(() => Promise.resolve())
           }))
         })),
-        update: vi.fn(() => ({
+        update: vi.fn((table: unknown) => ({
           set: (values: Record<string, unknown>) => ({
             where: async () => {
               const pendingRows = [...mocked.__journalByKey.values()].filter((r) => r.status === 'pending');
@@ -535,7 +536,8 @@ describe('journal finalization transaction boundary (#12 slice 2)', () => {
     expect(row.status).toBe('ok');
 
     expect(capturedTx).toBeDefined();
-    expect(capturedTx!.update.mock.calls.length).toBeGreaterThanOrEqual(1);
+    const updateCalls = capturedTx!.update.mock.calls as unknown[][];
+    expect(updateCalls.some((call) => call[0] === commandJournal)).toBe(true);
 
     // Top-level db.update must NOT be called on the success path.
     expect(db.update).not.toHaveBeenCalled();
@@ -567,10 +569,14 @@ describe('journal finalization transaction boundary (#12 slice 2)', () => {
             onConflictDoNothing: vi.fn(() => Promise.resolve())
           }))
         })),
-        update: vi.fn(() => ({
+        update: vi.fn((table: unknown) => ({
           set: (_values: Record<string, unknown>) => ({
             where: async () => {
-              throw pgError;
+              if (table === commandJournal) {
+                throw pgError;
+              }
+              const pendingRows = [...mocked.__journalByKey.values()].filter((r) => r.status === 'pending');
+              if (pendingRows[0]) Object.assign(pendingRows[0], _values);
             }
           })
         }))
