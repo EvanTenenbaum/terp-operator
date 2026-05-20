@@ -87,7 +87,10 @@ export const commandNames = [
   'voidRefereeCredit',
   'createPaymentProcessor',
   'markUserFeeCollected',
-  'updateProcessorFeeStatus'
+  'updateProcessorFeeStatus',
+  'setLineLandedCost',
+  'setCustomerPricingRule',
+  'setDefaultPricingRule'
 ] as const;
 
 export const internalOnlyCommandNames = ['routeConnectorRequest'] as const;
@@ -188,7 +191,10 @@ export const commandLabels: Record<CommandName, string> = {
   voidRefereeCredit: 'Void referee credit',
   createPaymentProcessor: 'Create payment processor',
   markUserFeeCollected: 'Mark user fee collected',
-  updateProcessorFeeStatus: 'Update processor fee status'
+  updateProcessorFeeStatus: 'Update processor fee status',
+  setLineLandedCost: 'Set landed COGS',
+  setCustomerPricingRule: 'Set customer pricing rule',
+  setDefaultPricingRule: 'Set default pricing rule'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -278,7 +284,10 @@ export const commandMinRole: Record<CommandName, Role> = {
   voidRefereeCredit: 'manager',
   createPaymentProcessor: 'manager',
   markUserFeeCollected: 'manager',
-  updateProcessorFeeStatus: 'manager'
+  updateProcessorFeeStatus: 'manager',
+  setLineLandedCost: 'operator',
+  setCustomerPricingRule: 'manager',
+  setDefaultPricingRule: 'manager'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -368,7 +377,10 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   voidRefereeCredit: { disposition: 'reversible', guidance: 'Restores the credit to accrued status and updates referee balance.' },
   createPaymentProcessor: { disposition: 'terminal', guidance: 'Edit or deactivate the payment processor if it was created by mistake.' },
   markUserFeeCollected: { disposition: 'reversible', guidance: 'Reverses the fee collection record and updates user fee status.' },
-  updateProcessorFeeStatus: { disposition: 'terminal', guidance: 'Use another update with the intended fee status values.' }
+  updateProcessorFeeStatus: { disposition: 'terminal', guidance: 'Use another update with the intended fee status values.' },
+  setLineLandedCost: { disposition: 'reversible', guidance: 'Restores the prior landed COGS, basis, and resolution flag from the command snapshot.' },
+  setCustomerPricingRule: { disposition: 'reversible', guidance: 'Restores the prior customer pricing rule from the command snapshot.' },
+  setDefaultPricingRule: { disposition: 'reversible', guidance: 'Restores the prior default pricing rule from the command snapshot.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

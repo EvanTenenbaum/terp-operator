@@ -1,3 +1,9 @@
+import type { PricingRuleEntry } from '../../shared/types';
+import {
+  applyPricingRule as applyPricingRuleShared,
+  resolvePricingRuleEntry as resolvePricingRuleEntryShared
+} from '../../shared/inventoryPricingShared';
+
 export type PricingProfileName = 'standard' | 'premium' | 'clearance';
 
 export interface PricingProfile {
@@ -53,4 +59,19 @@ export function evaluatePrice(input: PriceEvaluationInput): PriceEvaluation {
     adjusted: unitPrice !== input.candidateUnitPrice,
     guardrails
   };
+}
+
+export const resolvePricingRuleEntry = resolvePricingRuleEntryShared;
+export const applyPricingRule = applyPricingRuleShared;
+
+export { asCustomerPricingRule } from '../../shared/inventoryPricing';
+
+export function pricingRuleEntryFromUnknown(value: unknown): PricingRuleEntry | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as Record<string, unknown>;
+  const basis = v.basis;
+  const amount = Number(v.amount);
+  if (basis !== 'percent' && basis !== 'dollar') return null;
+  if (!Number.isFinite(amount) || amount < 0) return null;
+  return { basis, amount };
 }
