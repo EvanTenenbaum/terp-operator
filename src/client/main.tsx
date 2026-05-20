@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { trpc, trpcClient } from './api/trpc';
 import { App } from './App';
+import { registerUiStoreStorageSync } from './store/uiStoreStorageSync';
 import './styles.css';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
@@ -39,6 +40,10 @@ const queryClient = new QueryClient({
     }
   }
 });
+
+// FE-L3 (#36): keep persisted uiStore slice in sync across tabs. Registered
+// once at startup; idempotent so re-imports during HMR do not double-fire.
+registerUiStoreStorageSync();
 
 void loadClientConfig().then((config) => {
   const licenseKey = config.agGridLicenseKey ?? import.meta.env.VITE_AG_GRID_LICENSE_KEY ?? '';
