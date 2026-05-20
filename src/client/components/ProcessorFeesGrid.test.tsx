@@ -60,7 +60,7 @@ describe('ProcessorFeesGrid', () => {
     const user = userEvent.setup();
     render(<ProcessorFeesGrid processorId="proc-1" />);
     await user.click(screen.getByRole('button', { name: /mark collected/i }));
-    expect(runCommand).toHaveBeenCalledWith('markUserFeeCollected', { processorFeeId: 'fee-1' });
+    expect(runCommand).toHaveBeenCalledWith('markUserFeeCollected', { processorFeeId: 'fee-1' }, 'Mark user processor fee collected');
   });
 
   it('calls runCommand with updateProcessorFeeStatus literal toggling unpaid → paid', async () => {
@@ -87,7 +87,7 @@ describe('ProcessorFeesGrid', () => {
     expect(runCommand).toHaveBeenCalledWith('updateProcessorFeeStatus', {
       processorFeeId: 'fee-2',
       status: 'paid'
-    });
+    }, 'Toggle processor fee status to paid');
   });
 
   it('calls runCommand with updateProcessorFeeStatus literal toggling paid → unpaid', async () => {
@@ -114,7 +114,7 @@ describe('ProcessorFeesGrid', () => {
     expect(runCommand).toHaveBeenCalledWith('updateProcessorFeeStatus', {
       processorFeeId: 'fee-3',
       status: 'unpaid'
-    });
+    }, 'Toggle processor fee status to unpaid');
   });
 
   it('shows the 200-row truncation banner when query returns exactly 200 rows', () => {

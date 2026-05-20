@@ -30,8 +30,7 @@ describe('commandInputSchema.reason — issue #25', () => {
 
   it('rejects a null reason', () => {
     expect(() =>
-      // @ts-expect-error — exercising the schema, intentionally invalid input
-      commandInputSchema.parse({ ...baseInput, reason: null })
+      commandInputSchema.parse({ ...baseInput, reason: null as unknown as string })
     ).toThrow(ZodError);
   });
 
