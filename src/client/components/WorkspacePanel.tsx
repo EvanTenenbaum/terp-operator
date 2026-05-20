@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { createElement, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useUiStore } from '../store/uiStore';
 
@@ -12,9 +12,15 @@ interface WorkspacePanelProps {
   className?: string;
   contentClassName?: string;
   testId?: string;
+  /**
+   * Optional heading level used to wrap the panel title so screen readers
+   * can navigate panels via heading hierarchy. When omitted the title stays
+   * as a plain span (legacy behaviour). Dashboard sections opt in (#34 FE-M3).
+   */
+  headingLevel?: 2 | 3 | 4;
 }
 
-export function WorkspacePanel({ panelId, title, subtitle, actions, children, className, contentClassName, testId }: WorkspacePanelProps) {
+export function WorkspacePanel({ panelId, title, subtitle, actions, children, className, contentClassName, testId, headingLevel }: WorkspacePanelProps) {
   const collapsed = useUiStore((state) => Boolean(state.collapsedPanels[panelId]));
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
   const togglePanelCollapsed = useUiStore((state) => state.togglePanelCollapsed);
@@ -30,7 +36,13 @@ export function WorkspacePanel({ panelId, title, subtitle, actions, children, cl
         <button type="button" className="workspace-panel-title-button" onClick={() => togglePanelCollapsed(panelId)} aria-expanded={!collapsed}>
           {collapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
           <span>
-            <span className="block text-base font-semibold text-ink">{title}</span>
+            {headingLevel
+              ? createElement(
+                  `h${headingLevel}`,
+                  { className: 'block text-base font-semibold text-ink m-0' },
+                  title
+                )
+              : <span className="block text-base font-semibold text-ink">{title}</span>}
             {subtitle ? <span className="block text-xs font-normal text-zinc-600">{subtitle}</span> : null}
           </span>
         </button>

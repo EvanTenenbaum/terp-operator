@@ -59,7 +59,7 @@ export function DashboardView() {
           <KpiCard key={metric.key} metric={metric} onOpen={setDrilldownMetric} />
         ))}
       </div>
-      <WorkspacePanel panelId="dashboard:money-buckets" title="Money Buckets" contentClassName="p-3">
+      <WorkspacePanel panelId="dashboard:money-buckets" title="Money Buckets" headingLevel={2} contentClassName="p-3">
         <div className="definition-list">
           {(dashboard.data?.moneyBuckets ?? []).map((bucket) => (
             <button key={bucket.bucket} className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('cash')}>
@@ -78,7 +78,7 @@ export function DashboardView() {
         </div>
       </WorkspacePanel>
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
-        <WorkspacePanel panelId="dashboard:pending-work-queues" title="Pending work queues" contentClassName="p-3">
+        <WorkspacePanel panelId="dashboard:pending-work-queues" title="Pending work queues" headingLevel={2} contentClassName="p-3">
           <div className="grid gap-2">
             {(dashboard.data?.pendingQueues ?? []).map((queue) => (
               <button key={queue.key} className="queue-row" type="button" onClick={() => setActiveView(queue.key as ViewKey)}>
@@ -92,7 +92,7 @@ export function DashboardView() {
             <span>{dashboard.data?.health.ok ? 'Health checks are green.' : dashboard.data?.health.warnings.join(' ')}</span>
           </div>
         </WorkspacePanel>
-        <WorkspacePanel panelId="dashboard:recent-activity" title="Recent activity" contentClassName="p-3">
+        <WorkspacePanel panelId="dashboard:recent-activity" title="Recent activity" headingLevel={2} contentClassName="p-3">
           <div className="mt-2 max-h-64 overflow-auto">
             {(dashboard.data?.recentActivity ?? []).map((activity) => (
               <div key={activity.id} className="activity-row">
