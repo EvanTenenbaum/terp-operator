@@ -39,6 +39,7 @@ beforeEach(() => {
   const fakeIo: unknown = { on: vi.fn(), emit: vi.fn() };
   app = createApp(() => fakeIo as never);
   vi.mocked(getSessionUser).mockResolvedValue({
+    workLoop: null,
     id: 'op1',
     name: 'Op',
     email: 'op@example.com',
@@ -118,6 +119,7 @@ describe('GET /api/export/:view.csv — FE-M1', () => {
 
   it('returns 403 for a viewer (operator role required)', async () => {
     vi.mocked(getSessionUser).mockResolvedValueOnce({
+      workLoop: null,
       id: 'v1',
       name: 'Viewer',
       email: 'v@x',
