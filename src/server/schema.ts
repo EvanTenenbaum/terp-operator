@@ -4,6 +4,7 @@ import {
   bigint,
   bigserial,
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -1022,5 +1023,17 @@ export const userDismissedBanners = pgTable('user_dismissed_banners', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   bannerKey: varchar('banner_key', { length: 64 }).notNull(),
   dismissedAt: timestamp('dismissed_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+// Phase 9 — nightly safety-net audit row. One row per UTC day, UPSERTed by
+// `runNightlyCreditEngineAudit`. See migrations/0040_credit_engine_daily_audit.sql.
+export const creditEngineDailyAudit = pgTable('credit_engine_daily_audit', {
+  day: date('day').primaryKey(),
+  decisionsIssued: integer('decisions_issued').notNull().default(0),
+  customersDrifted: integer('customers_drifted').notNull().default(0),
+  stuckQueueItems: integer('stuck_queue_items').notNull().default(0),
+  runStartedAt: timestamp('run_started_at', { withTimezone: true }).notNull(),
+  runCompletedAt: timestamp('run_completed_at', { withTimezone: true }).notNull(),
+  summary: jsonb('summary').notNull().default(sql`'{}'::jsonb`)
 });
 

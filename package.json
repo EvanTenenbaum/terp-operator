@@ -28,7 +28,8 @@
     "audit:product-roadmap": "node scripts/check-product-roadmap.mjs",
     "audit:realistic-demo": "node scripts/audit-realistic-demo-data.mjs",
     "audit:self": "pnpm typecheck && pnpm audit:parity && pnpm audit:product-roadmap && pnpm build",
-    "docs:inventory": "tsx scripts/extract-component-inventory.ts"
+    "docs:inventory": "tsx scripts/extract-component-inventory.ts",
+    "cron:credit-engine-nightly": "tsx scripts/credit-engine-nightly-cron.ts"
   },
   "dependencies": {
     "@ag-grid-community/client-side-row-model": "^32.3.3",
