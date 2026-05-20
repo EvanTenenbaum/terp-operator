@@ -204,7 +204,7 @@ const io = {
   emit: vi.fn()
 } as unknown as SocketServer;
 
-const db = (dbModule as unknown as { db: { transaction: ReturnType<typeof vi.fn> } }).db;
+const db = (dbModule as unknown as { db: { transaction: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> } }).db;
 
 beforeEach(() => {
   mocked.__resetStore();
@@ -487,5 +487,107 @@ describe('atomic idempotency claim', () => {
     expect(result.ok).toBe(false);
     expect(result.toast).toMatch(/^Database error \(request id:/);
     expect(result.toast).not.toMatch(/insert\s+into|batches_alias_idx|duplicate\s+key|unique\s+constraint/i);
+  });
+});
+
+describe('journal finalization transaction boundary (#12 slice 2)', () => {
+  it('test 1: success path finalizes the command journal row via the transaction object, not top-level db.update', async () => {
+    const user = makeUser();
+    const key = 'idem-tx-boundary-1';
+    const input = {
+      name: 'setItemAlias' as const,
+      idempotencyKey: key,
+      payload: { itemId: '11111111-1111-1111-1111-111111111111', alias: 'new-alias' },
+      reason: 'tx boundary test 1'
+    };
+
+    let capturedTx: { update: ReturnType<typeof vi.fn> } | undefined;
+
+    db.transaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        select: vi.fn(() => mocked.__makeSelectChain([
+          { id: '11111111-1111-1111-1111-111111111111', name: 'Item', alias: 'old' }
+        ])),
+        insert: vi.fn(() => ({
+          values: vi.fn(() => ({
+            returning: vi.fn(() => Promise.resolve([{ id: 'x' }])),
+            onConflictDoNothing: vi.fn(() => Promise.resolve())
+          }))
+        })),
+        update: vi.fn(() => ({
+          set: (values: Record<string, unknown>) => ({
+            where: async () => {
+              const pendingRows = [...mocked.__journalByKey.values()].filter((r) => r.status === 'pending');
+              if (pendingRows[0]) Object.assign(pendingRows[0], values);
+            }
+          })
+        }))
+      };
+      capturedTx = tx as { update: ReturnType<typeof vi.fn> };
+      return cb(tx);
+    });
+
+    const result = await executeCommand(input, user, io);
+
+    expect(result.ok).toBe(true);
+    const row = mocked.__journalByKey.get(key)!;
+    expect(row).toBeDefined();
+    expect(row.status).toBe('ok');
+
+    expect(capturedTx).toBeDefined();
+    expect(capturedTx!.update.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+    // Top-level db.update must NOT be called on the success path.
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it('test 2: an exception during journal finalization produces a failed row via the catch path', async () => {
+    const user = makeUser();
+    const key = 'idem-tx-boundary-2';
+    const input = {
+      name: 'setItemAlias' as const,
+      idempotencyKey: key,
+      payload: { itemId: '22222222-2222-2222-2222-222222222222', alias: 'alias-y' },
+      reason: 'tx boundary test 2'
+    };
+
+    const pgError: Error & { code?: string } = new Error(
+      'duplicate key value violates unique constraint "items_alias_idx"\nDETAIL: Key (alias)=(foo) already exists.'
+    );
+    pgError.code = '23505';
+
+    db.transaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        select: vi.fn(() => mocked.__makeSelectChain([
+          { id: '22222222-2222-2222-2222-222222222222', name: 'Item', alias: 'old' }
+        ])),
+        insert: vi.fn(() => ({
+          values: vi.fn(() => ({
+            returning: vi.fn(() => Promise.resolve([{ id: 'x' }])),
+            onConflictDoNothing: vi.fn(() => Promise.resolve())
+          }))
+        })),
+        update: vi.fn(() => ({
+          set: (_values: Record<string, unknown>) => ({
+            where: async () => {
+              throw pgError;
+            }
+          })
+        }))
+      };
+      return cb(tx);
+    });
+
+    const result = await executeCommand(input, user, io);
+
+    expect(result.ok).toBe(false);
+    expect(result.toast).toMatch(/^Database error \(request id:/);
+
+    const row = mocked.__journalByKey.get(key)!;
+    expect(row).toBeDefined();
+    expect(row.status).toBe('failed');
+
+    // Top-level db.update must be called in the catch path.
+    expect(db.update).toHaveBeenCalledTimes(1);
   });
 });
