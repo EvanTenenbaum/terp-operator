@@ -15,6 +15,15 @@
 
 ---
 
+## 2026-05-20: Photography MediaDetailPanel wires media lifecycle commands
+**Decision:** The Photography route uses a dedicated `MediaDetailPanel` under the queue grid to show per-batch media rows and expose set-primary, publish, delete, and mobile-upload handoff actions through existing `useCommandRunner` and tRPC query patterns.
+**Rationale:** Completing the feature required first-class UI for backend media commands instead of leaving curation in CommandPalette/JSON; panel keeps batch aggregate queue and per-media lifecycle in one operator workspace while preserving authenticated mobile upload route.
+**Example:** `src/client/components/MediaDetailPanel.tsx`, `src/client/views/MediaView.tsx`
+**Author:** `OpenCode PM + Claude/AQA via Evan`
+**Related:** `PR #65`, `docs/superpowers/specs/2026-05-17-photography-upgrade-design.md`
+
+---
+
 ## 2026-05-18: Documentation grounded in actual codebase, not aspirational spec
 **Decision:** When the original 2026-05-18 spec for the agent-orientation/design-system docs referenced files and structures that didn't exist (a `Button` component, `ui/`/`grids/`/`forms/`/`layout/` subfolders, `@/` path aliases, `cn()` helper, `IntakeToolbar` / `StatusCellRenderer` / `CurrencyCellRenderer` components, raw TanStack mutation patterns), the docs were rewritten from the actual codebase rather than transcribed from the spec.
 **Rationale:** Documentation that misrepresents the codebase is worse than no documentation — it teaches agents to write code that doesn't compile (`@/lib/utils`) or that bypasses the audit/journal contract (raw `useMutation` instead of `useCommandRunner`). The spec's value was its structural outline (which docs to write, what topics each should cover). The code is the source of truth for content.

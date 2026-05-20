@@ -229,4 +229,3 @@ Development patterns and standards are documented in `guides/`:
 <!-- Add project-specific notes, conventions, or constraints here.
      Examples: "Always use server components for data fetching",
      "The payments module is legacy — do not refactor without approval" -->
->>>>>>> 919f987 (Phase 1: Critical bug fixes with AQA validation)
