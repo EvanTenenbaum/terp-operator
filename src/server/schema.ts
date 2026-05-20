@@ -1063,3 +1063,21 @@ export const creditEngineDailyAudit = pgTable('credit_engine_daily_audit', {
   summary: jsonb('summary').notNull().default(sql`'{}'::jsonb`)
 });
 
+// Issue #18 slice 4 — nightly customers.balance reconciliation audit.
+// One row per customer whose denormalized `customers.balance` drifted beyond
+// the configured threshold ($0.01 default) from SUM(client_ledger_entries.amount).
+// Written by `reconcileCustomerBalances` (src/server/services/balanceReconciliation.ts).
+// See migrations/0045_customer_balance_reconciliation.sql.
+export const customerBalanceReconciliation = pgTable('customer_balance_reconciliation', {
+  id: id(),
+  runId: uuid('run_id').notNull(),
+  customerId: uuid('customer_id').references(() => customers.id).notNull(),
+  expected: numeric('expected', { precision: 14, scale: 2 }).notNull(),
+  actual: numeric('actual', { precision: 14, scale: 2 }).notNull(),
+  drift: numeric('drift', { precision: 14, scale: 2 }).notNull(),
+  detectedAt: timestamp('detected_at', { withTimezone: true }).notNull().defaultNow()
+}, (table) => ({
+  customerIdx: index('customer_balance_recon_customer_idx').on(table.customerId, table.detectedAt),
+  runIdx: index('customer_balance_recon_run_idx').on(table.runId)
+}));
+
