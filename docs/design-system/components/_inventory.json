@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-18T23:50:08.762Z",
-  "componentCount": 26,
+  "generated": "2026-05-20T04:58:40.122Z",
+  "componentCount": 38,
   "byCategory": {
-    "form": 3,
+    "form": 8,
     "navigation": 6,
-    "drawer": 8,
-    "grid": 7,
-    "other": 1,
+    "drawer": 11,
+    "grid": 8,
+    "other": 4,
     "hook": 1
   },
   "components": [
@@ -33,6 +33,14 @@
       "exports": [
         "ContextDrawer",
         "getActiveDrawerStorageKey"
+      ]
+    },
+    {
+      "name": "DeactivateRefereeRelationshipDialog",
+      "path": "src/client/components/DeactivateRefereeRelationshipDialog.tsx",
+      "category": "form",
+      "exports": [
+        "DeactivateRefereeRelationshipDialog"
       ]
     },
     {
@@ -101,6 +109,23 @@
       ]
     },
     {
+      "name": "MediaDetailPanel",
+      "path": "src/client/components/MediaDetailPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "MediaDetailPanel"
+      ]
+    },
+    {
+      "name": "MediaUploadMobile",
+      "path": "src/client/components/MediaUploadMobile.tsx",
+      "category": "other",
+      "exports": [
+        "MediaUploadMobile",
+        "MediaUploadMobileRoute"
+      ]
+    },
+    {
       "name": "OperatorGrid",
       "path": "src/client/components/OperatorGrid.tsx",
       "category": "grid",
@@ -117,6 +142,22 @@
       ]
     },
     {
+      "name": "ProcessorDetailPanel",
+      "path": "src/client/components/ProcessorDetailPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ProcessorDetailPanel"
+      ]
+    },
+    {
+      "name": "ProcessorFeesGrid",
+      "path": "src/client/components/ProcessorFeesGrid.tsx",
+      "category": "grid",
+      "exports": [
+        "ProcessorFeesGrid"
+      ]
+    },
+    {
       "name": "QuickLedgerGrid",
       "path": "src/client/components/QuickLedgerGrid.tsx",
       "category": "grid",
@@ -125,11 +166,51 @@
       ]
     },
     {
+      "name": "RecordPrepaymentDialog",
+      "path": "src/client/components/RecordPrepaymentDialog.tsx",
+      "category": "form",
+      "exports": [
+        "RecordPrepaymentDialog"
+      ]
+    },
+    {
+      "name": "RefereeCreditsList",
+      "path": "src/client/components/RefereeCreditsList.tsx",
+      "category": "other",
+      "exports": [
+        "RefereeCreditsList"
+      ]
+    },
+    {
+      "name": "RefereeDetailPanel",
+      "path": "src/client/components/RefereeDetailPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "RefereeDetailPanel"
+      ]
+    },
+    {
+      "name": "RefereeDialog",
+      "path": "src/client/components/RefereeDialog.tsx",
+      "category": "form",
+      "exports": [
+        "RefereeDialog"
+      ]
+    },
+    {
       "name": "RefereeRelationshipDialog",
       "path": "src/client/components/RefereeRelationshipDialog.tsx",
       "category": "form",
       "exports": [
         "RefereeRelationshipDialog"
+      ]
+    },
+    {
+      "name": "RefereeRelationshipsList",
+      "path": "src/client/components/RefereeRelationshipsList.tsx",
+      "category": "other",
+      "exports": [
+        "RefereeRelationshipsList"
       ]
     },
     {
@@ -199,11 +280,27 @@
       ]
     },
     {
+      "name": "UpdateRefereeRelationshipDialog",
+      "path": "src/client/components/UpdateRefereeRelationshipDialog.tsx",
+      "category": "form",
+      "exports": [
+        "UpdateRefereeRelationshipDialog"
+      ]
+    },
+    {
       "name": "VendorContextDrawer",
       "path": "src/client/components/VendorContextDrawer.tsx",
       "category": "drawer",
       "exports": [
         "VendorContextDrawer"
+      ]
+    },
+    {
+      "name": "VoidRefereeCreditDialog",
+      "path": "src/client/components/VoidRefereeCreditDialog.tsx",
+      "category": "form",
+      "exports": [
+        "VoidRefereeCreditDialog"
       ]
     },
     {

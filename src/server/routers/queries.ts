@@ -529,6 +529,29 @@ export const queriesRouter = router({
       )
     ).rows;
   }),
+  batchMediaList: protectedProcedure.input(z.object({ batchId: z.string().uuid() })).query(async ({ input }) => {
+    return (
+      await pool.query(
+        `select id,
+                batch_id as "batchId",
+                media_type as "mediaType",
+                role,
+                status,
+                original_filename as "originalFilename",
+                file_size as "fileSize",
+                mime_type as "mimeType",
+                (thumbnail_path is not null) as "hasThumbnail",
+                published_at as "publishedAt",
+                replaced_at as "replacedAt",
+                created_at as "createdAt",
+                updated_at as "updatedAt"
+         from batch_media
+         where batch_id = $1 and replaced_at is null
+         order by case role when 'primary_photo' then 0 when 'primary_video' then 1 when 'additional' then 2 else 3 end, created_at desc`,
+        [input.batchId]
+      )
+    ).rows;
+  }),
   intakeQueue: protectedProcedure.query(async () => {
     const orders = (
       await pool.query(
