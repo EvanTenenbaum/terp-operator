@@ -3373,7 +3373,7 @@ export async function reopenMatchmakingMatch(tx: Tx, payload: Payload, userId: s
     throw new Error(`Match ${matchId} is already open; nothing to reopen.`);
   }
   await tx.update(matchmakingMatches).set({ status: 'open', reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
-  return { ok: true, commandId, affectedIds: [matchId], toast: 'Match reopened.' };
+  return { ok: true, commandId, affectedIds: [matchId, match.customerNeedId, match.vendorSupplyId], toast: 'Match reopened.' };
 }
 
 export async function reviewMatchmakingMatch(tx: Tx, payload: Payload, status: 'accepted' | 'dismissed', userId: string, commandId: string): Promise<CommandResult> {

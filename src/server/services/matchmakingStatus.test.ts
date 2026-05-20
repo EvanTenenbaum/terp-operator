@@ -114,7 +114,10 @@ describe('reopenMatchmakingMatch — reverse path (#81)', () => {
     const result = await reopenMatchmakingMatch(tx, payload, userId, commandId);
     expect(result.ok).toBe(true);
     expect(result.commandId).toBe(commandId);
-    expect(result.affectedIds).toContain(matchId);
+    expect(result.affectedIds).toEqual(
+      expect.arrayContaining([matchId, expect.stringMatching(/.{8}-.{4}-.{4}-.{4}-.{12}/)])
+    );
+    expect(result.affectedIds.length).toBe(3);
     expect(result.toast).toMatch(/reopened/i);
     expect(setCalls.length).toBeGreaterThanOrEqual(1);
     const firstSet = setCalls[0];
