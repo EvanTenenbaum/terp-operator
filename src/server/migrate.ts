@@ -1,35 +1,119 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { pool } from './db';
+import type { Pool } from 'pg';
+import { pool as defaultPool } from './db';
 
-async function migrate() {
-  await pool.query('create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())');
-  const migrationDir = path.resolve(process.cwd(), 'migrations');
-  const files = (await fs.readdir(migrationDir)).filter((file) => file.endsWith('.sql')).sort();
+/**
+ * Returns true when a migration's SQL contains the `CONCURRENTLY` keyword
+ * (case-insensitive). Postgres rejects `CREATE INDEX CONCURRENTLY` (and
+ * similar concurrent DDL) inside an explicit transaction, so the entire
+ * file must run in auto-commit mode in that case.
+ *
+ * The check is intentionally coarse: any occurrence of the word
+ * `concurrently` causes the file to be treated as non-transactional. This is
+ * safe — mixing concurrent and non-concurrent DDL in a single migration is
+ * already a bad practice — and avoids brittle SQL parsing.
+ */
+export function isConcurrentMigration(sql: string): boolean {
+  return /\bconcurrently\b/i.test(sql);
+}
+
+export interface RunMigrationsOptions {
+  pool: Pool;
+  migrationDir: string;
+  log?: (message: string) => void;
+}
+
+/**
+ * Apply every `*.sql` file in `migrationDir` that has not yet been recorded
+ * in the `schema_migrations` table.
+ *
+ * Transaction strategy (issue #17 slice 1, MIG-01):
+ *  - Each migration borrows ONE pooled client via `pool.connect()`.
+ *  - All of `BEGIN`, the migration SQL, the bookkeeping `INSERT INTO
+ *    schema_migrations`, and `COMMIT` run on that same client so the
+ *    transaction boundary is honored. Previously each call ran via
+ *    `pool.query(...)`, which could land on different connections and
+ *    silently break atomicity.
+ *  - On error, `ROLLBACK` is issued on the same client, the client is
+ *    released in a `finally`, and the error is rethrown with the file name
+ *    so logs make it obvious which migration failed.
+ *  - Migrations containing `CONCURRENTLY` (e.g. `CREATE INDEX
+ *    CONCURRENTLY`) are run WITHOUT a `BEGIN/COMMIT` wrapper because
+ *    Postgres forbids concurrent DDL inside an explicit transaction. The
+ *    bookkeeping insert still runs on the same client.
+ */
+export async function runMigrations(options: RunMigrationsOptions): Promise<void> {
+  const { pool, migrationDir } = options;
+  const log = options.log ?? ((message: string) => console.log(message));
+
+  await pool.query(
+    'create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())'
+  );
+
+  const entries = await fs.readdir(migrationDir);
+  const files = entries.filter((file) => file.endsWith('.sql')).sort();
 
   for (const file of files) {
-    const applied = await pool.query('select 1 from schema_migrations where name = $1', [file]);
+    const applied = await pool.query(
+      'select 1 from schema_migrations where name = $1',
+      [file]
+    );
     if (applied.rowCount) continue;
+
     const sql = await fs.readFile(path.join(migrationDir, file), 'utf8');
-    await pool.query('begin');
+    const concurrent = isConcurrentMigration(sql);
+
+    const client = await pool.connect();
     try {
-      await pool.query(sql);
-      await pool.query('insert into schema_migrations (name) values ($1)', [file]);
-      await pool.query('commit');
-      console.log(`Applied ${file}`);
-    } catch (error) {
-      await pool.query('rollback');
-      throw error;
+      if (concurrent) {
+        // Concurrent DDL cannot run inside an explicit transaction. Run the
+        // migration body in auto-commit, then record it.
+        await client.query(sql);
+        await client.query('insert into schema_migrations (name) values ($1)', [file]);
+        log(`Applied ${file} (auto-commit; CONCURRENTLY detected)`);
+      } else {
+        await client.query('begin');
+        try {
+          await client.query(sql);
+          await client.query('insert into schema_migrations (name) values ($1)', [file]);
+          await client.query('commit');
+          log(`Applied ${file}`);
+        } catch (error) {
+          try {
+            await client.query('rollback');
+          } catch (rollbackError) {
+            console.error(`Rollback failed for ${file}:`, rollbackError);
+          }
+          throw new Error(
+            `Migration ${file} failed and was rolled back: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            { cause: error instanceof Error ? error : undefined }
+          );
+        }
+      }
+    } finally {
+      client.release();
     }
   }
 }
 
-migrate()
-  .then(async () => {
-    await pool.end();
-  })
-  .catch(async (error) => {
-    console.error(error);
-    await pool.end();
-    process.exit(1);
-  });
+const isMainModule =
+  typeof process !== 'undefined' &&
+  Array.isArray(process.argv) &&
+  process.argv[1] !== undefined &&
+  /migrate(\.[cm]?[jt]s)?$/.test(process.argv[1]);
+
+if (isMainModule) {
+  const migrationDir = path.resolve(process.cwd(), 'migrations');
+  runMigrations({ pool: defaultPool, migrationDir })
+    .then(async () => {
+      await defaultPool.end();
+    })
+    .catch(async (error) => {
+      console.error(error);
+      await defaultPool.end();
+      process.exit(1);
+    });
+}
