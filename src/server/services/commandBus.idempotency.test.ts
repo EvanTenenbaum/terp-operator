@@ -446,4 +446,45 @@ describe('atomic idempotency claim', () => {
       return !sqlLeakRegex.test(msg);
     });
   });
+
+  it('test 5: catch-path scrubs Postgres errors thrown inside the command before returning failed.toast', async () => {
+    // Adversarial QA on PR #92 found that the catch path was returning the
+    // raw error.message via CommandResult.toast, bypassing the tRPC
+    // errorFormatter. Any pg error thrown from an inner tx (FK violation,
+    // unique violation, CHECK violation) would still leak SQL to the client.
+    // This test simulates a Drizzle/pg error inside the transaction callback
+    // and asserts the returned toast is the opaque "Database error" string
+    // and not the raw SQL.
+    const user = makeUser();
+    const sqlError: Error & { code?: string; severity?: string } = new Error(
+      'duplicate key value violates unique constraint "batches_alias_idx"\nDETAIL: Key (alias)=(foo) already exists.\ninsert into "batches" ("id", "alias") values ($1, $2) returning *'
+    );
+    sqlError.code = '23505';
+    sqlError.severity = 'ERROR';
+
+    db.transaction.mockImplementation(async (_cb: unknown) => {
+      throw sqlError;
+    });
+
+    const result = await executeCommand(
+      {
+        name: 'createBatch' as const,
+        idempotencyKey: 'idem-scrub-5',
+        payload: {
+          name: 'X',
+          itemId: '55555555-5555-5555-5555-555555555555',
+          vendorId: '66666666-6666-6666-6666-666666666666',
+          qty: 1,
+          unitCost: 1
+        },
+        reason: 'scrub test'
+      },
+      user,
+      io
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.toast).toMatch(/^Database error \(request id:/);
+    expect(result.toast).not.toMatch(/insert\s+into|batches_alias_idx|duplicate\s+key|unique\s+constraint/i);
+  });
 });

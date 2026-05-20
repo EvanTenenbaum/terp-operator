@@ -8,6 +8,7 @@ import type { Server as SocketServer } from 'socket.io';
 import { z } from 'zod';
 import { db, pool } from '../db';
 import { env } from '../env';
+import { scrubDatabaseError } from '../trpc';
 import {
   archiveRuns,
   backupSnapshots,
@@ -269,8 +270,14 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
 
     return storedResult;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Command failed.';
-    const failed: CommandResult = { ok: false, commandId, affectedIds: [], toast: message };
+    // Scrub any Postgres/Drizzle error text before it flows into result.toast.
+    // The catch path returns failed as a normal tRPC response, which bypasses
+    // the errorFormatter — so an authenticated caller could still enumerate
+    // schema by triggering FK/unique violations from inside a command without
+    // this guard (#24 catch-path follow-up surfaced by adversarial QA).
+    const { safeMessage } = scrubDatabaseError(error);
+    const rawMessage = error instanceof Error ? error.message : 'Command failed.';
+    const failed: CommandResult = { ok: false, commandId, affectedIds: [], toast: safeMessage };
     // UPDATE the existing in-flight row to 'failed' — DO NOT re-INSERT.
     // The previous design tried to insert a new row with the same
     // idempotencyKey here, which raced the unique index and leaked the
@@ -280,7 +287,9 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       .set({
         status: 'failed',
         result: failed as unknown as Record<string, unknown>,
-        error: message
+        // Preserve the raw message server-side (NOT exposed to clients —
+        // the journal is read by reverseCommandById + admin tools only).
+        error: rawMessage
       })
       .where(eq(commandJournal.id, commandId));
     await appendJsonlJournal({
@@ -292,10 +301,12 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       inputPayload: input.payload,
       beforeSnapshot,
       result: failed,
-      error: message,
+      error: rawMessage,
       createdAt: new Date().toISOString()
     });
-    io.emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: message });
+    // Socket emit is broadcast to all connected clients — must use scrubbed
+    // message, not the raw one.
+    io.emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
     return failed;
   }
 }

@@ -41,7 +41,7 @@ export async function createContext({
  * names, column names, and constraint names by deliberately triggering
  * unique-violations and reading the resulting tRPC envelope message.
  */
-function looksLikePostgresError(err: unknown): boolean {
+export function looksLikePostgresError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   // node-postgres errors carry a `code` (e.g. '23505' unique_violation),
   // `severity`, and `routine`. Drizzle wraps the same fields.
@@ -55,9 +55,36 @@ function looksLikePostgresError(err: unknown): boolean {
 
 const SQL_LEAK_REGEX = /(insert\s+into|update\s+.+\s+set|select\s+.+\s+from|delete\s+from|on\s+conflict|values\s*\(|duplicate\s+key|unique\s+constraint|"[a-z_]+_idx"|relation\s+"[a-z_]+")/i;
 
-function messageLooksLikeSql(message: unknown): boolean {
+export function messageLooksLikeSql(message: unknown): boolean {
   if (typeof message !== 'string') return false;
   return SQL_LEAK_REGEX.test(message);
+}
+
+/**
+ * Scrub a thrown error into a client-safe message + opaque request id.
+ *
+ * Used by the tRPC errorFormatter (for thrown errors) AND by the
+ * commandBus catch path (for errors that are returned in CommandResult.toast,
+ * which bypass the formatter). Without this, an authenticated caller can
+ * still enumerate schema by triggering FK/unique violations from inside a
+ * command and reading the leaked SQL via result.toast (#24 H1 follow-up).
+ *
+ * If the error doesn't look like a Postgres error, returns its message
+ * verbatim so application-level errors ("Reason must be at least 3
+ * characters.") are preserved.
+ */
+export function scrubDatabaseError(error: unknown): { safeMessage: string; requestId: string | null } {
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Command failed.';
+  const isPg = looksLikePostgresError(error) || messageLooksLikeSql(message);
+  if (!isPg) return { safeMessage: message, requestId: null };
+  const requestId = randomUUID();
+  // eslint-disable-next-line no-console
+  console.error(`[command-error] request id=${requestId}`, {
+    message,
+    pgCode: (error as { code?: string } | undefined)?.code,
+    stack: error instanceof Error ? error.stack : undefined
+  });
+  return { safeMessage: `Database error (request id: ${requestId})`, requestId };
 }
 
 const t = initTRPC.context<TrpcContext>().create({
