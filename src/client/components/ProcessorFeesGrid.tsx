@@ -37,12 +37,12 @@ export function ProcessorFeesGrid({ processorId }: ProcessorFeesGridProps) {
   const truncated = rows.length === PAGE_LIMIT;
 
   async function handleMarkCollected(feeId: string) {
-    await runCommand('markUserFeeCollected', { processorFeeId: feeId });
+    await runCommand('markUserFeeCollected', { processorFeeId: feeId }, 'Mark user processor fee collected');
   }
 
   async function handleToggleProcStatus(feeId: string, current: 'paid' | 'unpaid') {
     const next: 'paid' | 'unpaid' = current === 'paid' ? 'unpaid' : 'paid';
-    await runCommand('updateProcessorFeeStatus', { processorFeeId: feeId, status: next });
+    await runCommand('updateProcessorFeeStatus', { processorFeeId: feeId, status: next }, `Toggle processor fee status to ${next}`);
   }
 
   return (

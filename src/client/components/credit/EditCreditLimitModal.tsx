@@ -62,7 +62,7 @@ export function EditCreditLimitModal({
         customerId,
         amount: parsedAmount,
         reason: reason.trim()
-      });
+      }, reason.trim() || 'Set customer credit limit');
       onClose();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Unable to save credit limit.');

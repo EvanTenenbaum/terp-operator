@@ -144,7 +144,7 @@ export function CreditReviewView() {
                           className="secondary-button compact-action text-xs"
                           disabled={isRunning}
                           onClick={() =>
-                            runCommand('revertCustomerCreditToEngine', { customerId: row.customerId })
+                            runCommand('revertCustomerCreditToEngine', { customerId: row.customerId }, 'Revert manual credit limit to engine from credit review')
                           }
                         >
                           Revert to engine
@@ -156,7 +156,7 @@ export function CreditReviewView() {
                           className="secondary-button compact-action text-xs"
                           disabled={isRunning}
                           onClick={() =>
-                            runCommand('snoozeCustomerCreditReminder', { customerId: row.customerId, newReminderDays: 60 })
+                            runCommand('snoozeCustomerCreditReminder', { customerId: row.customerId, newReminderDays: 60 }, 'Snooze stale credit reminder from credit review')
                           }
                         >
                           Snooze 60 days
@@ -168,7 +168,7 @@ export function CreditReviewView() {
                           className="secondary-button compact-action text-xs"
                           disabled={isRunning}
                           onClick={() =>
-                            runCommand('enableCreditEngineForCustomer', { customerId: row.customerId })
+                            runCommand('enableCreditEngineForCustomer', { customerId: row.customerId }, 'Re-enable credit engine from credit review')
                           }
                         >
                           Enable engine

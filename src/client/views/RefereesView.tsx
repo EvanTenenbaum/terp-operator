@@ -43,7 +43,7 @@ export function RefereesView() {
       email: email || null,
       phone: phone || null,
       paymentMethod: 'check'
-    });
+    }, 'Create referee from referees view');
   }
 
   return (

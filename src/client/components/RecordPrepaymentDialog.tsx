@@ -33,7 +33,7 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
       amount: numericAmount,
       method,
       reference: reference || null
-    });
+    }, 'Record vendor prepayment for purchase order');
     if (result.ok) onClose();
   }
 

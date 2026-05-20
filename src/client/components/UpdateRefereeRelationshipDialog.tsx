@@ -65,7 +65,7 @@ export function UpdateRefereeRelationshipDialog({
       payload.feeFixedAmount = amt;
     }
 
-    const result = await runCommand('updateRefereeRelationship', payload);
+    const result = await runCommand('updateRefereeRelationship', payload, 'Update referee relationship');
     if (result.ok) onClose();
   }
 

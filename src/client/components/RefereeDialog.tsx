@@ -45,7 +45,7 @@ export function RefereeDialog({ refereeId, initial, onClose }: RefereeDialogProp
       phone: values.phone.trim() || null,
       paymentMethod: values.paymentMethod,
       notes: values.notes.trim() || null
-    });
+    }, 'Update referee profile');
     if (result.ok) onClose();
   }
 
