@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "projectName": "terp-agro-operator-console",
+  "projectName": "terp-operator",
   "projectType": "fullstack-typescript",
   "setupDate": "2026-05-17",
   "configuration": {
