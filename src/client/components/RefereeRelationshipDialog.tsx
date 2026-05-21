@@ -90,11 +90,12 @@ export function RefereeRelationshipDialog({ refereeId, refereeName, onClose }: R
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="rrd-title"
         className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-900">
+          <h2 id="rrd-title" className="text-lg font-semibold text-zinc-900">
             Add Referee Relationship
           </h2>
           <button

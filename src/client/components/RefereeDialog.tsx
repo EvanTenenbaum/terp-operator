@@ -55,11 +55,12 @@ export function RefereeDialog({ refereeId, initial, onClose }: RefereeDialogProp
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="rd-title"
         className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-900">Edit Referee</h2>
+          <h2 id="rd-title" className="text-lg font-semibold text-zinc-900">Edit Referee</h2>
           <button onClick={onClose} className="rounded p-1 hover:bg-zinc-100" aria-label="Close">
             <X className="h-5 w-5" />
           </button>

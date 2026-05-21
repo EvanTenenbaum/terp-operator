@@ -215,7 +215,7 @@ export function CommandPalette() {
         </div>
         <div className="flex items-center justify-between border-t border-line bg-panel px-3 py-2 text-xs text-zinc-600">
           <span>{selectedRows[activeView]?.length ? `${selectedRows[activeView]?.length} selected on ${activeView}` : activeView}</span>
-          <button type="button" className="text-button h-7 text-xs" onClick={() => setAdvancedOpen(!advancedOpen)}>
+          <button type="button" className="text-button h-7 text-xs" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen(!advancedOpen)}>
             <Braces className="h-3.5 w-3.5" aria-hidden="true" />
             Advanced payload
           </button>
