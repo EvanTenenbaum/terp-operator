@@ -8,6 +8,7 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHistoryPanel';
 import { SalesSourcePane } from '../components/SalesSourcePane';
 import { SaleLineExceptionControls } from '../components/SaleLineExceptionControls';
+import { LandedCostExceptionCellRenderer } from '../components/LandedCostExceptionChip';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { buildSheetCsv } from '../utils/salesExport';
@@ -91,6 +92,17 @@ const lineColumns: ColDef<GridRow>[] = [
   { field: 'qty', editable: true, type: 'numericColumn', width: 95 },
   { field: 'unitPrice', editable: true, type: 'numericColumn', width: 115 },
   { field: 'unitCost', headerName: 'Cost', type: 'numericColumn', width: 105 },
+  // #64 PR-2: vendor-warning chip for any projected below-range COGS
+  // exception. Renders nothing for in-range lines. Uses the existing
+  // `.selection-pill.warning` amber styling — no new colors. The renderer is
+  // unit-tested in `LandedCostExceptionChip.test.tsx`.
+  {
+    field: 'landedCostExceptionReason',
+    headerName: 'COGS exception',
+    width: 200,
+    sortable: true,
+    cellRenderer: LandedCostExceptionCellRenderer
+  },
   exceptionBadgeColumn,
   { field: 'availableQty', headerName: 'Avail', type: 'numericColumn', width: 105 },
   { field: 'packed', editable: true, width: 105 },

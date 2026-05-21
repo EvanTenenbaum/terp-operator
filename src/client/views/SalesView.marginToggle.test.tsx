@@ -59,8 +59,11 @@ describe('selectVisibleSalesColumns (#63)', () => {
   it('declares the canonical set of margin/cost fields', () => {
     // Pin the constant — if a future column like `landedCost` is added we
     // want a test failure to remind us to gate it on showMargin too.
+    // #64 PR-2: `landedCostExceptionReason` gated here because the projected
+    // exception reason (keep_margin, vendor_approval_pending, etc.) reveals
+    // vendor/COGS relationship state that must not leak during customer screen-share.
     expect(new Set(MARGIN_COLUMN_FIELDS)).toEqual(
-      new Set(['unitCost', 'rangeBadge', 'internalMargin', 'estimatedMargin'])
+      new Set(['unitCost', 'rangeBadge', 'internalMargin', 'estimatedMargin', 'landedCostExceptionReason'])
     );
   });
 
