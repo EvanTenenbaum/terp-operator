@@ -134,6 +134,7 @@ export function SideNav({ user }: { user: SessionUser }) {
                     key={item.view}
                     data-testid={`sidenav-item-${item.view}`}
                     aria-label={item.label}
+                    aria-current={activeView === item.view ? 'page' : undefined}
                     onClick={() => navigate(`/${item.view}`)}
                     className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
                   >

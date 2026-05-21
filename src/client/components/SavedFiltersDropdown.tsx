@@ -14,6 +14,7 @@ export function SavedFiltersDropdown({ savedFilters, selectedId, onSelect }: Sav
   return (
     <select
       className="saved-filters-dropdown"
+      aria-label="Load saved filter"
       value={selectedId ?? ''}
       onChange={(e) => e.target.value && onSelect(e.target.value)}
     >
