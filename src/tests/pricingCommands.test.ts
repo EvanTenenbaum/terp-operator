@@ -27,6 +27,8 @@ const ORDER_ID = '22222222-2222-2222-2222-222222222222';
 const BATCH_ID = '33333333-3333-3333-3333-333333333333';
 const CUSTOMER_ID = '44444444-4444-4444-4444-444444444444';
 
+const MOCK_USER = { id: 'user-1', name: 'Test', email: 'test@example.com', role: 'operator' as const, workLoop: 'sales' };
+
 interface Row {
   [key: string]: unknown;
 }
@@ -71,6 +73,15 @@ function makeUpdate(captureSet?: (value: unknown) => void) {
   }));
 }
 
+function makeUpdateAll(captures: Array<unknown>) {
+  return vi.fn(() => ({
+    set: vi.fn((value: unknown) => {
+      captures.push(value);
+      return { where: vi.fn(() => Promise.resolve()) };
+    })
+  }));
+}
+
 function makeInsert(returnedRows: Row[] = []) {
   return vi.fn(() => ({
     values: vi.fn(() => ({
@@ -82,62 +93,68 @@ function makeInsert(returnedRows: Row[] = []) {
 
 describe('setLineLandedCost', () => {
   it('updates the line and marks unitCostResolved when landed COGS is in batch range', async () => {
-    let updateValues: any = null;
+    const updates: any[] = [];
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
-        () => [{ priceRange: '50-100' }]
+        () => [{ id: LINE_ID, batchId: BATCH_ID, orderId: ORDER_ID, itemName: 'Test', validationIssues: [], status: 'draft' }],
+        () => [{ id: ORDER_ID, status: 'draft', archivedAt: null }],
+        () => [{ priceRange: '50-100' }],
+        () => []
       ]),
-      update: makeUpdate((value) => (updateValues = value))
+      update: makeUpdateAll(updates)
     };
 
-    const result = await setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 75, basis: 'pick-mid' }, 'cmd-1');
+    const result = await setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 75, basis: 'pick-mid' }, MOCK_USER, 'cmd-1');
 
     expect(result.ok).toBe(true);
-    expect(result.affectedIds).toEqual([LINE_ID]);
-    expect(updateValues.unitCost).toBe('75.00');
-    expect(updateValues.unitCostResolved).toBe(true);
-    expect(updateValues.landedCostBasis).toBe('pick-mid');
+    expect(result.affectedIds).toEqual([ORDER_ID, LINE_ID]);
+    expect(updates[0].unitCost).toBe('75.00');
+    expect(updates[0].unitCostResolved).toBe(true);
+    expect(updates[0].landedCostBasis).toBe('pick-mid');
     expect(result.delta).toMatchObject({ lineId: LINE_ID, landedCost: '75.00', basis: 'pick-mid' });
   });
 
   it('rejects out-of-range landed COGS', async () => {
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, batchId: BATCH_ID, orderId: ORDER_ID, itemName: 'Test', validationIssues: [], status: 'draft' }],
+        () => [{ id: ORDER_ID, status: 'draft', archivedAt: null }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()
     };
 
-    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 150, basis: 'manual' }, 'cmd-2')).rejects.toThrow(/outside the batch COGS range/);
+    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 150, basis: 'manual' }, MOCK_USER, 'cmd-2')).rejects.toThrow(/outside.*range/);
   });
 
   it('rejects out-of-range below the floor', async () => {
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, batchId: BATCH_ID, orderId: ORDER_ID, itemName: 'Test', validationIssues: [], status: 'draft' }],
+        () => [{ id: ORDER_ID, status: 'draft', archivedAt: null }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()
     };
 
-    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 10, basis: 'manual' }, 'cmd-3')).rejects.toThrow(/outside the batch COGS range/);
+    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 10, basis: 'manual' }, MOCK_USER, 'cmd-3')).rejects.toThrow(/outside.*range/);
   });
 
   it('accepts any non-negative landed cost when batch has no priceRange', async () => {
-    let updateValues: any = null;
+    const updates: any[] = [];
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
-        () => [{ priceRange: null }]
+        () => [{ id: LINE_ID, batchId: BATCH_ID, orderId: ORDER_ID, itemName: 'Test', validationIssues: [], status: 'draft' }],
+        () => [{ id: ORDER_ID, status: 'draft', archivedAt: null }],
+        () => [{ priceRange: null }],
+        () => []
       ]),
-      update: makeUpdate((value) => (updateValues = value))
+      update: makeUpdateAll(updates)
     };
 
-    const result = await setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 999, basis: 'manual' }, 'cmd-4');
+    const result = await setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 999, basis: 'manual' }, MOCK_USER, 'cmd-4');
     expect(result.ok).toBe(true);
-    expect(updateValues.unitCostResolved).toBe(true);
+    expect(updates[0].unitCostResolved).toBe(true);
   });
 
   it('rejects when line does not exist', async () => {
@@ -145,7 +162,7 @@ describe('setLineLandedCost', () => {
       select: makeTxForSelect([() => []]),
       update: makeUpdate()
     };
-    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 50, basis: 'manual' }, 'cmd-5')).rejects.toThrow(/Sales order line not found/);
+    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 50, basis: 'manual' }, MOCK_USER, 'cmd-5')).rejects.toThrow(/Sales line not found/);
   });
 
   it('rejects negative landed cost', async () => {
@@ -153,16 +170,20 @@ describe('setLineLandedCost', () => {
       select: makeTxForSelect([]),
       update: makeUpdate()
     };
-    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: -1, basis: 'manual' }, 'cmd-6')).rejects.toThrow(/non-negative/);
+    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: -1, basis: 'manual' }, MOCK_USER, 'cmd-6')).rejects.toThrow(/non-negative/);
   });
 
   it('rejects unknown basis value', async () => {
     const tx: any = {
-      select: makeTxForSelect([]),
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID, orderId: ORDER_ID, itemName: 'Test', validationIssues: [], status: 'draft' }],
+        () => [{ id: ORDER_ID, status: 'draft', archivedAt: null }],
+        () => [{ priceRange: null }]
+      ]),
       update: makeUpdate()
     };
     await expect(
-      setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 50, basis: 'something-bogus' }, 'cmd-bad-basis')
+      setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 50, basis: 'something-bogus' }, MOCK_USER, 'cmd-bad-basis')
     ).rejects.toThrow(/basis/i);
   });
 });

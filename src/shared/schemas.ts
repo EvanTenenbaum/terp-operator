@@ -111,7 +111,7 @@ export const customerPricingRuleSchema = z.object({
 export const setLineLandedCostPayloadSchema = z.object({
   lineId: z.string().uuid(),
   landedCost: z.coerce.number().min(0),
-  basis: z.enum(['manual', 'pick-low', 'pick-mid', 'pick-high']).default('manual'),
+  basis: z.enum(['manual', 'pick-low', 'pick-mid', 'pick-high', 'override']).default('manual'),
   reason: z.string().max(500).optional()
 });
 

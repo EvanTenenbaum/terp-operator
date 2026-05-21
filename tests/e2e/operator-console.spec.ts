@@ -83,7 +83,8 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await keel.getByRole('menuitem', { name: 'New Sale', exact: true }).click();
   await page.getByLabel('Customer').selectOption({ label: 'Cobalt Reserve' });
   await expect(page.getByText('Sales Orders')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Customer Workspace', exact: true })).toBeVisible();
+  // Issue #60/#63: panel was renamed from "Customer Workspace" to "Sale Builder"
+  await expect(page.getByRole('button', { name: 'Sale Builder', exact: true })).toBeVisible();
 
   const finder = page.getByTestId('inventory-finder');
   await expect(finder.getByText('Inventory Finder')).toBeVisible();
@@ -169,13 +170,23 @@ test('operators can reclaim space while keeping the keel available', async ({ pa
   const keel = page.getByRole('banner', { name: 'Global workspace keel' });
   await expect(keel).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: /Sales/ }).click();
-  await expect(page.getByText('Sales Orders')).toBeVisible();
+  // Use role-scoped locator to avoid ambiguity with activity-row text that contains "sales order"
+  await expect(page.getByRole('region', { name: 'Sales Orders' })).toBeVisible();
   await page.getByLabel('Expand Sales Orders').click();
   await expect(keel.getByRole('button', { name: 'Quick actions' })).toBeVisible();
-  await expect(page.getByText('Inventory Finder')).toHaveCount(0);
+  // Issue #60/#63: focused sibling now renders a minimized rail (title + restore button)
+  // rather than disappearing entirely. Title is still visible.
+  // Scoped to data-testid="inventory-finder" to avoid the tab-strip button added by #62.
+  await expect(page.getByTestId('inventory-finder').getByText('Inventory Finder')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restore Inventory Finder' })).toBeVisible();
+  // Rail does not render panel content (search input is absent from DOM)
+  await expect(page.getByTestId('inventory-finder').locator('input[placeholder*="Search"]')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(keel).toBeVisible();
-  await expect(page.getByText('Inventory Finder')).toBeVisible();
+  // Scoped to data-testid="inventory-finder" to avoid the tab-strip button added by #62.
+  await expect(page.getByTestId('inventory-finder').getByText('Inventory Finder')).toBeVisible();
+  // After restore, full panel content is rendered again
+  await expect(page.getByTestId('inventory-finder').locator('input[placeholder*="Search"]')).toBeVisible();
 
   await page.getByRole('button', { name: /Collapse navigation/ }).click();
   await expect(page.getByRole('button', { name: /Expand navigation/ })).toBeVisible();

@@ -25,6 +25,7 @@ import {
   customerCreditAssessments,
   customers,
   customerNeeds,
+  customerSheetSnapshots,
   fulfillmentLines,
   inventoryMovements,
   invoiceDisputes,
@@ -60,8 +61,7 @@ import { getCloseoutSafety } from './closeout';
 import { applyPricingRule, asCustomerPricingRule, evaluatePrice, resolvePricingProfile, resolvePricingRuleEntry } from './pricing';
 import {
   commandInputSchema,
-  customerPricingRuleSchema,
-  setLineLandedCostPayloadSchema
+  customerPricingRuleSchema
 } from '../../shared/schemas';
 import {
   accrueRefereeCredit,
@@ -86,7 +86,25 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
 import { normalizeTagSlug, parseTagInput } from '../../shared/tags';
-import { isLandedCostInRange, parsePriceRange, rangeMidpoint, validateCostRange } from '../../shared/priceRange';
+import { parsePriceRange, rangeMidpoint, validateCostRange } from '../../shared/priceRange';
+import {
+  buildCustomerSheetSnapshotRows,
+  redactCustomerSheetSnapshotJournalPayload,
+  CUSTOMER_SHEET_MODES,
+  type CustomerSheetMode
+} from '../../shared/customerSheetSnapshot';
+import {
+  validateLandedCost,
+  validateBelowFloorChoice,
+  computeOrderExceptionTotals,
+  canConfirmOrPost,
+  BELOW_FLOOR_REASONS,
+  type BelowFloorReason,
+  type VendorApprovalState,
+  type ExceptionLine,
+  type CanConfirmOrPostLine,
+  type ConfirmOrPostBlockedReason
+} from '../../shared/saleLineCostExceptions';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -189,8 +207,16 @@ function canonicalStringify(obj: unknown, seen = new WeakSet<object>()): string 
  *      is logged but not rethrown and the DB status is NOT flipped (#12
  *      slice 2). A stale pending-claim sweeper is out of scope.
  */
+function journalSafePayload(name: string, payload: Record<string, unknown>): Record<string, unknown> {
+  if (name === 'createCustomerSheetSnapshot') {
+    return redactCustomerSheetSnapshotJournalPayload(payload);
+  }
+  return payload;
+}
+
 export async function executeCommand(input: CommandInput, user: SessionUser, io: SocketServer): Promise<CommandResult> {
   assertCommandAccess(user, input.name);
+  const journalPayload = journalSafePayload(input.name, input.payload as Record<string, unknown>);
 
   const commandId = randomUUID();
   const beforeSnapshot = await snapshotFromPayload(input.payload);
@@ -208,7 +234,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       actorName: user.name,
       actorRole: user.role,
       reason: input.reason,
-      inputPayload: input.payload,
+      inputPayload: journalPayload,
       status: 'pending',
       affectedIds: [],
       beforeSnapshot,
@@ -238,7 +264,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       throw new Error('Idempotency key reused with different command or payload.');
     }
     const existingPayload = canonicalStringify(existing.inputPayload ?? {});
-    const currentPayload = canonicalStringify(input.payload ?? {});
+    const currentPayload = canonicalStringify(journalPayload ?? {});
     if (existingPayload !== currentPayload) {
       throw new Error('Idempotency key reused with different command or payload.');
     }
@@ -289,7 +315,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         actor: user,
         idempotencyKey: input.idempotencyKey,
         reason: input.reason,
-        inputPayload: input.payload,
+        inputPayload: journalPayload,
         beforeSnapshot,
         afterSnapshot,
         result: redactSensitiveDeltaFields(input.name, storedResult),
@@ -343,7 +369,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         actor: user,
         idempotencyKey: input.idempotencyKey,
         reason: input.reason,
-        inputPayload: input.payload,
+        inputPayload: journalPayload,
         beforeSnapshot,
         result: failed,
         error: rawMessage,
@@ -365,7 +391,8 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
   }
 }
 
-async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: SessionUser, commandId: string, reason?: string): Promise<CommandResult> {
+// Exported for focused commandBus tests / dispatcher-level QA.
+export async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: SessionUser, commandId: string, reason?: string): Promise<CommandResult> {
   switch (name) {
     case 'createBatch':
       return createBatch(tx, payload, commandId);
@@ -567,7 +594,13 @@ async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: Ses
     case 'bulkRevertCustomersToEngine':
       return bulkRevertCustomersToEngine(tx, payload, user, commandId);
     case 'setLineLandedCost':
-      return setLineLandedCost(tx, payload, commandId);
+      return setLineLandedCost(tx, payload, user, commandId);
+    case 'createCustomerSheetSnapshot':
+      return createCustomerSheetSnapshot(tx, payload, user, commandId);
+    case 'setLineBelowFloorReason':
+      return setLineBelowFloorReason(tx, payload, commandId);
+    case 'resolveVendorApproval':
+      return resolveVendorApproval(tx, payload, commandId);
     case 'setCustomerPricingRule':
       return setCustomerPricingRule(tx, payload, commandId);
     case 'setDefaultPricingRule':
@@ -1749,6 +1782,25 @@ async function resolveItemAlias(tx: Tx, itemId: string | null | undefined): Prom
   return row?.alias ?? null;
 }
 
+const EDITABLE_SALES_ORDER_STATUSES = new Set(['draft', 'confirmed']);
+
+async function assertSalesOrderEditableById(tx: Tx, orderId: string): Promise<void> {
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+  if (order.archivedAt != null) {
+    throw new Error(
+      `Sales order is archived and is not editable. ` +
+      `Reopen or restore the order before changing COGS / below-floor / vendor-approval / line state.`
+    );
+  }
+  if (!EDITABLE_SALES_ORDER_STATUSES.has(String(order.status))) {
+    throw new Error(
+      `Sales order is ${order.status} and is not editable. ` +
+      `Only draft or confirmed orders can have COGS / below-floor / vendor-approval / line state changed.`
+    );
+  }
+}
+
 async function createSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const customerId = requiredId(payload.customerId, 'customerId');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
@@ -1773,7 +1825,26 @@ async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): P
   const unitPrice = payload.unitPrice != null ? requiredNumber(payload.unitPrice, 'unitPrice') : Number(batch?.unitPrice ?? 0);
   const validationIssues = salesLineValidationIssues({ ...payload, batchId: batch?.id ?? null, itemName, qty, unitPrice });
   const displayName = batch?.itemId ? (await resolveItemAlias(tx, batch.itemId)) ?? itemName : itemName;
-  const hasRange = Boolean(batch?.priceRange && parsePriceRange(batch.priceRange));
+  let lineUnitCost = 0;
+  let unitCostResolved = true;
+  let landedCostBasisInsert: string | null = null;
+  let priceFloorInsert: string | null = null;
+  if (batch) {
+    const range = batch.priceRange ? parsePriceRange(batch.priceRange) : null;
+    if (range) {
+      validationIssues.push(`Pick landed COGS in $${range.low}-$${range.high}.`);
+      lineUnitCost = (range.low + range.high) / 2;
+      unitCostResolved = false;
+      landedCostBasisInsert = null;
+      priceFloorInsert = null;
+    } else {
+      const landedCost = Number(batch.unitCost ?? 0);
+      lineUnitCost = landedCost;
+      unitCostResolved = true;
+      landedCostBasisInsert = 'fixed';
+      priceFloorInsert = landedCost > 0 ? moneyScale(landedCost) : null;
+    }
+  }
   const [line] = await tx
     .insert(salesOrderLines)
     .values({
@@ -1783,13 +1854,14 @@ async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): P
       displayName,
       qty: qtyScale(qty),
       unitPrice: moneyScale(unitPrice),
-      unitCost: batch?.unitCost ?? moneyScale(0),
+      unitCost: moneyScale(lineUnitCost),
+      unitCostResolved,
+      landedCostBasis: landedCostBasisInsert,
+      priceFloor: priceFloorInsert,
       sourceRowKey: stringValue(payload.sourceRowKey) || batch?.batchCode || null,
       unresolvedSourceText: unresolvedSourceText || null,
       legacyStatusMarker: stringValue(payload.legacyStatusMarker) || null,
       validationIssues,
-      unitCostResolved: !hasRange,
-      landedCostBasis: hasRange ? null : 'fixed',
       status: validationIssues.length ? 'needs_fix' : 'draft'
     })
     .returning();
@@ -1800,6 +1872,7 @@ async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): P
 async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   if (!payload.lineId && !payload.id && payload.orderId) {
     const orderId = requiredId(payload.orderId, 'orderId');
+    await assertSalesOrderEditableById(tx, orderId);
     const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
     if (!order) throw new Error('Sales order not found.');
     const values: Record<string, unknown> = { updatedAt: new Date() };
@@ -1820,7 +1893,15 @@ async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
   const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Sales line not found.');
+  await assertSalesOrderEditableById(tx, line.orderId);
   const values: Record<string, unknown> = { updatedAt: new Date() };
+  // Issue #64 reviewer fix: when batchId changes, re-run the same
+  // COGS / priceFloor / landedCostBasis setup as addSalesOrderLine so a
+  // fixed→range swap re-opens the unresolved gate and a range→fixed swap
+  // closes it. Previously the swap kept the prior unitCostResolved /
+  // landedCostBasis / priceFloor, which silently bypassed the gate.
+  const issuesAccumulator: string[] = [];
+  let batchChanged = false;
   if (payload.batchId != null) {
     const batchId = stringValue(payload.batchId);
     if (batchId) {
@@ -1829,16 +1910,37 @@ async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
       values.batchId = batch.id;
       values.itemName = batch.name;
       values.displayName = batch.itemId ? (await resolveItemAlias(tx, batch.itemId)) ?? batch.name : batch.name;
-      values.unitCost = batch.unitCost;
       values.sourceRowKey = stringValue(payload.sourceRowKey) || batch.batchCode;
       values.unresolvedSourceText = null;
-      const newHasRange = Boolean(batch.priceRange && parsePriceRange(batch.priceRange));
-      values.unitCostResolved = !newHasRange;
-      values.landedCostBasis = newHasRange ? null : 'fixed';
+      // Range/fixed setup parity with addSalesOrderLine.
+      const range = batch.priceRange ? parsePriceRange(batch.priceRange) : null;
+      if (range) {
+        issuesAccumulator.push(`Pick landed COGS in $${range.low}-$${range.high}.`);
+        values.unitCost = moneyScale((range.low + range.high) / 2);
+        values.unitCostResolved = false;
+        values.landedCostBasis = null;
+        values.priceFloor = null;
+      } else {
+        const landedCost = Number(batch.unitCost ?? 0);
+        values.unitCost = moneyScale(landedCost);
+        values.unitCostResolved = true;
+        values.landedCostBasis = 'fixed';
+        values.priceFloor = landedCost > 0 ? moneyScale(landedCost) : null;
+      }
+      // Clear any prior landed cost override reason — it does not carry across
+      // to a different batch.
+      values.landedCostReason = null;
+      // Clear below-floor / vendor-approval state since the floor/cost basis
+      // changed under the line; the operator re-establishes them deliberately.
+      values.belowFloorReason = null;
+      values.belowFloorNote = null;
+      values.vendorApprovalState = 'none';
+      batchChanged = true;
     } else {
       values.batchId = null;
       values.unitCostResolved = true;
       values.landedCostBasis = 'fixed';
+      values.priceFloor = null;
     }
   }
   copyIfPresent(values, 'itemName', payload.itemName);
@@ -1852,9 +1954,13 @@ async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
   if (payload.inventoryPosted != null) values.inventoryPosted = Boolean(payload.inventoryPosted);
   if (payload.paymentFollowup != null) values.paymentFollowup = Boolean(payload.paymentFollowup);
   const nextLine = { ...line, ...values } as Record<string, unknown>;
-  const validationIssues = salesLineValidationIssues(nextLine);
+  const baseIssues = salesLineValidationIssues(nextLine);
+  const validationIssues = batchChanged ? [...baseIssues, ...issuesAccumulator] : baseIssues;
   values.validationIssues = validationIssues;
   if (validationIssues.length && (payload.status === 'ready' || payload.status === 'confirmed')) values.status = 'needs_fix';
+  if (batchChanged && validationIssues.some((issue: string) => issue.startsWith('Pick landed COGS'))) {
+    values.status = 'needs_fix';
+  }
   await tx.update(salesOrderLines).set(values).where(eq(salesOrderLines.id, lineId));
   await recalcOrder(tx, line.orderId);
   return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line updated.' };
@@ -1990,36 +2096,265 @@ async function loadCategoriesForLines(
   return map;
 }
 
-export async function setLineLandedCost(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const lineId = requiredId(payload.lineId, 'lineId');
-  const landedCost = Number(payload.landedCost);
-  if (!Number.isFinite(landedCost) || landedCost < 0) throw new Error('Landed cost must be a non-negative number.');
-  const basisRaw = stringValue(payload.basis) || 'manual';
-  const basisParse = setLineLandedCostPayloadSchema.shape.basis.safeParse(basisRaw);
-  if (!basisParse.success) {
-    throw new Error(`Invalid landed cost basis: ${basisRaw}. Allowed: manual, pick-low, pick-mid, pick-high.`);
-  }
-  const basis = basisParse.data;
+export async function setLineLandedCost(
+  tx: Tx,
+  payload: Payload,
+  user: SessionUser,
+  commandId: string
+): Promise<CommandResult> {
+  const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
+  const landedCost = requiredNumber(payload.landedCost, 'landedCost');
+  if (landedCost < 0) throw new Error('Landed cost must be a non-negative number.');
+  const basisIn = (stringValue(payload.basis) || 'manual') as
+    | 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual' | 'override';
+  const reason = stringValue(payload.reason) || null;
+
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
-  if (!line) throw new Error('Sales order line not found.');
-  if (line.batchId) {
-    const [batch] = await tx.select({ priceRange: batches.priceRange }).from(batches).where(eq(batches.id, line.batchId)).limit(1);
-    const range = parsePriceRange(batch?.priceRange ?? null);
-    if (range && !isLandedCostInRange(landedCost, batch.priceRange)) {
-      throw new Error(`Landed cost $${landedCost.toFixed(2)} is outside the batch COGS range $${range.low}–$${range.high}.`);
+  if (!line) throw new Error('Sales line not found.');
+  await assertSalesOrderEditableById(tx, line.orderId);
+  if (!line.batchId) throw new Error('Cannot set landed COGS on a line without a source batch.');
+  const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+  if (!batch) throw new Error('Source batch no longer exists.');
+  const range = parsePriceRange(batch.priceRange);
+  let basisRecord: string = basisIn;
+  if (range) {
+    const validation = validateLandedCost({
+      landedCost,
+      range,
+      basis: basisIn,
+      role: user.role,
+      reason
+    });
+    if (!validation.ok) throw new Error(validation.error);
+    basisRecord = validation.basisRecord;
+  } else {
+    // Preserve old no-range behavior: accept manual/pick-* basis values
+    if (!['manual', 'pick-low', 'pick-mid', 'pick-high'].includes(basisIn)) {
+      throw new Error(`Invalid landed cost basis: ${basisIn}. Allowed: manual, pick-low, pick-mid, pick-high.`);
     }
   }
+
+  const remainingIssues = (line.validationIssues || []).filter(
+    (issue: string) => !issue.startsWith('Pick landed COGS')
+  );
+
   await tx
     .update(salesOrderLines)
-    .set({ unitCost: moneyScale(landedCost), unitCostResolved: true, landedCostBasis: basis, updatedAt: new Date() })
+    .set({
+      unitCost: moneyScale(landedCost),
+      unitCostResolved: true,
+      landedCostBasis: basisRecord,
+      landedCostReason: basisRecord === 'override' ? reason : null,
+      priceFloor: moneyScale(landedCost),
+      validationIssues: remainingIssues,
+      status: line.status === 'needs_fix' && remainingIssues.length === 0 ? 'draft' : line.status,
+      updatedAt: new Date()
+    })
     .where(eq(salesOrderLines.id, lineId));
+
+  await recalcOrder(tx, line.orderId);
+
   return {
     ok: true,
     commandId,
-    affectedIds: [lineId],
-    toast: `Landed COGS resolved to $${landedCost.toFixed(2)} (${basis}).`,
-    delta: { lineId, landedCost: moneyScale(landedCost), basis }
+    affectedIds: [line.orderId, lineId],
+    toast: `Landed COGS $${landedCost.toFixed(2)} set for ${line.itemName}.`,
+    delta: { lineId, landedCost: moneyScale(landedCost), basis: basisRecord, reason }
   };
+}
+
+async function setLineBelowFloorReason(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
+  const reasonIn = stringValue(payload.reason);
+  if (!reasonIn) {
+    throw new Error(`Below-floor reason is required. Allowed: ${BELOW_FLOOR_REASONS.join(', ')}.`);
+  }
+  if (!(BELOW_FLOOR_REASONS as readonly string[]).includes(reasonIn)) {
+    throw new Error(`Below-floor reason must be one of: ${BELOW_FLOOR_REASONS.join(', ')}.`);
+  }
+  const reason = reasonIn as BelowFloorReason;
+  const note = stringValue(payload.note) || null;
+
+  const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Sales line not found.');
+  await assertSalesOrderEditableById(tx, line.orderId);
+
+  const check = validateBelowFloorChoice({
+    unitPrice: Number(line.unitPrice),
+    priceFloor: line.priceFloor != null ? Number(line.priceFloor) : null,
+    reason
+  });
+  if (!check.ok) throw new Error(check.error);
+
+  const nextVendorApprovalState: VendorApprovalState = check.requiresVendorApproval ? 'pending' : 'none';
+
+  await tx
+    .update(salesOrderLines)
+    .set({
+      belowFloorReason: reason,
+      belowFloorNote: note,
+      vendorApprovalState: nextVendorApprovalState,
+      updatedAt: new Date()
+    })
+    .where(eq(salesOrderLines.id, lineId));
+
+  await refreshOrderExceptionRollup(tx, line.orderId);
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [line.orderId, lineId],
+    toast: `Below-floor reason "${reason}" recorded for ${line.itemName}.`,
+    delta: { lineId, reason, vendorApprovalState: nextVendorApprovalState }
+  };
+}
+
+async function resolveVendorApproval(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const stateIn = stringValue(payload.state);
+  if (stateIn !== 'approved' && stateIn !== 'declined') {
+    throw new Error('Vendor approval state must be approved or declined.');
+  }
+  const lineId = payload.lineId ? requiredId(payload.lineId, 'lineId') : undefined;
+  let orderId = stringValue(payload.orderId);
+
+  if (lineId) {
+    const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
+    if (!line) throw new Error('Sales line not found.');
+    if (line.vendorApprovalState !== 'pending') {
+      throw new Error('Sales line is not awaiting vendor approval.');
+    }
+    await assertSalesOrderEditableById(tx, line.orderId);
+    await tx
+      .update(salesOrderLines)
+      .set({ vendorApprovalState: stateIn, updatedAt: new Date() })
+      .where(eq(salesOrderLines.id, lineId));
+    orderId = line.orderId;
+  } else {
+    if (!orderId) throw new Error('Provide lineId or orderId to resolve vendor approval.');
+    await assertSalesOrderEditableById(tx, orderId);
+    const pendingLines = await tx
+      .select()
+      .from(salesOrderLines)
+      .where(and(eq(salesOrderLines.orderId, orderId), eq(salesOrderLines.vendorApprovalState, 'pending')));
+    if (pendingLines.length === 0) {
+      throw new Error('No sales lines are awaiting vendor approval on this order.');
+    }
+    for (const line of pendingLines) {
+      await tx
+        .update(salesOrderLines)
+        .set({ vendorApprovalState: stateIn, updatedAt: new Date() })
+        .where(eq(salesOrderLines.id, line.id));
+    }
+  }
+
+  await refreshOrderExceptionRollup(tx, orderId);
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [orderId, ...(lineId ? [lineId] : [])],
+    toast: `Vendor approval ${stateIn}.`
+  };
+}
+
+async function refreshOrderExceptionRollup(tx: Tx, orderId: string): Promise<void> {
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  const exceptionLines: ExceptionLine[] = lines.map((line: typeof salesOrderLines.$inferSelect) => ({
+    qty: Number(line.qty),
+    unitPrice: Number(line.unitPrice),
+    unitCost: Number(line.unitCost),
+    priceFloor: line.priceFloor != null ? Number(line.priceFloor) : null,
+    belowFloorReason: (line.belowFloorReason as BelowFloorReason | null) ?? null,
+    vendorApprovalState: (line.vendorApprovalState as VendorApprovalState) ?? 'none'
+  }));
+  const totals = computeOrderExceptionTotals(exceptionLines);
+  await tx
+    .update(salesOrders)
+    .set({ vendorApprovalPending: totals.vendorApprovalPending, updatedAt: new Date() })
+    .where(eq(salesOrders.id, orderId));
+}
+
+async function createCustomerSheetSnapshot(
+  tx: Tx,
+  payload: Payload,
+  user: SessionUser,
+  commandId: string
+): Promise<CommandResult> {
+  const customerId = requiredId(payload.customerId, 'customerId');
+  const rawMode = stringValue(payload.mode) || 'internal';
+  if (!(CUSTOMER_SHEET_MODES as readonly string[]).includes(rawMode)) {
+    throw new Error(`Sheet mode must be one of: ${CUSTOMER_SHEET_MODES.join(', ')}.`);
+  }
+  const mode = rawMode as CustomerSheetMode;
+  const inputRows = Array.isArray(payload.rows) ? (payload.rows as Array<Record<string, unknown>>) : [];
+  if (inputRows.length === 0) {
+    throw new Error('Cannot snapshot an empty sheet.');
+  }
+  const sanitized = buildCustomerSheetSnapshotRows(inputRows, mode);
+  const notes = stringValue(payload.notes) || null;
+  const [row] = await tx
+    .insert(customerSheetSnapshots)
+    .values({
+      customerId,
+      mode,
+      actorId: user.id,
+      actorName: user.name,
+      itemCount: sanitized.length,
+      rowsJson: sanitized,
+      notes
+    })
+    .returning();
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [row.id, customerId],
+    toast: `Saved ${sanitized.length} item sheet snapshot${mode === 'catalog' ? ' (customer-safe)' : ''}.`
+  };
+}
+
+function findExceptionBlockedLine(
+  lines: Array<typeof salesOrderLines.$inferSelect>
+): { line: typeof salesOrderLines.$inferSelect; reason: ConfirmOrPostBlockedReason } | null {
+  for (const line of lines) {
+    const candidate: CanConfirmOrPostLine = {
+      batchId: line.batchId,
+      itemName: line.itemName,
+      unitCostResolved: line.unitCostResolved !== false,
+      unitPrice: Number(line.unitPrice),
+      unitCost: Number(line.unitCost),
+      priceFloor: line.priceFloor != null ? Number(line.priceFloor) : null,
+      belowFloorReason: (line.belowFloorReason as BelowFloorReason | null) ?? null,
+      vendorApprovalState: (line.vendorApprovalState as VendorApprovalState) ?? 'none'
+    };
+    const reason = canConfirmOrPost(candidate);
+    if (reason) return { line, reason };
+  }
+  return null;
+}
+
+function formatExceptionBlockerMessage(
+  blocker: { line: typeof salesOrderLines.$inferSelect; reason: ConfirmOrPostBlockedReason },
+  phase: 'confirming' | 'posting'
+): string {
+  const name = blocker.line.itemName;
+  switch (blocker.reason) {
+    case 'cogs_unresolved':
+      return `${name} needs landed COGS picked before ${phase}. Use setLineLandedCost.`;
+    case 'vendor_approval_pending':
+      return `${name} is waiting on vendor approval. Resolve vendor approval before ${phase}.`;
+    case 'vendor_approval_declined':
+      return `${name} had vendor approval declined. Reprice above the floor or re-request approval before ${phase}.`;
+    case 'below_floor_reason_missing':
+      return `${name} is priced below its floor; record a below-floor reason before ${phase}.`;
+  }
 }
 
 export async function setCustomerPricingRule(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -2177,6 +2512,8 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
   if (unresolved) throw new Error(`${unresolved.itemName} needs resolution before confirming: ${salesLineValidationIssues(unresolved).join(' ')} ${await candidateSourceText(tx, unresolved)}`);
   const unresolvedCogs = lines.find((line: typeof salesOrderLines.$inferSelect) => !line.unitCostResolved);
   if (unresolvedCogs) throw new Error(`${unresolvedCogs.itemName} has unresolved landed COGS. Resolve the COGS range before confirming the order.`);
+  const exceptionBlocker = findExceptionBlockedLine(lines);
+  if (exceptionBlocker) throw new Error(formatExceptionBlockerMessage(exceptionBlocker, 'confirming'));
   const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
   if (Number(customer.balance) + Number(order.total) > Number(customer.creditLimit)) {
@@ -2214,6 +2551,8 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
   if (unresolved) throw new Error(`${unresolved.itemName} needs resolution before posting: ${salesLineValidationIssues(unresolved).join(' ')} ${await candidateSourceText(tx, unresolved)}`);
   const unresolvedCogs = lines.find((line: typeof salesOrderLines.$inferSelect) => !line.unitCostResolved);
   if (unresolvedCogs) throw new Error(`${unresolvedCogs.itemName} has unresolved landed COGS. Resolve the COGS range before posting the order.`);
+  const exceptionBlocker = findExceptionBlockedLine(lines);
+  if (exceptionBlocker) throw new Error(formatExceptionBlockerMessage(exceptionBlocker, 'posting'));
   const sourceKeys = new Set<string>();
   for (const line of lines) {
     const sourceKey = line.sourceRowKey || line.batchId;
@@ -2296,7 +2635,28 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
   const nextBalance = Number(customer.balance) + Number(freshOrder.total);
   await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
   await tx.insert(clientLedgerEntries).values({ customerId: customer.id, invoiceId: invoice.id, kind: 'invoice', amount: freshOrder.total, balanceAfter: moneyScale(nextBalance), note: freshOrder.orderNo });
-  await tx.update(salesOrders).set({ status: 'posted', inventoryPosted: true, postedAt: new Date(), updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  const exceptionTotals = computeOrderExceptionTotals(
+    lines.map((line: typeof salesOrderLines.$inferSelect) => ({
+      qty: Number(line.qty),
+      unitPrice: Number(line.unitPrice),
+      unitCost: Number(line.unitCost),
+      priceFloor: line.priceFloor != null ? Number(line.priceFloor) : null,
+      belowFloorReason: (line.belowFloorReason as BelowFloorReason | null) ?? null,
+      vendorApprovalState: (line.vendorApprovalState as VendorApprovalState) ?? 'none'
+    }))
+  );
+  await tx
+    .update(salesOrders)
+    .set({
+      status: 'posted',
+      inventoryPosted: true,
+      postedAt: new Date(),
+      marginWaivedTotal: moneyScale(exceptionTotals.marginWaivedTotal),
+      lossRecognizedTotal: moneyScale(exceptionTotals.lossRecognizedTotal),
+      vendorApprovalPending: exceptionTotals.vendorApprovalPending,
+      updatedAt: new Date()
+    })
+    .where(eq(salesOrders.id, orderId));
   affected.push(invoice.id, customer.id);
 
   // Accrue referee credit if relationship specified
@@ -2317,7 +2677,17 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
   }
 
   await enqueueCustomerRecompute(tx, customer.id, 'event:postSalesOrder', commandId);
-  return { ok: true, commandId, affectedIds: affected, toast: `${freshOrder.orderNo} posted and invoice ${invoice.invoiceNo} created.` };
+  return {
+    ok: true,
+    commandId,
+    affectedIds: affected,
+    toast: `${freshOrder.orderNo} posted and invoice ${invoice.invoiceNo} created.`,
+    delta: {
+      marginWaivedTotal: moneyScale(exceptionTotals.marginWaivedTotal),
+      lossRecognizedTotal: moneyScale(exceptionTotals.lossRecognizedTotal),
+      vendorApprovalPending: exceptionTotals.vendorApprovalPending
+    }
+  };
 }
 
 async function allocateOrderToFulfillment(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {

@@ -105,7 +105,10 @@ export const commandNames = [
   'setCustomerPricingRule',
   'setDefaultPricingRule',
   'mintPhotoUploadToken',
-  'revokePhotoUploadToken'
+  'revokePhotoUploadToken',
+  'createCustomerSheetSnapshot',
+  'setLineBelowFloorReason',
+  'resolveVendorApproval'
 ] as const;
 
 // Commands whose frontend surface is deferred to a follow-up. The parity
@@ -242,7 +245,10 @@ export const commandLabels: Record<CommandName, string> = {
   setCustomerPricingRule: 'Set customer pricing rule',
   setDefaultPricingRule: 'Set default pricing rule',
   mintPhotoUploadToken: 'Mint photo upload share link',
-  revokePhotoUploadToken: 'Revoke photo upload share link'
+  revokePhotoUploadToken: 'Revoke photo upload share link',
+  createCustomerSheetSnapshot: 'Persist customer sheet snapshot',
+  setLineBelowFloorReason: 'Set below-floor reason on sale line',
+  resolveVendorApproval: 'Resolve vendor approval on sale line'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -350,7 +356,10 @@ export const commandMinRole: Record<CommandName, Role> = {
   setCustomerPricingRule: 'manager',
   setDefaultPricingRule: 'manager',
   mintPhotoUploadToken: 'manager',
-  revokePhotoUploadToken: 'manager'
+  revokePhotoUploadToken: 'manager',
+  createCustomerSheetSnapshot: 'operator',
+  setLineBelowFloorReason: 'operator',
+  resolveVendorApproval: 'manager'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -458,7 +467,10 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   setCustomerPricingRule: { disposition: 'reversible', guidance: 'Restores the prior customer pricing rule from the command snapshot.' },
   setDefaultPricingRule: { disposition: 'reversible', guidance: 'Restores the prior default pricing rule from the command snapshot.' },
   mintPhotoUploadToken: { disposition: 'reversible', guidance: 'Use revokePhotoUploadToken with the returned tokenId to invalidate the share link immediately.' },
-  revokePhotoUploadToken: { disposition: 'terminal', guidance: 'Mint a new photo upload share link if the revoke was accidental — the previous raw token is unrecoverable.' }
+  revokePhotoUploadToken: { disposition: 'terminal', guidance: 'Mint a new photo upload share link if the revoke was accidental — the previous raw token is unrecoverable.' },
+  createCustomerSheetSnapshot: { disposition: 'terminal', guidance: 'Snapshots are append-only audit records of what was sent. Create a new sheet instead.' },
+  setLineBelowFloorReason: { disposition: 'reversible', guidance: 'Re-run setLineBelowFloorReason with the updated reason and note.' },
+  resolveVendorApproval: { disposition: 'reversible', guidance: 'Re-run resolveVendorApproval with the intended state to flip the sign-off.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

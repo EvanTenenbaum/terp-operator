@@ -28,10 +28,33 @@ export function WorkspacePanel({ panelId, title, subtitle, actions, children, cl
   const focused = focusedPanelId === panelId;
   const hiddenByFocus = Boolean(focusedPanelId && !focused);
 
-  if (hiddenByFocus) return null;
+  // Issue #60: sibling panels render a minimized orientation-preserving rail rather
+  // than disappearing (old behaviour returned null here).
+  if (hiddenByFocus) {
+    return (
+      <section
+        className="workspace-panel workspace-panel-rail"
+        aria-label={title}
+        data-testid={testId}
+      >
+        <div className="workspace-panel-header">
+          <span className="block text-base font-semibold text-ink">{title}</span>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={`Restore ${title}`}
+            title="Restore workspace"
+            onClick={() => setFocusedPanel(null)}
+          >
+            <Maximize2 className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section className={clsx('workspace-panel', focused && 'workspace-panel-focused', collapsed && 'workspace-panel-collapsed', className)} data-testid={testId}>
+    <section className={clsx('workspace-panel', focused && 'workspace-panel-focused', collapsed && 'workspace-panel-collapsed', className)} aria-label={title} data-testid={testId}>
       <div className="workspace-panel-header">
         <button type="button" className="workspace-panel-title-button" onClick={() => togglePanelCollapsed(panelId)} aria-expanded={!collapsed}>
           {collapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}

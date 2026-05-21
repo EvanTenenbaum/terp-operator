@@ -15,6 +15,7 @@ describe('selectVisibleSalesColumns (#63)', () => {
     { field: 'customer' },
     { field: 'unitPrice' },
     { field: 'unitCost' },
+    { field: 'rangeBadge' },
     { field: 'internalMargin' },
     { field: 'estimatedMargin' },
     { field: 'qty' }
@@ -25,6 +26,7 @@ describe('selectVisibleSalesColumns (#63)', () => {
     expect(visible).toHaveLength(sampleColumns.length);
     const fields = visible.map((col) => col.field);
     expect(fields).toContain('unitCost');
+    expect(fields).toContain('rangeBadge');
     expect(fields).toContain('internalMargin');
     expect(fields).toContain('estimatedMargin');
   });
@@ -33,6 +35,7 @@ describe('selectVisibleSalesColumns (#63)', () => {
     const visible = selectVisibleSalesColumns(false, sampleColumns);
     const fields = visible.map((col) => col.field);
     expect(fields).not.toContain('unitCost');
+    expect(fields).not.toContain('rangeBadge');
     expect(fields).not.toContain('internalMargin');
     expect(fields).not.toContain('estimatedMargin');
   });
@@ -57,7 +60,7 @@ describe('selectVisibleSalesColumns (#63)', () => {
     // Pin the constant — if a future column like `landedCost` is added we
     // want a test failure to remind us to gate it on showMargin too.
     expect(new Set(MARGIN_COLUMN_FIELDS)).toEqual(
-      new Set(['unitCost', 'internalMargin', 'estimatedMargin'])
+      new Set(['unitCost', 'rangeBadge', 'internalMargin', 'estimatedMargin'])
     );
   });
 

@@ -306,6 +306,9 @@ export const salesOrders = pgTable('sales_orders', {
   validationIssues: jsonb('validation_issues').$type<string[]>().notNull().default([]),
   refereeRelationshipId: uuid('referee_relationship_id'),
   refereeCreditAmount: numeric('referee_credit_amount', { precision: 12, scale: 2 }),
+  vendorApprovalPending: boolean('vendor_approval_pending').notNull().default(false),
+  marginWaivedTotal: numeric('margin_waived_total', { precision: 12, scale: 2 }).notNull().default('0'),
+  lossRecognizedTotal: numeric('loss_recognized_total', { precision: 12, scale: 2 }).notNull().default('0'),
   postedAt: timestamp('posted_at', { withTimezone: true }),
   fulfilledAt: timestamp('fulfilled_at', { withTimezone: true }),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
@@ -331,6 +334,11 @@ export const salesOrderLines = pgTable('sales_order_lines', {
   validationIssues: jsonb('validation_issues').$type<string[]>().notNull().default([]),
   unitCostResolved: boolean('unit_cost_resolved').notNull().default(false),
   landedCostBasis: varchar('landed_cost_basis', { length: 32 }),
+  landedCostReason: text('landed_cost_reason'),
+  priceFloor: numeric('price_floor', { precision: 12, scale: 2 }),
+  belowFloorReason: varchar('below_floor_reason', { length: 32 }),
+  belowFloorNote: text('below_floor_note'),
+  vendorApprovalState: varchar('vendor_approval_state', { length: 32 }).notNull().default('none'),
   status: varchar('status', { length: 32 }).notNull().default('draft'),
   createdAt: now(),
   updatedAt: updated()
@@ -910,6 +918,28 @@ export const photoUploadTokens = pgTable(
   (table) => ({
     batchIdx: index('photo_upload_tokens_batch_idx').on(table.batchId),
     expiresIdx: index('photo_upload_tokens_expires_idx').on(table.expiresAt)
+  })
+);
+
+// Issue #62: persisted customer sheet snapshots for the Sales Recent Sheets tab.
+// rows_json is sanitized through src/shared/customerSheetSnapshot.ts before
+// insert. Customer-facing (mode = 'catalog') snapshots must NEVER contain
+// unitCost, estimatedMargin, internalMargin, or other internal-only data.
+export const customerSheetSnapshots = pgTable(
+  'customer_sheet_snapshots',
+  {
+    id: id(),
+    customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'cascade' }).notNull(),
+    mode: varchar('mode', { length: 16 }).notNull(),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    actorName: varchar('actor_name', { length: 180 }),
+    itemCount: integer('item_count').notNull().default(0),
+    rowsJson: jsonb('rows_json').$type<Array<Record<string, unknown>>>().notNull().default([]),
+    notes: text('notes'),
+    createdAt: now()
+  },
+  (table) => ({
+    customerCreatedIdx: index('customer_sheet_snapshots_customer_created_idx').on(table.customerId, table.createdAt.desc())
   })
 );
 
