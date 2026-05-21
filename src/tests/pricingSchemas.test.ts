@@ -105,14 +105,13 @@ describe('setLineLandedCostPayloadSchema', () => {
     ).toThrow();
   });
 
-  it('rejects the legacy "override" basis (out-of-range overrides require explicit audit handling that is not implemented)', () => {
-    expect(() =>
-      setLineLandedCostPayloadSchema.parse({
-        lineId: '11111111-1111-1111-1111-111111111111',
-        landedCost: 50,
-        basis: 'override'
-      })
-    ).toThrow();
+  it('accepts the "override" basis', () => {
+    const parsed = setLineLandedCostPayloadSchema.parse({
+      lineId: '11111111-1111-1111-1111-111111111111',
+      landedCost: 50,
+      basis: 'override'
+    });
+    expect(parsed.basis).toBe('override');
   });
 });
 

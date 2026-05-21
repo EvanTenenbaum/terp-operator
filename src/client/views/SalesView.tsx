@@ -2,11 +2,16 @@ import { ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackagePlus, Send } f
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
-import { InventoryFinderPanel, type InventoryFinderBatch } from '../components/InventoryFinderPanel';
+import { type InventoryFinderBatch } from '../components/InventoryFinderPanel';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { WorkspacePanel } from '../components/WorkspacePanel';
+import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHistoryPanel';
+import { SalesSourcePane } from '../components/SalesSourcePane';
+import { SaleLineExceptionControls } from '../components/SaleLineExceptionControls';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
+import { buildSheetCsv } from '../utils/salesExport';
+import { buildCustomerSheetSnapshotRows } from '../../shared/customerSheetSnapshot';
 import type { GridRow } from '../../shared/types';
 import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
 import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
@@ -37,6 +42,27 @@ const suggestionColumns: ColDef<GridRow>[] = [
   { field: 'reason', minWidth: 260 }
 ];
 
+// Issue #64: surface cost-range / COGS / below-floor / vendor-approval state.
+// The badge cell stays read-only — operators act on these via the line
+// expansion buttons (Pick COGS / Set reason / Resolve approval).
+const exceptionBadgeColumn: ColDef<GridRow> = {
+  field: 'rangeBadge',
+  headerName: 'Range / Exceptions',
+  width: 220,
+  valueGetter: (params) => {
+    const row = params.data as GridRow | undefined;
+    if (!row) return '';
+    const parts: string[] = [];
+    if (row.priceRange) parts.push(`Range $${row.priceRange}`);
+    if (row.unitCostResolved === false) parts.push('COGS unresolved');
+    if (row.belowFloorReason) parts.push(`Below floor: ${row.belowFloorReason}`);
+    if (row.vendorApprovalState && row.vendorApprovalState !== 'none') {
+      parts.push(`Vendor approval: ${row.vendorApprovalState}`);
+    }
+    return parts.join(' · ');
+  }
+};
+
 const lineColumns: ColDef<GridRow>[] = [
   { field: 'legacyStatusMarker', headerName: 'Raw', editable: true, width: 90, pinned: 'left' },
   {
@@ -65,6 +91,7 @@ const lineColumns: ColDef<GridRow>[] = [
   { field: 'qty', editable: true, type: 'numericColumn', width: 95 },
   { field: 'unitPrice', editable: true, type: 'numericColumn', width: 115 },
   { field: 'unitCost', headerName: 'Cost', type: 'numericColumn', width: 105 },
+  exceptionBadgeColumn,
   { field: 'availableQty', headerName: 'Avail', type: 'numericColumn', width: 105 },
   { field: 'packed', editable: true, width: 105 },
   { field: 'inventoryPosted', headerName: 'Inv Posted', editable: true, width: 125 },
@@ -94,6 +121,7 @@ export function SalesView() {
   const [saleToolsOpen, setSaleToolsOpen] = useState(false);
   const [autoStartedCustomerIds, setAutoStartedCustomerIds] = useState<Set<string>>(new Set());
   const [dismissedCreditIndicators, setDismissedCreditIndicators] = useState<Set<string>>(new Set());
+  const [exportError, setExportError] = useState<string | null>(null);
   const customerSelectRef = useRef<HTMLSelectElement | null>(null);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
@@ -192,6 +220,18 @@ export function SalesView() {
       enabled: true,
       actionsRenderer: (row: GridRow) => (
         <>
+          {/* Issue #64 reviewer fix: inline controls replace the previous
+              window.prompt chains. SaleLineExceptionControls also gates the
+              entire exception strip off when showMargin=false so a customer-
+              facing screen-share posture cannot leak cost / floor / vendor
+              approval context. */}
+          <SaleLineExceptionControls
+            row={row}
+            isRunning={isRunning}
+            canWrite={canWrite}
+            showMargin={showMargin}
+            runCommand={runCommand}
+          />
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite}
@@ -242,7 +282,7 @@ export function SalesView() {
         </>
       )
     }),
-    [isRunning, runCommand, canWrite]
+    [isRunning, runCommand, canWrite, showMargin]
   );
 
   useEffect(() => {
@@ -355,20 +395,56 @@ export function SalesView() {
     await orderLines.refetch();
   }
 
-  function exportSheet() {
-    const internalHeaders = showMargin
-      ? ['batchCode', 'name', 'category', 'vendor', 'availableQty', 'unitPrice', 'unitCost', 'estimatedMargin', 'reason']
-      : ['batchCode', 'name', 'category', 'vendor', 'availableQty', 'unitPrice', 'reason'];
-    const headers = sheetMode === 'internal' ? internalHeaders : ['batchCode', 'name', 'category', 'availableQty', 'unitPrice', 'tags'];
-    const csv = [headers.join(','), ...sheetRows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n');
+  async function exportSheet() {
+    setExportError(null);
+    const mode = sheetMode === 'internal' ? 'internal' : 'catalog';
+    const csv = buildSheetCsv(sheetRows, mode, { showMargin });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = sheetMode === 'internal' ? 'terp-agro-sales-sheet.csv' : 'terp-agro-sales-catalog.csv';
+    link.download = mode === 'internal' ? 'terp-operator-sales-sheet.csv' : 'terp-operator-sales-catalog.csv';
     link.click();
     URL.revokeObjectURL(url);
+
+    // Issue #62: persist a sheet snapshot so operators can find it in the
+    // Sales > Recent Sheets tab and add items back to a future draft.
+    // Sanitization is also enforced server-side in createCustomerSheetSnapshot.
+    if (customerId && sheetRows.length) {
+      try {
+        const sanitized = buildCustomerSheetSnapshotRows(
+          sheetRows as unknown as Array<Record<string, unknown>>,
+          mode
+        );
+        const result = await runCommand(
+          'createCustomerSheetSnapshot',
+          { customerId, mode, rows: sanitized },
+          `Snapshot ${mode} sales sheet for customer`
+        );
+        if (!result.ok) {
+          setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
+        }
+      } catch {
+        setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
+      }
+    }
   }
+
+  // Show margin toggle button — rendered as a WorkspacePanel header action
+  // when a customer is selected, or in the top control band otherwise.
+  const showMarginToggle = (
+    <button
+      type="button"
+      className="icon-button"
+      data-testid="sales-show-margin-toggle"
+      title={showMargin ? 'Hide margin' : 'Show margin'}
+      aria-label={showMargin ? 'Hide margin' : 'Show margin'}
+      aria-pressed={showMargin}
+      onClick={() => setShowMargin(!showMargin)}
+    >
+      {showMargin ? <Eye className="h-4 w-4" aria-hidden="true" /> : <EyeOff className="h-4 w-4" aria-hidden="true" />}
+    </button>
+  );
 
   return (
     <div className="view-stack">
@@ -397,23 +473,10 @@ export function SalesView() {
           {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder))}
         </button>
         <span className="selection-pill">{selectedOrder ? `${String(selectedOrder.orderNo ?? 'Selected sale')} / ${selectedOrderStatus || 'open'}` : customerId ? 'Sale shell starting' : 'Pick customer to start'}</span>
+        {!customerId ? showMarginToggle : null}
         <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
           {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
           Sale tray
-        </button>
-        {/* #63: operator-only margin visibility toggle. Hides cost/margin columns
-            in the operator grid when screen-sharing with a customer. Customer-
-            facing CSV exports are independently gated (#15 / #80). */}
-        <button
-          className="secondary-button compact-action"
-          type="button"
-          onClick={() => setShowMargin(!showMargin)}
-          aria-pressed={showMargin}
-          title={showMargin ? 'Hide margin/cost columns (customer-safe view)' : 'Show margin/cost columns'}
-          data-testid="sales-show-margin-toggle"
-        >
-          {showMargin ? <Eye className="h-4 w-4" aria-hidden="true" /> : <EyeOff className="h-4 w-4" aria-hidden="true" />}
-          {showMargin ? 'Margin shown' : 'Margin hidden'}
         </button>
       </div> : null}
       {canWrite && saleToolsOpen ? (
@@ -429,67 +492,97 @@ export function SalesView() {
             <FileText className="h-4 w-4" aria-hidden="true" />
             {sheetMode === 'internal' ? 'Sales Sheet' : 'Sales Catalog'}
           </button>
-          <button className="secondary-button compact-action" type="button" disabled={!sheetRows.length} onClick={exportSheet}>
+          <button
+            className="secondary-button compact-action"
+            type="button"
+            disabled={!sheetRows.length}
+            onClick={() => {
+              void exportSheet().catch((err) => {
+                console.error('exportSheet failed', err);
+                setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
+              });
+            }}
+          >
             <FileText className="h-4 w-4" aria-hidden="true" />
             Export
           </button>
           <span className="selection-pill success">Customer catalog hides cost, margin, and internal notes.</span>
+          {exportError ? <span className="selection-pill danger">{exportError}</span> : null}
         </div>
       ) : null}
       {customerId ? (
-        <WorkspacePanel panelId="sales:customer-workspace" title="Customer Workspace" contentClassName="p-3">
-          <div className="customer-workspace-header">
-            <div>
-              <div className="text-lg font-semibold text-ink">{workspace.data?.customer?.name ?? 'Customer'}</div>
-              <div className="text-sm text-zinc-600">{workspace.data?.customer?.notes ?? 'No notes yet.'}</div>
+        <CustomerPurchaseHistoryPanel
+          customerId={customerId}
+          customerName={workspace.data?.customer?.name}
+        />
+      ) : null}
+
+      {customerId ? (
+        <div className="grid min-h-[520px] grid-cols-1 gap-3 xl:grid-cols-2">
+          <SalesSourcePane
+            customerId={customerId}
+            selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''}
+            addedBatchIds={addedBatchIds}
+            initialSearch={salesRequestText}
+            onAddBatch={addFinderBatch}
+          />
+          <WorkspacePanel
+            panelId="sales:customer-workspace"
+            title="Sale Builder"
+            contentClassName="p-3"
+            actions={canWrite ? showMarginToggle : undefined}
+          >
+            <div className="customer-workspace-header">
+              <div>
+                <div className="text-lg font-semibold text-ink">{workspace.data?.customer?.name ?? 'Customer'}</div>
+                <div className="text-sm text-zinc-600">{workspace.data?.customer?.notes ?? 'No notes yet.'}</div>
+              </div>
+              <div className="customer-facts">
+                <span>Balance ${moneyish(workspace.data?.customer?.balance)}</span>
+                <span>Credit ${moneyish(workspace.data?.customer?.creditLimit)}</span>
+                <span>{(workspace.data?.customer?.tags ?? []).join(', ')}</span>
+              </div>
             </div>
-            <div className="customer-facts">
-              <span>Balance ${moneyish(workspace.data?.customer?.balance)}</span>
-              <span>Credit ${moneyish(workspace.data?.customer?.creditLimit)}</span>
-              <span>{(workspace.data?.customer?.tags ?? []).join(', ')}</span>
-            </div>
-          </div>
-          <ShadowModeBanner />
-          {showCreditIndicator && !isIndicatorDismissed && engineRecommendation != null ? (
-            <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
-              <span>
-                ⓘ Engine recommends a lower limit for this customer ({formatMoney(engineRecommendation)}). Order is OK against current manual limit ({formatMoney(manualLimit)}).
-              </span>
-              <button
-                type="button"
-                className="font-medium text-amber-700 hover:text-amber-900"
-                onClick={() => {
-                  setDismissedCreditIndicators((prev) => {
-                    const next = new Set(prev);
-                    next.add(indicatorKey);
-                    return next;
-                  });
-                }}
-              >
-                Dismiss
-              </button>
-            </div>
-          ) : null}
-          <div className="mt-3 grid gap-3 xl:grid-cols-[1.1fr_0.9fr]">
-            <div className="grid gap-3">
-              {canWrite ? <div className="control-band subtle-band">
-                <label className="field-inline grow">
-                  Request / item
-                  <input className="input" value={draftItem} placeholder="Type item, source code, note, or shorthand" onChange={(event) => setDraftItem(event.target.value)} onKeyDown={(event) => {
-                    if (event.key === 'Enter') void addDraftLine();
-                  }} />
-                </label>
-                <label className="field-inline">
-                  Qty
-                  <input className="input compact" value={draftQty} inputMode="decimal" onChange={(event) => setDraftQty(event.target.value)} />
-                </label>
-                <button className="primary-button" type="button" disabled={!selectedOrder || !draftItem.trim()} onClick={addDraftLine}>
-                  Add sale line
+            <ShadowModeBanner />
+            {showCreditIndicator && !isIndicatorDismissed && engineRecommendation != null ? (
+              <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+                <span>
+                  ⓘ Engine recommends a lower limit for this customer ({formatMoney(engineRecommendation)}). Order is OK against current manual limit ({formatMoney(manualLimit)}).
+                </span>
+                <button
+                  type="button"
+                  className="font-medium text-amber-700 hover:text-amber-900"
+                  onClick={() => {
+                    setDismissedCreditIndicators((prev) => {
+                      const next = new Set(prev);
+                      next.add(indicatorKey);
+                      return next;
+                    });
+                  }}
+                >
+                  Dismiss
                 </button>
-                {orderLines.data?.length ? <button className="secondary-button" type="button" onClick={() => exportCustomerOffer(orderLines.data ?? [])}>
-                  Copy/export customer offer
-                </button> : null}
-              </div> : null}
+              </div>
+            ) : null}
+            {canWrite ? <div className="control-band subtle-band mt-3">
+              <label className="field-inline grow">
+                Request / item
+                <input className="input" value={draftItem} placeholder="Type item, source code, note, or shorthand" onChange={(event) => setDraftItem(event.target.value)} onKeyDown={(event) => {
+                  if (event.key === 'Enter') void addDraftLine();
+                }} />
+              </label>
+              <label className="field-inline">
+                Qty
+                <input className="input compact" value={draftQty} inputMode="decimal" onChange={(event) => setDraftQty(event.target.value)} />
+              </label>
+              <button className="primary-button" type="button" disabled={!selectedOrder || !draftItem.trim()} onClick={addDraftLine}>
+                Add sale line
+              </button>
+              {orderLines.data?.length ? <button className="secondary-button" type="button" onClick={() => exportCustomerOffer(orderLines.data ?? [])}>
+                Copy/export customer offer
+              </button> : null}
+            </div> : null}
+            <div className="mt-3">
               <OperatorGrid
                 view="sales"
                 title="Customer Draft Lines"
@@ -512,40 +605,45 @@ export function SalesView() {
                 expansionConfig={canWrite ? salesLineExpansionConfig : undefined}
               />
             </div>
-            <div className="grid gap-2 text-sm">
-              <div className="section-title">Recent customer context</div>
-              {(workspace.data?.orders ?? []).slice(0, 4).map((order) => (
-                <div className="activity-row" key={order.id}>
-                  <span>{order.orderNo}</span>
-                  <span>{order.status}</span>
-                  <span>${moneyish(order.total)}</span>
-                </div>
-              ))}
-              {(workspace.data?.invoices ?? []).slice(0, 4).map((invoice) => (
-                <div className="activity-row" key={invoice.id}>
-                  <span>{invoice.invoiceNo}</span>
-                  <span>{invoice.status}</span>
-                  <span>${moneyish(Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0))} open</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </WorkspacePanel>
-      ) : null}
-      <div className="grid min-h-[420px] grid-cols-1 gap-3 xl:grid-cols-[0.9fr_1.1fr]">
+          </WorkspacePanel>
+        </div>
+      ) : (
+        <div className="grid min-h-[420px] grid-cols-1 gap-3 xl:grid-cols-[0.9fr_1.1fr]">
+          <OperatorGrid
+            view="sales"
+            title="Sales Orders"
+            rows={(orders.data ?? []) as GridRow[]}
+            columns={visibleOrderColumns}
+            loading={orders.isLoading && !customerId}
+            onSelectionChange={(selection) => setSelectedRows('sales', selection)}
+            emptyTitle="No open sales shown"
+            emptyChildren="Choose a customer to start."
+            expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
+          />
+          <SalesSourcePane
+            customerId={customerId}
+            selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''}
+            addedBatchIds={addedBatchIds}
+            initialSearch={salesRequestText}
+            onAddBatch={addFinderBatch}
+          />
+        </div>
+      )}
+
+      {customerId ? (
         <OperatorGrid
           view="sales"
-        title="Sales Orders"
-        rows={(orders.data ?? []) as GridRow[]}
-        columns={visibleOrderColumns}
-        loading={orders.isLoading && !customerId}
-        onSelectionChange={(selection) => setSelectedRows('sales', selection)}
-        emptyTitle="No open sales shown"
-        emptyChildren={customerId ? 'No lines yet.' : 'Choose a customer to start.'}
-        expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
-      />
-        <InventoryFinderPanel selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''} focusKey={customerId} addedBatchIds={addedBatchIds} initialSearch={salesRequestText} onAddBatch={addFinderBatch} />
-      </div>
+          title="Sales Orders"
+          rows={(orders.data ?? []) as GridRow[]}
+          columns={visibleOrderColumns}
+          loading={orders.isLoading}
+          onSelectionChange={(selection) => setSelectedRows('sales', selection)}
+          emptyTitle="No open sales shown"
+          emptyChildren="No lines yet."
+          expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
+        />
+      ) : null}
+
       {customerId ? <div className="min-h-[340px]">
         <OperatorGrid
           view="sales"
@@ -563,7 +661,7 @@ export function SalesView() {
               <div className="font-semibold text-ink">{String(row.name)}</div>
               <div className="text-zinc-600">{String(row.category)} · {String(row.availableQty)} available</div>
               <div className="mt-2 font-medium">${String(row.unitPrice)}</div>
-              {sheetMode === 'internal' && showMargin ? <div className="text-xs text-zinc-500" data-testid="sheet-cost-margin">Cost ${String(row.unitCost)} · margin ${String(row.estimatedMargin)}</div> : null}
+              {showMargin && sheetMode === 'internal' ? <div className="text-xs text-zinc-500" data-testid="sheet-cost-margin">Cost ${String(row.unitCost)} · margin ${String(row.estimatedMargin)}</div> : null}
               {sheetMode === 'internal' ? <div className="text-xs text-zinc-500">{String(row.reason)}</div> : null}
             </div>
           ))}
@@ -571,11 +669,6 @@ export function SalesView() {
       </WorkspacePanel> : null}
     </div>
   );
-}
-
-function csvValue(value: unknown) {
-  const raw = value == null ? '' : Array.isArray(value) ? value.join('|') : String(value);
-  return /[",\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
 }
 
 function exportCustomerOffer(rows: GridRow[]) {
@@ -587,7 +680,7 @@ function exportCustomerOffer(rows: GridRow[]) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'terp-agro-customer-offer.csv';
+  link.download = 'terp-operator-customer-offer.csv';
   link.click();
   URL.revokeObjectURL(url);
 }

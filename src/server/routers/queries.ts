@@ -6,6 +6,7 @@ import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
+import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
 import { paymentProcessors, processorFees } from '../schema';
 
 // Exported so the HTTP CSV export route (`/api/export/:view.csv`, see #35
@@ -272,12 +273,19 @@ export const queriesRouter = router({
                 coalesce(sol.display_name, i.alias, sol.item_name) as "displayName",
                 i.alias as "itemAlias",
                 sol.qty, sol.unit_price as "unitPrice", sol.unit_cost as "unitCost",
-                sol.unit_cost_resolved as "unitCostResolved", sol.landed_cost_basis as "landedCostBasis",
+                -- Issue #64: cost-range / below-floor / vendor-approval projection.
+                sol.unit_cost_resolved as "unitCostResolved",
+                sol.landed_cost_basis as "landedCostBasis",
+                sol.landed_cost_reason as "landedCostReason",
+                sol.price_floor as "priceFloor",
+                sol.below_floor_reason as "belowFloorReason",
+                sol.below_floor_note as "belowFloorNote",
+                sol.vendor_approval_state as "vendorApprovalState",
                 sol.source_row_key as "sourceRowKey", sol.unresolved_source_text as "unresolvedSourceText",
                 sol.legacy_status_marker as "legacyStatusMarker", sol.packed, sol.inventory_posted as "inventoryPosted",
                 sol.payment_followup as "paymentFollowup", sol.validation_issues as "validationIssues", sol.status,
-                b.available_qty as "availableQty", b.legacy_marker as "legacyMarker", b.price_range as "priceRange",
-                b.category as "batchCategory",
+                 b.available_qty as "availableQty", b.legacy_marker as "legacyMarker", b.price_range as "priceRange",
+                 b.category as "batchCategory",
                 b.media_status as "mediaStatus", v.name as vendor
          from sales_order_lines sol
          left join batches b on b.id = sol.batch_id
@@ -312,7 +320,13 @@ export const queriesRouter = router({
         `select so.id, so.order_no as "orderNo", so.status, so.total, so.internal_margin as "internalMargin",
                 so.delivery_window as "deliveryWindow", so.notes, so.packed, so.inventory_posted as "inventoryPosted",
                 so.payment_followup as "paymentFollowup", so.legacy_status_markers as "legacyStatusMarkers",
-                so.validation_issues as "validationIssues", so.created_at as "createdAt"
+                so.validation_issues as "validationIssues", so.created_at as "createdAt",
+                -- Issue #64: order-level exception rollup so the Sales workspace can
+                -- show vendor approval / waived margin / loss recognized without
+                -- re-aggregating every line on read.
+                so.vendor_approval_pending as "vendorApprovalPending",
+                so.margin_waived_total as "marginWaivedTotal",
+                so.loss_recognized_total as "lossRecognizedTotal"
          from sales_orders so
          where so.customer_id = $1 and so.status not in ('archived')
          order by so.created_at desc
@@ -328,6 +342,93 @@ export const queriesRouter = router({
     ]);
     return { customer: customer.rows[0], orders: orders.rows, invoices: invoices.rows, payments: payments.rows, recentCommands: recentCommands.rows };
   }),
+  // Issue #61: Customer purchase history — line-level prior sales for the
+  // selected customer with derived payment terms (computed as Net N days from
+  // invoice.due_date - sales_orders.created_at) and payment status (from
+  // invoices.status, or 'unbilled' when no invoice yet).
+  customerPurchaseHistory: protectedProcedure
+    .input(z.object({ customerId: z.string().uuid(), limit: z.number().int().positive().max(500).default(200) }))
+    .query(async ({ input }) => {
+      return (
+        await pool.query(
+          `select
+              sol.id,
+              sol.order_id as "orderId",
+              so.order_no as "orderNo",
+              so.status as "orderStatus",
+              so.created_at as "createdAt",
+              coalesce(i.alias, sol.display_name) as "itemAlias",
+              sol.item_name as "itemName",
+              sol.display_name as "displayName",
+              b.batch_code as "batchCode",
+              b.category as "category",
+              v.name as vendor,
+              sol.unit_price as "unitPrice",
+              sol.qty as "qty",
+              coalesce(
+                case
+                  when inv.due_date is not null
+                    then 'Net ' || greatest(0, (extract(day from (inv.due_date - so.created_at)))::int)::text
+                end,
+                'TBD'
+              ) as "paymentTerms",
+              coalesce(inv.status, 'unbilled') as "paymentStatus"
+            from sales_order_lines sol
+            join sales_orders so on so.id = sol.order_id
+            left join batches b on b.id = sol.batch_id
+            left join items i on i.id = b.item_id
+            left join vendors v on v.id = b.vendor_id
+            left join lateral (
+              select status, due_date from invoices
+              where invoices.order_id = so.id
+              order by created_at desc
+              limit 1
+            ) inv on true
+            where so.customer_id = $1
+              and so.status not in ('archived', 'cancelled')
+            order by so.created_at desc, sol.created_at
+            limit $2`,
+          [input.customerId, input.limit]
+        )
+      ).rows;
+    }),
+  // Issue #62: Recent customer sheet snapshots. Returns metadata only — open a
+  // snapshot via customerSheetSnapshotById to fetch rowsJson.
+  recentCustomerSheets: protectedProcedure
+    .input(z.object({ customerId: z.string().uuid(), limit: z.number().int().positive().max(100).default(25) }))
+    .query(async ({ input }) => {
+      return (
+        await pool.query(
+          `select id, customer_id as "customerId", mode, actor_id as "actorId", actor_name as "actorName",
+                  item_count as "itemCount", notes, created_at as "createdAt"
+           from customer_sheet_snapshots
+           where customer_id = $1
+           order by created_at desc
+           limit $2`,
+          [input.customerId, input.limit]
+        )
+      ).rows;
+    }),
+  // Issue #62 (reviewer fix): require both id AND customerId in the input and
+  // filter on both so a snapshot cannot be opened outside the customer the
+  // caller intends. The read-side `getViewerSafeSnapshot` then strips any
+  // rogue cost/margin fields that may have crept into rows_json (defense in
+  // depth against historical writes) and refuses to return internal-mode
+  // snapshots to viewer-role users.
+  customerSheetSnapshotById: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), customerId: z.string().uuid() }))
+    .query(async ({ input, ctx }) => {
+      const result = await pool.query(
+        `select id, customer_id as "customerId", mode, actor_id as "actorId", actor_name as "actorName",
+                item_count as "itemCount", rows_json as "rows", notes, created_at as "createdAt"
+         from customer_sheet_snapshots
+         where id = $1 and customer_id = $2
+         limit 1`,
+        [input.id, input.customerId]
+      );
+      const raw = result.rows[0] ?? null;
+      return getViewerSafeSnapshot(raw, ctx.user?.role ?? null);
+    }),
   receiptPreview: protectedProcedure.input(z.object({ batchIds: z.array(z.string().uuid()).min(1) })).query(async ({ input }) => {
     const rows = (
       await pool.query(

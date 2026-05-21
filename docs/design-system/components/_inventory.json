@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-20T04:58:40.122Z",
-  "componentCount": 38,
+  "generated": "2026-05-21T05:53:51.336Z",
+  "componentCount": 51,
   "byCategory": {
     "form": 8,
     "navigation": 6,
-    "drawer": 11,
-    "grid": 8,
-    "other": 4,
+    "drawer": 17,
+    "grid": 10,
+    "other": 9,
     "hook": 1
   },
   "components": [
@@ -36,6 +36,14 @@
       ]
     },
     {
+      "name": "CustomerPurchaseHistoryPanel",
+      "path": "src/client/components/CustomerPurchaseHistoryPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "CustomerPurchaseHistoryPanel"
+      ]
+    },
+    {
       "name": "DeactivateRefereeRelationshipDialog",
       "path": "src/client/components/DeactivateRefereeRelationshipDialog.tsx",
       "category": "form",
@@ -44,11 +52,27 @@
       ]
     },
     {
+      "name": "DefaultPricingPanel",
+      "path": "src/client/components/DefaultPricingPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "DefaultPricingPanel"
+      ]
+    },
+    {
       "name": "EmptyState",
       "path": "src/client/components/EmptyState.tsx",
       "category": "grid",
       "exports": [
         "EmptyState"
+      ]
+    },
+    {
+      "name": "ErrorBoundary",
+      "path": "src/client/components/ErrorBoundary.tsx",
+      "category": "other",
+      "exports": [
+        "ErrorBoundary"
       ]
     },
     {
@@ -126,6 +150,16 @@
       ]
     },
     {
+      "name": "OperatorGrid.csvExport",
+      "path": "src/client/components/OperatorGrid.csvExport.ts",
+      "category": "grid",
+      "exports": [
+        "RESTRICTED_VIEWER_COLUMNS",
+        "buildCsvExportOptions",
+        "isRestrictedColumnForRole"
+      ]
+    },
+    {
       "name": "OperatorGrid",
       "path": "src/client/components/OperatorGrid.tsx",
       "category": "grid",
@@ -139,6 +173,15 @@
       "category": "drawer",
       "exports": [
         "PhotographyQueuePanel"
+      ]
+    },
+    {
+      "name": "PricingPanel",
+      "path": "src/client/components/PricingPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "CustomerPricingPanel",
+        "OrderPricingPanel"
       ]
     },
     {
@@ -163,6 +206,15 @@
       "category": "grid",
       "exports": [
         "QuickLedgerGrid"
+      ]
+    },
+    {
+      "name": "RecentSheetsPanel",
+      "path": "src/client/components/RecentSheetsPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "CustomerSheetSnapshotSummary",
+        "RecentSheetsPanel"
       ]
     },
     {
@@ -235,6 +287,22 @@
       "category": "drawer",
       "exports": [
         "RowCommandHistoryDrawer"
+      ]
+    },
+    {
+      "name": "SaleLineExceptionControls",
+      "path": "src/client/components/SaleLineExceptionControls.tsx",
+      "category": "other",
+      "exports": [
+        "SaleLineExceptionControls"
+      ]
+    },
+    {
+      "name": "SalesSourcePane",
+      "path": "src/client/components/SalesSourcePane.tsx",
+      "category": "other",
+      "exports": [
+        "SalesSourcePane"
       ]
     },
     {
@@ -312,10 +380,74 @@
       ]
     },
     {
+      "name": "CustomerCreditPanel",
+      "path": "src/client/components/credit/CustomerCreditPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "CustomerCreditPanel"
+      ]
+    },
+    {
+      "name": "EditCreditLimitModal",
+      "path": "src/client/components/credit/EditCreditLimitModal.tsx",
+      "category": "other",
+      "exports": [
+        "EditCreditLimitModal",
+        "EditCreditLimitModalProps"
+      ]
+    },
+    {
+      "name": "ShadowModeBanner",
+      "path": "src/client/components/credit/ShadowModeBanner.tsx",
+      "category": "other",
+      "exports": [
+        "ShadowModeBanner"
+      ]
+    },
+    {
+      "name": "creditPanelUtils",
+      "path": "src/client/components/credit/creditPanelUtils.ts",
+      "category": "drawer",
+      "exports": [
+        "CreditEngineConfig",
+        "CreditEngineStance",
+        "CreditEngineWeights",
+        "SignalBucket",
+        "SignalConfidence",
+        "bucketSignal",
+        "classifyDelta",
+        "formatDateish",
+        "formatMoney",
+        "formatWeightsSummary",
+        "progressGlyph",
+        "shouldShowSalesCreditIndicator"
+      ]
+    },
+    {
+      "name": "gridFilterUtils",
+      "path": "src/client/components/gridFilterUtils.ts",
+      "category": "grid",
+      "exports": [
+        "ColumnStateLike",
+        "FilterChip",
+        "ParsedGridFilter",
+        "applyGridFilter",
+        "columnIdentities",
+        "columnStateToPrefs",
+        "filterChips",
+        "mergeColumnDefsWithPrefs",
+        "parseGridFilter",
+        "removeFilterChip",
+        "serializeGridFilter"
+      ]
+    },
+    {
       "name": "useCommandRunner",
       "path": "src/client/components/useCommandRunner.ts",
       "category": "hook",
       "exports": [
+        "buildAffectedQueryPredicate",
+        "invalidateAffectedQueries",
         "useCommandRunner"
       ]
     }

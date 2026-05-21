@@ -12,7 +12,7 @@ import type { GridRow } from '../../shared/types';
 // Note: this only affects the in-app operator grid. The customer-facing CSV
 // exports (PR #80 / #15) strip cost/margin independently — see
 // `SalesView.csvExport.ts` and its regression tests.
-export const MARGIN_COLUMN_FIELDS = ['unitCost', 'internalMargin', 'estimatedMargin'] as const;
+export const MARGIN_COLUMN_FIELDS = ['unitCost', 'internalMargin', 'estimatedMargin', 'rangeBadge'] as const;
 
 const MARGIN_FIELD_SET = new Set<string>(MARGIN_COLUMN_FIELDS);
 
