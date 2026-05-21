@@ -83,6 +83,12 @@ import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
 import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import { photoUploadTokens } from '../schema';
+import {
+  createFinalizedSnapshotForPurchaseOrder,
+  voidActiveSnapshotForPurchaseOrder,
+  saveOrUpdateDraftSnapshotForPurchaseOrder,
+  abandonDraftSnapshotForPurchaseOrder
+} from './documentSnapshots/snapshotService';
 import { createHash, randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
@@ -610,12 +616,47 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
       return revokePhotoUploadTokenCommand(tx, payload, commandId);
-    // Tranche 1 receipt draft commands — handler implementations land in Task 12 (#113)
     case 'saveDraftPurchaseOrderReceipt':
-      throw new Error('saveDraftPurchaseOrderReceipt handler not yet implemented (Task 12 #113).');
+      return saveDraftPurchaseOrderReceiptHandler(tx, payload, commandId);
     case 'abandonDraftPurchaseOrderReceipt':
-      throw new Error('abandonDraftPurchaseOrderReceipt handler not yet implemented (Task 12 #113).');
+      return abandonDraftPurchaseOrderReceiptHandler(tx, payload, commandId);
   }
+}
+
+async function saveDraftPurchaseOrderReceiptHandler(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [po] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!po) throw new Error('Purchase order not found.');
+  if (po.status !== 'draft') {
+    return {
+      ok: false,
+      commandId,
+      affectedIds: [purchaseOrderId],
+      toast: 'Draft receipts can only be saved for draft purchase orders.'
+    };
+  }
+  const { snapshotId, created } = await saveOrUpdateDraftSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
+  void snapshotId;
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [purchaseOrderId],
+    toast: created ? `${po.poNo} draft receipt saved.` : `${po.poNo} draft receipt updated.`
+  };
+}
+
+async function abandonDraftPurchaseOrderReceiptHandler(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [po] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!po) throw new Error('Purchase order not found.');
+  const { voidedId } = await abandonDraftSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
+  void voidedId;
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [purchaseOrderId],
+    toast: voidedId ? `${po.poNo} draft receipt abandoned.` : `${po.poNo} had no draft receipt.`
+  };
 }
 
 async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1149,11 +1190,20 @@ async function finalizePurchaseOrder(tx: Tx, payload: Payload, userId: string, c
     updatedAt: new Date()
   }).where(eq(purchaseOrders.id, purchaseOrderId));
 
+  // Side effect: write/consume the document_snapshots row for this PO. If
+  // the projection throws, the surrounding executeCommand transaction is
+  // rolled back, so the PO status update above is reverted too — no orphan
+  // snapshot or half-finalized PO can be left behind.
+  const { snapshotId, version, consumedDraftId } =
+    await createFinalizedSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
+  void snapshotId;
+  void consumedDraftId;
+
   return {
     ok: true,
     commandId,
     affectedIds: [purchaseOrderId],
-    toast: `${order.poNo} finalized and ready for approval.`
+    toast: `${order.poNo} finalized and ready for approval. Receipt v${version} saved.`
   };
 }
 
@@ -1171,13 +1221,32 @@ async function unfinalizePurchaseOrder(tx: Tx, payload: Payload, commandId: stri
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
   if (!order) throw new Error('Purchase order not found.');
-  if (order.status !== 'finalized') throw new Error('Only finalized purchase orders can be returned to draft.');
+  if (order.status === 'draft') {
+    // Idempotent no-op: a PO already in draft with no active snapshot
+    // (e.g. a legacy PO from before the receipt-snapshot system) safely
+    // succeeds without touching state.
+    return {
+      ok: true,
+      commandId,
+      affectedIds: [purchaseOrderId],
+      toast: `${order.poNo} is already in draft.`
+    };
+  }
+  if (order.status !== 'finalized') {
+    throw new Error('Only finalized purchase orders can be returned to draft.');
+  }
 
   await tx.update(purchaseOrders).set({
     status: 'draft',
     finalizedAt: null,
     updatedAt: new Date()
   }).where(eq(purchaseOrders.id, purchaseOrderId));
+
+  // Side effect: void the active finalized snapshot so an "unfinalize then
+  // edit then refinalize" loop yields v2 finalized + v1 void (NOT
+  // superseded). Legacy POs without a snapshot row are a no-op.
+  const { voidedId } = await voidActiveSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
+  void voidedId;
 
   return {
     ok: true,

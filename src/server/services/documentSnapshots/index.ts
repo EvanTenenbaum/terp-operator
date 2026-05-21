@@ -9,14 +9,18 @@ export interface ProjectionModule {
   renderPlainTextInternal: (internal: Record<string, unknown>) => string;
 }
 
+// Getters route every property access through the live `poProjection` module
+// namespace so tests can `vi.spyOn(poProjection, 'projectExternal')` and have
+// the spy take effect in production callers. Without getters, REGISTRY would
+// freeze the original function reference at module-load time.
 const REGISTRY: Partial<Record<DocumentType, ProjectionModule>> = {
   purchase_order: {
-    EXTERNAL_FIELDS: poProjection.EXTERNAL_FIELDS,
-    PROJECTION_VERSION: poProjection.PROJECTION_VERSION,
-    projectExternal: poProjection.projectExternal,
-    renderPlainTextExternal: poProjection.renderPlainTextExternal,
-    renderPlainTextInternal: poProjection.renderPlainTextInternal
-  }
+    get EXTERNAL_FIELDS() { return poProjection.EXTERNAL_FIELDS; },
+    get PROJECTION_VERSION() { return poProjection.PROJECTION_VERSION; },
+    get projectExternal() { return poProjection.projectExternal; },
+    get renderPlainTextExternal() { return poProjection.renderPlainTextExternal; },
+    get renderPlainTextInternal() { return poProjection.renderPlainTextInternal; }
+  } as ProjectionModule
 };
 
 export function hasProjectionFor(documentType: DocumentType): boolean {

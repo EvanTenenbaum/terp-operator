@@ -26,6 +26,10 @@ export interface InMemoryState {
   documentSnapshots: Array<Record<string, unknown>>;
   commandJournal: Array<Record<string, unknown>>;
   advisoryLocks: string[];
+  // Catch-all for tables the mock does not model explicitly. Writes are
+  // accepted (so production code paths that touch peripheral tables do not
+  // crash), and reads return empty rows.
+  _dynamic?: Record<string, Array<Record<string, unknown>>>;
 }
 
 export function createInMemoryState(): InMemoryState {
@@ -36,6 +40,7 @@ export function createInMemoryState(): InMemoryState {
     documentSnapshots: [],
     commandJournal: [],
     advisoryLocks: [],
+    _dynamic: {},
   };
 }
 
@@ -46,6 +51,11 @@ export function resetInMemoryState(state: InMemoryState): void {
   state.documentSnapshots.length = 0;
   state.commandJournal.length = 0;
   state.advisoryLocks.length = 0;
+  if (state._dynamic) {
+    for (const key of Object.keys(state._dynamic)) delete state._dynamic[key];
+  } else {
+    state._dynamic = {};
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -68,8 +78,16 @@ function getStateArray(
       return state.documentSnapshots;
     case 'command_journal':
       return state.commandJournal;
-    default:
-      throw new Error(`inMemoryDbMock: unsupported table: ${String(name)}`);
+    default: {
+      // Dynamic fallback: peripheral tables (batches, invoices, etc.) used
+      // by commandBus.snapshotByAffectedIds() get a transparent empty bucket
+      // so writes succeed and reads return [] without forcing every test to
+      // model the full schema.
+      if (!state._dynamic) state._dynamic = {};
+      const key = String(name);
+      if (!state._dynamic[key]) state._dynamic[key] = [];
+      return state._dynamic[key];
+    }
   }
 }
 
@@ -322,20 +340,60 @@ function buildOps(state: InMemoryState) {
           | Record<string, unknown>
           | Array<Record<string, unknown>>,
       ) {
-        return {
-          returning(): Promise<Array<Record<string, unknown>>> {
-            const arr = getStateArray(state, table);
-            const rows = Array.isArray(val) ? val : [val];
-            const stamped = rows.map((r) => ({
+        let conflictTargetCol: string | null = null;
+        let conflictHandled = false;
+
+        function doInsert(): Array<Record<string, unknown>> {
+          const arr = getStateArray(state, table);
+          const rows = Array.isArray(val) ? val : [val];
+          if (conflictHandled && conflictTargetCol) {
+            // Skip rows whose conflict-target column matches an existing row.
+            const camelKey = snakeToCamel(conflictTargetCol);
+            const accepted: Array<Record<string, unknown>> = [];
+            for (const r of rows) {
+              const valKey = camelKey in r ? camelKey : conflictTargetCol in r ? conflictTargetCol : camelKey;
+              const candidate = r[valKey];
+              const exists = arr.some((existing) => {
+                const existingKey = camelKey in existing ? camelKey : conflictTargetCol! in existing ? conflictTargetCol! : camelKey;
+                return existing[existingKey] === candidate;
+              });
+              if (!exists) accepted.push(r);
+            }
+            const stamped = accepted.map((r) => ({
               ...r,
               id: r.id ?? generateId(),
               createdAt: r.createdAt ?? new Date(),
               updatedAt: r.updatedAt ?? new Date(),
             }));
             arr.push(...stamped);
-            return Promise.resolve([...stamped]);
+            return stamped;
+          }
+          const stamped = rows.map((r) => ({
+            ...r,
+            id: r.id ?? generateId(),
+            createdAt: r.createdAt ?? new Date(),
+            updatedAt: r.updatedAt ?? new Date(),
+          }));
+          arr.push(...stamped);
+          return stamped;
+        }
+
+        const chain = {
+          onConflictDoNothing(opts?: { target?: unknown }) {
+            conflictHandled = true;
+            // Extract column name from the target column descriptor.
+            const target = opts?.target as Record<string, unknown> | undefined;
+            if (target && typeof target === 'object') {
+              const name = (target as Record<string, unknown>).name;
+              if (typeof name === 'string') conflictTargetCol = name;
+            }
+            return chain;
+          },
+          returning(): Promise<Array<Record<string, unknown>>> {
+            return Promise.resolve([...doInsert()]);
           },
         };
+        return chain;
       },
     };
   }
@@ -399,13 +457,67 @@ export function makeMockedDb(state: InMemoryState) {
   // that occurs when a transaction callback parameter is named `tx`.
   type TxHandle = typeof tx;
 
+  // Deep-clone every row in every table so transaction rollback can restore
+  // the pre-transaction state if the callback throws. Plain objects only —
+  // adequate for our seed shapes (dates and primitives copy by value).
+  function snapshotState(): {
+    purchaseOrders: Array<Record<string, unknown>>;
+    purchaseOrderLines: Array<Record<string, unknown>>;
+    vendors: Array<Record<string, unknown>>;
+    documentSnapshots: Array<Record<string, unknown>>;
+    commandJournal: Array<Record<string, unknown>>;
+    advisoryLocks: string[];
+    _dynamic: Record<string, Array<Record<string, unknown>>>;
+  } {
+    const cloneRows = (rows: Array<Record<string, unknown>>) =>
+      rows.map((r) => ({ ...r }));
+    const dyn: Record<string, Array<Record<string, unknown>>> = {};
+    if (state._dynamic) {
+      for (const [k, v] of Object.entries(state._dynamic)) dyn[k] = cloneRows(v);
+    }
+    return {
+      purchaseOrders: cloneRows(state.purchaseOrders),
+      purchaseOrderLines: cloneRows(state.purchaseOrderLines),
+      vendors: cloneRows(state.vendors),
+      documentSnapshots: cloneRows(state.documentSnapshots),
+      commandJournal: cloneRows(state.commandJournal),
+      advisoryLocks: [...state.advisoryLocks],
+      _dynamic: dyn,
+    };
+  }
+
+  function restoreState(snap: ReturnType<typeof snapshotState>): void {
+    state.purchaseOrders.length = 0;
+    state.purchaseOrders.push(...snap.purchaseOrders);
+    state.purchaseOrderLines.length = 0;
+    state.purchaseOrderLines.push(...snap.purchaseOrderLines);
+    state.vendors.length = 0;
+    state.vendors.push(...snap.vendors);
+    state.documentSnapshots.length = 0;
+    state.documentSnapshots.push(...snap.documentSnapshots);
+    state.commandJournal.length = 0;
+    state.commandJournal.push(...snap.commandJournal);
+    state.advisoryLocks.length = 0;
+    state.advisoryLocks.push(...snap.advisoryLocks);
+    if (!state._dynamic) state._dynamic = {};
+    for (const k of Object.keys(state._dynamic)) delete state._dynamic[k];
+    for (const [k, v] of Object.entries(snap._dynamic)) state._dynamic[k] = v;
+  }
+
   const db = {
     select: ops.select,
     insert: ops.insert,
     update: ops.update,
     execute: ops.execute,
-    transaction: async <T>(fn: (t: TxHandle) => Promise<T>): Promise<T> =>
-      fn(tx),
+    transaction: async <T>(fn: (t: TxHandle) => Promise<T>): Promise<T> => {
+      const snap = snapshotState();
+      try {
+        return await fn(tx);
+      } catch (e) {
+        restoreState(snap);
+        throw e;
+      }
+    },
   };
 
   return { db, tx };
