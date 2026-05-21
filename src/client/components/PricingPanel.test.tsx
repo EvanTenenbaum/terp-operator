@@ -269,6 +269,86 @@ describe('OrderPricingPanel', () => {
     expect(screen.queryByLabelText(/waive margin/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/take loss/i)).not.toBeInTheDocument();
   });
+
+  // #143: margin visibility gate — COGS/cost controls must follow the same
+  // privacy posture as the Sales grid cost/margin columns.
+  describe('showMargin prop (#143)', () => {
+    const lineWithRange = {
+      id: 'line-1',
+      itemName: 'Range A',
+      status: 'draft',
+      batchCategory: 'Flower',
+      qty: '2',
+      unitPrice: '0',
+      unitCost: '0',
+      unitCostResolved: false,
+      landedCostBasis: null,
+      priceRange: '50-100'
+    };
+
+    function setupMocks() {
+      referenceQueryMock.mockReturnValue({ data: { defaultPricingRule: {} } });
+      relationshipQueryMock.mockReturnValue({ data: { customer: { pricingRule: {} } } });
+    }
+
+    it('shows COGS range and pick buttons when showMargin is true (default)', () => {
+      linesQueryMock.mockReturnValue({ data: [lineWithRange], refetch: vi.fn() });
+      setupMocks();
+      render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} showMargin={true} />);
+      expect(screen.getByTestId('pick-low-line-1')).toBeInTheDocument();
+      expect(screen.getByTestId('pick-mid-line-1')).toBeInTheDocument();
+      expect(screen.getByTestId('pick-high-line-1')).toBeInTheDocument();
+      expect(screen.getByText(/COGS range/i)).toBeInTheDocument();
+    });
+
+    it('hides COGS range and pick buttons when showMargin is false', () => {
+      linesQueryMock.mockReturnValue({ data: [lineWithRange], refetch: vi.fn() });
+      setupMocks();
+      render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} showMargin={false} />);
+      expect(screen.queryByTestId('pick-low-line-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pick-mid-line-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pick-high-line-1')).not.toBeInTheDocument();
+      expect(screen.queryByText(/COGS range/i)).not.toBeInTheDocument();
+    });
+
+    it('still shows item name and non-cost details when showMargin is false', () => {
+      linesQueryMock.mockReturnValue({ data: [lineWithRange], refetch: vi.fn() });
+      setupMocks();
+      render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} showMargin={false} />);
+      expect(screen.getByText('Range A')).toBeInTheDocument();
+      expect(screen.getByText(/unit price/i)).toBeInTheDocument();
+    });
+
+    it('hides custom cost input, below-range picker, and projected exception chip when showMargin is false', () => {
+      linesQueryMock.mockReturnValue({
+        data: [
+          {
+            ...lineWithRange,
+            landedCostExceptionReason: 'vendor_approval_pending',
+            landedCostExceptionNote: 'Awaiting buyer confirmation',
+            landedCostExceptionRangeLow: null,
+            landedCostExceptionRangeHigh: null
+          }
+        ],
+        refetch: vi.fn()
+      });
+      setupMocks();
+      render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} showMargin={false} />);
+      expect(screen.queryByTestId('pick-custom-input-line-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pick-custom-line-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pick-custom-below-range-line-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pick-custom-exception-reason-line-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pricing-line-exception-chip-line-1')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/vendor approval pending/i)).not.toBeInTheDocument();
+    });
+
+    it('defaults to showMargin=true when the prop is omitted', () => {
+      linesQueryMock.mockReturnValue({ data: [lineWithRange], refetch: vi.fn() });
+      setupMocks();
+      render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} />);
+      expect(screen.getByTestId('pick-low-line-1')).toBeInTheDocument();
+    });
+  });
 });
 
 describe('CustomerPricingPanel', () => {
