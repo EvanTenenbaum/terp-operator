@@ -25,6 +25,12 @@ jobs:
       # without a database — they stub pool.query.
       - run: pnpm exec vitest run src/server/routers/credit.negativeRoles.test.ts
       - run: pnpm exec vitest run src/server/services/creditEngine/metrics.test.ts
+      # #133 — commandBus idempotency / journal-tx contract gate. PR #92
+      # established atomic idempotency; PR #128 added 4 regressions for
+      # post-commit observer isolation. Without an explicit pin these tests
+      # were invisible to CI on green main, giving false confidence on
+      # journal/command-bus changes. Stubbed (no DB).
+      - run: pnpm exec vitest run src/server/services/commandBus.idempotency.test.ts
       - run: pnpm build
       # #34 — a11y sweep CI gate. Runs @axe-core/playwright against
       # dashboard, matchmaking, and inventory; fails the build on any
