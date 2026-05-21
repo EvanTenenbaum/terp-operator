@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-21T05:53:51.336Z",
-  "componentCount": 51,
+  "generated": "2026-05-21T23:52:47.453Z",
+  "componentCount": 53,
   "byCategory": {
     "form": 8,
     "navigation": 6,
-    "drawer": 17,
+    "drawer": 18,
     "grid": 10,
-    "other": 9,
+    "other": 10,
     "hook": 1
   },
   "components": [
@@ -133,6 +133,17 @@
       ]
     },
     {
+      "name": "LandedCostExceptionChip",
+      "path": "src/client/components/LandedCostExceptionChip.tsx",
+      "category": "other",
+      "exports": [
+        "LANDED_COST_EXCEPTION_REASON_LABELS",
+        "LANDED_COST_EXCEPTION_REASON_SHORT_LABELS",
+        "LandedCostExceptionCellRenderer",
+        "LandedCostExceptionChip"
+      ]
+    },
+    {
       "name": "MediaDetailPanel",
       "path": "src/client/components/MediaDetailPanel.tsx",
       "category": "drawer",
@@ -206,6 +217,14 @@
       "category": "grid",
       "exports": [
         "QuickLedgerGrid"
+      ]
+    },
+    {
+      "name": "ReceiptPanel",
+      "path": "src/client/components/ReceiptPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ReceiptPanel"
       ]
     },
     {
