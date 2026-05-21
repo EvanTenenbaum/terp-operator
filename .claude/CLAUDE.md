@@ -6,6 +6,14 @@ CRITICAL: Verify you are in the TERP Operator repo before any work.
 - Valid linked worktrees or legacy local paths are acceptable when the git remote resolves to `EvanTenenbaum/terp-operator`
 - If the remote is any other TERP-like repo, STOP and confirm
 
+## Where work lives
+
+TERP Operator uses three systems:
+
+1. **Linear** — product execution source of truth. Workspace `terpcorp`, team `Terpcorp` (key `TER`). Project: TERP Operator — https://linear.app/terpcorp/project/terp-operator-cea015fac801. Every issue anchors to a registry ID (`CAP-001`..`CAP-029`) or command family ID (`CMD-INTAKE`, `CMD-PO`, `CMD-SALES`, `CMD-POSTING`, `CMD-PAYMENTS`, `CMD-VENDOR`, `CMD-FULFILLMENT`, `CMD-CONNECTOR`, `CMD-RECOVERY`, `CMD-CLOSEOUT`, `CMD-TAGS`, `CMD-MATCHMAKING`).
+2. **In-session TODOs** — ephemeral session working memory only. Use to decompose a Linear issue into steps. Never persist elsewhere.
+3. **GitHub Issues** — repo-level bugs/problems only (CI breakage, flaky tests, dependency/security advisories, regressions, small known bugs). Features/capabilities go to Linear + registry/roadmap docs.
+
 ## Startup Protocol
 1. Verify correct repo via git remote
 2. Check PM bundle freshness (if docs/agent-context exists)
@@ -145,7 +153,7 @@ This triggers the full pipeline: Research → Plan → Design Review Gate → Wo
 | `/self-reflect` | Extract learnings after a PR merge |
 | `/handle-pr-comments` | Handle PR review comments |
 | `/brainstorm` | Refine an idea before implementation |
-| `/create-issue` | Create a well-structured GitHub Issue for known issues, bugs, and problems only. Features and capabilities go in `docs/roadmap/`. |
+| `/create-issue` | Create a well-structured GitHub Issue for repo-level bugs and problems only. Features and capabilities go to Linear + registry/roadmap docs. |
 | `/external-tools-health` | Check status of external AI tools (Codex, Gemini) |
 | `/setup` | Interactive guided setup — detects project, configures metaswarm |
 | `/update` | Update metaswarm to latest version |
@@ -159,10 +167,9 @@ Use the `visual-review` skill to take screenshots of web pages, presentations, o
 ## Testing
 
 - **TDD is mandatory** — Write tests first, watch them fail, then implement
-- **100% test coverage required** — Lines, branches, functions, and statements. Enforced via `.coverage-thresholds.json` as a blocking gate before PR creation and task completion
-<!-- TODO: Update these commands for your project's test runner -->
-- Test command: `npm test`
-- Coverage command: `npm run test:coverage`
+- `.coverage-thresholds.json` is the repo-wide coverage floor. Focused subsystems may enforce stricter thresholds (e.g. credit engine).
+- Test command: `pnpm test`
+- Coverage command: `pnpm run test:coverage`
 
 ## Coverage
 
@@ -276,6 +283,8 @@ Approved plans, project context, and execution state are persisted to `.beads/` 
 - **Approved plans** → `.beads/plans/active-plan.md` (written after plan review gate + user approval)
 - **Project context** → `.beads/context/project-context.md` (updated after each work unit commit)
 - **Execution state** → `.beads/context/execution-state.md` (updated after each phase transition)
+
+> **Legacy note:** `.beads/` was previously used as a task tracker. That use is obsolete. Product execution status lives in Linear. In-session TODOs are ephemeral session working memory only. Use `.beads/` for plan/context recovery, not as a source of truth for task status.
 
 If an agent loses context mid-execution, it recovers by running `bd prime --work-type recovery`, which reloads the approved plan, completed work, and current position from disk. This eliminates the need to re-run expensive review gates after compaction.
 

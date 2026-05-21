@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '🎯 Terp Operator - AQA enabled' && git remote -v | grep -q 'terp-agro-operator-console' || echo '⚠️  WARNING: Not in Terp Operator repo!'"
+            "command": "echo '🎯 Terp Operator - AQA enabled' && git remote -v | grep -qE 'github\\.com[:/]EvanTenenbaum/terp-operator(\\.git)?([[:space:]]|$)' || echo '⚠️  WARNING: Not in Terp Operator repo!'"
           }
         ]
       }

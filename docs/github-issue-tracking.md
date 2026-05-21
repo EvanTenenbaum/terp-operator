@@ -1,8 +1,21 @@
 # GitHub Issue Tracking
 
-GitHub Issues are the TERP Operator source of truth for **bugs, runtime failures, data drift, test gaps, confusing UX, and other problems**.
+GitHub Issues are for **repo-level bugs and problems only**.
 
-They are **not** for feature development, sub-roadmaps, epics, or capability proposals. That work belongs in repo roadmap docs under `docs/roadmap/`.
+They are **not** for feature development, capabilities, epics, or roadmap items. That work lives in Linear (product execution) and the registry/roadmap docs (strategic kernel).
+
+## What belongs in GitHub Issues
+
+- Build or CI breakage
+- Flaky tests
+- Dependency or security advisories
+- Accidental regressions caught in code review
+- Small known bugs that do not fit a `CAP` or `CMD` registry ID
+
+## What does **not** belong in GitHub Issues
+
+- Features, capabilities, or command-family work → Linear + registry/roadmap docs
+- Product-shaped requests → close the GitHub Issue and reopen/track in Linear
 
 ## Issue Type
 
@@ -21,7 +34,7 @@ Use the `Known issue` form in `.github/ISSUE_TEMPLATE/known_issue.yml` so every 
 2. Classify before tracking:
 
    - Is this a bug, failure, gap, or problem? → Open a Known issue.
-   - Is this a feature, epic, or capability proposal? → Add or update a doc in `docs/roadmap/` instead.
+   - Is this a feature, epic, or capability proposal? → Add or update a registry row and create a Linear issue instead.
 
 3. Create with the Known issue form:
 
@@ -57,7 +70,7 @@ Use the `Known issue` form in `.github/ISSUE_TEMPLATE/known_issue.yml` so every 
 - Mark uncertain findings as `status:needs-triage`; do not silently bury them in chat.
 - If demo data drift causes a false failure, classify it as `fixture gap` in a Known issue.
 - If a test is missing for a real workflow, classify it as `coverage gap`.
-- If the app works as designed but the design is insufficient, classify it as `product gap`. A product gap tracks a shortfall in current behavior — not a proposal for new capability. If correcting the gap requires designing new functionality, route to `docs/roadmap/` instead.
+- If the app works as designed but the design is insufficient, classify it as `product gap`. A product gap tracks a shortfall in current behavior — not a proposal for new capability. If correcting the gap requires designing new functionality, route to Linear + registry/roadmap docs instead.
 - If the expectation was wrong or obsolete, classify it as `expectation gap`.
 
 ## Labels

@@ -2,7 +2,7 @@ blank_issues_enabled: false
 contact_links:
   - name: Report a bug or problem
     url: https://github.com/EvanTenenbaum/terp-operator/blob/main/docs/github-issue-tracking.md
-    about: Use GitHub Issues for bugs, runtime failures, data drift, test gaps, and confusing UX.
+    about: GitHub Issues are for repo-level bugs/problems such as CI/build breakage, flaky tests, dependency/security advisories, regressions, and small known bugs.
   - name: Propose a feature or capability
     url: https://github.com/EvanTenenbaum/terp-operator/blob/main/docs/roadmap/README.md
-    about: Feature work, epics, and sub-roadmaps belong in repo roadmap docs under docs/roadmap/.
+    about: Feature/capability work goes to Linear project TERP Operator anchored to a registry ID; update registry/roadmap docs for kernel or phase changes.

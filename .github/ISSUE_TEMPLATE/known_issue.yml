@@ -1,5 +1,5 @@
 name: Known issue
-description: Track confirmed or suspected bugs, runtime failures, confusing UX, data drift, or test gaps.
+description: Track repo-level bugs/problems such as CI/build breakage, flaky tests, dependency/security advisories, regressions, and small known bugs.
 title: "Known issue: "
 labels:
   - "tracking:known-issue"
@@ -40,10 +40,10 @@ body:
     id: classification
     attributes:
       label: Classification
-      description: Keep gap types distinct. A product gap is a shortfall in existing behavior — not a new feature proposal. If the work requires designing new functionality, use docs/roadmap/ instead of this form.
+      description: Keep gap types distinct. A product gap here is a small current-behavior bug/problem that does not require a new CAP/CMD. If the work requires designing new functionality, open a Linear issue under project TERP Operator anchored to a registry ID and update registry/roadmap docs instead of using this form.
       options:
         - runtime bug
-        - product gap
+        - product gap (small current-behavior bug/problem, not a new CAP/CMD)
         - fixture gap
         - coverage gap
         - expectation gap

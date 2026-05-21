@@ -1,10 +1,15 @@
-# Active Project: Terp Operator
+# Active Project: TERP Operator
 
-You are working in the **Terp Operator** repository (terp-agro-operator-console).
+You are working in the **TERP Operator** repository (canonical: `EvanTenenbaum/terp-operator`).
 
 **STOP CONDITIONS:**
-- If git remote does NOT mention `terp-agro-operator-console`, ASK before proceeding
+- If git remote does NOT mention `EvanTenenbaum/terp-operator` or `terp-operator`, ASK before proceeding
 - If you see paths like `terp-legacy`, `old-terp`, or other terp projects, CONFIRM workspace
+
+**Where work lives:**
+- Linear = product execution source of truth (terpcorp / Terpcorp / project TERP Operator).
+- GitHub Issues = repo-level bugs/problems only.
+- In-session TODOs = ephemeral decomposition only.
 
 **Every session:**
 1. Verify correct repo via git remote

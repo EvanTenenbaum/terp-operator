@@ -43,9 +43,25 @@ These repos are legacy/reference material unless Evan explicitly asks for work t
 
 If an old doc says `TERP Agro`, read it as historical context for TERP Operator unless the task is explicitly about archaeology, migration, or comparison with deprecated projects.
 
-## Issue vs Roadmap Split
+## Three-System Task Model
 
-For the distinction between GitHub Issues (bugs, problems, and known issues) and roadmap docs (features, epics, persistent initiatives), see [`docs/github-issue-tracking.md`](github-issue-tracking.md) and [`docs/roadmap/README.md`](roadmap/README.md).
+TERP Operator uses three distinct systems for work tracking:
+
+1. **Linear** — product execution source of truth.
+   Workspace: `terpcorp`, Team: `Terpcorp` (key `TER`).
+   Active project: **TERP Operator** — https://linear.app/terpcorp/project/terp-operator-cea015fac801
+   Every issue is anchored to a registry ID (`CAP-001`..`CAP-029`) or command family ID (`CMD-INTAKE`, `CMD-PO`, `CMD-SALES`, `CMD-POSTING`, `CMD-PAYMENTS`, `CMD-VENDOR`, `CMD-FULFILLMENT`, `CMD-CONNECTOR`, `CMD-RECOVERY`, `CMD-CLOSEOUT`, `CMD-TAGS`, `CMD-MATCHMAKING`).
+   Phase milestones map 1:1 to `docs/roadmap/phase-readiness/{phase}.md`.
+
+2. **In-session TODOs** — ephemeral OpenCode session working memory only.
+   Use to decompose a Linear issue into current-session steps. Never persist elsewhere; never treat as a product tracker.
+
+3. **GitHub Issues** — repo-level bugs and problems only.
+   Examples: CI breakage, flaky tests, dependency/security advisories, regressions, small known bugs that do not fit `CAP`/`CMD`.
+   Features/capabilities go to Linear + registry/roadmap docs, not GitHub Issues.
+   Product-shaped GitHub issues should be closed and reopened as Linear issues.
+
+For details, see [`docs/github-issue-tracking.md`](github-issue-tracking.md) and [`docs/roadmap/README.md`](roadmap/README.md).
 
 ## Machine Layout Guidance
 

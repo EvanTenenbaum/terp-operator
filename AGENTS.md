@@ -44,11 +44,36 @@ If the doctor reports that you are outside the canonical repo, stop and redirect
 
 TERP Operator is an operator console for dense, spreadsheet-native wholesale workflows. Prefer working product changes, runtime proof, and issue writeback over broad narration. Preserve existing worktree changes unless Evan explicitly asks you to revert them.
 
+## Where work lives
+
+TERP Operator uses three systems. Pick the right one before starting work:
+
+1. **Linear** — product execution source of truth.
+   Workspace: `terpcorp`, Team: `Terpcorp` (key `TER`).
+   Active project: **TERP Operator** — https://linear.app/terpcorp/project/terp-operator-cea015fac801
+   Every issue is anchored to a registry ID (`CAP-001`..`CAP-029`) or a command family ID (`CMD-INTAKE`, `CMD-PO`, `CMD-SALES`, `CMD-POSTING`, `CMD-PAYMENTS`, `CMD-VENDOR`, `CMD-FULFILLMENT`, `CMD-CONNECTOR`, `CMD-RECOVERY`, `CMD-CLOSEOUT`, `CMD-TAGS`, `CMD-MATCHMAKING`).
+   Phase milestones in Linear map 1:1 to `docs/roadmap/phase-readiness/{phase}.md`.
+
+2. **In-session TODOs** — ephemeral OpenCode session working memory only.
+   Use to decompose a Linear issue into current-session steps.
+   Never persist those steps elsewhere and never treat them as a product tracker.
+
+3. **GitHub Issues** — repo-level bugs and problems only.
+   Examples: build/CI breakage, flaky tests, dependency/security advisories, accidental regressions caught in code review, small known bugs that do not fit `CAP`/`CMD`.
+   Features, capabilities, and roadmap items go to Linear + registry/roadmap docs, not GitHub Issues.
+
+Decision rules:
+- Starting product capability or command-family work → find/open Linear issue under project TERP Operator, milestone matching phase. If no matching issue exists, add registry row first, then create Linear issue. Never freelance work without a registry ID.
+- Decomposing a Linear issue → in-session TODO list only. No Linear sub-issues for routine decomposition.
+- Bug in CI/flaky test/regression/dependency/security → GitHub Issue.
+- Feature report → registry row/new CAP or existing row → Next product move, then Linear issue. Do not file as GitHub Issue.
+- Finishing a Linear issue → move Linear issue to In Review/Done; PR title includes Linear issue ID for integration. Only close GitHub Issues if the PR actually fixes a repo-level bug.
+
 ## GitHub Issue Tracking
 
-Use GitHub Issues **only** for bugs, runtime failures, data drift, test gaps, confusing UX, fixture gaps, coverage gaps, expectation gaps, and other problems.
+Use GitHub Issues **only** for repo-level bugs and problems: build/CI breakage, flaky tests, dependency/security advisories, accidental regressions caught in code review, and small known bugs that do not fit a `CAP`/`CMD` registry ID.
 
-Do **not** use GitHub Issues for feature development, sub-roadmaps, epics, or capability proposals. That work belongs in repo roadmap docs under `docs/roadmap/`.
+Do **not** use GitHub Issues for feature development, capabilities, epics, or roadmap items. That work belongs in Linear (product execution) and the registry/roadmap docs (strategic kernel).
 
 Before creating a new issue:
 
@@ -118,5 +143,5 @@ Key rules for TERP Operator:
   3. **Frontend/user-facing priority**: explicitly prioritize verification of UI/UX, error paths, loading states, and accessibility.
   4. **Adversarial score**: 0-100. Repair loop to `>= 95/100` or document an explicit blocker/rationale.
      Scoring starts at 100; reducers are applied cumulatively with a floor of 0. Rubric (score reducers): missing AQA (-10 to -20), missing spec coverage (-10), unresolved/untracked non-blocker (-5 each), broken frontend/user path (-15 to -25), missing evidence for a claim (-10), rejected finding without evidence (-10).
-  5. **Non-blocking issue discipline**: blocking issues first. Non-blocking issues that affect system efficacy, UX, reliability, confidence, or operator workflow must be fixed in-scope or tracked durably in GitHub Issues with rationale. They cannot be silently ignored.
+  5. **Non-blocking issue discipline**: blocking issues first. Non-blocking issues that affect system efficacy, UX, reliability, confidence, or operator workflow must be fixed in-scope or tracked in the appropriate system with rationale: Linear for product/workflow/capability gaps, GitHub Issues for repo-level bugs/problems, or in-session TODO only for current-session decomposition. They cannot be silently ignored.
 - **Closeout evidence must include**: QA tier and rationale; commands/tests/runtime checks run; AQA report path and adversarial/final score (required for Deep QA/Critical; mark N/A with tier rationale otherwise); spec coverage result (required for Deep QA/Critical; mark N/A with tier rationale otherwise); accepted findings fixed; rejected findings with evidence; remaining non-blockers fixed or tracked with rationale.
