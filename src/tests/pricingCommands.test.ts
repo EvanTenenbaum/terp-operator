@@ -19,8 +19,23 @@ import {
   setDefaultPricingRule,
   priceSalesOrder,
   confirmSalesOrder,
-  postSalesOrder
+  postSalesOrder,
+  reverseCommandById
 } from '../server/services/commandBus';
+
+import {
+  salesOrders as salesOrdersTable,
+  salesOrderLines as salesOrderLinesTable,
+  batches as batchesTable,
+  invoices as invoicesTable,
+  inventoryMovements as inventoryMovementsTable,
+  clientLedgerEntries as clientLedgerEntriesTable,
+  vendorBills as vendorBillsTable,
+  correctionJournalEntries as correctionJournalEntriesTable,
+  periodLocks as periodLocksTable,
+  customers as customersTable,
+  commandJournal as commandJournalTable
+} from '../server/schema';
 
 const LINE_ID = '11111111-1111-1111-1111-111111111111';
 const ORDER_ID = '22222222-2222-2222-2222-222222222222';
@@ -632,5 +647,483 @@ describe('confirmSalesOrder / postSalesOrder block on unresolved COGS', () => {
     const order = { id: ORDER_ID, customerId: CUSTOMER_ID, orderNo: 'SO-1', status: 'confirmed', total: '10' };
     const tx: any = makePostTx(lines, order);
     await expect(postSalesOrder(tx, { orderId: ORDER_ID }, 'cmd-post-1')).rejects.toThrow(/unresolved landed COGS/);
+  });
+});
+
+describe('postSalesOrder COGS exception accounting (#64 PR-3)', () => {
+  // postSalesOrder is a deep handler. We build a table-aware tx mock that
+  // dispatches select/insert/update by drizzle-table identity, returning
+  // queued result rows. Each test seeds the queues with exactly the rows
+  // the run will consume, then asserts on capture arrays.
+
+  interface PostTxCaptures {
+    inserts: Array<{ table: any; values: any }>;
+    updates: Array<{ table: any; values: any }>;
+  }
+
+  interface PostTxQueues {
+    // result-rowsets in call order, keyed by drizzle table object
+    select: Map<any, Row[][]>;
+    // sql FOR UPDATE rowsets in call order: [customer, batch1, batch2, ...]
+    execute: Array<{ rows: Row[] }>;
+    // returned rows for inserts by table
+    insertReturning: Map<any, Row[][]>;
+  }
+
+  function makePostTx(queues: PostTxQueues, captures: PostTxCaptures) {
+    const select = vi.fn(() => ({
+      from: (table: any) => {
+        const q = queues.select.get(table);
+        const rows = q && q.length ? (q.shift() as Row[]) : [];
+        const limitFn = vi.fn(() => Promise.resolve(rows));
+        const orderByFn = vi.fn(() => {
+          const op: any = Promise.resolve(rows);
+          op.limit = limitFn;
+          return op;
+        });
+        const whereFn = vi.fn(() => {
+          const wp: any = Promise.resolve(rows);
+          wp.limit = limitFn;
+          wp.orderBy = orderByFn;
+          return wp;
+        });
+        const p: any = Promise.resolve(rows);
+        p.where = whereFn;
+        p.limit = limitFn;
+        p.orderBy = orderByFn;
+        return p;
+      }
+    }));
+
+    const insert = vi.fn((table: any) => ({
+      values: vi.fn((values: any) => {
+        captures.inserts.push({ table, values });
+        const q = queues.insertReturning.get(table);
+        const returnRows = q && q.length ? (q.shift() as Row[]) : [];
+        // Make the no-returning path awaitable too.
+        const chain: any = Promise.resolve(undefined);
+        chain.returning = vi.fn(() => Promise.resolve(returnRows));
+        return chain;
+      }),
+      onConflictDoNothing: vi.fn(() => Promise.resolve())
+    }));
+
+    const update = vi.fn((table: any) => ({
+      set: vi.fn((values: any) => {
+        captures.updates.push({ table, values });
+        return { where: vi.fn(() => Promise.resolve()) };
+      })
+    }));
+
+    const execute = vi.fn(() => {
+      const next = queues.execute.shift();
+      return Promise.resolve(next ?? { rows: [] });
+    });
+
+    const query = vi.fn(() => Promise.resolve({ rows: [], rowCount: 0 }));
+
+    return { select, insert, update, execute, query };
+  }
+
+  function seedQueues(opts: {
+    order: Row;
+    lines: Row[];
+    batchesByLineId: Record<string, Row>;
+    customer: Row;
+    invoice: Row;
+    cjEntries: Row[];
+    periodLockExists?: boolean;
+    vendorIdByBatchId?: Record<string, string | null>;
+    vendorBill?: Row | null;
+  }): PostTxQueues {
+    const selectMap = new Map<any, Row[][]>();
+    const insertReturning = new Map<any, Row[][]>();
+    const execute: Array<{ rows: Row[] }> = [];
+
+    // Select sequence for salesOrders:
+    //   1) initial order lookup
+    //   2) freshOrder after recalcOrder
+    selectMap.set(salesOrdersTable, [[opts.order], [opts.order]]);
+
+    // Select sequence for salesOrderLines:
+    //   1) initial lines lookup
+    //   2) recalcOrder lines lookup
+    selectMap.set(salesOrderLinesTable, [opts.lines, opts.lines]);
+
+    // Select sequence for batches:
+    //   1..N) per-line pre-check (capacity)
+    //   N+1..M) per below-floor vendor_approval_pending line: batches lookup for vendorId
+    const batchSequence: Row[][] = [];
+    for (const line of opts.lines) {
+      batchSequence.push([opts.batchesByLineId[(line.id as string)]]);
+    }
+    for (const line of opts.lines) {
+      if (line.belowFloorReason === 'vendor_approval_pending' && line.batchId) {
+        const vendorId =
+          (opts.vendorIdByBatchId ?? {})[line.batchId as string] ??
+          (opts.batchesByLineId[line.id as string] as Row | undefined)?.vendorId ??
+          null;
+        batchSequence.push([{ vendorId } as Row]);
+      }
+    }
+    selectMap.set(batchesTable, batchSequence);
+
+    // Select sequence for periodLocks: one per posting that has any
+    // belowFloorReason line (assertPeriodUnlocked runs once, on first hit).
+    const hasException = opts.lines.some((l) => l.belowFloorReason != null);
+    if (hasException) {
+      selectMap.set(periodLocksTable, [opts.periodLockExists ? [{ period: '2026-05' }] : []]);
+    }
+
+    // Insert returnings.
+    insertReturning.set(invoicesTable, [[opts.invoice]]);
+    insertReturning.set(correctionJournalEntriesTable, opts.cjEntries.map((e) => [e]));
+
+    // tx.execute FOR UPDATE sequence:
+    //   1) customer lock
+    //   2) per-line batch lock
+    //   3) per vendor_approval_pending line: vendor-bill FOR UPDATE SKIP LOCKED
+    //      (added in #64 PR-3 F-6 — locks the open bill before annotating
+    //      discrepancyNotes to prevent silent loss under concurrency).
+    execute.push({ rows: [opts.customer] });
+    for (const line of opts.lines) {
+      execute.push({ rows: [opts.batchesByLineId[line.id as string]] });
+    }
+    for (const line of opts.lines) {
+      if (line.belowFloorReason === 'vendor_approval_pending' && line.batchId) {
+        execute.push({ rows: opts.vendorBill ? [opts.vendorBill] : [] });
+      }
+    }
+
+    return { select: selectMap, execute, insertReturning };
+  }
+
+  const BATCH_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const VENDOR_A = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+  const INVOICE_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+  const CJ_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+  const VBILL_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+
+  function defaultOrder(): Row {
+    return {
+      id: ORDER_ID,
+      customerId: CUSTOMER_ID,
+      orderNo: 'SO-EX-1',
+      status: 'confirmed',
+      total: '0'
+    };
+  }
+  function defaultCustomer(): Row {
+    return {
+      id: CUSTOMER_ID,
+      name: 'Customer X',
+      balance: '0',
+      creditLimit: '999999'
+    };
+  }
+  function defaultBatch(overrides: Partial<Row> = {}): Row {
+    return {
+      id: BATCH_A,
+      availableQty: '100.000',
+      reservedQty: '0.000',
+      unitCost: '40.00',
+      ownershipStatus: 'O',
+      vendorId: null,
+      status: 'available',
+      ...overrides
+    };
+  }
+  function defaultInvoice(): Row {
+    return {
+      id: INVOICE_ID,
+      invoiceNo: 'INV-1',
+      customerId: CUSTOMER_ID,
+      orderId: ORDER_ID,
+      total: '0',
+      amountPaid: '0',
+      status: 'open'
+    };
+  }
+  function makeLine(overrides: Partial<Row> = {}): Row {
+    return {
+      id: 'l-ex-1',
+      orderId: ORDER_ID,
+      itemName: 'Strain A',
+      batchId: BATCH_A,
+      qty: '10',
+      unitPrice: '60',
+      unitCost: '40',
+      unitCostResolved: true,
+      validationIssues: [],
+      status: 'priced',
+      sourceRowKey: null,
+      priceFloor: null,
+      belowFloorReason: null,
+      belowFloorNote: null,
+      vendorApprovalState: 'none',
+      ...overrides
+    };
+  }
+
+  // NOTE: production reality — setLineLandedCost writes
+  // unitCost = priceFloor = landedCost (both columns always equal). The
+  // below-floor exception is the SELLING PRICE (unitPrice) falling below
+  // the priceFloor, so variance = (priceFloor - unitPrice) * qty.
+  it('waive_margin line creates correction journal entry with correct variance', async () => {
+    const line = makeLine({
+      priceFloor: '50',
+      unitCost: '50',
+      unitPrice: '40',
+      qty: '10',
+      belowFloorReason: 'waive_margin',
+      belowFloorNote: 'rush'
+    });
+    const captures: PostTxCaptures = { inserts: [], updates: [] };
+    const queues = seedQueues({
+      order: defaultOrder(),
+      lines: [line],
+      batchesByLineId: { 'l-ex-1': defaultBatch() },
+      customer: defaultCustomer(),
+      invoice: defaultInvoice(),
+      cjEntries: [{ id: CJ_ID, period: '2026-05', amount: '100.00', memo: 'cj', status: 'posted' }]
+    });
+    const tx: any = makePostTx(queues, captures);
+    const result = await postSalesOrder(tx, { orderId: ORDER_ID }, 'cmd-pr3-waive');
+
+    expect(result.ok).toBe(true);
+    const cjInsert = captures.inserts.find((i) => i.table === correctionJournalEntriesTable);
+    expect(cjInsert).toBeTruthy();
+    // variance = max(0, (50 - 40) * 10) = 100
+    expect(cjInsert!.values.amount).toBe('100.00');
+    expect(cjInsert!.values.period).toBe(new Date().toISOString().slice(0, 7));
+    expect(cjInsert!.values.memo).toMatch(/waive_margin/);
+    expect(cjInsert!.values.memo).toContain('SO-EX-1');
+    expect(cjInsert!.values.memo).toContain('Strain A');
+    expect(cjInsert!.values.memo).toContain('rush');
+    expect(result.affectedIds).toContain(CJ_ID);
+  });
+
+  it('take_loss line creates correction journal entry', async () => {
+    // unitCost = priceFloor = 50 (set together by setLineLandedCost),
+    // unitPrice = 40 (below floor). variance = (50 - 40) * 4 = 40.
+    const line = makeLine({
+      priceFloor: '50',
+      unitCost: '50',
+      unitPrice: '40',
+      qty: '4',
+      belowFloorReason: 'take_loss'
+    });
+    const captures: PostTxCaptures = { inserts: [], updates: [] };
+    const queues = seedQueues({
+      order: defaultOrder(),
+      lines: [line],
+      batchesByLineId: { 'l-ex-1': defaultBatch({ unitCost: '50.00' }) },
+      customer: defaultCustomer(),
+      invoice: defaultInvoice(),
+      cjEntries: [{ id: CJ_ID, period: '2026-05', amount: '40.00', memo: '', status: 'posted' }]
+    });
+    const tx: any = makePostTx(queues, captures);
+    const result = await postSalesOrder(tx, { orderId: ORDER_ID }, 'cmd-pr3-loss');
+
+    expect(result.ok).toBe(true);
+    const cjInsert = captures.inserts.find((i) => i.table === correctionJournalEntriesTable);
+    expect(cjInsert).toBeTruthy();
+    expect(cjInsert!.values.amount).toBe('40.00');
+    expect(cjInsert!.values.memo).toMatch(/take_loss/);
+  });
+
+  it('keep_margin line creates correction journal entry with computed variance', async () => {
+    // unitCost = priceFloor = 50, unitPrice = 48 (slightly below floor).
+    // variance = (50 - 48) * 5 = 10.
+    const line = makeLine({
+      priceFloor: '50',
+      unitCost: '50',
+      unitPrice: '48',
+      qty: '5',
+      belowFloorReason: 'keep_margin'
+    });
+    const captures: PostTxCaptures = { inserts: [], updates: [] };
+    const queues = seedQueues({
+      order: defaultOrder(),
+      lines: [line],
+      batchesByLineId: { 'l-ex-1': defaultBatch({ unitCost: '50.00' }) },
+      customer: defaultCustomer(),
+      invoice: defaultInvoice(),
+      cjEntries: [{ id: CJ_ID, period: '2026-05', amount: '10.00', memo: '', status: 'posted' }]
+    });
+    const tx: any = makePostTx(queues, captures);
+    const result = await postSalesOrder(tx, { orderId: ORDER_ID }, 'cmd-pr3-keep');
+
+    expect(result.ok).toBe(true);
+    const cjInsert = captures.inserts.find((i) => i.table === correctionJournalEntriesTable);
+    expect(cjInsert).toBeTruthy();
+    expect(cjInsert!.values.amount).toBe('10.00');
+    expect(cjInsert!.values.memo).toMatch(/keep_margin/);
+  });
+
+  it('renegotiate line creates correction journal entry', async () => {
+    // unitCost = priceFloor = 55, unitPrice = 40. variance = (55 - 40) * 2 = 30.
+    const line = makeLine({
+      priceFloor: '55',
+      unitCost: '55',
+      unitPrice: '40',
+      qty: '2',
+      belowFloorReason: 'renegotiate'
+    });
+    const captures: PostTxCaptures = { inserts: [], updates: [] };
+    const queues = seedQueues({
+      order: defaultOrder(),
+      lines: [line],
+      batchesByLineId: { 'l-ex-1': defaultBatch({ unitCost: '55.00' }) },
+      customer: defaultCustomer(),
+      invoice: defaultInvoice(),
+      cjEntries: [{ id: CJ_ID, period: '2026-05', amount: '30.00', memo: '', status: 'posted' }]
+    });
+    const tx: any = makePostTx(queues, captures);
+    const result = await postSalesOrder(tx, { orderId: ORDER_ID }, 'cmd-pr3-reneg');
+
+    expect(result.ok).toBe(true);
+    const cjInsert = captures.inserts.find((i) => i.table === correctionJournalEntriesTable);
+    expect(cjInsert).toBeTruthy();
+    expect(cjInsert!.values.amount).toBe('30.00');
+    expect(cjInsert!.values.memo).toMatch(/renegotiate/);
+  });
+
+  it('vendor_approval_pending annotates open vendor bill while preserving prior notes', async () => {
+    // vendorApprovalState = 'approved' (gate passes) but belowFloorReason
+    // records the original below-floor reason for accounting/AP purposes.
+    // unitCost = priceFloor = 60 (set together by setLineLandedCost),
+    // unitPrice = 50 (below floor). variance = (60 - 50) * 3 = 30.
+    const line = makeLine({
+      priceFloor: '60',
+      unitCost: '60',
+      unitPrice: '50',
+      qty: '3',
+      belowFloorReason: 'vendor_approval_pending',
+      vendorApprovalState: 'approved'
+    });
+    const existingBill: Row = {
+      id: VBILL_ID,
+      vendorId: VENDOR_A,
+      billNo: 'VBILL-1',
+      amount: '500.00',
+      amountPaid: '0.00',
+      status: 'open',
+      discrepancyNotes: 'prior note',
+      dueReason: null
+    };
+    const captures: PostTxCaptures = { inserts: [], updates: [] };
+    const queues = seedQueues({
+      order: defaultOrder(),
+      lines: [line],
+      batchesByLineId: { 'l-ex-1': defaultBatch({ vendorId: VENDOR_A }) },
+      customer: defaultCustomer(),
+      invoice: defaultInvoice(),
+      cjEntries: [{ id: CJ_ID, period: '2026-05', amount: '30.00', memo: '', status: 'posted' }],
+      vendorBill: existingBill
+    });
+    const tx: any = makePostTx(queues, captures);
+    const result = await postSalesOrder(tx, { orderId: ORDER_ID }, 'cmd-pr3-vap');
+
+    expect(result.ok).toBe(true);
+    // CJ entry created
+    const cjInsert = captures.inserts.find((i) => i.table === correctionJournalEntriesTable);
+    expect(cjInsert).toBeTruthy();
+    // variance = max(0, (60 - 50) * 3) = 30
+    expect(cjInsert!.values.amount).toBe('30.00');
+
+    // Vendor bill annotation: append-preserving, no dollar/status mutation
+    const vbUpdate = captures.updates.find((u) => u.table === vendorBillsTable);
+    expect(vbUpdate).toBeTruthy();
+    expect(vbUpdate!.values.discrepancyNotes).toContain('prior note');
+    expect(vbUpdate!.values.discrepancyNotes).toMatch(/vendor_approval_pending/);
+    expect(vbUpdate!.values.discrepancyNotes).toContain('SO-EX-1');
+    expect(vbUpdate!.values.discrepancyNotes).toContain('Strain A');
+    // No mutation of amount / status / amountPaid / dueReason
+    expect(vbUpdate!.values.amount).toBeUndefined();
+    expect(vbUpdate!.values.status).toBeUndefined();
+    expect(vbUpdate!.values.amountPaid).toBeUndefined();
+    expect(vbUpdate!.values.dueReason).toBeUndefined();
+
+    // Vendor bill id NOT in affectedIds
+    expect(result.affectedIds).toContain(CJ_ID);
+    expect(result.affectedIds).not.toContain(VBILL_ID);
+  });
+
+  it('in-range line (no belowFloorReason) creates no correction journal entry', async () => {
+    const line = makeLine({
+      priceFloor: '50',
+      unitCost: '40',
+      qty: '5',
+      belowFloorReason: null
+    });
+    const captures: PostTxCaptures = { inserts: [], updates: [] };
+    const queues = seedQueues({
+      order: defaultOrder(),
+      lines: [line],
+      batchesByLineId: { 'l-ex-1': defaultBatch() },
+      customer: defaultCustomer(),
+      invoice: defaultInvoice(),
+      cjEntries: []
+    });
+    const tx: any = makePostTx(queues, captures);
+    const result = await postSalesOrder(tx, { orderId: ORDER_ID }, 'cmd-pr3-norm');
+
+    expect(result.ok).toBe(true);
+    const cjInserts = captures.inserts.filter((i) => i.table === correctionJournalEntriesTable);
+    expect(cjInserts).toHaveLength(0);
+  });
+
+  it('reversal of postSalesOrder sets snapshotted correction journal entries to "reversed"', async () => {
+    // NOTE: pre-populates afterSnapshot.correctionJournalEntries to exercise
+    // the reversal-loop logic for #64 PR-3. snapshotByAffectedIds uses
+    // db.select() (a separate pool connection) and may not capture entries
+    // inserted in the same tx — real-DB snapshot population must wait for
+    // GitHub Issue #150. This test seeds the snapshot directly to verify the
+    // reversal branch handles the entries correctly when they are present.
+    const cjId1 = '11111111-cccc-cccc-cccc-cccccccccccc';
+    const cjId2 = '22222222-cccc-cccc-cccc-cccccccccccc';
+    const originalCommandId = '99999999-1111-1111-1111-111111111111';
+    const afterSnapshot = {
+      // Empty side-effect tables so per-line/invoice/order reversal loops
+      // are no-ops; only the correctionJournalEntries loop runs.
+      salesOrderLines: [],
+      invoices: [],
+      salesOrders: [],
+      correctionJournalEntries: [{ id: cjId1 }, { id: cjId2 }]
+    };
+    const original: Row = {
+      id: originalCommandId,
+      commandName: 'postSalesOrder',
+      status: 'ok',
+      reversedByCommandId: null,
+      afterSnapshot,
+      beforeSnapshot: {},
+      result: null
+    };
+
+    const captures: PostTxCaptures = { inserts: [], updates: [] };
+    const queues: PostTxQueues = {
+      select: new Map(),
+      execute: [],
+      insertReturning: new Map()
+    };
+    queues.select.set(commandJournalTable, [[original]]);
+    const tx: any = makePostTx(queues, captures);
+
+    const result = await reverseCommandById(
+      tx,
+      { commandId: originalCommandId },
+      'cmd-pr3-reverse'
+    );
+
+    expect(result.ok).toBe(true);
+    const cjReversals = captures.updates.filter((u) => u.table === correctionJournalEntriesTable);
+    expect(cjReversals).toHaveLength(2);
+    for (const u of cjReversals) {
+      expect(u.values.status).toBe('reversed');
+    }
+    expect(result.affectedIds).toContain(cjId1);
+    expect(result.affectedIds).toContain(cjId2);
   });
 });
