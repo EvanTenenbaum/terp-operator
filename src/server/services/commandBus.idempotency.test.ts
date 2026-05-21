@@ -170,7 +170,10 @@ vi.mock('./mediaStorage', () => ({
 
 // Import AFTER mocks are installed.
 import { executeCommand } from './commandBus';
+import { appendJsonlJournal } from './journal';
 import * as dbModule from '../db';
+
+const mockedAppendJsonlJournal = vi.mocked(appendJsonlJournal);
 
 // Cast the mocked module to expose the test-only helpers.
 const mocked = dbModule as unknown as typeof dbModule & {
@@ -179,6 +182,7 @@ const mocked = dbModule as unknown as typeof dbModule & {
     commandName: string;
     idempotencyKey: string;
     status: string;
+    afterSnapshot?: unknown;
     result: Record<string, unknown>;
   }>;
   __journalById: Map<string, unknown>;
@@ -209,10 +213,13 @@ const db = (dbModule as unknown as { db: { transaction: ReturnType<typeof vi.fn>
 beforeEach(() => {
   mocked.__resetStore();
   vi.clearAllMocks();
+  mockedAppendJsonlJournal.mockReset();
+  (io.emit as ReturnType<typeof vi.fn>).mockReset();
 });
 
 afterEach(() => {
   mocked.__resetStore();
+  vi.restoreAllMocks();
 });
 
 // Helper to set up the transaction mock to simulate a successful inner command.
@@ -487,5 +494,140 @@ describe('atomic idempotency claim', () => {
     expect(result.ok).toBe(false);
     expect(result.toast).toMatch(/^Database error \(request id:/);
     expect(result.toast).not.toMatch(/insert\s+into|batches_alias_idx|duplicate\s+key|unique\s+constraint/i);
+  });
+
+  it('test 6: success-path appendJsonlJournal rejection still returns ok and leaves journal row ok', async () => {
+    const user = makeUser();
+    const key = 'idem-jsonl-ok-6';
+    const input = {
+      name: 'setItemAlias' as const,
+      idempotencyKey: key,
+      payload: { itemId: '66666666-6666-6666-6666-666666666666', alias: 'jsonl-ok' },
+      reason: 'jsonl ok test'
+    };
+
+    stubSuccessfulInnerCommand();
+    mockedAppendJsonlJournal.mockRejectedValueOnce(new Error('disk full'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await executeCommand(input, user, io);
+    expect(result.ok).toBe(true);
+
+    const row = mocked.__journalByKey.get(key)!;
+    expect(row.status).toBe('ok');
+
+    const passedAfterSnapshot = mockedAppendJsonlJournal.mock.calls[0]![0].afterSnapshot;
+    expect(passedAfterSnapshot).toBe(row.afterSnapshot);
+
+    expect(warnSpy).toHaveBeenCalledWith('[commandBus] appendJsonlJournal failed after commit:', 'disk full');
+
+    // Replay must return cached ok without rerunning transaction.
+    const txCallCountBefore = db.transaction.mock.calls.length;
+    const replay = await executeCommand(input, user, io);
+    expect(replay.ok).toBe(true);
+    expect(db.transaction.mock.calls.length).toBe(txCallCountBefore);
+  });
+
+  it('test 7: success-path io.emit rejection still returns ok and leaves journal row ok', async () => {
+    const user = makeUser();
+    const key = 'idem-emit-ok-7';
+    const input = {
+      name: 'setItemAlias' as const,
+      idempotencyKey: key,
+      payload: { itemId: '77777777-7777-7777-7777-777777777777', alias: 'emit-ok' },
+      reason: 'emit ok test'
+    };
+
+    stubSuccessfulInnerCommand();
+    (io.emit as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('socket down');
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await executeCommand(input, user, io);
+    expect(result.ok).toBe(true);
+
+    const row = mocked.__journalByKey.get(key)!;
+    expect(row.status).toBe('ok');
+
+    expect(warnSpy).toHaveBeenCalledWith('[commandBus] socket emit failed after commit:', 'socket down');
+  });
+
+  it('test 8: failure-path appendJsonlJournal rejection still returns failed with scrubbed toast', async () => {
+    const user = makeUser();
+    const key = 'idem-jsonl-fail-8';
+    const input = {
+      name: 'createBatch' as const,
+      idempotencyKey: key,
+      payload: {
+        name: 'X',
+        itemId: '88888888-8888-8888-8888-888888888888',
+        vendorId: '99999999-9999-9999-9999-999999999999',
+        qty: 1,
+        unitCost: 1
+      },
+      reason: 'jsonl fail test'
+    };
+
+    const sqlError: Error & { code?: string } = new Error(
+      'insert into "batches" ("id", "alias") values ($1, $2) returning *'
+    );
+    sqlError.code = '23505';
+
+    db.transaction.mockImplementation(async (_cb: unknown) => {
+      throw sqlError;
+    });
+    mockedAppendJsonlJournal.mockRejectedValueOnce(new Error('disk full'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await executeCommand(input, user, io);
+    expect(result.ok).toBe(false);
+    expect(result.toast).toMatch(/^Database error \(request id:/);
+    expect(result.toast).not.toMatch(/insert\s+into|values\s*\(/i);
+
+    const row = mocked.__journalByKey.get(key)!;
+    expect(row.status).toBe('failed');
+
+    expect(warnSpy).toHaveBeenCalledWith('[commandBus] appendJsonlJournal failed on failure path:', 'disk full');
+  });
+
+  it('test 9: failure-path io.emit rejection still returns failed with scrubbed toast', async () => {
+    const user = makeUser();
+    const key = 'idem-emit-fail-9';
+    const input = {
+      name: 'createBatch' as const,
+      idempotencyKey: key,
+      payload: {
+        name: 'X',
+        itemId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        vendorId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        qty: 1,
+        unitCost: 1
+      },
+      reason: 'emit fail test'
+    };
+
+    const sqlError: Error & { code?: string } = new Error(
+      'insert into "batches" ("id", "alias") values ($1, $2) returning *'
+    );
+    sqlError.code = '23505';
+
+    db.transaction.mockImplementation(async (_cb: unknown) => {
+      throw sqlError;
+    });
+    (io.emit as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('socket down');
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await executeCommand(input, user, io);
+    expect(result.ok).toBe(false);
+    expect(result.toast).toMatch(/^Database error \(request id:/);
+    expect(result.toast).not.toMatch(/insert\s+into|values\s*\(/i);
+
+    const row = mocked.__journalByKey.get(key)!;
+    expect(row.status).toBe('failed');
+
+    expect(warnSpy).toHaveBeenCalledWith('[commandBus] socket emit failed on failure path:', 'socket down');
   });
 });
