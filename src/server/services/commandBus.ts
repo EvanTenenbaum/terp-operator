@@ -610,6 +610,11 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
       return revokePhotoUploadTokenCommand(tx, payload, commandId);
+    // Tranche 1 receipt draft commands — handler implementations land in Task 12 (#113)
+    case 'saveDraftPurchaseOrderReceipt':
+      throw new Error('saveDraftPurchaseOrderReceipt handler not yet implemented (Task 12 #113).');
+    case 'abandonDraftPurchaseOrderReceipt':
+      throw new Error('abandonDraftPurchaseOrderReceipt handler not yet implemented (Task 12 #113).');
   }
 }
 
