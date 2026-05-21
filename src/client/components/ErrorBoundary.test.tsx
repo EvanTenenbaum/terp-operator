@@ -54,9 +54,7 @@ describe('ErrorBoundary (#21 slice 4 — UX-06)', () => {
     expect((firstCall[0] as Error).message).toBe('Specific failure');
   });
 
-  it('shows a Reload button that calls window.location.reload', async () => {
-    // jsdom's `window.location` is non-configurable, so we swap the whole
-    // object for a stub that records the reload call. Restore afterwards.
+  it('"Try again" button resets component state without calling window.location.reload', async () => {
     const reloadMock = vi.fn();
     const originalLocation = window.location;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,9 +69,38 @@ describe('ErrorBoundary (#21 slice 4 — UX-06)', () => {
           <Bomb />
         </ErrorBoundary>
       );
-      const reload = screen.getByRole('button', { name: /reload/i });
-      expect(reload).toHaveClass('primary-button');
-      await user.click(reload);
+
+      // Primary action is "Try again", not "Reload"
+      const tryAgain = screen.getByRole('button', { name: /try again/i });
+      expect(tryAgain).toHaveClass('primary-button');
+      await user.click(tryAgain);
+
+      // After reset the error state is cleared — reload was NOT called
+      expect(reloadMock).not.toHaveBeenCalled();
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).location = originalLocation;
+    }
+  });
+
+  it('"Reload page" secondary button calls window.location.reload', async () => {
+    const reloadMock = vi.fn();
+    const originalLocation = window.location;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).location;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).location = { ...originalLocation, reload: reloadMock };
+
+    try {
+      const user = userEvent.setup();
+      render(
+        <ErrorBoundary>
+          <Bomb />
+        </ErrorBoundary>
+      );
+
+      const reloadBtn = screen.getByRole('button', { name: /reload page/i });
+      await user.click(reloadBtn);
       expect(reloadMock).toHaveBeenCalledTimes(1);
     } finally {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -82,17 +109,28 @@ describe('ErrorBoundary (#21 slice 4 — UX-06)', () => {
   });
 
   it('exposes the error message in development mode', () => {
-    const originalDev = (import.meta as any).env?.DEV;
-    (import.meta as any).env.DEV = true;
-    try {
-      render(
-        <ErrorBoundary>
-          <Bomb message="Dev-only details" />
-        </ErrorBoundary>
-      );
-      expect(screen.getByText(/dev-only details/i)).toBeInTheDocument();
-    } finally {
-      (import.meta as any).env.DEV = originalDev;
-    }
+    render(
+      <ErrorBoundary isDev={true}>
+        <Bomb message="Dev-only details" />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText(/dev-only details/i)).toBeInTheDocument();
+  });
+
+  it('hides error details in production mode (does not leak stack trace to users)', () => {
+    // Each ESM module has its own import.meta, so we cannot mutate the
+    // ErrorBoundary module's import.meta.env.DEV from this test file.
+    // The isDev prop override lets us exercise the production rendering path
+    // without relying on build-time env substitution.
+    render(
+      <ErrorBoundary isDev={false}>
+        <Bomb message="Secret internal details" />
+      </ErrorBoundary>
+    );
+    // Friendly fallback heading IS shown
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    // The raw error message / stack trace is NOT rendered
+    expect(screen.queryByText(/secret internal details/i)).not.toBeInTheDocument();
   });
 });
