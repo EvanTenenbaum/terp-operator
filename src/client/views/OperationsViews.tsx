@@ -13,6 +13,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
+import { ReceiptPanel } from '../components/ReceiptPanel';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -776,6 +777,9 @@ export function PurchaseOrdersView() {
               </button>
             ) : null}
           </section>
+          {['finalized', 'approved', 'ordered', 'partially_received', 'received'].includes(selectedPoStatus) ? (
+            <ReceiptPanel purchaseOrderId={String(selectedPo.id)} />
+          ) : null}
           <OperatorGrid
             view="purchaseOrders"
             title={`${String(selectedPo.poNo ?? 'Selected PO')} Lines`}
