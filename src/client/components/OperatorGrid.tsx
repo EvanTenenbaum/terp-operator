@@ -292,6 +292,7 @@ export function OperatorGrid({
               type="button"
               className="selection-pill"
               title="Remove filter"
+              aria-label={`Remove ${chip.field}:${chip.value} filter`}
               onClick={() => removeChip(chip.field, chip.value)}
             >
               {chip.field}:{chip.value}
