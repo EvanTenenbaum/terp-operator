@@ -80,10 +80,9 @@ Use the `visual-review` skill to take screenshots of web pages, presentations, o
 ## Testing
 
 - **TDD is mandatory** — Write tests first, watch them fail, then implement
-- **100% test coverage required** — Lines, branches, functions, and statements. Enforced via `.coverage-thresholds.json` as a blocking gate before PR creation and task completion
-<!-- TODO: Update these commands for your project's test runner -->
-- Test command: `npm test`
-- Coverage command: `npm run test:coverage`
+- `.coverage-thresholds.json` is the repo-wide coverage floor. Focused subsystems may enforce stricter thresholds (e.g. credit engine).
+- Test command: `pnpm test`
+- Coverage command: `pnpm run test:coverage`
 
 ## Coverage
 
