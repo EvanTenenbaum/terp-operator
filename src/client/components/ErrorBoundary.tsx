@@ -7,6 +7,12 @@ interface ErrorBoundaryProps {
    * forwarding the error to a logging service.
    */
   onError?: (error: Error, info: ErrorInfo) => void;
+  /**
+   * Override the dev-mode flag. Defaults to `import.meta.env.DEV`. Provided
+   * so tests can exercise the production (non-dev) rendering path without
+   * relying on build-time env substitution.
+   */
+  isDev?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -20,8 +26,9 @@ interface ErrorBoundaryState {
  *
  * Per #21 slice 4 (UX-06):
  *  - Generic message in production, full error message in dev.
- *  - A "Reload" button calls `window.location.reload()` so the operator can
- *    recover without resorting to the browser refresh.
+ *  - A "Try again" button resets component state as the primary recovery path
+ *    (preserves unsaved drafts in sibling views). A secondary "Reload page"
+ *    link is available for errors that survive a state reset.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null };
@@ -34,6 +41,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     this.props.onError?.(error, info);
   }
 
+  private handleTryAgain = (): void => {
+    this.setState({ error: null });
+  };
+
   private handleReload = (): void => {
     window.location.reload();
   };
@@ -42,7 +53,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const { error } = this.state;
     if (!error) return this.props.children;
 
-    const isDev = Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
+    const isDev =
+      this.props.isDev !== undefined
+        ? this.props.isDev
+        : Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
 
     return (
       <div
@@ -52,18 +66,25 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div className="flex w-full max-w-md flex-col gap-3 border border-line bg-white p-4 shadow-lg">
           <h1 className="text-base font-semibold">Something went wrong.</h1>
           <p className="text-sm text-zinc-700">
-            The console hit an unexpected error. Reload to continue; if the issue persists, contact support.
+            The console hit an unexpected error. Try again to resume; if the issue persists, reload the page or contact support.
           </p>
           {isDev ? (
             <pre className="json-chip whitespace-pre-wrap text-xs">{error.message}</pre>
           ) : null}
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               className="primary-button compact-action"
+              onClick={this.handleTryAgain}
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              className="text-button text-xs"
               onClick={this.handleReload}
             >
-              Reload
+              Reload page
             </button>
           </div>
         </div>
