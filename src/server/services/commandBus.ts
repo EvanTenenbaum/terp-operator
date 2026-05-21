@@ -2110,6 +2110,12 @@ export async function setLineLandedCost(
     | 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual' | 'override';
   const reason = stringValue(payload.reason) || null;
 
+  if (!['manual', 'pick-low', 'pick-mid', 'pick-high', 'override'].includes(basisIn)) {
+    throw new Error(
+      `Invalid landed cost basis: ${basisIn}. Allowed: manual, pick-low, pick-mid, pick-high, override.`
+    );
+  }
+
   const fullParse = setLineLandedCostPayloadSchema.safeParse({ ...payload, basis: basisIn });
   if (!fullParse.success) {
     const detail = fullParse.error.issues.map((i) => i.message).join('; ');
