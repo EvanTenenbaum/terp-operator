@@ -1,0 +1,113 @@
+import type { LandedCostExceptionReason } from '../../shared/schemas';
+
+// #64 PR-2: shared amber warning chip for projected below-range landed COGS
+// exceptions (PR-1 captured them; PR-2 surfaces them). Used by:
+//   - `OrderPricingPanel` — shows the chip beside each line's COGS range row.
+//   - SalesView Customer Draft Lines grid — cell renderer for the `landedCostExceptionReason` column.
+//
+// The labels live here so PricingPanel's existing reason picker and the
+// projected-state chip stay in lockstep. The chip itself reuses the existing
+// `.selection-pill.warning` semantic class (amber border / amber/10 fill /
+// amber text) so we are not introducing any new colors. See
+// `src/client/styles.css` lines ~462-476 and `docs/design-system/INDEX.md`.
+
+/** Full-form operator-vocabulary labels (used in dropdowns and tooltips). */
+export const LANDED_COST_EXCEPTION_REASON_LABELS: Record<LandedCostExceptionReason, string> = {
+  'keep-margin': 'Keep margin (vendor absorbs)',
+  'waive-margin': 'Waive margin (we absorb)',
+  'take-loss': 'Take loss (below cost, on purpose)',
+  'vendor-approval-pending': 'Vendor approval pending'
+};
+
+/** Short-form labels for dense chips/cells. */
+export const LANDED_COST_EXCEPTION_REASON_SHORT_LABELS: Record<LandedCostExceptionReason, string> = {
+  'keep-margin': 'Keep margin',
+  'waive-margin': 'Waive margin',
+  'take-loss': 'Take loss',
+  'vendor-approval-pending': 'Vendor approval pending'
+};
+
+interface LandedCostExceptionChipProps {
+  /** Structured reason from the projection (`landedCostExceptionReason`). `null`/`undefined`/`''` renders nothing. */
+  reason?: string | null;
+  /** Optional operator note (`landedCostExceptionNote`); surfaces in the tooltip. */
+  note?: string | null;
+  /** Batch COGS range low at override time (`landedCostExceptionRangeLow`). */
+  rangeLow?: number | null;
+  /** Batch COGS range high at override time (`landedCostExceptionRangeHigh`). */
+  rangeHigh?: number | null;
+  testId?: string;
+}
+
+function shortLabel(reason: string): string {
+  if (reason in LANDED_COST_EXCEPTION_REASON_SHORT_LABELS) {
+    return LANDED_COST_EXCEPTION_REASON_SHORT_LABELS[reason as LandedCostExceptionReason];
+  }
+  // Unknown reason (e.g. a future PR added a new reason but didn't update
+  // labels here) — render the raw string so something shows, but log it once.
+  return reason;
+}
+
+function fullLabel(reason: string): string {
+  if (reason in LANDED_COST_EXCEPTION_REASON_LABELS) {
+    return LANDED_COST_EXCEPTION_REASON_LABELS[reason as LandedCostExceptionReason];
+  }
+  return reason;
+}
+
+export function LandedCostExceptionChip({
+  reason,
+  note,
+  rangeLow,
+  rangeHigh,
+  testId
+}: LandedCostExceptionChipProps) {
+  if (!reason) return null;
+  const short = shortLabel(reason);
+  const full = fullLabel(reason);
+  const rangeSuffix =
+    typeof rangeLow === 'number' && typeof rangeHigh === 'number'
+      ? ` · below $${rangeLow}-$${rangeHigh}`
+      : '';
+  const titleParts: string[] = [full];
+  if (note && note.trim() !== '') titleParts.push(note);
+  const title = titleParts.join(' — ') + rangeSuffix;
+  const ariaLabel = `Below-range COGS exception: ${full}${rangeSuffix}`;
+
+  return (
+    <span
+      className="selection-pill warning"
+      role="img"
+      aria-label={ariaLabel}
+      title={title}
+      data-testid={testId}
+    >
+      <span aria-hidden="true">⚠</span> {short}
+    </span>
+  );
+}
+
+// AG Grid cell renderer signature is `(params: { data?: TRow; value?: any })`.
+// We accept the projected fields directly from the row so the renderer is a
+// thin adapter and the testable surface is the chip itself.
+interface CellRendererParams {
+  data?: {
+    landedCostExceptionReason?: string | null;
+    landedCostExceptionNote?: string | null;
+    landedCostBelowRange?: boolean;
+    landedCostExceptionRangeLow?: number | null;
+    landedCostExceptionRangeHigh?: number | null;
+  } | null;
+}
+
+export function LandedCostExceptionCellRenderer(params: CellRendererParams = {}) {
+  const data = params.data ?? {};
+  return (
+    <LandedCostExceptionChip
+      reason={data.landedCostExceptionReason ?? null}
+      note={data.landedCostExceptionNote ?? null}
+      rangeLow={data.landedCostExceptionRangeLow ?? null}
+      rangeHigh={data.landedCostExceptionRangeHigh ?? null}
+    />
+  );
+}

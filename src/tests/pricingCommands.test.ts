@@ -85,7 +85,7 @@ describe('setLineLandedCost', () => {
     let updateValues: any = null;
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate((value) => (updateValues = value))
@@ -94,7 +94,11 @@ describe('setLineLandedCost', () => {
     const result = await setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 75, basis: 'pick-mid' }, 'cmd-1');
 
     expect(result.ok).toBe(true);
-    expect(result.affectedIds).toEqual([LINE_ID]);
+    // #64 PR-2: affectedIds includes [lineId, orderId] for cache invalidation
+    // (order-scoped tRPC consumers, after-snapshot/journal visibility).
+    // The LATERAL projection keys off lineId; orderId is not part of that
+    // GIN lookup — it neither helps nor breaks it.
+    expect(result.affectedIds).toEqual([LINE_ID, ORDER_ID]);
     expect(updateValues.unitCost).toBe('75.00');
     expect(updateValues.unitCostResolved).toBe(true);
     expect(updateValues.landedCostBasis).toBe('pick-mid');
@@ -104,7 +108,7 @@ describe('setLineLandedCost', () => {
   it('rejects out-of-range landed COGS', async () => {
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()
@@ -120,7 +124,7 @@ describe('setLineLandedCost', () => {
     // below for the GREEN path (below-range + exceptionReason → allowed).
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()
@@ -133,7 +137,7 @@ describe('setLineLandedCost', () => {
     let updateValues: any = null;
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: null }]
       ]),
       update: makeUpdate((value) => (updateValues = value))
@@ -170,6 +174,45 @@ describe('setLineLandedCost', () => {
     ).rejects.toThrow(/basis/i);
   });
 
+  // #64 PR-2 review M-2: defensive fallback — if the loaded line lacks an
+  // orderId for any reason (e.g. a hypothetical schema migration that
+  // loosened the NOT NULL constraint, or a partial-projection mock), the
+  // command must still return a valid `affectedIds: [lineId]`. This pins
+  // the defensive branch in the affectedIds computation.
+  it('falls back to [lineId] in affectedIds when the loaded line has no orderId', async () => {
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate()
+    };
+    const result = await setLineLandedCost(
+      tx,
+      { lineId: LINE_ID, landedCost: 75, basis: 'pick-mid' },
+      'cmd-no-orderid'
+    );
+    expect(result.ok).toBe(true);
+    expect(result.affectedIds).toEqual([LINE_ID]);
+  });
+
+  it('falls back to [lineId] in affectedIds when orderId is an empty string', async () => {
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, orderId: '', batchId: BATCH_ID }],
+        () => [{ priceRange: '50-100' }]
+      ]),
+      update: makeUpdate()
+    };
+    const result = await setLineLandedCost(
+      tx,
+      { lineId: LINE_ID, landedCost: 75, basis: 'pick-mid' },
+      'cmd-blank-orderid'
+    );
+    expect(result.ok).toBe(true);
+    expect(result.affectedIds).toEqual([LINE_ID]);
+  });
+
   // ---------------------------------------------------------------------
   // #64 PR-1: below-range landed COGS with structured exception reasons
   // ---------------------------------------------------------------------
@@ -177,7 +220,7 @@ describe('setLineLandedCost', () => {
   it('rejects below-range landed COGS when no structured exceptionReason is supplied', async () => {
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()
@@ -192,7 +235,7 @@ describe('setLineLandedCost', () => {
     let updateValues: any = null;
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate((value) => (updateValues = value))
@@ -229,7 +272,7 @@ describe('setLineLandedCost', () => {
   it('still rejects ABOVE-range landed COGS even when an exceptionReason is supplied (above-range remains a hard reject in PR-1)', async () => {
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()
@@ -247,7 +290,7 @@ describe('setLineLandedCost', () => {
     let updateCalled = false;
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: vi.fn(() => {
@@ -270,7 +313,7 @@ describe('setLineLandedCost', () => {
     let updateValues: any = null;
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate((value) => (updateValues = value))
@@ -292,7 +335,7 @@ describe('setLineLandedCost', () => {
   it('omits delta.exception.note when below-range succeeds with no exceptionNote', async () => {
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()
@@ -315,7 +358,7 @@ describe('setLineLandedCost', () => {
   it('includes the structured reason in the success toast for below-range overrides', async () => {
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()
@@ -335,7 +378,7 @@ describe('setLineLandedCost', () => {
   it('treats a whitespace-only exceptionNote as absent (not "" or "   ") in the delta', async () => {
     const tx: any = {
       select: makeTxForSelect([
-        () => [{ id: LINE_ID, batchId: BATCH_ID }],
+        () => [{ id: LINE_ID, orderId: ORDER_ID, batchId: BATCH_ID }],
         () => [{ priceRange: '50-100' }]
       ]),
       update: makeUpdate()

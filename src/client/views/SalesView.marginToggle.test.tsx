@@ -17,6 +17,7 @@ describe('selectVisibleSalesColumns (#63)', () => {
     { field: 'unitCost' },
     { field: 'internalMargin' },
     { field: 'estimatedMargin' },
+    { field: 'landedCostExceptionReason' },
     { field: 'qty' }
   ];
 
@@ -27,6 +28,7 @@ describe('selectVisibleSalesColumns (#63)', () => {
     expect(fields).toContain('unitCost');
     expect(fields).toContain('internalMargin');
     expect(fields).toContain('estimatedMargin');
+    expect(fields).toContain('landedCostExceptionReason');
   });
 
   it('hides margin/cost columns when showMargin is false', () => {
@@ -57,8 +59,42 @@ describe('selectVisibleSalesColumns (#63)', () => {
     // Pin the constant — if a future column like `landedCost` is added we
     // want a test failure to remind us to gate it on showMargin too.
     expect(new Set(MARGIN_COLUMN_FIELDS)).toEqual(
-      new Set(['unitCost', 'internalMargin', 'estimatedMargin'])
+      new Set([
+        'unitCost',
+        'internalMargin',
+        'estimatedMargin',
+        // #64 PR-2 review I-2: the below-range exception reason exposes the
+        // vendor relationship state (keep-margin, waive-margin, take-loss,
+        // vendor-approval-pending) which is cost-margin-sensitive. It must
+        // hide alongside the cost/margin columns when the operator toggles
+        // margin off for customer screen-shares.
+        'landedCostExceptionReason'
+      ])
     );
+  });
+
+  it('hides landedCostExceptionReason when showMargin is false (review I-2)', () => {
+    const cols: ColDef<GridRow>[] = [
+      { field: 'orderNo' },
+      { field: 'landedCostExceptionReason' },
+      { field: 'qty' }
+    ];
+    const visible = selectVisibleSalesColumns(false, cols);
+    const fields = visible.map((col) => col.field);
+    expect(fields).not.toContain('landedCostExceptionReason');
+    expect(fields).toContain('orderNo');
+    expect(fields).toContain('qty');
+  });
+
+  it('keeps landedCostExceptionReason when showMargin is true', () => {
+    const cols: ColDef<GridRow>[] = [
+      { field: 'orderNo' },
+      { field: 'landedCostExceptionReason' },
+      { field: 'qty' }
+    ];
+    const visible = selectVisibleSalesColumns(true, cols);
+    const fields = visible.map((col) => col.field);
+    expect(fields).toContain('landedCostExceptionReason');
   });
 
   it('is a no-op for columns without a matching margin field', () => {

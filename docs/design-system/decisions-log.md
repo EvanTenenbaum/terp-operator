@@ -15,6 +15,15 @@
 
 ---
 
+## 2026-05-20: Below-range COGS exception chip shared by PricingPanel + SalesView
+**Decision:** Below-range `setLineLandedCost` exceptions (PR-1) are surfaced to operators via a shared `LandedCostExceptionChip` component + matching AG Grid `LandedCostExceptionCellRenderer`. Both reuse the existing `.selection-pill.warning` (amber border / amber/10 fill / amber text) — no new colors. The operator-vocabulary reason labels (`keep-margin`, `waive-margin`, `take-loss`, `vendor-approval-pending`) live in the chip module and are imported by `PricingPanel` so the picker and the projected-state chip stay in lockstep. The chip data comes from a server-side projection (`projectLandedCostException`) over the latest successful `setLineLandedCost` command journal `result.delta.exception`, attached via a LATERAL join in `salesOrderLines` and a GIN array-contains lookup on `command_journal.affected_ids` (migration 0043).
+**Rationale:** PR-2 is vendor-UX only — no DB schema change, no PO/vendor-bill/accounting writes (those land in PR-3). The command-journal projection lets the operator see vendor-approval-pending and other below-range exceptions on the very next page render without touching the existing line table. Sharing the chip across `OrderPricingPanel` and the `Customer Draft Lines` grid keeps the warning vocabulary consistent across both surfaces.
+**Example:** `src/client/components/LandedCostExceptionChip.tsx`, `src/server/projections/landedCostException.ts`, `src/server/routers/queries.ts` `salesOrderLines`, `src/client/views/SalesView.tsx` lineColumns `COGS exception` column.
+**Author:** `OpenCode PM + opus-build via Evan`
+**Related:** Issue #64 PR-2, PR-1 `setLineLandedCostPayloadSchema.exceptionReason`.
+
+---
+
 ## 2026-05-20: Photography MediaDetailPanel wires media lifecycle commands
 **Decision:** The Photography route uses a dedicated `MediaDetailPanel` under the queue grid to show per-batch media rows and expose set-primary, publish, delete, and mobile-upload handoff actions through existing `useCommandRunner` and tRPC query patterns.
 **Rationale:** Completing the feature required first-class UI for backend media commands instead of leaving curation in CommandPalette/JSON; panel keeps batch aggregate queue and per-media lifecycle in one operator workspace while preserving authenticated mobile upload route.

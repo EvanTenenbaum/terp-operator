@@ -2031,10 +2031,34 @@ export async function setLineLandedCost(tx: Tx, payload: Payload, commandId: str
   if (belowRangeException) delta.exception = belowRangeException;
   const toastSuffix = belowRangeException ? ` (below-range override: ${belowRangeException.reason})` : '';
 
+  // #64 PR-2 (review M-1, M-3): include the parent orderId in affectedIds.
+  //
+  // What this is FOR:
+  //   * Cache invalidation — order-scoped tRPC consumers (e.g. order header,
+  //     order totals, customer workspace) see the line cost change without
+  //     a manual refetch hop.
+  //   * After-snapshot / journal visibility — the command journal row will
+  //     list `salesOrders` (via orderId) as part of `affectedIds`, so an
+  //     operator searching the journal by orderId surfaces the COGS edit
+  //     that touched any of its lines. Downstream consumers may also use
+  //     this to scope snapshot diffs at the order level.
+  //
+  // What this is NOT for:
+  //   * The salesOrderLines LATERAL projection matches journal rows by
+  //     `affected_ids @> ARRAY[sol.id::text]`, i.e. by *lineId*. The
+  //     orderId entry is not what the LATERAL lookup keys off. Adding the
+  //     orderId neither helps nor breaks that line-level GIN lookup.
+  //
+  // Defensive on `line.orderId`: it is NOT NULL in the current schema, but
+  // we tolerate undefined/empty so an unrelated future schema migration or
+  // partial-projection mock never lands us with `[lineId, undefined]`.
+  const orderId = typeof line.orderId === 'string' && line.orderId ? line.orderId : null;
+  const affectedIds = orderId ? [lineId, orderId] : [lineId];
+
   return {
     ok: true,
     commandId,
-    affectedIds: [lineId],
+    affectedIds,
     toast: `Landed COGS resolved to $${landedCost.toFixed(2)} (${basis})${toastSuffix}.`,
     delta
   };
