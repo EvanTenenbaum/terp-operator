@@ -55,6 +55,7 @@ export interface ValidateLandedCostInput {
   basis: LandedCostBasis;
   role: string;
   reason: string | null;
+  exceptionReason?: BelowFloorReason;
 }
 
 export type ValidateLandedCostResult =
@@ -64,7 +65,7 @@ export type ValidateLandedCostResult =
 const PRIVILEGED_ROLES = new Set(['manager', 'owner', 'admin']);
 
 export function validateLandedCost(input: ValidateLandedCostInput): ValidateLandedCostResult {
-  const { landedCost, range, basis, role, reason } = input;
+  const { landedCost, range, basis, role, reason, exceptionReason } = input;
   if (!Number.isFinite(landedCost) || landedCost < 0) {
     return { ok: false, error: 'Landed COGS must be a non-negative finite number.' };
   }
@@ -76,22 +77,34 @@ export function validateLandedCost(input: ValidateLandedCostInput): ValidateLand
   }
   const inRange = landedCost >= range.low && landedCost <= range.high;
   if (!inRange) {
-    if (basis !== 'override') {
-      return {
-        ok: false,
-        error: `Landed COGS $${landedCost} is outside batch range $${range.low}-$${range.high}. Use override basis with a reason and manager approval.`
-      };
+    if (landedCost > range.high) {
+      // Above-range: hard reject unless override + privileged role
+      if (basis !== 'override') {
+        return {
+          ok: false,
+          error: `Landed COGS $${landedCost} is outside batch range $${range.low}-$${range.high}. Use override basis with a reason and manager approval.`
+        };
+      }
+      if (!PRIVILEGED_ROLES.has(role)) {
+        return {
+          ok: false,
+          error: 'Out-of-range landed COGS requires manager or owner role.'
+        };
+      }
+      if (!reason || !reason.trim()) {
+        return { ok: false, error: 'Override reason is required for out-of-range landed COGS.' };
+      }
+      return { ok: true, basisRecord: 'override' };
     }
-    if (!PRIVILEGED_ROLES.has(role)) {
-      return {
-        ok: false,
-        error: 'Out-of-range landed COGS requires manager or owner role.'
-      };
+    // Below-range: allow ANY role when a valid structured exceptionReason is provided
+    if (exceptionReason && BELOW_FLOOR_REASONS.includes(exceptionReason)) {
+      return { ok: true, basisRecord: basis };
     }
-    if (!reason || !reason.trim()) {
-      return { ok: false, error: 'Override reason is required for out-of-range landed COGS.' };
-    }
-    return { ok: true, basisRecord: 'override' };
+    // Below-range without reason: reject with guidance
+    return {
+      ok: false,
+      error: `Landed COGS $${landedCost} is below the batch range floor $${range.low}. Select a below-range exception reason to proceed.`
+    };
   }
   return { ok: true, basisRecord: basis };
 }

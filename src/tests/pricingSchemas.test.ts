@@ -113,6 +113,57 @@ describe('setLineLandedCostPayloadSchema', () => {
     });
     expect(parsed.basis).toBe('override');
   });
+
+  it('accepts a valid snake_case exceptionReason', () => {
+    const parsed = setLineLandedCostPayloadSchema.parse({
+      lineId: '11111111-1111-1111-1111-111111111111',
+      landedCost: 10,
+      basis: 'manual',
+      exceptionReason: 'keep_margin'
+    });
+    expect(parsed.exceptionReason).toBe('keep_margin');
+  });
+
+  it('accepts all BELOW_FLOOR_REASONS values', () => {
+    for (const reason of ['keep_margin', 'renegotiate', 'waive_margin', 'take_loss', 'vendor_approval_pending'] as const) {
+      const parsed = setLineLandedCostPayloadSchema.parse({
+        lineId: '11111111-1111-1111-1111-111111111111',
+        landedCost: 10,
+        exceptionReason: reason
+      });
+      expect(parsed.exceptionReason).toBe(reason);
+    }
+  });
+
+  it('rejects an unknown exceptionReason value', () => {
+    expect(() =>
+      setLineLandedCostPayloadSchema.parse({
+        lineId: '11111111-1111-1111-1111-111111111111',
+        landedCost: 10,
+        exceptionReason: 'keep-margin'
+      })
+    ).toThrow();
+  });
+
+  it('accepts an optional exceptionNote up to 500 chars', () => {
+    const parsed = setLineLandedCostPayloadSchema.parse({
+      lineId: '11111111-1111-1111-1111-111111111111',
+      landedCost: 10,
+      exceptionReason: 'waive_margin',
+      exceptionNote: 'Vendor agreed to absorb the cost difference'
+    });
+    expect(parsed.exceptionNote).toBe('Vendor agreed to absorb the cost difference');
+  });
+
+  it('rejects exceptionNote over 500 chars', () => {
+    expect(() =>
+      setLineLandedCostPayloadSchema.parse({
+        lineId: '11111111-1111-1111-1111-111111111111',
+        landedCost: 10,
+        exceptionNote: 'x'.repeat(501)
+      })
+    ).toThrow();
+  });
 });
 
 describe('setCustomerPricingRulePayloadSchema', () => {

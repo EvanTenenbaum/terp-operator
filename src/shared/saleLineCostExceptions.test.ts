@@ -40,7 +40,7 @@ describe('validateLandedCost', () => {
     if (result.ok) expect(result.basisRecord).toBe('pick-mid');
   });
 
-  it('rejects an out-of-range landed cost when basis is not override', () => {
+  it('rejects an above-range landed cost when basis is not override', () => {
     const result = validateLandedCost({
       landedCost: 1200,
       range,
@@ -50,6 +50,30 @@ describe('validateLandedCost', () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/outside batch range/i);
+  });
+
+  it('allows below-range for any role when a valid BELOW_FLOOR_REASONS exceptionReason is provided', () => {
+    const result = validateLandedCost({
+      landedCost: 400,
+      range: { low: 800, high: 1000 },
+      basis: 'manual',
+      role: 'operator',
+      reason: null,
+      exceptionReason: 'keep_margin'
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects below-range for operator role without exceptionReason', () => {
+    const result = validateLandedCost({
+      landedCost: 400,
+      range: { low: 800, high: 1000 },
+      basis: 'manual',
+      role: 'operator',
+      reason: null
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/exception reason/i);
   });
 
   it('rejects override by a non-manager role even with reason', () => {
