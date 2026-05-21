@@ -5,6 +5,7 @@ import { protectedProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
+import { getExternalReceipt, getInternalReceipt, renderSignalText } from '../services/documentSnapshots';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
 import { paymentProcessors, processorFees } from '../schema';
@@ -987,7 +988,27 @@ export const queriesRouter = router({
         order by rc.created_at desc
       `);
       return result.rows;
-    })
+    }),
+  purchaseOrderExternalReceipt: protectedProcedure
+    .input(z.object({ purchaseOrderId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      return getExternalReceipt(pool, 'purchase_order', input.purchaseOrderId);
+    }),
+  purchaseOrderInternalReceipt: protectedProcedure
+    .input(z.object({ purchaseOrderId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      // Role gate is enforced inside getInternalReceipt via assertRole(user, 'manager').
+      // We pass ctx.user through unchanged — the service throws TRPCError(FORBIDDEN)
+      // when role < manager.
+      return getInternalReceipt(pool, ctx.user, 'purchase_order', input.purchaseOrderId);
+    }),
+  purchaseOrderSignalText: protectedProcedure
+    .input(z.object({ purchaseOrderId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const projection = await getExternalReceipt(pool, 'purchase_order', input.purchaseOrderId);
+      if (!projection) return null;
+      return renderSignalText(projection);
+    }),
 });
 
 type ReplaceTable = 'batches' | 'customers' | 'vendors' | 'sales_orders' | 'connector_requests';
