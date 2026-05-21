@@ -261,7 +261,7 @@ export function QuickLedgerGrid() {
     return (
       <section className="transaction-ledger-section" key={direction}>
         <div className="transaction-ledger-section-header">
-          <button className="text-button compact-action" type="button" onClick={() => setCollapsed((current) => ({ ...current, [direction]: !current[direction] }))}>
+          <button className="text-button compact-action" type="button" aria-expanded={!hidden} onClick={() => setCollapsed((current) => ({ ...current, [direction]: !current[direction] }))}>
             {hidden ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
             {title}
           </button>

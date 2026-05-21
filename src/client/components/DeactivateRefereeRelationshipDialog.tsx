@@ -34,13 +34,14 @@ export function DeactivateRefereeRelationshipDialog({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="drr-title"
         className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <h2 className="text-lg font-semibold text-zinc-900">Deactivate Relationship</h2>
+            <h2 id="drr-title" className="text-lg font-semibold text-zinc-900">Deactivate Relationship</h2>
           </div>
           <button onClick={onClose} className="rounded p-1 hover:bg-zinc-100" aria-label="Close">
             <X className="h-5 w-5" />
