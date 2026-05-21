@@ -131,9 +131,6 @@ export const internalOnlyCommandNames = [
   'updateCreditEngineStance',
   'deleteCreditEngineStance',
   'bulkRevertCustomersToEngine',
-  // Tranche 1 receipt draft commands — frontend wiring lands in Task 14 (#113)
-  'saveDraftPurchaseOrderReceipt',
-  'abandonDraftPurchaseOrderReceipt'
 ] as const;
 
 export type CommandName = (typeof commandNames)[number];
