@@ -8,6 +8,8 @@ import { getCloseoutSafety } from '../services/closeout';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
 import { paymentProcessors, processorFees } from '../schema';
+import { projectLandedCostException } from '../projections/landedCostException';
+import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCostExceptionSql';
 
 // Exported so the HTTP CSV export route (`/api/export/:view.csv`, see #35
 // FE-M1) can share the same view whitelist, SQL, and column ordering as the
@@ -266,7 +268,20 @@ export const queriesRouter = router({
     ).rows;
   }),
   salesOrderLines: protectedProcedure.input(z.object({ orderId: z.string().uuid() })).query(async ({ input }) => {
-    return (
+    // #64 PR-2: project the latest successful, NOT-reversed `setLineLandedCost`
+    // command journal `result.delta.exceptionReason` onto each line via a LATERAL
+    // join. This lets the operator UI render below-range vendor warning chips
+    // (especially `vendor_approval_pending`) without a DB migration. The
+    // `affected_ids @> ARRAY[sol.id::text]` predicate is answered by the
+    // `command_journal_affected_ids_gin` GIN index from migration 0043.
+    //
+    // The LATERAL predicate (incl. the `reversed_by_command_id is null`
+    // gate from review finding I-1) lives in `landedCostExceptionSql.ts`
+    // so its load-bearing operators are unit-testable. We hand the raw
+    // `result` JSONB back to the route handler and let the pure
+    // `projectLandedCostException` helper inflate the flat fields so the
+    // projection contract is unit-testable without a Postgres harness.
+    const rows = (
       await pool.query(
         `select sol.id, sol.order_id as "orderId", sol.batch_id as "batchId", b.batch_code as "batchCode",
                 sol.item_name as "itemName",
@@ -286,16 +301,26 @@ export const queriesRouter = router({
                 sol.payment_followup as "paymentFollowup", sol.validation_issues as "validationIssues", sol.status,
                  b.available_qty as "availableQty", b.legacy_marker as "legacyMarker", b.price_range as "priceRange",
                  b.category as "batchCategory",
-                b.media_status as "mediaStatus", v.name as vendor
+                b.media_status as "mediaStatus", v.name as vendor,
+                latest_cogs.result as "landedCostJournalResult"
          from sales_order_lines sol
          left join batches b on b.id = sol.batch_id
          left join items i on i.id = b.item_id
          left join vendors v on v.id = b.vendor_id
+         ${LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL}
          where sol.order_id = $1
          order by sol.created_at`,
         [input.orderId]
       )
     ).rows;
+    return rows.map((row) => {
+      const projection = projectLandedCostException(row.landedCostJournalResult);
+      // Strip the raw journal blob from the wire payload — the projection is
+      // the public contract; callers should not inspect raw command_journal
+      // shapes from the client.
+      const { landedCostJournalResult: _omit, ...rest } = row;
+      return { ...rest, ...projection };
+    });
   }),
   purchaseOrderLines: protectedProcedure.input(z.object({ purchaseOrderId: z.string().uuid() })).query(async ({ input }) => {
     return (

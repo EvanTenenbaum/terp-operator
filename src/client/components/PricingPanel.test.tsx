@@ -194,6 +194,81 @@ describe('OrderPricingPanel', () => {
       expect.any(String)
     );
   });
+
+  // ---------------------------------------------------------------------
+  // #64 PR-2: server-projected vendor warning chip on lines with a recorded
+  // below-range exception. The query feeds `landedCostExceptionReason` etc.
+  // and OrderPricingPanel must render an accessible amber warning chip for
+  // it, especially for `vendor_approval_pending`.
+  // ---------------------------------------------------------------------
+
+  it('renders an accessible vendor_approval_pending warning chip when a line has a projected exception', () => {
+    linesQueryMock.mockReturnValue({
+      data: [
+        {
+          id: 'line-1',
+          itemName: 'Range A',
+          status: 'draft',
+          batchCategory: 'Flower',
+          qty: '1',
+          unitPrice: '0',
+          unitCost: '25.00',
+          unitCostResolved: true,
+          landedCostBasis: 'manual',
+          priceRange: '50-100',
+          landedCostExceptionReason: 'vendor_approval_pending',
+          landedCostExceptionNote: 'Awaiting buyer confirmation',
+          landedCostBelowRange: true,
+          landedCostExceptionRangeLow: null,
+          landedCostExceptionRangeHigh: null
+        }
+      ],
+      refetch: vi.fn()
+    });
+    referenceQueryMock.mockReturnValue({ data: { defaultPricingRule: {} } });
+    relationshipQueryMock.mockReturnValue({ data: { customer: { pricingRule: {} } } });
+
+    render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} />);
+
+    // Accessible name surfaces the vendor approval state to AT users.
+    expect(screen.getByLabelText(/vendor approval pending/i)).toBeInTheDocument();
+    expect(screen.getByTestId('pricing-line-exception-chip-line-1')).toBeInTheDocument();
+  });
+
+  it('does NOT render a vendor warning chip for in-range lines with no exception', () => {
+    linesQueryMock.mockReturnValue({
+      data: [
+        {
+          id: 'line-1',
+          itemName: 'Range A',
+          status: 'draft',
+          batchCategory: 'Flower',
+          qty: '1',
+          unitPrice: '0',
+          unitCost: '75.00',
+          unitCostResolved: true,
+          landedCostBasis: 'pick-mid',
+          priceRange: '50-100',
+          landedCostExceptionReason: null,
+          landedCostExceptionNote: null,
+          landedCostBelowRange: false,
+          landedCostExceptionRangeLow: null,
+          landedCostExceptionRangeHigh: null
+        }
+      ],
+      refetch: vi.fn()
+    });
+    referenceQueryMock.mockReturnValue({ data: { defaultPricingRule: {} } });
+    relationshipQueryMock.mockReturnValue({ data: { customer: { pricingRule: {} } } });
+
+    render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} />);
+
+    expect(screen.queryByLabelText(/vendor approval pending/i)).not.toBeInTheDocument();
+    // No chip for any of the structured reasons.
+    expect(screen.queryByLabelText(/keep margin/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/waive margin/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/take loss/i)).not.toBeInTheDocument();
+  });
 });
 
 describe('CustomerPricingPanel', () => {

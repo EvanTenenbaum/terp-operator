@@ -5,14 +5,10 @@ import { parsePriceRange } from '../../shared/priceRange';
 import { applyPricingRule, resolvePricingRuleEntry } from '../../shared/inventoryPricingShared';
 import type { CustomerPricingRule, PricingRuleApplication, PricingRuleEntry } from '../../shared/types';
 import { BELOW_FLOOR_REASONS, type BelowFloorReason } from '../../shared/saleLineCostExceptions';
-
-const EXCEPTION_REASON_LABELS: Record<BelowFloorReason, string> = {
-  keep_margin: 'Keep margin (vendor absorbs)',
-  waive_margin: 'Waive margin (we absorb)',
-  take_loss: 'Take loss (below cost, on purpose)',
-  vendor_approval_pending: 'Vendor approval pending',
-  renegotiate: 'Renegotiate with vendor (price TBD)'
-};
+import {
+  LandedCostExceptionChip,
+  LANDED_COST_EXCEPTION_REASON_LABELS as EXCEPTION_REASON_LABELS
+} from './LandedCostExceptionChip';
 
 function moneyFmt(value: unknown) {
   const n = Number(value ?? 0);
@@ -92,11 +88,38 @@ export function OrderPricingPanel({ orderId, customerId }: OrderPricingPanelProp
             const resolved = line.unitCostResolved === true;
             const suggested = applyPricingRule(unitCost, eff);
             const customValue = customCogs[lineId] ?? '';
+            // #64 PR-2: server-projected below-range exception metadata from
+            // the latest successful `setLineLandedCost` journal row. Renders
+            // an accessible amber warning chip (see `LandedCostExceptionChip`)
+            // beside the row header — especially important for
+            // `vendor_approval_pending` so operators see the unresolved
+            // vendor handshake without opening the journal.
+            const projectedExceptionReason =
+              typeof line.landedCostExceptionReason === 'string' && line.landedCostExceptionReason
+                ? line.landedCostExceptionReason
+                : null;
+            const projectedExceptionNote =
+              typeof line.landedCostExceptionNote === 'string' ? line.landedCostExceptionNote : null;
+            const projectedRangeLow =
+              typeof line.landedCostExceptionRangeLow === 'number' ? line.landedCostExceptionRangeLow : null;
+            const projectedRangeHigh =
+              typeof line.landedCostExceptionRangeHigh === 'number' ? line.landedCostExceptionRangeHigh : null;
             return (
               <div key={lineId} className="border border-line p-3 text-sm" data-testid={`pricing-line-${lineId}`}>
                 <div className="flex items-baseline justify-between gap-2">
                   <strong>{String(line.itemName)}</strong>
-                  <span className="text-[11px] uppercase text-zinc-500">{String(line.status ?? '')}</span>
+                  <div className="flex items-center gap-2">
+                    {projectedExceptionReason ? (
+                      <LandedCostExceptionChip
+                        reason={projectedExceptionReason}
+                        note={projectedExceptionNote}
+                        rangeLow={projectedRangeLow}
+                        rangeHigh={projectedRangeHigh}
+                        testId={`pricing-line-exception-chip-${lineId}`}
+                      />
+                    ) : null}
+                    <span className="text-[11px] uppercase text-zinc-500">{String(line.status ?? '')}</span>
+                  </div>
                 </div>
                 <div className="text-xs text-zinc-600">
                   {category ?? '—'} · qty {String(line.qty)} · unit price ${moneyFmt(line.unitPrice)}
