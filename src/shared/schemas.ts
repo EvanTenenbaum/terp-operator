@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { commandNames } from './commandCatalog';
+import { BELOW_FLOOR_REASONS } from './saleLineCostExceptions';
 
 export const roleSchema = z.enum(['owner', 'manager', 'operator', 'viewer']);
 export const ownershipSchema = z.enum(['C', 'OFC', 'UNKNOWN']);
@@ -112,7 +113,9 @@ export const setLineLandedCostPayloadSchema = z.object({
   lineId: z.string().uuid(),
   landedCost: z.coerce.number().min(0),
   basis: z.enum(['manual', 'pick-low', 'pick-mid', 'pick-high', 'override']).default('manual'),
-  reason: z.string().max(500).optional()
+  reason: z.string().max(500).optional(),
+  exceptionReason: z.enum(BELOW_FLOOR_REASONS).optional(),
+  exceptionNote: z.string().trim().max(500).optional()
 });
 
 export const setCustomerPricingRulePayloadSchema = z.object({

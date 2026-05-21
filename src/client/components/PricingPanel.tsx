@@ -4,6 +4,15 @@ import { useCommandRunner } from './useCommandRunner';
 import { parsePriceRange } from '../../shared/priceRange';
 import { applyPricingRule, resolvePricingRuleEntry } from '../../shared/inventoryPricingShared';
 import type { CustomerPricingRule, PricingRuleApplication, PricingRuleEntry } from '../../shared/types';
+import { BELOW_FLOOR_REASONS, type BelowFloorReason } from '../../shared/saleLineCostExceptions';
+
+const EXCEPTION_REASON_LABELS: Record<BelowFloorReason, string> = {
+  keep_margin: 'Keep margin (vendor absorbs)',
+  waive_margin: 'Waive margin (we absorb)',
+  take_loss: 'Take loss (below cost, on purpose)',
+  vendor_approval_pending: 'Vendor approval pending',
+  renegotiate: 'Renegotiate with vendor (price TBD)'
+};
 
 function moneyFmt(value: unknown) {
   const n = Number(value ?? 0);
@@ -36,12 +45,24 @@ export function OrderPricingPanel({ orderId, customerId }: OrderPricingPanelProp
   const relationship = trpc.queries.relationshipSummary.useQuery({ customerId }, { enabled: Boolean(customerId) });
   const { runCommand, isRunning } = useCommandRunner();
   const [customCogs, setCustomCogs] = useState<Record<string, string>>({});
+  const [customExceptionReason, setCustomExceptionReason] = useState<Record<string, BelowFloorReason | ''>>({});
+  const [customExceptionNote, setCustomExceptionNote] = useState<Record<string, string>>({});
 
   const customerRule = asRule((relationship.data?.customer as Record<string, unknown> | undefined)?.pricingRule);
   const defaultsRule = asRule(reference.data?.defaultPricingRule);
 
-  async function setCogs(lineId: string, landedCost: number, basis: 'manual' | 'pick-low' | 'pick-mid' | 'pick-high') {
-    await runCommand('setLineLandedCost', { lineId, landedCost, basis }, `Resolve landed COGS via ${basis}`);
+  async function setCogs(
+    lineId: string,
+    landedCost: number,
+    basis: 'manual' | 'pick-low' | 'pick-mid' | 'pick-high',
+    exception?: { reason: BelowFloorReason; note?: string }
+  ) {
+    const payloadObj: Record<string, unknown> = { lineId, landedCost, basis };
+    if (exception) {
+      payloadObj.exceptionReason = exception.reason;
+      if (exception.note?.trim()) payloadObj.exceptionNote = exception.note.trim();
+    }
+    await runCommand('setLineLandedCost', payloadObj, `Resolve landed COGS via ${basis}`);
     await lines.refetch();
   }
 
@@ -96,34 +117,71 @@ export function OrderPricingPanel({ orderId, customerId }: OrderPricingPanelProp
                       <button type="button" className="text-button" disabled={isRunning} onClick={() => setCogs(lineId, range.high, 'pick-high')} data-testid={`pick-high-${lineId}`}>High ${moneyFmt(range.high)}</button>
                       {(() => {
                         const customNum = Number(customValue);
-                        const customInRange = customValue !== '' && Number.isFinite(customNum) && customNum >= range.low && customNum <= range.high;
-                        const customOutOfRange = customValue !== '' && !customInRange;
+                        const customValid = customValue !== '' && Number.isFinite(customNum) && customNum >= 0;
+                        const customInRange = customValid && customNum >= range.low && customNum <= range.high;
+                        const customBelowRange = customValid && customNum < range.low;
+                        const customAboveRange = customValid && customNum > range.high;
+                        const reasonChoice = customExceptionReason[lineId] ?? '';
+                        const noteValue = customExceptionNote[lineId] ?? '';
+                        const canSubmit = customValid && (customInRange || (customBelowRange && reasonChoice !== ''));
                         return (
                           <>
                             <input
                               type="number"
-                              min={range.low}
-                              max={range.high}
+                              min={0}
                               step="0.01"
                               value={customValue}
                               onChange={(event) => setCustomCogs((current) => ({ ...current, [lineId]: event.target.value }))}
                               placeholder="custom"
-                              className={`border px-2 py-1 text-xs ${customOutOfRange ? 'border-red-400' : 'border-line'}`}
+                              aria-label="Custom COGS value"
+                              className={`border px-2 py-1 text-xs ${customAboveRange ? 'border-red-400' : customBelowRange ? 'border-amber-400' : 'border-line'}`}
                               style={{ width: 110 }}
                               data-testid={`pick-custom-input-${lineId}`}
                             />
-                            {customOutOfRange ? (
+                            {customAboveRange ? (
                               <span className="text-xs text-red-600" data-testid={`pick-custom-range-error-${lineId}`}>
-                                Must be ${moneyFmt(range.low)}–${moneyFmt(range.high)}
+                                Above range max ${moneyFmt(range.high)} — use override basis with manager approval
                               </span>
+                            ) : null}
+                            {customBelowRange ? (
+                              <div className="w-full mt-1 border border-amber-300 bg-amber-50 p-2 text-xs" data-testid={`pick-custom-below-range-${lineId}`}>
+                                <div className="text-amber-800 font-medium mb-1">Below range floor ${moneyFmt(range.low)} — select a reason to proceed</div>
+                                <select
+                                  value={reasonChoice}
+                                  onChange={(event) => setCustomExceptionReason((current) => ({ ...current, [lineId]: event.target.value as BelowFloorReason | '' }))}
+                                  aria-label="Below-range exception reason"
+                                  className="border border-line px-2 py-1 text-xs w-full"
+                                  data-testid={`pick-custom-exception-reason-${lineId}`}
+                                >
+                                  <option value="">Select reason…</option>
+                                  {BELOW_FLOOR_REASONS.map((r) => (
+                                    <option key={r} value={r}>{EXCEPTION_REASON_LABELS[r]}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="text"
+                                  value={noteValue}
+                                  onChange={(event) => setCustomExceptionNote((current) => ({ ...current, [lineId]: event.target.value }))}
+                                  placeholder="Optional note"
+                                  aria-label="Exception note"
+                                  className="mt-1 border border-line px-2 py-1 text-xs w-full"
+                                  data-testid={`pick-custom-exception-note-${lineId}`}
+                                />
+                              </div>
                             ) : null}
                             <button
                               type="button"
                               className="text-button"
-                              disabled={isRunning || !customInRange}
+                              disabled={isRunning || !canSubmit}
                               onClick={() => {
-                                void setCogs(lineId, customNum, 'manual');
+                                const exception =
+                                  customBelowRange && reasonChoice !== ''
+                                    ? { reason: reasonChoice as BelowFloorReason, note: noteValue }
+                                    : undefined;
+                                void setCogs(lineId, customNum, 'manual', exception);
                                 setCustomCogs((current) => ({ ...current, [lineId]: '' }));
+                                setCustomExceptionReason((current) => ({ ...current, [lineId]: '' }));
+                                setCustomExceptionNote((current) => ({ ...current, [lineId]: '' }));
                               }}
                               data-testid={`pick-custom-${lineId}`}
                             >

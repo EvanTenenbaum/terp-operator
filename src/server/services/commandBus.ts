@@ -61,7 +61,8 @@ import { getCloseoutSafety } from './closeout';
 import { applyPricingRule, asCustomerPricingRule, evaluatePrice, resolvePricingProfile, resolvePricingRuleEntry } from './pricing';
 import {
   commandInputSchema,
-  customerPricingRuleSchema
+  customerPricingRuleSchema,
+  setLineLandedCostPayloadSchema
 } from '../../shared/schemas';
 import {
   accrueRefereeCredit,
@@ -2109,6 +2110,14 @@ export async function setLineLandedCost(
     | 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual' | 'override';
   const reason = stringValue(payload.reason) || null;
 
+  const fullParse = setLineLandedCostPayloadSchema.safeParse({ ...payload, basis: basisIn });
+  if (!fullParse.success) {
+    const detail = fullParse.error.issues.map((i) => i.message).join('; ');
+    throw new Error(`Invalid setLineLandedCost payload: ${detail}`);
+  }
+  const exceptionReason = fullParse.data.exceptionReason;
+  const exceptionNote = fullParse.data.exceptionNote;
+
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Sales line not found.');
   await assertSalesOrderEditableById(tx, line.orderId);
@@ -2123,7 +2132,8 @@ export async function setLineLandedCost(
       range,
       basis: basisIn,
       role: user.role,
-      reason
+      reason,
+      exceptionReason
     });
     if (!validation.ok) throw new Error(validation.error);
     basisRecord = validation.basisRecord;
@@ -2154,12 +2164,19 @@ export async function setLineLandedCost(
 
   await recalcOrder(tx, line.orderId);
 
+  const delta: Record<string, unknown> = { lineId, landedCost: moneyScale(landedCost), basis: basisRecord, reason };
+  if (exceptionReason) {
+    delta.exceptionReason = exceptionReason;
+    if (exceptionNote) delta.exceptionNote = exceptionNote;
+  }
+  const toastSuffix = exceptionReason ? ` (below-range: ${exceptionReason})` : '';
+
   return {
     ok: true,
     commandId,
     affectedIds: [line.orderId, lineId],
-    toast: `Landed COGS $${landedCost.toFixed(2)} set for ${line.itemName}.`,
-    delta: { lineId, landedCost: moneyScale(landedCost), basis: basisRecord, reason }
+    toast: `Landed COGS $${landedCost.toFixed(2)} set for ${line.itemName}.${toastSuffix}`,
+    delta
   };
 }
 

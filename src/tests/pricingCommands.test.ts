@@ -127,7 +127,7 @@ describe('setLineLandedCost', () => {
     await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 150, basis: 'manual' }, MOCK_USER, 'cmd-2')).rejects.toThrow(/outside.*range/);
   });
 
-  it('rejects out-of-range below the floor', async () => {
+  it('rejects out-of-range below the floor without exceptionReason', async () => {
     const tx: any = {
       select: makeTxForSelect([
         () => [{ id: LINE_ID, batchId: BATCH_ID, orderId: ORDER_ID, itemName: 'Test', validationIssues: [], status: 'draft' }],
@@ -137,7 +137,30 @@ describe('setLineLandedCost', () => {
       update: makeUpdate()
     };
 
-    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 10, basis: 'manual' }, MOCK_USER, 'cmd-3')).rejects.toThrow(/outside.*range/);
+    await expect(setLineLandedCost(tx, { lineId: LINE_ID, landedCost: 10, basis: 'manual' }, MOCK_USER, 'cmd-3')).rejects.toThrow(/exception reason/i);
+  });
+
+  it('accepts below-range landed COGS when a valid exceptionReason is provided', async () => {
+    const updates: any[] = [];
+    const tx: any = {
+      select: makeTxForSelect([
+        () => [{ id: LINE_ID, batchId: BATCH_ID, orderId: ORDER_ID, itemName: 'Test', validationIssues: [], status: 'draft' }],
+        () => [{ id: ORDER_ID, status: 'draft', archivedAt: null }],
+        () => [{ priceRange: '50-100' }],
+        () => []
+      ]),
+      update: makeUpdateAll(updates)
+    };
+
+    const result = await setLineLandedCost(
+      tx,
+      { lineId: LINE_ID, landedCost: 10, basis: 'manual', exceptionReason: 'waive_margin' },
+      MOCK_USER,
+      'cmd-below-range'
+    );
+    expect(result.ok).toBe(true);
+    expect(result.delta).toMatchObject({ exceptionReason: 'waive_margin' });
+    expect(result.toast).toMatch(/below-range: waive_margin/);
   });
 
   it('accepts any non-negative landed cost when batch has no priceRange', async () => {

@@ -120,6 +120,80 @@ describe('OrderPricingPanel', () => {
     render(<OrderPricingPanel orderId={ORDER_ID} />);
     expect(screen.getByText(/No lines on this order yet/)).toBeInTheDocument();
   });
+
+  it('shows below-range exception picker when custom COGS is below the range floor', () => {
+    linesQueryMock.mockReturnValue({
+      data: [
+        { id: 'line-1', itemName: 'Range A', status: 'draft', batchCategory: 'Flower', qty: '1', unitPrice: '0', unitCost: '0', unitCostResolved: false, landedCostBasis: null, priceRange: '50-100' }
+      ],
+      refetch: vi.fn()
+    });
+    referenceQueryMock.mockReturnValue({ data: { defaultPricingRule: {} } });
+    relationshipQueryMock.mockReturnValue({ data: { customer: { pricingRule: {} } } });
+
+    render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} />);
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '10' } });
+
+    expect(screen.getByTestId('pick-custom-below-range-line-1')).toBeInTheDocument();
+    expect(screen.getByText(/Below range floor/i)).toBeInTheDocument();
+    expect(screen.getByTestId('pick-custom-exception-reason-line-1')).toBeInTheDocument();
+  });
+
+  it('does not show below-range picker when custom COGS is above the range', () => {
+    linesQueryMock.mockReturnValue({
+      data: [
+        { id: 'line-1', itemName: 'Range A', status: 'draft', batchCategory: 'Flower', qty: '1', unitPrice: '0', unitCost: '0', unitCostResolved: false, landedCostBasis: null, priceRange: '50-100' }
+      ],
+      refetch: vi.fn()
+    });
+    referenceQueryMock.mockReturnValue({ data: { defaultPricingRule: {} } });
+    relationshipQueryMock.mockReturnValue({ data: { customer: { pricingRule: {} } } });
+
+    render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} />);
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '200' } });
+
+    expect(screen.queryByTestId('pick-custom-below-range-line-1')).not.toBeInTheDocument();
+    expect(screen.getByText(/Above range max/i)).toBeInTheDocument();
+  });
+
+  it('keeps Set custom disabled until a reason is selected for below-range COGS', () => {
+    linesQueryMock.mockReturnValue({
+      data: [
+        { id: 'line-1', itemName: 'Range A', status: 'draft', batchCategory: 'Flower', qty: '1', unitPrice: '0', unitCost: '0', unitCostResolved: false, landedCostBasis: null, priceRange: '50-100' }
+      ],
+      refetch: vi.fn()
+    });
+    referenceQueryMock.mockReturnValue({ data: { defaultPricingRule: {} } });
+    relationshipQueryMock.mockReturnValue({ data: { customer: { pricingRule: {} } } });
+
+    render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} />);
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '10' } });
+
+    const submitBtn = screen.getByTestId('pick-custom-line-1') as HTMLButtonElement;
+    expect(submitBtn.disabled).toBe(true);
+  });
+
+  it('passes exceptionReason to setLineLandedCost when below-range reason is selected and Set custom is clicked', async () => {
+    linesQueryMock.mockReturnValue({
+      data: [
+        { id: 'line-1', itemName: 'Range A', status: 'draft', batchCategory: 'Flower', qty: '1', unitPrice: '0', unitCost: '0', unitCostResolved: false, landedCostBasis: null, priceRange: '50-100' }
+      ],
+      refetch: vi.fn()
+    });
+    referenceQueryMock.mockReturnValue({ data: { defaultPricingRule: {} } });
+    relationshipQueryMock.mockReturnValue({ data: { customer: { pricingRule: {} } } });
+
+    render(<OrderPricingPanel orderId={ORDER_ID} customerId={CUSTOMER_ID} />);
+    fireEvent.change(screen.getByTestId('pick-custom-input-line-1'), { target: { value: '10' } });
+    fireEvent.change(screen.getByTestId('pick-custom-exception-reason-line-1'), { target: { value: 'waive_margin' } });
+    fireEvent.click(screen.getByTestId('pick-custom-line-1'));
+
+    expect(runCommandMock).toHaveBeenCalledWith(
+      'setLineLandedCost',
+      expect.objectContaining({ lineId: 'line-1', landedCost: 10, basis: 'manual', exceptionReason: 'waive_margin' }),
+      expect.any(String)
+    );
+  });
 });
 
 describe('CustomerPricingPanel', () => {
