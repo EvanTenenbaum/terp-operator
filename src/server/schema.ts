@@ -1111,3 +1111,38 @@ export const customerBalanceReconciliation = pgTable('customer_balance_reconcili
   runIdx: index('customer_balance_recon_run_idx').on(table.runId)
 }));
 
+// Issue #113 Phase 1 — Finalization receipts shared snapshot foundation.
+// Audience-projected, immutable, audit-trailed rendered artifacts of
+// finalization records. One row per (source_entity, audience, finalize)
+// combination. snapshot_json is already audience-projected at write time —
+// an `external` row never contains internal-only fields on disk.
+export const documentSnapshots = pgTable(
+  'document_snapshots',
+  {
+    id: id(),
+    kind: varchar('kind', { length: 32 }).notNull(),
+    sourceEntityType: varchar('source_entity_type', { length: 32 }).notNull(),
+    sourceEntityId: uuid('source_entity_id').notNull(),
+    commandId: uuid('command_id').references(() => commandJournal.id).notNull(),
+    status: varchar('status', { length: 16 }).notNull(),
+    audience: varchar('audience', { length: 16 }).notNull(),
+    snapshotJson: jsonb('snapshot_json').$type<Record<string, unknown>>().notNull(),
+    projectionVersion: integer('projection_version').notNull(),
+    contentHash: varchar('content_hash', { length: 64 }).notNull(),
+    supersedesId: uuid('supersedes_id').references((): AnyPgColumn => documentSnapshots.id),
+    createdBy: uuid('created_by').references(() => users.id),
+    finalizedBy: uuid('finalized_by').references(() => users.id),
+    voidedBy: uuid('voided_by').references(() => users.id),
+    createdAt: now(),
+    finalizedAt: timestamp('finalized_at', { withTimezone: true }),
+    voidedAt: timestamp('voided_at', { withTimezone: true })
+  },
+  (table) => ({
+    entityIdx: index('document_snapshots_entity_idx').on(
+      table.sourceEntityType, table.sourceEntityId, table.audience, table.status
+    ),
+    commandIdx: index('document_snapshots_command_idx').on(table.commandId),
+    supersedesIdx: index('document_snapshots_supersedes_idx').on(table.supersedesId)
+  })
+);
+
