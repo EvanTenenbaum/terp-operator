@@ -106,6 +106,7 @@ import {
   type CanConfirmOrPostLine,
   type ConfirmOrPostBlockedReason
 } from '../../shared/saleLineCostExceptions';
+import { createPoFinalizationReceipts } from './poFinalizationReceipts';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -336,6 +337,29 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       });
     } catch (e) {
       console.warn('[commandBus] socket emit failed after commit:', e instanceof Error ? e.message : e);
+    }
+
+    // Issue #113 Phase 2 — best-effort PO finalization receipt creation.
+    // Runs AFTER the PO transaction commits and AFTER existing observers
+    // (JSONL, socket) so a snapshot failure cannot fail the PO command.
+    // createPoFinalizationReceipts itself catches and logs internally, but
+    // we double-guard here so an unexpected synchronous throw still cannot
+    // propagate. See src/server/services/poFinalizationReceipts.ts for the
+    // amendment-aware logic and the choice of `pool` over `tx`.
+    if (input.name === 'finalizePurchaseOrder' && commandResult.ok && commandResult.affectedIds[0]) {
+      try {
+        await createPoFinalizationReceipts(
+          pool,
+          commandResult.affectedIds[0],
+          commandId,
+          user.id
+        );
+      } catch (e) {
+        console.warn(
+          '[commandBus] PO finalization receipt hook failed after commit:',
+          e instanceof Error ? e.message : e
+        );
+      }
     }
 
     return storedResult;
