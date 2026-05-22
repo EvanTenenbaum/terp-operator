@@ -14,7 +14,7 @@ import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
 import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationshipDrawer';
-import { ReceiptPreview } from '../components/ReceiptPreview';
+import { ReceiptPanel } from '../components/ReceiptPanel';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -225,18 +225,6 @@ export function PurchaseOrdersView() {
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
-  const subjectIdForQuery = String(selectedPo?.id ?? '00000000-0000-0000-0000-000000000000');
-  const finalizedSnapshot = trpc.documentSnapshots.getExternalBySubjectId.useQuery(
-    { documentType: 'purchase_order', subjectId: subjectIdForQuery },
-    { enabled: Boolean(selectedPo?.id), retry: false }
-  );
-  const hasFinalizedSnapshot = Boolean(finalizedSnapshot.data);
-  const activeInternal = trpc.documentSnapshots.getInternalBySubjectId.useQuery(
-    { documentType: 'purchase_order', subjectId: subjectIdForQuery },
-    { enabled: Boolean(selectedPo?.id) && canWrite, retry: false }
-  );
-  const hasActiveDraft = activeInternal.data?.status === 'draft';
-  const hasAnyActiveSnapshot = canWrite ? Boolean(activeInternal.data) : hasFinalizedSnapshot;
   const [authoringOpen, setAuthoringOpen] = useState(false);
   const [vendorId, setVendorId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
@@ -254,7 +242,6 @@ export function PurchaseOrdersView() {
   const [newVendorNotes, setNewVendorNotes] = useState('');
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
-  const [receiptPreviewSubjectId, setReceiptPreviewSubjectId] = useState<string | null>(null);
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
   const defaultVendorId = vendorId;
@@ -316,22 +303,6 @@ export function PurchaseOrdersView() {
           >
             <Undo2 className="h-4 w-4" aria-hidden="true" />
             Cancel draft PO
-          </button>
-          <button
-            className="secondary-button compact-action"
-            disabled={isRunning || !canWrite || !row.id || row.status !== 'draft'}
-            onClick={() => runCommand('saveDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Save PO receipt draft')}
-            type="button"
-          >
-            Save draft receipt
-          </button>
-          <button
-            className="secondary-button compact-action"
-            disabled={isRunning || !canWrite || !row.id}
-            onClick={() => runCommand('abandonDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Abandon PO receipt draft')}
-            type="button"
-          >
-            Abandon draft receipt
           </button>
         </>
       )
@@ -803,15 +774,6 @@ export function PurchaseOrdersView() {
                 </button>
               </>
             ) : null}
-            <button
-              className="secondary-button compact-action"
-              type="button"
-              disabled={!selectedPo?.id || !hasAnyActiveSnapshot}
-              onClick={() => selectedPo?.id && setReceiptPreviewSubjectId(String(selectedPo.id))}
-              title="Preview the active vendor receipt for this PO"
-            >
-              Preview receipt
-            </button>
           </>
         }
         expansionConfig={canWrite ? purchaseOrderExpansionConfig : undefined}
@@ -843,16 +805,10 @@ export function PurchaseOrdersView() {
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
             ) : null}
-            <button
-              className="secondary-button compact-action"
-              type="button"
-              disabled={!selectedPo?.id || !hasAnyActiveSnapshot}
-              onClick={() => selectedPo?.id && setReceiptPreviewSubjectId(String(selectedPo.id))}
-              title="Preview the active vendor receipt for this PO"
-            >
-              Preview receipt
-            </button>
           </section>
+          {['finalized', 'approved', 'ordered', 'partially_received', 'received'].includes(selectedPoStatus) ? (
+            <ReceiptPanel purchaseOrderId={String(selectedPo.id)} />
+          ) : null}
           <OperatorGrid
             view="purchaseOrders"
             title={`${String(selectedPo.poNo ?? 'Selected PO')} Lines`}
@@ -881,13 +837,7 @@ export function PurchaseOrdersView() {
           />
         </>
       ) : null}
-      {receiptPreviewSubjectId ? (
-        <ReceiptPreview
-          documentType="purchase_order"
-          subjectId={receiptPreviewSubjectId}
-          onClose={() => setReceiptPreviewSubjectId(null)}
-        />
-      ) : null}
+
     </div>
   );
 }
@@ -1064,6 +1014,9 @@ export function PaymentsView() {
         <>
           <QuickLedgerGrid />
           <PaymentAllocationTools selectedPayment={selectedPayment} />
+          {selectedPayment?.id ? (
+            <ReceiptPanel kind="payment" paymentId={String(selectedPayment.id)} />
+          ) : null}
         </>
       )}
       actions={(rows, runCommand) => (
@@ -1770,6 +1723,9 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
             </tbody>
           </table>
         </div>
+      ) : null}
+      {chosenPaymentId ? (
+        <ReceiptPanel kind="vendor_payment" vendorPaymentId={String(chosenPaymentId)} />
       ) : null}
     </section>
   );

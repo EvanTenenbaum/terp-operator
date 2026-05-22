@@ -31,6 +31,22 @@
 **Author:** OpenCode via Evan
 **Related:** Issue #64; PR-1 (#137), PR-2 (#151); Issue #150 (snapshotByAffectedIds pool-vs-tx capture gap noted in reversal comment); Issue #154 (pre-existing test regex mismatch — separately addressed by upstream PR #141 / commit b78a786); migration baseline 0049 — no new migration for PR-3.
 
+## 2026-05-22 — ReceiptPanel widened to four kinds (Phase 4: money receipts)
+
+The `ReceiptPanel` discriminated union now accepts `'purchase_order' | 'sales_order' | 'payment' | 'vendor_payment'`. Payment and vendor_payment kinds are wired in `PaymentsView` (after `PaymentAllocationTools`, gated on a selected payment row) and `VendorBillTools` (after the payouts table, gated on `chosenPaymentId`). Body now hides the lines table when `projection.lines` is empty (money receipts carry no line items). Internal-notes section renamed to "Internal reconciliation notes". See Phase 4 plan.
+
+---
+
+## 2026-05-21 — ReceiptPanel `kind` discriminator + Sales/Invoice wiring (#113 Phase 3)
+
+**Widened component:** `src/client/components/ReceiptPanel.tsx` now accepts a discriminated `kind` prop (`'purchase_order'` | `'sales_order'`). Backward compatible — existing `<ReceiptPanel purchaseOrderId={...} />` call sites keep working because `kind` defaults to `'purchase_order'`.
+
+**Convention:** When a panel must dispatch between two parallel tRPC endpoints, prefer a discriminated-union prop type + `enabled: false` on the inactive hooks over conditional rendering of two near-identical panels.
+
+**Convention:** Sales receipt procedures resolve "invoice wins over confirmation" inside the procedure. The panel just renders whatever is returned.
+
+**Convention:** `ReceiptPanel` renders inside the Sale Builder WorkspacePanel in `SalesView` for `confirmed`, `posted`, and `fulfilled` statuses.
+
 ---
 
 ## 2026-05-21: Accessibility conventions for interactive components
@@ -181,5 +197,13 @@ Added `wrapHeaderText: true` + `autoHeaderHeight: true` to OperatorGrid defaultC
 **Related:** `docs/roadmap/2026-finalization-receipts-roadmap.md`, `docs/superpowers/plans/2026-05-20-finalization-receipts-tranche-1.md`, GitHub #113.
 
 ---
+
+## 2026-05-21 — ReceiptPanel + server-rendered Signal text (#113 Phase 2)
+
+**New component:** `src/client/components/ReceiptPanel.tsx` — read-only finalization receipt viewer with `external` / `internal` tabs, an "INTERNAL — DO NOT SEND" marker on the internal tab, and a "Copy for Signal" affordance on the external tab. Used in `OperationsViews.PurchaseOrdersView` under the PO header strip whenever the selected PO is at or past `finalized` status.
+
+**Convention:** The signal-text renderer (`renderSignalText` in `src/server/services/documentSnapshots.ts`) is exposed via a dedicated tRPC query `queries.purchaseOrderSignalText` rather than imported into the client. Rationale: `documentSnapshots.ts` imports server-only `pg` and rbac code; copying the renderer into a shared module expands surface area unnecessarily. The tRPC indirection keeps the renderer in one place and lets us extend it (formatting, locale, watermark) without client redeploys.
+
+**Convention:** Role-gated tRPC procedures should let the underlying service throw `TRPCError(FORBIDDEN)` via `assertRole(...)` rather than gating in the procedure body. `queries.purchaseOrderInternalReceipt` follows this pattern by passing `ctx.user` directly into `getInternalReceipt`. Single source of truth for the gate.
 
 [Future decisions append above this line, in reverse chronological order.]

@@ -83,14 +83,7 @@ import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
 import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import { photoUploadTokens } from '../schema';
-import {
-  createFinalizedSnapshotForPurchaseOrder,
-  createFinalizedSnapshotForCustomerPayment,
-  createFinalizedSnapshotForVendorPayout,
-  voidActiveSnapshotForPurchaseOrder,
-  saveOrUpdateDraftSnapshotForPurchaseOrder,
-  abandonDraftSnapshotForPurchaseOrder
-} from './documentSnapshots/snapshotService';
+
 import { createHash, randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
@@ -114,6 +107,11 @@ import {
   type CanConfirmOrPostLine,
   type ConfirmOrPostBlockedReason
 } from '../../shared/saleLineCostExceptions';
+import { createPoFinalizationReceipts } from './poFinalizationReceipts';
+import { createSalesConfirmationReceipts } from './salesConfirmationReceipts';
+import { createInvoiceReceipts } from './invoiceReceipts';
+import { createPaymentReceivedReceipts } from './paymentReceivedReceipts';
+import { createVendorPayoutReceipts } from './vendorPayoutReceipts';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -344,6 +342,70 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       });
     } catch (e) {
       console.warn('[commandBus] socket emit failed after commit:', e instanceof Error ? e.message : e);
+    }
+
+    // Issue #113 Phase 2 — best-effort PO finalization receipt creation.
+    // Runs AFTER the PO transaction commits and AFTER existing observers
+    // (JSONL, socket) so a snapshot failure cannot fail the PO command.
+    // createPoFinalizationReceipts itself catches and logs internally, but
+    // we double-guard here so an unexpected synchronous throw still cannot
+    // propagate. See src/server/services/poFinalizationReceipts.ts for the
+    // amendment-aware logic and the choice of `pool` over `tx`.
+    if (input.name === 'finalizePurchaseOrder' && commandResult.ok && commandResult.affectedIds[0]) {
+      try {
+        await createPoFinalizationReceipts(
+          pool,
+          commandResult.affectedIds[0],
+          commandId,
+          user.id
+        );
+      } catch (e) {
+        console.warn(
+          '[commandBus] PO finalization receipt hook failed after commit:',
+          e instanceof Error ? e.message : e
+        );
+      }
+    }
+
+    // Issue #113 Phase 3 — best-effort sales-confirmation receipt creation.
+    if (input.name === 'confirmSalesOrder' && commandResult.ok && commandResult.affectedIds[0]) {
+      try {
+        await createSalesConfirmationReceipts(
+          pool,
+          commandResult.affectedIds[0],
+          commandId,
+          user.id
+        );
+      } catch (e) {
+        console.warn('[commandBus] sales-confirmation receipt hook failed after commit:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Issue #113 Phase 3 — best-effort invoice receipt creation on postSalesOrder.
+    if (input.name === 'postSalesOrder' && commandResult.ok && commandResult.affectedIds[0]) {
+      try {
+        await createInvoiceReceipts(pool, commandResult.affectedIds[0], commandId, user.id);
+      } catch (e) {
+        console.warn('[commandBus] invoice receipt hook failed after commit:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Issue #113 Phase 4 — logPayment only (not postLedgerRow indirect payments)
+    if (input.name === 'logPayment' && commandResult.ok && commandResult.affectedIds[0]) {
+      try {
+        await createPaymentReceivedReceipts(pool, commandResult.affectedIds[0], commandId, user.id);
+      } catch (e) {
+        console.warn('[commandBus] payment_received receipt hook failed after commit:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // recordVendorPayment returns affectedIds = [billId, vendorPaymentId] → index 1
+    if (input.name === 'recordVendorPayment' && commandResult.ok && commandResult.affectedIds[1]) {
+      try {
+        await createVendorPayoutReceipts(pool, commandResult.affectedIds[1], commandId, user.id);
+      } catch (e) {
+        console.warn('[commandBus] vendor_payout receipt hook failed after commit:', e instanceof Error ? e.message : e);
+      }
     }
 
     return storedResult;
@@ -618,47 +680,8 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
       return revokePhotoUploadTokenCommand(tx, payload, commandId);
-    case 'saveDraftPurchaseOrderReceipt':
-      return saveDraftPurchaseOrderReceiptHandler(tx, payload, commandId);
-    case 'abandonDraftPurchaseOrderReceipt':
-      return abandonDraftPurchaseOrderReceiptHandler(tx, payload, commandId);
-  }
-}
 
-async function saveDraftPurchaseOrderReceiptHandler(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
-  const [po] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
-  if (!po) throw new Error('Purchase order not found.');
-  if (po.status !== 'draft') {
-    return {
-      ok: false,
-      commandId,
-      affectedIds: [purchaseOrderId],
-      toast: 'Draft receipts can only be saved for draft purchase orders.'
-    };
   }
-  const { snapshotId, created } = await saveOrUpdateDraftSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
-  void snapshotId;
-  return {
-    ok: true,
-    commandId,
-    affectedIds: [purchaseOrderId],
-    toast: created ? `${po.poNo} draft receipt saved.` : `${po.poNo} draft receipt updated.`
-  };
-}
-
-async function abandonDraftPurchaseOrderReceiptHandler(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
-  const [po] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
-  if (!po) throw new Error('Purchase order not found.');
-  const { voidedId } = await abandonDraftSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
-  void voidedId;
-  return {
-    ok: true,
-    commandId,
-    affectedIds: [purchaseOrderId],
-    toast: voidedId ? `${po.poNo} draft receipt abandoned.` : `${po.poNo} had no draft receipt.`
-  };
 }
 
 async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1196,20 +1219,11 @@ async function finalizePurchaseOrder(tx: Tx, payload: Payload, userId: string, c
     updatedAt: new Date()
   }).where(eq(purchaseOrders.id, purchaseOrderId));
 
-  // Side effect: write/consume the document_snapshots row for this PO. If
-  // the projection throws, the surrounding executeCommand transaction is
-  // rolled back, so the PO status update above is reverted too — no orphan
-  // snapshot or half-finalized PO can be left behind.
-  const { snapshotId, version, consumedDraftId } =
-    await createFinalizedSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
-  void snapshotId;
-  void consumedDraftId;
-
   return {
     ok: true,
     commandId,
     affectedIds: [purchaseOrderId],
-    toast: `${order.poNo} finalized and ready for approval. Receipt v${version} saved.`
+    toast: `${order.poNo} finalized and ready for approval.`
   };
 }
 
@@ -1247,12 +1261,6 @@ async function unfinalizePurchaseOrder(tx: Tx, payload: Payload, commandId: stri
     finalizedAt: null,
     updatedAt: new Date()
   }).where(eq(purchaseOrders.id, purchaseOrderId));
-
-  // Side effect: void the active finalized snapshot so an "unfinalize then
-  // edit then refinalize" loop yields v2 finalized + v1 void (NOT
-  // superseded). Legacy POs without a snapshot row are a no-op.
-  const { voidedId } = await voidActiveSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
-  void voidedId;
 
   return {
     ok: true,
@@ -2969,12 +2977,7 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
   // level — if allocatePayment also enqueues below, the second insert is a no-op.
   await enqueueCustomerRecompute(tx, customerId, 'event:recordPayment', commandId);
 
-  // Best-effort snapshot — failure must not fail the payment command
-  try {
-    await createFinalizedSnapshotForCustomerPayment(tx, payment.id, commandId);
-  } catch (e) {
-    console.warn('[commandBus] customer_payment snapshot failed (non-fatal):', e instanceof Error ? e.message : e);
-  }
+
 
   // Auto-execute allocation if allocationIntent is set to 'fifo' or 'selected_invoice'
   const intent = payment.allocationIntent;
@@ -3152,13 +3155,6 @@ async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string):
   const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null, createdAt: transactionDate }).returning();
   const paid = Number(bill.amountPaid) + amount;
   await tx.update(vendorBills).set({ amountPaid: moneyScale(paid), status: paid >= Number(bill.amount) ? 'paid' : 'partial', dueReason: paid >= Number(bill.amount) ? 'Paid in full' : 'Partially paid vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
-
-  // Best-effort snapshot — failure must not fail the payment command
-  try {
-    await createFinalizedSnapshotForVendorPayout(tx, payment.id, commandId);
-  } catch (e) {
-    console.warn('[commandBus] vendor_payout snapshot failed (non-fatal):', e instanceof Error ? e.message : e);
-  }
 
   return { ok: true, commandId, affectedIds: [billId, payment.id], toast: 'Vendor payout recorded and traceable.' };
 }
