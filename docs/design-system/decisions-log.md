@@ -15,6 +15,15 @@
 
 ---
 
+## 2026-05-22 — CAP-030 frontend wired to live backend (TER-1508/1510/1513)
+**Decision:** Removed all TODO stubs. pickQueue/pickListWithLines/releaseEligibility now use live tRPC queries with 30s/10s refetch intervals as polling fallback before socket.io channels (TER-1518) land. Fixed command name mismatch: recallLineFromPicking (backend) vs recallPickLine (stub). Bulk release uses releaseLinesForPicking (single transactional command). Removed duplicate stub case from commandBus.ts.
+**Rationale:** Backend PR #185 merged to main. No reason to keep stubs after successful rebase.
+**Example:** `src/client/views/PickView.tsx`, `src/client/views/SalesView.tsx`, `src/client/views/OperationsViews.tsx`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1508, TER-1510, TER-1513, PR #185 (backend), PR #186 (frontend).
+
+---
+
 ## 2026-05-22 — CAP-030 pick-status chip colors (TER-1508)
 **Decision:** Pick-status chips use Tailwind utility classes directly (`bg-blue-100 text-blue-800` etc.) rather than a semantic CSS class.
 **Rationale:** Five states, one-off use in SalesView line expansion. If pick-status chips appear elsewhere, extract to `.pick-status-chip-*` semantic pattern then.
