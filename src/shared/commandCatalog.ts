@@ -104,6 +104,7 @@ export const commandNames = [
   'setLineLandedCost',
   'setCustomerPricingRule',
   'setDefaultPricingRule',
+  'savePricingRuleChain',
   'mintPhotoUploadToken',
   'revokePhotoUploadToken',
   'createCustomerSheetSnapshot',
@@ -126,6 +127,9 @@ export const commandNames = [
 //   / bulkRevertCustomersToEngine: filed at #111 (Credit Engine admin surfaces
 //   missing from PR #50's Settings → Credit Engine panel — only the global
 //   config form landed; per-stance + per-customer admin actions deferred).
+// - savePricingRuleChain: TER-1558 (CAP-030). Backend handler + reversal land
+//   in Task 5; the chain-manager UI surface (drag/drop reorder, condition
+//   builder) lands in a follow-up task within the same Linear issue.
 export const internalOnlyCommandNames = [
   'routeConnectorRequest',
   'setCustomerEngineMax',
@@ -135,6 +139,7 @@ export const internalOnlyCommandNames = [
   'updateCreditEngineStance',
   'deleteCreditEngineStance',
   'bulkRevertCustomersToEngine',
+  'savePricingRuleChain',
 ] as const;
 
 export type CommandName = (typeof commandNames)[number];
@@ -250,6 +255,7 @@ export const commandLabels: Record<CommandName, string> = {
   setLineLandedCost: 'Set landed COGS',
   setCustomerPricingRule: 'Set customer pricing rule',
   setDefaultPricingRule: 'Set default pricing rule',
+  savePricingRuleChain: 'Save pricing rule chain',
   mintPhotoUploadToken: 'Mint photo upload share link',
   revokePhotoUploadToken: 'Revoke photo upload share link',
   createCustomerSheetSnapshot: 'Persist customer sheet snapshot',
@@ -367,6 +373,7 @@ export const commandMinRole: Record<CommandName, Role> = {
   setLineLandedCost: 'operator',
   setCustomerPricingRule: 'manager',
   setDefaultPricingRule: 'manager',
+  savePricingRuleChain: 'manager',
   mintPhotoUploadToken: 'manager',
   revokePhotoUploadToken: 'manager',
   createCustomerSheetSnapshot: 'operator',
@@ -484,6 +491,7 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   setLineLandedCost: { disposition: 'reversible', guidance: 'Restores the prior landed COGS, basis, and resolution flag from the command snapshot.' },
   setCustomerPricingRule: { disposition: 'reversible', guidance: 'Restores the prior customer pricing rule from the command snapshot.' },
   setDefaultPricingRule: { disposition: 'reversible', guidance: 'Restores the prior default pricing rule from the command snapshot.' },
+  savePricingRuleChain: { disposition: 'reversible', guidance: 'Restores the prior pricing rule chain from the command snapshot.' },
   mintPhotoUploadToken: { disposition: 'reversible', guidance: 'Use revokePhotoUploadToken with the returned tokenId to invalidate the share link immediately.' },
   revokePhotoUploadToken: { disposition: 'terminal', guidance: 'Mint a new photo upload share link if the revoke was accidental — the previous raw token is unrecoverable.' },
   createCustomerSheetSnapshot: { disposition: 'terminal', guidance: 'Snapshots are append-only audit records of what was sent. Create a new sheet instead.' },

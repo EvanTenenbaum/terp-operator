@@ -3,7 +3,7 @@ import { createWriteStream } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import PDFDocument from 'pdfkit';
-import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Server as SocketServer } from 'socket.io';
 import { z } from 'zod';
 import { db, pool } from '../db';
@@ -37,6 +37,7 @@ import {
   periodLocks,
   photographyQueue,
   pickLists,
+  pricingRuleEntries,
   purchaseReceiptLines,
   purchaseReceipts,
   purchaseOrderLines,
@@ -62,6 +63,7 @@ import { applyPricingRule, asCustomerPricingRule, evaluatePrice, resolvePricingP
 import {
   commandInputSchema,
   customerPricingRuleSchema,
+  savePricingRuleChainPayloadSchema,
   setLineLandedCostPayloadSchema
 } from '../../shared/schemas';
 import {
@@ -685,9 +687,10 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
     case 'resolveVendorApproval':
       return resolveVendorApproval(tx, payload, commandId);
     case 'setCustomerPricingRule':
-      return setCustomerPricingRule(tx, payload, commandId);
     case 'setDefaultPricingRule':
-      return setDefaultPricingRule(tx, payload, commandId);
+      throw new Error(`Command ${name} is deprecated. Use savePricingRuleChain instead.`);
+    case 'savePricingRuleChain':
+      return savePricingRuleChain(tx, payload, commandId);
     case 'mintPhotoUploadToken':
       return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
@@ -2593,6 +2596,160 @@ function validatePricingRulePayload(value: unknown): Record<string, unknown> {
 }
 
 // ---------------------------------------------------------------------------
+// CAP-030: savePricingRuleChain
+// Atomic save of an ordered, clause-based pricing rule chain for either the
+// global scope or a single customer. Replaces the deprecated flat-JSONB
+// setCustomerPricingRule / setDefaultPricingRule commands.
+//
+// Concurrency control: the client sends a chainFingerprint of the live rows
+// it loaded. We recompute the fingerprint from the current DB state and
+// reject the save if they diverge (PRICING_CHAIN_CONFLICT).
+//
+// Strategy: soft-delete all live rows first to free the (scope, customerId,
+// priority) slots, then either un-soft-delete + update existing IDs the
+// caller still references, or insert brand-new rows. Both branches re-assign
+// priority from clause order so reordering works in one pass.
+// ---------------------------------------------------------------------------
+function computeChainFingerprint(rows: Array<{ id: string; updatedAt: Date | null }>): string {
+  const parts = [...rows]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((r) => `${r.id}:${r.updatedAt?.getTime() ?? 0}`)
+    .join('|');
+  return `${rows.length}:${parts}`;
+}
+
+export async function savePricingRuleChain(
+  tx: Tx,
+  payload: Payload,
+  commandId: string
+): Promise<CommandResult> {
+  const { scope, customerId, clauses, chainFingerprint } =
+    savePricingRuleChainPayloadSchema.parse(payload);
+
+  // Enforce: global scope must have a catch-all as the final clause so price
+  // resolution always terminates with a known action.
+  if (scope === 'global') {
+    const last = clauses[clauses.length - 1];
+    if (!last || last.conditions !== null) {
+      throw new Error(
+        'Global pricing rule chain must have a catch-all clause (conditions: null) as the final entry.'
+      );
+    }
+  }
+
+  // Concurrency check — fingerprint current live rows.
+  const liveRows = await tx
+    .select({ id: pricingRuleEntries.id, updatedAt: pricingRuleEntries.updatedAt })
+    .from(pricingRuleEntries)
+    .where(
+      and(
+        eq(pricingRuleEntries.scope, scope),
+        customerId
+          ? eq(pricingRuleEntries.customerId, customerId)
+          : isNull(pricingRuleEntries.customerId),
+        isNull(pricingRuleEntries.deletedAt)
+      )
+    );
+
+  const currentFingerprint = computeChainFingerprint(liveRows);
+  if (currentFingerprint !== chainFingerprint) {
+    throw Object.assign(
+      new Error(
+        'Pricing chain was modified since you opened it. Reload to see the latest version.'
+      ),
+      { code: 'PRICING_CHAIN_CONFLICT' }
+    );
+  }
+
+  // Snapshot the prior chain for reversal.
+  const priorChain = await tx
+    .select()
+    .from(pricingRuleEntries)
+    .where(
+      and(
+        eq(pricingRuleEntries.scope, scope),
+        customerId
+          ? eq(pricingRuleEntries.customerId, customerId)
+          : isNull(pricingRuleEntries.customerId),
+        isNull(pricingRuleEntries.deletedAt)
+      )
+    )
+    .orderBy(pricingRuleEntries.priority);
+
+  const liveIds = new Set<string>(liveRows.map((r: { id: string }) => r.id));
+
+  // Step 1: soft-delete ALL existing live rows so we can free priority slots.
+  if (liveRows.length > 0) {
+    await tx
+      .update(pricingRuleEntries)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(pricingRuleEntries.scope, scope),
+          customerId
+            ? eq(pricingRuleEntries.customerId, customerId)
+            : isNull(pricingRuleEntries.customerId),
+          isNull(pricingRuleEntries.deletedAt)
+        )
+      );
+  }
+
+  // Step 2: restore existing rows (un-soft-delete + update) or insert brand-new
+  // rows, in priority order from the caller's clause list.
+  const affectedIds: string[] = [];
+  for (let i = 0; i < clauses.length; i++) {
+    const clause = clauses[i];
+    const priority = i + 1;
+    const now = new Date();
+
+    if (clause.id && liveIds.has(clause.id)) {
+      await tx
+        .update(pricingRuleEntries)
+        .set({
+          priority,
+          name: clause.name ?? null,
+          conditions: clause.conditions ?? null,
+          actionBasis: clause.actionBasis,
+          actionAmount: String(clause.actionAmount),
+          active: clause.active,
+          deletedAt: null,
+          updatedAt: now
+        })
+        .where(eq(pricingRuleEntries.id, clause.id));
+      affectedIds.push(clause.id);
+    } else {
+      const inserted = await tx
+        .insert(pricingRuleEntries)
+        .values({
+          scope,
+          customerId: customerId ?? null,
+          priority,
+          name: clause.name ?? null,
+          conditions: clause.conditions ?? null,
+          actionBasis: clause.actionBasis,
+          actionAmount: String(clause.actionAmount),
+          active: clause.active
+        })
+        .returning({ id: pricingRuleEntries.id });
+      if (inserted[0]?.id) affectedIds.push(inserted[0].id);
+    }
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: affectedIds.length > 0 ? affectedIds : [customerId ?? 'global'],
+    toast: 'Pricing rules saved.',
+    delta: {
+      scope,
+      customerId: customerId ?? null,
+      clauses,
+      priorChain
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Photo Upload Tokens (issue #73)
 // Mint / revoke tokenized share links for the photographer mobile upload
 // flow. The raw token value is returned ONCE to the caller; only the sha256
@@ -4142,6 +4299,65 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
     } else {
       const [row] = await tx.insert(systemSettings).values({ key: 'pricing.defaults', value: priorRule }).returning();
       if (row) affected.push(row.id);
+    }
+  } else if (original.commandName === 'savePricingRuleChain') {
+    // CAP-030: restore prior pricing rule chain from the command's delta
+    // snapshot. Soft-delete the current live chain in (scope, customerId),
+    // then re-upsert each prior row by its original id so foreign references
+    // (if any) and audit continuity are preserved.
+    const delta = ((original.result as Record<string, unknown> | null)?.delta ?? {}) as Record<string, unknown>;
+    const scope = (delta.scope ?? 'global') as 'global' | 'customer';
+    const restoreCustomerId = (delta.customerId as string | null) ?? null;
+    const priorChain = (delta.priorChain ?? []) as Array<Record<string, unknown>>;
+
+    await tx
+      .update(pricingRuleEntries)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(
+          eq(pricingRuleEntries.scope, scope),
+          restoreCustomerId
+            ? eq(pricingRuleEntries.customerId, restoreCustomerId)
+            : isNull(pricingRuleEntries.customerId),
+          isNull(pricingRuleEntries.deletedAt)
+        )
+      );
+
+    for (const row of priorChain) {
+      const id = row.id as string;
+      // Upsert by id so reversal is idempotent and handles the case where
+      // the original rows still exist as soft-deleted rows.
+      await tx
+        .insert(pricingRuleEntries)
+        .values({
+          id,
+          scope: row.scope as 'global' | 'customer',
+          customerId: (row.customerId as string | null) ?? null,
+          priority: row.priority as number,
+          name: (row.name as string | null) ?? null,
+          conditions: (row.conditions as unknown) ?? null,
+          actionBasis: row.actionBasis as 'percent' | 'dollar',
+          actionAmount: String(row.actionAmount),
+          active: row.active as boolean,
+          migrationSource: (row.migrationSource as string | null) ?? null,
+          deletedAt: null
+        })
+        .onConflictDoUpdate({
+          target: pricingRuleEntries.id,
+          set: {
+            scope: row.scope as 'global' | 'customer',
+            customerId: (row.customerId as string | null) ?? null,
+            priority: row.priority as number,
+            name: (row.name as string | null) ?? null,
+            conditions: (row.conditions as unknown) ?? null,
+            actionBasis: row.actionBasis as 'percent' | 'dollar',
+            actionAmount: String(row.actionAmount),
+            active: row.active as boolean,
+            deletedAt: null,
+            updatedAt: new Date()
+          }
+        });
+      affected.push(id);
     }
   } else if (original.commandName === 'setLineLandedCost') {
     for (const line of beforeSnapshot.salesOrderLines ?? []) {

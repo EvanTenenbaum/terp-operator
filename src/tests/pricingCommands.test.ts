@@ -17,11 +17,13 @@ import {
   setLineLandedCost,
   setCustomerPricingRule,
   setDefaultPricingRule,
+  savePricingRuleChain,
   priceSalesOrder,
   confirmSalesOrder,
   postSalesOrder,
   reverseCommandById
 } from '../server/services/commandBus';
+import { savePricingRuleChainPayloadSchema } from '../shared/schemas';
 
 import {
   salesOrders as salesOrdersTable,
@@ -34,7 +36,8 @@ import {
   correctionJournalEntries as correctionJournalEntriesTable,
   periodLocks as periodLocksTable,
   customers as customersTable,
-  commandJournal as commandJournalTable
+  commandJournal as commandJournalTable,
+  pricingRuleEntries as pricingRuleEntriesTable
 } from '../server/schema';
 
 const LINE_ID = '11111111-1111-1111-1111-111111111111';
@@ -1125,5 +1128,274 @@ describe('postSalesOrder COGS exception accounting (#64 PR-3)', () => {
     }
     expect(result.affectedIds).toContain(cjId1);
     expect(result.affectedIds).toContain(cjId2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CAP-030: savePricingRuleChain (TER-1558)
+// ---------------------------------------------------------------------------
+
+describe('savePricingRuleChain', () => {
+  // Build a tx that returns the same set of `liveRows` for both the
+  // fingerprint select and the priorChain select (the handler issues two
+  // select calls against pricingRuleEntries in succession).
+  function makeChainTx(opts: {
+    liveRows?: Array<{ id: string; updatedAt: Date | null }>;
+    priorChain?: Array<Record<string, unknown>>;
+    insertReturnIds?: string[];
+  }) {
+    const liveRows = opts.liveRows ?? [];
+    const priorChain = opts.priorChain ?? liveRows.map((r) => ({ id: r.id, updatedAt: r.updatedAt }));
+    const insertIds = [...(opts.insertReturnIds ?? [])];
+    const captures = { inserts: [] as Array<unknown>, updates: [] as Array<unknown> };
+
+    let selectCall = 0;
+    const select = vi.fn(() => ({
+      from: (_table: any) => {
+        const rows = selectCall === 0 ? liveRows : priorChain;
+        selectCall += 1;
+        const limit = vi.fn(() => Promise.resolve(rows));
+        const orderBy = vi.fn(() => {
+          const op: any = Promise.resolve(rows);
+          op.limit = limit;
+          return op;
+        });
+        const where = vi.fn(() => {
+          const wp: any = Promise.resolve(rows);
+          wp.limit = limit;
+          wp.orderBy = orderBy;
+          return wp;
+        });
+        const p: any = Promise.resolve(rows);
+        p.where = where;
+        p.limit = limit;
+        p.orderBy = orderBy;
+        return p;
+      }
+    }));
+
+    const update = vi.fn(() => ({
+      set: vi.fn((value: unknown) => {
+        captures.updates.push(value);
+        return { where: vi.fn(() => Promise.resolve()) };
+      })
+    }));
+
+    const insert = vi.fn(() => ({
+      values: vi.fn((value: unknown) => {
+        captures.inserts.push(value);
+        return {
+          returning: vi.fn(() =>
+            Promise.resolve(insertIds.length ? [{ id: insertIds.shift() }] : [])
+          )
+        };
+      })
+    }));
+
+    return { tx: { select, update, insert } as any, captures };
+  }
+
+  it('rejects global chain without a catch-all (final clause with conditions=null)', async () => {
+    const { tx } = makeChainTx({ liveRows: [] });
+    await expect(
+      savePricingRuleChain(
+        tx,
+        {
+          scope: 'global',
+          clauses: [
+            {
+              conditions: {
+                logic: 'AND',
+                conditions: [{ field: 'category', operator: 'equals', value: 'Flower' }]
+              },
+              actionBasis: 'percent',
+              actionAmount: 0.28,
+              active: true
+            }
+          ],
+          chainFingerprint: '0:'
+        },
+        'cmd-no-catchall'
+      )
+    ).rejects.toThrow(/catch-all/);
+  });
+
+  it('accepts global chain with a catch-all (conditions: null) final clause', async () => {
+    const { tx, captures } = makeChainTx({
+      liveRows: [],
+      insertReturnIds: ['new-1', 'new-2']
+    });
+    const result = await savePricingRuleChain(
+      tx,
+      {
+        scope: 'global',
+        clauses: [
+          {
+            conditions: {
+              logic: 'AND',
+              conditions: [{ field: 'category', operator: 'equals', value: 'Flower' }]
+            },
+            actionBasis: 'percent',
+            actionAmount: 0.3,
+            active: true
+          },
+          {
+            conditions: null,
+            actionBasis: 'percent',
+            actionAmount: 0.2,
+            active: true
+          }
+        ],
+        chainFingerprint: '0:'
+      },
+      'cmd-global-ok'
+    );
+
+    expect(result.ok).toBe(true);
+    expect(captures.inserts).toHaveLength(2);
+    expect((captures.inserts[0] as any).priority).toBe(1);
+    expect((captures.inserts[1] as any).priority).toBe(2);
+    expect((captures.inserts[1] as any).conditions).toBeNull();
+    expect((result.delta as any).scope).toBe('global');
+  });
+
+  it('allows customer-scope chain without a catch-all (falls through to global)', async () => {
+    const { tx, captures } = makeChainTx({
+      liveRows: [],
+      insertReturnIds: ['c-new-1']
+    });
+    const customerId = '00000000-0000-0000-0000-000000000001';
+    const result = await savePricingRuleChain(
+      tx,
+      {
+        scope: 'customer',
+        customerId,
+        clauses: [
+          {
+            conditions: {
+              logic: 'AND',
+              conditions: [{ field: 'category', operator: 'equals', value: 'Flower' }]
+            },
+            actionBasis: 'percent',
+            actionAmount: 0.28,
+            active: true
+          }
+        ],
+        chainFingerprint: '0:'
+      },
+      'cmd-customer-flower-only'
+    );
+
+    expect(result.ok).toBe(true);
+    expect(captures.inserts).toHaveLength(1);
+    expect((captures.inserts[0] as any).customerId).toBe(customerId);
+    expect((result.delta as any).customerId).toBe(customerId);
+  });
+
+  it('rejects when chainFingerprint does not match current live rows (concurrency conflict)', async () => {
+    const liveRows = [
+      { id: 'a1', updatedAt: new Date('2026-01-01T00:00:00Z') }
+    ];
+    const { tx } = makeChainTx({ liveRows });
+    await expect(
+      savePricingRuleChain(
+        tx,
+        {
+          scope: 'global',
+          clauses: [
+            { conditions: null, actionBasis: 'percent', actionAmount: 0.2, active: true }
+          ],
+          chainFingerprint: 'stale-fingerprint'
+        },
+        'cmd-conflict'
+      )
+    ).rejects.toThrow(/modified since you opened it/);
+  });
+
+  it('soft-deletes existing live rows and updates them when caller references same ids', async () => {
+    const clauseId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const liveRows = [
+      { id: clauseId, updatedAt: new Date('2026-01-01T00:00:00Z') }
+    ];
+    // Replicate the handler's fingerprint computation so the call passes the
+    // concurrency check.
+    const fingerprint = `1:${clauseId}:${liveRows[0].updatedAt!.getTime()}`;
+    const { tx, captures } = makeChainTx({ liveRows });
+
+    const result = await savePricingRuleChain(
+      tx,
+      {
+        scope: 'global',
+        clauses: [
+          {
+            id: clauseId,
+            conditions: null,
+            actionBasis: 'percent',
+            actionAmount: 0.25,
+            active: true
+          }
+        ],
+        chainFingerprint: fingerprint
+      },
+      'cmd-update-existing'
+    );
+
+    expect(result.ok).toBe(true);
+    // First update is the bulk soft-delete; second is the per-clause restore/update.
+    expect(captures.updates.length).toBeGreaterThanOrEqual(2);
+    const restoreUpdate = captures.updates[1] as any;
+    expect(restoreUpdate.deletedAt).toBeNull();
+    expect(restoreUpdate.priority).toBe(1);
+    expect(restoreUpdate.actionAmount).toBe('0.25');
+    expect(captures.inserts).toHaveLength(0);
+  });
+});
+
+describe('savePricingRuleChainPayloadSchema validation', () => {
+  it('rejects conditions referencing a disallowed field (e.g. brandId)', () => {
+    expect(() =>
+      savePricingRuleChainPayloadSchema.parse({
+        scope: 'customer',
+        customerId: '00000000-0000-0000-0000-000000000001',
+        clauses: [
+          {
+            conditions: {
+              logic: 'AND',
+              conditions: [{ field: 'brandId', operator: 'equals', value: 'some-uuid' }]
+            },
+            actionBasis: 'percent',
+            actionAmount: 0.3,
+            active: true
+          }
+        ],
+        chainFingerprint: '0:'
+      })
+    ).toThrow();
+  });
+
+  it('rejects customer scope without customerId', () => {
+    expect(() =>
+      savePricingRuleChainPayloadSchema.parse({
+        scope: 'customer',
+        clauses: [{ conditions: null, actionBasis: 'percent', actionAmount: 0.2, active: true }],
+        chainFingerprint: '0:'
+      })
+    ).toThrow(/customerId is required/);
+  });
+
+  it('rejects more than 50 clauses', () => {
+    const clauses = Array.from({ length: 51 }, () => ({
+      conditions: null,
+      actionBasis: 'percent' as const,
+      actionAmount: 0.1,
+      active: true
+    }));
+    expect(() =>
+      savePricingRuleChainPayloadSchema.parse({
+        scope: 'global',
+        clauses,
+        chainFingerprint: '0:'
+      })
+    ).toThrow();
   });
 });
