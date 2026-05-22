@@ -1,3 +1,9 @@
+-- Staging-compat guard: if a pre-Phase-1 document_snapshots table already
+-- exists (from migration 0050 which used an old schema without source_entity_type),
+-- drop it first so this migration can create the Phase 1 schema cleanly.
+-- The table has 0 rows in all environments at this point.
+DROP TABLE IF EXISTS document_snapshots CASCADE;
+
 -- Issue #113 Phase 1 — Finalization receipts shared snapshot foundation.
 --
 -- Audience-projected, immutable, audit-trailed rendered artifacts of
