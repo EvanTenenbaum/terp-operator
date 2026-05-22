@@ -66,16 +66,23 @@ afterEach(() => {
 });
 
 describe('ReceiptPreview', () => {
-  it('renders the external plain text by default and excludes internal watermark', async () => {
+  it('renders the external plain text by default and hides internal watermark (hidden class)', async () => {
     render(<ReceiptPreviewWrapper initialMode="external" />);
     await waitFor(() => expect(screen.getByTestId('receipt-preview-body')).toHaveTextContent(/Purchase Order/));
-    expect(screen.queryByTestId('internal-watermark')).not.toBeInTheDocument();
+    // Watermark is always in DOM; hidden class conceals it in external mode
+    const watermark = screen.getByTestId('internal-watermark');
+    expect(watermark).toBeInTheDocument();
+    expect(watermark).toHaveClass('hidden');
   });
-  it('switching to Internal shows the INTERNAL — DO NOT SEND banner', async () => {
+  it('switching to Internal shows the INTERNAL — DO NOT SEND banner (removes hidden class)', async () => {
     render(<ReceiptPreviewWrapper initialMode="external" />);
     await waitFor(() => expect(screen.getByTestId('receipt-preview-body')).toBeInTheDocument());
+    // In external mode watermark is hidden
+    expect(screen.getByTestId('internal-watermark')).toHaveClass('hidden');
     fireEvent.click(screen.getByRole('button', { name: /Internal/i }));
-    await waitFor(() => expect(screen.getByTestId('internal-watermark')).toBeVisible());
+    // After switching, hidden class is removed and selection-pill danger is applied
+    await waitFor(() => expect(screen.getByTestId('internal-watermark')).not.toHaveClass('hidden'));
+    expect(screen.getByTestId('internal-watermark')).toHaveClass('selection-pill');
   });
   it('disables the Internal toggle for viewer role', async () => {
     render(<ReceiptPreviewWrapper roleOverride="viewer" />);
@@ -97,11 +104,12 @@ describe('ReceiptPreview', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/^INTERNAL — DO NOT SEND/)));
     writeText.mockRestore();
   });
-  it('Print button calls window.print after setting body class (internal mode keeps watermark visible)', async () => {
+  it('Print button calls window.print after setting body class (internal mode keeps watermark present)', async () => {
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
     render(<ReceiptPreviewWrapper initialMode="internal" />);
     await waitFor(() => expect(screen.getByTestId('receipt-preview-body')).toBeInTheDocument());
-    expect(screen.getByTestId('internal-watermark')).toBeVisible();
+    // In internal mode watermark is in DOM without hidden class
+    expect(screen.getByTestId('internal-watermark')).not.toHaveClass('hidden');
     fireEvent.click(screen.getByRole('button', { name: /Print/i }));
     expect(document.body.classList.contains('print-receipt-only')).toBe(true);
     expect(printSpy).toHaveBeenCalledTimes(1);

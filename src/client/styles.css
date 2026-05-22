@@ -1003,6 +1003,13 @@ kbd {
   @apply whitespace-pre-wrap font-mono text-sm text-ink bg-panel border border-line rounded p-3 max-h-[60vh] overflow-auto;
 }
 
+.receipt-preview-body-html {
+  @apply text-sm text-ink bg-panel border border-line rounded p-3 max-h-[60vh] overflow-auto;
+  white-space: pre-wrap;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
 /* Print stylesheet — hides everything except the receipt preview body when
    .print-receipt-only is set on <body> by ReceiptPreview.handlePrint. */
 @media print {
@@ -1023,6 +1030,33 @@ kbd {
   body.print-receipt-only .secondary-button,
   body.print-receipt-only .primary-button {
     display: none !important;
+  }
+
+  /* Print: remove max-height so full receipt prints */
+  body.print-receipt-only .receipt-preview-body-html {
+    max-height: none !important;
+    overflow: visible !important;
+    font-family: Georgia, 'Times New Roman', serif !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+    border: none !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Print: make watermark large and prominent */
+  body.print-receipt-only [data-testid="internal-watermark"]:not(.hidden) {
+    display: block !important;
+    font-size: 18pt !important;
+    font-weight: bold !important;
+    color: #b91c1c !important;
+    text-align: center !important;
+    border: 3px solid #b91c1c !important;
+    padding: 8px 16px !important;
+    margin-bottom: 16px !important;
+    background: #fef2f2 !important;
+    border-radius: 0 !important;
+    letter-spacing: 0.05em !important;
   }
 }
 
