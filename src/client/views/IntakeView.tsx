@@ -154,6 +154,8 @@ export function IntakeView() {
         ),
         defaultColDef: { resizable: true, sortable: true } as ColDef<IntakeBatchRow>,
         domLayout: 'autoHeight' as const,
+        rowHeight: 28,
+        headerHeight: 30,
         onCellValueChanged: (event: CellValueChangedEvent<IntakeBatchRow>) => {
           const data = event.data;
           if (!data?.id) return;

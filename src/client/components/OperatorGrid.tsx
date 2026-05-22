@@ -109,6 +109,8 @@ export function OperatorGrid({
       enablePivot: true,
       enableValue: true,
       cellDataType: false,
+      wrapHeaderText: true,
+      autoHeaderHeight: true,
       valueFormatter: (params) => formatGridValue(params.value)
     }),
     []
