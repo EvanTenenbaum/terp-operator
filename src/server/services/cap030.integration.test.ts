@@ -32,9 +32,21 @@ import type { SessionUser } from '../../shared/types';
 // ---------------------------------------------------------------------------
 // Shared in-memory state — must be vi.hoisted so the vi.mock factory can
 // reference it before non-import statements run.
+// The state object is created inline (not via createInMemoryState()) because
+// vi.hoisted runs before any module imports are resolved.
 // ---------------------------------------------------------------------------
 
-const { s } = vi.hoisted(() => ({ s: createInMemoryState() }));
+const { s } = vi.hoisted(() => ({
+  s: {
+    purchaseOrders: [],
+    purchaseOrderLines: [],
+    vendors: [],
+    documentSnapshots: [],
+    commandJournal: [],
+    advisoryLocks: [],
+    _dynamic: {},
+  } as import('./__tests__/inMemoryDbMock').InMemoryState,
+}));
 
 // Prevent writeBagManifest from actually touching the filesystem.
 vi.mock('node:fs', () => ({
