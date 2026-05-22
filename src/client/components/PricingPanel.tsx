@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
 import { parsePriceRange } from '../../shared/priceRange';
 import { applyPricingRule, resolvePricingRuleEntry } from '../../shared/inventoryPricingShared';
-import type { CustomerPricingRule, PricingRuleApplication, PricingRuleEntry } from '../../shared/types';
+import type { CustomerPricingRule, PricingRuleApplication } from '../../shared/types';
 import { BELOW_FLOOR_REASONS, type BelowFloorReason } from '../../shared/saleLineCostExceptions';
 import {
   LandedCostExceptionChip,
   LANDED_COST_EXCEPTION_REASON_LABELS as EXCEPTION_REASON_LABELS
 } from './LandedCostExceptionChip';
+import { PricingRuleChainEditor } from './PricingRuleChainEditor';
+import type { PricingRuleClauseInput } from './PricingRuleClauseCard';
 
 function moneyFmt(value: unknown) {
   const n = Number(value ?? 0);
@@ -22,13 +24,22 @@ function asRule(value: unknown): CustomerPricingRule {
 
 function ruleSourceLabel(app: PricingRuleApplication): string {
   switch (app.source) {
-    case 'customer-category': return `customer · ${app.category ?? ''}`;
-    case 'customer-default': return 'customer · default';
-    case 'settings-category': return `settings · ${app.category ?? ''}`;
-    case 'settings-default': return 'settings · default';
-    case 'customer-clause': return `customer clause · ${app.clauseName ?? app.clauseId ?? ''}`;
-    case 'global-clause': return `global clause · ${app.clauseName ?? app.clauseId ?? ''}`;
-    case 'fallback': return 'fallback 30%';
+    // New clause-based sources
+    case 'customer-clause':
+      return app.clauseName ? `customer · ${app.clauseName}` : 'customer rule';
+    case 'global-clause':
+      return app.clauseName ? `global · ${app.clauseName}` : 'global rule';
+    // Legacy sources (from old journal entries)
+    case 'customer-category':
+      return `customer · ${app.category ?? ''}`;
+    case 'customer-default':
+      return 'customer · default';
+    case 'settings-category':
+      return `settings · ${app.category ?? ''}`;
+    case 'settings-default':
+      return 'settings · default';
+    case 'fallback':
+      return 'fallback 30%';
   }
 }
 
@@ -129,6 +140,15 @@ export function OrderPricingPanel({ orderId, customerId, showMargin = true }: Or
                 </div>
                 <div className="text-xs text-zinc-600">
                   {category ?? '—'} · qty {String(line.qty)} · unit price ${moneyFmt(line.unitPrice)}
+                  {(line as Record<string, unknown>).guardrailApplied === true && (
+                    <span
+                      className="finder-chip warning"
+                      title={`Price lifted to guardrail floor (profile: ${String((line as Record<string, unknown>).guardrailProfile ?? '')})`}
+                      data-testid={`guardrail-chip-${lineId}`}
+                    >
+                      ⚠ guardrail
+                    </span>
+                  )}
                 </div>
                 {/* #143: COGS range, unit cost controls, projected exception
                     chip, and below-range picker are operator-only. Hide the
@@ -256,153 +276,59 @@ interface CustomerPricingPanelProps {
 }
 
 export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) {
-  const relationship = trpc.queries.relationshipSummary.useQuery({ customerId }, { enabled: Boolean(customerId) });
-  const reference = trpc.queries.reference.useQuery(undefined, { refetchOnWindowFocus: false });
+  const clauses = trpc.queries.pricingRuleClauses.useQuery(
+    { scope: 'customer', customerId },
+    { enabled: Boolean(customerId), refetchOnWindowFocus: false }
+  );
+  const summary = trpc.queries.pricingRulesSummary.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
   const { runCommand, isRunning } = useCommandRunner();
 
-  const initialRule = asRule((relationship.data?.customer as Record<string, unknown> | undefined)?.pricingRule);
-  const defaultsRule = asRule(reference.data?.defaultPricingRule);
-
-  const [basis, setBasis] = useState<'percent' | 'dollar'>(initialRule.default?.basis ?? 'percent');
-  const [amountText, setAmountText] = useState<string>(initialRule.default ? String(initialRule.default.amount) : '');
-  const [categoryDrafts, setCategoryDrafts] = useState<Record<string, { basis: 'percent' | 'dollar'; amount: string }>>({});
-  const [newCategory, setNewCategory] = useState<string>('');
-
-  useEffect(() => {
-    if (relationship.data?.customer) {
-      const rule = asRule((relationship.data.customer as Record<string, unknown>).pricingRule);
-      setBasis(rule.default?.basis ?? 'percent');
-      setAmountText(rule.default ? String(rule.default.amount) : '');
-      const drafts: Record<string, { basis: 'percent' | 'dollar'; amount: string }> = {};
-      if (rule.categories) {
-        for (const [cat, entry] of Object.entries(rule.categories)) {
-          drafts[cat] = { basis: entry.basis, amount: String(entry.amount) };
-        }
-      }
-      setCategoryDrafts(drafts);
-    }
-  }, [relationship.data?.customer]);
-
-  const categories = useMemo(() => reference.data?.categories ?? ['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape'], [reference.data?.categories]);
-
-  async function save() {
-    const next: CustomerPricingRule = {};
-    const amount = Number(amountText);
-    if (amountText && Number.isFinite(amount)) next.default = { basis, amount };
-    const cats: Record<string, PricingRuleEntry> = {};
-    for (const [cat, draft] of Object.entries(categoryDrafts)) {
-      const v = Number(draft.amount);
-      if (draft.amount && Number.isFinite(v)) cats[cat] = { basis: draft.basis, amount: v };
-    }
-    if (Object.keys(cats).length) next.categories = cats;
-    await runCommand('setCustomerPricingRule', { customerId, pricingRule: next }, 'Update customer pricing rule');
-    await relationship.refetch();
+  async function handleSave(
+    updatedClauses: PricingRuleClauseInput[],
+    fingerprint: string
+  ) {
+    await runCommand(
+      'savePricingRuleChain',
+      {
+        scope: 'customer',
+        customerId,
+        clauses: updatedClauses,
+        chainFingerprint: fingerprint,
+      },
+      'Update customer pricing rule'
+    );
+    await clauses.refetch();
+    await summary.refetch();
   }
 
-  const customerName = (relationship.data?.customer as Record<string, unknown> | undefined)?.name ?? 'Customer';
-  const fallbackText = defaultsRule.default
-    ? defaultsRule.default.basis === 'percent'
-      ? `${(defaultsRule.default.amount * 100).toFixed(1)}%`
-      : `+$${defaultsRule.default.amount.toFixed(2)}`
-    : 'fallback 30%';
+  if (clauses.isLoading) {
+    return (
+      <div className="context-drawer-card">
+        <p className="text-sm text-zinc-500">Loading…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="context-drawer-card" data-testid="customer-pricing-panel">
-      <h2 className="mt-1 truncate text-base font-semibold text-ink">{String(customerName)} pricing rule</h2>
-      <div className="mt-1 text-[11px] uppercase text-zinc-500">Internal only — never shown to customer</div>
-      <div className="mt-3 grid gap-3 text-sm">
-        <div>
-          <div className="text-xs uppercase text-zinc-500">Default markup</div>
-          <div className="mt-1 flex items-center gap-2">
-            <select className="border border-line px-2 py-1 text-xs" value={basis} onChange={(event) => setBasis(event.target.value as 'percent' | 'dollar')} data-testid="rule-default-basis">
-              <option value="percent">% markup</option>
-              <option value="dollar">$ markup</option>
-            </select>
-            <input
-              className="border border-line px-2 py-1 text-xs"
-              style={{ width: 100 }}
-              type="number"
-              step="0.01"
-              min={0}
-              value={amountText}
-              onChange={(event) => setAmountText(event.target.value)}
-              placeholder={basis === 'percent' ? '0.30 (= 30%)' : '50.00'}
-              data-testid="rule-default-amount"
-            />
-            <span className="text-xs text-zinc-500">{basis === 'percent' ? 'as decimal: 0.30 = 30%' : 'dollars added to landed COGS'}</span>
-          </div>
-        </div>
-
-        <div>
-          <div className="text-xs uppercase text-zinc-500">Per-category override</div>
-          <div className="mt-1 grid gap-1">
-            {Object.entries(categoryDrafts).map(([cat, draft]) => (
-              <div key={cat} className="flex items-center gap-2">
-                <strong style={{ width: 90 }}>{cat}</strong>
-                <select
-                  className="border border-line px-2 py-1 text-xs"
-                  value={draft.basis}
-                  onChange={(event) =>
-                    setCategoryDrafts((current) => ({ ...current, [cat]: { ...current[cat], basis: event.target.value as 'percent' | 'dollar' } }))
-                  }
-                  data-testid={`rule-cat-basis-${cat}`}
-                >
-                  <option value="percent">%</option>
-                  <option value="dollar">$</option>
-                </select>
-                <input
-                  className="border border-line px-2 py-1 text-xs"
-                  style={{ width: 90 }}
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={draft.amount}
-                  onChange={(event) =>
-                    setCategoryDrafts((current) => ({ ...current, [cat]: { ...current[cat], amount: event.target.value } }))
-                  }
-                  data-testid={`rule-cat-amount-${cat}`}
-                />
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() =>
-                    setCategoryDrafts((current) => {
-                      const next = { ...current };
-                      delete next[cat];
-                      return next;
-                    })
-                  }
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <div className="flex items-center gap-2">
-              <select className="border border-line px-2 py-1 text-xs" value={newCategory} onChange={(event) => setNewCategory(event.target.value)} data-testid="rule-new-category">
-                <option value="">Add category…</option>
-                {categories.filter((cat: string) => !categoryDrafts[cat]).map((cat: string) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="text-button"
-                disabled={!newCategory}
-                onClick={() => {
-                  if (!newCategory) return;
-                  setCategoryDrafts((current) => ({ ...current, [newCategory]: { basis: 'percent', amount: '' } }));
-                  setNewCategory('');
-                }}
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="text-xs text-zinc-600">If no rule is set for a category, the system default ({fallbackText}) is used.</div>
-
-        <button type="button" className="text-button" disabled={isRunning} onClick={save} data-testid="rule-save">Save rule</button>
+      <h2 className="mt-1 truncate text-base font-semibold text-ink">
+        Pricing rules
+      </h2>
+      <div className="mt-1 text-[11px] uppercase text-zinc-500">
+        Internal only — never shown to customer
+      </div>
+      <div className="mt-3">
+        <PricingRuleChainEditor
+          scope="customer"
+          customerId={customerId}
+          clauses={clauses.data ?? []}
+          chainFingerprint={`${clauses.data?.length ?? 0}:`}
+          isRunning={isRunning}
+          onSave={handleSave}
+          compact
+        />
       </div>
     </div>
   );
