@@ -316,22 +316,6 @@ export function PurchaseOrdersView() {
             <Undo2 className="h-4 w-4" aria-hidden="true" />
             Cancel draft PO
           </button>
-          <button
-            className="secondary-button compact-action"
-            disabled={isRunning || !canWrite || !row.id || row.status !== 'draft'}
-            onClick={() => runCommand('saveDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Save PO receipt draft')}
-            type="button"
-          >
-            Save draft receipt
-          </button>
-          <button
-            className="secondary-button compact-action"
-            disabled={isRunning || !canWrite || !row.id}
-            onClick={() => runCommand('abandonDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Abandon PO receipt draft')}
-            type="button"
-          >
-            Abandon draft receipt
-          </button>
         </>
       )
     }),
