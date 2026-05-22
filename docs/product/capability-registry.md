@@ -51,6 +51,7 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CAP-027 Backup/restore preview | J09 | Recover/Close | control | Keep | R10 | Restore preview is read-only. | Preserve read-only in app; offline destructive restore remains out of app. |
 | CAP-028 Legacy marker preservation | Legacy marker contract, MR-002 | All loops | context | Keep | R2 | Raw marker fields exist. | Preserve; add legends/review queue later without remapping prematurely. |
 | CAP-029 Matchmaking demand/supply board | User clarification 2026-05-13 | Sell, Buy, Decide | core_workflow, projection | Keep | R6, R8, R12 | Matchmaking route records customer needs, vendor stock, and deterministic match rows with reasons. | Keep as intent tracking only; purchase/sale/intake consequences stay in existing workflows. |
+| CAP-030 Pricing Rules Chain Manager | Operator request 2026-05-22 | Sell | control, context | Keep | R4, R12, R15 | Pricing rules are flat JSONB per-customer and in systemSettings; no consolidated view; no multi-condition rules. Spec: docs/superpowers/specs/2026-05-22-pricing-rules-chain-manager-design.md (on feat/qa-persona-flow-framework). Linear: TER-1558. | Implement pricing_rule_entries table, savePricingRuleChain command, PricingRulesView, PricingRuleChainEditor, resolvePricingRuleClause. Migrate legacy JSONB with parity check + feature flag rollback. |
 
 ## Backend Command Families
 
