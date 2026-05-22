@@ -6,7 +6,7 @@ import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { RecordPrepaymentDialog } from '../components/RecordPrepaymentDialog';
 import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
-import { DefaultPricingPanel } from '../components/DefaultPricingPanel';
+import { PricingRulesView } from '../components/PricingRulesView';
 import { OrderPricingPanel } from '../components/PricingPanel';
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
@@ -2464,7 +2464,7 @@ export function SettingsView() {
       {effectiveTab === 'actions' ? <RecoveryView /> : null}
       {effectiveTab === 'archive' ? <CloseoutView /> : null}
       {effectiveTab === 'strain-aliases' ? <StrainAliasesPanel /> : null}
-      {effectiveTab === 'pricing' ? <DefaultPricingPanel /> : null}
+      {effectiveTab === 'pricing' ? <PricingRulesView /> : null}
       {effectiveTab === 'credit-engine' ? <CreditEngineSettingsPanel /> : null}
     </div>
   );
