@@ -7,6 +7,7 @@ import { FilterGroupInput } from '../../shared/filterSchemas';
 import { evaluateFilterGroup, calculateAgeDays } from '../utils/filterEvaluator';
 import { AdvancedFilterBuilder } from './AdvancedFilterBuilder';
 import { SavedFiltersDropdown } from './SavedFiltersDropdown';
+import { SavedFiltersManager } from './SavedFiltersManager';
 
 export interface InventoryFinderBatch extends GridRow {
   batchCode?: string;
@@ -54,6 +55,7 @@ const savedSlices = [
 export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatchIds = new Set(), initialSearch = '', onAddBatch }: InventoryFinderPanelProps) {
   const reference = trpc.queries.reference.useQuery();
   const { data: savedFilters } = trpc.filters.listSavedFilters.useQuery({ targetView: 'inventory' });
+  const me = trpc.auth.me.useQuery();
   const saveFilterMutation = trpc.filters.saveFilter.useMutation({
     onSuccess: () => {
       trpc.useContext().filters.listSavedFilters.invalidate();
@@ -74,6 +76,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
   const [activeSlice, setActiveSlice] = useState('');
   const [advancedFilter, setAdvancedFilter] = useState<FilterGroupInput | null>(null);
   const [selectedSavedFilter, setSelectedSavedFilter] = useState<string | null>(null);
+  const [manageFiltersOpen, setManageFiltersOpen] = useState(false);
   const lastInitialSearch = useRef('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const rows = ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
@@ -279,16 +282,45 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
       <div>
       {/* Saved filters dropdown */}
       <div className="finder-chip-row" aria-label="Saved filters">
-        <SavedFiltersDropdown
-          savedFilters={savedFilters ?? []}
-          selectedId={selectedSavedFilter}
-          onSelect={loadSavedFilter}
-        />
-        {advancedFilter && advancedFilter.conditions.length > 0 && (
-          <button className="secondary-button compact-action" type="button" onClick={saveCurrentFilter}>
-            Save Current Filter
-          </button>
-        )}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <SavedFiltersDropdown
+              savedFilters={savedFilters ?? []}
+              selectedId={selectedSavedFilter}
+              onSelect={(id) => {
+                const saved = savedFilters?.find((f) => f.id === id);
+                if (saved) {
+                  setAdvancedFilter(saved.filterDefinition);
+                  setSelectedSavedFilter(id);
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="secondary-button compact-action"
+              onClick={() => setManageFiltersOpen((v) => !v)}
+              aria-label="Manage saved filters"
+              aria-expanded={manageFiltersOpen}
+            >
+              Manage
+            </button>
+            {advancedFilter && advancedFilter.conditions.length > 0 && (
+              <button className="secondary-button compact-action" type="button" onClick={saveCurrentFilter}>
+                Save Current Filter
+              </button>
+            )}
+          </div>
+          {manageFiltersOpen && (
+            <SavedFiltersManager
+              savedFilters={savedFilters ?? []}
+              currentUserId={me.data?.id}
+              canManageGlobal={me.data?.role === 'manager' || me.data?.role === 'owner'}
+              onFiltersChanged={() => {
+                void trpc.useContext().filters.listSavedFilters.invalidate();
+              }}
+            />
+          )}
+        </div>
       </div>
 
       <div className="finder-chip-row" aria-label="Saved inventory slices">
