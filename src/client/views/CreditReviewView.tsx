@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
+import { CreditQueueHealthWidget } from '../components/credit/CreditQueueHealthWidget';
+import { CreditDivergencePanel } from '../components/credit/CreditDivergencePanel';
 import { useUiStore } from '../store/uiStore';
 import type { ViewKey } from '../../shared/types';
 
@@ -30,6 +32,7 @@ export function CreditReviewView() {
   const me = trpc.auth.me.useQuery();
   const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
   const isOwner = me.data?.role === 'owner';
+  const [divergenceOpen, setDivergenceOpen] = useState(false);
 
   const queue = trpc.credit.creditReviewQueue.useQuery(
     { filterTab, sort },
@@ -73,6 +76,18 @@ export function CreditReviewView() {
               ))}
             </select>
           </div>
+          {isManagerOrOwner && <CreditQueueHealthWidget />}
+          {isOwner && (
+            <button
+              type="button"
+              className="secondary-button compact-action"
+              onClick={() => setDivergenceOpen((v) => !v)}
+              aria-label="Divergence report"
+              aria-expanded={divergenceOpen}
+            >
+              Divergence report
+            </button>
+          )}
         </div>
       </div>
 
@@ -99,6 +114,12 @@ export function CreditReviewView() {
           </button>
         ))}
       </div>
+
+      {divergenceOpen && isOwner && (
+        <div className="border-b border-zinc-200">
+          <CreditDivergencePanel />
+        </div>
+      )}
 
       <div className="flex-1 overflow-auto p-4">
         {queue.isLoading ? (
