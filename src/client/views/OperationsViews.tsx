@@ -27,8 +27,7 @@ import {
   inventoryUnitCostSortValue
 } from '../../shared/inventoryPricing';
 
-// --- CAP-030 stub types (TER-1510) ---
-// TODO: depends on CAP-030 backend merge (TER-1498)
+// CAP-030 / TER-1510 — warehouse alert shape (matches live pickListWithLines JSONB alert entries)
 interface WarehouseAlert {
   id: string;
   pickListId: string;
@@ -1795,8 +1794,25 @@ export function FulfillmentView() {
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
   const [alertsPickListId, setAlertsPickListId] = useState<string | null>(null);
   const [alertReturnQty, setAlertReturnQty] = useState('');
-  // TODO: depends on CAP-030 backend merge (TER-1498) — stub alerts query
-  const stubAlerts: WarehouseAlert[] = []; // replace with trpc.queries.pickListAlerts.useQuery({ pickListId: alertsPickListId ?? '' }, { enabled: Boolean(alertsPickListId) }).data ?? []
+  // CAP-030 / TER-1510 — live warehouse alerts for selected pick list via pickListWithLines
+  const blankPickId = '00000000-0000-0000-0000-000000000000';
+  const pickListDetail = trpc.queries.pickListWithLines.useQuery(
+    { pickListId: alertsPickListId ?? blankPickId },
+    { enabled: Boolean(alertsPickListId) }
+  );
+  const liveAlerts: WarehouseAlert[] = (pickListDetail.data?.lines ?? []).flatMap((line) =>
+    (Array.isArray(line.warehouseAlerts) ? line.warehouseAlerts as any[] : []).map((alert: any) => ({
+      id: String(alert.id ?? `${line.id}-${Math.random()}`),
+      pickListId: alertsPickListId ?? '',
+      lineId: line.id,
+      type: String(alert.kind ?? alert.type ?? 'other') as WarehouseAlert['type'],
+      message: String(alert.message ?? (alert.kind === 'qty_changed' ? `Qty changed from ${alert.from} to ${alert.to}` : alert.kind ?? 'Alert')),
+      status: 'open' as const,
+      itemName: line.itemName,
+      batchCode: line.batchCode,
+      createdAt: String(alert.at ?? line.updatedAt ?? new Date().toISOString()),
+    }))
+  );
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
@@ -1808,7 +1824,6 @@ export function FulfillmentView() {
   );
 
   // CAP-030 / TER-1510 — apply chip filters to pick rows
-  // TODO: depends on CAP-030 backend merge (TER-1498)
   const filteredPickRows = pickQueueFilters.size === 0 ? pickRows : pickRows.filter((row) => {
     const status = String(row.status ?? '');
     const alertCount = Number(row.alertCount ?? 0);
@@ -1859,7 +1874,6 @@ export function FulfillmentView() {
               Clear all
             </button>
           ) : null}
-          {/* TODO: depends on CAP-030 backend merge (TER-1498) — filter chips pre-filter pickRows feed */}
         </div>
       ) : null}
       <OperatorGrid
@@ -1961,22 +1975,21 @@ export function FulfillmentView() {
       {canWrite && alertsDrawerOpen && alertsPickListId ? (
         <div className="inline-panel border-t border-line">
           <div className="flex items-center justify-between">
-            <h2 className="section-title">
+            <            h2 className="section-title">
               Warehouse Alerts
-              {stubAlerts.length > 0 ? (
+              {liveAlerts.length > 0 ? (
                 <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                  {stubAlerts.length}
+                  {liveAlerts.length}
                 </span>
               ) : null}
             </h2>
             <button type="button" className="icon-button" onClick={() => setAlertsDrawerOpen(false)} aria-label="Close alerts panel">×</button>
           </div>
-          {/* TODO: depends on CAP-030 backend merge (TER-1498) — replace stubAlerts with live query */}
-          {stubAlerts.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500">No alerts for this pick list. (Live data requires CAP-030 backend merge.)</p>
+          {liveAlerts.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500">No alerts for this pick list.</p>
           ) : (
             <div className="mt-2 divide-y divide-line">
-              {stubAlerts.map((alert) => (
+              {liveAlerts.map((alert) => (
                 <div key={alert.id} className="py-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -1990,7 +2003,6 @@ export function FulfillmentView() {
                         className="secondary-button compact-action text-xs"
                         disabled={isRunning}
                         onClick={() => {
-                          // TODO: depends on CAP-030 backend merge (TER-1488)
                           runCommand('acknowledgeWarehouseAlert', { alertId: alert.id }, 'Acknowledge warehouse alert');
                         }}
                       >
@@ -2009,7 +2021,6 @@ export function FulfillmentView() {
                           className="secondary-button compact-action text-xs"
                           disabled={isRunning || !alertReturnQty}
                           onClick={() => {
-                            // TODO: depends on CAP-030 backend merge (TER-1488)
                             runCommand('returnPickedUnits', { alertId: alert.id, lineId: alert.lineId, qty: Number(alertReturnQty) }, 'Return picked units');
                             setAlertReturnQty('');
                           }}
@@ -2022,7 +2033,6 @@ export function FulfillmentView() {
                         className="secondary-button compact-action text-xs"
                         disabled={isRunning}
                         onClick={() => {
-                          // TODO: depends on CAP-030 backend merge (TER-1488)
                           runCommand('cancelFulfillmentLine', { lineId: alert.lineId }, 'Cancel fulfillment line from alert');
                         }}
                       >

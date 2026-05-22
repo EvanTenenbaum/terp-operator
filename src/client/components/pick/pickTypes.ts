@@ -1,6 +1,4 @@
-// CAP-030 / TER-1513
-// TODO: depends on CAP-030 backend merge (TER-1498/TER-1488)
-// These interfaces match the expected shapes from TER-1498. Remove when backend merges.
+// CAP-030 / TER-1513 — interfaces matching live pickQueue / pickListWithLines API shapes
 
 export interface PickQueueItem {
   id: string;

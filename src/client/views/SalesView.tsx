@@ -20,10 +20,7 @@ import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { buildCustomerOfferCsv } from './SalesView.csvExport';
 import { selectVisibleSalesColumns } from './SalesView.columns';
 
-// --- CAP-030 stub types (TER-1508) ---
-// TODO: depends on CAP-030 backend merge (TER-1498)
-// These interfaces match the expected shapes from TER-1498. Remove when backend merges.
-
+// CAP-030 / TER-1508 — types matching live releaseEligibility API shape
 export interface ReleaseEligibilityResult {
   lineId: string;
   eligible: boolean;
@@ -38,7 +35,6 @@ export interface PickStatusQueryResult {
   linesPicked: number;
   linesTotal: number;
 }
-// --- end CAP-030 stub types ---
 
 const orderColumns: ColDef<GridRow>[] = [
   { field: 'orderNo', pinned: 'left', width: 150 },
@@ -53,7 +49,6 @@ const orderColumns: ColDef<GridRow>[] = [
     headerName: 'Lines picked',
     width: 135,
     sortable: true,
-    // TODO: depends on CAP-030 backend merge (TER-1498)
     valueFormatter: (params: { value: unknown; data?: GridRow }) => {
       const data = params.data as GridRow | undefined;
       if (!data) return '';
@@ -161,7 +156,6 @@ const lineColumns: ColDef<GridRow>[] = [
     width: 140,
     sortable: true,
     filter: true,
-    // TODO: depends on CAP-030 backend merge (TER-1498) — pickStatus field from releaseEligibility
     cellRenderer: (params: { value: unknown }) => (
       <PickStatusChip status={params.value ? String(params.value) : 'unreleased'} />
     )
@@ -172,7 +166,6 @@ const lineColumns: ColDef<GridRow>[] = [
     width: 160,
     hide: true, // hidden by default per spec
     valueFormatter: (params: { value: unknown }) => params.value ? new Date(String(params.value)).toLocaleString() : '',
-    // TODO: depends on CAP-030 backend merge (TER-1498)
   },
   { field: 'status', width: 115 }
 ];
@@ -237,6 +230,13 @@ export function SalesView() {
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
   const orderLines = trpc.queries.salesOrderLines.useQuery({ orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedOrder?.id) });
   const selectedOrderStatus = String(selectedOrder?.status ?? '');
+
+  // CAP-030 / TER-1508 — release eligibility per order (live now backend is merged)
+  const blankOrderId = '00000000-0000-0000-0000-000000000000';
+  const releaseEligibility = trpc.queries.releaseEligibility.useQuery(
+    { orderId: String(selectedOrder?.id ?? blankOrderId) },
+    { enabled: Boolean(selectedOrder?.id) }
+  );
 
   const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
   const balance = Number(workspace.data?.customer?.balance ?? 0);
@@ -318,14 +318,22 @@ export function SalesView() {
             showMargin={showMargin}
             runCommand={runCommand}
           />
-          {/* CAP-030 / TER-1508 — TODO: depends on CAP-030 backend merge (TER-1498/TER-1485) */}
+          {/* CAP-030 / TER-1508 — release for picking, gated by live releaseEligibility */}
           <button
             className="primary-button compact-action"
-            disabled={isRunning || !canWrite || String(row.pickStatus ?? 'unreleased') !== 'unreleased'}
-            title={String(row.pickStatus ?? 'unreleased') !== 'unreleased' ? `Cannot release: line is ${String(row.pickStatus ?? '')}` : 'Release this line for warehouse picking'}
+            disabled={isRunning || !canWrite || (() => {
+              const elig = releaseEligibility.data?.find((e) => e.lineId === row.id);
+              return elig ? (!elig.eligible && !elig.alreadyReleased) : false;
+            })()}
+            title={(() => {
+              const elig = releaseEligibility.data?.find((e) => e.lineId === row.id);
+              if (!elig) return 'Release for warehouse picking';
+              if (elig.alreadyReleased) return 'Already released';
+              if (!elig.eligible) return elig.reasons.join('; ') || 'Not eligible';
+              return 'Release for warehouse picking';
+            })()}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
-              // TODO: depends on CAP-030 backend merge (TER-1485)
               runCommand('releaseLineForPicking', { lineId: row.id }, 'Release sales line for picking');
             }}
             type="button"
@@ -339,8 +347,7 @@ export function SalesView() {
               title="Recall this line from warehouse picking"
               onClick={() => {
                 if (!row.id || row.id.trim() === '') return;
-                // TODO: depends on CAP-030 backend merge (TER-1485)
-                runCommand('recallPickLine', { lineId: row.id }, 'Recall pick line');
+                runCommand('recallLineFromPicking', { lineId: row.id }, 'Recall pick line');
               }}
               type="button"
             >
@@ -397,7 +404,7 @@ export function SalesView() {
         </>
       )
     }),
-    [isRunning, runCommand, canWrite, showMargin]
+    [isRunning, runCommand, canWrite, showMargin, releaseEligibility.data]
   );
 
   useEffect(() => {
@@ -747,20 +754,29 @@ export function SalesView() {
                 emptyChildren="Use Inventory Finder to add posted batches, or type a request above and press Enter."
                 selectionActions={(rows) => (
                   <>
-                    {/* CAP-030 / TER-1508 — TODO: depends on CAP-030 backend merge (TER-1498/TER-1485) */}
-                    {rows.some((r) => String((r as GridRow).pickStatus ?? 'unreleased') === 'unreleased') ? (
+                    {/* CAP-030 / TER-1508 — bulk release, uses releaseLinesForPicking (single transactional command) */}
+                    {rows.some((r) => {
+                      const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
+                      return !elig || (elig.eligible && !elig.alreadyReleased);
+                    }) ? (
                       <button
                         className="primary-button compact-action"
                         type="button"
                         disabled={isRunning || !canWrite || !rows.length}
                         onClick={() => {
-                          const eligible = rows.filter((r) => String((r as GridRow).pickStatus ?? 'unreleased') === 'unreleased');
-                          eligible.forEach((r) => {
-                            runCommand('releaseLineForPicking', { lineId: r.id }, 'Bulk release lines for picking');
+                          const eligible = rows.filter((r) => {
+                            const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
+                            return !elig || (elig.eligible && !elig.alreadyReleased);
                           });
+                          if (eligible.length > 0) {
+                            runCommand('releaseLinesForPicking', { lineIds: eligible.map((r) => r.id) }, 'Bulk release lines for picking');
+                          }
                         }}
                       >
-                        Release {rows.filter((r) => String((r as GridRow).pickStatus ?? 'unreleased') === 'unreleased').length} for picking
+                        Release {rows.filter((r) => {
+                          const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
+                          return !elig || (elig.eligible && !elig.alreadyReleased);
+                        }).length} for picking
                       </button>
                     ) : null}
                     <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('packed', true)}>Packed</button>
