@@ -548,6 +548,12 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
     case 'allocateOrderToFulfillment':
     case 'createPickList':
       return allocateOrderToFulfillment(tx, payload, user.id, commandId);
+    case 'releaseLineForPicking':
+      return releaseLineForPicking(tx, payload, user.id, commandId);
+    case 'releaseLinesForPicking':
+      return releaseLinesForPicking(tx, payload, user.id, commandId);
+    case 'recallLineFromPicking':
+      return recallLineFromPicking(tx, payload, commandId);
     case 'applyClientCredit':
       return applyClientCredit(tx, payload, commandId);
     case 'setDeliveryWindow':
@@ -3208,6 +3214,111 @@ async function markOrderFulfilled(tx: Tx, payload: Payload, commandId: string): 
   await tx.update(salesOrderLines).set({ packed: true, updatedAt: new Date() }).where(eq(salesOrderLines.orderId, orderId));
   await writeBagManifest(tx, pick.id);
   return { ok: true, commandId, affectedIds: [orderId, pick.id, ...lines.map((line: typeof fulfillmentLines.$inferSelect) => line.id)], toast: 'Order fulfilled.' };
+}
+
+// CAP-030 (TER-1485): Release sales order line to the warehouse pick queue.
+// Stamps pick_released_at/by on the sales order line, lazy-creates a pick list
+// for the order if needed, and ensures a fulfillment line exists for the order line.
+// Idempotent: if the line is already released, returns ok without mutating.
+async function releaseLineForPicking(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
+  const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Sales order line not found.');
+  // Idempotency: already released → no-op.
+  if (line.pickReleasedAt) {
+    return { ok: true, commandId, affectedIds: [lineId], toast: 'Line already released for picking.' };
+  }
+  // Eligibility checks (mirror releaseEligibility query reasons).
+  if (!line.itemName) throw new Error('Line must have an item before releasing for picking.');
+  if (!line.batchId) throw new Error('Line must have a batch assigned before releasing for picking.');
+  if (Number(line.qty) <= 0) throw new Error('Line quantity must be greater than zero before releasing for picking.');
+  const issues = Array.isArray(line.validationIssues) ? (line.validationIssues as string[]) : [];
+  const fatalIssues = issues.filter((issue: string) => !issue.startsWith('Pick landed COGS')); // range-priced is not fatal for release
+  if (fatalIssues.length) throw new Error(`Resolve validation issues before releasing: ${fatalIssues.join('; ')}`);
+  // Verify batch has reserved quantity covering this line.
+  const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+  if (!batch) throw new Error('Batch not found.');
+  if (Number(batch.reservedQty) < Number(line.qty)) {
+    throw new Error(`${line.itemName} does not have sufficient reservation. Reserve inventory first.`);
+  }
+  // Stamp the line.
+  await tx.update(salesOrderLines)
+    .set({ pickReleasedAt: new Date(), pickReleasedBy: userId, updatedAt: new Date() })
+    .where(eq(salesOrderLines.id, lineId));
+  // Lazy-create pick list for the order if not present.
+  const [existingPick] = await tx.select().from(pickLists).where(eq(pickLists.orderId, line.orderId)).limit(1);
+  let pickId: string;
+  if (existingPick) {
+    pickId = existingPick.id;
+  } else {
+    const [newPick] = await tx.insert(pickLists)
+      .values({ pickNo: code('PICK'), orderId: line.orderId, status: 'open' })
+      .returning();
+    pickId = newPick.id;
+  }
+  // Insert fulfillment line (idempotent: skip if one already exists for this order line).
+  const [existingFl] = await tx.select().from(fulfillmentLines)
+    .where(eq(fulfillmentLines.orderLineId, lineId)).limit(1);
+  let fulfillmentLineId: string;
+  if (existingFl) {
+    fulfillmentLineId = existingFl.id;
+  } else {
+    const [fl] = await tx.insert(fulfillmentLines)
+      .values({ pickListId: pickId, orderLineId: lineId, batchId: line.batchId, expectedQty: line.qty, status: 'open' })
+      .returning();
+    fulfillmentLineId = fl.id;
+  }
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [lineId, pickId, fulfillmentLineId, line.orderId],
+    toast: `${line.itemName || 'Line'} released for picking.`
+  };
+}
+
+// CAP-030 (TER-1485): Bulk release. Sequentially releases each line and aggregates affected ids.
+async function releaseLinesForPicking(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const lineIds = Array.isArray(payload.lineIds)
+    ? (payload.lineIds as unknown[]).filter((id): id is string => typeof id === 'string')
+    : [];
+  if (!lineIds.length) throw new Error('lineIds must be a non-empty array.');
+  const affected: string[] = [];
+  for (const lineId of lineIds) {
+    const result = await releaseLineForPicking(tx, { ...payload, lineId }, userId, commandId);
+    for (const id of result.affectedIds) if (!affected.includes(id)) affected.push(id);
+  }
+  return { ok: true, commandId, affectedIds: affected, toast: `${lineIds.length} line(s) released for picking.` };
+}
+
+// CAP-030 (TER-1485): Recall a released line from picking. Only allowed while the
+// associated fulfillment line is open with actual_qty = 0. Use returnPickedUnits first
+// if any units have been picked. Removes the fulfillment line and, if the pick list is
+// then empty, also removes the pick list.
+async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
+  const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
+  if (!line) throw new Error('Sales order line not found.');
+  if (!line.pickReleasedAt) {
+    return { ok: true, commandId, affectedIds: [lineId], toast: 'Line is not released for picking.' };
+  }
+  // Only recall when the fulfillment line is still open and unpacked.
+  const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.orderLineId, lineId)).limit(1);
+  if (fl) {
+    if (fl.status !== 'open' || Number(fl.actualQty) > 0) {
+      throw new Error('Cannot recall a line that has already been picked or is in progress. Use returnPickedUnits first.');
+    }
+    await tx.delete(fulfillmentLines).where(eq(fulfillmentLines.id, fl.id));
+    const remaining = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.pickListId, fl.pickListId));
+    if (!remaining.length) {
+      await tx.delete(pickLists).where(eq(pickLists.id, fl.pickListId));
+    }
+  }
+  await tx.update(salesOrderLines)
+    .set({ pickReleasedAt: null, pickReleasedBy: null, updatedAt: new Date() })
+    .where(eq(salesOrderLines.id, lineId));
+  const affected: string[] = [lineId];
+  if (fl) affected.push(fl.id, fl.pickListId);
+  return { ok: true, commandId, affectedIds: affected, toast: 'Line recalled from picking.' };
 }
 
 async function printLabels(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
