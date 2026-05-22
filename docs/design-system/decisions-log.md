@@ -207,3 +207,114 @@ Added `wrapHeaderText: true` + `autoHeaderHeight: true` to OperatorGrid defaultC
 **Convention:** Role-gated tRPC procedures should let the underlying service throw `TRPCError(FORBIDDEN)` via `assertRole(...)` rather than gating in the procedure body. `queries.purchaseOrderInternalReceipt` follows this pattern by passing `ctx.user` directly into `getInternalReceipt`. Single source of truth for the gate.
 
 [Future decisions append above this line, in reverse chronological order.]
+
+---
+
+## 2026-05-22: PO authoring UX — notes consolidation, record-prepayment relocation, status filter presets (TER-1528)
+
+**Decision 1:** Rename `buyerNotes` column header from "Buyer notes" to "Internal notes". Rename `internalNotes` column header to "Internal notes (ops)". Update authoring form labels to match.
+**Rationale:** "Buyer notes" implied vendor-facing content. Both fields are internal. Using distinct labels avoids confusion while preserving separate DB columns.
+
+**Decision 2:** Move "Record Prepayment" button from the top toolbar into the per-row expansion panel (alongside Draft intake / Unfinalize / Cancel draft PO).
+**Rationale:** The toolbar button was confusing as a headline action — it only applied to one selected row and its enabled state depended on row-level data (prepaymentAmount > 0, status = approved). Row-level actions belong in the row expansion, not the global toolbar.
+
+**Decision 3:** Add status filter preset buttons (Active / Ordered / Finalized) to the PO table toolbar.
+**Rationale:** Operators frequently need to scope the PO list by workflow phase. Typed `status:` filter syntax is available but not obvious. Preset toggle buttons make the three most common views one click away. Buttons use `aria-pressed` and live outside the `canWrite` gate (filtering is a read-only operation).
+
+**Files:** `src/client/views/OperationsViews.tsx`
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1528, PR #156, PR #158.
+
+---
+
+## 2026-05-22: PO authoring — remove permanent vendor-context aside, use VendorContextDrawer on demand (TER-1530)
+
+**Decision:** Remove the permanent 320px `aside.po-context-panel` from the PO authoring workspace. The `VendorContextDrawer` (triggered by the "Context" button) already covers all of the aside's content (vendor facts, quick adds, historical POs tabs).
+
+**Rationale:** The aside forced a two-column layout at all widths and presented the same data twice. The on-demand drawer pattern is consistent with the rest of the app and recovers screen real estate for the authoring form and PO lines grid.
+
+**Convention:** When a permanent panel and an on-demand drawer cover the same content, prefer the drawer. Keep the trigger button visible and discoverable (next to related controls). Never silently remove functionality — ensure the drawer covers everything the panel did.
+
+**Files:** `src/client/views/OperationsViews.tsx`, `src/client/styles.css` (removed `.po-authoring-layout`, `.po-authoring-main`, `.po-context-list`, `.po-context-row`)
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1530, PR #158.
+
+---
+
+## 2026-05-22: PO authoring — AddRefereeRelationshipDrawer (TER-1532)
+
+**New component:** `src/client/components/AddRefereeRelationshipDrawer.tsx` — 440px fixed slide-in drawer for creating a referee credit relationship inline from PO authoring. Triggered by an "Add referee" button next to the referee credit select.
+
+**Decision:** Use a two-mode design (Use existing referee / Create new referee) with a shared fee structure section, rather than a separate creation flow.
+**Rationale:** Operators frequently need to assign a referee they don't yet have in the system. Making this possible without navigating to /referees reduces context switches during PO authoring.
+
+**Orphan safety pattern:** After `createReferee` succeeds but before `addRefereeRelationship` succeeds, the component enters a "retry" state: `pendingRefereeId` is set, the newly created referee is appended to `localReferees`, the mode flips to "existing", and a recovery banner explains the situation. On retry, step 1 (createReferee) is skipped — no duplicate created. The "Create new referee" tab is disabled during retry.
+
+**Convention:** Any two-command sequence where step 1 creates a record and step 2 links it should track `pendingFirstStepId` in component state and skip step 1 on retry if the ID is already set.
+
+**Files:** `src/client/components/AddRefereeRelationshipDrawer.tsx`, `src/client/views/OperationsViews.tsx`
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1532, PR #161.
+
+---
+
+## 2026-05-22: Photography — MediaBatchDrawer replaces bottom Batch Media panel (TER-1537)
+
+**New component:** `src/client/components/MediaBatchDrawer.tsx` — 480px push side drawer (no overlay) that replaces the `MediaDetailPanel` bottom panel on `/photography`.
+
+**Decision:** Use a push-style side drawer (grid shrinks via flex) rather than an overlay drawer.
+**Rationale:** The photography queue and batch media are companion views — operators need to see both simultaneously. An overlay would hide the queue. The push pattern mirrors how detail panels work in other grid-plus-detail surfaces in the app.
+
+**Decision:** Desktop file upload uses XHR (`XMLHttpRequest`) with `upload.onprogress` rather than `fetch`.
+**Rationale:** `fetch` does not expose upload progress events. XHR is required for per-file progress bars on upload.
+
+**Upload XHR contract:**
+- `batchId` must be appended to FormData BEFORE `file` — the server's multer `destination` callback reads `req.body.batchId` synchronously while parsing the multipart stream. Order matters.
+- Non-2xx responses and `onerror` must surface to the user via the upload progress state — never silently swallow.
+- Progress caps at 90% during XHR upload; the final 10% resolves after the `uploadBatchMedia` command succeeds.
+
+**Files:** `src/client/components/MediaBatchDrawer.tsx`, `src/client/views/MediaView.tsx`, `src/client/styles.css` (new `.media-batch-drawer*`, `.media-upload-zone*`, `.media-upload-progress` classes). `MediaDetailPanel.tsx` and `MediaDetailPanel.test.tsx` deleted.
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1537, PR #168.
+
+---
+
+## 2026-05-22: Finalization receipts Phase 4 — customer_payment and vendor_payout projections (TER-1534)
+
+**New modules:**
+- `src/server/services/projections/customerPaymentProjection.ts` — external allowlist for customer payment receipts (7 fields: kind, paymentDate, amount, method, reference, customerName, notes). Blocks: customerId, direction, category, allocationIntent, status.
+- `src/server/services/projections/vendorPayoutProjection.ts` — external allowlist for vendor payout receipts (8 fields). Blocks: vendorId, vendorBillId, purchaseOrderId, status.
+
+**Convention:** External projection allowlists use `as const satisfies readonly string[]` for compile-time enforcement. Tests must cover both directions: (1) only expected keys are present, (2) each prohibited key is explicitly absent (`toBeUndefined()`).
+
+**Post-commit hook placement:** `createPaymentReceivedReceipts` and `createVendorPayoutReceipts` run as best-effort post-commit hooks after `logPayment` and `recordVendorPayment`. Failure is non-fatal (try/catch + console.warn). The hooks run on the raw `pool` (not inside the command's Drizzle tx) because the pg-native advisory-lock pattern in `finalizeSnapshot` requires its own `BEGIN/COMMIT`.
+
+**Known gap:** The snapshot functions share the command transaction's connection when called inside `tx`. A Postgres-level error inside the snapshot call puts the transaction into aborted state, potentially rolling back the parent command despite the JS try/catch. Tracked for future savepoint mitigation.
+
+**Files:** `src/server/services/projections/customerPaymentProjection.ts`, `vendorPayoutProjection.ts`, `src/server/services/commandBus.ts`
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1534, PR #180.
+
+---
+
+## 2026-05-22: Finalization receipts — print HTML, watermark hardening, seed guarantee (TER-1535)
+
+**Decision 1:** Replace `<pre className="receipt-preview-body">` with `<div className="receipt-preview-body-html">` using `white-space: pre-wrap` and page font (not monospace).
+**Rationale:** Receipt text is prose sentences, not column-aligned tabular output. Proportional fonts render correctly and print better. Monospace was a holdover from early prototyping.
+
+**Decision 2:** Internal watermark ("INTERNAL — DO NOT SEND") is always in the DOM, toggled via `className={mode === 'internal' ? 'selection-pill danger' : 'hidden'}` rather than conditional rendering.
+**Rationale:** Print CSS targets `[data-testid="internal-watermark"]` — conditional rendering would make the element unavailable to the print stylesheet in the window between React re-render and `window.print()`. Always-in-DOM with `display:none` is safe because `aria-live` regions are suppressed on hidden elements.
+
+**Critical print CSS rule:** The watermark print rule MUST use `:not(.hidden)` to avoid showing the watermark on external-mode prints:
+```css
+body.print-receipt-only [data-testid="internal-watermark"]:not(.hidden) {
+  display: block !important; ...
+}
+```
+Without `:not(.hidden)`, `!important` overrides the `hidden` class and the watermark bleeds onto external receipts.
+
+**Decision 3:** The dev seed includes a finalized PO (`PO-DEMO-003`) with a seeded `document_snapshots` row so E2E receipt-preview tests run unconditionally. Uses `createPoFinalizationReceipts(pool, ...)` — not a Drizzle transaction, because the pg advisory-lock pattern requires its own BEGIN/COMMIT.
+
+**Files:** `src/client/components/ReceiptPreview.tsx`, `src/client/styles.css`, `tests/e2e/receipt-preview.spec.ts`, `src/server/seed.ts`
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1535, PRs #179, #183, #184.
