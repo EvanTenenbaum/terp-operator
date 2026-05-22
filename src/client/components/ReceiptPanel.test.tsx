@@ -8,6 +8,12 @@ const signalTextQueryMock = vi.fn();
 const salesExternalQueryMock = vi.fn();
 const salesInternalQueryMock = vi.fn();
 const salesSignalTextQueryMock = vi.fn();
+const paymentExternalQueryMock = vi.fn();
+const paymentInternalQueryMock = vi.fn();
+const paymentSignalTextQueryMock = vi.fn();
+const vendorPaymentExternalQueryMock = vi.fn();
+const vendorPaymentInternalQueryMock = vi.fn();
+const vendorPaymentSignalTextQueryMock = vi.fn();
 const meQueryMock = vi.fn();
 
 vi.mock('../api/trpc', () => ({
@@ -18,7 +24,13 @@ vi.mock('../api/trpc', () => ({
       purchaseOrderSignalText: { useQuery: (input: unknown, options?: unknown) => signalTextQueryMock(input, options) },
       salesOrderExternalReceipt: { useQuery: (input: unknown, options?: unknown) => salesExternalQueryMock(input, options) },
       salesOrderInternalReceipt: { useQuery: (input: unknown, options?: unknown) => salesInternalQueryMock(input, options) },
-      salesOrderSignalText: { useQuery: (input: unknown, options?: unknown) => salesSignalTextQueryMock(input, options) }
+      salesOrderSignalText: { useQuery: (input: unknown, options?: unknown) => salesSignalTextQueryMock(input, options) },
+      paymentExternalReceipt: { useQuery: (input: unknown, options?: unknown) => paymentExternalQueryMock(input, options) },
+      paymentInternalReceipt: { useQuery: (input: unknown, options?: unknown) => paymentInternalQueryMock(input, options) },
+      paymentSignalText: { useQuery: (input: unknown, options?: unknown) => paymentSignalTextQueryMock(input, options) },
+      vendorPaymentExternalReceipt: { useQuery: (input: unknown, options?: unknown) => vendorPaymentExternalQueryMock(input, options) },
+      vendorPaymentInternalReceipt: { useQuery: (input: unknown, options?: unknown) => vendorPaymentInternalQueryMock(input, options) },
+      vendorPaymentSignalText: { useQuery: (input: unknown, options?: unknown) => vendorPaymentSignalTextQueryMock(input, options) }
     },
     auth: { me: { useQuery: () => meQueryMock() } }
   }
@@ -49,6 +61,12 @@ beforeEach(() => {
   salesExternalQueryMock.mockReset();
   salesInternalQueryMock.mockReset();
   salesSignalTextQueryMock.mockReset();
+  paymentExternalQueryMock.mockReset();
+  paymentInternalQueryMock.mockReset();
+  paymentSignalTextQueryMock.mockReset();
+  vendorPaymentExternalQueryMock.mockReset();
+  vendorPaymentInternalQueryMock.mockReset();
+  vendorPaymentSignalTextQueryMock.mockReset();
   meQueryMock.mockReset();
   meQueryMock.mockReturnValue({ data: { role: 'manager' } });
 });
@@ -198,5 +216,131 @@ describe('ReceiptPanel — sales_order mode', () => {
     expect(externalQueryMock).toHaveBeenCalled();
     expect(externalQueryMock.mock.calls[0][0]).toEqual({ purchaseOrderId: 'po-1' });
     expect(salesExternalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
+  });
+});
+
+const PAY_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const VP_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+
+const externalPaymentProjection = {
+  kind: 'payment_received',
+  header: { title: 'Payment Received', counterparty: 'Big Buyer Co', dateISO: '2026-05-22T12:00:00.000Z', documentNo: 'CHK-1234' },
+  lines: [], totals: { subtotal: 500, total: 500 }, projectionVersion: 1
+};
+const internalPaymentProjection = { ...externalPaymentProjection, internalNotes: 'partial allocation — 2 open invoices' };
+const externalVendorPayoutProjection = {
+  kind: 'vendor_payout',
+  header: { title: 'Vendor Payout', counterparty: 'Acme Farms', dateISO: '2026-05-22T15:30:00.000Z', documentNo: 'WIRE-7788' },
+  lines: [], totals: { subtotal: 300, total: 300 }, projectionVersion: 1
+};
+const internalVendorPayoutProjection = { ...externalVendorPayoutProjection, internalNotes: 'check stub mismatched by $0.50' };
+
+function setIdleAllOtherMocks() {
+  externalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+  internalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+  signalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+  salesExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+  salesInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+  salesSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+}
+
+describe('ReceiptPanel — payment mode', () => {
+  it('routes to the payment tRPC procedures when kind="payment"', () => {
+    setIdleAllOtherMocks();
+    vendorPaymentExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentExternalQueryMock.mockReturnValue({ data: externalPaymentProjection, isLoading: false });
+    paymentInternalQueryMock.mockReturnValue({ data: internalPaymentProjection, isLoading: false });
+    paymentSignalTextQueryMock.mockReturnValue({ data: 'Payment Received CHK-1234\nTo: Big Buyer Co', isLoading: false });
+    render(<ReceiptPanel kind="payment" paymentId={PAY_ID} />);
+    expect(paymentExternalQueryMock).toHaveBeenCalled();
+    expect(paymentExternalQueryMock.mock.calls[0][0]).toEqual({ paymentId: PAY_ID });
+    expect(externalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
+    expect(salesExternalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
+    expect(vendorPaymentExternalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
+    expect(screen.getByText('Big Buyer Co')).toBeInTheDocument();
+    expect(screen.getByText('CHK-1234')).toBeInTheDocument();
+  });
+
+  it('hides the Internal tab in payment mode for operator role', () => {
+    meQueryMock.mockReturnValue({ data: { role: 'operator' } });
+    setIdleAllOtherMocks();
+    vendorPaymentExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentExternalQueryMock.mockReturnValue({ data: externalPaymentProjection, isLoading: false });
+    paymentInternalQueryMock.mockReturnValue({ data: null, isLoading: false });
+    paymentSignalTextQueryMock.mockReturnValue({ data: 'text', isLoading: false });
+    render(<ReceiptPanel kind="payment" paymentId={PAY_ID} />);
+    expect(screen.queryByTestId('receipt-tab-internal')).not.toBeInTheDocument();
+  });
+
+  it('shows internalNotes on the Internal tab for manager role', () => {
+    setIdleAllOtherMocks();
+    vendorPaymentExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentExternalQueryMock.mockReturnValue({ data: externalPaymentProjection, isLoading: false });
+    paymentInternalQueryMock.mockReturnValue({ data: internalPaymentProjection, isLoading: false });
+    paymentSignalTextQueryMock.mockReturnValue({ data: 'text', isLoading: false });
+    render(<ReceiptPanel kind="payment" paymentId={PAY_ID} />);
+    fireEvent.click(screen.getByTestId('receipt-tab-internal'));
+    expect(screen.getByText(/partial allocation/i)).toBeInTheDocument();
+    expect(screen.getByText(/INTERNAL.*DO NOT SEND/i)).toBeInTheDocument();
+  });
+});
+
+describe('ReceiptPanel — vendor_payment mode', () => {
+  it('routes to the vendor_payment tRPC procedures when kind="vendor_payment"', () => {
+    setIdleAllOtherMocks();
+    paymentExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentExternalQueryMock.mockReturnValue({ data: externalVendorPayoutProjection, isLoading: false });
+    vendorPaymentInternalQueryMock.mockReturnValue({ data: internalVendorPayoutProjection, isLoading: false });
+    vendorPaymentSignalTextQueryMock.mockReturnValue({ data: 'Vendor Payout WIRE-7788\nTo: Acme Farms', isLoading: false });
+    render(<ReceiptPanel kind="vendor_payment" vendorPaymentId={VP_ID} />);
+    expect(vendorPaymentExternalQueryMock).toHaveBeenCalled();
+    expect(vendorPaymentExternalQueryMock.mock.calls[0][0]).toEqual({ vendorPaymentId: VP_ID });
+    expect(externalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
+    expect(salesExternalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
+    expect(paymentExternalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
+    expect(screen.getByText('Acme Farms')).toBeInTheDocument();
+    expect(screen.getByText('WIRE-7788')).toBeInTheDocument();
+  });
+
+  it('copies the vendor_payment signal text when Copy is clicked', () => {
+    setIdleAllOtherMocks();
+    paymentExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentExternalQueryMock.mockReturnValue({ data: externalVendorPayoutProjection, isLoading: false });
+    vendorPaymentInternalQueryMock.mockReturnValue({ data: internalVendorPayoutProjection, isLoading: false });
+    vendorPaymentSignalTextQueryMock.mockReturnValue({ data: 'Vendor Payout WIRE-7788\nTo: Acme Farms', isLoading: false });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    render(<ReceiptPanel kind="vendor_payment" vendorPaymentId={VP_ID} />);
+    fireEvent.click(screen.getByTestId('receipt-copy-signal'));
+    expect(writeText).toHaveBeenCalledWith('Vendor Payout WIRE-7788\nTo: Acme Farms');
+  });
+
+  it('still passes existing PO tests with purchaseOrderId prop', () => {
+    paymentExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    paymentSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    vendorPaymentSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    salesExternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    salesInternalQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    salesSignalTextQueryMock.mockReturnValue({ data: undefined, isLoading: false });
+    externalQueryMock.mockReturnValue({ data: externalPaymentProjection, isLoading: false });
+    internalQueryMock.mockReturnValue({ data: internalPaymentProjection, isLoading: false });
+    signalTextQueryMock.mockReturnValue({ data: 'text', isLoading: false });
+    render(<ReceiptPanel purchaseOrderId="po-1" />);
+    expect(externalQueryMock.mock.calls[0][0]).toEqual({ purchaseOrderId: 'po-1' });
+    expect(paymentExternalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
+    expect(vendorPaymentExternalQueryMock.mock.calls[0][1]).toMatchObject({ enabled: false });
   });
 });

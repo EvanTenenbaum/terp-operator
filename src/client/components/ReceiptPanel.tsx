@@ -4,21 +4,22 @@ import { trpc } from '../api/trpc';
 type TabAudience = 'external' | 'internal';
 
 /**
- * Issue #113 Phase 2 + Phase 3 — read-only finalization receipt viewer.
- *
- * Pass `purchaseOrderId` (default kind='purchase_order') for PO receipts,
- * or `kind='sales_order'` + `salesOrderId` for sales/invoice receipts.
- * Both hook sets are always called (rules of hooks); the inactive set
- * passes enabled:false so React Query never fetches for the wrong kind.
+ * Issue #113 Phase 2-4 — read-only finalization receipt viewer.
+ * Supports 4 kinds: purchase_order, sales_order, payment, vendor_payment.
+ * All four hook triples are always called (rules of hooks); only one set has enabled:true.
  */
 export type ReceiptPanelProps =
-  | { kind?: 'purchase_order'; purchaseOrderId: string; salesOrderId?: never }
-  | { kind: 'sales_order'; salesOrderId: string; purchaseOrderId?: never };
+  | { kind?: 'purchase_order'; purchaseOrderId: string; salesOrderId?: never; paymentId?: never; vendorPaymentId?: never }
+  | { kind: 'sales_order'; salesOrderId: string; purchaseOrderId?: never; paymentId?: never; vendorPaymentId?: never }
+  | { kind: 'payment'; paymentId: string; purchaseOrderId?: never; salesOrderId?: never; vendorPaymentId?: never }
+  | { kind: 'vendor_payment'; vendorPaymentId: string; purchaseOrderId?: never; salesOrderId?: never; paymentId?: never };
 
 export function ReceiptPanel(props: ReceiptPanelProps) {
   const kind = props.kind ?? 'purchase_order';
   const isPo = kind === 'purchase_order';
   const isSo = kind === 'sales_order';
+  const isPayment = kind === 'payment';
+  const isVendorPayment = kind === 'vendor_payment';
 
   const me = trpc.auth.me.useQuery();
   const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
@@ -27,36 +28,31 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
   const PLACEHOLDER_UUID = '00000000-0000-0000-0000-000000000000';
   const poId = isPo ? (props.purchaseOrderId as string) : PLACEHOLDER_UUID;
   const soId = isSo ? (props.salesOrderId as string) : PLACEHOLDER_UUID;
+  const payId = isPayment ? (props.paymentId as string) : PLACEHOLDER_UUID;
+  const vpId = isVendorPayment ? (props.vendorPaymentId as string) : PLACEHOLDER_UUID;
 
-  // PO hook set
-  const poExternalQuery = trpc.queries.purchaseOrderExternalReceipt.useQuery(
-    { purchaseOrderId: poId }, { enabled: isPo }
-  );
-  const poInternalQuery = trpc.queries.purchaseOrderInternalReceipt.useQuery(
-    { purchaseOrderId: poId }, { enabled: isPo && isManagerOrOwner }
-  );
-  const poSignalTextQuery = trpc.queries.purchaseOrderSignalText.useQuery(
-    { purchaseOrderId: poId }, { enabled: isPo }
-  );
+  const poExternalQuery = trpc.queries.purchaseOrderExternalReceipt.useQuery({ purchaseOrderId: poId }, { enabled: isPo });
+  const poInternalQuery = trpc.queries.purchaseOrderInternalReceipt.useQuery({ purchaseOrderId: poId }, { enabled: isPo && isManagerOrOwner });
+  const poSignalTextQuery = trpc.queries.purchaseOrderSignalText.useQuery({ purchaseOrderId: poId }, { enabled: isPo });
 
-  // Sales hook set
-  const soExternalQuery = trpc.queries.salesOrderExternalReceipt.useQuery(
-    { salesOrderId: soId }, { enabled: isSo }
-  );
-  const soInternalQuery = trpc.queries.salesOrderInternalReceipt.useQuery(
-    { salesOrderId: soId }, { enabled: isSo && isManagerOrOwner }
-  );
-  const soSignalTextQuery = trpc.queries.salesOrderSignalText.useQuery(
-    { salesOrderId: soId }, { enabled: isSo }
-  );
+  const soExternalQuery = trpc.queries.salesOrderExternalReceipt.useQuery({ salesOrderId: soId }, { enabled: isSo });
+  const soInternalQuery = trpc.queries.salesOrderInternalReceipt.useQuery({ salesOrderId: soId }, { enabled: isSo && isManagerOrOwner });
+  const soSignalTextQuery = trpc.queries.salesOrderSignalText.useQuery({ salesOrderId: soId }, { enabled: isSo });
 
-  const externalQuery = isPo ? poExternalQuery : soExternalQuery;
-  const internalQuery = isPo ? poInternalQuery : soInternalQuery;
-  const signalTextQuery = isPo ? poSignalTextQuery : soSignalTextQuery;
+  const payExternalQuery = trpc.queries.paymentExternalReceipt.useQuery({ paymentId: payId }, { enabled: isPayment });
+  const payInternalQuery = trpc.queries.paymentInternalReceipt.useQuery({ paymentId: payId }, { enabled: isPayment && isManagerOrOwner });
+  const paySignalTextQuery = trpc.queries.paymentSignalText.useQuery({ paymentId: payId }, { enabled: isPayment });
+
+  const vpExternalQuery = trpc.queries.vendorPaymentExternalReceipt.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment });
+  const vpInternalQuery = trpc.queries.vendorPaymentInternalReceipt.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment && isManagerOrOwner });
+  const vpSignalTextQuery = trpc.queries.vendorPaymentSignalText.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment });
+
+  const externalQuery = isPo ? poExternalQuery : isSo ? soExternalQuery : isPayment ? payExternalQuery : vpExternalQuery;
+  const internalQuery = isPo ? poInternalQuery : isSo ? soInternalQuery : isPayment ? payInternalQuery : vpInternalQuery;
+  const signalTextQuery = isPo ? poSignalTextQuery : isSo ? soSignalTextQuery : isPayment ? paySignalTextQuery : vpSignalTextQuery;
 
   const externalReceipt = externalQuery.data ?? null;
   const internalReceipt = internalQuery.data ?? null;
-
   const isLoading = externalQuery.isLoading || signalTextQuery.isLoading;
   const showEmpty = !isLoading && !externalReceipt && !internalReceipt;
 
@@ -67,6 +63,13 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
   }
 
   const projection = audience === 'external' ? externalReceipt : internalReceipt;
+
+  function emptyLabel() {
+    if (isPo) return 'PO';
+    if (isSo) return 'sale';
+    if (isPayment) return 'payment';
+    return 'vendor payout';
+  }
 
   return (
     <section data-testid="receipt-panel" className="inline-panel" aria-label="Finalization receipt">
@@ -84,8 +87,7 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
           ) : null}
         </div>
         {audience === 'external' ? (
-          <button type="button" data-testid="receipt-copy-signal"
-            className="secondary-button compact-action"
+          <button type="button" data-testid="receipt-copy-signal" className="secondary-button compact-action"
             onClick={copySignalText} disabled={!signalTextQuery.data}
             title="Copy plain-text receipt for Signal">Copy for Signal</button>
         ) : null}
@@ -93,7 +95,7 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
       {isLoading ? (
         <p className="page-subtitle">Loading receipt…</p>
       ) : showEmpty ? (
-        <p className="page-subtitle">No receipt generated yet. Finalize the {isPo ? 'PO' : 'sale'} to produce one.</p>
+        <p className="page-subtitle">No receipt generated yet. Finalize the {emptyLabel()} to produce one.</p>
       ) : projection ? (
         <ReceiptBody audience={audience} projection={projection} />
       ) : (
@@ -116,27 +118,30 @@ interface ProjectionLike {
 }
 
 function ReceiptBody({ audience, projection }: { audience: TabAudience; projection: ProjectionLike }) {
+  const hasLines = projection.lines.length > 0;
   return (
     <div className="view-stack">
       {audience === 'internal' ? <div className="selection-pill warning">INTERNAL — DO NOT SEND</div> : null}
       <div className="drawer-fact-row"><span>{projection.header.title}</span><strong>{projection.header.documentNo}</strong></div>
       <div className="drawer-fact-row"><span>To</span><strong>{projection.header.counterparty}</strong></div>
       <div className="drawer-fact-row"><span>Date</span><strong>{projection.header.dateISO}</strong></div>
-      <table className="finder-table">
-        <thead><tr><th>Product</th><th>Qty</th><th>Unit</th><th>Subtotal</th><th>Notes</th></tr></thead>
-        <tbody>
-          {projection.lines.map((l, i) => (
-            <tr key={i}><td>{l.name}</td><td>{l.qty}</td><td>{l.unitPrice ?? '-'}</td><td>{l.subtotal}</td><td>{l.notes ?? ''}</td></tr>
-          ))}
-        </tbody>
-      </table>
+      {hasLines ? (
+        <table className="finder-table">
+          <thead><tr><th>Product</th><th>Qty</th><th>Unit</th><th>Subtotal</th><th>Notes</th></tr></thead>
+          <tbody>
+            {projection.lines.map((l, i) => (
+              <tr key={i}><td>{l.name}</td><td>{l.qty}</td><td>{l.unitPrice ?? '-'}</td><td>{l.subtotal}</td><td>{l.notes ?? ''}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
       <div className="drawer-fact-row"><span>Subtotal</span><strong>{projection.totals.subtotal}</strong></div>
       {projection.totals.adjustments != null ? <div className="drawer-fact-row"><span>Adjustments</span><strong>{projection.totals.adjustments}</strong></div> : null}
       <div className="drawer-fact-row"><span>Total</span><strong>{projection.totals.total}</strong></div>
       {projection.footer?.terms ? <div className="drawer-fact-row"><span>Terms</span><strong>{projection.footer.terms}</strong></div> : null}
       {projection.footer?.reference ? <div className="drawer-fact-row"><span>Ref</span><strong>{projection.footer.reference}</strong></div> : null}
       {audience === 'internal' && projection.internalNotes ? (
-        <div className="inline-panel"><div className="section-title">Internal notes</div><p>{projection.internalNotes}</p></div>
+        <div className="inline-panel"><div className="section-title">Internal reconciliation notes</div><p>{projection.internalNotes}</p></div>
       ) : null}
       {audience === 'internal' && projection.cogs ? (
         <div className="inline-panel">
