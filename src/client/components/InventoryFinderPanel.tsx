@@ -56,9 +56,10 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
   const reference = trpc.queries.reference.useQuery();
   const { data: savedFilters } = trpc.filters.listSavedFilters.useQuery({ targetView: 'inventory' });
   const me = trpc.auth.me.useQuery();
+  const trpcUtils = trpc.useContext();
   const saveFilterMutation = trpc.filters.saveFilter.useMutation({
     onSuccess: () => {
-      trpc.useContext().filters.listSavedFilters.invalidate();
+      trpcUtils.filters.listSavedFilters.invalidate();
     }
   });
   const [search, setSearch] = useState('');
@@ -234,15 +235,6 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
     setQuantities((current) => ({ ...current, [batch.id]: '1' }));
   }
 
-  function loadSavedFilter(filterId: string) {
-    const saved = savedFilters?.find(f => f.id === filterId);
-    if (saved) {
-      setAdvancedFilter(saved.filterDefinition);
-      setSelectedSavedFilter(filterId);
-      setAdvancedOpen(true);
-    }
-  }
-
   async function saveCurrentFilter() {
     if (!advancedFilter) return;
 
@@ -292,6 +284,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
                 if (saved) {
                   setAdvancedFilter(saved.filterDefinition);
                   setSelectedSavedFilter(id);
+                  setAdvancedOpen(true);
                 }
               }}
             />
@@ -316,7 +309,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
               currentUserId={me.data?.id}
               canManageGlobal={me.data?.role === 'manager' || me.data?.role === 'owner'}
               onFiltersChanged={() => {
-                void trpc.useContext().filters.listSavedFilters.invalidate();
+                void trpcUtils.filters.listSavedFilters.invalidate();
               }}
             />
           )}
