@@ -109,6 +109,8 @@ export interface CommandResult {
   affectedIds: string[];
   toast?: string;
   delta?: Record<string, unknown>;
+  /** CAP-030 / TER-1518 — orderId for pick-event routing (set by pick commands). */
+  orderId?: string;
 }
 
 export interface HealthStatus {
