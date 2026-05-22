@@ -14,7 +14,7 @@ import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
 import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationshipDrawer';
-import { ReceiptPreview } from '../components/ReceiptPreview';
+import { ReceiptPanel } from '../components/ReceiptPanel';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -853,6 +853,9 @@ export function PurchaseOrdersView() {
               Preview receipt
             </button>
           </section>
+          {['finalized', 'approved', 'ordered', 'partially_received', 'received'].includes(selectedPoStatus) ? (
+            <ReceiptPanel purchaseOrderId={String(selectedPo.id)} />
+          ) : null}
           <OperatorGrid
             view="purchaseOrders"
             title={`${String(selectedPo.poNo ?? 'Selected PO')} Lines`}
@@ -1064,6 +1067,9 @@ export function PaymentsView() {
         <>
           <QuickLedgerGrid />
           <PaymentAllocationTools selectedPayment={selectedPayment} />
+          {selectedPayment?.id ? (
+            <ReceiptPanel kind="payment" paymentId={String(selectedPayment.id)} />
+          ) : null}
         </>
       )}
       actions={(rows, runCommand) => (
@@ -1770,6 +1776,9 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
             </tbody>
           </table>
         </div>
+      ) : null}
+      {chosenPaymentId ? (
+        <ReceiptPanel kind="vendor_payment" vendorPaymentId={String(chosenPaymentId)} />
       ) : null}
     </section>
   );

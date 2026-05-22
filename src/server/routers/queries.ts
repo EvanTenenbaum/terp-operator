@@ -5,6 +5,7 @@ import { protectedProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
+import { getExternalReceipt, getInternalReceipt, renderSignalText } from '../services/documentSnapshots';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
 import { paymentProcessors, processorFees } from '../schema';
@@ -1032,7 +1033,102 @@ export const queriesRouter = router({
       pricing: priceRows.rows
     };
   }),
+  purchaseOrderExternalReceipt: protectedProcedure
+    .input(z.object({ purchaseOrderId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      return getExternalReceipt(pool, 'purchase_order', input.purchaseOrderId);
+    }),
+  purchaseOrderInternalReceipt: protectedProcedure
+    .input(z.object({ purchaseOrderId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      // Role gate is enforced inside getInternalReceipt via assertRole(user, 'manager').
+      // We pass ctx.user through unchanged — the service throws TRPCError(FORBIDDEN)
+      // when role < manager.
+      return getInternalReceipt(pool, ctx.user, 'purchase_order', input.purchaseOrderId);
+    }),
+  purchaseOrderSignalText: protectedProcedure
+    .input(z.object({ purchaseOrderId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const projection = await getExternalReceipt(pool, 'purchase_order', input.purchaseOrderId);
+      if (!projection) return null;
+      return renderSignalText(projection);
+    }),
+  salesOrderExternalReceipt: protectedProcedure
+    .input(z.object({ salesOrderId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const invoiceId = await latestInvoiceIdForOrder(input.salesOrderId);
+      if (invoiceId) {
+        const fromInvoice = await getExternalReceipt(pool, 'invoice', invoiceId);
+        if (fromInvoice) return fromInvoice;
+      }
+      return getExternalReceipt(pool, 'sales_order', input.salesOrderId);
+    }),
+  salesOrderInternalReceipt: protectedProcedure
+    .input(z.object({ salesOrderId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const invoiceId = await latestInvoiceIdForOrder(input.salesOrderId);
+      if (invoiceId) {
+        const fromInvoice = await getInternalReceipt(pool, ctx.user, 'invoice', invoiceId);
+        if (fromInvoice) return fromInvoice;
+      }
+      return getInternalReceipt(pool, ctx.user, 'sales_order', input.salesOrderId);
+    }),
+  salesOrderSignalText: protectedProcedure
+    .input(z.object({ salesOrderId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const invoiceId = await latestInvoiceIdForOrder(input.salesOrderId);
+      if (invoiceId) {
+        const fromInvoice = await getExternalReceipt(pool, 'invoice', invoiceId);
+        if (fromInvoice) return renderSignalText(fromInvoice);
+      }
+      const fromConfirmation = await getExternalReceipt(pool, 'sales_order', input.salesOrderId);
+      if (!fromConfirmation) return null;
+      return renderSignalText(fromConfirmation);
+    }),
+  paymentExternalReceipt: protectedProcedure
+    .input(z.object({ paymentId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      return getExternalReceipt(pool, 'payment', input.paymentId);
+    }),
+  paymentInternalReceipt: protectedProcedure
+    .input(z.object({ paymentId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return getInternalReceipt(pool, ctx.user, 'payment', input.paymentId);
+    }),
+  paymentSignalText: protectedProcedure
+    .input(z.object({ paymentId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const projection = await getExternalReceipt(pool, 'payment', input.paymentId);
+      if (!projection) return null;
+      return renderSignalText(projection);
+    }),
+  vendorPaymentExternalReceipt: protectedProcedure
+    .input(z.object({ vendorPaymentId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      return getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
+    }),
+  vendorPaymentInternalReceipt: protectedProcedure
+    .input(z.object({ vendorPaymentId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return getInternalReceipt(pool, ctx.user, 'vendor_payment', input.vendorPaymentId);
+    }),
+  vendorPaymentSignalText: protectedProcedure
+    .input(z.object({ vendorPaymentId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const projection = await getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
+      if (!projection) return null;
+      return renderSignalText(projection);
+    }),
 });
+
+async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
+  const res = await pool.query(
+    `SELECT id FROM invoices WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [salesOrderId]
+  );
+  const row = res.rows[0] as { id: string } | undefined;
+  return row?.id ?? null;
+}
 
 type ReplaceTable = 'batches' | 'customers' | 'vendors' | 'sales_orders' | 'connector_requests';
 
