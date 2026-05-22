@@ -1041,6 +1041,40 @@ export const queriesRouter = router({
       if (!fromConfirmation) return null;
       return renderSignalText(fromConfirmation);
     }),
+  paymentExternalReceipt: protectedProcedure
+    .input(z.object({ paymentId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      return getExternalReceipt(pool, 'payment', input.paymentId);
+    }),
+  paymentInternalReceipt: protectedProcedure
+    .input(z.object({ paymentId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return getInternalReceipt(pool, ctx.user, 'payment', input.paymentId);
+    }),
+  paymentSignalText: protectedProcedure
+    .input(z.object({ paymentId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const projection = await getExternalReceipt(pool, 'payment', input.paymentId);
+      if (!projection) return null;
+      return renderSignalText(projection);
+    }),
+  vendorPaymentExternalReceipt: protectedProcedure
+    .input(z.object({ vendorPaymentId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      return getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
+    }),
+  vendorPaymentInternalReceipt: protectedProcedure
+    .input(z.object({ vendorPaymentId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return getInternalReceipt(pool, ctx.user, 'vendor_payment', input.vendorPaymentId);
+    }),
+  vendorPaymentSignalText: protectedProcedure
+    .input(z.object({ vendorPaymentId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const projection = await getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
+      if (!projection) return null;
+      return renderSignalText(projection);
+    }),
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
