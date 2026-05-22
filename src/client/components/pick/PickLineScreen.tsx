@@ -1,6 +1,7 @@
 // CAP-030 / TER-1513 — Pick line detail mobile screen (weigh, scan, submit)
 // TODO: depends on CAP-030 backend merge (TER-1498/TER-1488)
 import { useState, useEffect, useRef } from 'react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { PickLine, WarehouseAlertInterrupt } from './pickTypes';
 import { useCommandRunner } from '../useCommandRunner';
 
@@ -98,6 +99,9 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
     onBack();
   }
 
+  // Focus trap for the alert interrupt overlay — must not be dismissable
+  const interruptRef = useFocusTrap<HTMLDivElement>(!!interrupt, undefined);
+
   async function handleAcknowledgeInterrupt() {
     if (!interrupt) return;
     // TODO: depends on CAP-030 backend merge (TER-1488)
@@ -117,10 +121,12 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
   if (interrupt) {
     return (
       <div
+        ref={interruptRef}
         className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-amber-50 p-8"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="interrupt-title"
+        onKeyDown={(e) => { if (e.key === 'Escape') e.preventDefault(); }}
         // NOTE: no click-outside dismiss per spec — must use the button
       >
         <div className="text-4xl">⚠️</div>
