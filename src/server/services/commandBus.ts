@@ -60,6 +60,7 @@ import { appendJsonlJournal } from './journal';
 import { rowsToCsv, validateBatchCsv } from './csv';
 import { getCloseoutSafety } from './closeout';
 import { applyPricingRule, asCustomerPricingRule, evaluatePrice, resolvePricingProfile, resolvePricingRuleEntry } from './pricing';
+import { resolvePricingRuleClause } from './pricingRuleResolver';
 import {
   commandInputSchema,
   customerPricingRuleSchema,
@@ -88,7 +89,8 @@ import { photoUploadTokens } from '../schema';
 
 import { createHash, randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
-import type { CommandResult, SessionUser } from '../../shared/types';
+import type { CommandResult, PricingRuleClause, PricingRuleContext, SessionUser } from '../../shared/types';
+import type { FilterGroupInput } from '../../shared/filterSchemas';
 import { normalizeTagSlug, parseTagInput } from '../../shared/tags';
 import { parsePriceRange, rangeMidpoint, validateCostRange } from '../../shared/priceRange';
 import {
@@ -2156,6 +2158,17 @@ async function reserveInventoryForOrder(tx: Tx, payload: Payload, commandId: str
 }
 
 export async function priceSalesOrder(tx: Tx, payload: Payload, commandId: string, toast = 'Sales order priced.'): Promise<CommandResult> {
+  // Feature flag: delegate to chain resolver when pricing.useChainResolver is true
+  const flagRow = await tx.select({ value: systemSettings.value })
+    .from(systemSettings)
+    .where(eq(systemSettings.key, 'pricing.useChainResolver'))
+    .limit(1);
+  const useChainResolver = (flagRow[0]?.value as unknown) === true;
+
+  if (useChainResolver) {
+    return priceSalesOrderWithChainResolver(tx, payload, commandId, toast);
+  }
+
   const orderId = requiredId(payload.orderId, 'orderId');
   const strategy = stringValue(payload.strategy) || 'standard';
   const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
@@ -2228,6 +2241,147 @@ export async function priceSalesOrder(tx: Tx, payload: Payload, commandId: strin
     affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)],
     toast: guardrailHits.length ? `${toast} ${guardrailHits.length} line(s) were lifted to pricing guardrails.` : toast,
     delta: { strategy, pricingProfile: profile, guardrails: guardrailHits }
+  };
+}
+
+async function priceSalesOrderWithChainResolver(
+  tx: Tx,
+  payload: Payload,
+  commandId: string,
+  toast: string
+): Promise<CommandResult> {
+  const orderId = requiredId(payload.orderId, 'orderId');
+  const strategy = stringValue(payload.strategy) || 'standard';
+
+  // Load order
+  const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
+  if (!order) throw new Error('Sales order not found.');
+
+  // Load customer
+  const customer = order.customerId
+    ? (await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1))[0] ?? null
+    : null;
+
+  // Fetch both clause chains in one query set (no N+1 within loop)
+  const [customerClauseRows, globalClauseRows] = await Promise.all([
+    customer
+      ? tx.select().from(pricingRuleEntries)
+          .where(and(
+            eq(pricingRuleEntries.scope, 'customer'),
+            eq(pricingRuleEntries.customerId, customer.id),
+            isNull(pricingRuleEntries.deletedAt)
+          ))
+          .orderBy(pricingRuleEntries.priority)
+      : Promise.resolve([]) as Promise<Array<typeof pricingRuleEntries.$inferSelect>>,
+    tx.select().from(pricingRuleEntries)
+      .where(and(
+        eq(pricingRuleEntries.scope, 'global'),
+        isNull(pricingRuleEntries.deletedAt)
+      ))
+      .orderBy(pricingRuleEntries.priority),
+  ]);
+
+  function rowToClause(r: typeof pricingRuleEntries.$inferSelect): PricingRuleClause {
+    return {
+      id: r.id,
+      scope: r.scope as 'global' | 'customer',
+      customerId: r.customerId ?? null,
+      priority: r.priority,
+      name: r.name ?? null,
+      conditions: r.conditions as FilterGroupInput | null,
+      actionBasis: r.actionBasis as 'percent' | 'dollar',
+      actionAmount: Number(r.actionAmount),
+      active: r.active,
+    };
+  }
+
+  const customerClauses: PricingRuleClause[] = customerClauseRows.map(rowToClause);
+  const globalClauses: PricingRuleClause[] = globalClauseRows.map(rowToClause);
+
+  // Resolve guardrail profile
+  const profile = resolvePricingProfile(strategy, customer?.tags ?? []);
+
+  // Load order lines
+  const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+
+  // Check all COGS are resolved (same invariant as existing path)
+  const unresolved = lines.find((l: typeof salesOrderLines.$inferSelect) => !l.unitCostResolved);
+  if (unresolved) {
+    throw new Error(
+      `${unresolved.itemName} has unresolved landed COGS. Resolve every range-priced line before applying the customer pricing rule.`
+    );
+  }
+
+  let ruleAppliedCount = 0;
+  let guardrailHits = 0;
+  const lineAuditEntries: unknown[] = [];
+
+  for (const line of lines) {
+    // Load batch for subcategory, tags, batchPostedPrice
+    const batchId = line.batchId ? String(line.batchId) : null;
+    const batch = batchId
+      ? (await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1))[0] ?? null
+      : null;
+
+    const context: PricingRuleContext = {
+      category: batch?.category ?? null,
+      subcategory: batch?.subcategory ?? null,
+      tags: batch?.tags ?? [],
+      batchPostedPrice: batch?.unitPrice ? Number(batch.unitPrice) : undefined,
+      unitCost: Number(line.unitCost ?? 0),
+    };
+
+    const resolved = resolvePricingRuleClause(customerClauses, globalClauses, context);
+    const unitCost = Number(line.unitCost ?? 0);
+    const candidateUnitPrice = applyPricingRule(unitCost, resolved);
+
+    const basisUnitPrice = batch?.unitPrice ? Number(batch.unitPrice) : candidateUnitPrice;
+    const evaluation = evaluatePrice({
+      unitCost,
+      basisUnitPrice,
+      candidateUnitPrice,
+      profile,
+    });
+
+    await tx.update(salesOrderLines)
+      .set({
+        unitPrice: moneyScale(evaluation.unitPrice),
+        updatedAt: new Date(),
+      })
+      .where(eq(salesOrderLines.id, line.id));
+
+    if (resolved.source !== 'fallback') ruleAppliedCount++;
+    if (evaluation.adjusted) guardrailHits++;
+
+    lineAuditEntries.push({
+      lineId: line.id,
+      clauseId: resolved.clauseId ?? null,
+      clauseName: resolved.clauseName ?? null,
+      ruleSource: resolved.source,
+      priceBeforeGuardrail: candidateUnitPrice,
+      guardrailApplied: evaluation.adjusted,
+      guardrailProfile: profile.name,
+    });
+  }
+
+  await recalcOrder(tx, orderId, strategy);
+
+  const toastMsg = ruleAppliedCount > 0
+    ? `${toast} Chain resolver applied to ${ruleAppliedCount} line(s).${guardrailHits > 0 ? ` ${guardrailHits} lifted to guardrail.` : ''}`
+    : toast;
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [orderId, ...lines.map((l: typeof salesOrderLines.$inferSelect) => l.id)],
+    toast: toastMsg,
+    delta: {
+      strategy,
+      ruleAppliedLines: ruleAppliedCount,
+      guardrailHits,
+      lines: lineAuditEntries,
+      pricingProfile: profile,
+    },
   };
 }
 
