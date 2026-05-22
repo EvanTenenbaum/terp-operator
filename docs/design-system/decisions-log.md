@@ -145,4 +145,18 @@
 
 ---
 
+## 2026-05-21: Finalization receipts Tranche 1 — document_snapshots foundation (#113)
+**Decision:** Establish a `document_snapshots` table with a per-`document_type` pure-projection architecture. PO finalization writes a `purchase_order` snapshot (internal + server-generated external payload). A tRPC router exposes role-gated endpoints: viewers get finalized-only minimized external shapes; operator+ gets internal payloads and draft-preview paths. `ReceiptPreview` renders via React portal to `document.body` for correct print-stylesheet behavior.
+**Key invariants locked:**
+- One active row per `(document_type, subject_id)` enforced by partial unique index.
+- `documentSnapshots` is excluded from `snapshotByAffectedIds` tablePairs and snapshot UUIDs never enter `affectedIds` — command-history leak guard.
+- Finalize consumes an active draft IN PLACE (same row id, status flips); no `superseded` row on Tranche 1 normal paths.
+- `EXTERNAL_FIELDS` allowlist pinned in `poProjection.ts` with inline-snapshot change-control test; any allowlist change MUST bump `PROJECTION_VERSION` in the same commit.
+- Viewer callers never receive `includeDrafts=true` results; the router throws FORBIDDEN.
+**Files:** `migrations/0047_document_snapshots.sql`, `src/shared/documentSnapshots.ts`, `src/server/services/documentSnapshots/` (poInternalBuilder, poProjection, index, snapshotService), `src/server/routers/documentSnapshots.ts`, `src/client/components/ReceiptPreview.tsx`, CSS in `styles.css`, wiring in `commandBus.ts` + `OperationsViews.tsx`.
+**Author:** Claude Sonnet 4.6 / Opus 4.7 via Evan (subagent-driven parallel waves)
+**Related:** `docs/roadmap/2026-finalization-receipts-roadmap.md`, `docs/superpowers/plans/2026-05-20-finalization-receipts-tranche-1.md`, GitHub #113.
+
+---
+
 [Future decisions append above this line, in reverse chronological order.]
