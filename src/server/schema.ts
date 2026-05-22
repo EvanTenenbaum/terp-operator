@@ -341,6 +341,8 @@ export const salesOrderLines = pgTable('sales_order_lines', {
   belowFloorNote: text('below_floor_note'),
   vendorApprovalState: varchar('vendor_approval_state', { length: 32 }).notNull().default('none'),
   status: varchar('status', { length: 32 }).notNull().default('draft'),
+  pickReleasedAt: timestamp('pick_released_at', { withTimezone: true }),
+  pickReleasedBy: uuid('pick_released_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: now(),
   updatedAt: updated()
 });
@@ -447,6 +449,8 @@ export const fulfillmentLines = pgTable('fulfillment_lines', {
   actualWeight: numeric('actual_weight', { precision: 12, scale: 3 }).notNull().default('0'),
   bagCode: varchar('bag_code', { length: 80 }),
   status: varchar('status', { length: 32 }).notNull().default('open'),
+  warehouseAlerts: jsonb('warehouse_alerts').$type<Array<Record<string, unknown>>>().notNull().default([]),
+  statusExtended: varchar('status_extended', { length: 32 }),
   createdAt: now(),
   updatedAt: updated()
 });
