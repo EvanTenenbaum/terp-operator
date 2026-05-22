@@ -101,6 +101,16 @@ export function IntakeView() {
     }
   }
 
+  async function deleteDraftBatch(batchId: string) {
+    setBusy(true);
+    try {
+      await runCommand('deleteBatch', { batchId }, 'Delete draft intake row');
+      await utils.queries.intakeQueue.invalidate();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const detailCellRendererParams = useMemo(
     () => ({
       detailGridOptions: {
@@ -130,6 +140,9 @@ export function IntakeView() {
           },
           async (itemId, alias) => {
             await setMarketName(itemId, alias);
+          },
+          async (batchId) => {
+            await deleteDraftBatch(batchId);
           }
         ),
         defaultColDef: { resizable: true, sortable: true, wrapHeaderText: true, autoHeaderHeight: true } as ColDef<IntakeBatchRow>,
@@ -342,7 +355,8 @@ function buildBatchColumns(
   onVerify: (batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) => Promise<void>,
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
-  onSetMarketName: (itemId: string, alias: string) => Promise<void>
+  onSetMarketName: (itemId: string, alias: string) => Promise<void>,
+  onDeleteDraft: (batchId: string) => Promise<void>
 ): ColDef<IntakeBatchRow>[] {
   return [
     { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
@@ -421,6 +435,7 @@ function buildBatchColumns(
             onReject={onReject}
             onAppendNote={onAppendNote}
             onSetMarketName={onSetMarketName}
+            onDeleteDraft={onDeleteDraft}
           />
         );
       }
@@ -436,6 +451,7 @@ function BatchRowActions({
   onReject,
   onAppendNote,
   onSetMarketName,
+  onDeleteDraft,
 }: {
   row: IntakeBatchRow;
   busy: boolean;
@@ -444,8 +460,9 @@ function BatchRowActions({
   onReject: (batchId: string, reason: string) => Promise<void>;
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>;
   onSetMarketName: (itemId: string, alias: string) => Promise<void>;
+  onDeleteDraft: (batchId: string) => Promise<void>;
 }) {
-  const [mode, setMode] = useState<'idle' | 'reject' | 'note' | 'marketName'>('idle');
+  const [mode, setMode] = useState<'idle' | 'reject' | 'note' | 'marketName' | 'confirmDelete'>('idle');
   const [inputValue, setInputValue] = useState('');
 
   const canVerify = row.status === 'draft' || row.status === 'ready';
@@ -496,6 +513,39 @@ function BatchRowActions({
           onClick={() => openMode('marketName', row.itemAlias ?? '')}
         >
           Market name
+        </button>
+        {row.status === 'draft' ? (
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            style={{ color: 'var(--color-danger, #b42318)' }}
+            title="Delete this draft batch"
+            onClick={() => setMode('confirmDelete')}
+          >
+            Delete
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (mode === 'confirmDelete') {
+    return (
+      <div className="flex h-full items-center gap-1">
+        <span className="text-xs text-zinc-600">Delete this draft?</span>
+        <button
+          type="button"
+          className="secondary-button compact-action"
+          style={{ color: 'var(--color-danger, #b42318)' }}
+          onClick={async () => {
+            await onDeleteDraft(row.id);
+            cancel();
+          }}
+        >
+          Confirm delete
+        </button>
+        <button type="button" className="secondary-button compact-action" onClick={cancel}>
+          Cancel
         </button>
       </div>
     );

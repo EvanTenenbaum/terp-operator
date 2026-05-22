@@ -111,7 +111,7 @@ export function ReceiptPreview({ documentType, subjectId, initialMode = 'externa
           INTERNAL — DO NOT SEND
         </div>
         <div className="receipt-preview-body-html" data-testid="receipt-preview-body">
-          {query.isLoading ? 'Loading\u2026' : query.data?.text ?? (query.error?.message ?? 'No snapshot.')}
+          {query.isLoading ? 'Loading…' : query.data?.text ?? (query.error?.message ?? 'No snapshot.')}
         </div>
       </div>
     </div>,

@@ -28,8 +28,14 @@ vi.mock('../components/OperatorGrid', () => ({
   )
 }));
 
-vi.mock('../components/MediaDetailPanel', () => ({
-  MediaDetailPanel: ({ batchId }: { batchId: string }) => <div data-testid="media-detail-panel">{batchId}</div>
+vi.mock('../components/MediaBatchDrawer', () => ({
+  MediaBatchDrawer: ({ batchId, batchCode, batchName, onClose }: { batchId: string | null; batchCode: string; batchName: string; onClose: () => void }) => (
+    <div data-testid="media-batch-drawer" data-batch-id={batchId}>
+      <button onClick={onClose}>Close drawer</button>
+      <span>{batchCode}</span>
+      <span>{batchName}</span>
+    </div>
+  )
 }));
 
 import { MediaView } from './MediaView';
@@ -45,13 +51,14 @@ describe('MediaView', () => {
     expect(screen.getByText('Grid loading')).toBeInTheDocument();
   });
 
-  it('shows selection placeholder when no row selected', () => {
+  it('drawer renders with no batch selected by default', () => {
     useQueryMock.mockReturnValue({ data: [], isLoading: false, isError: false });
     render(<MediaView />);
-    expect(screen.getByText(/select a batch to manage its media/i)).toBeInTheDocument();
+    const drawer = screen.getByTestId('media-batch-drawer');
+    expect(drawer).not.toHaveAttribute('data-batch-id');
   });
 
-  it('renders detail panel when a row is selected', async () => {
+  it('renders MediaBatchDrawer with selected batch data', async () => {
     const user = userEvent.setup();
     useQueryMock.mockReturnValue({
       data: [
@@ -72,10 +79,13 @@ describe('MediaView', () => {
     });
     render(<MediaView />);
     await user.click(screen.getByTestId('row-batch-1'));
-    expect(screen.getByTestId('media-detail-panel')).toHaveTextContent('batch-1');
+    const drawer = screen.getByTestId('media-batch-drawer');
+    expect(drawer).toHaveAttribute('data-batch-id', 'batch-1');
+    expect(drawer).toHaveTextContent('B001');
+    expect(drawer).toHaveTextContent('Test Batch');
   });
 
-  it('renders mobile link action when a row is selected', async () => {
+  it('does not render selection actions in grid toolbar', async () => {
     const user = userEvent.setup();
     useQueryMock.mockReturnValue({
       data: [
@@ -96,10 +106,6 @@ describe('MediaView', () => {
     });
     render(<MediaView />);
     await user.click(screen.getByTestId('row-batch-1'));
-    const actions = screen.getByTestId('selection-actions');
-    expect(actions).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /mobile link|mobile upload/i })
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId('selection-actions')).not.toBeInTheDocument();
   });
 });

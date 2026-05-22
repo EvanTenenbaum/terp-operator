@@ -1003,6 +1003,13 @@ kbd {
   @apply whitespace-pre-wrap font-mono text-sm text-ink bg-panel border border-line rounded p-3 max-h-[60vh] overflow-auto;
 }
 
+.receipt-preview-body-html {
+  @apply text-sm text-ink bg-panel border border-line rounded p-3 max-h-[60vh] overflow-auto;
+  white-space: pre-wrap;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
 /* Print stylesheet — hides everything except the receipt preview body when
    .print-receipt-only is set on <body> by ReceiptPreview.handlePrint. */
 @media print {
@@ -1024,4 +1031,72 @@ kbd {
   body.print-receipt-only .primary-button {
     display: none !important;
   }
+
+  /* Print: remove max-height so full receipt prints */
+  body.print-receipt-only .receipt-preview-body-html {
+    max-height: none !important;
+    overflow: visible !important;
+    font-family: Georgia, 'Times New Roman', serif !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+    border: none !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Print: make watermark large and prominent */
+  body.print-receipt-only [data-testid="internal-watermark"]:not(.hidden) {
+    display: block !important;
+    font-size: 18pt !important;
+    font-weight: bold !important;
+    color: #b91c1c !important;
+    text-align: center !important;
+    border: 3px solid #b91c1c !important;
+    padding: 8px 16px !important;
+    margin-bottom: 16px !important;
+    background: #fef2f2 !important;
+    border-radius: 0 !important;
+    letter-spacing: 0.05em !important;
+  }
+}
+
+/* ─── Media batch drawer ───────────────────────────────────────────────────── */
+
+.media-batch-drawer {
+  @apply flex flex-col flex-shrink-0 overflow-hidden border-l border-line bg-white transition-all duration-200;
+  width: 0;
+  opacity: 0;
+}
+
+.media-batch-drawer-open {
+  width: 480px;
+  opacity: 1;
+}
+
+.media-batch-drawer-header {
+  @apply flex items-center justify-between border-b border-line px-4 py-3 flex-shrink-0;
+}
+
+.media-batch-drawer-body {
+  @apply flex flex-col gap-4 overflow-y-auto p-4;
+}
+
+.media-upload-zone {
+  @apply flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-line bg-panel px-4 py-6 text-sm text-zinc-500 transition-colors hover:border-accent hover:bg-accent/5;
+}
+
+.media-upload-zone-active {
+  @apply border-accent bg-accent/10;
+}
+
+.media-upload-progress {
+  @apply flex items-center gap-2 text-xs text-zinc-600;
+}
+
+.media-upload-progress-bar-track {
+  @apply h-1.5 w-full rounded bg-zinc-200;
+}
+
+.media-upload-progress-bar-fill {
+  @apply h-full rounded bg-accent transition-all;
 }
