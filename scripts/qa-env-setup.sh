@@ -64,7 +64,7 @@ fi
 
 # Migrate first (idempotent — creates tables on fresh DB; no-op on existing)
 echo "[qa:setup] Running migrations..."
-if ! pnpm db:migrate 2>&1; then
+if ! pnpm db:migrate 2>&1 | tee /tmp/qa-migrate.log; then
   echo "QA_ERROR=seed_preflight_failed"
   echo "QA_READY=false"
   exit 1

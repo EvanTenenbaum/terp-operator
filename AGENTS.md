@@ -217,7 +217,7 @@ For each scenario in scope:
 ### Step 7 — Write run report
 
 Save to `docs/qa/runs/YYYY-MM-DD-[scope]-report.md`.
-See `docs/superpowers/specs/2026-05-22-qa-env-setup-design.md` for report template.
+See `docs/superpowers/specs/2026-05-22-persona-flow-qa-framework-design.md` for report template.
 Compute and report the overall grade (A/B/C/D/F and score/100).
 
 ### Step 8 — Tear down

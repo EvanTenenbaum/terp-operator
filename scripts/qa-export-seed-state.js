@@ -2,15 +2,13 @@
 // Queries the seeded DB and emits JSON for seed-state-reference.md.
 // Usage: node scripts/qa-export-seed-state.js
 // Requires DATABASE_URL env var (or falls back to local default).
-'use strict';
-
 import pg from 'pg';
 const { Pool } = pg;
 
 async function main() {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL ||
-      'postgres://terp_agro:terp_agro@localhost:55432/terp_agro',
+      'postgres://terp_agro:terp_agro@localhost:55432/terp_agro', // local dev default; runner sets DATABASE_URL explicitly
   });
 
   try {
