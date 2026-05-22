@@ -88,7 +88,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
       cellRenderer: (params: { value: unknown; data: GridRow }) => (
         <span>
           {params.data?.itemAlias ? (
-            <span title="Customer-facing alias active" style={{ color: '#eab308', marginRight: 4 }}>
+            <span title="Market name active" style={{ color: '#eab308', marginRight: 4 }}>
               ●
             </span>
           ) : null}
@@ -1215,7 +1215,7 @@ function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricing
       cellRenderer: (params: { value: unknown; data: GridRow }) => (
         <span>
           {params.data?.itemAlias ? (
-            <span title="Customer-facing market name active" style={{ color: '#eab308', marginRight: 4 }}>
+            <span title="Market name active" style={{ color: '#eab308', marginRight: 4 }}>
               ●
             </span>
           ) : null}
@@ -2340,7 +2340,7 @@ function StrainAliasesPanel() {
             const next = typeof event.newValue === 'string' ? event.newValue.trim() : '';
             const prior = typeof event.oldValue === 'string' ? event.oldValue.trim() : '';
             if (next === prior) return;
-            runCommand('setItemAlias', { itemId, alias: next }, next ? `Set alias to ${next}` : 'Clear strain alias');
+          runCommand('setItemAlias', { itemId, alias: next }, next ? `Set market name to ${next}` : 'Clear market name');
           }}
         />
       </div>

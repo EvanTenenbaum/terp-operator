@@ -730,6 +730,7 @@ export const queriesRouter = router({
                     b.vendor_id as "vendorId", b.tags, b.location, b.lot_code as "lotCode",
                     b.item_id as "itemId", i.alias as "itemAlias",
                     pol.qty as "expectedQty", pol.unit_cost as "expectedUnitCost",
+                    b.discrepancy_reason as "discrepancyReason",
                     b.created_at as "createdAt"
              from batches b
              left join purchase_order_lines pol on pol.id = b.purchase_order_line_id

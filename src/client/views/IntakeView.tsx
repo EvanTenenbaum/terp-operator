@@ -24,6 +24,7 @@ export function IntakeView() {
   const canWrite = me.data?.role !== 'viewer';
   const intakeQueue = trpc.queries.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
   const { runCommand, isRunning } = useCommandRunner();
+  const utils = trpc.useUtils();
   const pushToast = useUiStore((state) => state.pushToast);
 
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
@@ -54,16 +55,33 @@ export function IntakeView() {
     try {
       const actual = Number(intakeQty);
       const expected = Number(expectedQty ?? 0);
+
+      // Step 1: Persist the actual qty to the batch (mirrors old verifyIntakeForOrder)
+      if (Number.isFinite(actual) && actual >= 0) {
+        await runCommand(
+          'updateBatch',
+          { id: batchId, intakeQty: actual, availableQty: actual },
+          'Apply actual intake quantity'
+        );
+      }
+
+      // Step 2: Auto-flag if discrepancy
       if (expected > 0 && actual > 0 && actual !== expected) {
         const reason = discrepancyReason?.trim()
           || `Quantity discrepancy: expected ${expected}, received ${actual}`;
-        await runCommand('flagBatch', { batchId, reason }, 'Auto-flag quantity discrepancy');
+        const flagResult = await runCommand('flagBatch', { batchId, reason }, 'Auto-flag quantity discrepancy');
+        if (!flagResult.ok) return; // abort if flag failed; operator sees error toast from runCommand
       }
+
+      // Step 3: Post receipt — pass discrepancyNotes so the server wires it to PO/bill notes
+      const discrepancyNotes: Record<string, string> = {};
+      if (discrepancyReason?.trim()) discrepancyNotes[batchId] = discrepancyReason.trim();
       await runCommand(
         'postPurchaseReceipt',
-        { batchIds: [batchId] },
+        { batchIds: [batchId], discrepancyNotes },
         'Verify single batch intake'
       );
+      await utils.queries.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }
@@ -87,6 +105,8 @@ export function IntakeView() {
       detailGridOptions: {
         columnDefs: buildBatchColumns(
           canWrite,
+          busy,
+          isRunning,
           async (batchId, intakeQty, expectedQty, discrepancyReason) => {
             await verifyBatch(batchId, intakeQty, expectedQty, discrepancyReason);
           },
@@ -113,7 +133,7 @@ export function IntakeView() {
             await setMarketName(itemId, alias);
           }
         ),
-        defaultColDef: { resizable: true, sortable: true } as ColDef<IntakeBatchRow>,
+        defaultColDef: { resizable: true, sortable: true, wrapHeaderText: true, autoHeaderHeight: true } as ColDef<IntakeBatchRow>,
         domLayout: 'autoHeight' as const,
         rowHeight: 28,
         headerHeight: 30,
@@ -123,7 +143,7 @@ export function IntakeView() {
       }
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canWrite, runCommand, me.data?.name]
+    [canWrite, busy, isRunning, runCommand, me.data?.name]
   );
 
   const columnDefs = useMemo<ColDef<IntakeOrderRow>[]>(
@@ -206,6 +226,7 @@ export function IntakeView() {
     setBusy(true);
     try {
       await runCommand('verifyAllIntake', { purchaseOrderId: order.id }, `Verify all intake for ${order.poNo}`);
+      await utils.queries.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }
@@ -263,7 +284,7 @@ export function IntakeView() {
             <AgGridReact<IntakeOrderRow>
               rowData={orderRows}
               columnDefs={columnDefs}
-              defaultColDef={{ sortable: true, resizable: true, filter: true, minWidth: 120 }}
+              defaultColDef={{ sortable: true, resizable: true, filter: true, minWidth: 120, wrapHeaderText: true, autoHeaderHeight: true }}
               masterDetail
               detailRowAutoHeight
               detailCellRendererParams={detailCellRendererParams}
@@ -318,6 +339,8 @@ export function IntakeView() {
 
 function buildBatchColumns(
   canWrite: boolean,
+  busy: boolean,
+  isRunning: boolean,
   onVerify: (batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) => Promise<void>,
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
@@ -393,6 +416,8 @@ function buildBatchColumns(
         return (
           <BatchRowActions
             row={row}
+            busy={busy}
+            isRunning={isRunning}
             onVerify={onVerify}
             onReject={onReject}
             onAppendNote={onAppendNote}
@@ -406,12 +431,16 @@ function buildBatchColumns(
 
 function BatchRowActions({
   row,
+  busy,
+  isRunning,
   onVerify,
   onReject,
   onAppendNote,
   onSetMarketName,
 }: {
   row: IntakeBatchRow;
+  busy: boolean;
+  isRunning: boolean;
   onVerify: (batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) => Promise<void>;
   onReject: (batchId: string, reason: string) => Promise<void>;
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>;
@@ -439,7 +468,7 @@ function BatchRowActions({
         <button
           type="button"
           className="primary-button compact-action"
-          disabled={!canVerify}
+          disabled={!canVerify || busy || isRunning}
           title={!canVerify ? `Cannot verify: batch is ${row.status}` : 'Verify this batch'}
           onClick={() => void onVerify(row.id, row.intakeQty, row.expectedQty, row.discrepancyReason)}
         >
