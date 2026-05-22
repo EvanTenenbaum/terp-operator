@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db, pool } from '../db';
 import { protectedProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
@@ -8,9 +8,21 @@ import { getCloseoutSafety } from '../services/closeout';
 import { getExternalReceipt, getInternalReceipt, renderSignalText } from '../services/documentSnapshots';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
-import { paymentProcessors, processorFees } from '../schema';
+import { paymentProcessors, pricingRuleEntries, processorFees } from '../schema';
+import type { PricingRuleClause } from '../../shared/types';
+import type { FilterGroupInput } from '../../shared/filterSchemas';
 import { projectLandedCostException } from '../projections/landedCostException';
 import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCostExceptionSql';
+
+// CAP-030: Fingerprint of the global pricing rule chain — used by the summary
+// query so the UI can detect chain changes without re-fetching all clause objects.
+function computeChainFingerprintFromRows(rows: Array<{ id: string; updatedAt: Date | null }>): string {
+  const parts = [...rows]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((r) => `${r.id}:${r.updatedAt?.getTime() ?? 0}`)
+    .join('|');
+  return `${rows.length}:${parts}`;
+}
 
 // Exported so the HTTP CSV export route (`/api/export/:view.csv`, see #35
 // FE-M1) can share the same view whitelist, SQL, and column ordering as the
@@ -1254,6 +1266,106 @@ export const queriesRouter = router({
         reasons
       };
     });
+  }),
+
+  // CAP-030 (TER-1558): Returns ordered pricing rule clauses for one scope/customer.
+  pricingRuleClauses: protectedProcedure
+    .input(z.object({
+      scope: z.enum(['global', 'customer']),
+      customerId: z.string().uuid().optional(),
+    }))
+    .query(async ({ input }) => {
+      const { scope, customerId } = input;
+      const rows = await db
+        .select()
+        .from(pricingRuleEntries)
+        .where(
+          and(
+            eq(pricingRuleEntries.scope, scope),
+            customerId
+              ? eq(pricingRuleEntries.customerId, customerId)
+              : isNull(pricingRuleEntries.customerId),
+            isNull(pricingRuleEntries.deletedAt)
+          )
+        )
+        .orderBy(pricingRuleEntries.priority);
+
+      return rows.map((r) => ({
+        id: r.id,
+        scope: r.scope as 'global' | 'customer',
+        customerId: r.customerId,
+        priority: r.priority,
+        name: r.name,
+        conditions: r.conditions as FilterGroupInput | null,
+        actionBasis: r.actionBasis as 'percent' | 'dollar',
+        actionAmount: Number(r.actionAmount),
+        active: r.active,
+      } satisfies PricingRuleClause));
+    }),
+
+  // CAP-030 (TER-1558): Returns global clauses + per-customer summary in one
+  // round-trip. No N+1 — customer summary is a single aggregation SQL query.
+  pricingRulesSummary: protectedProcedure.query(async () => {
+    // Global clauses (full objects, used in the editor)
+    const globalRows = await db
+      .select()
+      .from(pricingRuleEntries)
+      .where(
+        and(
+          eq(pricingRuleEntries.scope, 'global'),
+          isNull(pricingRuleEntries.deletedAt)
+        )
+      )
+      .orderBy(pricingRuleEntries.priority);
+
+    const global: PricingRuleClause[] = globalRows.map((r) => ({
+      id: r.id,
+      scope: 'global' as const,
+      customerId: null,
+      priority: r.priority,
+      name: r.name,
+      conditions: r.conditions as FilterGroupInput | null,
+      actionBasis: r.actionBasis as 'percent' | 'dollar',
+      actionAmount: Number(r.actionAmount),
+      active: r.active,
+    }));
+
+    // Customer summary: single SQL query, no N+1
+    const summaryRows = await pool.query<{
+      id: string;
+      name: string;
+      clauseCount: string;
+      lastUpdated: string | null;
+    }>(`
+      SELECT
+        c.id,
+        c.name,
+        COUNT(pre.id) FILTER (
+          WHERE pre.deleted_at IS NULL AND pre.active = true AND pre.scope = 'customer'
+        )::text AS "clauseCount",
+        MAX(pre.updated_at) FILTER (
+          WHERE pre.deleted_at IS NULL AND pre.scope = 'customer'
+        )::text AS "lastUpdated"
+      FROM customers c
+      LEFT JOIN pricing_rule_entries pre ON pre.customer_id = c.id
+      GROUP BY c.id, c.name
+      ORDER BY c.name
+      LIMIT 500
+    `);
+
+    const chainFingerprint = computeChainFingerprintFromRows(globalRows);
+
+    return {
+      global,
+      customers: summaryRows.rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        clauseCount: Number(r.clauseCount),
+        lastUpdated: r.lastUpdated,
+        hasCustomRules: Number(r.clauseCount) > 0,
+      })),
+      chainFingerprint,
+    };
   }),
 });
 

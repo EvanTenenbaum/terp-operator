@@ -1149,4 +1149,33 @@ export const customerBalanceReconciliation = pgTable('customer_balance_reconcili
   runIdx: index('customer_balance_recon_run_idx').on(table.runId)
 }));
 
+// CAP-030: Pricing Rules Chain Manager (TER-1558)
+// Ordered, clause-based replacement for the flat pricingRule JSONB on customers.
+// See migrations/0054_pricing_rule_entries.sql.
+export const pricingRuleEntries = pgTable(
+  'pricing_rule_entries',
+  {
+    id: id(),
+    scope: varchar('scope', { length: 20 }).notNull(),
+    customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'cascade' }),
+    priority: integer('priority').notNull(),
+    name: varchar('name', { length: 120 }),
+    conditions: jsonb('conditions'),
+    actionBasis: varchar('action_basis', { length: 20 }).notNull(),
+    actionAmount: numeric('action_amount', { precision: 12, scale: 4 }).notNull().default('0'),
+    active: boolean('active').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    migrationSource: varchar('migration_source', { length: 80 }),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    lookupIdx: index('pricing_rule_entries_lookup_idx').on(table.scope, table.customerId, table.active, table.priority),
+    customerIdIdx: index('pricing_rule_entries_customer_id_idx').on(table.customerId)
+  })
+);
+
+export type PricingRuleEntry = typeof pricingRuleEntries.$inferSelect;
+export type NewPricingRuleEntry = typeof pricingRuleEntries.$inferInsert;
+
 
