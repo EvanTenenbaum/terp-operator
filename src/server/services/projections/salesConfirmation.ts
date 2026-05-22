@@ -153,21 +153,17 @@ export const salesConfirmation: Projector<SalesConfirmationInput> = {
       projectionVersion,
       // Omit `internalNotes` entirely when absent — canonicalizeJson rejects undefined.
       ...(input.internalNotes != null ? { internalNotes: input.internalNotes } : {}),
-      cogs:
-        cogsLines.length > 0
-          ? { perLine: cogsLines, total: cogsTotal }
-          : undefined,
-      margin:
-        marginLines.length > 0
-          ? { perLine: marginLines, total: marginTotal }
-          : undefined,
-      diagnostics: hasDiagnostics
+      ...(cogsLines.length > 0 ? { cogs: { perLine: cogsLines, total: cogsTotal } } : {}),
+      ...(marginLines.length > 0 ? { margin: { perLine: marginLines, total: marginTotal } } : {}),
+      ...(hasDiagnostics
         ? {
-            // Omit sub-keys when absent — canonicalizeJson rejects undefined.
-            ...(unresolvedSources.length > 0 ? { unresolvedSources } : {}),
-            ...(legacyMarkers.length > 0 ? { legacyMarkers } : {}),
+            diagnostics: {
+              // Omit sub-keys when absent — canonicalizeJson rejects undefined.
+              ...(unresolvedSources.length > 0 ? { unresolvedSources } : {}),
+              ...(legacyMarkers.length > 0 ? { legacyMarkers } : {}),
+            },
           }
-        : undefined,
+        : {}),
     };
   },
 };

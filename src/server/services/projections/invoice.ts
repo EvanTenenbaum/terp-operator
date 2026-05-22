@@ -49,11 +49,10 @@ export const internalAllowlist = {
 } as const;
 
 function buildFooter(input: InvoiceInput): { terms?: string; reference?: string } {
-  const footer: { terms?: string; reference?: string } = {
-    reference: input.dueDateISO,
+  return {
+    ...(input.dueDateISO != null ? { reference: input.dueDateISO } : {}),
+    ...(input.externalNotes != null ? { terms: input.externalNotes } : {}),
   };
-  if (input.externalNotes) footer.terms = input.externalNotes;
-  return footer;
 }
 
 export const invoice: Projector<InvoiceInput> = {
@@ -129,32 +128,33 @@ export const invoice: Projector<InvoiceInput> = {
         dateISO: input.dateISO,
         documentNo: input.invoiceNo,
       },
-      lines: input.lines.map((l) => ({
-        name: l.productName,
-        qty: l.qty,
-        unitPrice: l.unitPrice,
-        subtotal: l.subtotal,
-        notes: l.externalNotes,
-      })),
+      lines: input.lines.map((l) => {
+        const line: { name: string; qty: number; unitPrice?: number; subtotal: number; notes?: string } = {
+          name: l.productName,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          subtotal: l.subtotal,
+        };
+        // Omit `notes` entirely when absent — canonicalizeJson rejects undefined.
+        if (l.externalNotes != null) line.notes = l.externalNotes;
+        return line;
+      }),
       totals: { subtotal: input.subtotal, total: input.total },
       footer: buildFooter(input),
       projectionVersion,
-      internalNotes: input.internalNotes,
-      cogs:
-        cogsLines.length > 0
-          ? { perLine: cogsLines, total: cogsTotal }
-          : undefined,
-      margin:
-        marginLines.length > 0
-          ? { perLine: marginLines, total: marginTotal }
-          : undefined,
-      diagnostics: hasDiagnostics
+      // Omit `internalNotes` entirely when absent — canonicalizeJson rejects undefined.
+      ...(input.internalNotes != null ? { internalNotes: input.internalNotes } : {}),
+      ...(cogsLines.length > 0 ? { cogs: { perLine: cogsLines, total: cogsTotal } } : {}),
+      ...(marginLines.length > 0 ? { margin: { perLine: marginLines, total: marginTotal } } : {}),
+      ...(hasDiagnostics
         ? {
-            unresolvedSources:
-              unresolvedSources.length > 0 ? unresolvedSources : undefined,
-            legacyMarkers: legacyMarkers.length > 0 ? legacyMarkers : undefined,
+            diagnostics: {
+              // Omit sub-keys when absent — canonicalizeJson rejects undefined.
+              ...(unresolvedSources.length > 0 ? { unresolvedSources } : {}),
+              ...(legacyMarkers.length > 0 ? { legacyMarkers } : {}),
+            },
           }
-        : undefined,
+        : {}),
     };
   },
 };
