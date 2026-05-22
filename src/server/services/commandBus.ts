@@ -554,6 +554,12 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return releaseLinesForPicking(tx, payload, user.id, commandId);
     case 'recallLineFromPicking':
       return recallLineFromPicking(tx, payload, commandId);
+    case 'acknowledgeWarehouseAlert':
+      return acknowledgeWarehouseAlert(tx, payload, commandId);
+    case 'returnPickedUnits':
+      return returnPickedUnits(tx, payload, commandId);
+    case 'cancelFulfillmentLine':
+      return cancelFulfillmentLine(tx, payload, commandId);
     case 'applyClientCredit':
       return applyClientCredit(tx, payload, commandId);
     case 'setDeliveryWindow':
@@ -3319,6 +3325,117 @@ async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string
   const affected: string[] = [lineId];
   if (fl) affected.push(fl.id, fl.pickListId);
   return { ok: true, commandId, affectedIds: affected, toast: 'Line recalled from picking.' };
+}
+
+// CAP-030 (TER-1488): Acknowledge a single warehouse alert on a fulfillment line.
+// Splices the indexed alert out of the warehouse_alerts array. If no alerts remain,
+// clears status_extended (so a 'recall_pending' marker auto-clears once the warehouse
+// has reconciled every conflict the sales side raised).
+async function acknowledgeWarehouseAlert(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const fulfillmentLineId = requiredId(payload.fulfillmentLineId ?? payload.id, 'fulfillmentLineId');
+  const alertIndex = typeof payload.alertIndex === 'number'
+    ? payload.alertIndex
+    : Number.parseInt(String(payload.alertIndex), 10);
+  if (!Number.isInteger(alertIndex) || alertIndex < 0) throw new Error('alertIndex must be a non-negative integer.');
+  const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.id, fulfillmentLineId)).limit(1);
+  if (!fl) throw new Error('Fulfillment line not found.');
+  const alerts = Array.isArray(fl.warehouseAlerts) ? [...(fl.warehouseAlerts as Array<Record<string, unknown>>)] : [];
+  if (alertIndex >= alerts.length) {
+    throw new Error(`Alert index ${alertIndex} is out of range (${alerts.length} alert(s)).`);
+  }
+  alerts.splice(alertIndex, 1);
+  const statusExtended = alerts.length === 0 ? null : fl.statusExtended;
+  await tx.update(fulfillmentLines)
+    .set({ warehouseAlerts: alerts, statusExtended, updatedAt: new Date() })
+    .where(eq(fulfillmentLines.id, fulfillmentLineId));
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [fulfillmentLineId, fl.pickListId],
+    toast: alerts.length === 0 ? 'All alerts cleared.' : `Alert acknowledged. ${alerts.length} remaining.`
+  };
+}
+
+// CAP-030 (TER-1488): Return picked units. Decrements actual_qty, restores available
+// and reserved quantities on the batch, and writes an inventory_movements row of
+// kind='pick_return'. Cannot return more than has been picked.
+async function returnPickedUnits(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const fulfillmentLineId = requiredId(payload.fulfillmentLineId ?? payload.id, 'fulfillmentLineId');
+  const qty = requiredNumber(payload.qty, 'qty');
+  if (qty <= 0) throw new Error('Return quantity must be greater than zero.');
+  const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.id, fulfillmentLineId)).limit(1);
+  if (!fl) throw new Error('Fulfillment line not found.');
+  if (qty > Number(fl.actualQty)) {
+    throw new Error(`Cannot return ${qty} — only ${fl.actualQty} units were picked.`);
+  }
+  const nextQty = Number(fl.actualQty) - qty;
+  await tx.update(fulfillmentLines)
+    .set({ actualQty: qtyScale(nextQty), updatedAt: new Date() })
+    .where(eq(fulfillmentLines.id, fulfillmentLineId));
+  const affected: string[] = [fulfillmentLineId, fl.pickListId];
+  if (fl.batchId) {
+    const [batch] = await tx.select().from(batches).where(eq(batches.id, fl.batchId)).limit(1);
+    if (batch) {
+      const nextAvailable = Number(batch.availableQty) + qty;
+      const nextReserved = Math.max(0, Number(batch.reservedQty) - qty);
+      await tx.update(batches)
+        .set({ availableQty: qtyScale(nextAvailable), reservedQty: qtyScale(nextReserved), updatedAt: new Date() })
+        .where(eq(batches.id, fl.batchId));
+    }
+    await tx.insert(inventoryMovements).values({
+      batchId: fl.batchId,
+      commandId,
+      kind: 'pick_return',
+      qtyDelta: qtyScale(qty),
+      reason: stringValue(payload.reason) || 'Picked units returned'
+    });
+    affected.push(fl.batchId);
+  }
+  return { ok: true, commandId, affectedIds: affected, toast: `Returned ${qty} unit(s).` };
+}
+
+// CAP-030 (TER-1488): Cancel a fulfillment line. If units have been picked, first
+// returns them (via returnPickedUnits). Then releases any remaining reservation on
+// the batch up to the sales order line qty. Marks status_extended='cancelled'.
+// Idempotent: already-cancelled lines short-circuit.
+async function cancelFulfillmentLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const fulfillmentLineId = requiredId(payload.fulfillmentLineId ?? payload.id, 'fulfillmentLineId');
+  const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.id, fulfillmentLineId)).limit(1);
+  if (!fl) throw new Error('Fulfillment line not found.');
+  if (fl.statusExtended === 'cancelled') {
+    return { ok: true, commandId, affectedIds: [fulfillmentLineId], toast: 'Fulfillment line already cancelled.' };
+  }
+  const affected: string[] = [fulfillmentLineId, fl.pickListId];
+  // If actual_qty > 0, return the full picked amount first.
+  if (Number(fl.actualQty) > 0) {
+    const returnResult = await returnPickedUnits(
+      tx,
+      { ...payload, qty: Number(fl.actualQty), reason: 'Fulfillment line cancelled' },
+      commandId
+    );
+    for (const id of returnResult.affectedIds) if (!affected.includes(id)) affected.push(id);
+  }
+  // Release any remaining reservation on the batch up to the sales order line qty.
+  if (fl.batchId) {
+    const [batch] = await tx.select().from(batches).where(eq(batches.id, fl.batchId)).limit(1);
+    if (batch && Number(batch.reservedQty) > 0) {
+      const [sol] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, fl.orderLineId)).limit(1);
+      const releaseQty = sol ? Math.min(Number(batch.reservedQty), Number(sol.qty)) : 0;
+      if (releaseQty > 0) {
+        await tx.update(batches)
+          .set({
+            reservedQty: qtyScale(Math.max(0, Number(batch.reservedQty) - releaseQty)),
+            updatedAt: new Date()
+          })
+          .where(eq(batches.id, fl.batchId));
+        if (!affected.includes(fl.batchId)) affected.push(fl.batchId);
+      }
+    }
+  }
+  await tx.update(fulfillmentLines)
+    .set({ statusExtended: 'cancelled', updatedAt: new Date() })
+    .where(eq(fulfillmentLines.id, fulfillmentLineId));
+  return { ok: true, commandId, affectedIds: affected, toast: 'Fulfillment line cancelled.' };
 }
 
 async function printLabels(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {

@@ -111,7 +111,10 @@ export const commandNames = [
   'resolveVendorApproval',
   'releaseLineForPicking',
   'releaseLinesForPicking',
-  'recallLineFromPicking'
+  'recallLineFromPicking',
+  'acknowledgeWarehouseAlert',
+  'returnPickedUnits',
+  'cancelFulfillmentLine'
 ] as const;
 
 // Commands whose frontend surface is deferred to a follow-up. The parity
@@ -254,7 +257,10 @@ export const commandLabels: Record<CommandName, string> = {
   resolveVendorApproval: 'Resolve vendor approval on sale line',
   releaseLineForPicking: 'Release line for picking',
   releaseLinesForPicking: 'Release lines for picking (bulk)',
-  recallLineFromPicking: 'Recall line from picking'
+  recallLineFromPicking: 'Recall line from picking',
+  acknowledgeWarehouseAlert: 'Acknowledge warehouse alert',
+  returnPickedUnits: 'Return picked units',
+  cancelFulfillmentLine: 'Cancel fulfillment line'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -368,7 +374,10 @@ export const commandMinRole: Record<CommandName, Role> = {
   resolveVendorApproval: 'manager',
   releaseLineForPicking: 'operator',
   releaseLinesForPicking: 'operator',
-  recallLineFromPicking: 'operator'
+  recallLineFromPicking: 'operator',
+  acknowledgeWarehouseAlert: 'operator',
+  returnPickedUnits: 'operator',
+  cancelFulfillmentLine: 'operator'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -482,7 +491,10 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   resolveVendorApproval: { disposition: 'reversible', guidance: 'Re-run resolveVendorApproval with the intended state to flip the sign-off.' },
   releaseLineForPicking: { disposition: 'reversible', guidance: 'Use recallLineFromPicking to reverse while the fulfillment line is still open.' },
   releaseLinesForPicking: { disposition: 'reversible', guidance: 'Use recallLineFromPicking per line to reverse while all fulfillment lines are still open.' },
-  recallLineFromPicking: { disposition: 'terminal', guidance: 'Release the line again with releaseLineForPicking if the recall was unintended.' }
+  recallLineFromPicking: { disposition: 'terminal', guidance: 'Release the line again with releaseLineForPicking if the recall was unintended.' },
+  acknowledgeWarehouseAlert: { disposition: 'terminal', guidance: 'Acknowledgement is a one-way audit mark. Review the bag and reconcile if needed.' },
+  returnPickedUnits: { disposition: 'offsettable', guidance: 'Re-record the pick quantity via recordWeighAndPack if the return was accidental.' },
+  cancelFulfillmentLine: { disposition: 'terminal', guidance: 'Contact sales to reopen the order line and re-release for picking if cancellation was incorrect.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

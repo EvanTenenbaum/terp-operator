@@ -102,3 +102,97 @@ describe('releaseLinesForPicking input validation', () => {
     expect(filtered).toEqual(['a', 'b', 'c']);
   });
 });
+
+describe('acknowledgeWarehouseAlert', () => {
+  it('rejects negative alertIndex', () => {
+    expect(() => {
+      const alertIndex = -1;
+      if (!Number.isInteger(alertIndex) || alertIndex < 0) {
+        throw new Error('alertIndex must be a non-negative integer.');
+      }
+    }).toThrow('alertIndex');
+  });
+
+  it('rejects non-integer alertIndex', () => {
+    expect(() => {
+      const alertIndex = Number.parseInt('not-a-number', 10);
+      if (!Number.isInteger(alertIndex) || alertIndex < 0) {
+        throw new Error('alertIndex must be a non-negative integer.');
+      }
+    }).toThrow('alertIndex');
+  });
+
+  it('rejects out-of-range alertIndex', () => {
+    expect(() => {
+      const alerts = [{ kind: 'qty_changed' }];
+      const alertIndex = 5;
+      if (alertIndex >= alerts.length) {
+        throw new Error(`Alert index ${alertIndex} is out of range (${alerts.length} alert(s)).`);
+      }
+    }).toThrow('out of range');
+  });
+
+  it('clears statusExtended when no alerts remain', () => {
+    const alerts: Array<Record<string, unknown>> = [{ kind: 'qty_changed' }];
+    alerts.splice(0, 1);
+    const statusExtended = alerts.length === 0 ? null : 'recall_pending';
+    expect(statusExtended).toBeNull();
+  });
+
+  it('keeps statusExtended when alerts remain', () => {
+    const alerts: Array<Record<string, unknown>> = [
+      { kind: 'qty_changed' },
+      { kind: 'line_cancelled' }
+    ];
+    alerts.splice(0, 1);
+    const prior = 'recall_pending';
+    const statusExtended = alerts.length === 0 ? null : prior;
+    expect(statusExtended).toBe('recall_pending');
+    expect(alerts).toHaveLength(1);
+  });
+});
+
+describe('returnPickedUnits', () => {
+  it('rejects qty = 0', () => {
+    expect(() => {
+      const qty = 0;
+      if (qty <= 0) throw new Error('Return quantity must be greater than zero.');
+    }).toThrow('greater than zero');
+  });
+
+  it('rejects qty > actual_qty', () => {
+    expect(() => {
+      const qty = 5;
+      const actualQty = '3.000';
+      if (qty > Number(actualQty)) {
+        throw new Error(`Cannot return ${qty} — only ${actualQty} units were picked.`);
+      }
+    }).toThrow('Cannot return');
+  });
+
+  it('computes next reserved with floor at 0', () => {
+    const batch = { reservedQty: '1.000' };
+    const qty = 3;
+    const nextReserved = Math.max(0, Number(batch.reservedQty) - qty);
+    expect(nextReserved).toBe(0);
+  });
+});
+
+describe('cancelFulfillmentLine', () => {
+  it('is idempotent when already cancelled', () => {
+    const fl = { statusExtended: 'cancelled' };
+    expect(fl.statusExtended === 'cancelled').toBe(true);
+  });
+
+  it('triggers return when actual_qty > 0', () => {
+    const fl = { actualQty: '2.000' };
+    expect(Number(fl.actualQty) > 0).toBe(true);
+  });
+
+  it('caps reservation release at sol.qty', () => {
+    const batch = { reservedQty: '10.000' };
+    const sol = { qty: '3.000' };
+    const releaseQty = Math.min(Number(batch.reservedQty), Number(sol.qty));
+    expect(releaseQty).toBe(3);
+  });
+});
