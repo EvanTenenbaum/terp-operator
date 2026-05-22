@@ -108,7 +108,13 @@ export const commandNames = [
   'revokePhotoUploadToken',
   'createCustomerSheetSnapshot',
   'setLineBelowFloorReason',
-  'resolveVendorApproval'
+  'resolveVendorApproval',
+  'releaseLineForPicking',
+  'releaseLinesForPicking',
+  'recallLineFromPicking',
+  'acknowledgeWarehouseAlert',
+  'returnPickedUnits',
+  'cancelFulfillmentLine'
 ] as const;
 
 // Commands whose frontend surface is deferred to a follow-up. The parity
@@ -248,7 +254,13 @@ export const commandLabels: Record<CommandName, string> = {
   revokePhotoUploadToken: 'Revoke photo upload share link',
   createCustomerSheetSnapshot: 'Persist customer sheet snapshot',
   setLineBelowFloorReason: 'Set below-floor reason on sale line',
-  resolveVendorApproval: 'Resolve vendor approval on sale line'
+  resolveVendorApproval: 'Resolve vendor approval on sale line',
+  releaseLineForPicking: 'Release line for picking',
+  releaseLinesForPicking: 'Release lines for picking (bulk)',
+  recallLineFromPicking: 'Recall line from picking',
+  acknowledgeWarehouseAlert: 'Acknowledge warehouse alert',
+  returnPickedUnits: 'Return picked units',
+  cancelFulfillmentLine: 'Cancel fulfillment line'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -359,7 +371,13 @@ export const commandMinRole: Record<CommandName, Role> = {
   revokePhotoUploadToken: 'manager',
   createCustomerSheetSnapshot: 'operator',
   setLineBelowFloorReason: 'operator',
-  resolveVendorApproval: 'manager'
+  resolveVendorApproval: 'manager',
+  releaseLineForPicking: 'operator',
+  releaseLinesForPicking: 'operator',
+  recallLineFromPicking: 'operator',
+  acknowledgeWarehouseAlert: 'operator',
+  returnPickedUnits: 'operator',
+  cancelFulfillmentLine: 'operator'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -470,7 +488,13 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   revokePhotoUploadToken: { disposition: 'terminal', guidance: 'Mint a new photo upload share link if the revoke was accidental — the previous raw token is unrecoverable.' },
   createCustomerSheetSnapshot: { disposition: 'terminal', guidance: 'Snapshots are append-only audit records of what was sent. Create a new sheet instead.' },
   setLineBelowFloorReason: { disposition: 'reversible', guidance: 'Re-run setLineBelowFloorReason with the updated reason and note.' },
-  resolveVendorApproval: { disposition: 'reversible', guidance: 'Re-run resolveVendorApproval with the intended state to flip the sign-off.' }
+  resolveVendorApproval: { disposition: 'reversible', guidance: 'Re-run resolveVendorApproval with the intended state to flip the sign-off.' },
+  releaseLineForPicking: { disposition: 'reversible', guidance: 'Use recallLineFromPicking to reverse while the fulfillment line is still open.' },
+  releaseLinesForPicking: { disposition: 'reversible', guidance: 'Use recallLineFromPicking per line to reverse while all fulfillment lines are still open.' },
+  recallLineFromPicking: { disposition: 'terminal', guidance: 'Release the line again with releaseLineForPicking if the recall was unintended.' },
+  acknowledgeWarehouseAlert: { disposition: 'terminal', guidance: 'Acknowledgement is a one-way audit mark. Review the bag and reconcile if needed.' },
+  returnPickedUnits: { disposition: 'offsettable', guidance: 'Re-record the pick quantity via recordWeighAndPack if the return was accidental.' },
+  cancelFulfillmentLine: { disposition: 'terminal', guidance: 'Contact sales to reopen the order line and re-release for picking if cancellation was incorrect.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

@@ -37,6 +37,7 @@ import { RefereesView } from './views/RefereesView';
 import { ProcessorsView } from './views/ProcessorsView';
 import { CreditReviewView } from './views/CreditReviewView';
 import { MediaView } from './views/MediaView';
+import { PickView } from './views/PickView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 
 // Sync URL with activeView state.
@@ -118,6 +119,8 @@ function AppContent() {
               <Route path="/credit-review" element={<CreditReviewView />} />
               <Route path="/photography" element={<MediaView />} />
               <Route path="/photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
+              {/* CAP-030 / TER-1503: warehouse pick queue (work-loop gated inside the view) */}
+              <Route path="/pick" element={<PickView />} />
               <Route path="/settings" element={<SettingsView />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
