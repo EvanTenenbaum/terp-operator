@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const updateFilterMutate = vi.fn();
@@ -10,13 +10,13 @@ vi.mock('../api/trpc', () => ({
   trpc: {
     filters: {
       updateFilter: {
-        useMutation: ({ onSuccess }: { onSuccess?: () => void }) => ({
+        useMutation: ({ onSuccess, onError }: { onSuccess?: () => void; onError?: () => void }) => ({
           mutate: (input: unknown) => { updateFilterMutate(input); onSuccess?.(); },
           isPending: false,
         }),
       },
       deleteFilter: {
-        useMutation: ({ onSuccess }: { onSuccess?: () => void }) => ({
+        useMutation: ({ onSuccess, onError }: { onSuccess?: () => void; onError?: () => void }) => ({
           mutate: (input: unknown) => { deleteFilterMutate(input); onSuccess?.(); },
           isPending: false,
         }),
@@ -35,7 +35,7 @@ function makeFilter(overrides: Partial<SavedFilterOutput> = {}): SavedFilterOutp
     name: 'My Filter',
     description: undefined,
     targetView: 'inventory',
-    filterDefinition: { op: 'and', conditions: [] },
+    filterDefinition: { logic: 'AND', conditions: [] },
     schemaVersion: 1,
     isGlobal: false,
     createdAt: new Date(),
@@ -117,6 +117,7 @@ describe('SavedFiltersManager', () => {
     await user.click(screen.getByRole('button', { name: /rename filter My Filter/i }));
     const input = screen.getByRole('textbox', { name: /filter name/i });
     expect(input).toBeInTheDocument();
+    expect(input).toHaveValue('My Filter');
     await user.clear(input);
     await user.type(input, 'New Name');
     await user.click(screen.getByRole('button', { name: /save name/i }));
@@ -183,5 +184,23 @@ describe('SavedFiltersManager', () => {
     await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(deleteFilterMutate).not.toHaveBeenCalled();
     expect(screen.getByText('My Filter')).toBeInTheDocument();
+  });
+
+  it('renders global and personal filters in labelled groups', () => {
+    render(
+      <SavedFiltersManager
+        savedFilters={[
+          makeFilter({ id: 'g1', isGlobal: true, name: 'Global one', userId: 'other-user' }),
+          makeFilter({ id: 'p1', isGlobal: false, name: 'Personal one', userId: 'user-1' }),
+        ]}
+        currentUserId="user-1"
+        canManageGlobal={true}
+        onFiltersChanged={() => {}}
+      />
+    );
+    const globalHeading = screen.getByText('Global filters');
+    expect(globalHeading).toBeInTheDocument();
+    const personalHeading = screen.getByText('My filters');
+    expect(personalHeading).toBeInTheDocument();
   });
 });

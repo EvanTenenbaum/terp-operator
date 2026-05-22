@@ -19,24 +19,34 @@ export function SavedFiltersManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const updateFilter = trpc.filters.updateFilter.useMutation({ onSuccess: onFiltersChanged });
-  const deleteFilter = trpc.filters.deleteFilter.useMutation({ onSuccess: onFiltersChanged });
+  const updateFilter = trpc.filters.updateFilter.useMutation({
+    onSuccess: onFiltersChanged,
+    onError: () => setUpdateError('Failed to rename filter. Please try again.'),
+  });
+  const deleteFilter = trpc.filters.deleteFilter.useMutation({
+    onSuccess: onFiltersChanged,
+    onError: () => setDeleteError('Failed to delete filter. Please try again.'),
+  });
 
   function canEdit(filter: SavedFilterOutput): boolean {
-    if (filter.isGlobal) return canManageGlobal;
-    return filter.userId === currentUserId;
+    if (filter.userId === currentUserId) return true;
+    return filter.isGlobal && canManageGlobal;
   }
 
   function startEdit(filter: SavedFilterOutput) {
     setEditingId(filter.id);
     setEditName(filter.name);
     setConfirmDeleteId(null);
+    setUpdateError(null);
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditName('');
+    setUpdateError(null);
   }
 
   function commitEdit(filterId: string) {
@@ -50,6 +60,7 @@ export function SavedFiltersManager({
   function startDelete(filterId: string) {
     setConfirmDeleteId(filterId);
     setEditingId(null);
+    setDeleteError(null);
   }
 
   function commitDelete(filterId: string) {
@@ -73,62 +84,72 @@ export function SavedFiltersManager({
         </p>
         <ul className="space-y-1">
           {filters.map((filter) => (
-            <li key={filter.id} className="flex items-center gap-2 py-1">
+            <li key={filter.id} className="py-1">
               {editingId === filter.id ? (
                 <>
-                  <input
-                    className="input compact flex-1"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitEdit(filter.id);
-                      if (e.key === 'Escape') cancelEdit();
-                    }}
-                    autoFocus
-                    aria-label="Filter name"
-                    maxLength={120}
-                  />
-                  <button
-                    type="button"
-                    className="secondary-button compact-action"
-                    onClick={() => commitEdit(filter.id)}
-                    disabled={!editName.trim() || updateFilter.isPending}
-                    aria-label="Save name"
-                  >
-                    <Check size={14} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button compact-action"
-                    onClick={cancelEdit}
-                    aria-label="Cancel rename"
-                  >
-                    <X size={14} aria-hidden />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="input compact flex-1"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitEdit(filter.id);
+                        if (e.key === 'Escape') cancelEdit();
+                      }}
+                      autoFocus
+                      aria-label="Filter name"
+                      maxLength={120}
+                    />
+                    <button
+                      type="button"
+                      className="secondary-button compact-action"
+                      onClick={() => commitEdit(filter.id)}
+                      disabled={!editName.trim() || updateFilter.isPending}
+                      aria-label="Save name"
+                    >
+                      <Check size={14} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button compact-action"
+                      onClick={cancelEdit}
+                      aria-label="Cancel rename"
+                    >
+                      <X size={14} aria-hidden />
+                    </button>
+                  </div>
+                  {updateError && (
+                    <p className="text-xs text-red-600 mt-1">{updateError}</p>
+                  )}
                 </>
               ) : confirmDeleteId === filter.id ? (
                 <>
-                  <span className="flex-1 truncate text-sm text-zinc-700">{filter.name}</span>
-                  <button
-                    type="button"
-                    className="secondary-button compact-action text-red-600"
-                    onClick={() => commitDelete(filter.id)}
-                    disabled={deleteFilter.isPending}
-                    aria-label="Confirm delete"
-                  >
-                    Confirm delete
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button compact-action"
-                    onClick={() => setConfirmDeleteId(null)}
-                    aria-label="Cancel"
-                  >
-                    Cancel
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 truncate text-sm text-zinc-700">{filter.name}</span>
+                    <button
+                      type="button"
+                      className="secondary-button compact-action text-red-600"
+                      onClick={() => commitDelete(filter.id)}
+                      disabled={deleteFilter.isPending}
+                      aria-label="Confirm delete"
+                    >
+                      Confirm delete
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button compact-action"
+                      onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}
+                      aria-label="Cancel"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {deleteError && (
+                    <p className="text-xs text-red-600 mt-1">{deleteError}</p>
+                  )}
                 </>
               ) : (
-                <>
+                <div className="flex items-center gap-2">
                   <span className="flex-1 truncate text-sm text-zinc-700">{filter.name}</span>
                   {canEdit(filter) && (
                     <>
@@ -150,7 +171,7 @@ export function SavedFiltersManager({
                       </button>
                     </>
                   )}
-                </>
+                </div>
               )}
             </li>
           ))}
