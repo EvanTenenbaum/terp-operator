@@ -1025,3 +1025,44 @@ kbd {
     display: none !important;
   }
 }
+
+/* ─── Media batch drawer ───────────────────────────────────────────────────── */
+
+.media-batch-drawer {
+  @apply flex flex-col flex-shrink-0 overflow-hidden border-l border-line bg-white transition-all duration-200;
+  width: 0;
+  opacity: 0;
+}
+
+.media-batch-drawer-open {
+  width: 480px;
+  opacity: 1;
+}
+
+.media-batch-drawer-header {
+  @apply flex items-center justify-between border-b border-line px-4 py-3 flex-shrink-0;
+}
+
+.media-batch-drawer-body {
+  @apply flex flex-col gap-4 overflow-y-auto p-4;
+}
+
+.media-upload-zone {
+  @apply flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed border-line bg-panel px-4 py-6 text-sm text-zinc-500 transition-colors hover:border-accent hover:bg-accent/5;
+}
+
+.media-upload-zone-active {
+  @apply border-accent bg-accent/10;
+}
+
+.media-upload-progress {
+  @apply flex items-center gap-2 text-xs text-zinc-600;
+}
+
+.media-upload-progress-bar-track {
+  @apply h-1.5 w-full rounded bg-zinc-200;
+}
+
+.media-upload-progress-bar-fill {
+  @apply h-full rounded bg-accent transition-all;
+}
