@@ -11,6 +11,9 @@
 > Tell any agent: **"run persona QA"** or **"run persona flows"**
 > The agent reads AGENTS.md and spins up the full isolated environment via `pnpm qa:env:setup`.
 >
+> **Prerequisites for all flows:**
+> Entities confirmed per `_shared/seed-state-reference.md`. App live at `http://127.0.0.1:5173` (or use QA_APP_URL from `pnpm qa:env:setup`).
+>
 > **To run manually:**
 > Ensure `pnpm db:seed:realistic` has been run and app is live at `http://127.0.0.1:5173` (or use QA_APP_URL from `pnpm qa:env:setup`).
 > Entities confirmed per `_shared/seed-state-reference.md`.
