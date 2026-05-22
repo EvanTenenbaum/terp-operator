@@ -70,7 +70,7 @@ async function goFulfillment(page: Page) {
 }
 
 async function goOrders(page: Page) {
-  await nav(page).getByRole('button', { name: 'Orders', { exact: true } } as any).click().catch(() =>
+  await nav(page).getByRole('button', { name: 'Orders', exact: true }).click().catch(() =>
     nav(page).getByRole('button', { name: /^Orders/ }).click());
   await page.waitForTimeout(2_000);
 }
