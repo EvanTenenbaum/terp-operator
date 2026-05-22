@@ -676,7 +676,11 @@ export const queriesRouter = router({
       )
     ).rows;
   }),
-  batchMediaList: protectedProcedure.input(z.object({ batchId: z.string().uuid() })).query(async ({ input }) => {
+  batchMediaList: protectedProcedure.input(z.object({ batchId: z.string().uuid() })).query(async ({ input }): Promise<Array<{
+    id: string; batchId: string; mediaType: string; role: string; status: string;
+    originalFilename: string; fileSize: number; mimeType: string; hasThumbnail: boolean;
+    publishedAt: string | null; replacedAt: string | null; createdAt: string; updatedAt: string;
+  }>> => {
     return (
       await pool.query(
         `select id,
