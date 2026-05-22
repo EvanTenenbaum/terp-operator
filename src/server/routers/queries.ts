@@ -37,7 +37,7 @@ export const queriesRouter = router({
       pool.query(`select b.id, b.batch_code as "batchCode", b.name, b.category, b.vendor_id as "vendorId", v.name as vendor,
                          b.item_id as "itemId", i.alias as "itemAlias",
                          coalesce(i.alias, b.name) as "displayName",
-                         b.available_qty as "availableQty", b.reserved_qty as "reservedQty", b.unit_price as "unitPrice",
+                         b.available_qty as "availableQty", b.reserved_qty as "reservedQty", b.subcategory, b.unit_price as "unitPrice",
                          b.unit_cost as "unitCost", b.uom, b.location, b.lot_code as "lotCode", b.source_code as "sourceCode",
                          b.shorthand, b.notes, b.intake_date as "intakeDate", b.ticket_cost as "ticketCost",
                          b.ownership_status as "ownershipStatus", b.price_range as "priceRange", b.tags, b.status,
@@ -326,7 +326,7 @@ export const queriesRouter = router({
     return (
       await pool.query(
         `select pol.id, pol.purchase_order_id as "purchaseOrderId", pol.item_id as "itemId",
-                pol.product_name as "productName", pol.category, pol.tags, pol.qty, pol.received_qty as "receivedQty",
+                pol.product_name as "productName", pol.category, pol.subcategory, pol.tags, pol.qty, pol.received_qty as "receivedQty",
                 pol.uom, pol.unit_cost as "unitCost", pol.unit_price as "unitPrice", pol.source_code as "sourceCode",
                 pol.shorthand, pol.legacy_marker as "legacyMarker", pol.ownership_status as "ownershipStatus",
                 pol.notes, pol.status, pol.created_at as "createdAt", i.sku
