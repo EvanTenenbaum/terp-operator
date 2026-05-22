@@ -1045,7 +1045,7 @@ kbd {
   }
 
   /* Print: make watermark large and prominent */
-  body.print-receipt-only [data-testid="internal-watermark"] {
+  body.print-receipt-only [data-testid="internal-watermark"]:not(.hidden) {
     display: block !important;
     font-size: 18pt !important;
     font-weight: bold !important;
