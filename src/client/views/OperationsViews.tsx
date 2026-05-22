@@ -774,7 +774,7 @@ export function PurchaseOrdersView() {
         onCellCommit={canWrite ? updatePoCell : undefined}
         actions={
           <>
-            {canWrite ? (
+{canWrite ? (
               <>
                 <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
                   {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
