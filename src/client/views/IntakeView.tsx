@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
-  CellValueChangedEvent,
   ColDef,
   GetDetailRowDataParams,
   GridApi,
@@ -27,8 +26,6 @@ export function IntakeView() {
   const { runCommand, isRunning } = useCommandRunner();
   const pushToast = useUiStore((state) => state.pushToast);
 
-  const verifiedDraftsRef = useRef<Map<string, number>>(new Map());
-  const discrepancyReasonsRef = useRef<Map<string, string>>(new Map());
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmVerifyAllFor, setConfirmVerifyAllFor] = useState<IntakeOrderRow | null>(null);
@@ -52,17 +49,15 @@ export function IntakeView() {
     if (result.ok && !validateOnly) setCsvOpen(false);
   }
 
-  async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null) {
+  async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) {
     setBusy(true);
     try {
       const actual = Number(intakeQty);
       const expected = Number(expectedQty ?? 0);
       if (expected > 0 && actual > 0 && actual !== expected) {
-        await runCommand(
-          'flagBatch',
-          { batchId, reason: `Quantity discrepancy: expected ${expected}, received ${actual}` },
-          'Auto-flag quantity discrepancy'
-        );
+        const reason = discrepancyReason?.trim()
+          || `Quantity discrepancy: expected ${expected}, received ${actual}`;
+        await runCommand('flagBatch', { batchId, reason }, 'Auto-flag quantity discrepancy');
       }
       await runCommand(
         'postPurchaseReceipt',
@@ -92,8 +87,8 @@ export function IntakeView() {
       detailGridOptions: {
         columnDefs: buildBatchColumns(
           canWrite,
-          async (batchId, intakeQty, expectedQty) => {
-            await verifyBatch(batchId, intakeQty, expectedQty);
+          async (batchId, intakeQty, expectedQty, discrepancyReason) => {
+            await verifyBatch(batchId, intakeQty, expectedQty, discrepancyReason);
           },
           async (batchId, reason) => {
             setBusy(true);
@@ -122,21 +117,6 @@ export function IntakeView() {
         domLayout: 'autoHeight' as const,
         rowHeight: 28,
         headerHeight: 30,
-        onCellValueChanged: (event: CellValueChangedEvent<IntakeBatchRow>) => {
-          const data = event.data;
-          if (!data?.id) return;
-          const field = event.colDef.field;
-          if (field === 'intakeQty') {
-            const next = Number(event.newValue ?? data.intakeQty ?? 0);
-            if (Number.isFinite(next) && next >= 0) {
-              verifiedDraftsRef.current.set(data.id, next);
-            }
-          } else if (field === 'discrepancyReason') {
-            const reason = String(event.newValue ?? '').trim();
-            if (reason) discrepancyReasonsRef.current.set(data.id, reason);
-            else discrepancyReasonsRef.current.delete(data.id);
-          }
-        }
       },
       getDetailRowData: (params: GetDetailRowDataParams<IntakeOrderRow>) => {
         params.successCallback(params.data?.batches ?? []);
@@ -226,8 +206,6 @@ export function IntakeView() {
     setBusy(true);
     try {
       await runCommand('verifyAllIntake', { purchaseOrderId: order.id }, `Verify all intake for ${order.poNo}`);
-      verifiedDraftsRef.current.clear();
-      discrepancyReasonsRef.current.clear();
     } finally {
       setBusy(false);
     }
@@ -340,7 +318,7 @@ export function IntakeView() {
 
 function buildBatchColumns(
   canWrite: boolean,
-  onVerify: (batchId: string, intakeQty: string, expectedQty: string | null) => Promise<void>,
+  onVerify: (batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) => Promise<void>,
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
   onSetMarketName: (itemId: string, alias: string) => Promise<void>
@@ -371,11 +349,6 @@ function buildBatchColumns(
       valueParser: (params) => {
         const next = Number(params.newValue);
         return Number.isFinite(next) && next >= 0 ? next : params.oldValue;
-      },
-      cellClass: (params) => {
-        const expected = Number(params.data?.expectedQty ?? 0);
-        const actual = Number(params.value ?? 0);
-        return expected && actual && expected !== actual ? 'intake-discrepancy' : '';
       },
       cellStyle: (params) => {
         const expected = Number(params.data?.expectedQty ?? 0);
@@ -439,7 +412,7 @@ function BatchRowActions({
   onSetMarketName,
 }: {
   row: IntakeBatchRow;
-  onVerify: (batchId: string, intakeQty: string, expectedQty: string | null) => Promise<void>;
+  onVerify: (batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) => Promise<void>;
   onReject: (batchId: string, reason: string) => Promise<void>;
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>;
   onSetMarketName: (itemId: string, alias: string) => Promise<void>;
@@ -468,7 +441,7 @@ function BatchRowActions({
           className="primary-button compact-action"
           disabled={!canVerify}
           title={!canVerify ? `Cannot verify: batch is ${row.status}` : 'Verify this batch'}
-          onClick={() => void onVerify(row.id, row.intakeQty, row.expectedQty)}
+          onClick={() => void onVerify(row.id, row.intakeQty, row.expectedQty, row.discrepancyReason)}
         >
           Verify
         </button>

@@ -81,6 +81,8 @@ export function ReceiptPreviewDrawer({ order, onClose }: ReceiptPreviewDrawerPro
                 </table>
               </div>
             </div>
+          ) : receiptPreview.isError ? (
+            <div className="drawer-empty text-red-700">Failed to load receipt preview. Check server logs.</div>
           ) : previewBatchIds.length === 0 ? (
             <div className="drawer-empty">No pending batches to preview.</div>
           ) : (
