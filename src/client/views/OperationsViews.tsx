@@ -254,7 +254,6 @@ export function PurchaseOrdersView() {
   const [newVendorNotes, setNewVendorNotes] = useState('');
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
-  const [receiptPreviewSubjectId, setReceiptPreviewSubjectId] = useState<string | null>(null);
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
   const defaultVendorId = vendorId;
@@ -803,15 +802,6 @@ export function PurchaseOrdersView() {
                 </button>
               </>
             ) : null}
-            <button
-              className="secondary-button compact-action"
-              type="button"
-              disabled={!selectedPo?.id || !hasAnyActiveSnapshot}
-              onClick={() => selectedPo?.id && setReceiptPreviewSubjectId(String(selectedPo.id))}
-              title="Preview the active vendor receipt for this PO"
-            >
-              Preview receipt
-            </button>
           </>
         }
         expansionConfig={canWrite ? purchaseOrderExpansionConfig : undefined}
@@ -843,15 +833,6 @@ export function PurchaseOrdersView() {
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
             ) : null}
-            <button
-              className="secondary-button compact-action"
-              type="button"
-              disabled={!selectedPo?.id || !hasAnyActiveSnapshot}
-              onClick={() => selectedPo?.id && setReceiptPreviewSubjectId(String(selectedPo.id))}
-              title="Preview the active vendor receipt for this PO"
-            >
-              Preview receipt
-            </button>
           </section>
           {['finalized', 'approved', 'ordered', 'partially_received', 'received'].includes(selectedPoStatus) ? (
             <ReceiptPanel purchaseOrderId={String(selectedPo.id)} />
@@ -884,13 +865,7 @@ export function PurchaseOrdersView() {
           />
         </>
       ) : null}
-      {receiptPreviewSubjectId ? (
-        <ReceiptPreview
-          documentType="purchase_order"
-          subjectId={receiptPreviewSubjectId}
-          onClose={() => setReceiptPreviewSubjectId(null)}
-        />
-      ) : null}
+
     </div>
   );
 }
