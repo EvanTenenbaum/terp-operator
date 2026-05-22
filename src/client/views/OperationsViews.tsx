@@ -41,7 +41,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'orderedQty', headerName: 'Ordered', type: 'numericColumn', width: 120 },
     { field: 'receivedQty', headerName: 'Received', type: 'numericColumn', width: 120 },
     { field: 'buyerNotes', headerName: 'Internal notes', editable: true, minWidth: 220 },
-    { field: 'internalNotes', headerName: 'Internal notes (ops)', editable: true, minWidth: 220 },
+    { field: 'internalNotes', headerName: 'Internal (ops)', editable: true, minWidth: 220 },
     { field: 'externalNotes', headerName: 'External (vendor)', editable: true, minWidth: 220 },
     { field: 'orderedAt', width: 170 },
     { field: 'receivedAt', width: 170 },
@@ -322,7 +322,7 @@ export function PurchaseOrdersView() {
           </button>
           <button
             className="secondary-button compact-action"
-type="button"
+            type="button"
             disabled={
               isRunning ||
               !canWrite ||
@@ -345,7 +345,7 @@ type="button"
             <CreditCard className="h-4 w-4" aria-hidden="true" />
             Record Prepayment
           </button>
-          <button
+<button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite || !row.id || row.status !== 'draft'}
             onClick={() => runCommand('saveDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Save PO receipt draft')}
@@ -743,40 +743,17 @@ type="button"
         }}
         onCellCommit={canWrite ? updatePoCell : undefined}
         actions={
-          <>
+<>
             <div role="group" aria-label="Filter by status">
               <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:draft,approved,ordered,partially_received')} aria-pressed={storedGridFilter === 'status:draft,approved,ordered,partially_received'}>Active</button>
               <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:ordered,partially_received')} aria-pressed={storedGridFilter === 'status:ordered,partially_received'}>Ordered</button>
               <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:finalized')} aria-pressed={storedGridFilter === 'status:finalized'}>Finalized</button>
             </div>
             {canWrite ? (
-              <>
-                <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
-                  {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
-                  {purchaseOrderPrimaryLabel(selectedPoStatus)}
-                </button>
-                <button
-                  className="secondary-button compact-action"
-                  type="button"
-                  disabled={
-                    !selected.length ||
-                    isRunning ||
-                    selectedPoStatus !== 'approved' ||
-                    Number(selectedPo?.prepaymentAmount ?? 0) <= 0
-                  }
-                  title={
-                    selectedPoStatus !== 'approved'
-                      ? 'PO must be approved before recording prepayment'
-                      : Number(selectedPo?.prepaymentAmount ?? 0) <= 0
-                      ? 'PO has no prepayment amount set'
-                      : 'Record vendor prepayment'
-                  }
-                  onClick={() => setPrepaymentDialogOpen(true)}
-                >
-                  <CreditCard className="h-4 w-4" aria-hidden="true" />
-                  Record Prepayment
-                </button>
-              </>
+              <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
+                {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
+                {purchaseOrderPrimaryLabel(selectedPoStatus)}
+              </button>
             ) : null}
             <button
               className="secondary-button compact-action"
@@ -787,7 +764,7 @@ type="button"
             >
               Preview receipt
             </button>
-          </>
+          </>)
         }
         expansionConfig={canWrite ? purchaseOrderExpansionConfig : undefined}
       />
