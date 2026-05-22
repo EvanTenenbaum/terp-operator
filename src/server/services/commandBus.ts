@@ -1313,7 +1313,7 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
         legacyMarker: line.legacyMarker || line.ownershipStatus,
         ownershipStatus: (() => {
           // Respect an explicit line-level override if it's already classified
-          if (line.ownershipStatus && line.ownershipStatus !== 'UNKNOWN') {
+          if (line.ownershipStatus !== 'UNKNOWN') {
             return line.ownershipStatus;
           }
           // Infer from payment terms: operator-pays terms → office owns
