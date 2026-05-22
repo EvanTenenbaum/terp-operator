@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useCommandRunner } from './useCommandRunner';
 
@@ -26,6 +26,14 @@ export function AddRefereeRelationshipDrawer({
 }: AddRefereeRelationshipDrawerProps): React.ReactElement | null {
   const { runCommand, isRunning } = useCommandRunner();
 
+  // Local referee list — starts from prop, grows when a new referee is created
+  // mid-flow so it appears in the existing select immediately.
+  const [localReferees, setLocalReferees] = useState<Array<{ id: string; name: string }>>(referees);
+
+  // After a createReferee succeeds but addRefereeRelationship fails, this
+  // holds the already-created referee ID so we can skip step 1 on retry.
+  const [pendingRefereeId, setPendingRefereeId] = useState<string | null>(null);
+
   const [mode, setMode] = useState<Mode>(() =>
     referees.length > 0 ? 'existing' : 'new'
   );
@@ -45,6 +53,17 @@ export function AddRefereeRelationshipDrawer({
 
   const drawerRef = useFocusTrap<HTMLElement>(isOpen, onClose);
 
+  // Sync localReferees when parent refetches and passes a fresh list (e.g.
+  // after onSuccess triggers reference.refetch()).
+  useEffect(() => {
+    setLocalReferees((prev) => {
+      // Merge: keep any locally-added pending referee not yet in the prop list.
+      const incomingIds = new Set(referees.map((r) => r.id));
+      const pendingEntries = prev.filter((r) => !incomingIds.has(r.id));
+      return [...referees, ...pendingEntries];
+    });
+  }, [referees]);
+
   const showPercentage = feeType === 'percentage' || feeType === 'hybrid';
   const showFixed = feeType === 'fixed' || feeType === 'hybrid';
 
@@ -59,17 +78,33 @@ export function AddRefereeRelationshipDrawer({
     let refereeId = selectedRefereeId;
 
     if (mode === 'new') {
-      const result = await runCommand(
-        'createReferee',
-        {
-          name: name.trim(),
-          email: email.trim() || undefined,
-          phone: phone.trim() || undefined,
-        },
-        'Create new referee for PO credit'
-      );
-      if (!result.ok || !result.affectedIds[0]) return;
-      refereeId = result.affectedIds[0];
+      if (pendingRefereeId) {
+        // Step 1 already succeeded in a previous attempt — skip createReferee.
+        refereeId = pendingRefereeId;
+      } else {
+        const result = await runCommand(
+          'createReferee',
+          {
+            name: name.trim(),
+            email: email.trim() || undefined,
+            phone: phone.trim() || undefined,
+          },
+          'Create new referee for PO credit'
+        );
+        if (!result.ok || !result.affectedIds[0]) return;
+        refereeId = result.affectedIds[0];
+
+        // Step 1 done — preserve ID so retry skips creation, and surface
+        // the new referee in the existing-select so the user can see it.
+        setPendingRefereeId(refereeId);
+        setLocalReferees((prev) => [
+          ...prev,
+          { id: refereeId, name: name.trim() },
+        ]);
+        setSelectedRefereeId(refereeId);
+        setMode('existing');
+        // Fall through to step 2.
+      }
     }
 
     const payload: Record<string, unknown> = {
@@ -89,7 +124,9 @@ export function AddRefereeRelationshipDrawer({
     );
     if (!relResult.ok || !relResult.affectedIds[0]) return;
 
-    try { onSuccess(relResult.affectedIds[0]); } catch { /* parent refetch failed; drawer still closes via finally */ }
+    // Both steps succeeded — clear pending state and notify parent.
+    setPendingRefereeId(null);
+    try { onSuccess(relResult.affectedIds[0]); } catch { /* parent refetch failed; no action needed */ }
   }
 
   if (!isOpen) return null;
@@ -139,8 +176,8 @@ export function AddRefereeRelationshipDrawer({
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
             onClick={() => setMode('existing')}
-            disabled={referees.length === 0}
-            title={referees.length === 0 ? 'No existing referees for this vendor' : undefined}
+            disabled={localReferees.length === 0}
+            title={localReferees.length === 0 ? 'No existing referees yet' : undefined}
           >
             Use existing referee
           </button>
@@ -150,8 +187,10 @@ export function AddRefereeRelationshipDrawer({
               mode === 'new'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
             onClick={() => setMode('new')}
+            disabled={pendingRefereeId !== null}
+            title={pendingRefereeId ? 'Referee already created — complete the fee setup above and save' : undefined}
           >
             Create new referee
           </button>
@@ -159,6 +198,14 @@ export function AddRefereeRelationshipDrawer({
 
         {/* Form body */}
         <div className="flex-1 px-6 py-4 space-y-4">
+
+          {/* Recovery banner — shown when step 1 succeeded but step 2 failed */}
+          {pendingRefereeId && (
+            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+              Referee saved. The fee link step failed — adjust the fee below and try again. No duplicate referee will be created.
+            </div>
+          )}
+
           {/* Existing referee select */}
           {mode === 'existing' && (
             <label className="field-inline">
@@ -170,7 +217,7 @@ export function AddRefereeRelationshipDrawer({
                 required
               >
                 <option value="">Choose referee</option>
-                {referees.map((r) => (
+                {localReferees.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
                   </option>
@@ -275,7 +322,11 @@ export function AddRefereeRelationshipDrawer({
               disabled={isSubmitDisabled}
               onClick={() => void handleSubmit()}
             >
-              {isRunning ? 'Saving…' : 'Add referee credit'}
+              {isRunning
+                ? 'Saving…'
+                : pendingRefereeId
+                  ? 'Complete setup'
+                  : 'Add referee credit'}
             </button>
           </div>
         </div>
