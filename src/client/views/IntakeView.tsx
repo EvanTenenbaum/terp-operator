@@ -62,18 +62,48 @@ export function IntakeView() {
     }
   }
 
+  async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null) {
+    setBusy(true);
+    try {
+      const actual = Number(intakeQty);
+      const expected = Number(expectedQty ?? 0);
+      if (expected > 0 && actual > 0 && actual !== expected) {
+        await runCommand(
+          'flagBatch',
+          { batchId, reason: `Quantity discrepancy: expected ${expected}, received ${actual}` },
+          'Auto-flag quantity discrepancy'
+        );
+      }
+      await runCommand(
+        'postPurchaseReceipt',
+        { batchIds: [batchId] },
+        'Verify single batch intake'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setMarketName(itemId: string, alias: string) {
+    setBusy(true);
+    try {
+      await runCommand(
+        'setItemAlias',
+        { itemId, alias },
+        alias ? `Set market name to "${alias}"` : 'Clear market name'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const detailCellRendererParams = useMemo(
     () => ({
       detailGridOptions: {
         columnDefs: buildBatchColumns(
           canWrite,
-          async (batchId, reason) => {
-            setBusy(true);
-            try {
-              await runCommand('flagBatch', { batchId, reason }, 'Flag intake lot from grid');
-            } finally {
-              setBusy(false);
-            }
+          async (batchId, intakeQty, expectedQty) => {
+            await verifyBatch(batchId, intakeQty, expectedQty);
           },
           async (batchId, reason) => {
             setBusy(true);
@@ -94,7 +124,9 @@ export function IntakeView() {
               setBusy(false);
             }
           },
-          deleteDraftBatch
+          async (itemId, alias) => {
+            await setMarketName(itemId, alias);
+          }
         ),
         defaultColDef: { resizable: true, sortable: true } as ColDef<IntakeBatchRow>,
         domLayout: 'autoHeight' as const,
@@ -120,6 +152,7 @@ export function IntakeView() {
         params.successCallback(params.data?.batches ?? []);
       }
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [canWrite, runCommand, me.data?.name]
   );
 
@@ -347,10 +380,10 @@ export function IntakeView() {
 
 function buildBatchColumns(
   canWrite: boolean,
-  onFlag: (batchId: string, reason: string) => Promise<void>,
+  onVerify: (batchId: string, intakeQty: string, expectedQty: string | null) => Promise<void>,
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
-  onDeleteDraft: (batchId: string) => Promise<void>
+  onSetMarketName: (itemId: string, alias: string) => Promise<void>
 ): ColDef<IntakeBatchRow>[] {
   return [
     { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
@@ -416,29 +449,22 @@ function buildBatchColumns(
       minWidth: 110
     },
     { field: 'status', minWidth: 110 },
-    {
-      field: 'notes',
-      headerName: 'Notes',
-      editable: canWrite,
-      minWidth: 220,
-      cellEditor: 'agLargeTextCellEditor',
-      cellEditorPopup: true,
-      onCellValueChanged: (event: NewValueParams<IntakeBatchRow>) => {
-        if (!event.data?.id) return;
-        const addition = String(event.newValue ?? '').trim();
-        if (!addition || addition === event.oldValue) return;
-        void onAppendNote(event.data.id, event.data.notes ?? null, addition);
-      }
-    },
+    { field: 'notes', headerName: 'Notes', editable: false, minWidth: 220 },
     {
       headerName: 'Actions',
       pinned: 'right',
-      minWidth: 260,
+      minWidth: 300,
       cellRenderer: (params: ICellRendererParams<IntakeBatchRow>) => {
         const row = params.data;
         if (!row || !canWrite) return null;
         return (
-          <BatchRowActions row={row} onFlag={onFlag} onReject={onReject} onDeleteDraft={onDeleteDraft} />
+          <BatchRowActions
+            row={row}
+            onVerify={onVerify}
+            onReject={onReject}
+            onAppendNote={onAppendNote}
+            onSetMarketName={onSetMarketName}
+          />
         );
       }
     }
@@ -447,73 +473,115 @@ function buildBatchColumns(
 
 function BatchRowActions({
   row,
-  onFlag,
+  onVerify,
   onReject,
-  onDeleteDraft
+  onAppendNote,
+  onSetMarketName,
 }: {
   row: IntakeBatchRow;
-  onFlag: (batchId: string, reason: string) => Promise<void>;
+  onVerify: (batchId: string, intakeQty: string, expectedQty: string | null) => Promise<void>;
   onReject: (batchId: string, reason: string) => Promise<void>;
-  onDeleteDraft: (batchId: string) => Promise<void>;
+  onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>;
+  onSetMarketName: (itemId: string, alias: string) => Promise<void>;
 }) {
-  const [mode, setMode] = useState<'idle' | 'flag' | 'reject'>('idle');
-  const [reason, setReason] = useState('');
+  const [mode, setMode] = useState<'idle' | 'reject' | 'note' | 'marketName'>('idle');
+  const [inputValue, setInputValue] = useState('');
+
+  const canVerify = row.status === 'draft' || row.status === 'ready';
+  const canAct = row.status !== 'returned' && row.status !== 'posted';
+
+  function openMode(next: 'reject' | 'note' | 'marketName', prefill = '') {
+    setMode(next);
+    setInputValue(prefill);
+  }
+
+  function cancel() {
+    setMode('idle');
+    setInputValue('');
+  }
 
   if (mode === 'idle') {
-    const disabled = row.status === 'returned' || row.status === 'posted';
     return (
       <div className="flex h-full items-center gap-1">
-        <button type="button" className="secondary-button compact-action" disabled={disabled} onClick={() => setMode('flag')}>
-          Flag
+        <button
+          type="button"
+          className="primary-button compact-action"
+          disabled={!canVerify}
+          title={!canVerify ? `Cannot verify: batch is ${row.status}` : 'Verify this batch'}
+          onClick={() => void onVerify(row.id, row.intakeQty, row.expectedQty)}
+        >
+          Verify
         </button>
-        <button type="button" className="secondary-button compact-action" disabled={disabled} onClick={() => setMode('reject')}>
+        <button
+          type="button"
+          className="secondary-button compact-action"
+          disabled={!canAct}
+          onClick={() => openMode('reject')}
+        >
           Reject
         </button>
         <button
           type="button"
           className="secondary-button compact-action"
-          disabled={row.status !== 'draft'}
-          title="Delete this draft batch"
-          onClick={() => void onDeleteDraft(row.id)}
+          onClick={() => openMode('note')}
         >
-          Delete draft
+          Add note
+        </button>
+        <button
+          type="button"
+          className="secondary-button compact-action"
+          disabled={!row.itemId}
+          title={!row.itemId ? 'Batch not linked to a catalog item' : 'Set market name for this item'}
+          onClick={() => openMode('marketName', row.itemAlias ?? '')}
+        >
+          Market name
         </button>
       </div>
     );
   }
+
+  const placeholder =
+    mode === 'reject' ? 'Reject reason' :
+    mode === 'note' ? 'Add a note…' :
+    'Market name';
+
+  const label =
+    mode === 'reject' ? 'Reject' :
+    mode === 'note' ? 'Save note' :
+    'Set name';
 
   return (
     <div className="flex h-full items-center gap-1">
       <input
         className="input compact"
         autoFocus
-        placeholder={`${mode === 'flag' ? 'Flag' : 'Reject'} reason`}
-        value={reason}
-        onChange={(event) => setReason(event.target.value)}
+        placeholder={placeholder}
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') cancel(); }}
       />
       <button
         type="button"
         className="primary-button compact-action"
-        disabled={!reason.trim()}
+        disabled={mode !== 'note' && !inputValue.trim()}
         onClick={async () => {
-          const trimmed = reason.trim();
-          if (!trimmed) return;
-          if (mode === 'flag') await onFlag(row.id, trimmed);
-          else await onReject(row.id, trimmed);
-          setMode('idle');
-          setReason('');
+          const value = inputValue.trim();
+          if (mode === 'reject') {
+            if (!value) return;
+            await onReject(row.id, value);
+          } else if (mode === 'note') {
+            if (!value) { cancel(); return; }
+            await onAppendNote(row.id, row.notes ?? null, value);
+          } else if (mode === 'marketName') {
+            if (!row.itemId) return;
+            await onSetMarketName(row.itemId, value);
+          }
+          cancel();
         }}
       >
-        {mode === 'flag' ? 'Flag' : 'Reject'}
+        {label}
       </button>
-      <button
-        type="button"
-        className="secondary-button compact-action"
-        onClick={() => {
-          setMode('idle');
-          setReason('');
-        }}
-      >
+      <button type="button" className="secondary-button compact-action" onClick={cancel}>
         Cancel
       </button>
     </div>
