@@ -387,7 +387,20 @@ export function SalesView() {
             disabled={isRunning || !canWrite}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
-              runCommand('removeSalesOrderLine', { lineId: row.id }, 'Remove line');
+              const lineStatus = String(row.pickStatus ?? 'unreleased');
+              const isReleased = ['released', 'picking'].includes(lineStatus);
+              if (isReleased) {
+                setPendingLineEdit({
+                  type: 'remove',
+                  lineId: row.id,
+                  lineStatus,
+                  onConfirm: async () => {
+                    await runCommand('removeSalesOrderLine', { lineId: row.id }, 'Remove line (post-release warehouse notified)');
+                  }
+                });
+              } else {
+                runCommand('removeSalesOrderLine', { lineId: row.id }, 'Remove line');
+              }
             }}
             type="button"
           >
@@ -396,7 +409,7 @@ export function SalesView() {
         </>
       )
     }),
-    [isRunning, runCommand, canWrite, showMargin]
+    [isRunning, runCommand, canWrite, showMargin, setPendingLineEdit]
   );
 
   useEffect(() => {
