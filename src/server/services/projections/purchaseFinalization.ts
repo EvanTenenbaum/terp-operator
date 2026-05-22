@@ -69,15 +69,21 @@ export const purchaseFinalization: Projector<PurchaseFinalizationInput> = {
         dateISO: input.dateISO,
         documentNo: input.poNo,
       },
-      lines: input.lines.map((l) => ({
-        name: l.productName,
-        qty: l.qty,
-        unitPrice: l.unitPrice,
-        subtotal: l.subtotal,
-        notes: l.externalNotes,
-      })),
+      lines: input.lines.map((l) => {
+        const line: Record<string, unknown> = {
+          name: l.productName,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          subtotal: l.subtotal,
+        };
+        // Omit `notes` entirely when there are no external notes — canonicalizeJson
+        // rejects undefined values (RFC 8785 subset; undefined is not representable).
+        if (l.externalNotes != null) line.notes = l.externalNotes;
+        return line as { name: string; qty: number; unitPrice?: number; subtotal: number; notes?: string };
+      }),
       totals: { subtotal: input.subtotal, total: input.total },
-      footer: input.externalNotes ? { terms: input.externalNotes } : undefined,
+      // Omit `footer` entirely when there are no external notes.
+      ...(input.externalNotes != null ? { footer: { terms: input.externalNotes } } : {}),
       projectionVersion,
     };
   },
@@ -123,34 +129,36 @@ export const purchaseFinalization: Projector<PurchaseFinalizationInput> = {
         dateISO: input.dateISO,
         documentNo: input.poNo,
       },
-      lines: input.lines.map((l) => ({
-        name: l.productName,
-        qty: l.qty,
-        unitPrice: l.unitPrice,
-        subtotal: l.subtotal,
+      lines: input.lines.map((l) => {
         // Internal lines surface the operator-facing notes when present;
         // fall back to the external notes so the line is still labeled.
-        notes: l.internalNotes ?? l.externalNotes,
-      })),
+        // Omit `notes` entirely when absent — canonicalizeJson rejects undefined.
+        const notes = l.internalNotes ?? l.externalNotes;
+        const line: Record<string, unknown> = {
+          name: l.productName,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          subtotal: l.subtotal,
+        };
+        if (notes != null) line.notes = notes;
+        return line as { name: string; qty: number; unitPrice?: number; subtotal: number; notes?: string };
+      }),
       totals: { subtotal: input.subtotal, total: input.total },
-      footer: input.externalNotes ? { terms: input.externalNotes } : undefined,
+      // Omit `footer` entirely when absent.
+      ...(input.externalNotes != null ? { footer: { terms: input.externalNotes } } : {}),
       projectionVersion,
-      internalNotes: input.internalNotes,
-      cogs:
-        cogsLines.length > 0
-          ? { perLine: cogsLines, total: cogsTotal }
-          : undefined,
-      margin:
-        marginLines.length > 0
-          ? { perLine: marginLines, total: marginTotal }
-          : undefined,
-      diagnostics: hasDiagnostics
+      // Omit optional top-level fields when absent — canonicalizeJson rejects undefined.
+      ...(input.internalNotes != null ? { internalNotes: input.internalNotes } : {}),
+      ...(cogsLines.length > 0 ? { cogs: { perLine: cogsLines, total: cogsTotal } } : {}),
+      ...(marginLines.length > 0 ? { margin: { perLine: marginLines, total: marginTotal } } : {}),
+      ...(hasDiagnostics
         ? {
-            unresolvedSources:
-              unresolvedSources.length > 0 ? unresolvedSources : undefined,
-            legacyMarkers: legacyMarkers.length > 0 ? legacyMarkers : undefined,
+            diagnostics: {
+              ...(unresolvedSources.length > 0 ? { unresolvedSources } : {}),
+              ...(legacyMarkers.length > 0 ? { legacyMarkers } : {}),
+            },
           }
-        : undefined,
+        : {}),
     };
   },
 };
