@@ -107,6 +107,7 @@ import {
   type ConfirmOrPostBlockedReason
 } from '../../shared/saleLineCostExceptions';
 import { createPoFinalizationReceipts } from './poFinalizationReceipts';
+import { createSalesConfirmationReceipts } from './salesConfirmationReceipts';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -359,6 +360,20 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
           '[commandBus] PO finalization receipt hook failed after commit:',
           e instanceof Error ? e.message : e
         );
+      }
+    }
+
+    // Issue #113 Phase 3 — best-effort sales-confirmation receipt creation.
+    if (input.name === 'confirmSalesOrder' && commandResult.ok && commandResult.affectedIds[0]) {
+      try {
+        await createSalesConfirmationReceipts(
+          pool,
+          commandResult.affectedIds[0],
+          commandId,
+          user.id
+        );
+      } catch (e) {
+        console.warn('[commandBus] sales-confirmation receipt hook failed after commit:', e instanceof Error ? e.message : e);
       }
     }
 

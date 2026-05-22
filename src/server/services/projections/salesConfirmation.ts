@@ -69,15 +69,20 @@ export const salesConfirmation: Projector<SalesConfirmationInput> = {
         dateISO: input.dateISO,
         documentNo: input.soNo,
       },
-      lines: input.lines.map((l) => ({
-        name: l.productName,
-        qty: l.qty,
-        unitPrice: l.unitPrice,
-        subtotal: l.subtotal,
-        notes: l.externalNotes,
-      })),
+      lines: input.lines.map((l) => {
+        const line: { name: string; qty: number; unitPrice?: number; subtotal: number; notes?: string } = {
+          name: l.productName,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          subtotal: l.subtotal,
+        };
+        // Omit `notes` entirely when absent — canonicalizeJson rejects undefined.
+        if (l.externalNotes != null) line.notes = l.externalNotes;
+        return line;
+      }),
       totals: { subtotal: input.subtotal, total: input.total },
-      footer: input.externalNotes ? { terms: input.externalNotes } : undefined,
+      // Omit `footer` entirely when there are no external notes.
+      ...(input.externalNotes != null ? { footer: { terms: input.externalNotes } } : {}),
       projectionVersion,
     };
   },
@@ -131,17 +136,23 @@ export const salesConfirmation: Projector<SalesConfirmationInput> = {
         dateISO: input.dateISO,
         documentNo: input.soNo,
       },
-      lines: input.lines.map((l) => ({
-        name: l.productName,
-        qty: l.qty,
-        unitPrice: l.unitPrice,
-        subtotal: l.subtotal,
-        notes: l.externalNotes,
-      })),
+      lines: input.lines.map((l) => {
+        const line: { name: string; qty: number; unitPrice?: number; subtotal: number; notes?: string } = {
+          name: l.productName,
+          qty: l.qty,
+          unitPrice: l.unitPrice,
+          subtotal: l.subtotal,
+        };
+        // Omit `notes` entirely when absent — canonicalizeJson rejects undefined.
+        if (l.externalNotes != null) line.notes = l.externalNotes;
+        return line;
+      }),
       totals: { subtotal: input.subtotal, total: input.total },
-      footer: input.externalNotes ? { terms: input.externalNotes } : undefined,
+      // Omit `footer` entirely when there are no external notes.
+      ...(input.externalNotes != null ? { footer: { terms: input.externalNotes } } : {}),
       projectionVersion,
-      internalNotes: input.internalNotes,
+      // Omit `internalNotes` entirely when absent — canonicalizeJson rejects undefined.
+      ...(input.internalNotes != null ? { internalNotes: input.internalNotes } : {}),
       cogs:
         cogsLines.length > 0
           ? { perLine: cogsLines, total: cogsTotal }
@@ -152,9 +163,9 @@ export const salesConfirmation: Projector<SalesConfirmationInput> = {
           : undefined,
       diagnostics: hasDiagnostics
         ? {
-            unresolvedSources:
-              unresolvedSources.length > 0 ? unresolvedSources : undefined,
-            legacyMarkers: legacyMarkers.length > 0 ? legacyMarkers : undefined,
+            // Omit sub-keys when absent — canonicalizeJson rejects undefined.
+            ...(unresolvedSources.length > 0 ? { unresolvedSources } : {}),
+            ...(legacyMarkers.length > 0 ? { legacyMarkers } : {}),
           }
         : undefined,
     };
