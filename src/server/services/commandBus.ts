@@ -291,7 +291,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
   try {
     const { commandResult, afterSnapshot, storedResult } = await db.transaction(async (tx) => {
       const commandResult = await runCommand(tx, input.name, input.payload, user, commandId, input.reason);
-      const afterSnapshot = await snapshotByAffectedIds(commandResult.affectedIds);
+      const afterSnapshot = await snapshotByAffectedIds(tx, commandResult.affectedIds);
       const storedResult = { ...commandResult, toast: commandResult.toast ?? 'Command completed.' };
 
       // Finalize the claimed row (UPDATE — not re-INSERT — per #92's atomic
@@ -4411,10 +4411,11 @@ function tokenOverlap(left: string, right: string) {
 
 async function snapshotFromPayload(payload: Payload) {
   const ids = collectIds(payload);
-  return snapshotByAffectedIds(ids);
+  return snapshotByAffectedIds(db, ids);
 }
 
-async function snapshotByAffectedIds(ids: string[]) {
+/** @internal Exported for unit testing. Pass `tx` inside a transaction so same-tx inserts are visible to the after-snapshot read (GH #150). */
+export async function snapshotByAffectedIds(dbLike: Tx, ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return {};
   const snapshot: Record<string, unknown> = {};
@@ -4445,7 +4446,7 @@ async function snapshotByAffectedIds(ids: string[]) {
   ] as const;
 
   for (const [name, table] of tablePairs) {
-    const rows = await db.select().from(table as any).where(inArray((table as any).id, unique));
+    const rows = await dbLike.select().from(table as any).where(inArray((table as any).id, unique));
     if (rows.length) snapshot[name] = rows;
   }
   return snapshot;
