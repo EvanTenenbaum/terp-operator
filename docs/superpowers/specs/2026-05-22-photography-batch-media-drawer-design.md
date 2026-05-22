@@ -3,7 +3,7 @@
 **Date:** 2026-05-22  
 **Status:** Approved  
 **Route:** `/photography`  
-**Files affected:** `MediaView.tsx`, `MediaDetailPanel.tsx` (retired), new `MediaBatchDrawer.tsx`, new server upload endpoint
+**Files affected:** `MediaView.tsx`, `MediaDetailPanel.tsx` (retired), new `MediaBatchDrawer.tsx`, CSS additions
 
 ---
 
@@ -30,7 +30,7 @@ Row selection opens the drawer. Deselecting (or clicking ✕) closes it and the 
 
 The current `<div className="border-t">` block at the bottom of `MediaView` (which renders `MediaDetailPanel` or the "Select a batch" placeholder) is removed entirely.
 
-The `selectionActions` toolbar in the grid (currently shows "Copy mobile link") is also removed — those actions now live exclusively in the drawer.
+The `selectionActions` toolbar in the grid (currently shows "Copy mobile link" on row select) is also removed — those actions now live exclusively in the drawer.
 
 ---
 
@@ -47,9 +47,12 @@ Self-contained `<aside>` component. CSS classes: `media-batch-drawer` (base), `m
 **Desktop upload:**
 - Drag-and-drop zone: `<label>` wrapping `<input type="file" multiple accept="image/*,video/*">`
 - Visual: dashed border, icon, "Drop files here or click to upload" text
-- On file select/drop: POST each file to `POST /api/media/upload` (new endpoint), then call existing `uploadBatchMedia` command with the returned path
+- Files are uploaded one at a time (the existing endpoint uses `multer.single('file')`)
+- Per-file flow:
+  1. POST `multipart/form-data` to existing **`POST /api/upload/media`** with `{ batchId, file }` — session auth, already exists in `uploadRoute.ts`
+  2. On success, call existing `uploadBatchMedia` tRPC command with the returned `{ batchId, filePath, originalFilename, fileSize, mimeType, mediaType, thumbnailPath, mediumPath }`
 - Per-file progress bar via `XMLHttpRequest` upload progress events
-- On completion: `query.refetch()` to refresh the media list
+- On all files complete: `query.refetch()` to refresh the media list
 
 **Mobile upload:**
 - "Copy mobile link" button (same as today)
@@ -63,19 +66,16 @@ Self-contained `<aside>` component. CSS classes: `media-batch-drawer` (base), `m
 
 ---
 
-## Server Upload Endpoint
+## Server Changes
 
-**Route:** `POST /api/media/upload`  
-**Auth:** Session-authenticated (same middleware as all other `/api` routes)  
-**Body:** `multipart/form-data` with one or more file fields  
-**Behavior:**
-1. Validate MIME type is `image/*` or `video/*`
-2. Write to the same controlled media directory used by the mobile upload flow
-3. Return `{ path: string, mediaType: 'photo' | 'video', originalFilename: string }`
+**None.** The upload endpoint already exists at `POST /api/upload/media` (in `src/server/routes/uploadRoute.ts`). It handles:
+- Session-authenticated operators: stores file, returns `{ filePath, originalFilename, fileSize, mimeType, thumbnailPath, mediumPath }` — client must then call `uploadBatchMedia` command
+- Token-authenticated photographers (existing mobile flow): auto-creates the `batch_media` row — no further client call needed
 
-No new storage system. Same path, same permissions as the mobile flow.
-
-**Follow-up call:** client calls `uploadBatchMedia` tRPC command with `{ batchId, mediaPath: path }` — same command, same audit trail, same `batch_media` row creation.
+The `uploadBatchMedia` command signature (`commandBus.ts`):
+```
+{ batchId, filePath, originalFilename, fileSize, mimeType, mediaType, thumbnailPath?, mediumPath?, notes? }
+```
 
 ---
 
@@ -102,15 +102,15 @@ New classes added to the existing stylesheet:
 | `src/client/views/MediaView.tsx` | Refactor to flex-row layout; remove bottom panel block; remove `selectionActions` toolbar; mount `MediaBatchDrawer` |
 | `src/client/components/MediaBatchDrawer.tsx` | **New** — full drawer with upload zone + media list |
 | `src/client/components/MediaDetailPanel.tsx` | **Retired** — logic migrated into `MediaBatchDrawer` |
-| `src/server/uploadRoute.ts` (or equivalent) | **New** — `POST /api/media/upload` multipart endpoint |
-| `src/client/styles/` (or global CSS) | New drawer + upload zone CSS classes |
-| `src/client/components/MediaDetailPanel.test.tsx` | Update/migrate tests to `MediaBatchDrawer` |
+| Global CSS | New drawer + upload zone CSS classes |
+| `src/client/components/MediaDetailPanel.test.tsx` | Migrate tests to `MediaBatchDrawer.test.tsx` |
 
 ---
 
 ## Out of Scope
 
-- QR code display for mobile link (mobile link button is sufficient)
-- Drawer resize states (peek/standard/wide) — fixed 480px width for now
+- QR code display for mobile link (button is sufficient)
+- Drawer resize states (peek/standard/wide) — fixed 480px for now
 - Bulk upload progress summary — per-file bars are sufficient
 - Changing the mobile upload flow (`/photography/mobile/:batchId`) — untouched
+- New server endpoints — `POST /api/upload/media` already covers the desktop flow
