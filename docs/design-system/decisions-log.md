@@ -343,3 +343,48 @@ Without `:not(.hidden)`, `!important` overrides the `hidden` class and the water
 **Related:** TER-1535, PRs #179, #183, #184.
 
 [Future decisions append above this line, in reverse chronological order.]
+
+---
+
+## 2026-05-22: CAP-030 — pick-status chip color mapping (TER-1508)
+
+**Decision:** Use a five-state color scheme for pick-status chips in `SalesView`: gray `unreleased`, blue `released`, amber `picking`, green `picked`, red `recall_pending`.
+**Rationale:** Colors map to operator urgency. Gray = no action needed. Blue = released and awaiting warehouse. Amber = in motion. Green = complete. Red = warehouse problem, operator action required.
+**Implementation:** `PickStatusChip` function at the bottom of `SalesView.tsx` returns a `<span className="selection-pill ...">` with `data-pick-status` attribute for CSS targeting.
+**Files:** `src/client/views/SalesView.tsx`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1508, PR #190.
+
+---
+
+## 2026-05-22: CAP-030 — expansion-panel Remove gate for released lines (TER-1508)
+
+**Decision:** The per-row expansion panel Remove button must gate through `setPendingLineEdit` when the line's `pickStatus` is `released` or `picking`, identical to the selection-bar Remove path.
+**Rationale:** Warehouse has claimed the line. Removing without notification leaves the picker with no work and a dangling fulfillment record. Both removal paths (expansion panel AND selection bar) must invoke the same confirmation modal, which triggers the warehouse alert on confirm.
+**Convention:** Any action that modifies a line with `pickStatus` in `['released', 'picking']` must go through `pendingLineEdit` — not `runCommand` directly. This applies to both the expansion panel and selection bar. Test QA finding caught this gap in the expansion panel path.
+**Files:** `src/client/views/SalesView.tsx` — `salesLineExpansionConfig.actionsRenderer`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1508, PR #190, QA finding fix.
+
+---
+
+## 2026-05-22: CAP-030 — non-persisted pick queue filter slice in uiStore (TER-1510)
+
+**Decision:** `pickQueueFilters: Set<string>` is stored in `uiStore` but intentionally excluded from the `partialize` whitelist. Filter state resets to empty on page reload.
+**Rationale:** Pick queue filters are session-context (what the manager is looking at right now). Persisting them across sessions would surface stale chips on reload and make it unclear why data is filtered. Unlike column layout prefs (`gridColumnPrefs`), queue filter chips are transient work state.
+**Convention:** Operator session state that should NOT survive reload goes in uiStore WITHOUT being added to `partialize`. Query/search/filter state is usually non-persistent unless explicitly scoped to user preferences.
+**Files:** `src/client/store/uiStore.ts`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1510, PR #190.
+
+---
+
+## 2026-05-22: CAP-030 — PickView mobile-first layout (TER-1513)
+
+**Decision:** PickView uses Tailwind only (no AG Grid), touch-sized inputs (`minHeight: 56px` for primary actions, 44px minimum everywhere), and a three-screen push-navigation pattern (QueueScreen → PickListScreen → PickLineScreen) driven by component state rather than URL params.
+**Rationale:** AG Grid is the wrong tool for a warehouse flow on a phone. Touch targets need to be large. URL-param navigation adds latency and history complexity for a sequential workflow (queue item → list → line → back).
+**BarcodeDetector:** `typeof window.BarcodeDetector !== 'undefined'` in `useEffect` sets `barcodeSupported` state. Manual entry is always visible. Scan button renders in both states (shows `—` when unsupported). Never hide the fallback.
+**Alert interrupt:** Must use `role="alertdialog"`, `aria-modal="true"`. Must NOT be dismissable by Escape or click-outside. Focus trap is required (tracked in TER-1560 as a pre-condition before the backend activates real alerts).
+**Files:** `src/client/views/PickView.tsx`, `src/client/components/pick/QueueScreen.tsx`, `PickListScreen.tsx`, `PickLineScreen.tsx`, `pickTypes.ts`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1513, PR #190.

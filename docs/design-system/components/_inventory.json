@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-22T18:29:26.713Z",
-  "componentCount": 56,
+  "generated": "2026-05-22T18:58:20.623Z",
+  "componentCount": 60,
   "byCategory": {
     "drawer": 20,
     "form": 8,
     "navigation": 6,
     "grid": 10,
-    "other": 11,
+    "other": 15,
     "hook": 1
   },
   "components": [
@@ -486,6 +486,41 @@
         "parseGridFilter",
         "removeFilterChip",
         "serializeGridFilter"
+      ]
+    },
+    {
+      "name": "PickLineScreen",
+      "path": "src/client/components/pick/PickLineScreen.tsx",
+      "category": "other",
+      "exports": [
+        "PickLineScreen"
+      ]
+    },
+    {
+      "name": "PickListScreen",
+      "path": "src/client/components/pick/PickListScreen.tsx",
+      "category": "other",
+      "exports": [
+        "PickListScreen"
+      ]
+    },
+    {
+      "name": "QueueScreen",
+      "path": "src/client/components/pick/QueueScreen.tsx",
+      "category": "other",
+      "exports": [
+        "QueueScreen"
+      ]
+    },
+    {
+      "name": "pickTypes",
+      "path": "src/client/components/pick/pickTypes.ts",
+      "category": "other",
+      "exports": [
+        "PickLine",
+        "PickListWithLines",
+        "PickQueueItem",
+        "WarehouseAlertInterrupt"
       ]
     },
     {
