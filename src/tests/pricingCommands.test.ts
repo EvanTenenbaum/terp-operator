@@ -388,10 +388,12 @@ describe('priceSalesOrder with customer-rule strategy', () => {
     const tx: any = {
       select: vi.fn(() => ({
         from: (_table: any) => {
-          // Sequence after prefetch refactor:
-          //   0 orders, 1 customers, 2 salesOrderLines, 3 systemSettings,
-          //   4 batches(all line.batchIds in one call), 5 recalcOrder lines
+          // Sequence after useChainResolver flag check added (CAP-030):
+          //   0 pricing.useChainResolver flag, 1 orders, 2 customers,
+          //   3 salesOrderLines, 4 systemSettings (pricing.defaults),
+          //   5 batches (all line.batchIds in one call), 6 recalcOrder lines
           const responses: Row[][] = [
+            [],  // 0: pricing.useChainResolver flag — not set
             [{ id: ORDER_ID, customerId: CUSTOMER_ID, orderNo: 'SO-1' }],
             [{ id: CUSTOMER_ID, tags: [], pricingRule: customerRule, name: 'C' }],
             lines,
