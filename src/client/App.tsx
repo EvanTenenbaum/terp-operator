@@ -77,6 +77,23 @@ function AppContent() {
       if (event.toast && event.actorId !== currentUserId) pushToast(event.toast, 'error');
       void invalidateAffectedQueries(queryClient, event.affectedIds ?? []);
     });
+
+    // CAP-030 / TER-1518 — pick-specific event channels.
+    // pick:queue fires when the queue roster changes (release / recall).
+    // pick:order:{orderId} fires when a specific order's pick state changes.
+    // If socket is unavailable, react-query's refetch intervals cover updates.
+    socket.on('pick:queue', () => {
+      void queryClient.invalidateQueries({
+        predicate: (query) => JSON.stringify(query.queryKey).includes('pickQueue')
+      });
+    });
+    socket.onAny((event: string) => {
+      if (event.startsWith('pick:order:')) {
+        const orderId = event.slice('pick:order:'.length);
+        if (orderId) void invalidateAffectedQueries(queryClient, [orderId]);
+      }
+    });
+
     return () => {
       socket.close();
     };

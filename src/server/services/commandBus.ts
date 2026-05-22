@@ -83,6 +83,7 @@ import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
 import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import { photoUploadTokens } from '../schema';
+import { emitPickEvent, emitPickOrderAndQueue } from '../sockets';
 
 import { createHash, randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -405,6 +406,23 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         await createVendorPayoutReceipts(pool, commandResult.affectedIds[1], commandId, user.id);
       } catch (e) {
         console.warn('[commandBus] vendor_payout receipt hook failed after commit:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // CAP-030 / TER-1518 — emit pick:queue and/or pick:order:{orderId} after pick mutations commit.
+    // These events let warehouse pick screens refresh without waiting for react-query's staleness interval.
+    // Gracefully no-ops if socket server is not initialized or orderId is missing.
+    const PICK_QUEUE_AND_ORDER_CMDS = ['releaseLineForPicking', 'releaseLinesForPicking', 'recallLineFromPicking'];
+    const PICK_ORDER_ONLY_CMDS = ['recordWeighAndPack', 'adjustFulfillmentLine', 'acknowledgeWarehouseAlert', 'returnPickedUnits', 'cancelFulfillmentLine'];
+    if (commandResult.ok && commandResult.orderId) {
+      try {
+        if (PICK_QUEUE_AND_ORDER_CMDS.includes(input.name)) {
+          emitPickOrderAndQueue(commandResult.orderId, { kind: input.name, at: new Date().toISOString() });
+        } else if (PICK_ORDER_ONLY_CMDS.includes(input.name)) {
+          emitPickEvent(`pick:order:${commandResult.orderId}`, { kind: input.name, at: new Date().toISOString() });
+        }
+      } catch (e) {
+        console.warn('[commandBus] pick event emit failed after commit:', e instanceof Error ? e.message : e);
       }
     }
 
@@ -3269,7 +3287,8 @@ async function recordWeighAndPack(tx: Tx, payload: Payload, commandId: string, t
   if (actualWeight != null) values.actualWeight = qtyScale(actualWeight);
   await tx.update(fulfillmentLines).set(values).where(eq(fulfillmentLines.id, lineId));
   await writeBagManifest(tx, line.pickListId);
-  return { ok: true, commandId, affectedIds: [line.pickListId, lineId], toast };
+  const [pick] = await tx.select({ orderId: pickLists.orderId }).from(pickLists).where(eq(pickLists.id, line.pickListId)).limit(1);
+  return { ok: true, commandId, affectedIds: [line.pickListId, lineId], toast, orderId: pick?.orderId };
 }
 
 async function markOrderFulfilled(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -3345,7 +3364,8 @@ async function releaseLineForPicking(tx: Tx, payload: Payload, userId: string, c
     ok: true,
     commandId,
     affectedIds: [lineId, pickId, fulfillmentLineId, line.orderId],
-    toast: `${line.itemName || 'Line'} released for picking.`
+    toast: `${line.itemName || 'Line'} released for picking.`,
+    orderId: line.orderId
   };
 }
 
@@ -3356,11 +3376,13 @@ async function releaseLinesForPicking(tx: Tx, payload: Payload, userId: string, 
     : [];
   if (!lineIds.length) throw new Error('lineIds must be a non-empty array.');
   const affected: string[] = [];
+  let firstOrderId: string | undefined;
   for (const lineId of lineIds) {
     const result = await releaseLineForPicking(tx, { ...payload, lineId }, userId, commandId);
     for (const id of result.affectedIds) if (!affected.includes(id)) affected.push(id);
+    if (result.orderId && !firstOrderId) firstOrderId = result.orderId;
   }
-  return { ok: true, commandId, affectedIds: affected, toast: `${lineIds.length} line(s) released for picking.` };
+  return { ok: true, commandId, affectedIds: affected, toast: `${lineIds.length} line(s) released for picking.`, orderId: firstOrderId };
 }
 
 // CAP-030 (TER-1485): Recall a released line from picking. Only allowed while the
@@ -3372,7 +3394,7 @@ async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Sales order line not found.');
   if (!line.pickReleasedAt) {
-    return { ok: true, commandId, affectedIds: [lineId], toast: 'Line is not released for picking.' };
+    return { ok: true, commandId, affectedIds: [lineId], toast: 'Line is not released for picking.', orderId: line.orderId };
   }
   // Only recall when the fulfillment line is still open and unpacked.
   const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.orderLineId, lineId)).limit(1);
@@ -3391,7 +3413,7 @@ async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string
     .where(eq(salesOrderLines.id, lineId));
   const affected: string[] = [lineId];
   if (fl) affected.push(fl.id, fl.pickListId);
-  return { ok: true, commandId, affectedIds: affected, toast: 'Line recalled from picking.' };
+  return { ok: true, commandId, affectedIds: affected, toast: 'Line recalled from picking.', orderId: line.orderId };
 }
 
 // CAP-030 (TER-1488): Acknowledge a single warehouse alert on a fulfillment line.
@@ -3415,11 +3437,13 @@ async function acknowledgeWarehouseAlert(tx: Tx, payload: Payload, commandId: st
   await tx.update(fulfillmentLines)
     .set({ warehouseAlerts: alerts, statusExtended, updatedAt: new Date() })
     .where(eq(fulfillmentLines.id, fulfillmentLineId));
+  const [alertPick] = await tx.select({ orderId: pickLists.orderId }).from(pickLists).where(eq(pickLists.id, fl.pickListId)).limit(1);
   return {
     ok: true,
     commandId,
     affectedIds: [fulfillmentLineId, fl.pickListId],
-    toast: alerts.length === 0 ? 'All alerts cleared.' : `Alert acknowledged. ${alerts.length} remaining.`
+    toast: alerts.length === 0 ? 'All alerts cleared.' : `Alert acknowledged. ${alerts.length} remaining.`,
+    orderId: alertPick?.orderId
   };
 }
 
@@ -3458,7 +3482,8 @@ async function returnPickedUnits(tx: Tx, payload: Payload, commandId: string): P
     });
     affected.push(fl.batchId);
   }
-  return { ok: true, commandId, affectedIds: affected, toast: `Returned ${qty} unit(s).` };
+  const [returnPick] = await tx.select({ orderId: pickLists.orderId }).from(pickLists).where(eq(pickLists.id, fl.pickListId)).limit(1);
+  return { ok: true, commandId, affectedIds: affected, toast: `Returned ${qty} unit(s).`, orderId: returnPick?.orderId };
 }
 
 // CAP-030 (TER-1488): Cancel a fulfillment line. If units have been picked, first
@@ -3502,7 +3527,8 @@ async function cancelFulfillmentLine(tx: Tx, payload: Payload, commandId: string
   await tx.update(fulfillmentLines)
     .set({ statusExtended: 'cancelled', updatedAt: new Date() })
     .where(eq(fulfillmentLines.id, fulfillmentLineId));
-  return { ok: true, commandId, affectedIds: affected, toast: 'Fulfillment line cancelled.' };
+  const [cancelPick] = await tx.select({ orderId: pickLists.orderId }).from(pickLists).where(eq(pickLists.id, fl.pickListId)).limit(1);
+  return { ok: true, commandId, affectedIds: affected, toast: 'Fulfillment line cancelled.', orderId: cancelPick?.orderId };
 }
 
 async function printLabels(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
