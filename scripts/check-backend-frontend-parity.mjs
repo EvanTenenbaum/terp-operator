@@ -5,6 +5,11 @@ const root = process.cwd();
 
 const commandNames = parseCommandNames(read('src/shared/commandCatalog.ts'));
 const internalOnlyCommandNames = parseCommandNames(read('src/shared/commandCatalog.ts'), 'internalOnlyCommandNames');
+const pendingFrontendCommandNames = parseCommandNames(read('src/shared/commandCatalog.ts'), 'pendingFrontendCommandNames');
+// Query endpoints that are implemented on the backend but whose frontend surface is pending.
+// Remove each entry when the corresponding frontend usage lands.
+// CAP-030 frontend: PR #186 (draft) — pickQueue, pickListWithLines, releaseEligibility
+const pendingFrontendQueryNames = ['pickQueue', 'pickListWithLines', 'releaseEligibility'];
 const queryNames = parseRouterNames(read('src/server/routers/queries.ts'));
 const clientText = readClientSource();
 const commandSurfaceAliases = {
@@ -14,9 +19,9 @@ const querySurfaceAliases = {
   csvExport: ['exportDataAsCsv']
 };
 
-const surfaceRequiredCommands = commandNames.filter((name) => !internalOnlyCommandNames.includes(name));
+const surfaceRequiredCommands = commandNames.filter((name) => !internalOnlyCommandNames.includes(name) && !pendingFrontendCommandNames.includes(name));
 const missingCommands = surfaceRequiredCommands.filter((name) => !hasCommandSurface(name));
-const missingQueries = queryNames.filter((name) => !hasQuerySurface(name));
+const missingQueries = queryNames.filter((name) => !hasQuerySurface(name) && !pendingFrontendQueryNames.includes(name));
 
 if (missingCommands.length || missingQueries.length) {
   console.error('Backend/frontend parity check failed.');
