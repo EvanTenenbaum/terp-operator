@@ -83,7 +83,8 @@ export type ViewKey =
   | 'processors'
   | 'credit-review'
   | 'photography'
-  | 'settings';
+  | 'settings'
+  | 'pick'; // CAP-030 / TER-1513
 
 export interface SessionUser {
   id: string;

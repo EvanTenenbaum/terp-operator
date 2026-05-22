@@ -39,6 +39,7 @@ import { CreditReviewView } from './views/CreditReviewView';
 import { MediaView } from './views/MediaView';
 import { PickView } from './views/PickView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
+import { PickView } from './views/PickView';
 
 // Sync URL with activeView state.
 // Nested routes intentionally use the first path segment as activeView

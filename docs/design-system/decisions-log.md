@@ -15,6 +15,33 @@
 
 ---
 
+## 2026-05-22 — CAP-030 pick-status chip colors (TER-1508)
+**Decision:** Pick-status chips use Tailwind utility classes directly (`bg-blue-100 text-blue-800` etc.) rather than a semantic CSS class.
+**Rationale:** Five states, one-off use in SalesView line expansion. If pick-status chips appear elsewhere, extract to `.pick-status-chip-*` semantic pattern then.
+**Example:** `src/client/views/SalesView.tsx` → `PickStatusChip` helper function.
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1508.
+
+---
+
+## 2026-05-22 — CAP-030 PickView mobile layout (TER-1513)
+**Decision:** PickView uses Tailwind-only layout (no AG Grid) per spec for mobile picker route.
+**Rationale:** Mobile pick workflow is linear card-by-card (Queue → List → Line). AG Grid's spreadsheet-native layout is inappropriate here; Tailwind stacked list buttons match the physical warehouse-scan UX. Minimum button height 56px on primary actions, 44px elsewhere. BarcodeDetector falls back gracefully — manual entry field always visible. Alert interrupt uses `role="alertdialog"` + `aria-modal="true"`; no click-outside dismiss per spec requirement.
+**Example:** `src/client/views/PickView.tsx`, `src/client/components/pick/`.
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1513.
+
+---
+
+## 2026-05-22 — CAP-030 pickQueueFilters in uiStore (TER-1510)
+**Decision:** Added `pickQueueFilters: Set<string>` as a non-persisted uiStore slice (NOT in `partialize`). Uses a Set for multi-chip selection vs. gridFilters' string approach. Pre-filters the dataset rows passed to OperatorGrid `rows` prop.
+**Rationale:** Chip multi-select requires a Set rather than a string. Non-persisted so filter state resets on reload (shared-workstation safety). Pre-filtering rows in the component keeps the grid API free for its own column filter model.
+**Example:** `src/client/store/uiStore.ts` → `pickQueueFilters`, `setPickQueueFilter`, `clearPickQueueFilters`; `src/client/views/OperationsViews.tsx` → `FulfillmentView`.
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1510.
+
+---
+
 ## 2026-05-22: Keel header establishes its own stacking context (z-20)
 **Decision:** `.keel` (`src/client/styles.css`) receives `position: relative; z-index: 20` (Tailwind: `relative z-20`) so the global header forms its own CSS stacking context at z-20 in the document flow.
 **Rationale:** `.keel` was `position: static`, meaning it had no stacking context. The `.quick-action-popover` (z-30) was therefore competing at the document level against AG Grid rows, which create stacking contexts via `transform: translate3d`. This caused the Quick Actions dropdown to render behind grid content. Adding `relative z-20` to `.keel` makes the header a self-contained stacking context above the content area (z-auto < z-20). The popover's z-30 is now local to the header's stacking context, which is correct. Drawers/modals at z-40/z-50 remain in the document stacking context and still render above the header.
@@ -206,10 +233,6 @@ Added `wrapHeaderText: true` + `autoHeaderHeight: true` to OperatorGrid defaultC
 
 **Convention:** Role-gated tRPC procedures should let the underlying service throw `TRPCError(FORBIDDEN)` via `assertRole(...)` rather than gating in the procedure body. `queries.purchaseOrderInternalReceipt` follows this pattern by passing `ctx.user` directly into `getInternalReceipt`. Single source of truth for the gate.
 
-[Future decisions append above this line, in reverse chronological order.]
-
----
-
 ## 2026-05-22: PO authoring UX — notes consolidation, record-prepayment relocation, status filter presets (TER-1528)
 
 **Decision 1:** Rename `buyerNotes` column header from "Buyer notes" to "Internal notes". Rename `internalNotes` column header to "Internal notes (ops)". Update authoring form labels to match.
@@ -318,3 +341,5 @@ Without `:not(.hidden)`, `!important` overrides the `hidden` class and the water
 **Files:** `src/client/components/ReceiptPreview.tsx`, `src/client/styles.css`, `tests/e2e/receipt-preview.spec.ts`, `src/server/seed.ts`
 **Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
 **Related:** TER-1535, PRs #179, #183, #184.
+
+[Future decisions append above this line, in reverse chronological order.]

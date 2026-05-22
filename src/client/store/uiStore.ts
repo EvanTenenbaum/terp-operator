@@ -78,6 +78,10 @@ interface UiState {
   dismissToast: (id: string) => void;
   setDismissedShadowBanner: (dismissed: boolean) => void;
   setShowMargin: (show: boolean) => void;
+  // CAP-030 / TER-1510 — non-persisted pick queue filter chips
+  pickQueueFilters: Set<string>;
+  setPickQueueFilter: (chip: string, active: boolean) => void;
+  clearPickQueueFilters: () => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -106,6 +110,7 @@ export const useUiStore = create<UiState>()(
     announcement: '',
     dismissedShadowBanner: false,
     showMargin: true,
+    pickQueueFilters: new Set<string>(),
     setActiveView: (view) =>
       set((state) => {
         if (state.activeView !== view) {
@@ -290,7 +295,15 @@ export const useUiStore = create<UiState>()(
       set((state) => {
         state.showMargin = show;
         state.announcement = show ? 'Margin visible.' : 'Margin hidden.';
-      })
+      }),
+    setPickQueueFilter: (chip, active) =>
+      set((state) => {
+        const next = new Set(state.pickQueueFilters);
+        if (active) next.add(chip); else next.delete(chip);
+        state.pickQueueFilters = next;
+      }),
+    clearPickQueueFilters: () =>
+      set((state) => { state.pickQueueFilters = new Set(); })
   })),
   {
     // Persist key intentionally retains legacy 'terp-agro-ui' name (see PR #66)
