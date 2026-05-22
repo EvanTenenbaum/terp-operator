@@ -743,7 +743,7 @@ export function PurchaseOrdersView() {
         }}
         onCellCommit={canWrite ? updatePoCell : undefined}
         actions={
-<>
+          <>
             <div role="group" aria-label="Filter by status">
               <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:draft,approved,ordered,partially_received')} aria-pressed={storedGridFilter === 'status:draft,approved,ordered,partially_received'}>Active</button>
               <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:ordered,partially_received')} aria-pressed={storedGridFilter === 'status:ordered,partially_received'}>Ordered</button>
@@ -755,7 +755,7 @@ export function PurchaseOrdersView() {
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
             ) : null}
-            <button
+<button
               className="secondary-button compact-action"
               type="button"
               disabled={!selectedPo?.id || !hasAnyActiveSnapshot}
@@ -764,7 +764,7 @@ export function PurchaseOrdersView() {
             >
               Preview receipt
             </button>
-          </>)
+          </>
         }
         expansionConfig={canWrite ? purchaseOrderExpansionConfig : undefined}
       />
