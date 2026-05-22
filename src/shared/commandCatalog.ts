@@ -137,6 +137,19 @@ export const internalOnlyCommandNames = [
   'bulkRevertCustomersToEngine',
 ] as const;
 
+// Commands that have been wired to the backend but whose frontend runCommand surface
+// is pending (PR #186 — CAP-030 frontend). Remove from this list when the frontend PR
+// lands so that parity enforcement kicks back in.
+export const pendingFrontendCommandNames = [
+  'releaseLineForPicking',
+  'releaseLinesForPicking',
+  'recallLineFromPicking',
+  'acknowledgeWarehouseAlert',
+  'returnPickedUnits',
+  'cancelFulfillmentLine',
+] as const;
+
+
 export type CommandName = (typeof commandNames)[number];
 
 export type ReversalDisposition = 'reversible' | 'offsettable' | 'terminal';
