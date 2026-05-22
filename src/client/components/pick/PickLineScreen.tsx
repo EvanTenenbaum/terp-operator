@@ -90,9 +90,8 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
 
   async function handleHold() {
     if (!line || !holdReason.trim()) return;
-    // TODO: depends on CAP-030 backend merge (TER-1488) — recallPickLine with reason
     await runCommand(
-      'recallPickLine',
+      'recallLineFromPicking',
       { lineId: line.id, reason: holdReason },
       'Hold pick line from PickView'
     );

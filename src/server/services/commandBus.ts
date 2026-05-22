@@ -693,16 +693,7 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
     case 'revokePhotoUploadToken':
       return revokePhotoUploadTokenCommand(tx, payload, commandId);
 
-    // TODO: depends on CAP-030 backend merge (TER-1481/TER-1485/TER-1488)
-    // Stub handlers — will be replaced by real implementations when the picking
-    // service module lands. For now these throw clearly so any accidental
-    // dispatch is caught by the commandBus error path.
-    case 'releaseLineForPicking':
-    case 'recallPickLine':
-    case 'acknowledgeWarehouseAlert':
-    case 'returnPickedUnits':
-    case 'cancelFulfillmentLine':
-      throw new Error(`${name}: CAP-030 backend not yet merged (TER-1481/1485/1488). Cannot execute.`);
+
 
   }
 }
