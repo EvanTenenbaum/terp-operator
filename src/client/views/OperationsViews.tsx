@@ -2002,12 +2002,15 @@ export function FulfillmentView() {
                           value={alertReturnQty}
                           inputMode="decimal"
                           placeholder="Qty"
+                          min="0.001"
+                          step="0.001"
+                          type="number"
                           onChange={(e) => setAlertReturnQty(e.target.value)}
                         />
                         <button
                           type="button"
                           className="secondary-button compact-action text-xs"
-                          disabled={isRunning || !alertReturnQty}
+                          disabled={isRunning || !alertReturnQty || Number(alertReturnQty) <= 0}
                           onClick={() => {
                             // TODO: depends on CAP-030 backend merge (TER-1488)
                             runCommand('returnPickedUnits', { alertId: alert.id, lineId: alert.lineId, qty: Number(alertReturnQty) }, 'Return picked units');
