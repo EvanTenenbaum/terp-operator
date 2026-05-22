@@ -7,7 +7,6 @@ import type {
   GridApi,
   GridReadyEvent,
   ICellRendererParams,
-  NewValueParams,
   ValueGetterParams
 } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -51,15 +50,6 @@ export function IntakeView() {
     const result = await runCommand('importBatchesCsv', { csv: csvText, validateOnly }, validateOnly ? 'Validate intake CSV import' : 'Import validated intake CSV');
     setCsvResult(result);
     if (result.ok && !validateOnly) setCsvOpen(false);
-  }
-
-  async function deleteDraftBatch(batchId: string) {
-    setBusy(true);
-    try {
-      await runCommand('deleteBatch', { batchId }, 'Delete draft intake row from queue');
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null) {
@@ -230,36 +220,6 @@ export function IntakeView() {
 
   function hasPendingBatches(order: IntakeOrderRow) {
     return order.batches?.some((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status)) ?? false;
-  }
-
-  async function verifyIntakeForOrder(order: IntakeOrderRow) {
-    setBusy(true);
-    try {
-      const pending = order.batches.filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status));
-      for (const batch of pending) {
-        const drafted = verifiedDraftsRef.current.get(batch.id);
-        if (drafted == null || !Number.isFinite(drafted) || drafted < 0) continue;
-        await runCommand(
-          'updateBatch',
-          { id: batch.id, intakeQty: drafted, availableQty: drafted },
-          'Apply actual intake quantity'
-        );
-      }
-      const discrepancyNotes: Record<string, string> = {};
-      for (const batch of pending) {
-        const reason = discrepancyReasonsRef.current.get(batch.id);
-        if (reason) discrepancyNotes[batch.id] = reason;
-      }
-      await runCommand(
-        'postPurchaseReceipt',
-        { batchIds: pending.map((batch) => batch.id), discrepancyNotes },
-        `Verify intake for ${order.poNo}`
-      );
-      verifiedDraftsRef.current.clear();
-      discrepancyReasonsRef.current.clear();
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function verifyAllForOrder(order: IntakeOrderRow) {
