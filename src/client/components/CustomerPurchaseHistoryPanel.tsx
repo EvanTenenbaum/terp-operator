@@ -113,7 +113,7 @@ export function CustomerPurchaseHistoryPanel({ customerId, customerName }: Custo
                   <tr>
                     <th scope="col">Order</th>
                     <th scope="col">Date</th>
-                    <th scope="col">Product alias</th>
+                    <th scope="col">Product name</th>
                     <th scope="col">Canonical</th>
                     <th scope="col">Vendor</th>
                     <th scope="col">Sale price</th>

@@ -1,69 +1,21 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
-  CellValueChangedEvent,
   ColDef,
   GetDetailRowDataParams,
   GridApi,
   GridReadyEvent,
   ICellRendererParams,
-  NewValueParams,
   ValueGetterParams
 } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { WorkspacePanel } from '../components/WorkspacePanel';
+import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useUiStore } from '../store/uiStore';
 import type { CommandResult } from '../../shared/types';
-
-interface IntakeBatchRow {
-  id: string;
-  purchaseOrderId: string;
-  purchaseOrderLineId: string | null;
-  batchCode: string;
-  name: string;
-  itemId?: string | null;
-  itemAlias?: string | null;
-  category: string;
-  intakeQty: string;
-  availableQty: string;
-  unitCost: string;
-  unitPrice: string;
-  uom: string;
-  status: string;
-  notes: string | null;
-  validationIssues: string[];
-  mediaStatus: string;
-  arrivalStatus: string;
-  vendorId: string | null;
-  tags: string[];
-  location: string;
-  lotCode: string | null;
-  expectedQty: string | null;
-  expectedUnitCost: string | null;
-  discrepancyReason?: string;
-  createdAt: string;
-}
-
-interface IntakeOrderRow {
-  id: string;
-  poNo: string;
-  vendor: string | null;
-  vendorId: string | null;
-  status: string;
-  expectedDate: string | null;
-  orderedAt: string | null;
-  receivedAt: string | null;
-  total: string;
-  expectedTotal: string;
-  expectedTotalQty: string;
-  receivedTotalQty: string;
-  internalNotes: string | null;
-  buyerNotes: string | null;
-  createdAt: string;
-  batches: IntakeBatchRow[];
-}
+import type { IntakeBatchRow, IntakeOrderRow } from './IntakeView.types';
 
 const EMPTY: IntakeOrderRow[] = [];
 
@@ -72,10 +24,9 @@ export function IntakeView() {
   const canWrite = me.data?.role !== 'viewer';
   const intakeQueue = trpc.queries.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
   const { runCommand, isRunning } = useCommandRunner();
+  const utils = trpc.useUtils();
   const pushToast = useUiStore((state) => state.pushToast);
 
-  const verifiedDraftsRef = useRef<Map<string, number>>(new Map());
-  const discrepancyReasonsRef = useRef<Map<string, string>>(new Map());
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmVerifyAllFor, setConfirmVerifyAllFor] = useState<IntakeOrderRow | null>(null);
@@ -91,16 +42,6 @@ export function IntakeView() {
     confirmVerifyAllFor !== null,
     () => setConfirmVerifyAllFor(null)
   );
-  const previewBatchIds = previewOrder
-    ? previewOrder.batches
-        .filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))
-        .map((batch) => batch.id)
-    : [];
-  const receiptPreview = trpc.queries.receiptPreview.useQuery(
-    { batchIds: previewBatchIds },
-    { enabled: previewBatchIds.length > 0 }
-  );
-
   const orderRows = (intakeQueue.data ?? EMPTY) as IntakeOrderRow[];
 
   async function importCsv(validateOnly: boolean) {
@@ -109,10 +50,52 @@ export function IntakeView() {
     if (result.ok && !validateOnly) setCsvOpen(false);
   }
 
-  async function deleteDraftBatch(batchId: string) {
+  async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) {
     setBusy(true);
     try {
-      await runCommand('deleteBatch', { batchId }, 'Delete draft intake row from queue');
+      const actual = Number(intakeQty);
+      const expected = Number(expectedQty ?? 0);
+
+      // Step 1: Persist the actual qty to the batch (mirrors old verifyIntakeForOrder)
+      if (Number.isFinite(actual) && actual >= 0) {
+        const updateResult = await runCommand(
+          'updateBatch',
+          { id: batchId, intakeQty: actual, availableQty: actual },
+          'Apply actual intake quantity'
+        );
+        if (!updateResult.ok) return;
+      }
+
+      // Step 2: Auto-flag if discrepancy
+      if (expected > 0 && actual > 0 && actual !== expected) {
+        const reason = discrepancyReason?.trim()
+          || `Quantity discrepancy: expected ${expected}, received ${actual}`;
+        const flagResult = await runCommand('flagBatch', { batchId, reason }, 'Auto-flag quantity discrepancy');
+        if (!flagResult.ok) return; // abort if flag failed; operator sees error toast from runCommand
+      }
+
+      // Step 3: Post receipt — pass discrepancyNotes so the server wires it to PO/bill notes
+      const discrepancyNotes: Record<string, string> = {};
+      if (discrepancyReason?.trim()) discrepancyNotes[batchId] = discrepancyReason.trim();
+      await runCommand(
+        'postPurchaseReceipt',
+        { batchIds: [batchId], discrepancyNotes },
+        'Verify single batch intake'
+      );
+      await utils.queries.intakeQueue.invalidate();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setMarketName(itemId: string, alias: string) {
+    setBusy(true);
+    try {
+      await runCommand(
+        'setItemAlias',
+        { itemId, alias },
+        alias ? `Set market name to "${alias}"` : 'Clear market name'
+      );
     } finally {
       setBusy(false);
     }
@@ -123,13 +106,8 @@ export function IntakeView() {
       detailGridOptions: {
         columnDefs: buildBatchColumns(
           canWrite,
-          async (batchId, reason) => {
-            setBusy(true);
-            try {
-              await runCommand('flagBatch', { batchId, reason }, 'Flag intake lot from grid');
-            } finally {
-              setBusy(false);
-            }
+          async (batchId, intakeQty, expectedQty, discrepancyReason) => {
+            await verifyBatch(batchId, intakeQty, expectedQty, discrepancyReason);
           },
           async (batchId, reason) => {
             setBusy(true);
@@ -150,30 +128,20 @@ export function IntakeView() {
               setBusy(false);
             }
           },
-          deleteDraftBatch
-        ),
-        defaultColDef: { resizable: true, sortable: true } as ColDef<IntakeBatchRow>,
-        domLayout: 'autoHeight' as const,
-        onCellValueChanged: (event: CellValueChangedEvent<IntakeBatchRow>) => {
-          const data = event.data;
-          if (!data?.id) return;
-          const field = event.colDef.field;
-          if (field === 'intakeQty') {
-            const next = Number(event.newValue ?? data.intakeQty ?? 0);
-            if (Number.isFinite(next) && next >= 0) {
-              verifiedDraftsRef.current.set(data.id, next);
-            }
-          } else if (field === 'discrepancyReason') {
-            const reason = String(event.newValue ?? '').trim();
-            if (reason) discrepancyReasonsRef.current.set(data.id, reason);
-            else discrepancyReasonsRef.current.delete(data.id);
+          async (itemId, alias) => {
+            await setMarketName(itemId, alias);
           }
-        }
+        ),
+        defaultColDef: { resizable: true, sortable: true, wrapHeaderText: true, autoHeaderHeight: true } as ColDef<IntakeBatchRow>,
+        domLayout: 'autoHeight' as const,
+        rowHeight: 28,
+        headerHeight: 30,
       },
       getDetailRowData: (params: GetDetailRowDataParams<IntakeOrderRow>) => {
         params.successCallback(params.data?.batches ?? []);
       }
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [canWrite, runCommand, me.data?.name]
   );
 
@@ -211,20 +179,20 @@ export function IntakeView() {
       {
         headerName: 'Actions',
         pinned: 'right',
-        minWidth: 360,
+        minWidth: 280,
         cellRenderer: (params: ICellRendererParams<IntakeOrderRow>) => {
           const order = params.data;
           if (!order) return null;
+
+          const postedCount = order.batches.filter((b) => b.status === 'posted').length;
+          const totalCount = order.batches.length;
+          const allVerified = totalCount > 0 && postedCount === totalCount;
+
           return (
             <div className="flex h-full items-center gap-2">
-              <button
-                type="button"
-                className="primary-button compact-action"
-                disabled={!canWrite || busy || isRunning || !canVerifyIntake(order)}
-                onClick={() => void verifyIntakeForOrder(order)}
-              >
-                Verify intake
-              </button>
+              <span className={allVerified ? 'selection-pill success' : 'selection-pill'}>
+                {postedCount}/{totalCount} verified
+              </span>
               <button
                 type="button"
                 className="secondary-button compact-action"
@@ -249,58 +217,15 @@ export function IntakeView() {
     [busy, isRunning, canWrite]
   );
 
-  function canVerifyIntake(order: IntakeOrderRow) {
-    if (!order.batches?.length) return false;
-    if (!order.batches.some((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))) return false;
-    return order.batches
-      .filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))
-      .every((batch) => {
-        const drafted = verifiedDraftsRef.current.get(batch.id);
-        if (drafted != null && Number.isFinite(drafted)) return true;
-        return Number(batch.intakeQty) > 0;
-      });
-  }
-
   function hasPendingBatches(order: IntakeOrderRow) {
     return order.batches?.some((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status)) ?? false;
-  }
-
-  async function verifyIntakeForOrder(order: IntakeOrderRow) {
-    setBusy(true);
-    try {
-      const pending = order.batches.filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status));
-      for (const batch of pending) {
-        const drafted = verifiedDraftsRef.current.get(batch.id);
-        if (drafted == null || !Number.isFinite(drafted) || drafted < 0) continue;
-        await runCommand(
-          'updateBatch',
-          { id: batch.id, intakeQty: drafted, availableQty: drafted },
-          'Apply actual intake quantity'
-        );
-      }
-      const discrepancyNotes: Record<string, string> = {};
-      for (const batch of pending) {
-        const reason = discrepancyReasonsRef.current.get(batch.id);
-        if (reason) discrepancyNotes[batch.id] = reason;
-      }
-      await runCommand(
-        'postPurchaseReceipt',
-        { batchIds: pending.map((batch) => batch.id), discrepancyNotes },
-        `Verify intake for ${order.poNo}`
-      );
-      verifiedDraftsRef.current.clear();
-      discrepancyReasonsRef.current.clear();
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function verifyAllForOrder(order: IntakeOrderRow) {
     setBusy(true);
     try {
       await runCommand('verifyAllIntake', { purchaseOrderId: order.id }, `Verify all intake for ${order.poNo}`);
-      verifiedDraftsRef.current.clear();
-      discrepancyReasonsRef.current.clear();
+      await utils.queries.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }
@@ -312,174 +237,123 @@ export function IntakeView() {
   }, []);
 
   return (
-    <div className="view-stack">
-      <div className="control-band">
-        <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
-          CSV import
-        </button>
-      </div>
-      {csvOpen ? (
-        <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
-          <div ref={csvImportFocusRef}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  className="secondary-button compact-action"
-                  type="button"
-                  disabled={!csvText.trim() || isRunning || busy}
-                  onClick={() => void importCsv(true)}
-                >
-                  Validate
-                </button>
-                <button
-                  className="primary-button compact-action"
-                  type="button"
-                  disabled={!csvResult?.ok || !csvText.trim() || isRunning || busy}
-                  onClick={() => void importCsv(false)}
-                >
-                  Import
-                </button>
-              </div>
-            </div>
-            <textarea
-              className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
-              value={csvText}
-              onChange={(event) => setCsvText(event.target.value)}
-            />
-            {csvResult ? (
-              <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
-            ) : null}
-          </div>
-        </WorkspacePanel>
-      ) : null}
-      <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
-        <div className="ag-theme-quartz grid-shell">
-          <AgGridReact<IntakeOrderRow>
-            rowData={orderRows}
-            columnDefs={columnDefs}
-            defaultColDef={{ sortable: true, resizable: true, filter: true, minWidth: 120 }}
-            masterDetail
-            detailRowAutoHeight
-            detailCellRendererParams={detailCellRendererParams}
-            getRowId={(params) => String(params.data.id)}
-            onGridReady={onGridReady}
-            loading={intakeQueue.isLoading || isRunning || busy}
-            isRowMaster={(data) => Boolean(data?.batches?.length)}
-            animateRows={false}
-          />
+    <div className="flex flex-row min-h-0 flex-1">
+      <div className="view-stack flex-1 min-w-0">
+        <div className="control-band">
+          <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
+            CSV import
+          </button>
         </div>
-        {!intakeQueue.isLoading && orderRows.length === 0 ? (
-          <div className="p-4 text-sm text-zinc-600">No approved purchase orders with linked intake batches yet. Approve a PO to populate this queue.</div>
-        ) : null}
-      </WorkspacePanel>
-      {previewOrder ? (
-        <WorkspacePanel
-          panelId="intake:receipt-preview"
-          title={`Receipt preview — ${previewOrder.poNo}`}
-          contentClassName="p-3"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <button className="text-button" type="button" onClick={() => setPreviewOrder(null)}>
-              Close
-            </button>
-          </div>
-          {receiptPreview.data ? (
-            <div className="mt-3 grid gap-3">
-              <div className="grid gap-2 text-sm md:grid-cols-4">
-                <span className="selection-pill">Vendor {receiptPreview.data.vendor || 'Mixed / missing'}</span>
-                <span className="selection-pill">{receiptPreview.data.rows.length} row(s)</span>
-                <span className="selection-pill">Total ${receiptPreview.data.total}</span>
-                <span className={receiptPreview.data.ok ? 'selection-pill success' : 'selection-pill warning'}>
-                  {receiptPreview.data.ok ? 'Ready to post' : `${receiptPreview.data.conflicts.length} conflict(s)`}
-                </span>
-              </div>
-              {receiptPreview.data.conflicts.length ? (
-                <div className="grid gap-1 text-sm text-red-700">
-                  {receiptPreview.data.conflicts.map((conflict) => (
-                    <div key={conflict}>{conflict}</div>
-                  ))}
+        {csvOpen ? (
+          <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
+            <div ref={csvImportFocusRef}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    className="secondary-button compact-action"
+                    type="button"
+                    disabled={!csvText.trim() || isRunning || busy}
+                    onClick={() => void importCsv(true)}
+                  >
+                    Validate
+                  </button>
+                  <button
+                    className="primary-button compact-action"
+                    type="button"
+                    disabled={!csvResult?.ok || !csvText.trim() || isRunning || busy}
+                    onClick={() => void importCsv(false)}
+                  >
+                    Import
+                  </button>
                 </div>
+              </div>
+              <textarea
+                className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
+                value={csvText}
+                onChange={(event) => setCsvText(event.target.value)}
+              />
+              {csvResult ? (
+                <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
               ) : null}
-              <div className="finder-table-wrap max-h-64">
-                <table className="finder-table">
-                  <thead>
-                    <tr>
-                      <th>Batch</th>
-                      <th>Name</th>
-                      <th>Qty</th>
-                      <th>Cost</th>
-                      <th>Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {receiptPreview.data.rows.map((row) => (
-                      <tr key={String(row.id)}>
-                        <td>{String(row.batchCode)}</td>
-                        <td>{String(row.name)}</td>
-                        <td>{String(row.intakeQty)}</td>
-                        <td>${String(row.unitCost)}</td>
-                        <td>${Number(row.subtotal ?? 0).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            </div>
+          </WorkspacePanel>
+        ) : null}
+        <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
+          <div className="ag-theme-quartz grid-shell">
+            <AgGridReact<IntakeOrderRow>
+              rowData={orderRows}
+              columnDefs={columnDefs}
+              defaultColDef={{ sortable: true, resizable: true, filter: true, minWidth: 120, wrapHeaderText: true, autoHeaderHeight: true }}
+              masterDetail
+              detailRowAutoHeight
+              detailCellRendererParams={detailCellRendererParams}
+              context={{ busy, isRunning }}
+              getRowId={(params) => String(params.data.id)}
+              onGridReady={onGridReady}
+              loading={intakeQueue.isLoading || isRunning || busy}
+              isRowMaster={(data) => Boolean(data?.batches?.length)}
+              animateRows={false}
+            />
+          </div>
+          {!intakeQueue.isLoading && orderRows.length === 0 ? (
+            <div className="p-4 text-sm text-zinc-600">No approved purchase orders with linked intake batches yet. Approve a PO to populate this queue.</div>
+          ) : null}
+        </WorkspacePanel>
+        {confirmVerifyAllFor ? (
+          <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
+            <div ref={confirmVerifyAllFocusRef}>
+              <p className="text-sm text-zinc-700">
+                This will accept every pending batch on this PO as the expected quantity and post the receipt.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  className="primary-button compact-action"
+                  disabled={busy || isRunning}
+                  onClick={async () => {
+                    const target = confirmVerifyAllFor;
+                    setConfirmVerifyAllFor(null);
+                    if (target) {
+                      await verifyAllForOrder(target);
+                      pushToast(`Verified all intake for ${target.poNo}.`, 'success');
+                    }
+                  }}
+                >
+                  Yes — verify all
+                </button>
+                <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
+                  Cancel
+                </button>
               </div>
             </div>
-          ) : (
-            <div className="text-sm text-zinc-600">Loading preview...</div>
-          )}
-        </WorkspacePanel>
-      ) : null}
-      {confirmVerifyAllFor ? (
-        <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
-          <div ref={confirmVerifyAllFocusRef}>
-            <p className="text-sm text-zinc-700">
-              This will accept every pending batch on this PO as the expected quantity and post the receipt.
-            </p>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                className="primary-button compact-action"
-                disabled={busy || isRunning}
-                onClick={async () => {
-                  const target = confirmVerifyAllFor;
-                  setConfirmVerifyAllFor(null);
-                  if (target) {
-                    await verifyAllForOrder(target);
-                    pushToast(`Verified all intake for ${target.poNo}.`, 'success');
-                  }
-                }}
-              >
-                Yes — verify all
-              </button>
-              <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </WorkspacePanel>
-      ) : null}
+          </WorkspacePanel>
+        ) : null}
+      </div>
+      <ReceiptPreviewDrawer
+        order={previewOrder}
+        onClose={() => setPreviewOrder(null)}
+      />
     </div>
   );
 }
 
 function buildBatchColumns(
   canWrite: boolean,
-  onFlag: (batchId: string, reason: string) => Promise<void>,
+  onVerify: (batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) => Promise<void>,
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
-  onDeleteDraft: (batchId: string) => Promise<void>
+  onSetMarketName: (itemId: string, alias: string) => Promise<void>
 ): ColDef<IntakeBatchRow>[] {
   return [
     { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
     { field: 'name', minWidth: 180 },
     {
       field: 'itemAlias',
-      headerName: 'Customer alias',
+      headerName: 'Market name',
       editable: false,
       minWidth: 160,
       tooltipValueGetter: (params) =>
-        params.value ? `Customer-facing name: ${params.value}. Vendor/audit surfaces keep ${params.data?.name ?? 'canonical'}.` : 'No alias set; canonical name shown to customers.'
+        params.value ? `Market name: ${params.value}. Set via "Add market name" on this row.` : 'No market name set. Use "Add market name" to assign one.'
     },
     {
       headerName: 'Expected qty',
@@ -496,11 +370,6 @@ function buildBatchColumns(
       valueParser: (params) => {
         const next = Number(params.newValue);
         return Number.isFinite(next) && next >= 0 ? next : params.oldValue;
-      },
-      cellClass: (params) => {
-        const expected = Number(params.data?.expectedQty ?? 0);
-        const actual = Number(params.value ?? 0);
-        return expected && actual && expected !== actual ? 'intake-discrepancy' : '';
       },
       cellStyle: (params) => {
         const expected = Number(params.data?.expectedQty ?? 0);
@@ -534,29 +403,25 @@ function buildBatchColumns(
       minWidth: 110
     },
     { field: 'status', minWidth: 110 },
-    {
-      field: 'notes',
-      headerName: 'Notes',
-      editable: canWrite,
-      minWidth: 220,
-      cellEditor: 'agLargeTextCellEditor',
-      cellEditorPopup: true,
-      onCellValueChanged: (event: NewValueParams<IntakeBatchRow>) => {
-        if (!event.data?.id) return;
-        const addition = String(event.newValue ?? '').trim();
-        if (!addition || addition === event.oldValue) return;
-        void onAppendNote(event.data.id, event.data.notes ?? null, addition);
-      }
-    },
+    { field: 'notes', headerName: 'Notes', editable: false, minWidth: 220 },
     {
       headerName: 'Actions',
       pinned: 'right',
-      minWidth: 260,
+      minWidth: 300,
       cellRenderer: (params: ICellRendererParams<IntakeBatchRow>) => {
         const row = params.data;
         if (!row || !canWrite) return null;
+        const ctx = params.context as { busy: boolean; isRunning: boolean } | undefined;
         return (
-          <BatchRowActions row={row} onFlag={onFlag} onReject={onReject} onDeleteDraft={onDeleteDraft} />
+          <BatchRowActions
+            row={row}
+            busy={ctx?.busy ?? false}
+            isRunning={ctx?.isRunning ?? false}
+            onVerify={onVerify}
+            onReject={onReject}
+            onAppendNote={onAppendNote}
+            onSetMarketName={onSetMarketName}
+          />
         );
       }
     }
@@ -565,73 +430,119 @@ function buildBatchColumns(
 
 function BatchRowActions({
   row,
-  onFlag,
+  busy,
+  isRunning,
+  onVerify,
   onReject,
-  onDeleteDraft
+  onAppendNote,
+  onSetMarketName,
 }: {
   row: IntakeBatchRow;
-  onFlag: (batchId: string, reason: string) => Promise<void>;
+  busy: boolean;
+  isRunning: boolean;
+  onVerify: (batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) => Promise<void>;
   onReject: (batchId: string, reason: string) => Promise<void>;
-  onDeleteDraft: (batchId: string) => Promise<void>;
+  onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>;
+  onSetMarketName: (itemId: string, alias: string) => Promise<void>;
 }) {
-  const [mode, setMode] = useState<'idle' | 'flag' | 'reject'>('idle');
-  const [reason, setReason] = useState('');
+  const [mode, setMode] = useState<'idle' | 'reject' | 'note' | 'marketName'>('idle');
+  const [inputValue, setInputValue] = useState('');
+
+  const canVerify = row.status === 'draft' || row.status === 'ready';
+  const canAct = row.status !== 'returned' && row.status !== 'posted';
+
+  function openMode(next: 'reject' | 'note' | 'marketName', prefill = '') {
+    setMode(next);
+    setInputValue(prefill);
+  }
+
+  function cancel() {
+    setMode('idle');
+    setInputValue('');
+  }
 
   if (mode === 'idle') {
-    const disabled = row.status === 'returned' || row.status === 'posted';
     return (
       <div className="flex h-full items-center gap-1">
-        <button type="button" className="secondary-button compact-action" disabled={disabled} onClick={() => setMode('flag')}>
-          Flag
+        <button
+          type="button"
+          className="primary-button compact-action"
+          disabled={!canVerify || busy || isRunning}
+          title={!canVerify ? `Cannot verify: batch is ${row.status}` : 'Verify this batch'}
+          onClick={() => void onVerify(row.id, row.intakeQty, row.expectedQty, row.discrepancyReason)}
+        >
+          Verify
         </button>
-        <button type="button" className="secondary-button compact-action" disabled={disabled} onClick={() => setMode('reject')}>
+        <button
+          type="button"
+          className="secondary-button compact-action"
+          disabled={!canAct}
+          onClick={() => openMode('reject')}
+        >
           Reject
         </button>
         <button
           type="button"
           className="secondary-button compact-action"
-          disabled={row.status !== 'draft'}
-          title="Delete this draft batch"
-          onClick={() => void onDeleteDraft(row.id)}
+          onClick={() => openMode('note')}
         >
-          Delete draft
+          Add note
+        </button>
+        <button
+          type="button"
+          className="secondary-button compact-action"
+          disabled={!row.itemId}
+          title={!row.itemId ? 'Batch not linked to a catalog item' : 'Set market name for this item'}
+          onClick={() => openMode('marketName', row.itemAlias ?? '')}
+        >
+          Market name
         </button>
       </div>
     );
   }
+
+  const placeholder =
+    mode === 'reject' ? 'Reject reason' :
+    mode === 'note' ? 'Add a note…' :
+    'Market name';
+
+  const label =
+    mode === 'reject' ? 'Reject' :
+    mode === 'note' ? 'Save note' :
+    'Set name';
 
   return (
     <div className="flex h-full items-center gap-1">
       <input
         className="input compact"
         autoFocus
-        placeholder={`${mode === 'flag' ? 'Flag' : 'Reject'} reason`}
-        value={reason}
-        onChange={(event) => setReason(event.target.value)}
+        placeholder={placeholder}
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') cancel(); }}
       />
       <button
         type="button"
         className="primary-button compact-action"
-        disabled={!reason.trim()}
+        disabled={mode !== 'note' && !inputValue.trim()}
         onClick={async () => {
-          const trimmed = reason.trim();
-          if (!trimmed) return;
-          if (mode === 'flag') await onFlag(row.id, trimmed);
-          else await onReject(row.id, trimmed);
-          setMode('idle');
-          setReason('');
+          const value = inputValue.trim();
+          if (mode === 'reject') {
+            if (!value) return;
+            await onReject(row.id, value);
+          } else if (mode === 'note') {
+            if (!value) { cancel(); return; }
+            await onAppendNote(row.id, row.notes ?? null, value);
+          } else if (mode === 'marketName') {
+            if (!row.itemId) return;
+            await onSetMarketName(row.itemId, value);
+          }
+          cancel();
         }}
       >
-        {mode === 'flag' ? 'Flag' : 'Reject'}
+        {label}
       </button>
-      <button
-        type="button"
-        className="secondary-button compact-action"
-        onClick={() => {
-          setMode('idle');
-          setReason('');
-        }}
-      >
+      <button type="button" className="secondary-button compact-action" onClick={cancel}>
         Cancel
       </button>
     </div>

@@ -68,7 +68,7 @@ const lineColumns: ColDef<GridRow>[] = [
   { field: 'legacyStatusMarker', headerName: 'Raw', editable: true, width: 90, pinned: 'left' },
   {
     field: 'displayName',
-    headerName: 'Customer label',
+    headerName: 'Product name',
     editable: false,
     minWidth: 190,
     pinned: 'left',
@@ -77,7 +77,7 @@ const lineColumns: ColDef<GridRow>[] = [
       return (
         <span>
           {params.data?.itemAlias ? (
-            <span title="Customer-facing alias" style={{ color: '#eab308', marginRight: 4 }}>
+            <span title="Product name (market alias)" style={{ color: '#eab308', marginRight: 4 }}>
               ●
             </span>
           ) : null}
