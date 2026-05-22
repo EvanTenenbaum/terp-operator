@@ -416,6 +416,21 @@ function buildOps(state: InMemoryState) {
     };
   }
 
+  // --- DELETE ---
+  function deleteFrom(table: unknown) {
+    return {
+      where(pred: unknown): Promise<void> {
+        const arr = getStateArray(state, table);
+        const matched = applyPredicates(arr, pred);
+        for (const row of matched) {
+          const idx = arr.indexOf(row);
+          if (idx !== -1) arr.splice(idx, 1);
+        }
+        return Promise.resolve();
+      },
+    };
+  }
+
   // --- EXECUTE ---
   async function execute(sqlNode: unknown): Promise<void> {
     const key = recordAdvisoryLock(state, sqlNode);
@@ -433,7 +448,7 @@ function buildOps(state: InMemoryState) {
     subjectMutex.set(key, next);
   }
 
-  return { select, insert, update, execute };
+  return { select, insert, update, delete: deleteFrom, execute };
 }
 
 // ---------------------------------------------------------------------------
@@ -450,6 +465,7 @@ export function makeMockedDb(state: InMemoryState) {
     select: ops.select,
     insert: ops.insert,
     update: ops.update,
+    delete: ops.delete,
     execute: ops.execute,
   };
 
@@ -508,6 +524,7 @@ export function makeMockedDb(state: InMemoryState) {
     select: ops.select,
     insert: ops.insert,
     update: ops.update,
+    delete: ops.delete,
     execute: ops.execute,
     transaction: async <T>(fn: (t: TxHandle) => Promise<T>): Promise<T> => {
       const snap = snapshotState();
