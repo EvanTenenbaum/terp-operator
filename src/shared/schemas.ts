@@ -157,3 +157,122 @@ export const csvImportSchema = z.object({
   csv: z.string().min(1),
   validateOnly: z.boolean().default(true)
 });
+
+// ─── Contacts system (CAP-033 / TER-1564) ───────────────────────────────────
+
+const contactRoleSchema = z.enum(['customer', 'vendor', 'referee', 'processor', 'contractor', 'employee']);
+const appointmentTypeSchema = z.enum(['meeting', 'call', 'delivery', 'pickup', 'vacation', 'job', 'other']);
+const contactKindSchema = z.enum(['individual', 'business']);
+const preferredContactMethodSchema = z.enum(['email', 'phone', 'text', 'any']);
+
+export const createContactPayloadSchema = z.object({
+  name: z.string().trim().min(1).max(180),
+  displayName: z.string().trim().max(180).optional(),
+  phone: z.string().trim().max(40).optional(),
+  secondaryPhone: z.string().trim().max(40).optional(),
+  email: z.string().trim().email().max(240).optional(),
+  address: z.string().optional(),
+  companyName: z.string().trim().max(180).optional(),
+  contactKind: contactKindSchema.default('individual'),
+  preferredContactMethod: preferredContactMethodSchema.default('any'),
+  notes: z.string().optional(),
+  tags: z.array(z.string()).default([]),
+  roles: z.array(contactRoleSchema).min(1, 'At least one role is required.'),
+  // Role-specific optional fields
+  creditLimit: z.coerce.number().min(0).optional(),
+  termsDays: z.coerce.number().int().min(0).max(365).optional(),
+  consignmentDefault: z.boolean().optional()
+});
+
+export const updateContactPayloadSchema = z.object({
+  contactId: z.string().uuid(),
+  name: z.string().trim().min(1).max(180).optional(),
+  displayName: z.string().trim().max(180).nullish(),
+  phone: z.string().trim().max(40).nullish(),
+  secondaryPhone: z.string().trim().max(40).nullish(),
+  email: z.string().trim().email().max(240).nullish(),
+  address: z.string().nullish(),
+  companyName: z.string().trim().max(180).nullish(),
+  contactKind: contactKindSchema.optional(),
+  preferredContactMethod: preferredContactMethodSchema.optional(),
+  notes: z.string().nullish()
+});
+
+export const archiveContactPayloadSchema = z.object({
+  contactId: z.string().uuid(),
+  reason: z.string().trim().min(1, 'Reason is required.')
+});
+
+export const addContactRolePayloadSchema = z.object({
+  contactId: z.string().uuid(),
+  role: contactRoleSchema,
+  creditLimit: z.coerce.number().min(0).optional(),
+  termsDays: z.coerce.number().int().min(0).max(365).optional(),
+  consignmentDefault: z.boolean().optional()
+});
+
+export const linkContactToExistingEntityPayloadSchema = z.object({
+  contactId: z.string().uuid(),
+  entityType: z.enum(['customer', 'vendor', 'referee', 'processor']),
+  entityId: z.string().uuid()
+});
+
+export const linkContactToUserPayloadSchema = z.object({
+  contactId: z.string().uuid(),
+  userId: z.string().uuid()
+});
+
+export const createAppointmentPayloadSchema = z.object({
+  contactId: z.string().uuid(),
+  title: z.string().trim().min(1).max(240),
+  appointmentType: appointmentTypeSchema.default('meeting'),
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime().optional(),
+  location: z.string().optional(),
+  description: z.string().optional(),
+  notes: z.string().optional()
+});
+
+export const updateAppointmentPayloadSchema = z.object({
+  appointmentId: z.string().uuid(),
+  title: z.string().trim().min(1).max(240).optional(),
+  appointmentType: appointmentTypeSchema.optional(),
+  startsAt: z.string().datetime().optional(),
+  endsAt: z.string().datetime().nullish(),
+  location: z.string().nullish(),
+  description: z.string().nullish(),
+  notes: z.string().nullish()
+});
+
+export const cancelAppointmentPayloadSchema = z.object({
+  appointmentId: z.string().uuid(),
+  reason: z.string().optional()
+});
+
+export const completeAppointmentPayloadSchema = z.object({
+  appointmentId: z.string().uuid(),
+  notes: z.string().optional()
+});
+
+export const updateVendorPayloadSchema = z.object({
+  vendorId: z.string().uuid(),
+  name: z.string().trim().min(1).max(180).optional(),
+  alias: z.string().trim().max(80).nullish(),
+  termsDays: z.coerce.number().int().min(0).max(365).optional(),
+  consignmentDefault: z.boolean().optional(),
+  contact: z.string().nullish(),
+  notes: z.string().nullish()
+});
+
+export const updateProcessorPayloadSchema = z.object({
+  processorId: z.string().uuid(),
+  name: z.string().trim().min(1).max(180).optional(),
+  processorType: z.string().optional(),
+  feeType: z.string().optional(),
+  feePercentage: z.coerce.number().min(0).max(100).optional(),
+  feeFixedAmount: z.coerce.number().min(0).optional(),
+  defaultUserSplit: z.coerce.number().min(0).max(100).optional(),
+  defaultProcessorSplit: z.coerce.number().min(0).max(100).optional(),
+  notes: z.string().nullish(),
+  active: z.boolean().optional()
+});

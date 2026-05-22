@@ -83,6 +83,7 @@ export type ViewKey =
   | 'processors'
   | 'credit-review'
   | 'photography'
+  | 'contacts' // CAP-033 / TER-1564 — entity profiles directory + per-contact view
   | 'settings'
   | 'pick'; // CAP-030 / TER-1513
 
@@ -165,4 +166,80 @@ export interface PricingRuleApplication {
   amount: number;
   source: 'customer-category' | 'customer-default' | 'settings-category' | 'settings-default' | 'fallback';
   category?: string;
+}
+
+// ─── Contacts system (CAP-033 / TER-1564) ───────────────────────────────────
+
+export type ContactKind = 'individual' | 'business';
+export type ContactRole = 'customer' | 'vendor' | 'referee' | 'processor' | 'contractor' | 'employee';
+export type AppointmentType = 'meeting' | 'call' | 'delivery' | 'pickup' | 'vacation' | 'job' | 'other';
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled';
+export type PreferredContactMethod = 'email' | 'phone' | 'text' | 'any';
+
+export interface Contact {
+  id: string;
+  name: string;
+  displayName: string | null;
+  phone: string | null;
+  secondaryPhone: string | null;
+  email: string | null;
+  address: string | null;
+  companyName: string | null;
+  contactKind: ContactKind;
+  preferredContactMethod: PreferredContactMethod;
+  notes: string | null;
+  tags: string[];
+  isCustomer: boolean;
+  isVendor: boolean;
+  isReferee: boolean;
+  isProcessor: boolean;
+  isContractor: boolean;
+  isEmployee: boolean;
+  active: boolean;
+  archivedAt: string | null;
+  archivedBy: string | null;
+  archivedReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Appointment {
+  id: string;
+  contactId: string;
+  title: string;
+  description: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  appointmentType: AppointmentType;
+  status: AppointmentStatus;
+  location: string | null;
+  createdBy: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContactLedgerEntry {
+  id: string;
+  contactId: string;
+  kind: string;
+  amount: string;
+  method: string | null;
+  reference: string | null;
+  note: string | null;
+  commandId: string | null;
+  createdAt: string;
+  /** Computed at read time via SUM(amount) OVER window; not stored. */
+  runningBalance?: string;
+}
+
+export interface ContactMergeCandidate {
+  id: string;
+  contactAId: string;
+  contactBId: string;
+  matchReason: 'name_match' | 'email_match' | string;
+  reviewed: boolean;
+  dismissed: boolean;
+  mergedInto: string | null;
+  createdAt: string;
 }

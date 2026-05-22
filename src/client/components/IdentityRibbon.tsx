@@ -25,6 +25,7 @@ const viewLabels: Record<ViewKey, string> = {
   processors: 'Payment Processors',
   'credit-review': 'Credit Review',
   photography: 'Photography',
+  contacts: 'Contacts', // CAP-033 / TER-1564
   settings: 'Settings',
   pick: 'Pick Queue' // CAP-030 / TER-1513
 };
