@@ -26,6 +26,7 @@ import {
   vendorSupply,
   vendors
 } from './schema';
+import { createFinalizedSnapshotForPurchaseOrder } from './services/documentSnapshots/snapshotService';
 
 const seedLockKey = 520126;
 
@@ -46,6 +47,7 @@ async function seed() {
         credit_engine_config_history, credit_engine_stance_history,
         credit_engine_config, credit_engine_stances,
         user_dismissed_banners,
+        document_snapshots,
         items, customers, vendors, users
       restart identity cascade
     `);
@@ -167,6 +169,51 @@ async function insertSeedData() {
     { purchaseOrderId: poApproved.id, itemId: candy.id, productName: 'Infused Candy 10mg', category: 'Infused', tags: ['infused', 'candy', 'premium'], qty: '120.000', receivedQty: '0.000', uom: 'case', unitCost: '42.00', unitPrice: '68.00', sourceCode: 'PO-DEMO-001', shorthand: 'Ins/candy', legacyMarker: 'C', ownershipStatus: 'C', notes: 'Approved purchase before product arrives.', status: 'planned' },
     { purchaseOrderId: poDraft.id, itemId: rosin.id, productName: 'Live Rosin 1g', category: 'Extract', tags: ['extract', 'live', 'premium'], qty: '200.000', receivedQty: '0.000', uom: 'unit', unitCost: '16.00', unitPrice: '27.00', sourceCode: 'PO-DEMO-002', shorthand: 'Ext/rosin', legacyMarker: 'OFC', ownershipStatus: 'OFC', notes: 'Draft purchase planning row.', status: 'planned' }
   ]);
+
+  // Finalized PO — required so the "Preview receipt" button is enabled in the UI
+  // and so receipt-preview E2E tests can run without test.skip.
+  const [poFinalized] = await db
+    .insert(purchaseOrders)
+    .values([{
+      poNo: 'PO-DEMO-003',
+      vendorId: northCoast.id,
+      status: 'finalized',
+      expectedDate: daysAgo(1),
+      orderedAt: daysAgo(7),
+      orderedBy: manager.id,
+      total: '7200.00',
+      finalizedAt: daysAgo(3),
+      buyerNotes: 'Finalized flower order — receipt ready for vendor.',
+      internalNotes: 'Verified against intake batch. All lines received.',
+      paymentTerms: 'net_30',
+    }])
+    .returning();
+
+  await db.insert(purchaseOrderLines).values([
+    {
+      purchaseOrderId: poFinalized.id,
+      itemId: flower.id,
+      productName: 'Gelato Flower',
+      category: 'Flower',
+      tags: ['flower', 'premium'],
+      qty: '30.000',
+      receivedQty: '30.000',
+      uom: 'lb',
+      unitCost: '240.00',
+      unitPrice: '380.00',
+      sourceCode: 'PO-DEMO-003',
+      shorthand: 'Flw/gelato',
+      legacyMarker: 'OFC',
+      ownershipStatus: 'OFC',
+      notes: 'Received in full.',
+      status: 'planned',
+    },
+  ]);
+
+  // Create the document_snapshots row so the UI receipt preview is enabled.
+  await db.transaction(async (tx) => {
+    await createFinalizedSnapshotForPurchaseOrder(tx, poFinalized.id, 'seed-auto');
+  });
 
   const [batchA, batchB, batchC, batchD, batchE, batchReady] = await db
     .insert(batches)
