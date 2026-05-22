@@ -12,13 +12,24 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const OWNER_EMAIL = 'owner@terpagro.local';
 const OWNER_PASS  = 'terp-demo';
-const ARTIFACTS   = path.resolve(__dirname, '../../artifacts');
 
+// __dirname polyfill for ESM environments
+const _dirname = (() => {
+  try {
+    return path.dirname(fileURLToPath(import.meta.url));
+  } catch {
+    // CommonJS fallback
+    return __dirname;
+  }
+})();
+
+const ARTIFACTS   = path.resolve(_dirname, '../../artifacts');
 if (!fs.existsSync(ARTIFACTS)) fs.mkdirSync(ARTIFACTS, { recursive: true });
 
 async function login(page: Page) {
