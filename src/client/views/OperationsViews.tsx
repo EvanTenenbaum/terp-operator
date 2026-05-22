@@ -13,6 +13,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
+import { ReceiptPreview } from '../components/ReceiptPreview';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -225,6 +226,18 @@ export function PurchaseOrdersView() {
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+  const subjectIdForQuery = String(selectedPo?.id ?? '00000000-0000-0000-0000-000000000000');
+  const finalizedSnapshot = trpc.documentSnapshots.getExternalBySubjectId.useQuery(
+    { documentType: 'purchase_order', subjectId: subjectIdForQuery },
+    { enabled: Boolean(selectedPo?.id), retry: false }
+  );
+  const hasFinalizedSnapshot = Boolean(finalizedSnapshot.data);
+  const activeInternal = trpc.documentSnapshots.getInternalBySubjectId.useQuery(
+    { documentType: 'purchase_order', subjectId: subjectIdForQuery },
+    { enabled: Boolean(selectedPo?.id) && canWrite, retry: false }
+  );
+  const hasActiveDraft = activeInternal.data?.status === 'draft';
+  const hasAnyActiveSnapshot = canWrite ? Boolean(activeInternal.data) : hasFinalizedSnapshot;
   const [authoringOpen, setAuthoringOpen] = useState(false);
   const [vendorId, setVendorId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
@@ -242,6 +255,7 @@ export function PurchaseOrdersView() {
   const [newVendorNotes, setNewVendorNotes] = useState('');
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
+  const [receiptPreviewSubjectId, setReceiptPreviewSubjectId] = useState<string | null>(null);
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
@@ -308,7 +322,7 @@ export function PurchaseOrdersView() {
           </button>
           <button
             className="secondary-button compact-action"
-            type="button"
+type="button"
             disabled={
               isRunning ||
               !canWrite ||
@@ -330,6 +344,22 @@ export function PurchaseOrdersView() {
           >
             <CreditCard className="h-4 w-4" aria-hidden="true" />
             Record Prepayment
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning || !canWrite || !row.id || row.status !== 'draft'}
+            onClick={() => runCommand('saveDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Save PO receipt draft')}
+            type="button"
+          >
+            Save draft receipt
+          </button>
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning || !canWrite || !row.id}
+            onClick={() => runCommand('abandonDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Abandon PO receipt draft')}
+            type="button"
+          >
+            Abandon draft receipt
           </button>
         </>
       )
@@ -720,11 +750,43 @@ export function PurchaseOrdersView() {
               <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:finalized')} aria-pressed={storedGridFilter === 'status:finalized'}>Finalized</button>
             </div>
             {canWrite ? (
-              <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
-                {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
-                {purchaseOrderPrimaryLabel(selectedPoStatus)}
-              </button>
+              <>
+                <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
+                  {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
+                  {purchaseOrderPrimaryLabel(selectedPoStatus)}
+                </button>
+                <button
+                  className="secondary-button compact-action"
+                  type="button"
+                  disabled={
+                    !selected.length ||
+                    isRunning ||
+                    selectedPoStatus !== 'approved' ||
+                    Number(selectedPo?.prepaymentAmount ?? 0) <= 0
+                  }
+                  title={
+                    selectedPoStatus !== 'approved'
+                      ? 'PO must be approved before recording prepayment'
+                      : Number(selectedPo?.prepaymentAmount ?? 0) <= 0
+                      ? 'PO has no prepayment amount set'
+                      : 'Record vendor prepayment'
+                  }
+                  onClick={() => setPrepaymentDialogOpen(true)}
+                >
+                  <CreditCard className="h-4 w-4" aria-hidden="true" />
+                  Record Prepayment
+                </button>
+              </>
             ) : null}
+            <button
+              className="secondary-button compact-action"
+              type="button"
+              disabled={!selectedPo?.id || !hasAnyActiveSnapshot}
+              onClick={() => selectedPo?.id && setReceiptPreviewSubjectId(String(selectedPo.id))}
+              title="Preview the active vendor receipt for this PO"
+            >
+              Preview receipt
+            </button>
           </>
         }
         expansionConfig={canWrite ? purchaseOrderExpansionConfig : undefined}
@@ -756,6 +818,15 @@ export function PurchaseOrdersView() {
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
             ) : null}
+            <button
+              className="secondary-button compact-action"
+              type="button"
+              disabled={!selectedPo?.id || !hasAnyActiveSnapshot}
+              onClick={() => selectedPo?.id && setReceiptPreviewSubjectId(String(selectedPo.id))}
+              title="Preview the active vendor receipt for this PO"
+            >
+              Preview receipt
+            </button>
           </section>
           <OperatorGrid
             view="purchaseOrders"
@@ -784,6 +855,13 @@ export function PurchaseOrdersView() {
             expansionConfig={canWrite ? purchaseOrderLineExpansionConfig : undefined}
           />
         </>
+      ) : null}
+      {receiptPreviewSubjectId ? (
+        <ReceiptPreview
+          documentType="purchase_order"
+          subjectId={receiptPreviewSubjectId}
+          onClose={() => setReceiptPreviewSubjectId(null)}
+        />
       ) : null}
     </div>
   );

@@ -83,6 +83,12 @@ import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
 import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import { photoUploadTokens } from '../schema';
+import {
+  createFinalizedSnapshotForPurchaseOrder,
+  voidActiveSnapshotForPurchaseOrder,
+  saveOrUpdateDraftSnapshotForPurchaseOrder,
+  abandonDraftSnapshotForPurchaseOrder
+} from './documentSnapshots/snapshotService';
 import { createHash, randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
@@ -610,7 +616,47 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
       return revokePhotoUploadTokenCommand(tx, payload, commandId);
+    case 'saveDraftPurchaseOrderReceipt':
+      return saveDraftPurchaseOrderReceiptHandler(tx, payload, commandId);
+    case 'abandonDraftPurchaseOrderReceipt':
+      return abandonDraftPurchaseOrderReceiptHandler(tx, payload, commandId);
   }
+}
+
+async function saveDraftPurchaseOrderReceiptHandler(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [po] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!po) throw new Error('Purchase order not found.');
+  if (po.status !== 'draft') {
+    return {
+      ok: false,
+      commandId,
+      affectedIds: [purchaseOrderId],
+      toast: 'Draft receipts can only be saved for draft purchase orders.'
+    };
+  }
+  const { snapshotId, created } = await saveOrUpdateDraftSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
+  void snapshotId;
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [purchaseOrderId],
+    toast: created ? `${po.poNo} draft receipt saved.` : `${po.poNo} draft receipt updated.`
+  };
+}
+
+async function abandonDraftPurchaseOrderReceiptHandler(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
+  const [po] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
+  if (!po) throw new Error('Purchase order not found.');
+  const { voidedId } = await abandonDraftSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
+  void voidedId;
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [purchaseOrderId],
+    toast: voidedId ? `${po.poNo} draft receipt abandoned.` : `${po.poNo} had no draft receipt.`
+  };
 }
 
 async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -1144,11 +1190,20 @@ async function finalizePurchaseOrder(tx: Tx, payload: Payload, userId: string, c
     updatedAt: new Date()
   }).where(eq(purchaseOrders.id, purchaseOrderId));
 
+  // Side effect: write/consume the document_snapshots row for this PO. If
+  // the projection throws, the surrounding executeCommand transaction is
+  // rolled back, so the PO status update above is reverted too — no orphan
+  // snapshot or half-finalized PO can be left behind.
+  const { snapshotId, version, consumedDraftId } =
+    await createFinalizedSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
+  void snapshotId;
+  void consumedDraftId;
+
   return {
     ok: true,
     commandId,
     affectedIds: [purchaseOrderId],
-    toast: `${order.poNo} finalized and ready for approval.`
+    toast: `${order.poNo} finalized and ready for approval. Receipt v${version} saved.`
   };
 }
 
@@ -1166,13 +1221,32 @@ async function unfinalizePurchaseOrder(tx: Tx, payload: Payload, commandId: stri
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
   if (!order) throw new Error('Purchase order not found.');
-  if (order.status !== 'finalized') throw new Error('Only finalized purchase orders can be returned to draft.');
+  if (order.status === 'draft') {
+    // Idempotent no-op: a PO already in draft with no active snapshot
+    // (e.g. a legacy PO from before the receipt-snapshot system) safely
+    // succeeds without touching state.
+    return {
+      ok: true,
+      commandId,
+      affectedIds: [purchaseOrderId],
+      toast: `${order.poNo} is already in draft.`
+    };
+  }
+  if (order.status !== 'finalized') {
+    throw new Error('Only finalized purchase orders can be returned to draft.');
+  }
 
   await tx.update(purchaseOrders).set({
     status: 'draft',
     finalizedAt: null,
     updatedAt: new Date()
   }).where(eq(purchaseOrders.id, purchaseOrderId));
+
+  // Side effect: void the active finalized snapshot so an "unfinalize then
+  // edit then refinalize" loop yields v2 finalized + v1 void (NOT
+  // superseded). Legacy POs without a snapshot row are a no-op.
+  const { voidedId } = await voidActiveSnapshotForPurchaseOrder(tx, purchaseOrderId, commandId);
+  void voidedId;
 
   return {
     ok: true,
@@ -2682,6 +2756,76 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
     .where(eq(salesOrders.id, orderId));
   affected.push(invoice.id, customer.id);
 
+  // #64 PR-3: per-line correction journal entries for below-floor COGS exceptions.
+  //
+  // For each posted line that carries a belowFloorReason, insert a correction
+  // journal entry with the below-floor revenue shortfall variance
+  //   max(0, (priceFloor - unitPrice) * qty)
+  // floored at 0. We compare against unitPrice (the selling price), NOT
+  // unitCost — setLineLandedCost writes unitCost = priceFloor = landedCost,
+  // so a (priceFloor - unitCost) formula would always be zero. The shortfall
+  // is the gap between the floor and what we actually charged, matching
+  // computeOrderExceptionTotals.marginWaivedTotal. The priceFloor column was
+  // captured at set-time for audit reproducibility — we do not re-read from
+  // batches.priceRange at post time.
+  //
+  // For vendor_approval_pending lines, also append a discrepancy note to the
+  // vendor's open bill so AP can see the pending credit before the vendor's
+  // accommodation is recorded. This is a text-only annotation — no dollar or
+  // status mutation on the bill, and the bill ID is NOT added to affectedIds
+  // because the annotation intentionally does not participate in reversal.
+  const exceptionPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
+  let exceptionPeriodChecked = false;
+  for (const line of lines as Array<typeof salesOrderLines.$inferSelect>) {
+    if (!line.belowFloorReason) continue;
+    const floor = line.priceFloor != null ? Number(line.priceFloor) : 0;
+    const variance = Math.max(0, (floor - Number(line.unitPrice)) * Number(line.qty));
+    if (!exceptionPeriodChecked) {
+      await assertPeriodUnlocked(tx, exceptionPeriod);
+      exceptionPeriodChecked = true;
+    }
+    const notePart = line.belowFloorNote ? ` | ${line.belowFloorNote}` : '';
+    const [cjEntry] = await tx
+      .insert(correctionJournalEntries)
+      .values({
+        period: exceptionPeriod,
+        amount: moneyScale(variance),
+        memo: `COGS exception: ${line.belowFloorReason} | order ${freshOrder.orderNo} | line ${line.itemName}${notePart}`
+      })
+      .returning();
+    affected.push(cjEntry.id);
+
+    if (line.belowFloorReason === 'vendor_approval_pending' && line.batchId) {
+      const [exBatch] = await tx
+        .select({ vendorId: batches.vendorId })
+        .from(batches)
+        .where(eq(batches.id, line.batchId))
+        .limit(1);
+      if (exBatch?.vendorId) {
+        // Lock the open vendor bill row before the read-modify-write on
+        // discrepancyNotes so two concurrent postSalesOrder calls sharing
+        // the same vendor's open bill cannot silently lose an annotation.
+        // SKIP LOCKED: if a concurrent postSalesOrder is annotating this
+        // bill, this call gracefully skips the annotation rather than
+        // blocking — the CJ entry is still inserted and the audit trail
+        // is preserved, the lost note is a soft AP-visibility loss only.
+        const pendingBillRows = await tx.execute(
+          sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.vendorId} = ${exBatch.vendorId} AND ${vendorBills.status} IN ('open','approved','scheduled','partial') ORDER BY ${vendorBills.createdAt} LIMIT 1 FOR UPDATE SKIP LOCKED`
+        );
+        const pendingBill = (pendingBillRows.rows[0] as typeof vendorBills.$inferSelect | undefined) ?? null;
+        if (pendingBill) {
+          const prior = pendingBill.discrepancyNotes;
+          const newNote = `Pending below-floor COGS credit: order ${freshOrder.orderNo}, line ${line.itemName}, variance $${variance.toFixed(2)} (vendor_approval_pending)`;
+          const merged = [prior, newNote].filter(Boolean).join('\n');
+          await tx
+            .update(vendorBills)
+            .set({ discrepancyNotes: merged, updatedAt: new Date() })
+            .where(eq(vendorBills.id, pendingBill.id));
+        }
+      }
+    }
+  }
+
   // Accrue referee credit if relationship specified
   if (payload.refereeRelationshipId && payload.logRefereeCredit !== false) {
     const { creditAmount } = await accrueRefereeCredit(tx, {
@@ -3350,7 +3494,7 @@ async function applyFindReplace(tx: Tx, payload: Payload) {
   throw new Error('Find and replace is only available for approved text fields.');
 }
 
-async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const originalId = requiredId(payload.commandId, 'commandId');
   const [original] = await tx.select().from(commandJournal).where(eq(commandJournal.id, originalId)).limit(1);
   if (!original) throw new Error('Original command not found.');
@@ -3397,6 +3541,19 @@ async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): 
     for (const order of snapshot.salesOrders ?? []) {
       await tx.update(salesOrders).set({ status: 'reversed', updatedAt: new Date() }).where(eq(salesOrders.id, order.id));
       affected.push(order.id);
+    }
+    // #64 PR-3: reverse COGS exception correction journal entries if present
+    // in snapshot. Note: snapshotByAffectedIds uses db.select() (pool connection)
+    // and may not capture uncommitted inserts from this tx — see GitHub Issue
+    // #150. Entries are marked 'reversed' rather than deleted to preserve audit
+    // trail. The vendorBills.discrepancyNotes annotation is intentionally NOT
+    // reversed (persists as AP audit).
+    for (const entry of snapshot.correctionJournalEntries ?? []) {
+      await tx
+        .update(correctionJournalEntries)
+        .set({ status: 'reversed' })
+        .where(eq(correctionJournalEntries.id, entry.id));
+      affected.push(entry.id);
     }
   } else if (original.commandName === 'approvePurchaseOrder') {
     for (const order of snapshot.purchaseOrders ?? []) {

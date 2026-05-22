@@ -990,3 +990,38 @@ kbd {
 .ag-row-selected.ag-row-last {
   border-bottom: 2px solid var(--expansion-border);
 }
+
+.receipt-preview-overlay {
+  @apply fixed inset-0 z-50 flex items-start justify-center bg-zinc-900/30 p-6 overflow-auto;
+}
+
+.receipt-preview-panel {
+  @apply w-full max-w-3xl bg-field rounded shadow-lg p-4 space-y-3;
+}
+
+.receipt-preview-body {
+  @apply whitespace-pre-wrap font-mono text-sm text-ink bg-panel border border-line rounded p-3 max-h-[60vh] overflow-auto;
+}
+
+/* Print stylesheet — hides everything except the receipt preview body when
+   .print-receipt-only is set on <body> by ReceiptPreview.handlePrint. */
+@media print {
+  body.print-receipt-only > *:not(.receipt-preview-overlay) {
+    display: none !important;
+  }
+  body.print-receipt-only .receipt-preview-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  body.print-receipt-only .receipt-preview-panel {
+    box-shadow: none !important;
+    max-width: 100% !important;
+  }
+  body.print-receipt-only .control-band,
+  body.print-receipt-only .text-button,
+  body.print-receipt-only .secondary-button,
+  body.print-receipt-only .primary-button {
+    display: none !important;
+  }
+}

@@ -20,4 +20,6 @@ This directory holds the **strategic kernel** and **phase-readiness** docs for T
 
 ## Existing roadmaps
 
+- [2026-finalization-receipts-roadmap.md](./2026-finalization-receipts-roadmap.md) — Shared document-snapshot foundation for PO, Sales, and money receipt finalization with server-side external projection allowlists.
+
 Active roadmap files live in this directory. Use the templates in `templates/` when adding new persistent initiatives.
