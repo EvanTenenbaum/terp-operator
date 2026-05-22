@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db, pool } from '../db';
 import { protectedProcedure, router } from '../trpc';
@@ -483,7 +484,28 @@ export const queriesRouter = router({
     }
     return { rows, total: total.toFixed(2), conflicts, ok: conflicts.length === 0, vendor: rows[0]?.vendor ?? '' };
   }),
-  relatedCommands: protectedProcedure.input(z.object({ entityId: z.string().uuid() })).query(async ({ input }) => {
+  relatedCommands: protectedProcedure.input(z.object({ entityId: z.string().uuid().optional(), contactId: z.string().uuid().optional() })).query(async ({ input }) => {
+    let entityIds: string[] = [];
+    if (input.entityId) entityIds.push(input.entityId);
+    if (input.contactId) {
+      const linked = await pool.query(
+        `SELECT c.id AS contact_id,
+          cu.id AS customer_id, v.id AS vendor_id, r.id AS referee_id, pp.id AS processor_id
+         FROM contacts c
+         LEFT JOIN customers cu ON cu.contact_id = c.id
+         LEFT JOIN vendors v ON v.contact_id = c.id
+         LEFT JOIN referees r ON r.contact_id = c.id
+         LEFT JOIN payment_processors pp ON pp.contact_id = c.id
+         WHERE c.id = $1`,
+        [input.contactId]
+      );
+      const row = linked.rows[0] as Record<string, string | null> | undefined;
+      if (row) {
+        const ids = [row.contact_id, row.customer_id, row.vendor_id, row.referee_id, row.processor_id].filter(Boolean) as string[];
+        entityIds.push(...ids);
+      }
+    }
+    if (entityIds.length === 0) return [];
     return (
       await pool.query(
         `select id, command_name as "commandName", actor_name as "actorName", actor_role as "actorRole",
@@ -491,10 +513,10 @@ export const queriesRouter = router({
                 after_snapshot as "afterSnapshot", result, reversed_by_command_id as "reversedByCommandId",
                 created_at as "createdAt"
          from command_journal
-         where $1 = any(affected_ids) or input_payload::text ilike $2
+         where affected_ids && $1::uuid[]
          order by created_at desc
          limit 25`,
-        [input.entityId, `%${input.entityId}%`]
+        [entityIds]
       )
     ).rows;
   }),
@@ -1255,6 +1277,205 @@ export const queriesRouter = router({
       };
     });
   }),
+
+  // CAP-029 (TER-1564): Contact directory — paginated list of all contacts with
+  // role filters, search, and key financial summary columns.
+  contactDirectory: protectedProcedure
+    .input(z.object({
+      limit:      z.number().int().min(1).max(100).default(50),
+      cursor:     z.string().optional(),
+      roleFilter: z.array(z.enum(['customer', 'vendor', 'referee', 'processor', 'contractor', 'employee'])).optional(),
+      query:      z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      const { limit, cursor, roleFilter, query: searchQuery } = input;
+
+      // Cursor is encoded as "updatedAt_ISO|uuid" for stable keyset pagination
+      let cursorTs: string | null = null;
+      let cursorId: string | null = null;
+      if (cursor) {
+        const parts = cursor.split('|');
+        cursorTs = parts[0] ?? null;
+        cursorId = parts[1] ?? null;
+      }
+
+      let sql = `
+        SELECT
+          c.id, c.name, c.display_name AS "displayName", c.company_name AS "companyName",
+          c.phone, c.email, c.active,
+          c.is_customer AS "isCustomer", c.is_vendor AS "isVendor",
+          c.is_referee AS "isReferee", c.is_processor AS "isProcessor",
+          c.is_contractor AS "isContractor", c.is_employee AS "isEmployee",
+          c.tags, c.updated_at AS "updatedAt",
+          cu.balance AS "customerBalance", cu.credit_limit AS "customerCreditLimit",
+          COALESCE(vb.open_bills_amount, 0) AS "vendorOpenBills"
+        FROM contacts c
+        LEFT JOIN customers cu ON cu.contact_id = c.id
+        LEFT JOIN (
+          SELECT v.contact_id, SUM(vb.amount - vb.amount_paid) AS open_bills_amount
+          FROM vendor_bills vb
+          JOIN vendors v ON v.id = vb.vendor_id
+          WHERE vb.status IN ('approved','scheduled')
+          GROUP BY v.contact_id
+        ) vb ON vb.contact_id = c.id
+        WHERE c.active = true
+      `;
+      const params: unknown[] = [];
+      let idx = 1;
+
+      if (cursorTs && cursorId) {
+        sql += ` AND (c.updated_at, c.id) < ($${idx}::timestamptz, $${idx + 1}::uuid)`;
+        params.push(cursorTs, cursorId); idx += 2;
+      }
+      if (searchQuery) {
+        sql += ` AND (lower(c.name) LIKE $${idx} OR lower(c.email) LIKE $${idx})`;
+        params.push(`%${searchQuery.toLowerCase()}%`); idx++;
+      }
+      if (roleFilter?.length) {
+        const ROLE_COL_MAP: Record<string, string> = {
+          customer: 'is_customer', vendor: 'is_vendor', referee: 'is_referee',
+          processor: 'is_processor', contractor: 'is_contractor', employee: 'is_employee',
+        };
+        const conditions = roleFilter
+          .filter((r) => r in ROLE_COL_MAP)
+          .map((r) => `c.${ROLE_COL_MAP[r]} = true`)
+          .join(' OR ');
+        if (conditions) sql += ` AND (${conditions})`;
+      }
+
+      sql += ` ORDER BY c.updated_at DESC, c.id DESC LIMIT $${idx}`;
+      params.push(limit + 1);
+
+      const result = await pool.query(sql, params);
+      const rows = result.rows;
+      const hasMore = rows.length > limit;
+      if (hasMore) rows.pop();
+      const lastRow = rows[rows.length - 1] as { updatedAt: string; id: string } | undefined;
+      const nextCursor = hasMore && lastRow
+        ? `${new Date(lastRow.updatedAt).toISOString()}|${lastRow.id}`
+        : null;
+      return { rows, nextCursor };
+    }),
+
+  // CAP-029 (TER-1564): Full contact profile — header contact plus all linked
+  // entity rows (customer, vendor, referee, processor, user) and upcoming appointment count.
+  contactProfile: protectedProcedure
+    .input(z.object({ contactId: z.string().uuid() }))
+    .query(async ({ input: { contactId } }) => {
+      const contactResult = await pool.query(
+        `SELECT * FROM contacts WHERE id = $1`, [contactId]
+      );
+      const contact = contactResult.rows[0] as Record<string, unknown> | undefined;
+      if (!contact) throw new TRPCError({ code: 'NOT_FOUND', message: 'Contact not found' });
+
+      const [customerRow, vendorRow, refereeRow, processorRow, userRow, orderStats] = await Promise.all([
+        contact.is_customer
+          ? pool.query(`SELECT cu.*, COUNT(DISTINCT so.id) AS lifetime_order_count,
+              COALESCE(SUM(so.total), 0) AS lifetime_revenue,
+              COUNT(DISTINCT i.id) FILTER (WHERE i.status IN ('open','partial')) AS open_invoices_count,
+              COALESCE(SUM(i.total - i.amount_paid) FILTER (WHERE i.status IN ('open','partial')), 0) AS open_invoices_amount,
+              COALESCE(MAX(EXTRACT(DAY FROM NOW() - i.created_at)) FILTER (WHERE i.status IN ('open','partial')), 0) AS oldest_open_invoice_days,
+              MAX(so.created_at) AS last_order_date
+            FROM customers cu
+            LEFT JOIN sales_orders so ON so.customer_id = cu.id
+            LEFT JOIN invoices i ON i.customer_id = cu.id
+            WHERE cu.contact_id = $1 GROUP BY cu.id`, [contactId])
+          : Promise.resolve({ rows: [] }),
+        contact.is_vendor
+          ? pool.query(`SELECT v.*,
+              COALESCE(SUM(vb.amount), 0) AS total_billed,
+              COALESCE(SUM(vb.amount_paid), 0) AS total_paid,
+              COUNT(DISTINCT vb.id) FILTER (WHERE vb.status NOT IN ('paid','void','reversed')) AS open_bills_count,
+              COALESCE(SUM(vb.amount - vb.amount_paid) FILTER (WHERE vb.status NOT IN ('paid','void','reversed')), 0) AS open_bills_amount,
+              COUNT(DISTINCT po.id) FILTER (WHERE po.status NOT IN ('received','cancelled')) AS open_po_count
+            FROM vendors v
+            LEFT JOIN vendor_bills vb ON vb.vendor_id = v.id
+            LEFT JOIN purchase_orders po ON po.vendor_id = v.id
+            WHERE v.contact_id = $1 GROUP BY v.id`, [contactId])
+          : Promise.resolve({ rows: [] }),
+        contact.is_referee
+          ? pool.query(`SELECT * FROM referees WHERE contact_id = $1 LIMIT 1`, [contactId])
+          : Promise.resolve({ rows: [] }),
+        contact.is_processor
+          ? pool.query(`SELECT * FROM payment_processors WHERE contact_id = $1 LIMIT 1`, [contactId])
+          : Promise.resolve({ rows: [] }),
+        contact.is_employee
+          ? pool.query(`SELECT id, name, email, role, work_loop AS "workLoop" FROM users WHERE contact_id = $1 LIMIT 1`, [contactId])
+          : Promise.resolve({ rows: [] }),
+        pool.query(`SELECT COUNT(*) AS upcoming_count FROM appointments WHERE contact_id = $1 AND starts_at > NOW() AND status = 'scheduled'`, [contactId]),
+      ]);
+
+      return {
+        contact,
+        customer:  customerRow.rows[0]  ?? null,
+        vendor:    vendorRow.rows[0]    ?? null,
+        referee:   refereeRow.rows[0]   ?? null,
+        processor: processorRow.rows[0] ?? null,
+        user:      userRow.rows[0]      ?? null,
+        upcomingAppointmentCount: Number((orderStats.rows[0] as { upcoming_count?: unknown } | undefined)?.upcoming_count ?? 0),
+      };
+    }),
+
+  // CAP-029 (TER-1564): Upcoming and past appointments for a contact.
+  contactAppointments: protectedProcedure
+    .input(z.object({ contactId: z.string().uuid() }))
+    .query(async ({ input: { contactId } }) => {
+      const [upcomingResult, pastResult] = await Promise.all([
+        pool.query(
+          `SELECT * FROM appointments WHERE contact_id = $1 AND starts_at > NOW() AND status = 'scheduled' ORDER BY starts_at ASC`,
+          [contactId]
+        ),
+        pool.query(
+          `SELECT * FROM appointments WHERE contact_id = $1 AND (starts_at <= NOW() OR status IN ('completed','cancelled')) ORDER BY starts_at DESC LIMIT 50`,
+          [contactId]
+        ),
+      ]);
+      return {
+        upcoming: upcomingResult.rows,
+        past:     pastResult.rows,
+      };
+    }),
+
+  // CAP-029 (TER-1564): Contact ledger with running balance via window function.
+  contactLedger: protectedProcedure
+    .input(z.object({
+      contactId: z.string().uuid(),
+      limit:     z.number().int().min(1).max(200).default(50),
+      cursor:    z.string().optional(),
+    }))
+    .query(async ({ input: { contactId, limit } }) => {
+      const result = await pool.query(
+        `SELECT id, kind, amount, method, reference, note, created_at,
+          SUM(amount) OVER (PARTITION BY contact_id ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance
+         FROM contact_ledger_entries
+         WHERE contact_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [contactId, limit]
+      );
+      return { rows: result.rows, nextCursor: null };
+    }),
+
+  // CAP-029 (TER-1564): Sales order history for a customer entity.
+  customerOrderHistory: protectedProcedure
+    .input(z.object({
+      customerId: z.string().uuid(),
+      limit:      z.number().int().min(1).max(200).default(50),
+      cursor:     z.string().uuid().optional(),
+    }))
+    .query(async ({ input: { customerId, limit } }) => {
+      const result = await pool.query(
+        `SELECT id, order_no AS "orderNo", created_at AS "createdAt",
+          (SELECT COUNT(*) FROM sales_order_lines WHERE sales_order_lines.order_id = sales_orders.id) AS line_count,
+          total, status, posted_at AS "postedAt"
+         FROM sales_orders
+         WHERE customer_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [customerId, limit]
+      );
+      return { rows: result.rows };
+    }),
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
