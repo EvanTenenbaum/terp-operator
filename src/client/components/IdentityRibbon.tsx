@@ -25,7 +25,8 @@ const viewLabels: Record<ViewKey, string> = {
   processors: 'Payment Processors',
   'credit-review': 'Credit Review',
   photography: 'Photography',
-  settings: 'Settings'
+  settings: 'Settings',
+  pick: 'Pick Queue' // CAP-030 / TER-1513
 };
 
 export function IdentityRibbon() {

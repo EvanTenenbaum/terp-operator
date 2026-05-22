@@ -27,6 +27,32 @@ import {
   inventoryUnitCostSortValue
 } from '../../shared/inventoryPricing';
 
+// --- CAP-030 stub types (TER-1510) ---
+// TODO: depends on CAP-030 backend merge (TER-1498)
+interface WarehouseAlert {
+  id: string;
+  pickListId: string;
+  lineId: string;
+  type: 'qty_mismatch' | 'item_not_found' | 'overcount' | 'damaged' | 'other';
+  message: string;
+  status: 'open' | 'acknowledged' | 'resolved';
+  itemName?: string;
+  batchCode?: string;
+  createdAt: string;
+}
+
+interface PickQueueRow {
+  id: string;
+  pickNo: string;
+  orderId: string;
+  customer: string;
+  status: 'needs_picking' | 'in_progress' | 'has_alerts' | 'ready_to_close' | 'closed';
+  alertCount: number;
+  lineCount: number;
+  linesPicked: number;
+}
+// --- end CAP-030 stub types ---
+
 const MS_PER_DAY = 86400000;
 
 const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
@@ -134,6 +160,22 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'consignmentTriggered', width: 170 }
   ],
   fulfillment: [
+    {
+      field: 'alertCount',
+      headerName: 'Alerts',
+      width: 90,
+      pinned: 'left',
+      // TODO: depends on CAP-030 backend merge (TER-1498)
+      cellRenderer: (params: { value: unknown }) => {
+        const count = Number(params.value ?? 0);
+        if (!count) return <span className="text-xs text-zinc-400">—</span>;
+        return (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+            {count}
+          </span>
+        );
+      }
+    },
     { field: 'pickNo', pinned: 'left', width: 150 },
     { field: 'orderNo', width: 150 },
     { field: 'customer', width: 180 },
@@ -1746,6 +1788,15 @@ export function FulfillmentView() {
   const [tracking, setTracking] = useState('');
   const [labelFormat, setLabelFormat] = useState('4x6');
   const [printTrayOpen, setPrintTrayOpen] = useState(false);
+  // CAP-030 / TER-1510 — filter chips (non-persisted)
+  const pickQueueFilters = useUiStore((state) => state.pickQueueFilters);
+  const setPickQueueFilter = useUiStore((state) => state.setPickQueueFilter);
+  const clearPickQueueFilters = useUiStore((state) => state.clearPickQueueFilters);
+  const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
+  const [alertsPickListId, setAlertsPickListId] = useState<string | null>(null);
+  const [alertReturnQty, setAlertReturnQty] = useState('');
+  // TODO: depends on CAP-030 backend merge (TER-1498) — stub alerts query
+  const stubAlerts: WarehouseAlert[] = []; // replace with trpc.queries.pickListAlerts.useQuery({ pickListId: alertsPickListId ?? '' }, { enabled: Boolean(alertsPickListId) }).data ?? []
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
@@ -1755,6 +1806,18 @@ export function FulfillmentView() {
       lines.data?.length &&
       lines.data.every((candidate) => String(candidate.status ?? '') === 'packed' || (Number(candidate.actualQty ?? 0) > 0 && Boolean(candidate.bagCode)))
   );
+
+  // CAP-030 / TER-1510 — apply chip filters to pick rows
+  // TODO: depends on CAP-030 backend merge (TER-1498)
+  const filteredPickRows = pickQueueFilters.size === 0 ? pickRows : pickRows.filter((row) => {
+    const status = String(row.status ?? '');
+    const alertCount = Number(row.alertCount ?? 0);
+    if (pickQueueFilters.has('needs_picking') && status !== 'needs_picking') return false;
+    if (pickQueueFilters.has('in_progress') && status !== 'in_progress') return false;
+    if (pickQueueFilters.has('has_alerts') && alertCount === 0) return false;
+    if (pickQueueFilters.has('ready_to_close') && status !== 'ready_to_close') return false;
+    return true;
+  });
 
   useEffect(() => {
     if (!line) {
@@ -1770,15 +1833,45 @@ export function FulfillmentView() {
 
   return (
     <div className="view-stack">
+      {/* CAP-030 / TER-1510 — pick queue filter chips */}
+      {canWrite ? (
+        <div className="control-band subtle-band flex-wrap gap-1">
+          <span className="text-xs text-zinc-500 font-medium">Filter:</span>
+          {[
+            { key: 'needs_picking', label: 'Needs picking' },
+            { key: 'in_progress', label: 'In progress' },
+            { key: 'has_alerts', label: 'Has alerts' },
+            { key: 'ready_to_close', label: 'Ready to close' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              className={pickQueueFilters.has(key) ? 'selection-pill warning' : 'selection-pill'}
+              onClick={() => setPickQueueFilter(key, !pickQueueFilters.has(key))}
+              aria-pressed={pickQueueFilters.has(key)}
+            >
+              {label}
+              {pickQueueFilters.has(key) ? ' ×' : ''}
+            </button>
+          ))}
+          {pickQueueFilters.size > 0 ? (
+            <button type="button" className="text-button text-xs" onClick={clearPickQueueFilters}>
+              Clear all
+            </button>
+          ) : null}
+          {/* TODO: depends on CAP-030 backend merge (TER-1498) — filter chips pre-filter pickRows feed */}
+        </div>
+      ) : null}
       <OperatorGrid
         view="fulfillment"
         title="Fulfillment"
-        rows={pickRows}
+        rows={filteredPickRows}
         columns={columnsByView.fulfillment ?? []}
         loading={grid.isLoading || isRunning}
         onSelectionChange={(rows) => {
           setSelectedRows('fulfillment', rows);
           setSelectedLines([]);
+          if (rows[0]?.id) setAlertsPickListId(String(rows[0].id));
         }}
         actions={canWrite ?
           <>
@@ -1864,6 +1957,101 @@ export function FulfillmentView() {
           runCommand('adjustFulfillmentLine', { fulfillmentLineId: event.data.id, [event.colDef.field]: event.newValue }, `Inline fulfillment edit: ${event.colDef.field}`);
         } : undefined}
       />
+      {/* CAP-030 / TER-1510 — Alerts drawer */}
+      {canWrite && alertsDrawerOpen && alertsPickListId ? (
+        <div className="inline-panel border-t border-line">
+          <div className="flex items-center justify-between">
+            <h2 className="section-title">
+              Warehouse Alerts
+              {stubAlerts.length > 0 ? (
+                <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                  {stubAlerts.length}
+                </span>
+              ) : null}
+            </h2>
+            <button type="button" className="icon-button" onClick={() => setAlertsDrawerOpen(false)} aria-label="Close alerts panel">×</button>
+          </div>
+          {/* TODO: depends on CAP-030 backend merge (TER-1498) — replace stubAlerts with live query */}
+          {stubAlerts.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500">No alerts for this pick list. (Live data requires CAP-030 backend merge.)</p>
+          ) : (
+            <div className="mt-2 divide-y divide-line">
+              {stubAlerts.map((alert) => (
+                <div key={alert.id} className="py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-sm font-medium text-ink">{alert.itemName ?? alert.lineId}</span>
+                      <span className="ml-2 text-xs text-zinc-500">{alert.batchCode}</span>
+                      <p className="mt-0.5 text-xs text-zinc-600">{alert.message}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <button
+                        type="button"
+                        className="secondary-button compact-action text-xs"
+                        disabled={isRunning}
+                        onClick={() => {
+                          // TODO: depends on CAP-030 backend merge (TER-1488)
+                          runCommand('acknowledgeWarehouseAlert', { alertId: alert.id }, 'Acknowledge warehouse alert');
+                        }}
+                      >
+                        Acknowledge
+                      </button>
+                      <div className="flex gap-1">
+                        <input
+                          className="input compact w-16"
+                          value={alertReturnQty}
+                          inputMode="decimal"
+                          placeholder="Qty"
+                          onChange={(e) => setAlertReturnQty(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="secondary-button compact-action text-xs"
+                          disabled={isRunning || !alertReturnQty}
+                          onClick={() => {
+                            // TODO: depends on CAP-030 backend merge (TER-1488)
+                            runCommand('returnPickedUnits', { alertId: alert.id, lineId: alert.lineId, qty: Number(alertReturnQty) }, 'Return picked units');
+                            setAlertReturnQty('');
+                          }}
+                        >
+                          Return
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="secondary-button compact-action text-xs"
+                        disabled={isRunning}
+                        onClick={() => {
+                          // TODO: depends on CAP-030 backend merge (TER-1488)
+                          runCommand('cancelFulfillmentLine', { lineId: alert.lineId }, 'Cancel fulfillment line from alert');
+                        }}
+                      >
+                        Mark cancelled
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Toggle alerts drawer when row has alerts */}
+      {canWrite && selectedPick && Number(selectedPick.alertCount ?? 0) > 0 && !alertsDrawerOpen ? (
+        <div className="control-band subtle-band">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setAlertsDrawerOpen(true);
+              setAlertsPickListId(String(selectedPick.id));
+            }}
+          >
+            View {Number(selectedPick.alertCount)} alerts for {String(selectedPick.pickNo ?? 'this pick')}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2455,7 +2643,7 @@ function GridJourney({
   columns,
   selectionActions
 }: {
-  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings' | 'credit-review'>;
+  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings' | 'credit-review' | 'pick'>;
   title: string;
   actions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
   prelude?: (runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
