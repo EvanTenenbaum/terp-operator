@@ -12,6 +12,7 @@ import type {
 } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { WorkspacePanel } from '../components/WorkspacePanel';
+import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useUiStore } from '../store/uiStore';
@@ -44,16 +45,6 @@ export function IntakeView() {
     confirmVerifyAllFor !== null,
     () => setConfirmVerifyAllFor(null)
   );
-  const previewBatchIds = previewOrder
-    ? previewOrder.batches
-        .filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))
-        .map((batch) => batch.id)
-    : [];
-  const receiptPreview = trpc.queries.receiptPreview.useQuery(
-    { batchIds: previewBatchIds },
-    { enabled: previewBatchIds.length > 0 }
-  );
-
   const orderRows = (intakeQueue.data ?? EMPTY) as IntakeOrderRow[];
 
   async function importCsv(validateOnly: boolean) {
@@ -166,20 +157,20 @@ export function IntakeView() {
       {
         headerName: 'Actions',
         pinned: 'right',
-        minWidth: 360,
+        minWidth: 280,
         cellRenderer: (params: ICellRendererParams<IntakeOrderRow>) => {
           const order = params.data;
           if (!order) return null;
+
+          const postedCount = order.batches.filter((b) => b.status === 'posted').length;
+          const totalCount = order.batches.length;
+          const allVerified = totalCount > 0 && postedCount === totalCount;
+
           return (
             <div className="flex h-full items-center gap-2">
-              <button
-                type="button"
-                className="primary-button compact-action"
-                disabled={!canWrite || busy || isRunning || !canVerifyIntake(order)}
-                onClick={() => void verifyIntakeForOrder(order)}
-              >
-                Verify intake
-              </button>
+              <span className={allVerified ? 'selection-pill success' : 'selection-pill'}>
+                {postedCount}/{totalCount} verified
+              </span>
               <button
                 type="button"
                 className="secondary-button compact-action"
@@ -203,18 +194,6 @@ export function IntakeView() {
     ],
     [busy, isRunning, canWrite]
   );
-
-  function canVerifyIntake(order: IntakeOrderRow) {
-    if (!order.batches?.length) return false;
-    if (!order.batches.some((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))) return false;
-    return order.batches
-      .filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))
-      .every((batch) => {
-        const drafted = verifiedDraftsRef.current.get(batch.id);
-        if (drafted != null && Number.isFinite(drafted)) return true;
-        return Number(batch.intakeQty) > 0;
-      });
-  }
 
   function hasPendingBatches(order: IntakeOrderRow) {
     return order.batches?.some((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status)) ?? false;
@@ -267,153 +246,101 @@ export function IntakeView() {
   }, []);
 
   return (
-    <div className="view-stack">
-      <div className="control-band">
-        <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
-          CSV import
-        </button>
-      </div>
-      {csvOpen ? (
-        <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
-          <div ref={csvImportFocusRef}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  className="secondary-button compact-action"
-                  type="button"
-                  disabled={!csvText.trim() || isRunning || busy}
-                  onClick={() => void importCsv(true)}
-                >
-                  Validate
-                </button>
-                <button
-                  className="primary-button compact-action"
-                  type="button"
-                  disabled={!csvResult?.ok || !csvText.trim() || isRunning || busy}
-                  onClick={() => void importCsv(false)}
-                >
-                  Import
-                </button>
-              </div>
-            </div>
-            <textarea
-              className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
-              value={csvText}
-              onChange={(event) => setCsvText(event.target.value)}
-            />
-            {csvResult ? (
-              <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
-            ) : null}
-          </div>
-        </WorkspacePanel>
-      ) : null}
-      <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
-        <div className="ag-theme-quartz grid-shell">
-          <AgGridReact<IntakeOrderRow>
-            rowData={orderRows}
-            columnDefs={columnDefs}
-            defaultColDef={{ sortable: true, resizable: true, filter: true, minWidth: 120 }}
-            masterDetail
-            detailRowAutoHeight
-            detailCellRendererParams={detailCellRendererParams}
-            getRowId={(params) => String(params.data.id)}
-            onGridReady={onGridReady}
-            loading={intakeQueue.isLoading || isRunning || busy}
-            isRowMaster={(data) => Boolean(data?.batches?.length)}
-            animateRows={false}
-          />
+    <div className="flex flex-row min-h-0 flex-1">
+      <div className="view-stack flex-1 min-w-0">
+        <div className="control-band">
+          <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
+            CSV import
+          </button>
         </div>
-        {!intakeQueue.isLoading && orderRows.length === 0 ? (
-          <div className="p-4 text-sm text-zinc-600">No approved purchase orders with linked intake batches yet. Approve a PO to populate this queue.</div>
-        ) : null}
-      </WorkspacePanel>
-      {previewOrder ? (
-        <WorkspacePanel
-          panelId="intake:receipt-preview"
-          title={`Receipt preview — ${previewOrder.poNo}`}
-          contentClassName="p-3"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <button className="text-button" type="button" onClick={() => setPreviewOrder(null)}>
-              Close
-            </button>
-          </div>
-          {receiptPreview.data ? (
-            <div className="mt-3 grid gap-3">
-              <div className="grid gap-2 text-sm md:grid-cols-4">
-                <span className="selection-pill">Vendor {receiptPreview.data.vendor || 'Mixed / missing'}</span>
-                <span className="selection-pill">{receiptPreview.data.rows.length} row(s)</span>
-                <span className="selection-pill">Total ${receiptPreview.data.total}</span>
-                <span className={receiptPreview.data.ok ? 'selection-pill success' : 'selection-pill warning'}>
-                  {receiptPreview.data.ok ? 'Ready to post' : `${receiptPreview.data.conflicts.length} conflict(s)`}
-                </span>
-              </div>
-              {receiptPreview.data.conflicts.length ? (
-                <div className="grid gap-1 text-sm text-red-700">
-                  {receiptPreview.data.conflicts.map((conflict) => (
-                    <div key={conflict}>{conflict}</div>
-                  ))}
+        {csvOpen ? (
+          <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
+            <div ref={csvImportFocusRef}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    className="secondary-button compact-action"
+                    type="button"
+                    disabled={!csvText.trim() || isRunning || busy}
+                    onClick={() => void importCsv(true)}
+                  >
+                    Validate
+                  </button>
+                  <button
+                    className="primary-button compact-action"
+                    type="button"
+                    disabled={!csvResult?.ok || !csvText.trim() || isRunning || busy}
+                    onClick={() => void importCsv(false)}
+                  >
+                    Import
+                  </button>
                 </div>
+              </div>
+              <textarea
+                className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
+                value={csvText}
+                onChange={(event) => setCsvText(event.target.value)}
+              />
+              {csvResult ? (
+                <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
               ) : null}
-              <div className="finder-table-wrap max-h-64">
-                <table className="finder-table">
-                  <thead>
-                    <tr>
-                      <th>Batch</th>
-                      <th>Name</th>
-                      <th>Qty</th>
-                      <th>Cost</th>
-                      <th>Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {receiptPreview.data.rows.map((row) => (
-                      <tr key={String(row.id)}>
-                        <td>{String(row.batchCode)}</td>
-                        <td>{String(row.name)}</td>
-                        <td>{String(row.intakeQty)}</td>
-                        <td>${String(row.unitCost)}</td>
-                        <td>${Number(row.subtotal ?? 0).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            </div>
+          </WorkspacePanel>
+        ) : null}
+        <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
+          <div className="ag-theme-quartz grid-shell">
+            <AgGridReact<IntakeOrderRow>
+              rowData={orderRows}
+              columnDefs={columnDefs}
+              defaultColDef={{ sortable: true, resizable: true, filter: true, minWidth: 120 }}
+              masterDetail
+              detailRowAutoHeight
+              detailCellRendererParams={detailCellRendererParams}
+              getRowId={(params) => String(params.data.id)}
+              onGridReady={onGridReady}
+              loading={intakeQueue.isLoading || isRunning || busy}
+              isRowMaster={(data) => Boolean(data?.batches?.length)}
+              animateRows={false}
+            />
+          </div>
+          {!intakeQueue.isLoading && orderRows.length === 0 ? (
+            <div className="p-4 text-sm text-zinc-600">No approved purchase orders with linked intake batches yet. Approve a PO to populate this queue.</div>
+          ) : null}
+        </WorkspacePanel>
+        {confirmVerifyAllFor ? (
+          <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
+            <div ref={confirmVerifyAllFocusRef}>
+              <p className="text-sm text-zinc-700">
+                This will accept every pending batch on this PO as the expected quantity and post the receipt.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  className="primary-button compact-action"
+                  disabled={busy || isRunning}
+                  onClick={async () => {
+                    const target = confirmVerifyAllFor;
+                    setConfirmVerifyAllFor(null);
+                    if (target) {
+                      await verifyAllForOrder(target);
+                      pushToast(`Verified all intake for ${target.poNo}.`, 'success');
+                    }
+                  }}
+                >
+                  Yes — verify all
+                </button>
+                <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
+                  Cancel
+                </button>
               </div>
             </div>
-          ) : (
-            <div className="text-sm text-zinc-600">Loading preview...</div>
-          )}
-        </WorkspacePanel>
-      ) : null}
-      {confirmVerifyAllFor ? (
-        <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
-          <div ref={confirmVerifyAllFocusRef}>
-            <p className="text-sm text-zinc-700">
-              This will accept every pending batch on this PO as the expected quantity and post the receipt.
-            </p>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                className="primary-button compact-action"
-                disabled={busy || isRunning}
-                onClick={async () => {
-                  const target = confirmVerifyAllFor;
-                  setConfirmVerifyAllFor(null);
-                  if (target) {
-                    await verifyAllForOrder(target);
-                    pushToast(`Verified all intake for ${target.poNo}.`, 'success');
-                  }
-                }}
-              >
-                Yes — verify all
-              </button>
-              <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </WorkspacePanel>
-      ) : null}
+          </WorkspacePanel>
+        ) : null}
+      </div>
+      <ReceiptPreviewDrawer
+        order={previewOrder}
+        onClose={() => setPreviewOrder(null)}
+      />
     </div>
   );
 }
