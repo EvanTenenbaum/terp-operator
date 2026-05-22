@@ -23,3 +23,18 @@ describe('paymentReceived external projector — leak fixture (Phase 1 stub)', (
     expect(ext).not.toHaveProperty('__INTERNAL_ONLY__');
   });
 });
+
+describe('paymentReceived internal projector — optional internalNotes hygiene (Phase 4)', () => {
+  const fixtureWithoutNotes = { customerName: 'Big Buyer Co', paymentRef: 'PAY-002', dateISO: '2026-05-22', amount: 250 };
+
+  it('internal projection omits internalNotes entirely when input has no internalReconciliationNotes', () => {
+    const int = paymentReceived.internal(fixtureWithoutNotes);
+    expect(int).not.toHaveProperty('internalNotes');
+    expect(Object.keys(int)).not.toContain('internalNotes');
+  });
+
+  it('internal projection still includes internalNotes when input provides it', () => {
+    const int = paymentReceived.internal({ ...fixtureWithoutNotes, internalReconciliationNotes: 'partial allocation' });
+    expect(int).toHaveProperty('internalNotes', 'partial allocation');
+  });
+});
