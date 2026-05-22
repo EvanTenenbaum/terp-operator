@@ -5,6 +5,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 const linesQueryMock = vi.fn();
 const referenceQueryMock = vi.fn();
 const relationshipQueryMock = vi.fn();
+const pricingRulesClausesMock = vi.fn();
+const pricingRulesSummaryMock = vi.fn();
 const runCommandMock = vi.fn(async () => undefined);
 
 vi.mock('../api/trpc', () => ({
@@ -12,7 +14,9 @@ vi.mock('../api/trpc', () => ({
     queries: {
       salesOrderLines: { useQuery: (input: unknown, options: unknown) => linesQueryMock(input, options) },
       reference: { useQuery: (input: unknown, options: unknown) => referenceQueryMock(input, options) },
-      relationshipSummary: { useQuery: (input: unknown, options: unknown) => relationshipQueryMock(input, options) }
+      relationshipSummary: { useQuery: (input: unknown, options: unknown) => relationshipQueryMock(input, options) },
+      pricingRuleClauses: { useQuery: (input: unknown, options: unknown) => pricingRulesClausesMock(input, options) },
+      pricingRulesSummary: { useQuery: (input: unknown, options: unknown) => pricingRulesSummaryMock(input, options) },
     }
   }
 }));
@@ -353,37 +357,56 @@ describe('OrderPricingPanel', () => {
 
 describe('CustomerPricingPanel', () => {
   it('renders the customer pricing editor with the internal-only banner', () => {
-    relationshipQueryMock.mockReturnValue({
-      data: { customer: { id: CUSTOMER_ID, name: 'Acme', pricingRule: { default: { basis: 'percent', amount: 0.3 } } } }
+    pricingRulesClausesMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    pricingRulesSummaryMock.mockReturnValue({
+      data: { global: [], customers: [], chainFingerprint: '0:' },
+      isLoading: false,
+      refetch: vi.fn(),
     });
     referenceQueryMock.mockReturnValue({
-      data: { defaultPricingRule: { default: { basis: 'percent', amount: 0.25 } }, categories: ['Flower', 'Vape'] }
+      data: { categories: ['Flower', 'Vape'] },
     });
 
     render(<CustomerPricingPanel customerId={CUSTOMER_ID} />);
 
     expect(screen.getByTestId('customer-pricing-panel')).toBeInTheDocument();
     expect(screen.getByText(/Internal only/i)).toBeInTheDocument();
-    expect((screen.getByTestId('rule-default-basis') as HTMLSelectElement).value).toBe('percent');
-    expect((screen.getByTestId('rule-default-amount') as HTMLInputElement).value).toBe('0.3');
-    expect(screen.getByTestId('rule-save')).toBeInTheDocument();
+    // The chain editor is rendered inside the panel
+    expect(screen.getByTestId('pricing-chain-editor')).toBeInTheDocument();
+    // Add-rule and save buttons are present (customer scope, not readOnly)
+    expect(screen.getByTestId('add-clause')).toBeInTheDocument();
+    expect(screen.getByTestId('chain-save')).toBeInTheDocument();
   });
 });
 
 describe('DefaultPricingPanel', () => {
-  it('renders the settings editor for the default pricing rule', () => {
+  // DefaultPricingPanel is retired in CAP-030; it now re-exports PricingRulesView.
+  it('renders PricingRulesView (the consolidated settings view)', () => {
+    pricingRulesSummaryMock.mockReturnValue({
+      data: { global: [], customers: [], chainFingerprint: '0:' },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    pricingRulesClausesMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+      refetch: vi.fn(),
+    });
     referenceQueryMock.mockReturnValue({
-      data: { defaultPricingRule: { default: { basis: 'percent', amount: 0.3 } }, categories: ['Flower', 'Vape'] },
-      refetch: vi.fn()
+      data: { categories: ['Flower', 'Vape'] },
     });
 
     render(<DefaultPricingPanel />);
 
-    expect(screen.getByTestId('default-pricing-panel')).toBeInTheDocument();
-    expect(screen.getByText(/Default pricing rule/i)).toBeInTheDocument();
-    expect(screen.getByText(/Internal only/i)).toBeInTheDocument();
-    expect((screen.getByTestId('default-rule-basis') as HTMLSelectElement).value).toBe('percent');
-    expect((screen.getByTestId('default-rule-amount') as HTMLInputElement).value).toBe('0.3');
-    expect(screen.getByTestId('default-rule-save')).toBeInTheDocument();
+    expect(screen.getByTestId('pricing-rules-view')).toBeInTheDocument();
+    expect(screen.getByText(/Pricing Rules/i)).toBeInTheDocument();
+    expect(screen.getByTestId('global-rules-section')).toBeInTheDocument();
+    expect(screen.getByTestId('customer-overrides-section')).toBeInTheDocument();
   });
 });
