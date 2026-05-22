@@ -40,7 +40,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'orderedQty', headerName: 'Ordered', type: 'numericColumn', width: 120 },
     { field: 'receivedQty', headerName: 'Received', type: 'numericColumn', width: 120 },
     { field: 'buyerNotes', headerName: 'Internal notes', editable: true, minWidth: 220 },
-    { field: 'internalNotes', headerName: 'Internal (ops)', editable: true, minWidth: 220 },
+    { field: 'internalNotes', headerName: 'Internal notes (ops)', editable: true, minWidth: 220 },
     { field: 'externalNotes', headerName: 'External (vendor)', editable: true, minWidth: 220 },
     { field: 'orderedAt', width: 170 },
     { field: 'receivedAt', width: 170 },
@@ -396,17 +396,6 @@ export function PurchaseOrdersView() {
     setDraftLines((rows) => [...rows, makePoDraftLine(seed)]);
   }
 
-  function quickAddHistorical(row: GridRow) {
-    addDraftLine({
-      productName: row.name,
-      category: row.category,
-      subcategory: Array.isArray(row.tags) ? row.tags[0] : '',
-      tags: Array.isArray(row.tags) ? row.tags.join(', ') : '',
-      unitCost: row.unitCost,
-      qty: 1,
-      uom: row.uom || unitTypeForCategory(String(row.category ?? ''))
-    });
-  }
 
   async function saveDraftPo(options: { approve?: boolean } = {}) {
     if (!defaultVendorId) return null;
@@ -539,7 +528,7 @@ export function PurchaseOrdersView() {
         </div>
       ) : null}
       {authoringOpen ? (
-        <section className="inline-panel" aria-label="New purchase order workspace">
+        <section className="inline-panel grid gap-3" aria-label="New purchase order workspace">
             <div className="po-header-strip">
               <div>
                 <div className="text-xs font-bold uppercase text-zinc-500">New purchase order</div>
