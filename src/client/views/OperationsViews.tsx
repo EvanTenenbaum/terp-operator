@@ -40,8 +40,8 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'lines', width: 95 },
     { field: 'orderedQty', headerName: 'Ordered', type: 'numericColumn', width: 120 },
     { field: 'receivedQty', headerName: 'Received', type: 'numericColumn', width: 120 },
-    { field: 'buyerNotes', headerName: 'Buyer notes', editable: true, minWidth: 220 },
-    { field: 'internalNotes', headerName: 'Internal', editable: true, minWidth: 220 },
+    { field: 'buyerNotes', headerName: 'Internal notes', editable: true, minWidth: 220 },
+    { field: 'internalNotes', headerName: 'Internal notes (ops)', editable: true, minWidth: 220 },
     { field: 'externalNotes', headerName: 'External (vendor)', editable: true, minWidth: 220 },
     { field: 'orderedAt', width: 170 },
     { field: 'receivedAt', width: 170 },
@@ -215,6 +215,8 @@ export function PurchaseOrdersView() {
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
   const pushToast = useUiStore((state) => state.pushToast);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const storedGridFilter = useUiStore((state) => state.gridFilters.purchaseOrders ?? '');
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedPo = selected[0];
   const lines = trpc.queries.purchaseOrderLines.useQuery(
@@ -273,6 +275,10 @@ export function PurchaseOrdersView() {
   });
   const canApproveDraft = Boolean(defaultVendorId) && filledDraftLines.length > 0 && approvalLineIssues.length === 0;
 
+  function togglePreset(preset: string) {
+    setGridFilter('purchaseOrders', storedGridFilter === preset ? '' : preset);
+  }
+
   const purchaseOrderExpansionConfig = useMemo(
     () => ({
       enabled: true,
@@ -316,6 +322,31 @@ export function PurchaseOrdersView() {
           </button>
           <button
             className="secondary-button compact-action"
+type="button"
+            disabled={
+              isRunning ||
+              !canWrite ||
+              String(row.status ?? '') !== 'approved' ||
+              Number(row.prepaymentAmount ?? 0) <= 0
+            }
+            title={
+              String(row.status ?? '') !== 'approved'
+                ? 'PO must be approved before recording prepayment'
+                : Number(row.prepaymentAmount ?? 0) <= 0
+                ? 'PO has no prepayment amount set'
+                : 'Record vendor prepayment'
+            }
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              setSelectedRows('purchaseOrders', [row]);
+              setPrepaymentDialogOpen(true);
+            }}
+          >
+            <CreditCard className="h-4 w-4" aria-hidden="true" />
+            Record Prepayment
+          </button>
+          <button
+            className="secondary-button compact-action"
             disabled={isRunning || !canWrite || !row.id || row.status !== 'draft'}
             onClick={() => runCommand('saveDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Save PO receipt draft')}
             type="button"
@@ -333,7 +364,7 @@ export function PurchaseOrdersView() {
         </>
       )
     }),
-    [isRunning, runCommand, canWrite]
+    [isRunning, runCommand, canWrite, setSelectedRows, setPrepaymentDialogOpen]
   );
 
   const purchaseOrderLineExpansionConfig = useMemo(
@@ -395,17 +426,6 @@ export function PurchaseOrdersView() {
     setDraftLines((rows) => [...rows, makePoDraftLine(seed)]);
   }
 
-  function quickAddHistorical(row: GridRow) {
-    addDraftLine({
-      productName: row.name,
-      category: row.category,
-      subcategory: Array.isArray(row.tags) ? row.tags[0] : '',
-      tags: Array.isArray(row.tags) ? row.tags.join(', ') : '',
-      unitCost: row.unitCost,
-      qty: 1,
-      uom: row.uom || unitTypeForCategory(String(row.category ?? ''))
-    });
-  }
 
   async function saveDraftPo(options: { approve?: boolean } = {}) {
     if (!defaultVendorId) return null;
@@ -538,8 +558,7 @@ export function PurchaseOrdersView() {
         </div>
       ) : null}
       {authoringOpen ? (
-        <section className="inline-panel po-authoring-layout" aria-label="New purchase order workspace">
-          <div className="po-authoring-main">
+        <section className="inline-panel grid gap-3" aria-label="New purchase order workspace">
             <div className="po-header-strip">
               <div>
                 <div className="text-xs font-bold uppercase text-zinc-500">New purchase order</div>
@@ -591,11 +610,11 @@ export function PurchaseOrdersView() {
                 <input className="input compact" type="date" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} />
               </label>
               <label className="field-inline grow">
-                Vendor receipt notes
+                Internal notes
                 <input className="input" value={buyerNotes} onChange={(event) => setBuyerNotes(event.target.value)} />
               </label>
               <label className="field-inline grow">
-                Internal notes
+                Internal notes (ops)
                 <input className="input" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
               </label>
               <label className="field-inline grow">
@@ -695,28 +714,6 @@ export function PurchaseOrdersView() {
               <span>Procurement cost only. Sales price stays in Sales.</span>
               {approvalLineIssues.length ? <span className="po-total-warning">{approvalLineIssues.length} filled line needs units and cost (fixed or range).</span> : null}
             </div>
-          </div>
-          <aside className="po-context-panel" aria-label="Vendor context">
-            <h2 className="section-title">Vendor context</h2>
-            <div className="po-context-list">
-              <div className="drawer-fact-row"><span>Vendor</span><strong>{selectedVendor?.name ?? 'Choose vendor'}</strong></div>
-              <div className="drawer-fact-row"><span>Terms</span><strong>{selectedVendor ? `${String(selectedVendor.termsDays ?? 14)} days` : '-'}</strong></div>
-              <div className="drawer-fact-row"><span>Open bills</span><strong>{vendorRelationship.data?.bills?.length ?? 0}</strong></div>
-              <div className="drawer-fact-row"><span>Payments</span><strong>{vendorRelationship.data?.vendorPayments?.length ?? 0}</strong></div>
-              <div className="drawer-fact-row"><span>Prior POs</span><strong>{vendorRelationship.data?.purchaseOrders?.length ?? 0}</strong></div>
-            </div>
-            <h3 className="section-title mt-4">Historical quick add</h3>
-            <div className="po-context-list">
-              {historicalProducts.length ? historicalProducts.map((row) => (
-                <button className="po-context-row" type="button" key={String(row.id)} onClick={() => quickAddHistorical(row)}>
-                  <span>{String(row.name ?? 'Product')}</span>
-                  <strong>${moneyish(row.unitCost)}</strong>
-                </button>
-              )) : (
-                <div className="drawer-empty">No reusable vendor history yet.</div>
-              )}
-            </div>
-          </aside>
         </section>
       ) : null}
       {/* Vendor Context Drawer */}
@@ -747,6 +744,11 @@ export function PurchaseOrdersView() {
         onCellCommit={canWrite ? updatePoCell : undefined}
         actions={
           <>
+            <div role="group" aria-label="Filter by status">
+              <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:draft,approved,ordered,partially_received')} aria-pressed={storedGridFilter === 'status:draft,approved,ordered,partially_received'}>Active</button>
+              <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:ordered,partially_received')} aria-pressed={storedGridFilter === 'status:ordered,partially_received'}>Ordered</button>
+              <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:finalized')} aria-pressed={storedGridFilter === 'status:finalized'}>Finalized</button>
+            </div>
             {canWrite ? (
               <>
                 <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">

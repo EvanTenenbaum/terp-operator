@@ -703,24 +703,8 @@ kbd {
   @apply border border-line bg-panel px-2 py-1;
 }
 
-.po-authoring-layout {
-  @apply grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px];
-}
-
-.po-authoring-main {
-  @apply grid min-w-0 gap-3;
-}
-
 .po-context-panel {
   @apply border border-line bg-panel p-3;
-}
-
-.po-context-list {
-  @apply mt-2 grid gap-2 text-xs;
-}
-
-.po-context-row {
-  @apply flex items-center justify-between gap-2 border border-line bg-white px-2 py-1.5 text-left hover:border-accent focus:outline-none focus-visible:shadow-focus;
 }
 
 .po-total-strip {
@@ -853,6 +837,10 @@ kbd {
 .ag-theme-quartz .ag-header-cell-label {
   font-size: 10.5px;
   line-height: 1.1;
+  white-space: normal;
+  word-break: break-word;
+  align-items: flex-start;
+  padding-top: 3px;
 }
 
 .ag-theme-quartz .editable-cell {

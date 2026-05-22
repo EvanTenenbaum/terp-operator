@@ -67,7 +67,21 @@ Decision rules:
 - Decomposing a Linear issue → in-session TODO list only. No Linear sub-issues for routine decomposition.
 - Bug in CI/flaky test/regression/dependency/security → GitHub Issue.
 - Feature report → registry row/new CAP or existing row → Next product move, then Linear issue. Do not file as GitHub Issue.
-- Finishing a Linear issue → move Linear issue to In Review/Done; PR title includes Linear issue ID for integration. Only close GitHub Issues if the PR actually fixes a repo-level bug.
+- Finishing a Linear issue → PR title includes Linear issue ID for integration. For required status updates at each completion checkpoint, see *Tracker Updates at Completion Checkpoints* below.
+
+## Tracker Updates at Completion Checkpoints
+
+**At every meaningful stopping point — significant progress pause, presenting work to user, PR opened, PR merged, or task fully done — the agent MUST:**
+
+1. **Update Linear** with the current status if the task is anchored to a Linear issue (move to In Review, Done, or add a progress comment as appropriate).
+2. **Update the GitHub Issue** with a progress comment if the task lives in GitHub Issues; close only with evidence (merged code, passing tests, browser proof, or explicit rejection rationale).
+3. **File follow-up work** in the right place:
+   - Product/capability gaps → Linear (under project TERP Operator, with a registry ID).
+   - Repo-level bugs/problems → GitHub Issues.
+   - Session decomposition only → in-session TODO list (ephemeral, not persisted).
+
+This applies at checkpoints, not just at final completion. A "checkpoint" is any moment the agent pauses to present meaningful output or hand off.
+
 
 ## GitHub Issue Tracking
 
