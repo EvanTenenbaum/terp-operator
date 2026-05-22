@@ -1,15 +1,23 @@
 {
-  "generated": "2026-05-21T05:53:51.336Z",
-  "componentCount": 51,
+  "generated": "2026-05-22T15:53:51.431Z",
+  "componentCount": 56,
   "byCategory": {
+    "drawer": 19,
     "form": 8,
     "navigation": 6,
-    "drawer": 17,
     "grid": 10,
-    "other": 9,
+    "other": 12,
     "hook": 1
   },
   "components": [
+    {
+      "name": "AddRefereeRelationshipDrawer",
+      "path": "src/client/components/AddRefereeRelationshipDrawer.tsx",
+      "category": "drawer",
+      "exports": [
+        "AddRefereeRelationshipDrawer"
+      ]
+    },
     {
       "name": "AdvancedFilterBuilder",
       "path": "src/client/components/AdvancedFilterBuilder.tsx",
@@ -133,11 +141,33 @@
       ]
     },
     {
-      "name": "MediaDetailPanel",
-      "path": "src/client/components/MediaDetailPanel.tsx",
+      "name": "LandedCostExceptionChip",
+      "path": "src/client/components/LandedCostExceptionChip.tsx",
+      "category": "other",
+      "exports": [
+        "LANDED_COST_EXCEPTION_REASON_LABELS",
+        "LANDED_COST_EXCEPTION_REASON_SHORT_LABELS",
+        "LandedCostExceptionCellRenderer",
+        "LandedCostExceptionChip"
+      ]
+    },
+    {
+      "name": "MediaBatchDrawer",
+      "path": "src/client/components/MediaBatchDrawer.tsx",
       "category": "drawer",
       "exports": [
-        "MediaDetailPanel"
+        "MediaBatchDrawer"
+      ]
+    },
+    {
+      "name": "MediaList",
+      "path": "src/client/components/MediaList.tsx",
+      "category": "other",
+      "exports": [
+        "MediaItem",
+        "MediaList",
+        "MediaListProps",
+        "MediaListQuery"
       ]
     },
     {
@@ -206,6 +236,23 @@
       "category": "grid",
       "exports": [
         "QuickLedgerGrid"
+      ]
+    },
+    {
+      "name": "ReceiptPreview",
+      "path": "src/client/components/ReceiptPreview.tsx",
+      "category": "other",
+      "exports": [
+        "ReceiptPreview",
+        "ReceiptPreviewProps"
+      ]
+    },
+    {
+      "name": "ReceiptPreviewDrawer",
+      "path": "src/client/components/ReceiptPreviewDrawer.tsx",
+      "category": "drawer",
+      "exports": [
+        "ReceiptPreviewDrawer"
       ]
     },
     {
