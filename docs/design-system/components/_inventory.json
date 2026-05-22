@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-21T23:52:47.453Z",
+  "generated": "2026-05-22T02:06:59.799Z",
   "componentCount": 53,
   "byCategory": {
     "form": 8,
@@ -224,7 +224,8 @@
       "path": "src/client/components/ReceiptPanel.tsx",
       "category": "drawer",
       "exports": [
-        "ReceiptPanel"
+        "ReceiptPanel",
+        "ReceiptPanelProps"
       ]
     },
     {

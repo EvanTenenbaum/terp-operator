@@ -8,6 +8,7 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHistoryPanel';
 import { SalesSourcePane } from '../components/SalesSourcePane';
 import { SaleLineExceptionControls } from '../components/SaleLineExceptionControls';
+import { ReceiptPanel } from '../components/ReceiptPanel';
 import { LandedCostExceptionCellRenderer } from '../components/LandedCostExceptionChip';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
@@ -617,6 +618,9 @@ export function SalesView() {
                 expansionConfig={canWrite ? salesLineExpansionConfig : undefined}
               />
             </div>
+            {selectedOrder?.id && ['confirmed', 'posted', 'fulfilled'].includes(selectedOrderStatus) ? (
+              <ReceiptPanel kind="sales_order" salesOrderId={String(selectedOrder.id)} />
+            ) : null}
           </WorkspacePanel>
         </div>
       ) : (
