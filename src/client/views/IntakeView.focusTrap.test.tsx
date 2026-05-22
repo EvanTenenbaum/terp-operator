@@ -117,7 +117,12 @@ vi.mock('../api/trpc', () => ({
       receiptPreview: {
         useQuery: () => ({ data: undefined, isLoading: false, isError: false })
       }
-    }
+    },
+    useUtils: () => ({
+      queries: {
+        intakeQueue: { invalidate: vi.fn().mockResolvedValue(undefined) }
+      }
+    })
   }
 }));
 

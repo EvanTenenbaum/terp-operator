@@ -49,6 +49,22 @@ export function MediaBatchDrawer({ batchId, batchCode, batchName, onClose }: Med
 type QueryResult = ReturnType<typeof trpc.queries.batchMediaList.useQuery>;
 type RunCommand = ReturnType<typeof useCommandRunner>['runCommand'];
 
+interface BatchMediaRow {
+  id: string;
+  batchId: string;
+  mediaType: string;
+  role: string;
+  status: string;
+  originalFilename: string;
+  fileSize: number;
+  mimeType: string;
+  hasThumbnail: boolean;
+  publishedAt: string | null;
+  replacedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 function MediaList({ query, canWrite, runCommand, confirmDeleteId, setConfirmDeleteId }: {
   query: QueryResult;
   canWrite: boolean;
@@ -65,7 +81,8 @@ function MediaList({ query, canWrite, runCommand, confirmDeleteId, setConfirmDel
       </button>
     </div>
   );
-  if (!query.data?.length) return <div className="p-4 text-sm text-zinc-600">No media yet.</div>;
+  const mediaRows = (query.data ?? []) as BatchMediaRow[];
+  if (!mediaRows.length) return <div className="p-4 text-sm text-zinc-600">No media yet.</div>;
 
   return (
     <div className="finder-table-wrap">
@@ -82,7 +99,7 @@ function MediaList({ query, canWrite, runCommand, confirmDeleteId, setConfirmDel
           </tr>
         </thead>
         <tbody>
-          {query.data.map((media) => (
+          {mediaRows.map((media) => (
             <tr key={media.id}>
               <td>
                 {media.hasThumbnail && media.mediaType === 'photo' ? (

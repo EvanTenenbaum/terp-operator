@@ -93,7 +93,7 @@ describe('CustomerPurchaseHistoryPanel — expanded state', () => {
     render(<CustomerPurchaseHistoryPanel customerId="cust-1" />);
     await user.click(screen.getByRole('button', { name: /customer purchase history/i }));
     // Spec columns: product alias, vendor, sale price, quantity, payment terms, payment status
-    expect(screen.getByRole('columnheader', { name: /alias/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /product name/i })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /vendor/i })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /sale price/i })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /qty/i })).toBeInTheDocument();
