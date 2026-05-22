@@ -37,7 +37,7 @@ export const queriesRouter = router({
       pool.query(`select b.id, b.batch_code as "batchCode", b.name, b.category, b.vendor_id as "vendorId", v.name as vendor,
                          b.item_id as "itemId", i.alias as "itemAlias",
                          coalesce(i.alias, b.name) as "displayName",
-                         b.available_qty as "availableQty", b.reserved_qty as "reservedQty", b.subcategory, b.unit_price as "unitPrice",
+                         b.available_qty as "availableQty", b.reserved_qty as "reservedQty", b.unit_price as "unitPrice",
                          b.unit_cost as "unitCost", b.uom, b.location, b.lot_code as "lotCode", b.source_code as "sourceCode",
                          b.shorthand, b.notes, b.intake_date as "intakeDate", b.ticket_cost as "ticketCost",
                          b.ownership_status as "ownershipStatus", b.price_range as "priceRange", b.tags, b.status,
@@ -326,7 +326,7 @@ export const queriesRouter = router({
     return (
       await pool.query(
         `select pol.id, pol.purchase_order_id as "purchaseOrderId", pol.item_id as "itemId",
-                pol.product_name as "productName", pol.category, pol.subcategory, pol.tags, pol.qty, pol.received_qty as "receivedQty",
+                pol.product_name as "productName", pol.category, pol.tags, pol.qty, pol.received_qty as "receivedQty",
                 pol.uom, pol.unit_cost as "unitCost", pol.unit_price as "unitPrice", pol.source_code as "sourceCode",
                 pol.shorthand, pol.legacy_marker as "legacyMarker", pol.ownership_status as "ownershipStatus",
                 pol.notes, pol.status, pol.created_at as "createdAt", i.sku
@@ -734,7 +734,6 @@ export const queriesRouter = router({
                     b.vendor_id as "vendorId", b.tags, b.location, b.lot_code as "lotCode",
                     b.item_id as "itemId", i.alias as "itemAlias",
                     pol.qty as "expectedQty", pol.unit_cost as "expectedUnitCost",
-                    b.discrepancy_reason as "discrepancyReason",
                     b.created_at as "createdAt"
              from batches b
              left join purchase_order_lines pol on pol.id = b.purchase_order_line_id
@@ -970,7 +969,7 @@ export const queriesRouter = router({
     }),
   refereeCredits: protectedProcedure
     .input(z.object({ refereeId: z.string().uuid() }))
-    .query(async ({ input }) => {
+.query(async ({ input }) => {
       const result = await db.execute(sql`
         select rc.id,
                rc.referee_id as "refereeId",
@@ -992,7 +991,47 @@ export const queriesRouter = router({
         order by rc.created_at desc
       `);
       return result.rows;
-    })
+    }),
+  poContextSignals: protectedProcedure.query(async () => {
+    const [invRows, priceRows] = await Promise.all([
+      // Current inventory grouped by category — includes zero-stock categories
+      pool.query<{ category: string; subcategory: string | null; availableQty: string; batchCount: string; uom: string | null }>(`
+        select category,
+               subcategory,
+               coalesce(sum(available_qty), 0)::numeric(14,3) as "availableQty",
+               count(*) as "batchCount",
+               min(uom) filter (where available_qty > 0) as uom
+        from batches
+        where status = 'posted'
+          and category is not null
+          and category <> ''
+        group by category, subcategory
+        order by coalesce(sum(available_qty), 0) asc, category, subcategory nulls last
+      `),
+      // Average recent procurement cost per category from PO lines in last 90 days
+      pool.query<{ category: string; subcategory: string | null; avgCost: string; minCost: string; maxCost: string; poCount: number; lastPoDate: string | null }>(`
+        select pol.category,
+               pol.subcategory,
+               round(avg(pol.unit_cost)::numeric, 2) as "avgCost",
+               round(min(pol.unit_cost)::numeric, 2) as "minCost",
+               round(max(pol.unit_cost)::numeric, 2) as "maxCost",
+               count(distinct po.id)::int as "poCount",
+               max(po.created_at) as "lastPoDate"
+        from purchase_order_lines pol
+        join purchase_orders po on po.id = pol.purchase_order_id
+        where po.created_at > now() - interval '90 days'
+          and pol.unit_cost > 0
+          and pol.category is not null
+          and pol.category <> ''
+        group by pol.category, pol.subcategory
+        order by pol.category, pol.subcategory nulls last
+      `)
+    ]);
+    return {
+      inventory: invRows.rows,
+      pricing: priceRows.rows
+    };
+  }),
 });
 
 type ReplaceTable = 'batches' | 'customers' | 'vendors' | 'sales_orders' | 'connector_requests';
