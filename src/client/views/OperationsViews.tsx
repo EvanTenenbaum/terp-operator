@@ -14,6 +14,7 @@ import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
 import { ReceiptPreview } from '../components/ReceiptPreview';
+import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationshipDrawer';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -257,6 +258,7 @@ export function PurchaseOrdersView() {
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
   const [receiptPreviewSubjectId, setReceiptPreviewSubjectId] = useState<string | null>(null);
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
+  const [addRefereeOpen, setAddRefereeOpen] = useState(false);
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
   const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
@@ -485,6 +487,7 @@ type="button"
       await runCommand('approvePurchaseOrder', payload, 'Approve PO to receive queue');
     }
     setAuthoringOpen(false);
+    setAddRefereeOpen(false);
     setDraftLines([makePoDraftLine()]);
     setBuyerNotes('');
     setInternalNotes('');
@@ -569,7 +572,7 @@ type="button"
                 <span>Expected {expectedDate ? dateish(expectedDate) : 'optional'}</span>
                 <span>${moneyish(poLinesTotal(draftLines))} PO total</span>
               </div>
-              <button className="secondary-button compact-action" type="button" onClick={() => setAuthoringOpen(false)}>
+              <button className="secondary-button compact-action" type="button" onClick={() => { setAuthoringOpen(false); setAddRefereeOpen(false); }}>
                 Cancel draft PO
               </button>
             </div>
@@ -655,6 +658,16 @@ type="button"
                     ))}
                 </select>
               </label>
+              <button
+                type="button"
+                className="secondary-button compact-action"
+                disabled={!defaultVendorId}
+                title={defaultVendorId ? 'Add a new referee credit for this vendor' : 'Select a vendor first'}
+                onClick={() => setAddRefereeOpen(true)}
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add referee
+              </button>
             </div>
             {newVendorOpen ? (
               <div className="po-context-panel" role="region" aria-label="Add new vendor drawer">
@@ -730,6 +743,18 @@ type="button"
           });
           setVendorDrawerOpen(false);
         }}
+      />
+      <AddRefereeRelationshipDrawer
+        isOpen={addRefereeOpen}
+        vendorId={defaultVendorId}
+        vendorName={selectedVendor?.name ?? ''}
+        referees={(reference.data?.referees ?? []).map((r: any) => ({ id: r.id, name: r.name }))}
+        onSuccess={async (newRelationshipId) => {
+          await reference.refetch();
+          setRefereeRelationshipId(newRelationshipId);
+          setAddRefereeOpen(false);
+        }}
+        onClose={() => setAddRefereeOpen(false)}
       />
       <OperatorGrid
         view="purchaseOrders"
