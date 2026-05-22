@@ -1,18 +1,20 @@
 import { router } from '../trpc';
 import { authRouter } from './auth';
 import { commandsRouter } from './commands';
+import { creditRouter } from './credit';
+import { documentSnapshotsRouter } from './documentSnapshots';
+import { filtersRouter } from './filters';
 import { queriesRouter } from './queries';
 import { subscriptionsRouter } from './subscriptions';
-import { filtersRouter } from './filters';
-import { creditRouter } from './credit';
 
 export const appRouter = router({
   auth: authRouter,
   commands: commandsRouter,
-  queries: queriesRouter,
-  subscriptions: subscriptionsRouter,
+  credit: creditRouter,
+  documentSnapshots: documentSnapshotsRouter,
   filters: filtersRouter,
-  credit: creditRouter
+  queries: queriesRouter,
+  subscriptions: subscriptionsRouter
 });
 
 export type AppRouter = typeof appRouter;

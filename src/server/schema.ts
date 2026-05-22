@@ -671,6 +671,32 @@ export const commandJournal = pgTable(
   })
 );
 
+export const documentSnapshots = pgTable(
+  'document_snapshots',
+  {
+    id: id(),
+    documentType: varchar('document_type', { length: 32 }).notNull(),
+    subjectId: uuid('subject_id').notNull(),
+    version: integer('version').notNull().default(1),
+    status: varchar('status', { length: 16 }).notNull().default('finalized'),
+    internalPayload: jsonb('internal_payload').$type<Record<string, unknown>>().notNull().default({}),
+    externalPayload: jsonb('external_payload').$type<Record<string, unknown>>().notNull().default({}),
+    projectionVersion: integer('projection_version').notNull().default(1),
+    generatedByCommandId: uuid('generated_by_command_id'),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    typeSubjectIdx: index('document_snapshots_type_subject_idx').on(table.documentType, table.subjectId),
+    subjectVersionIdx: index('document_snapshots_subject_version_idx').on(table.subjectId, table.version),
+    statusTypeIdx: index('document_snapshots_status_type_idx').on(table.status, table.documentType),
+    typeSubjectVersionUnique: uniqueIndex('document_snapshots_type_subject_version_unique')
+      .on(table.documentType, table.subjectId, table.version),
+    activeUniqueIdx: uniqueIndex('document_snapshots_active_unique').on(table.documentType, table.subjectId)
+      .where(sql`${table.status} IN ('draft', 'finalized')`)
+  })
+);
+
 export const session = pgTable('session', {
   sid: varchar('sid', { length: 255 }).primaryKey(),
   sess: jsonb('sess').notNull(),
@@ -966,6 +992,9 @@ export type MediaRetentionPolicy = typeof mediaRetentionPolicies.$inferSelect;
 export type NewMediaRetentionPolicy = typeof mediaRetentionPolicies.$inferInsert;
 export type MediaCleanupLog = typeof mediaCleanupLog.$inferSelect;
 export type NewMediaCleanupLog = typeof mediaCleanupLog.$inferInsert;
+
+export type DocumentSnapshot = typeof documentSnapshots.$inferSelect;
+export type NewDocumentSnapshot = typeof documentSnapshots.$inferInsert;
 
 // View: batch_media_summary (migration 0036). Queried via raw pool.query() in
 // Phase D tRPC routes; no pgTable definition needed for views. Counts are
