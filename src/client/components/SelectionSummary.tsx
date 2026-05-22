@@ -55,7 +55,7 @@ export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship
           </button>
         ) : null}
         <button className="secondary-button compact-action" type="button" onClick={() => downloadSelectionPacket(view, rows)}>
-          Packet
+          Export JSON
         </button>
         <button className="secondary-button compact-action" type="button" onClick={() => onOpenHistory(rows[0])}>
           <Clock className="h-4 w-4" aria-hidden="true" />
@@ -95,7 +95,7 @@ function downloadSelectionPacket(view: ViewKey, rows: GridRow[]) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `terp-agro-${view}-selection-packet.json`;
+  link.download = `terp-operator-${view}-selection-packet.json`;
   link.click();
   URL.revokeObjectURL(url);
 }

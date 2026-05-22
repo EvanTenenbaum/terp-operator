@@ -60,6 +60,7 @@ export function ReceiptPreview({ documentType, subjectId, initialMode = 'externa
               className={`secondary-button compact-action${mode === 'external' ? ' is-active' : ''}`}
               type="button"
               onClick={() => setMode('external')}
+              data-testid="receipt-mode-external"
             >
               External
             </button>
@@ -69,28 +70,49 @@ export function ReceiptPreview({ documentType, subjectId, initialMode = 'externa
               disabled={!canSeeInternal}
               onClick={() => setMode('internal')}
               title={canSeeInternal ? 'Switch to internal view' : 'Viewers cannot read internal receipts.'}
+              data-testid="receipt-mode-internal"
             >
               Internal
             </button>
-            <button className="secondary-button compact-action" type="button" onClick={handleCopy} disabled={!query.data?.text}>
+            <button
+              className="secondary-button compact-action"
+              type="button"
+              onClick={handleCopy}
+              disabled={!query.data?.text}
+              data-testid="receipt-copy-btn"
+            >
               Copy
             </button>
-            <button className="secondary-button compact-action" type="button" onClick={handlePrint} disabled={!query.data?.text}>
+            <button
+              className="secondary-button compact-action"
+              type="button"
+              onClick={handlePrint}
+              disabled={!query.data?.text}
+              data-testid="receipt-print-btn"
+            >
               Print
             </button>
-            <button className="text-button compact-action" type="button" onClick={onClose}>
+            <button
+              className="text-button compact-action"
+              type="button"
+              onClick={onClose}
+              data-testid="receipt-close-btn"
+            >
               Close
             </button>
           </div>
         </div>
-        {mode === 'internal' ? (
-          <div className="selection-pill danger" role="status" aria-live="polite" data-testid="internal-watermark">
-            INTERNAL — DO NOT SEND
-          </div>
-        ) : null}
-        <pre className="receipt-preview-body" data-testid="receipt-preview-body">
-          {query.isLoading ? 'Loading…' : query.data?.text ?? (query.error?.message ?? 'No snapshot.')}
-        </pre>
+        <div
+          className={mode === 'internal' ? 'selection-pill danger' : 'hidden'}
+          role="status"
+          aria-live="polite"
+          data-testid="internal-watermark"
+        >
+          INTERNAL — DO NOT SEND
+        </div>
+        <div className="receipt-preview-body-html" data-testid="receipt-preview-body">
+          {query.isLoading ? 'Loading\u2026' : query.data?.text ?? (query.error?.message ?? 'No snapshot.')}
+        </div>
       </div>
     </div>,
     document.body

@@ -13,8 +13,8 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
-import { ReceiptPreview } from '../components/ReceiptPreview';
 import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationshipDrawer';
+import { ReceiptPreview } from '../components/ReceiptPreview';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -41,8 +41,8 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'lines', width: 95 },
     { field: 'orderedQty', headerName: 'Ordered', type: 'numericColumn', width: 120 },
     { field: 'receivedQty', headerName: 'Received', type: 'numericColumn', width: 120 },
-    { field: 'buyerNotes', headerName: 'Internal notes', editable: true, minWidth: 220 },
-    { field: 'internalNotes', headerName: 'Internal (ops)', editable: true, minWidth: 220 },
+    { field: 'buyerNotes', headerName: 'Buyer notes', editable: true, minWidth: 220 },
+    { field: 'internalNotes', headerName: 'Internal', editable: true, minWidth: 220 },
     { field: 'externalNotes', headerName: 'External (vendor)', editable: true, minWidth: 220 },
     { field: 'orderedAt', width: 170 },
     { field: 'receivedAt', width: 170 },
@@ -88,7 +88,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
       cellRenderer: (params: { value: unknown; data: GridRow }) => (
         <span>
           {params.data?.itemAlias ? (
-            <span title="Market name active" style={{ color: '#eab308', marginRight: 4 }}>
+            <span title="Customer-facing alias active" style={{ color: '#eab308', marginRight: 4 }}>
               ●
             </span>
           ) : null}
@@ -216,8 +216,6 @@ export function PurchaseOrdersView() {
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
   const pushToast = useUiStore((state) => state.pushToast);
-  const setGridFilter = useUiStore((state) => state.setGridFilter);
-  const storedGridFilter = useUiStore((state) => state.gridFilters.purchaseOrders ?? '');
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedPo = selected[0];
   const lines = trpc.queries.purchaseOrderLines.useQuery(
@@ -245,10 +243,10 @@ export function PurchaseOrdersView() {
   const [buyerNotes, setBuyerNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [externalNotes, setExternalNotes] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('vendor_terms');
+  const [paymentTerms, setPaymentTerms] = useState('consignment');
   const [prepaymentAmount, setPrepaymentAmount] = useState('0');
   const [prepaymentDialogOpen, setPrepaymentDialogOpen] = useState(false);
-  const [draftLines, setDraftLines] = useState<GridRow[]>([makePoDraftLine()]);
+  const [draftLines, setDraftLines] = useState<GridRow[]>(Array.from({ length: 10 }, () => makePoDraftLine()));
   const [newVendorOpen, setNewVendorOpen] = useState(false);
   const [newVendorName, setNewVendorName] = useState('');
   const [newVendorTerms, setNewVendorTerms] = useState('14');
@@ -262,6 +260,7 @@ export function PurchaseOrdersView() {
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
   const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
+  const contextSignals = trpc.queries.poContextSignals.useQuery(undefined, { enabled: authoringOpen });
   const historicalProducts = (reference.data?.availableBatches ?? [])
     .filter((row) => !defaultVendorId || row.vendorId === defaultVendorId)
     .slice(0, 8);
@@ -276,10 +275,6 @@ export function PurchaseOrdersView() {
     return !hasQty || (!hasUnitCost && !hasValidRange);
   });
   const canApproveDraft = Boolean(defaultVendorId) && filledDraftLines.length > 0 && approvalLineIssues.length === 0;
-
-  function togglePreset(preset: string) {
-    setGridFilter('purchaseOrders', storedGridFilter === preset ? '' : preset);
-  }
 
   const purchaseOrderExpansionConfig = useMemo(
     () => ({
@@ -324,31 +319,6 @@ export function PurchaseOrdersView() {
           </button>
           <button
             className="secondary-button compact-action"
-            type="button"
-            disabled={
-              isRunning ||
-              !canWrite ||
-              String(row.status ?? '') !== 'approved' ||
-              Number(row.prepaymentAmount ?? 0) <= 0
-            }
-            title={
-              String(row.status ?? '') !== 'approved'
-                ? 'PO must be approved before recording prepayment'
-                : Number(row.prepaymentAmount ?? 0) <= 0
-                ? 'PO has no prepayment amount set'
-                : 'Record vendor prepayment'
-            }
-            onClick={() => {
-              if (!row.id || row.id.trim() === '') return;
-              setSelectedRows('purchaseOrders', [row]);
-              setPrepaymentDialogOpen(true);
-            }}
-          >
-            <CreditCard className="h-4 w-4" aria-hidden="true" />
-            Record Prepayment
-          </button>
-<button
-            className="secondary-button compact-action"
             disabled={isRunning || !canWrite || !row.id || row.status !== 'draft'}
             onClick={() => runCommand('saveDraftPurchaseOrderReceipt', { purchaseOrderId: row.id }, 'Save PO receipt draft')}
             type="button"
@@ -366,7 +336,7 @@ export function PurchaseOrdersView() {
         </>
       )
     }),
-    [isRunning, runCommand, canWrite, setSelectedRows, setPrepaymentDialogOpen]
+    [isRunning, runCommand, canWrite]
   );
 
   const purchaseOrderLineExpansionConfig = useMemo(
@@ -407,7 +377,7 @@ export function PurchaseOrdersView() {
   function openAuthoringWorkspace() {
     setAuthoringOpen(true);
     setSelectedRows('purchaseOrders', []);
-    setDraftLines((rows) => rows.length ? rows : [makePoDraftLine()]);
+    setDraftLines((rows) => rows.length ? rows : Array.from({ length: 10 }, () => makePoDraftLine()));
     setDrawerState('purchaseOrders', 'closed');
   }
 
@@ -428,6 +398,17 @@ export function PurchaseOrdersView() {
     setDraftLines((rows) => [...rows, makePoDraftLine(seed)]);
   }
 
+  function quickAddHistorical(row: GridRow) {
+    addDraftLine({
+      productName: row.name,
+      category: row.category,
+      subcategory: Array.isArray(row.tags) ? row.tags[0] : '',
+      tags: Array.isArray(row.tags) ? row.tags.join(', ') : '',
+      unitCost: row.unitCost,
+      qty: 1,
+      uom: row.uom || unitTypeForCategory(String(row.category ?? ''))
+    });
+  }
 
   async function saveDraftPo(options: { approve?: boolean } = {}) {
     if (!defaultVendorId) return null;
@@ -465,7 +446,6 @@ export function PurchaseOrdersView() {
           purchaseOrderId,
           productName: line.productName,
           category: line.category || 'Flower',
-          subcategory: line.subcategory || undefined,
           tags: parseTagInput(String(line.tags ?? '')),
           qty: Number(line.qty || 0),
           unitCost: Number(line.unitCost || 0),
@@ -489,11 +469,11 @@ export function PurchaseOrdersView() {
     }
     setAuthoringOpen(false);
     setAddRefereeOpen(false);
-    setDraftLines([makePoDraftLine()]);
+    setDraftLines(Array.from({ length: 10 }, () => makePoDraftLine()));
     setBuyerNotes('');
     setInternalNotes('');
     setExternalNotes('');
-    setPaymentTerms('vendor_terms');
+    setPaymentTerms('consignment');
     setPrepaymentAmount('0');
     setRefereeRelationshipId('');
     setSelectedRows('purchaseOrders', [{ id: purchaseOrderId }]);
@@ -562,7 +542,8 @@ export function PurchaseOrdersView() {
         </div>
       ) : null}
       {authoringOpen ? (
-        <section className="inline-panel grid gap-3" aria-label="New purchase order workspace">
+        <section className="inline-panel po-authoring-layout" aria-label="New purchase order workspace">
+          <div className="po-authoring-main">
             <div className="po-header-strip">
               <div>
                 <div className="text-xs font-bold uppercase text-zinc-500">New purchase order</div>
@@ -614,15 +595,7 @@ export function PurchaseOrdersView() {
                 <input className="input compact" type="date" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} />
               </label>
               <label className="field-inline grow">
-                Internal notes
-                <input className="input" value={buyerNotes} onChange={(event) => setBuyerNotes(event.target.value)} />
-              </label>
-              <label className="field-inline grow">
-                Internal notes (ops)
-                <input className="input" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
-              </label>
-              <label className="field-inline grow">
-                External notes (vendor-visible)
+                Vendor receipt notes
                 <input className="input" value={externalNotes} onChange={(event) => setExternalNotes(event.target.value)} />
               </label>
               <label className="field-inline">
@@ -725,9 +698,39 @@ export function PurchaseOrdersView() {
             />
             <div className="po-total-strip">
               <span>PO total ${moneyish(poLinesTotal(draftLines))}</span>
-              <span>Procurement cost only. Sales price stays in Sales.</span>
               {approvalLineIssues.length ? <span className="po-total-warning">{approvalLineIssues.length} filled line needs units and cost (fixed or range).</span> : null}
             </div>
+          </div>
+          <aside className="po-context-panel" aria-label="Vendor context">
+            <h2 className="section-title">Vendor context</h2>
+            <div className="po-context-list">
+              <div className="drawer-fact-row"><span>Vendor</span><strong>{selectedVendor?.name ?? 'Choose vendor'}</strong></div>
+              <div className="drawer-fact-row"><span>Terms</span><strong>{selectedVendor ? `${String(selectedVendor.termsDays ?? 14)} days` : '-'}</strong></div>
+              <div className="drawer-fact-row"><span>Open bills</span><strong>{vendorRelationship.data?.bills?.length ?? 0}</strong></div>
+              <div className="drawer-fact-row"><span>Payments</span><strong>{vendorRelationship.data?.vendorPayments?.length ?? 0}</strong></div>
+              <div className="drawer-fact-row"><span>Prior POs</span><strong>{vendorRelationship.data?.purchaseOrders?.length ?? 0}</strong></div>
+            </div>
+            {defaultVendorId ? (
+              <>
+                <h3 className="section-title mt-4">Historical quick add</h3>
+                <div className="po-context-list">
+                  {historicalProducts.length ? historicalProducts.map((row) => (
+                    <button className="po-context-row" type="button" key={String(row.id)} onClick={() => quickAddHistorical(row)}>
+                      <span>{String(row.name ?? 'Product')}</span>
+                      <strong>${moneyish(row.unitCost)}</strong>
+                    </button>
+                  )) : (
+                    <div className="drawer-empty">No reusable vendor history yet.</div>
+                  )}
+                </div>
+              </>
+            ) : null}
+            {contextSignals.data ? (
+              <PoSignalsSection inventory={contextSignals.data.inventory} pricing={contextSignals.data.pricing} />
+            ) : contextSignals.isLoading ? (
+              <div className="drawer-empty mt-4 text-xs">Loading market signals…</div>
+            ) : null}
+          </aside>
         </section>
       ) : null}
       {/* Vendor Context Drawer */}
@@ -770,18 +773,36 @@ export function PurchaseOrdersView() {
         onCellCommit={canWrite ? updatePoCell : undefined}
         actions={
           <>
-            <div role="group" aria-label="Filter by status">
-              <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:draft,approved,ordered,partially_received')} aria-pressed={storedGridFilter === 'status:draft,approved,ordered,partially_received'}>Active</button>
-              <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:ordered,partially_received')} aria-pressed={storedGridFilter === 'status:ordered,partially_received'}>Ordered</button>
-              <button type="button" className="secondary-button compact-action" onClick={() => togglePreset('status:finalized')} aria-pressed={storedGridFilter === 'status:finalized'}>Finalized</button>
-            </div>
-            {canWrite ? (
-              <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
-                {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
-                {purchaseOrderPrimaryLabel(selectedPoStatus)}
-              </button>
+{canWrite ? (
+              <>
+                <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
+                  {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
+                  {purchaseOrderPrimaryLabel(selectedPoStatus)}
+                </button>
+                <button
+                  className="secondary-button compact-action"
+                  type="button"
+                  disabled={
+                    !selected.length ||
+                    isRunning ||
+                    selectedPoStatus !== 'approved' ||
+                    Number(selectedPo?.prepaymentAmount ?? 0) <= 0
+                  }
+                  title={
+                    selectedPoStatus !== 'approved'
+                      ? 'PO must be approved before recording prepayment'
+                      : Number(selectedPo?.prepaymentAmount ?? 0) <= 0
+                      ? 'PO has no prepayment amount set'
+                      : 'Record vendor prepayment'
+                  }
+                  onClick={() => setPrepaymentDialogOpen(true)}
+                >
+                  <CreditCard className="h-4 w-4" aria-hidden="true" />
+                  Record Prepayment
+                </button>
+              </>
             ) : null}
-<button
+            <button
               className="secondary-button compact-action"
               type="button"
               disabled={!selectedPo?.id || !hasAnyActiveSnapshot}
@@ -1216,7 +1237,7 @@ function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricing
       cellRenderer: (params: { value: unknown; data: GridRow }) => (
         <span>
           {params.data?.itemAlias ? (
-            <span title="Market name active" style={{ color: '#eab308', marginRight: 4 }}>
+            <span title="Customer-facing market name active" style={{ color: '#eab308', marginRight: 4 }}>
               ●
             </span>
           ) : null}
@@ -2341,7 +2362,7 @@ function StrainAliasesPanel() {
             const next = typeof event.newValue === 'string' ? event.newValue.trim() : '';
             const prior = typeof event.oldValue === 'string' ? event.oldValue.trim() : '';
             if (next === prior) return;
-          runCommand('setItemAlias', { itemId, alias: next }, next ? `Set market name to ${next}` : 'Clear market name');
+            runCommand('setItemAlias', { itemId, alias: next }, next ? `Set alias to ${next}` : 'Clear strain alias');
           }}
         />
       </div>
@@ -2570,6 +2591,43 @@ function labelFromToken(value: string) {
   return value
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function PoSignalsSection({
+  inventory,
+  pricing
+}: {
+  inventory: Array<{ category: string; subcategory: string | null; availableQty: string; batchCount: string; uom: string | null }>;
+  pricing: Array<{ category: string; subcategory: string | null; avgCost: string; minCost: string; maxCost: string; poCount: number; lastPoDate: string | null }>;
+}) {
+  const pricingMap = new Map(pricing.map((p) => [`${p.category}|${p.subcategory ?? ''}`, p]));
+  if (!inventory.length) return null;
+  return (
+    <>
+      <h3 className="section-title mt-4">Market signals</h3>
+      <div className="po-context-list">
+        {inventory.map((row) => {
+          const qty = Number(row.availableQty ?? 0);
+          const isOut = qty === 0;
+          const price = pricingMap.get(`${row.category}|${row.subcategory ?? ''}`);
+          return (
+            <div
+              key={`${row.category}|${row.subcategory ?? ''}`}
+              className="flex items-center justify-between gap-2 border border-line bg-white px-2 py-1.5 text-xs"
+            >
+              <span className="min-w-0 truncate font-medium text-ink">{row.subcategory ?? row.category}</span>
+              <span className={isOut ? 'font-semibold text-red-600' : 'text-zinc-500'}>
+                {isOut ? 'OUT' : `${moneyish(qty)} ${row.uom ?? ''}`}
+              </span>
+              <span className="text-right text-zinc-500">
+                {price ? `$${moneyish(price.avgCost)}${price.poCount > 1 ? ` (${String(price.poCount)} POs)` : ''}` : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
 }
 
 function moneyish(value: unknown) {
