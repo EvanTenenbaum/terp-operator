@@ -1385,7 +1385,23 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
         unitCost: line.unitCost,
         unitPrice: line.unitPrice,
         legacyMarker: line.legacyMarker || line.ownershipStatus,
-        ownershipStatus: line.ownershipStatus,
+        ownershipStatus: (() => {
+          // Respect an explicit line-level override if it's already classified
+          if (line.ownershipStatus !== 'UNKNOWN') {
+            return line.ownershipStatus;
+          }
+          // Infer from payment terms: operator-pays terms → office owns
+          const terms = order.paymentTerms ?? '';
+          if (terms === 'cod' || terms === 'prepay' || terms.startsWith('net_')) {
+            return 'OFC';
+          }
+          // Consignment: vendor retains ownership
+          if (terms === 'consignment') {
+            return 'C';
+          }
+          // vendor_terms or unknown: leave as-is
+          return line.ownershipStatus;
+        })(),
         arrivalConfirmed: true,
         arrivalStatus: 'arrived',
         location: 'Receiving',
