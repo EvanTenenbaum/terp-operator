@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-22T18:00:00.000Z",
-  "componentCount": 59,
+  "generated": "2026-05-22T17:45:42.629Z",
+  "componentCount": 56,
   "byCategory": {
-    "drawer": 19,
+    "drawer": 20,
     "form": 8,
     "navigation": 6,
     "grid": 10,
-    "other": 12,
+    "other": 11,
     "hook": 1
   },
   "components": [
@@ -239,12 +239,12 @@
       ]
     },
     {
-      "name": "ReceiptPreview",
-      "path": "src/client/components/ReceiptPreview.tsx",
-      "category": "other",
+      "name": "ReceiptPanel",
+      "path": "src/client/components/ReceiptPanel.tsx",
+      "category": "drawer",
       "exports": [
-        "ReceiptPreview",
-        "ReceiptPreviewProps"
+        "ReceiptPanel",
+        "ReceiptPanelProps"
       ]
     },
     {
