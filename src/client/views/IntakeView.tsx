@@ -477,11 +477,11 @@ function buildBatchColumns(
     { field: 'name', minWidth: 180 },
     {
       field: 'itemAlias',
-      headerName: 'Customer alias',
+      headerName: 'Market name',
       editable: false,
       minWidth: 160,
       tooltipValueGetter: (params) =>
-        params.value ? `Customer-facing name: ${params.value}. Vendor/audit surfaces keep ${params.data?.name ?? 'canonical'}.` : 'No alias set; canonical name shown to customers.'
+        params.value ? `Market name: ${params.value}. Set via "Add market name" on this row.` : 'No market name set. Use "Add market name" to assign one.'
     },
     {
       headerName: 'Expected qty',
