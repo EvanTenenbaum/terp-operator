@@ -25,6 +25,7 @@ const sortOptions: { key: SortOption; label: string }[] = [
 export function CreditReviewView() {
   const [filterTab, setFilterTab] = useState<FilterTab>('stale_manual');
   const [sort, setSort] = useState<SortOption>('days_since_review');
+  const [divergenceOpen, setDivergenceOpen] = useState(false);
   const { runCommand, isRunning } = useCommandRunner();
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
@@ -32,7 +33,6 @@ export function CreditReviewView() {
   const me = trpc.auth.me.useQuery();
   const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
   const isOwner = me.data?.role === 'owner';
-  const [divergenceOpen, setDivergenceOpen] = useState(false);
 
   const queue = trpc.credit.creditReviewQueue.useQuery(
     { filterTab, sort },
@@ -115,7 +115,7 @@ export function CreditReviewView() {
         ))}
       </div>
 
-      {divergenceOpen && isOwner && (
+      {isOwner && divergenceOpen && (
         <div className="border-b border-zinc-200">
           <CreditDivergencePanel />
         </div>
