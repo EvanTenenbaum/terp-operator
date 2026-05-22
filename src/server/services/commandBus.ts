@@ -2079,6 +2079,24 @@ async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
   if (batchChanged && validationIssues.some((issue: string) => issue.startsWith('Pick landed COGS'))) {
     values.status = 'needs_fix';
   }
+  // CAP-030 (TER-1494): If this sales line is already released for picking and the qty is
+  // changing, push a qty_changed warehouse alert so the warehouse can reconcile the bag.
+  // Other field edits (unit_price, display_name, notes, etc.) on a released line do NOT
+  // fire alerts — only qty.
+  if (line.pickReleasedAt && payload.qty != null) {
+    const fromQty = Number(line.qty);
+    const toQty = Number(qtyScale(payload.qty));
+    if (toQty !== fromQty) {
+      const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.orderLineId, lineId)).limit(1);
+      if (fl) {
+        const alerts = Array.isArray(fl.warehouseAlerts) ? [...(fl.warehouseAlerts as Array<Record<string, unknown>>)] : [];
+        alerts.push({ kind: 'qty_changed', from: fromQty, to: toQty, at: new Date().toISOString(), actor: 'sales' });
+        await tx.update(fulfillmentLines)
+          .set({ warehouseAlerts: alerts, statusExtended: 'recall_pending', updatedAt: new Date() })
+          .where(eq(fulfillmentLines.id, fl.id));
+      }
+    }
+  }
   await tx.update(salesOrderLines).set(values).where(eq(salesOrderLines.id, lineId));
   await recalcOrder(tx, line.orderId);
   return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line updated.' };
@@ -2088,6 +2106,30 @@ async function removeSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
   const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Sales line not found.');
+  // CAP-030 (TER-1494): If the line is released for picking, do NOT delete it — the fulfillment
+  // line has a cascade FK back to this sales line and must be kept for warehouse reconciliation.
+  // Push a line_cancelled alert and clear pick_released_at so the line is no longer in the
+  // pick queue while still preserving the audit trail.
+  if (line.pickReleasedAt) {
+    const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.orderLineId, lineId)).limit(1);
+    if (fl) {
+      const alerts = Array.isArray(fl.warehouseAlerts) ? [...(fl.warehouseAlerts as Array<Record<string, unknown>>)] : [];
+      alerts.push({ kind: 'line_cancelled', at: new Date().toISOString(), actor: 'sales' });
+      await tx.update(fulfillmentLines)
+        .set({ warehouseAlerts: alerts, statusExtended: 'recall_pending', updatedAt: new Date() })
+        .where(eq(fulfillmentLines.id, fl.id));
+    }
+    await tx.update(salesOrderLines)
+      .set({ pickReleasedAt: null, updatedAt: new Date() })
+      .where(eq(salesOrderLines.id, lineId));
+    await recalcOrder(tx, line.orderId);
+    return {
+      ok: true,
+      commandId,
+      affectedIds: [line.orderId, lineId, ...(fl ? [fl.id] : [])],
+      toast: 'Sales line removed. Warehouse alerted for reconciliation.'
+    };
+  }
   await tx.delete(salesOrderLines).where(eq(salesOrderLines.id, lineId));
   await recalcOrder(tx, line.orderId);
   return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line removed.' };
@@ -2670,6 +2712,31 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
 async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const orderId = requiredId(payload.orderId, 'orderId');
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
+  // CAP-030 (TER-1494): Block cancellation if any released line has been picked
+  // (actual_qty > 0 and the fulfillment line is not already cancelled). Operators
+  // must call returnPickedUnits / cancelFulfillmentLine first to reconcile inventory.
+  for (const line of lines) {
+    if (!line.pickReleasedAt) continue;
+    const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.orderLineId, line.id)).limit(1);
+    if (fl && Number(fl.actualQty) > 0 && fl.statusExtended !== 'cancelled') {
+      throw new Error(
+        `Cannot cancel: ${line.itemName || 'a line'} has already been picked (${fl.actualQty} units). Return picked units before cancelling.`
+      );
+    }
+  }
+  // CAP-030 (TER-1494): For each released line that has not been picked, push a
+  // line_cancelled warehouse alert so the warehouse pulls its bag.
+  for (const line of lines) {
+    if (!line.pickReleasedAt) continue;
+    const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.orderLineId, line.id)).limit(1);
+    if (fl && fl.statusExtended !== 'cancelled') {
+      const alerts = Array.isArray(fl.warehouseAlerts) ? [...(fl.warehouseAlerts as Array<Record<string, unknown>>)] : [];
+      alerts.push({ kind: 'line_cancelled', at: new Date().toISOString(), actor: 'sales' });
+      await tx.update(fulfillmentLines)
+        .set({ warehouseAlerts: alerts, statusExtended: 'recall_pending', updatedAt: new Date() })
+        .where(eq(fulfillmentLines.id, fl.id));
+    }
+  }
   for (const line of lines) {
     if (!line.batchId || line.status !== 'reserved') continue;
     const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
