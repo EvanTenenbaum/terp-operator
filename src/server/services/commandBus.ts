@@ -109,6 +109,8 @@ import {
 import { createPoFinalizationReceipts } from './poFinalizationReceipts';
 import { createSalesConfirmationReceipts } from './salesConfirmationReceipts';
 import { createInvoiceReceipts } from './invoiceReceipts';
+import { createPaymentReceivedReceipts } from './paymentReceivedReceipts';
+import { createVendorPayoutReceipts } from './vendorPayoutReceipts';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -384,6 +386,24 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         await createInvoiceReceipts(pool, commandResult.affectedIds[0], commandId, user.id);
       } catch (e) {
         console.warn('[commandBus] invoice receipt hook failed after commit:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Issue #113 Phase 4 — logPayment only (not postLedgerRow indirect payments)
+    if (input.name === 'logPayment' && commandResult.ok && commandResult.affectedIds[0]) {
+      try {
+        await createPaymentReceivedReceipts(pool, commandResult.affectedIds[0], commandId, user.id);
+      } catch (e) {
+        console.warn('[commandBus] payment_received receipt hook failed after commit:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // recordVendorPayment returns affectedIds = [billId, vendorPaymentId] → index 1
+    if (input.name === 'recordVendorPayment' && commandResult.ok && commandResult.affectedIds[1]) {
+      try {
+        await createVendorPayoutReceipts(pool, commandResult.affectedIds[1], commandId, user.id);
+      } catch (e) {
+        console.warn('[commandBus] vendor_payout receipt hook failed after commit:', e instanceof Error ? e.message : e);
       }
     }
 

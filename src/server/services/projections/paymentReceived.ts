@@ -82,7 +82,7 @@ export const paymentReceived: Projector<PaymentReceivedInput> = {
       lines: [],
       totals: { subtotal: input.amount, total: input.amount },
       projectionVersion,
-      internalNotes: input.internalReconciliationNotes,
+      ...(input.internalReconciliationNotes != null ? { internalNotes: input.internalReconciliationNotes } : {}),
     };
   },
 };

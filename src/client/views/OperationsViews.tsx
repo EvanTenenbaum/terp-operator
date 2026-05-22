@@ -984,6 +984,9 @@ export function PaymentsView() {
         <>
           <QuickLedgerGrid />
           <PaymentAllocationTools selectedPayment={selectedPayment} />
+          {selectedPayment?.id ? (
+            <ReceiptPanel kind="payment" paymentId={String(selectedPayment.id)} />
+          ) : null}
         </>
       )}
       actions={(rows, runCommand) => (
@@ -1690,6 +1693,9 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
             </tbody>
           </table>
         </div>
+      ) : null}
+      {chosenPaymentId ? (
+        <ReceiptPanel kind="vendor_payment" vendorPaymentId={String(chosenPaymentId)} />
       ) : null}
     </section>
   );

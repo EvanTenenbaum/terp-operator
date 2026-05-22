@@ -15,6 +15,12 @@
 
 ---
 
+## 2026-05-22 — ReceiptPanel widened to four kinds (Phase 4: money receipts)
+
+The `ReceiptPanel` discriminated union now accepts `'purchase_order' | 'sales_order' | 'payment' | 'vendor_payment'`. Payment and vendor_payment kinds are wired in `PaymentsView` (after `PaymentAllocationTools`, gated on a selected payment row) and `VendorBillTools` (after the payouts table, gated on `chosenPaymentId`). Body now hides the lines table when `projection.lines` is empty (money receipts carry no line items). Internal-notes section renamed to "Internal reconciliation notes". See Phase 4 plan.
+
+---
+
 ## 2026-05-21 — ReceiptPanel `kind` discriminator + Sales/Invoice wiring (#113 Phase 3)
 
 **Widened component:** `src/client/components/ReceiptPanel.tsx` now accepts a discriminated `kind` prop (`'purchase_order'` | `'sales_order'`). Backward compatible — existing `<ReceiptPanel purchaseOrderId={...} />` call sites keep working because `kind` defaults to `'purchase_order'`.
