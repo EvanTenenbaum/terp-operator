@@ -230,10 +230,10 @@ export function PurchaseOrdersView() {
   const [buyerNotes, setBuyerNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [externalNotes, setExternalNotes] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('vendor_terms');
+  const [paymentTerms, setPaymentTerms] = useState('consignment');
   const [prepaymentAmount, setPrepaymentAmount] = useState('0');
   const [prepaymentDialogOpen, setPrepaymentDialogOpen] = useState(false);
-  const [draftLines, setDraftLines] = useState<GridRow[]>([makePoDraftLine()]);
+  const [draftLines, setDraftLines] = useState<GridRow[]>(Array.from({ length: 10 }, () => makePoDraftLine()));
   const [newVendorOpen, setNewVendorOpen] = useState(false);
   const [newVendorName, setNewVendorName] = useState('');
   const [newVendorTerms, setNewVendorTerms] = useState('14');
@@ -246,6 +246,8 @@ export function PurchaseOrdersView() {
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
   const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
+  const contextSignals = trpc.queries.poContextSignals.useQuery(undefined, { enabled: authoringOpen });
+  const contextSignals = trpc.queries.poContextSignals.useQuery(undefined, { enabled: authoringOpen });
   const historicalProducts = (reference.data?.availableBatches ?? [])
     .filter((row) => !defaultVendorId || row.vendorId === defaultVendorId)
     .slice(0, 8);
@@ -346,7 +348,7 @@ export function PurchaseOrdersView() {
   function openAuthoringWorkspace() {
     setAuthoringOpen(true);
     setSelectedRows('purchaseOrders', []);
-    setDraftLines((rows) => rows.length ? rows : [makePoDraftLine()]);
+    setDraftLines((rows) => rows.length ? rows : Array.from({ length: 10 }, () => makePoDraftLine()));
     setDrawerState('purchaseOrders', 'closed');
   }
 
@@ -438,11 +440,11 @@ export function PurchaseOrdersView() {
     }
     setAuthoringOpen(false);
     setAddRefereeOpen(false);
-    setDraftLines([makePoDraftLine()]);
+    setDraftLines(Array.from({ length: 10 }, () => makePoDraftLine()));
     setBuyerNotes('');
     setInternalNotes('');
     setExternalNotes('');
-    setPaymentTerms('vendor_terms');
+    setPaymentTerms('consignment');
     setPrepaymentAmount('0');
     setRefereeRelationshipId('');
     setSelectedRows('purchaseOrders', [{ id: purchaseOrderId }]);
@@ -565,14 +567,6 @@ export function PurchaseOrdersView() {
               </label>
               <label className="field-inline grow">
                 Vendor receipt notes
-                <input className="input" value={buyerNotes} onChange={(event) => setBuyerNotes(event.target.value)} />
-              </label>
-              <label className="field-inline grow">
-                Internal notes
-                <input className="input" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
-              </label>
-              <label className="field-inline grow">
-                External notes (vendor-visible)
                 <input className="input" value={externalNotes} onChange={(event) => setExternalNotes(event.target.value)} />
               </label>
               <label className="field-inline">
@@ -675,7 +669,6 @@ export function PurchaseOrdersView() {
             />
             <div className="po-total-strip">
               <span>PO total ${moneyish(poLinesTotal(draftLines))}</span>
-              <span>Procurement cost only. Sales price stays in Sales.</span>
               {approvalLineIssues.length ? <span className="po-total-warning">{approvalLineIssues.length} filled line needs units and cost (fixed or range).</span> : null}
             </div>
           </div>
@@ -688,17 +681,26 @@ export function PurchaseOrdersView() {
               <div className="drawer-fact-row"><span>Payments</span><strong>{vendorRelationship.data?.vendorPayments?.length ?? 0}</strong></div>
               <div className="drawer-fact-row"><span>Prior POs</span><strong>{vendorRelationship.data?.purchaseOrders?.length ?? 0}</strong></div>
             </div>
-            <h3 className="section-title mt-4">Historical quick add</h3>
-            <div className="po-context-list">
-              {historicalProducts.length ? historicalProducts.map((row) => (
-                <button className="po-context-row" type="button" key={String(row.id)} onClick={() => quickAddHistorical(row)}>
-                  <span>{String(row.name ?? 'Product')}</span>
-                  <strong>${moneyish(row.unitCost)}</strong>
-                </button>
-              )) : (
-                <div className="drawer-empty">No reusable vendor history yet.</div>
-              )}
-            </div>
+            {defaultVendorId ? (
+              <>
+                <h3 className="section-title mt-4">Historical quick add</h3>
+                <div className="po-context-list">
+                  {historicalProducts.length ? historicalProducts.map((row) => (
+                    <button className="po-context-row" type="button" key={String(row.id)} onClick={() => quickAddHistorical(row)}>
+                      <span>{String(row.name ?? 'Product')}</span>
+                      <strong>${moneyish(row.unitCost)}</strong>
+                    </button>
+                  )) : (
+                    <div className="drawer-empty">No reusable vendor history yet.</div>
+                  )}
+                </div>
+              </>
+            ) : null}
+            {contextSignals.data ? (
+              <PoSignalsSection inventory={contextSignals.data.inventory} pricing={contextSignals.data.pricing} />
+            ) : contextSignals.isLoading ? (
+              <div className="drawer-empty mt-4 text-xs">Loading market signals…</div>
+            ) : null}
           </aside>
         </section>
       ) : null}
@@ -2533,6 +2535,80 @@ function labelFromToken(value: string) {
   return value
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function PoSignalsSection({
+  inventory,
+  pricing
+}: {
+  inventory: Array<{ category: string; availableQty: string; batchCount: string; uom: string | null }>;
+  pricing: Array<{ category: string; avgCost: string; minCost: string; maxCost: string; poCount: number; lastPoDate: string | null }>;
+}) {
+  const pricingMap = new Map(pricing.map((p) => [p.category, p]));
+  if (!inventory.length) return null;
+  return (
+    <>
+      <h3 className="section-title mt-4">Market signals</h3>
+      <div className="po-context-list">
+        {inventory.map((row) => {
+          const qty = Number(row.availableQty ?? 0);
+          const isOut = qty === 0;
+          const price = pricingMap.get(row.category);
+          return (
+            <div
+              key={row.category}
+              className="flex items-center justify-between gap-2 border border-line bg-white px-2 py-1.5 text-xs"
+            >
+              <span className="min-w-0 truncate font-medium text-ink">{row.category}</span>
+              <span className={isOut ? 'font-semibold text-red-600' : 'text-zinc-500'}>
+                {isOut ? 'OUT' : `${moneyish(qty)} ${row.uom ?? ''}`}
+              </span>
+              <span className="text-right text-zinc-500">
+                {price ? `$${moneyish(price.avgCost)}` : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function PoSignalsSection({
+  inventory,
+  pricing
+}: {
+  inventory: Array<{ category: string; availableQty: string; batchCount: string; uom: string | null }>;
+  pricing: Array<{ category: string; avgCost: string; minCost: string; maxCost: string; poCount: number; lastPoDate: string | null }>;
+}) {
+  const pricingMap = new Map(pricing.map((p) => [p.category, p]));
+  if (!inventory.length) return null;
+  return (
+    <>
+      <h3 className="section-title mt-4">Market signals</h3>
+      <div className="po-context-list">
+        {inventory.map((row) => {
+          const qty = Number(row.availableQty ?? 0);
+          const isOut = qty === 0;
+          const price = pricingMap.get(row.category);
+          return (
+            <div
+              key={row.category}
+              className="flex items-center justify-between gap-2 border border-line bg-white px-2 py-1.5 text-xs"
+            >
+              <span className="min-w-0 truncate font-medium text-ink">{row.category}</span>
+              <span className={isOut ? 'font-semibold text-red-600' : 'text-zinc-500'}>
+                {isOut ? 'OUT' : `${moneyish(qty)} ${row.uom ?? ''}`}
+              </span>
+              <span className="text-right text-zinc-500">
+                {price ? `$${moneyish(price.avgCost)}` : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
 }
 
 function moneyish(value: unknown) {

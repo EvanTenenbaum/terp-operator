@@ -965,7 +965,7 @@ export const queriesRouter = router({
     }),
   refereeCredits: protectedProcedure
     .input(z.object({ refereeId: z.string().uuid() }))
-    .query(async ({ input }) => {
+.query(async ({ input }) => {
       const result = await db.execute(sql`
         select rc.id,
                rc.referee_id as "refereeId",
@@ -987,7 +987,45 @@ export const queriesRouter = router({
         order by rc.created_at desc
       `);
       return result.rows;
-    })
+    }),
+  poContextSignals: protectedProcedure.query(async () => {
+    const [invRows, priceRows] = await Promise.all([
+      // Current inventory grouped by category — includes zero-stock categories
+      pool.query<{ category: string; availableQty: string; batchCount: string; uom: string | null }>(`
+        select category,
+               coalesce(sum(available_qty), 0)::numeric(14,3) as "availableQty",
+               count(*) as "batchCount",
+               min(uom) filter (where available_qty > 0) as uom
+        from batches
+        where status = 'posted'
+          and category is not null
+          and category <> ''
+        group by category
+        order by coalesce(sum(available_qty), 0) asc, category
+      `),
+      // Average recent procurement cost per category from PO lines in last 90 days
+      pool.query<{ category: string; avgCost: string; minCost: string; maxCost: string; poCount: number; lastPoDate: string | null }>(`
+        select pol.category,
+               round(avg(pol.unit_cost)::numeric, 2) as "avgCost",
+               round(min(pol.unit_cost)::numeric, 2) as "minCost",
+               round(max(pol.unit_cost)::numeric, 2) as "maxCost",
+               count(distinct po.id)::int as "poCount",
+               max(po.created_at) as "lastPoDate"
+        from purchase_order_lines pol
+        join purchase_orders po on po.id = pol.purchase_order_id
+        where po.created_at > now() - interval '90 days'
+          and pol.unit_cost > 0
+          and pol.category is not null
+          and pol.category <> ''
+        group by pol.category
+        order by pol.category
+      `)
+    ]);
+    return {
+      inventory: invRows.rows,
+      pricing: priceRows.rows
+    };
+  }),
 });
 
 type ReplaceTable = 'batches' | 'customers' | 'vendors' | 'sales_orders' | 'connector_requests';

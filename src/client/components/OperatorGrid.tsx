@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
+  CellPosition,
   CellValueChangedEvent,
   ColDef,
   ColumnMovedEvent,
@@ -12,6 +13,7 @@ import type {
   ICellRendererParams,
   SideBarDef,
   SortChangedEvent,
+  TabToNextCellParams,
   ValueGetterParams
 } from 'ag-grid-community';
 import { Columns3, Download, RotateCcw, Search, X } from 'lucide-react';
@@ -163,6 +165,38 @@ export function OperatorGrid({
   );
   const cellSelection = useMemo(() => ({ handle: { mode: 'range' as const } }), []);
   const sideBar = useMemo<SideBarDef>(() => ({ toolPanels: ['columns', 'filters'], hiddenByDefault: true }), []);
+
+  const tabToNextCell = useCallback((params: TabToNextCellParams<GridRow>): CellPosition | null => {
+    const allColumns = params.api.getColumns() ?? [];
+    const editableCols = allColumns.filter((col) => {
+      const def = col.getColDef() as ColDef<GridRow>;
+      return def.editable === true;
+    });
+    if (!editableCols.length) return params.nextCellPosition;
+    const currentColId = params.previousCellPosition.column.getColId();
+    const rowIndex = params.previousCellPosition.rowIndex;
+    const rowPinned = params.previousCellPosition.rowPinned ?? null;
+    const currentIdx = editableCols.findIndex((c) => c.getColId() === currentColId);
+    if (!params.backwards) {
+      if (currentIdx >= 0 && currentIdx < editableCols.length - 1) {
+        return { rowIndex, column: editableCols[currentIdx + 1], rowPinned };
+      }
+      const nextRow = rowIndex + 1;
+      if (nextRow < params.api.getDisplayedRowCount()) {
+        return { rowIndex: nextRow, column: editableCols[0], rowPinned: null };
+      }
+      return null;
+    } else {
+      if (currentIdx > 0) {
+        return { rowIndex, column: editableCols[currentIdx - 1], rowPinned };
+      }
+      const prevRow = rowIndex - 1;
+      if (prevRow >= 0) {
+        return { rowIndex: prevRow, column: editableCols[editableCols.length - 1], rowPinned: null };
+      }
+      return null;
+    }
+  }, []);
   // #34 FE-M5 / FE-L2 — accessible names for AG Grid floating-filter inputs,
   // sort affordances, and column-menu chevrons. AG Grid ships English
   // defaults for these keys but pinning them here documents intent and
@@ -315,6 +349,7 @@ export function OperatorGrid({
             animateRows={false}
             cellSelection={cellSelection}
             undoRedoCellEditing
+            tabToNextCell={tabToNextCell}
             sideBar={sideBar}
             loading={loading}
             localeText={localeText}
