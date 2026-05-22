@@ -2620,7 +2620,7 @@ function PoSignalsSection({
                 {isOut ? 'OUT' : `${moneyish(qty)} ${row.uom ?? ''}`}
               </span>
               <span className="text-right text-zinc-500">
-                {price ? `$${moneyish(price.avgCost)}` : '—'}
+                {price ? `$${moneyish(price.avgCost)}${price.poCount > 1 ? ` (${String(price.poCount)} POs)` : ''}` : '—'}
               </span>
             </div>
           );
