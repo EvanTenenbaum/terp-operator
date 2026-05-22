@@ -661,8 +661,8 @@ type="button"
               <button
                 type="button"
                 className="secondary-button compact-action"
-                disabled={!defaultVendorId}
-                title={defaultVendorId ? 'Add a new referee credit for this vendor' : 'Select a vendor first'}
+                disabled={!defaultVendorId || !canWrite}
+                title={!canWrite ? 'Write access required to add referee' : defaultVendorId ? 'Add a new referee credit for this vendor' : 'Select a vendor first'}
                 onClick={() => setAddRefereeOpen(true)}
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -744,7 +744,7 @@ type="button"
           setVendorDrawerOpen(false);
         }}
       />
-      <AddRefereeRelationshipDrawer
+      {addRefereeOpen ? <AddRefereeRelationshipDrawer
         isOpen={addRefereeOpen}
         vendorId={defaultVendorId}
         vendorName={selectedVendor?.name ?? ''}
@@ -755,7 +755,7 @@ type="button"
           setAddRefereeOpen(false);
         }}
         onClose={() => setAddRefereeOpen(false)}
-      />
+      /> : null}
       <OperatorGrid
         view="purchaseOrders"
         title="Recent purchase orders"

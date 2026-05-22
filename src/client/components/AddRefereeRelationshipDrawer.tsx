@@ -52,8 +52,8 @@ export function AddRefereeRelationshipDrawer({
     isRunning ||
     (mode === 'existing' && !selectedRefereeId) ||
     (mode === 'new' && !name.trim()) ||
-    (showPercentage && !feePercentage) ||
-    (showFixed && !feeFixedAmount);
+    (showPercentage && (!feePercentage || Number(feePercentage) <= 0)) ||
+    (showFixed && (!feeFixedAmount || Number(feeFixedAmount) <= 0));
 
   async function handleSubmit() {
     let refereeId = selectedRefereeId;
@@ -89,7 +89,7 @@ export function AddRefereeRelationshipDrawer({
     );
     if (!relResult.ok || !relResult.affectedIds[0]) return;
 
-    onSuccess(relResult.affectedIds[0]);
+    try { onSuccess(relResult.affectedIds[0]); } catch { /* parent refetch failed; drawer still closes via finally */ }
   }
 
   if (!isOpen) return null;
