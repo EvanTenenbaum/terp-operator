@@ -4,7 +4,8 @@ import {
   pricingRuleEntrySchema,
   setCustomerPricingRulePayloadSchema,
   setDefaultPricingRulePayloadSchema,
-  setLineLandedCostPayloadSchema
+  setLineLandedCostPayloadSchema,
+  PricingRuleConditionsSchema
 } from '../shared/schemas';
 
 describe('pricingRuleEntrySchema', () => {
@@ -186,5 +187,67 @@ describe('setCustomerPricingRulePayloadSchema', () => {
 describe('setDefaultPricingRulePayloadSchema', () => {
   it('accepts an empty rule', () => {
     expect(setDefaultPricingRulePayloadSchema.parse({ pricingRule: {} }).pricingRule).toEqual({});
+  });
+});
+
+describe('PricingRuleConditionsSchema', () => {
+  it('accepts category equals condition', () => {
+    expect(() => PricingRuleConditionsSchema.parse({
+      logic: 'AND',
+      conditions: [{ field: 'category', operator: 'equals', value: 'Flower' }]
+    })).not.toThrow();
+  });
+
+  it('accepts subcategory, tags, unitPrice, unitCost', () => {
+    expect(() => PricingRuleConditionsSchema.parse({
+      logic: 'AND',
+      conditions: [
+        { field: 'subcategory', operator: 'text_contains', value: 'indoor' },
+        { field: 'tags', operator: 'array_contains', value: ['premium'] },
+        { field: 'unitPrice', operator: 'between', value: [1000, 1500] },
+        { field: 'unitCost', operator: 'greater_than', value: 500 },
+      ]
+    })).not.toThrow();
+  });
+
+  it('rejects brandId', () => {
+    expect(() => PricingRuleConditionsSchema.parse({
+      logic: 'AND',
+      conditions: [{ field: 'brandId', operator: 'equals', value: 'some-uuid' }]
+    })).toThrow();
+  });
+
+  it('rejects vendorId', () => {
+    expect(() => PricingRuleConditionsSchema.parse({
+      logic: 'AND',
+      conditions: [{ field: 'vendorId', operator: 'equals', value: 'some-uuid' }]
+    })).toThrow();
+  });
+
+  it('rejects intakeDate', () => {
+    expect(() => PricingRuleConditionsSchema.parse({
+      logic: 'AND',
+      conditions: [{ field: 'intakeDate', operator: 'after', value: new Date().toISOString() }]
+    })).toThrow();
+  });
+
+  it('accepts null (catch-all)', () => {
+    expect(PricingRuleConditionsSchema.parse(null)).toBeNull();
+  });
+
+  it('accepts nested AND/OR with allowed fields only', () => {
+    expect(() => PricingRuleConditionsSchema.parse({
+      logic: 'AND',
+      conditions: [
+        { field: 'category', operator: 'equals', value: 'Flower' },
+        {
+          logic: 'OR',
+          conditions: [
+            { field: 'subcategory', operator: 'equals', value: 'indoor' },
+            { field: 'tags', operator: 'array_contains', value: ['premium'] },
+          ]
+        }
+      ]
+    })).not.toThrow();
   });
 });

@@ -26,6 +26,8 @@ function ruleSourceLabel(app: PricingRuleApplication): string {
     case 'customer-default': return 'customer · default';
     case 'settings-category': return `settings · ${app.category ?? ''}`;
     case 'settings-default': return 'settings · default';
+    case 'customer-clause': return `customer clause · ${app.clauseName ?? app.clauseId ?? ''}`;
+    case 'global-clause': return `global clause · ${app.clauseName ?? app.clauseId ?? ''}`;
     case 'fallback': return 'fallback 30%';
   }
 }

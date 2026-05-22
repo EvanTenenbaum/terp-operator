@@ -1,3 +1,5 @@
+import type { FilterGroupInput } from './filterSchemas';
+
 export type Role = 'owner' | 'manager' | 'operator' | 'viewer';
 
 export type Status =
@@ -161,6 +163,44 @@ export type LandedCostBasisName = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high
 export interface PricingRuleApplication {
   basis: PricingBasis;
   amount: number;
-  source: 'customer-category' | 'customer-default' | 'settings-category' | 'settings-default' | 'fallback';
-  category?: string;
+  source:
+    | 'customer-category'   // legacy journal entries
+    | 'customer-default'    // legacy
+    | 'settings-category'   // legacy
+    | 'settings-default'    // legacy
+    | 'customer-clause'     // new
+    | 'global-clause'       // new
+    | 'fallback';
+  category?: string;          // legacy: which category matched
+  clauseId?: string;          // new: which clause fired
+  clauseName?: string | null; // new: clause display name
+}
+
+export interface PricingRuleClause {
+  id: string;
+  scope: 'global' | 'customer';
+  customerId: string | null;
+  priority: number;
+  name: string | null;
+  /** FilterGroupInput for condition matching; null = catch-all (always matches). */
+  conditions: FilterGroupInput | null;
+  actionBasis: PricingBasis;
+  actionAmount: number;
+  active: boolean;
+}
+
+/**
+ * Context passed to resolvePricingRuleClause at price-application time.
+ * All fields from the RESOLVED inventory line.
+ * batchPostedPrice = batch's stored unit_price column (NOT the output of the pricing rule).
+ * unitCost = allocation-weighted landed COGS after resolution.
+ */
+export interface PricingRuleContext {
+  category?: string | null;
+  subcategory?: string | null;
+  tags?: string[];
+  /** Batch's stored unit_price — NOT the computed output of the pricing rule. */
+  batchPostedPrice?: number;
+  /** Allocation-weighted average resolved landed COGS. */
+  unitCost?: number;
 }

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { commandNames } from './commandCatalog';
 import { BELOW_FLOOR_REASONS } from './saleLineCostExceptions';
+import { FilterGroup } from './filterSchemas';
 
 export const roleSchema = z.enum(['owner', 'manager', 'operator', 'viewer']);
 export const ownershipSchema = z.enum(['C', 'OFC', 'UNKNOWN']);
@@ -126,6 +127,45 @@ export const setCustomerPricingRulePayloadSchema = z.object({
 export const setDefaultPricingRulePayloadSchema = z.object({
   pricingRule: customerPricingRuleSchema
 });
+
+// Fields allowed in pricing rule conditions — subset of FILTER_FIELDS.
+// 'unitPrice' here maps to the batch's stored unit_price (batchPostedPrice in PricingRuleContext).
+const PRICING_ALLOWED_FIELDS = new Set(['category', 'subcategory', 'tags', 'unitPrice', 'unitCost']);
+
+function hasOnlyAllowedFields(group: unknown): boolean {
+  if (!group || typeof group !== 'object') return true;
+  const g = group as { logic?: string; conditions?: unknown[] };
+  if (!Array.isArray(g.conditions)) return true;
+  return g.conditions.every((c) => {
+    if (c && typeof c === 'object' && 'logic' in c) return hasOnlyAllowedFields(c); // nested group
+    const cond = c as { field?: string };
+    return PRICING_ALLOWED_FIELDS.has(cond.field ?? '');
+  });
+}
+
+export const PricingRuleConditionsSchema = FilterGroup.refine(
+  hasOnlyAllowedFields,
+  { message: `Pricing rule conditions only allow fields: ${[...PRICING_ALLOWED_FIELDS].join(', ')}` }
+).nullable();
+
+export const pricingRuleClauseInputSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().max(120).nullable().optional(),
+  conditions: PricingRuleConditionsSchema,
+  actionBasis: z.enum(['percent', 'dollar']),
+  actionAmount: z.number().finite().min(0).max(100000),
+  active: z.boolean().default(true),
+});
+
+export const savePricingRuleChainPayloadSchema = z.object({
+  scope: z.enum(['global', 'customer']),
+  customerId: z.string().uuid().optional(),
+  clauses: z.array(pricingRuleClauseInputSchema).max(50),
+  chainFingerprint: z.string(),
+}).refine(
+  (d) => d.scope === 'global' || Boolean(d.customerId),
+  { message: 'customerId is required when scope is customer' }
+);
 
 export const paymentPayloadSchema = z.object({
   paymentId: z.string().uuid().optional(),
