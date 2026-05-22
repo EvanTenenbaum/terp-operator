@@ -510,7 +510,7 @@ describe('Issue #64: setLineLandedCost', () => {
       lineId: LINE_ID,
       landedCost: 40, // below 60..72
       basis: 'manual'
-    }, OPERATOR, 'cmd-set-cogs-oor')).rejects.toThrow(/outside batch range/i);
+    }, OPERATOR, 'cmd-set-cogs-oor')).rejects.toThrow(/below the batch range floor/i);
 
     // No update should have hit the sales line on a rejected pick.
     expect(log.updates.find((entry) => entry.table === salesOrderLines)).toBeUndefined();
