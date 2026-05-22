@@ -138,7 +138,7 @@ Use the live local app at `http://127.0.0.1:5173` for browser proof when the cha
 
 ## QA Environment — On-Demand Persona Flow Testing
 
-When Evan says **"run QA"**, **"run QA on [scope]"**, or **"run QA against [branch]"**,
+When Evan says **"run persona QA"**, **"run persona flows"**, **"run persona QA on [scope]"**, **"run persona flow QA"**, or **"run persona QA against [branch]"**,
 follow this protocol exactly. Do not improvise.
 
 ### Parameters
@@ -156,6 +156,8 @@ fast-runner exec \
 ```
 
 Replace `main` with the target branch in both `--base` and `QA_BRANCH` if Evan specified one.
+
+This runs the **persona flow QA suite** (26 natural-language AI-agent browser flows). Not the same as Playwright e2e tests, unit tests, or typecheck — those are separate.
 
 Parse every `KEY=VALUE` line from the output. Extract:
 - `QA_APP_URL` — e.g. `http://100.104.134.78:5173`
