@@ -225,18 +225,6 @@ export function PurchaseOrdersView() {
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
-  const subjectIdForQuery = String(selectedPo?.id ?? '00000000-0000-0000-0000-000000000000');
-  const finalizedSnapshot = trpc.documentSnapshots.getExternalBySubjectId.useQuery(
-    { documentType: 'purchase_order', subjectId: subjectIdForQuery },
-    { enabled: Boolean(selectedPo?.id), retry: false }
-  );
-  const hasFinalizedSnapshot = Boolean(finalizedSnapshot.data);
-  const activeInternal = trpc.documentSnapshots.getInternalBySubjectId.useQuery(
-    { documentType: 'purchase_order', subjectId: subjectIdForQuery },
-    { enabled: Boolean(selectedPo?.id) && canWrite, retry: false }
-  );
-  const hasActiveDraft = activeInternal.data?.status === 'draft';
-  const hasAnyActiveSnapshot = canWrite ? Boolean(activeInternal.data) : hasFinalizedSnapshot;
   const [authoringOpen, setAuthoringOpen] = useState(false);
   const [vendorId, setVendorId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
