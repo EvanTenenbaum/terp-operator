@@ -15,6 +15,25 @@
 
 ---
 
+## 2026-05-22 — CAP-030: Pricing Rules Chain Manager (TER-1558)
+**Decision:** Replaced flat `pricingRule` JSONB on customers and `systemSettings pricing.defaults` with a normalized `pricing_rule_entries` table. Rules are now ordered clauses evaluated via `resolvePricingRuleClause` using the existing `FilterGroup` condition engine. Conditions allowed: category, subcategory, tags, unitPrice (batchPostedPrice), unitCost.
+
+Key decisions:
+- `savePricingRuleChain` replaces `setCustomerPricingRule`/`setDefaultPricingRule` (tombstoned). Diff+soft-delete write pattern preserves clause IDs in audit trail.
+- `priceSalesOrder` gated behind `pricing.useChainResolver` feature flag (default false; migration flips to true after parity check).
+- Resolver moved to `src/shared/pricingRuleResolver.ts` (shared, not server-only) so `PricingRuleChainEditor` can use it client-side for the preview panel.
+- Global chains require a catch-all clause (conditions=null) as the last entry; customer chains do not (fall-through to global is intended).
+- Migration parity rule: only add customer catch-all when `rule.default` is explicitly set — categories-only rules fall through to global clauses.
+- `DefaultPricingPanel` retired to a stub re-export of `PricingRulesView`.
+- `PricingRulesView` added to Settings → Pricing tab: global chain editor + lazy-loaded customer accordion.
+
+**Rationale:** Flat JSONB rules could not express ordered conditional clauses or per-category overrides. Normalized table with a shared resolver allows audit-safe mutations, client-side preview, and parity-gated rollout without breaking existing pricing behavior.
+**Example:** `src/shared/pricingRuleResolver.ts`, `src/client/views/settings/PricingRulesView.tsx`, `src/client/components/pricing/PricingRuleChainEditor.tsx`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1558, CAP-030.
+
+---
+
 ## 2026-05-22 — CAP-030 pick-status chip colors (TER-1508)
 **Decision:** Pick-status chips use Tailwind utility classes directly (`bg-blue-100 text-blue-800` etc.) rather than a semantic CSS class.
 **Rationale:** Five states, one-off use in SalesView line expansion. If pick-status chips appear elsewhere, extract to `.pick-status-chip-*` semantic pattern then.
