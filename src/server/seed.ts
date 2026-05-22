@@ -26,7 +26,7 @@ import {
   vendorSupply,
   vendors
 } from './schema';
-import { createFinalizedSnapshotForPurchaseOrder } from './services/documentSnapshots/snapshotService';
+import { createPoFinalizationReceipts } from './services/poFinalizationReceipts';
 
 const seedLockKey = 520126;
 
@@ -210,10 +210,10 @@ async function insertSeedData() {
     },
   ]);
 
-  // Create the document_snapshots row so the UI receipt preview is enabled.
-  await db.transaction(async (tx) => {
-    await createFinalizedSnapshotForPurchaseOrder(tx, poFinalized.id, 'seed-auto');
-  });
+  // Create the document_snapshots rows (external + internal) so the UI
+  // receipt preview button is enabled. Uses raw pool — pg advisory locks
+  // in poFinalizationReceipts require their own BEGIN/COMMIT.
+  await createPoFinalizationReceipts(pool, poFinalized.id, 'seed-auto', manager.id);
 
   const [batchA, batchB, batchC, batchD, batchE, batchReady] = await db
     .insert(batches)
