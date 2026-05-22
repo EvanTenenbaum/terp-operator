@@ -202,3 +202,43 @@ When adding QA infrastructure:
 
 **Creating new QA docs?**
 → Follow template in "Creating New Runbooks" section above
+
+---
+
+## 🎭 Persona Flow Framework
+
+AI-agent-executable flows for all 8 operator personas. Each flow gives an autonomous
+browser agent systematic instructions to replicate a real user journey and report findings.
+
+**Start here:** [`persona-flows/REGISTRY.md`](./persona-flows/REGISTRY.md) — master index of all 26 flows.
+
+### Quick dispatch
+
+```
+# Run a specific flow
+Load: docs/qa/persona-flows/sales-operator/01-instant-sale-normal.md
+      docs/qa/persona-flows/_shared/navigation-primer.md
+      docs/qa/persona-flows/_shared/seed-state-reference.md
+Then: execute the flow
+
+# Run all Critical-tier flows (required before any ship decision)
+Filter REGISTRY.md by Risk = Critical — load and execute each in order
+Includes: _cross-persona/01-purchase-to-payment-lifecycle.md
+          _cross-persona/02-intake-reversal-mid-sale.md
+          payments-accounting/03-vendor-bill-payment-lifecycle.md
+
+# Run all flows for one persona
+Load: docs/qa/persona-flows/[persona]/_persona.md + all 3 scenario files
+```
+
+### Before any run
+1. `pnpm db:seed:realistic` — confirm seed state (or check `_shared/seed-state-reference.md` for current entity list)
+2. App running at `http://127.0.0.1:5173`
+3. Load `_shared/navigation-primer.md` + `_shared/seed-state-reference.md` alongside each scenario
+
+### Reports
+Run reports go to: `runs/YYYY-MM-DD-[scope]-report.md`
+Screenshots go to: `runs/screenshots/`
+
+### Design spec
+`docs/superpowers/specs/2026-05-22-persona-flow-qa-framework-design.md`
