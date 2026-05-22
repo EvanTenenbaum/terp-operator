@@ -108,6 +108,7 @@ import {
 } from '../../shared/saleLineCostExceptions';
 import { createPoFinalizationReceipts } from './poFinalizationReceipts';
 import { createSalesConfirmationReceipts } from './salesConfirmationReceipts';
+import { createInvoiceReceipts } from './invoiceReceipts';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -374,6 +375,15 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         );
       } catch (e) {
         console.warn('[commandBus] sales-confirmation receipt hook failed after commit:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Issue #113 Phase 3 — best-effort invoice receipt creation on postSalesOrder.
+    if (input.name === 'postSalesOrder' && commandResult.ok && commandResult.affectedIds[0]) {
+      try {
+        await createInvoiceReceipts(pool, commandResult.affectedIds[0], commandId, user.id);
+      } catch (e) {
+        console.warn('[commandBus] invoice receipt hook failed after commit:', e instanceof Error ? e.message : e);
       }
     }
 
