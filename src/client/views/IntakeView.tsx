@@ -58,11 +58,12 @@ export function IntakeView() {
 
       // Step 1: Persist the actual qty to the batch (mirrors old verifyIntakeForOrder)
       if (Number.isFinite(actual) && actual >= 0) {
-        await runCommand(
+        const updateResult = await runCommand(
           'updateBatch',
           { id: batchId, intakeQty: actual, availableQty: actual },
           'Apply actual intake quantity'
         );
+        if (!updateResult.ok) return;
       }
 
       // Step 2: Auto-flag if discrepancy
@@ -105,8 +106,6 @@ export function IntakeView() {
       detailGridOptions: {
         columnDefs: buildBatchColumns(
           canWrite,
-          busy,
-          isRunning,
           async (batchId, intakeQty, expectedQty, discrepancyReason) => {
             await verifyBatch(batchId, intakeQty, expectedQty, discrepancyReason);
           },
@@ -143,7 +142,7 @@ export function IntakeView() {
       }
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canWrite, busy, isRunning, runCommand, me.data?.name]
+    [canWrite, runCommand, me.data?.name]
   );
 
   const columnDefs = useMemo<ColDef<IntakeOrderRow>[]>(
@@ -288,6 +287,7 @@ export function IntakeView() {
               masterDetail
               detailRowAutoHeight
               detailCellRendererParams={detailCellRendererParams}
+              context={{ busy, isRunning }}
               getRowId={(params) => String(params.data.id)}
               onGridReady={onGridReady}
               loading={intakeQueue.isLoading || isRunning || busy}
@@ -339,8 +339,6 @@ export function IntakeView() {
 
 function buildBatchColumns(
   canWrite: boolean,
-  busy: boolean,
-  isRunning: boolean,
   onVerify: (batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) => Promise<void>,
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
@@ -413,11 +411,12 @@ function buildBatchColumns(
       cellRenderer: (params: ICellRendererParams<IntakeBatchRow>) => {
         const row = params.data;
         if (!row || !canWrite) return null;
+        const ctx = params.context as { busy: boolean; isRunning: boolean } | undefined;
         return (
           <BatchRowActions
             row={row}
-            busy={busy}
-            isRunning={isRunning}
+            busy={ctx?.busy ?? false}
+            isRunning={ctx?.isRunning ?? false}
             onVerify={onVerify}
             onReject={onReject}
             onAppendNote={onAppendNote}
