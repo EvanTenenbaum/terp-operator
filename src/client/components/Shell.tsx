@@ -10,6 +10,7 @@ import {
   Gauge,
   Inbox,
   Landmark,
+  ListChecks,
   PackageCheck,
   PackagePlus,
   PanelLeftClose,
@@ -55,6 +56,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
       { view: 'matchmaking', label: 'Matchmaking', icon: Search },
       { view: 'orders', label: 'Orders', icon: Inbox },
       { view: 'fulfillment', label: 'Fulfillment', icon: PackageCheck },
+      { view: 'pick', label: 'Pick Queue', icon: ListChecks },  // CAP-030 / TER-1563
       { view: 'clients', label: 'Client Ledger', hotkey: '⌘6', icon: ReceiptText },
       { view: 'credit-review', label: 'Credit Review', icon: Scale }
     ]

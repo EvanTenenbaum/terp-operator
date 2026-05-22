@@ -11,7 +11,7 @@ const viewsByLoop: Record<WorkLoop, readonly ViewKey[]> = {
   manager: managerPlusViews,
   sales: ['dashboard', 'reports', 'sales', 'matchmaking', 'orders', 'inventory', 'clients', 'payments', 'referees'],
   intake: ['dashboard', 'purchaseOrders', 'intake', 'matchmaking', 'inventory', 'fulfillment', 'vendors'],
-  warehouse: ['dashboard', 'orders', 'inventory', 'fulfillment'],
+  warehouse: ['dashboard', 'orders', 'inventory', 'fulfillment', 'pick'],
   operator: defaultOperatorViews,
   viewer: ['dashboard', 'reports', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees']
 };
