@@ -378,6 +378,20 @@ function buildOps(state: InMemoryState) {
           return stamped;
         }
 
+        // Track whether the insert has already been executed so that
+        // `await insert(t).values(v)` (no .returning()) and
+        // `await insert(t).values(v).returning()` both run the insert exactly once.
+        let insertExecuted = false;
+        let insertedRows: Array<Record<string, unknown>> = [];
+
+        function executeOnce(): Array<Record<string, unknown>> {
+          if (!insertExecuted) {
+            insertExecuted = true;
+            insertedRows = doInsert();
+          }
+          return insertedRows;
+        }
+
         const chain = {
           onConflictDoNothing(opts?: { target?: unknown }) {
             conflictHandled = true;
@@ -390,7 +404,15 @@ function buildOps(state: InMemoryState) {
             return chain;
           },
           returning(): Promise<Array<Record<string, unknown>>> {
-            return Promise.resolve([...doInsert()]);
+            return Promise.resolve([...executeOnce()]);
+          },
+          // Make the chain thenable so `await insert(t).values(v)` (no .returning())
+          // also executes the insert, mirroring real Drizzle behaviour.
+          then<T>(
+            resolve: (v: Array<Record<string, unknown>>) => T | PromiseLike<T>,
+            reject?: (reason: unknown) => T | PromiseLike<T>,
+          ): Promise<T> {
+            return Promise.resolve(executeOnce()).then(resolve, reject);
           },
         };
         return chain;

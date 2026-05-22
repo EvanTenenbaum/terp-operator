@@ -381,7 +381,8 @@ describe('Scenario 2: qty bump after release → warehouse_alerts populated', ()
     await runCommand(tx, 'updateSalesOrderLine', { lineId: LINE1_ID, qty: 10 }, salesUser, nextCmd());
 
     const fl = getRows(s, 'fulfillment_lines').find(row => row['id'] === flId)!;
-    const alerts = fl['warehouseAlerts'] as Array<Record<string, unknown>>;
+    // warehouseAlerts may be undefined (mock does not apply DB defaults) or []
+    const alerts = (fl['warehouseAlerts'] as Array<Record<string, unknown>> | undefined) ?? [];
     expect(alerts).toHaveLength(0);
   });
 
