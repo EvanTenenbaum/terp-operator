@@ -446,6 +446,7 @@ export function PurchaseOrdersView() {
           purchaseOrderId,
           productName: line.productName,
           category: line.category || 'Flower',
+          subcategory: line.subcategory || undefined,
           tags: parseTagInput(String(line.tags ?? '')),
           qty: Number(line.qty || 0),
           unitCost: Number(line.unitCost || 0),
@@ -507,7 +508,7 @@ export function PurchaseOrdersView() {
   async function updateLineCell(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
     const field = String(event.colDef.field);
-    const supported = ['productName', 'category', 'tags', 'qty', 'uom', 'unitCost', 'costRangeLow', 'costRangeHigh', 'notes', 'internalNotes', 'externalNotes'];
+    const supported = ['productName', 'category', 'subcategory', 'tags', 'qty', 'uom', 'unitCost', 'costRangeLow', 'costRangeHigh', 'notes', 'internalNotes', 'externalNotes'];
     if (!supported.includes(field)) return;
     let value: string | string[] | number = event.newValue;
     if (field === 'tags') {
