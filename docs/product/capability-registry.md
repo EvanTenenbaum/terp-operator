@@ -51,6 +51,8 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CAP-027 Backup/restore preview | J09 | Recover/Close | control | Keep | R10 | Restore preview is read-only. | Preserve read-only in app; offline destructive restore remains out of app. |
 | CAP-028 Legacy marker preservation | Legacy marker contract, MR-002 | All loops | context | Keep | R2 | Raw marker fields exist. | Preserve; add legends/review queue later without remapping prematurely. |
 | CAP-029 Matchmaking demand/supply board | User clarification 2026-05-13 | Sell, Buy, Decide | core_workflow, projection | Keep | R6, R8, R12 | Matchmaking route records customer needs, vendor stock, and deterministic match rows with reasons. | Keep as intent tracking only; purchase/sale/intake consequences stay in existing workflows. |
+| CAP-031 Saved filter management | Backend-frontend gap audit 2026-05-22 | Sell, Receive, Decide | control | Keep | none | `filters.updateFilter` and `filters.deleteFilter` exist on server; no edit/delete UI in `SavedFiltersDropdown`. Users can save and load filters but cannot rename or delete them. Linear: TER-1561. | Implement `SavedFiltersManager` component with inline rename (updateFilter) and inline confirm-delete (deleteFilter). Wire into `InventoryFinderPanel`. |
+| CAP-032 Credit engine ops surfaces | Backend-frontend gap audit 2026-05-22 | Decide, Support | context, control | Keep | none | `credit.divergenceReport` (owner-only) and `credit.creditRecomputeQueueHealth` (manager+) exist on server with no frontend surface. Linear: TER-1562. | Implement `CreditDivergencePanel` and `CreditQueueHealthWidget`, wire both into `CreditReviewView` with role gates. |
 
 ## Backend Command Families
 
@@ -94,6 +96,8 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | BE-008 Explicit backup commands | Backup workflows | Recover/Close | control | Defer | Current preview/support packet is acceptable; typed backup commands later if owners use them daily. |
 | BE-009 Partial PO quantity receiving | PO edge cases | Buy, Receive | core_workflow | Keep | Add simple receive-quantity column/action without modal. |
 | BE-010 Reversal completeness matrix | Mistake recovery | Recover/Close | control | Already covered | `reversalPolicies` documents every command as reversible, offsettable, or terminal; `reverseCommandById` now refuses unsupported reversal instead of silently marking unknown commands reversed. |
+| BE-011 WebSocket transport for subscriptions | Backend-frontend gap audit 2026-05-22 | Infrastructure | infrastructure | Defer | Add `wsLink`/`httpSubscriptionLink` split to `src/client/api/trpc.ts` when real-time push is needed. Required before `subscriptions.heartbeat` can be consumed from the frontend. |
+| BE-012 Server-side batch filter path | Backend-frontend gap audit 2026-05-22 | Receive, Decide | projection | Defer | `filters.applyBatchFilters` is fully implemented on the server (cursor pagination, rate limiting, role-scoped columns). Current `InventoryFinderPanel` filters client-side from `queries.reference` data. Connecting this path requires: (1) removing the `queries.reference` pre-fetch from the panel, (2) making filter state reactive and server-routed, (3) adding loading/pagination UI. Implement when inventory size makes client-side filtering impractical (>500 active batches). |
 
 ## Replication Playbook Requirement
 
