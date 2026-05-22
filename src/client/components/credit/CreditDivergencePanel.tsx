@@ -87,15 +87,15 @@ export function CreditDivergencePanel() {
       )}
 
       {kpi.passes ? (
-        <div className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+        <div role="status" className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
           Portfolio meets criteria for live-mode flip.
         </div>
       ) : (
-        <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div role="status" className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           <p className="font-medium">Not ready to flip to live mode:</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
-            {kpi.reasons.map((reason, i) => (
-              <li key={i}>{reason}</li>
+            {kpi.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
             ))}
           </ul>
         </div>

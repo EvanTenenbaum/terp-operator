@@ -76,4 +76,11 @@ describe('CreditQueueHealthWidget', () => {
     const widget = screen.getByLabelText('Credit recompute queue health');
     expect(widget.className).toContain('border-zinc-200');
   });
+
+  it('uses zinc border when pending items exist but no stale or failed', () => {
+    mockHealth({ pendingCount: 5, oldestPendingAgeSeconds: 45, processingCount: 2, doneCount: 0, failedTerminalCount: 0, staleProcessingCount: 0 });
+    render(<CreditQueueHealthWidget />);
+    const widget = screen.getByLabelText('Credit recompute queue health');
+    expect(widget.className).toContain('border-zinc-200');
+  });
 });

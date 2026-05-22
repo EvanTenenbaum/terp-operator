@@ -10,14 +10,14 @@ export function CreditQueueHealthWidget() {
 
   const hasStale = data.staleProcessingCount > 0;
   const hasFailed = data.failedTerminalCount > 0;
-  const isHealthy = !hasStale && !hasFailed && data.pendingCount === 0;
+  const isUnhealthy = hasStale || hasFailed;
 
   return (
     <div
       className={`flex items-center gap-3 rounded border px-3 py-1.5 text-xs ${
-        isHealthy
-          ? 'border-zinc-200 bg-zinc-50 text-zinc-600'
-          : 'border-amber-300 bg-amber-50 text-amber-800'
+        isUnhealthy
+          ? 'border-amber-300 bg-amber-50 text-amber-800'
+          : 'border-zinc-200 bg-zinc-50 text-zinc-600'
       }`}
       aria-label="Credit recompute queue health"
     >
