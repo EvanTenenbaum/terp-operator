@@ -1119,6 +1119,142 @@ export const queriesRouter = router({
       if (!projection) return null;
       return renderSignalText(projection);
     }),
+  // CAP-030 (TER-1498): Warehouse pick queue. Returns one row per pick_list that
+  // still has at least one open + unpicked + non-cancelled fulfillment line on a
+  // pick-released sales line. Ordered by oldest pick_released_at for FIFO.
+  pickQueue: protectedProcedure.query(async () => {
+    return (
+      await pool.query(
+        `SELECT
+           pl.id,
+           pl.pick_no AS "pickNo",
+           pl.order_id AS "orderId",
+           so.order_no AS "orderNo",
+           c.name AS customer,
+           pl.status,
+           pl.assigned_to AS "assignedTo",
+           pl.created_at AS "createdAt",
+           COUNT(fl.id) FILTER (WHERE fl.status = 'open' AND fl.status_extended IS DISTINCT FROM 'cancelled')::int AS "openLines",
+           COUNT(fl.id)::int AS "totalLines",
+           COALESCE(SUM(jsonb_array_length(fl.warehouse_alerts)), 0)::int AS "alertCount",
+           MIN(sol.pick_released_at) AS "oldestReleasedAt"
+         FROM pick_lists pl
+         JOIN sales_orders so ON so.id = pl.order_id
+         LEFT JOIN customers c ON c.id = so.customer_id
+         LEFT JOIN fulfillment_lines fl ON fl.pick_list_id = pl.id
+         LEFT JOIN sales_order_lines sol ON sol.id = fl.order_line_id AND sol.pick_released_at IS NOT NULL
+         WHERE pl.status = 'open'
+           AND EXISTS (
+             SELECT 1 FROM fulfillment_lines fl2
+             JOIN sales_order_lines sol2 ON sol2.id = fl2.order_line_id
+             WHERE fl2.pick_list_id = pl.id
+               AND sol2.pick_released_at IS NOT NULL
+               AND fl2.actual_qty = 0
+               AND fl2.status_extended IS DISTINCT FROM 'cancelled'
+           )
+         GROUP BY pl.id, so.order_no, c.name
+         ORDER BY MIN(sol.pick_released_at) ASC NULLS LAST`
+      )
+    ).rows;
+  }),
+
+  // CAP-030 (TER-1498): Detail view of a single pick list — header plus all fulfillment
+  // lines. Computes a derived pick_status for each line (released / picking / picked /
+  // recall_pending / cancelled / recalled) so the UI doesn't have to reimplement that.
+  pickListWithLines: protectedProcedure.input(z.object({ pickListId: z.string().uuid() })).query(async ({ input }) => {
+    const header = (
+      await pool.query(
+        `SELECT pl.id, pl.pick_no AS "pickNo", pl.order_id AS "orderId",
+                so.order_no AS "orderNo", c.name AS customer, pl.status,
+                pl.assigned_to AS "assignedTo", pl.created_at AS "createdAt"
+         FROM pick_lists pl
+         JOIN sales_orders so ON so.id = pl.order_id
+         LEFT JOIN customers c ON c.id = so.customer_id
+         WHERE pl.id = $1
+         LIMIT 1`,
+        [input.pickListId]
+      )
+    ).rows[0] ?? null;
+
+    const lines = (
+      await pool.query(
+        `SELECT
+           fl.id,
+           fl.order_line_id AS "orderLineId",
+           fl.batch_id AS "batchId",
+           sol.item_name AS "itemName",
+           COALESCE(sol.display_name, i.alias, sol.item_name) AS "displayName",
+           b.batch_code AS "batchCode",
+           fl.expected_qty AS "expectedQty",
+           fl.actual_qty AS "actualQty",
+           fl.bag_code AS "bagCode",
+           fl.status,
+           fl.warehouse_alerts AS "warehouseAlerts",
+           fl.status_extended AS "statusExtended",
+           sol.pick_released_at AS "pickReleasedAt",
+           CASE
+             WHEN fl.status_extended = 'cancelled' THEN 'cancelled'
+             WHEN fl.status_extended = 'recall_pending' THEN 'recall_pending'
+             WHEN fl.actual_qty > 0 AND fl.status = 'packed' THEN 'picked'
+             WHEN fl.actual_qty > 0 THEN 'picking'
+             WHEN sol.pick_released_at IS NOT NULL THEN 'released'
+             ELSE 'recalled'
+           END AS "pickStatus",
+           fl.updated_at AS "updatedAt"
+         FROM fulfillment_lines fl
+         LEFT JOIN sales_order_lines sol ON sol.id = fl.order_line_id
+         LEFT JOIN batches b ON b.id = fl.batch_id
+         LEFT JOIN items i ON i.id = b.item_id
+         WHERE fl.pick_list_id = $1
+         ORDER BY fl.created_at`,
+        [input.pickListId]
+      )
+    ).rows;
+
+    return { header, lines };
+  }),
+
+  // CAP-030 (TER-1498): Per-order release eligibility. Returns one entry per sales
+  // line with a boolean `eligible` and a list of human-readable reasons when not.
+  // Mirrors the eligibility rules enforced by the releaseLineForPicking command.
+  releaseEligibility: protectedProcedure.input(z.object({ orderId: z.string().uuid() })).query(async ({ input }) => {
+    const lines = (
+      await pool.query(
+        `SELECT
+           sol.id AS "lineId",
+           sol.item_name AS "itemName",
+           sol.batch_id AS "batchId",
+           sol.qty,
+           sol.validation_issues AS "validationIssues",
+           sol.pick_released_at AS "pickReleasedAt",
+           b.reserved_qty AS "batchReservedQty"
+         FROM sales_order_lines sol
+         LEFT JOIN batches b ON b.id = sol.batch_id
+         WHERE sol.order_id = $1
+         ORDER BY sol.created_at`,
+        [input.orderId]
+      )
+    ).rows;
+
+    return lines.map((row: Record<string, unknown>) => {
+      const reasons: string[] = [];
+      if (!row.itemName) reasons.push('Item name is not set.');
+      if (!row.batchId) reasons.push('No batch assigned.');
+      if (Number(row.qty) <= 0) reasons.push('Quantity must be greater than zero.');
+      const issues = Array.isArray(row.validationIssues) ? (row.validationIssues as string[]) : [];
+      const fatalIssues = issues.filter((i: string) => !i.startsWith('Pick landed COGS'));
+      if (fatalIssues.length) reasons.push(`Resolve validation issues: ${fatalIssues.join('; ')}`);
+      if (row.batchId && Number(row.batchReservedQty) < Number(row.qty)) {
+        reasons.push('Insufficient reservation — reserve inventory first.');
+      }
+      return {
+        lineId: row.lineId,
+        eligible: reasons.length === 0,
+        alreadyReleased: !!row.pickReleasedAt,
+        reasons
+      };
+    });
+  }),
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
