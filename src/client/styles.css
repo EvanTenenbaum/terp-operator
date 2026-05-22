@@ -82,7 +82,7 @@ kbd {
 }
 
 .keel {
-  @apply grid h-12 shrink-0 grid-cols-[minmax(220px,360px)_minmax(240px,1fr)_auto] items-center gap-3 border-b border-line bg-white px-3;
+  @apply grid h-12 shrink-0 grid-cols-[minmax(220px,360px)_minmax(240px,1fr)_auto] items-center gap-3 border-b border-line bg-white px-3 relative z-20;
 }
 
 .keel-search {
