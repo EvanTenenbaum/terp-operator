@@ -39,7 +39,7 @@ test('SalesView: "Release for picking" button is present in line expansion', asy
 
   // Navigate to Sales
   await nav.getByRole('button', { name: /Sales/ }).click();
-  await expect(page.getByText('Sales Orders')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: /Sales Orders/ }).first()).toBeVisible({ timeout: 15_000 });
 
   // Wait for the grid to load at least one row, then open the order-level panel.
   // The "Sale tray" button opens the expansion/line panel for a selected order.
