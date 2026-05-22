@@ -547,6 +547,125 @@ describe('priceSalesOrder with customer-rule strategy', () => {
   });
 });
 
+describe('priceSalesOrder with chain resolver (pricing.useChainResolver=true)', () => {
+  it('includes clauseId + clauseSnapshot in audit delta and batch-loads batches in a single query', async () => {
+    const CLAUSE_ID = 'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1';
+    const lines = [
+      { id: 'l1', itemName: 'Flower-A', batchId: 'b1', qty: '1', unitCost: '50', unitPrice: '0', unitCostResolved: true, orderId: ORDER_ID },
+      { id: 'l2', itemName: 'Flower-B', batchId: 'b2', qty: '1', unitCost: '60', unitPrice: '0', unitCostResolved: true, orderId: ORDER_ID }
+    ];
+
+    // Track every select() call and the table argument so we can prove
+    // batches are loaded in ONE call (inArray) rather than once per line.
+    const selectInvocations: Array<{ tableName: string }> = [];
+    let selectCall = 0;
+
+    const customerClauseRow = {
+      id: CLAUSE_ID,
+      scope: 'customer',
+      customerId: CUSTOMER_ID,
+      priority: 1,
+      name: 'Flower premium',
+      conditions: { logic: 'AND', conditions: [{ field: 'category', operator: 'equals', value: 'Flower' }] },
+      actionBasis: 'percent',
+      actionAmount: '0.4000',
+      active: true,
+      deletedAt: null
+    };
+
+    const responses: Row[][] = [
+      // 0: pricing.useChainResolver flag — present and true
+      [{ value: true }],
+      // 1: salesOrders
+      [{ id: ORDER_ID, customerId: CUSTOMER_ID, orderNo: 'SO-1' }],
+      // 2: customers
+      [{ id: CUSTOMER_ID, tags: [], pricingRule: {}, name: 'C' }],
+      // 3: customer pricingRuleEntries (one clause)
+      [customerClauseRow],
+      // 4: global pricingRuleEntries (one catch-all)
+      [{
+        id: 'global-default',
+        scope: 'global',
+        customerId: null,
+        priority: 1,
+        name: null,
+        conditions: null,
+        actionBasis: 'percent',
+        actionAmount: '0.3000',
+        active: true,
+        deletedAt: null
+      }],
+      // 5: salesOrderLines
+      lines,
+      // 6: batches (BATCH-LOADED — must be a single query)
+      [
+        { id: 'b1', category: 'Flower', subcategory: null, tags: [], unitPrice: '120' },
+        { id: 'b2', category: 'Flower', subcategory: null, tags: [], unitPrice: '140' }
+      ],
+      // 7: recalcOrder reads salesOrderLines again
+      lines
+    ];
+
+    const tx: any = {
+      select: vi.fn(() => ({
+        from: (table: any) => {
+          const rows = responses[selectCall] ?? [];
+          selectInvocations.push({ tableName: String(table?.[Symbol.for('drizzle:Name')] ?? '') });
+          selectCall += 1;
+          const p: any = Promise.resolve(rows);
+          const limit = vi.fn(() => Promise.resolve(rows));
+          const orderBy = vi.fn(() => {
+            const op: any = Promise.resolve(rows);
+            op.limit = limit;
+            return op;
+          });
+          const where = vi.fn(() => {
+            const wp: any = Promise.resolve(rows);
+            wp.limit = limit;
+            wp.orderBy = orderBy;
+            return wp;
+          });
+          p.where = where;
+          p.limit = limit;
+          p.orderBy = orderBy;
+          return p;
+        }
+      })),
+      update: vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(() => Promise.resolve()) })) })),
+      insert: makeInsert()
+    };
+
+    const result = await priceSalesOrder(tx, { orderId: ORDER_ID, strategy: 'standard' }, 'cmd-chain-1');
+    expect(result.ok).toBe(true);
+
+    const delta = result.delta as Record<string, unknown>;
+    const linesAudit = delta.lines as Array<Record<string, unknown>>;
+    expect(linesAudit).toHaveLength(2);
+
+    // Audit invariants from the spec:
+    //   - clauseId present
+    //   - clauseSnapshot present (the exact clause object that fired)
+    //   - priceBeforeGuardrail and guardrailApplied present
+    for (const entry of linesAudit) {
+      expect(entry.clauseId).toBe(CLAUSE_ID);
+      expect(entry.clauseSnapshot).not.toBeNull();
+      expect(entry.clauseSnapshot).toMatchObject({
+        id: CLAUSE_ID,
+        scope: 'customer',
+        actionBasis: 'percent',
+        actionAmount: 0.4
+      });
+      expect(typeof entry.priceBeforeGuardrail).toBe('number');
+      expect(typeof entry.guardrailApplied).toBe('boolean');
+    }
+
+    // N+1 guard: only ONE batches select issued regardless of line count.
+    // The chain-resolver path issues exactly 7 selects total for any line count:
+    //   flag, order, customer, customer clauses, global clauses, lines, batches (+1 recalc).
+    expect(selectCall).toBeLessThanOrEqual(8);
+  });
+});
+
 describe('confirmSalesOrder / postSalesOrder block on unresolved COGS', () => {
   function makeConfirmTx(linesRows: Row[], orderRow: Row, customerRow: Row | null) {
     // confirmSalesOrder calls:

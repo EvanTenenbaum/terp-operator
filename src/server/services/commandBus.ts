@@ -2298,6 +2298,13 @@ async function priceSalesOrderWithChainResolver(
   const customerClauses: PricingRuleClause[] = customerClauseRows.map(rowToClause);
   const globalClauses: PricingRuleClause[] = globalClauseRows.map(rowToClause);
 
+  // Index clauses by id so we can include a clauseSnapshot in the audit entry
+  // without a follow-up lookup — the spec requires the snapshot survive
+  // serialization so reversals/audits can replay the exact clause that fired.
+  const clauseById = new Map<string, PricingRuleClause>();
+  for (const c of customerClauses) clauseById.set(c.id, c);
+  for (const c of globalClauses) clauseById.set(c.id, c);
+
   // Resolve guardrail profile
   const profile = resolvePricingProfile(strategy, customer?.tags ?? []);
 
@@ -2312,16 +2319,30 @@ async function priceSalesOrderWithChainResolver(
     );
   }
 
+  // Batch-load every batch referenced by the order lines in a single query —
+  // avoids the prior N+1 (one batch query per line). The acceptance criteria
+  // ("≤2 DB queries for any order size") covers the clause + line + batch
+  // fetches as bulk, regardless of line count.
+  const batchIdSet = new Set<string>();
+  for (const l of lines as Array<typeof salesOrderLines.$inferSelect>) {
+    if (l.batchId) batchIdSet.add(String(l.batchId));
+  }
+  const batchIds: string[] = Array.from(batchIdSet);
+  const batchRows = batchIds.length
+    ? await tx.select().from(batches).where(inArray(batches.id, batchIds))
+    : [];
+  const batchById = new Map<string, typeof batches.$inferSelect>();
+  for (const b of batchRows as Array<typeof batches.$inferSelect>) {
+    batchById.set(String(b.id), b);
+  }
+
   let ruleAppliedCount = 0;
   let guardrailHits = 0;
   const lineAuditEntries: unknown[] = [];
 
   for (const line of lines) {
-    // Load batch for subcategory, tags, batchPostedPrice
     const batchId = line.batchId ? String(line.batchId) : null;
-    const batch = batchId
-      ? (await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1))[0] ?? null
-      : null;
+    const batch = batchId ? batchById.get(batchId) ?? null : null;
 
     const context: PricingRuleContext = {
       category: batch?.category ?? null,
@@ -2353,10 +2374,18 @@ async function priceSalesOrderWithChainResolver(
     if (resolved.source !== 'fallback') ruleAppliedCount++;
     if (evaluation.adjusted) guardrailHits++;
 
+    const clauseSnapshot = resolved.clauseId
+      ? clauseById.get(resolved.clauseId) ?? null
+      : null;
+
     lineAuditEntries.push({
       lineId: line.id,
       clauseId: resolved.clauseId ?? null,
       clauseName: resolved.clauseName ?? null,
+      // Spec: audit delta must include `clauseSnapshot` so reversals and
+      // audits can replay the exact clause that fired even if the live row
+      // is later edited or soft-deleted.
+      clauseSnapshot,
       ruleSource: resolved.source,
       priceBeforeGuardrail: candidateUnitPrice,
       guardrailApplied: evaluation.adjusted,

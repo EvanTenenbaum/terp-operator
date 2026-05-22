@@ -276,6 +276,10 @@ interface CustomerPricingPanelProps {
 }
 
 export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) {
+  const me = trpc.auth.me.useQuery();
+  const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
+  const readOnly = me.data ? !isManagerOrOwner : false;
+
   const clauses = trpc.queries.pricingRuleClauses.useQuery(
     { scope: 'customer', customerId },
     { enabled: Boolean(customerId), refetchOnWindowFocus: false }
@@ -318,16 +322,18 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
       </h2>
       <div className="mt-1 text-[11px] uppercase text-zinc-500">
         Internal only — never shown to customer
+        {readOnly && ' · Read-only (manager required)'}
       </div>
       <div className="mt-3">
         <PricingRuleChainEditor
           scope="customer"
           customerId={customerId}
-          clauses={clauses.data ?? []}
-          chainFingerprint={`${clauses.data?.length ?? 0}:`}
+          clauses={clauses.data?.clauses ?? []}
+          chainFingerprint={clauses.data?.chainFingerprint ?? '0:'}
           isRunning={isRunning}
           onSave={handleSave}
           compact
+          readOnly={readOnly}
         />
       </div>
     </div>

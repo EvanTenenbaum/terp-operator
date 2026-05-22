@@ -271,13 +271,20 @@ async function run() {
       process.exit(1);
     }
 
-    // --- 3. Clear legacy columns (soft-deprecation) ---
-    // Both columns are NOT NULL; set to empty JSONB rather than NULL.
-    await client.query(
-      `UPDATE customers SET pricing_rule = '{}'::jsonb WHERE pricing_rule IS NOT NULL AND pricing_rule != '{}'::jsonb`
-    );
-    await client.query(
-      `UPDATE system_settings SET value = '{}'::jsonb WHERE key = 'pricing.defaults'`
+    // --- 3. Preserve legacy columns (rollback safety) ---
+    // We intentionally do NOT null out customers.pricing_rule or
+    // systemSettings.pricing.defaults here. The spec's "feature flag rollback
+    // must immediately restore old path" requirement is incompatible with a
+    // destructive migration: if we nulled the legacy data, flipping
+    // pricing.useChainResolver=false would fall back to a (now-empty) old
+    // path and silently return the 30% hardcoded fallback to every customer.
+    //
+    // The legacy columns are kept as a parallel read-only audit trail.
+    // A separate retirement migration (issued only after a successful soak
+    // period under pricing.useChainResolver=true) is responsible for nulling
+    // them; that migration is NOT this script.
+    console.log(
+      'Legacy customer.pricing_rule and systemSettings.pricing.defaults preserved (rollback safety).'
     );
 
     // --- 4. Flip feature flag ---

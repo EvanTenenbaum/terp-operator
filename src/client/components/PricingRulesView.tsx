@@ -5,6 +5,10 @@ import { PricingRuleChainEditor } from './PricingRuleChainEditor';
 import type { PricingRuleClauseInput } from './PricingRuleClauseCard';
 
 export function PricingRulesView() {
+  const me = trpc.auth.me.useQuery();
+  const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
+  const readOnly = me.data ? !isManagerOrOwner : false;
+
   const summary = trpc.queries.pricingRulesSummary.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
@@ -16,14 +20,16 @@ export function PricingRulesView() {
   const globalClauses = summary.data?.global ?? [];
   const globalFingerprint = summary.data?.chainFingerprint ?? '0:';
 
-  // Lazy-load customer clauses only when expanded
-  const customerClauses = trpc.queries.pricingRuleClauses.useQuery(
+  // Lazy-load customer clauses (plus their chain fingerprint) only when expanded
+  const customerData = trpc.queries.pricingRuleClauses.useQuery(
     { scope: 'customer', customerId: expandedCustomerId ?? '' },
     {
       enabled: Boolean(expandedCustomerId),
       refetchOnWindowFocus: false,
     }
   );
+  const customerClauses = customerData.data?.clauses ?? [];
+  const customerFingerprint = customerData.data?.chainFingerprint ?? '0:';
 
   const filteredCustomers = (summary.data?.customers ?? []).filter((c) =>
     !search.trim() ||
@@ -53,7 +59,7 @@ export function PricingRulesView() {
     );
     setDirtyCustomerId(null);
     await summary.refetch();
-    await customerClauses.refetch();
+    await customerData.refetch();
   }
 
   async function clearCustomer(customerId: string, customerName: string) {
@@ -64,13 +70,22 @@ export function PricingRulesView() {
     ) {
       return;
     }
+    // Use the live customer chain fingerprint — otherwise the optimistic
+    // concurrency check rejects the clear (length-only fingerprints never match
+    // the server's `length:id:ts|...` format for non-empty chains). The Clear
+    // button is only rendered when the editor row is expanded, so the
+    // fingerprint is already loaded into `customerData`.
+    const fingerprint =
+      expandedCustomerId === customerId
+        ? customerFingerprint
+        : '0:';
     await runCommand(
       'savePricingRuleChain',
       {
         scope: 'customer',
         customerId,
         clauses: [],
-        chainFingerprint: '0:',
+        chainFingerprint: fingerprint,
       },
       'Clear customer pricing rules'
     );
@@ -127,6 +142,11 @@ export function PricingRulesView() {
         <p className="text-xs text-zinc-600 mb-3">
           Applied when a customer has no matching custom rule. The catch-all (last
           rule) is always required.
+          {readOnly && (
+            <span className="ml-1 text-zinc-400" data-testid="pricing-readonly-note">
+              Read-only — only managers can edit.
+            </span>
+          )}
         </p>
         <PricingRuleChainEditor
           scope="global"
@@ -134,6 +154,7 @@ export function PricingRulesView() {
           chainFingerprint={globalFingerprint}
           isRunning={isRunning}
           onSave={saveGlobal}
+          readOnly={readOnly}
         />
       </section>
 
@@ -208,7 +229,7 @@ export function PricingRulesView() {
                           className="p-3 bg-zinc-50 border-t border-line"
                           data-testid={`customer-editor-${customer.id}`}
                         >
-                          {customerClauses.isLoading ? (
+                          {customerData.isLoading ? (
                             <p className="text-sm text-zinc-500">
                               Loading rules…
                             </p>
@@ -217,13 +238,14 @@ export function PricingRulesView() {
                               <PricingRuleChainEditor
                                 scope="customer"
                                 customerId={customer.id}
-                                clauses={customerClauses.data ?? []}
-                                chainFingerprint={`${customerClauses.data?.length ?? 0}:`}
+                                clauses={customerClauses}
+                                chainFingerprint={customerFingerprint}
                                 isRunning={isRunning}
                                 onSave={saveCustomer}
                                 compact
+                                readOnly={readOnly}
                               />
-                              {customer.hasCustomRules && (
+                              {customer.hasCustomRules && !readOnly && (
                                 <button
                                   type="button"
                                   className="text-button text-red-600 mt-2 text-xs"

@@ -7,10 +7,14 @@ const referenceQueryMock = vi.fn();
 const relationshipQueryMock = vi.fn();
 const pricingRulesClausesMock = vi.fn();
 const pricingRulesSummaryMock = vi.fn();
+const authMeMock = vi.fn(() => ({ data: { role: 'manager' } }));
 const runCommandMock = vi.fn(async () => undefined);
 
 vi.mock('../api/trpc', () => ({
   trpc: {
+    auth: {
+      me: { useQuery: () => authMeMock() },
+    },
     queries: {
       salesOrderLines: { useQuery: (input: unknown, options: unknown) => linesQueryMock(input, options) },
       reference: { useQuery: (input: unknown, options: unknown) => referenceQueryMock(input, options) },
@@ -357,8 +361,9 @@ describe('OrderPricingPanel', () => {
 
 describe('CustomerPricingPanel', () => {
   it('renders the customer pricing editor with the internal-only banner', () => {
+    authMeMock.mockReturnValue({ data: { role: 'manager' } });
     pricingRulesClausesMock.mockReturnValue({
-      data: [],
+      data: { clauses: [], chainFingerprint: '0:' },
       isLoading: false,
       isError: false,
       refetch: vi.fn(),
@@ -382,11 +387,37 @@ describe('CustomerPricingPanel', () => {
     expect(screen.getByTestId('add-clause')).toBeInTheDocument();
     expect(screen.getByTestId('chain-save')).toBeInTheDocument();
   });
+
+  it('hides edit affordances when the viewer is not a manager/owner (read-only)', () => {
+    authMeMock.mockReturnValue({ data: { role: 'operator' } });
+    pricingRulesClausesMock.mockReturnValue({
+      data: { clauses: [], chainFingerprint: '0:' },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    pricingRulesSummaryMock.mockReturnValue({
+      data: { global: [], customers: [], chainFingerprint: '0:' },
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+    referenceQueryMock.mockReturnValue({
+      data: { categories: ['Flower', 'Vape'] },
+    });
+
+    render(<CustomerPricingPanel customerId={CUSTOMER_ID} />);
+
+    expect(screen.getByTestId('customer-pricing-panel')).toBeInTheDocument();
+    expect(screen.getByText(/Read-only/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('add-clause')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chain-save')).not.toBeInTheDocument();
+  });
 });
 
 describe('DefaultPricingPanel', () => {
   // DefaultPricingPanel is retired in CAP-030; it now re-exports PricingRulesView.
   it('renders PricingRulesView (the consolidated settings view)', () => {
+    authMeMock.mockReturnValue({ data: { role: 'manager' } });
     pricingRulesSummaryMock.mockReturnValue({
       data: { global: [], customers: [], chainFingerprint: '0:' },
       isLoading: false,
@@ -394,7 +425,7 @@ describe('DefaultPricingPanel', () => {
       refetch: vi.fn(),
     });
     pricingRulesClausesMock.mockReturnValue({
-      data: [],
+      data: { clauses: [], chainFingerprint: '0:' },
       isLoading: false,
       refetch: vi.fn(),
     });

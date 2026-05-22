@@ -191,6 +191,66 @@ const FIXTURES: Array<{ label: string; rule: CustomerPricingRule }> = [
       default: { basis: 'percent', amount: 0.28 },
     },
   },
+  // Additional shapes — spec requires ≥20 fixture shapes to be sure the
+  // legacy → clause migration is faithful for every realistic stored rule.
+  {
+    label: 'fractional percent (0.123)',
+    rule: { default: { basis: 'percent', amount: 0.123 } },
+  },
+  {
+    label: 'zero default percent',
+    rule: { default: { basis: 'percent', amount: 0 } },
+  },
+  {
+    label: 'zero dollar default',
+    rule: { default: { basis: 'dollar', amount: 0 } },
+  },
+  {
+    label: 'Flower zero, default 30%',
+    rule: {
+      categories: { Flower: { basis: 'percent', amount: 0 } },
+      default: { basis: 'percent', amount: 0.3 },
+    },
+  },
+  {
+    label: 'Extract only — no default',
+    rule: { categories: { Extract: { basis: 'percent', amount: 0.4 } } },
+  },
+  {
+    label: 'Vape + Pre-roll, no default',
+    rule: {
+      categories: {
+        Vape: { basis: 'percent', amount: 0.31 },
+        'Pre-roll': { basis: 'percent', amount: 0.22 },
+      },
+    },
+  },
+  {
+    label: 'unicode category name',
+    rule: {
+      categories: { 'Café': { basis: 'percent', amount: 0.25 } },
+      default: { basis: 'percent', amount: 0.3 },
+    },
+  },
+  {
+    label: 'large dollar markup',
+    rule: { default: { basis: 'dollar', amount: 1000 } },
+  },
+  {
+    label: 'high-precision numeric (4 decimals)',
+    rule: { default: { basis: 'percent', amount: 0.2533 } },
+  },
+  {
+    label: 'mixed bases, one category $, multiple % categories',
+    rule: {
+      categories: {
+        Flower: { basis: 'percent', amount: 0.28 },
+        Extract: { basis: 'dollar', amount: 12 },
+        Infused: { basis: 'percent', amount: 0.31 },
+      },
+      default: { basis: 'percent', amount: 0.3 },
+    },
+  },
 ];
 
 // Context categories to test per fixture

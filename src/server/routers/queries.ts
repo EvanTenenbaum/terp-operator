@@ -1268,7 +1268,12 @@ export const queriesRouter = router({
     });
   }),
 
-  // CAP-030 (TER-1558): Returns ordered pricing rule clauses for one scope/customer.
+  // CAP-030 (TER-1558): Returns ordered pricing rule clauses for one scope/customer
+  // and the chain fingerprint the client must echo back to `savePricingRuleChain`
+  // for optimistic concurrency control. Without this fingerprint, the client
+  // cannot reproduce the server-side fingerprint format (which includes the
+  // hidden `updated_at` timestamp of each row), and every save with existing
+  // rows would fail with PRICING_CHAIN_CONFLICT.
   pricingRuleClauses: protectedProcedure
     .input(z.object({
       scope: z.enum(['global', 'customer']),
@@ -1290,7 +1295,7 @@ export const queriesRouter = router({
         )
         .orderBy(pricingRuleEntries.priority);
 
-      return rows.map((r) => ({
+      const clauses: PricingRuleClause[] = rows.map((r) => ({
         id: r.id,
         scope: r.scope as 'global' | 'customer',
         customerId: r.customerId,
@@ -1300,7 +1305,12 @@ export const queriesRouter = router({
         actionBasis: r.actionBasis as 'percent' | 'dollar',
         actionAmount: Number(r.actionAmount),
         active: r.active,
-      } satisfies PricingRuleClause));
+      }));
+
+      return {
+        clauses,
+        chainFingerprint: computeChainFingerprintFromRows(rows),
+      };
     }),
 
   // CAP-030 (TER-1558): Returns global clauses + per-customer summary in one
