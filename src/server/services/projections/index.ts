@@ -192,6 +192,63 @@ function describe(value: unknown): string {
   return typeof value;
 }
 
+function assertHeaderValueTypes(
+  header: Record<string, unknown>,
+  path: string,
+  kind: SnapshotKind,
+): void {
+  const { dateISO, documentNo } = header;
+  if (dateISO !== undefined && typeof dateISO !== 'string') {
+    throw new Error(
+      `validateShape(${kind}): ${path}.dateISO must be a string, got ${describe(dateISO)}`,
+    );
+  }
+  if (documentNo !== undefined && typeof documentNo !== 'string') {
+    throw new Error(
+      `validateShape(${kind}): ${path}.documentNo must be a string, got ${describe(documentNo)}`,
+    );
+  }
+}
+
+function assertTotalsValueTypes(
+  totals: Record<string, unknown>,
+  path: string,
+  kind: SnapshotKind,
+): void {
+  const { subtotal, total } = totals;
+  if (subtotal !== undefined && typeof subtotal !== 'number') {
+    throw new Error(
+      `validateShape(${kind}): ${path}.subtotal must be a number, got ${describe(subtotal)}`,
+    );
+  }
+  if (total !== undefined && typeof total !== 'number') {
+    throw new Error(
+      `validateShape(${kind}): ${path}.total must be a number, got ${describe(total)}`,
+    );
+  }
+}
+
+function assertLinesValueTypes(
+  lines: unknown[],
+  kind: SnapshotKind,
+): void {
+  for (let i = 0; i < lines.length; i++) {
+    const entry = lines[i];
+    if (!isPlainObject(entry)) continue; // structural error caught by assertNestedArrayOfObjects
+    const line = entry as Record<string, unknown>;
+    if (line.qty !== undefined && typeof line.qty !== 'number') {
+      throw new Error(
+        `validateShape(${kind}): lines[${i}].qty must be a number, got ${describe(line.qty)}`,
+      );
+    }
+    if (line.subtotal !== undefined && typeof line.subtotal !== 'number') {
+      throw new Error(
+        `validateShape(${kind}): lines[${i}].subtotal must be a number, got ${describe(line.subtotal)}`,
+      );
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public validators
 // ---------------------------------------------------------------------------
@@ -215,6 +272,10 @@ export function validateExternalShape(
   assertNestedArrayOfObjects(json.lines, allow.line, 'lines', kind);
   assertNestedObject(json.totals, allow.totals, 'totals', kind);
   assertNestedObject(json.footer, allow.footer, 'footer', kind);
+  // Value-type checks for load-bearing scalar fields (GH #153)
+  if (isPlainObject(json.header)) assertHeaderValueTypes(json.header, 'header', kind);
+  if (isPlainObject(json.totals)) assertTotalsValueTypes(json.totals, 'totals', kind);
+  if (Array.isArray(json.lines)) assertLinesValueTypes(json.lines as unknown[], kind);
 }
 
 export function validateInternalShape(
@@ -260,4 +321,8 @@ export function validateInternalShape(
       kind,
     );
   }
+  // Value-type checks for load-bearing scalar fields (GH #153)
+  if (isPlainObject(json.header)) assertHeaderValueTypes(json.header, 'header', kind);
+  if (isPlainObject(json.totals)) assertTotalsValueTypes(json.totals, 'totals', kind);
+  if (Array.isArray(json.lines)) assertLinesValueTypes(json.lines as unknown[], kind);
 }
