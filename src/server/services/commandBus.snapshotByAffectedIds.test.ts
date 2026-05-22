@@ -1,8 +1,13 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
-// Spy on the module-level db.select so we can assert it is NOT called when
+// vi.hoisted is required so the spy is available when the vi.mock factory runs
+// (which is hoisted to the top of the file before module-level statements).
+const { dbSelectSpy } = vi.hoisted(() => ({
+  dbSelectSpy: vi.fn(),
+}));
+
+// Mock the module-level db so we can assert it is NOT called when
 // snapshotByAffectedIds is invoked with an explicit tx (GH #150).
-const dbSelectSpy = vi.fn();
 vi.mock('../db', () => ({
   db: {
     select: dbSelectSpy,
