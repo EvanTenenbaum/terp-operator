@@ -20,6 +20,26 @@ import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { buildCustomerOfferCsv } from './SalesView.csvExport';
 import { selectVisibleSalesColumns } from './SalesView.columns';
 
+// --- CAP-030 stub types (TER-1508) ---
+// TODO: depends on CAP-030 backend merge (TER-1498)
+// These interfaces match the expected shapes from TER-1498. Remove when backend merges.
+
+export interface ReleaseEligibilityResult {
+  lineId: string;
+  eligible: boolean;
+  reason?: string; // shown as tooltip when ineligible
+  pickStatus: 'unreleased' | 'released' | 'picking' | 'picked' | 'recall_pending';
+  releasedAt?: string; // ISO timestamp
+}
+
+export interface PickStatusQueryResult {
+  orderId: string;
+  lines: ReleaseEligibilityResult[];
+  linesPicked: number;
+  linesTotal: number;
+}
+// --- end CAP-030 stub types ---
+
 const orderColumns: ColDef<GridRow>[] = [
   { field: 'orderNo', pinned: 'left', width: 150 },
   { field: 'customer', width: 180 },
@@ -28,6 +48,31 @@ const orderColumns: ColDef<GridRow>[] = [
   { field: 'total', type: 'numericColumn', width: 120 },
   { field: 'internalMargin', headerName: 'Internal margin', type: 'numericColumn', width: 145 },
   { field: 'lines', width: 95 },
+  {
+    field: 'linesPicked',
+    headerName: 'Lines picked',
+    width: 135,
+    sortable: true,
+    // TODO: depends on CAP-030 backend merge (TER-1498)
+    valueFormatter: (params: { value: unknown; data?: GridRow }) => {
+      const data = params.data as GridRow | undefined;
+      if (!data) return '';
+      const total = Number(data.linesTotal ?? 0);
+      const picked = Number(data.linesPicked ?? 0);
+      if (!total) return '';
+      return `${picked}/${total} picked`;
+    },
+    cellStyle: (params: { value: unknown; data?: GridRow }) => {
+      const data = params.data as GridRow | undefined;
+      if (!data) return null;
+      const total = Number(data.linesTotal ?? 0);
+      const picked = Number(data.linesPicked ?? 0);
+      if (!total) return null;
+      if (picked === total) return { color: '#15803d' }; // all picked
+      if (picked > 0) return { color: '#b06915' }; // partial
+      return null;
+    }
+  },
   { field: 'deliveryWindow', editable: true, minWidth: 180 }
 ];
 
@@ -110,6 +155,25 @@ const lineColumns: ColDef<GridRow>[] = [
   { field: 'inventoryPosted', headerName: 'Inv Posted', editable: true, width: 125 },
   { field: 'paymentFollowup', headerName: 'Pay/F-up', editable: true, width: 125 },
   { field: 'validationIssues', headerName: 'Fix', minWidth: 220 },
+  {
+    field: 'pickStatus',
+    headerName: 'Pick status',
+    width: 140,
+    sortable: true,
+    filter: true,
+    // TODO: depends on CAP-030 backend merge (TER-1498) — pickStatus field from releaseEligibility
+    cellRenderer: (params: { value: unknown }) => (
+      <PickStatusChip status={params.value ? String(params.value) : 'unreleased'} />
+    )
+  },
+  {
+    field: 'releasedAt',
+    headerName: 'Released at',
+    width: 160,
+    hide: true, // hidden by default per spec
+    valueFormatter: (params: { value: unknown }) => params.value ? new Date(String(params.value)).toLocaleString() : '',
+    // TODO: depends on CAP-030 backend merge (TER-1498)
+  },
   { field: 'status', width: 115 }
 ];
 
@@ -135,6 +199,15 @@ export function SalesView() {
   const [autoStartedCustomerIds, setAutoStartedCustomerIds] = useState<Set<string>>(new Set());
   const [dismissedCreditIndicators, setDismissedCreditIndicators] = useState<Set<string>>(new Set());
   const [exportError, setExportError] = useState<string | null>(null);
+  // CAP-030 / TER-1508 — edit confirmation for released lines
+  const [pendingLineEdit, setPendingLineEdit] = useState<{
+    type: 'qty' | 'remove';
+    lineId: string;
+    field?: string;
+    newValue?: unknown;
+    lineStatus?: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
   const customerSelectRef = useRef<HTMLSelectElement | null>(null);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
@@ -245,6 +318,35 @@ export function SalesView() {
             showMargin={showMargin}
             runCommand={runCommand}
           />
+          {/* CAP-030 / TER-1508 — TODO: depends on CAP-030 backend merge (TER-1498/TER-1485) */}
+          <button
+            className="primary-button compact-action"
+            disabled={isRunning || !canWrite || String(row.pickStatus ?? 'unreleased') !== 'unreleased'}
+            title={String(row.pickStatus ?? 'unreleased') !== 'unreleased' ? `Cannot release: line is ${String(row.pickStatus ?? '')}` : 'Release this line for warehouse picking'}
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              // TODO: depends on CAP-030 backend merge (TER-1485)
+              runCommand('releaseLineForPicking', { lineId: row.id }, 'Release sales line for picking');
+            }}
+            type="button"
+          >
+            Release for picking
+          </button>
+          {String(row.pickStatus ?? 'unreleased') === 'released' || String(row.pickStatus ?? '') === 'picking' ? (
+            <button
+              className="secondary-button compact-action"
+              disabled={isRunning || !canWrite}
+              title="Recall this line from warehouse picking"
+              onClick={() => {
+                if (!row.id || row.id.trim() === '') return;
+                // TODO: depends on CAP-030 backend merge (TER-1485)
+                runCommand('recallPickLine', { lineId: row.id }, 'Recall pick line');
+              }}
+              type="button"
+            >
+              Recall from pick
+            </button>
+          ) : null}
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite}
@@ -374,7 +476,23 @@ export function SalesView() {
   }
 
   async function removeSelectedLines() {
-    for (const line of selectedLines) await runCommand('removeSalesOrderLine', { lineId: line.id }, 'Remove selected sales line');
+    for (const line of selectedLines) {
+      const lineStatus = String((line as GridRow).pickStatus ?? 'unreleased');
+      const isReleased = ['released', 'picking'].includes(lineStatus);
+      if (isReleased) {
+        setPendingLineEdit({
+          type: 'remove',
+          lineId: line.id,
+          lineStatus,
+          onConfirm: async () => {
+            await runCommand('removeSalesOrderLine', { lineId: line.id }, 'Remove selected sales line (post-release)');
+            await orderLines.refetch();
+          }
+        });
+      } else {
+        await runCommand('removeSalesOrderLine', { lineId: line.id }, 'Remove selected sales line');
+      }
+    }
     await orderLines.refetch();
   }
 
@@ -399,6 +517,27 @@ export function SalesView() {
 
   async function onLineCommit(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
+
+    // CAP-030 / TER-1508: intercept qty changes on released/picking lines
+    const lineStatus = String(event.data.pickStatus ?? 'unreleased');
+    const isReleased = ['released', 'picking', 'picked', 'recall_pending'].includes(lineStatus);
+    const isQtyOrRemoval = event.colDef.field === 'qty';
+
+    if (isReleased && isQtyOrRemoval) {
+      setPendingLineEdit({
+        type: 'qty',
+        lineId: event.data.id,
+        field: event.colDef.field,
+        newValue: event.newValue,
+        lineStatus,
+        onConfirm: async () => {
+          await runCommand('updateSalesOrderLine', { lineId: event.data!.id, [event.colDef.field!]: event.newValue }, `Inline sales line edit (post-release): ${event.colDef.field}`);
+          await orderLines.refetch();
+        }
+      });
+      return; // don't run immediately — wait for confirmation
+    }
+
     await runCommand('updateSalesOrderLine', { lineId: event.data.id, [event.colDef.field]: event.newValue }, `Inline sales line edit: ${event.colDef.field}`);
     await orderLines.refetch();
   }
@@ -608,6 +747,22 @@ export function SalesView() {
                 emptyChildren="Use Inventory Finder to add posted batches, or type a request above and press Enter."
                 selectionActions={(rows) => (
                   <>
+                    {/* CAP-030 / TER-1508 — TODO: depends on CAP-030 backend merge (TER-1498/TER-1485) */}
+                    {rows.some((r) => String((r as GridRow).pickStatus ?? 'unreleased') === 'unreleased') ? (
+                      <button
+                        className="primary-button compact-action"
+                        type="button"
+                        disabled={isRunning || !canWrite || !rows.length}
+                        onClick={() => {
+                          const eligible = rows.filter((r) => String((r as GridRow).pickStatus ?? 'unreleased') === 'unreleased');
+                          eligible.forEach((r) => {
+                            runCommand('releaseLineForPicking', { lineId: r.id }, 'Bulk release lines for picking');
+                          });
+                        }}
+                      >
+                        Release {rows.filter((r) => String((r as GridRow).pickStatus ?? 'unreleased') === 'unreleased').length} for picking
+                      </button>
+                    ) : null}
                     <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('packed', true)}>Packed</button>
                     <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('inventoryPosted', true)}>Inv posted</button>
                     <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('paymentFollowup', true)}>Pay/F-up</button>
@@ -683,6 +838,43 @@ export function SalesView() {
           ))}
         </div>
       </WorkspacePanel> : null}
+      {pendingLineEdit ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pick-edit-confirm-title"
+        >
+          <div className="mx-4 max-w-md rounded-lg border border-line bg-white p-6 shadow-xl">
+            <h2 id="pick-edit-confirm-title" className="text-base font-semibold text-ink">
+              Warehouse alert required
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              The warehouse has started picking this line. They will be alerted to reconcile. Continue?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                className="primary-button"
+                disabled={isRunning}
+                onClick={async () => {
+                  await pendingLineEdit.onConfirm();
+                  setPendingLineEdit(null);
+                }}
+              >
+                Continue
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setPendingLineEdit(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -699,6 +891,21 @@ function exportCustomerOffer(rows: GridRow[]) {
   link.download = 'terp-operator-customer-offer.csv';
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function PickStatusChip({ status }: { status: string | undefined }) {
+  const label = status ?? 'unreleased';
+  const colorClass =
+    label === 'released' ? 'bg-blue-100 text-blue-800' :
+    label === 'picking' ? 'bg-amber-100 text-amber-800' :
+    label === 'picked' ? 'bg-green-100 text-green-800' :
+    label === 'recall_pending' ? 'bg-red-100 text-red-800' :
+    'bg-zinc-100 text-zinc-600'; // unreleased / default
+  return (
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${colorClass}`}>
+      {label.replace('_', ' ')}
+    </span>
+  );
 }
 
 function salesPrimaryLabel(status: string, hasOrder: boolean) {
