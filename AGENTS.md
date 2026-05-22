@@ -67,7 +67,7 @@ Decision rules:
 - Decomposing a Linear issue → in-session TODO list only. No Linear sub-issues for routine decomposition.
 - Bug in CI/flaky test/regression/dependency/security → GitHub Issue.
 - Feature report → registry row/new CAP or existing row → Next product move, then Linear issue. Do not file as GitHub Issue.
-- Finishing a Linear issue → move Linear issue to In Review/Done; PR title includes Linear issue ID for integration. Only close GitHub Issues if the PR actually fixes a repo-level bug.
+- Finishing a Linear issue → PR title includes Linear issue ID for integration. For required status updates at each completion checkpoint, see *Tracker Updates at Completion Checkpoints* below.
 
 ## Tracker Updates at Completion Checkpoints
 
