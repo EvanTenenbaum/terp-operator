@@ -23,3 +23,4 @@ storage/media/*
 !storage/media/.thumbnails
 storage/media/.thumbnails/*
 !storage/media/.thumbnails/.gitkeep
+.worktrees/
