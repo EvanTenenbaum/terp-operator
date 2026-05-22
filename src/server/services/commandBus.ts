@@ -85,6 +85,8 @@ import { reversalPolicies } from '../../shared/commandCatalog';
 import { photoUploadTokens } from '../schema';
 import {
   createFinalizedSnapshotForPurchaseOrder,
+  createFinalizedSnapshotForCustomerPayment,
+  createFinalizedSnapshotForVendorPayout,
   voidActiveSnapshotForPurchaseOrder,
   saveOrUpdateDraftSnapshotForPurchaseOrder,
   abandonDraftSnapshotForPurchaseOrder
@@ -2967,6 +2969,13 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
   // level — if allocatePayment also enqueues below, the second insert is a no-op.
   await enqueueCustomerRecompute(tx, customerId, 'event:recordPayment', commandId);
 
+  // Best-effort snapshot — failure must not fail the payment command
+  try {
+    await createFinalizedSnapshotForCustomerPayment(tx, payment.id, commandId);
+  } catch (e) {
+    console.warn('[commandBus] customer_payment snapshot failed (non-fatal):', e instanceof Error ? e.message : e);
+  }
+
   // Auto-execute allocation if allocationIntent is set to 'fifo' or 'selected_invoice'
   const intent = payment.allocationIntent;
   if (amount > 0 && (intent === 'fifo' || intent === 'selected_invoice')) {
@@ -3143,6 +3152,14 @@ async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string):
   const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null, createdAt: transactionDate }).returning();
   const paid = Number(bill.amountPaid) + amount;
   await tx.update(vendorBills).set({ amountPaid: moneyScale(paid), status: paid >= Number(bill.amount) ? 'paid' : 'partial', dueReason: paid >= Number(bill.amount) ? 'Paid in full' : 'Partially paid vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
+
+  // Best-effort snapshot — failure must not fail the payment command
+  try {
+    await createFinalizedSnapshotForVendorPayout(tx, payment.id, commandId);
+  } catch (e) {
+    console.warn('[commandBus] vendor_payout snapshot failed (non-fatal):', e instanceof Error ? e.message : e);
+  }
+
   return { ok: true, commandId, affectedIds: [billId, payment.id], toast: 'Vendor payout recorded and traceable.' };
 }
 

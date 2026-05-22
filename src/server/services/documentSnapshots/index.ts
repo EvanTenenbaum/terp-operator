@@ -1,5 +1,7 @@
 import type { DocumentType } from '../../../shared/documentSnapshots';
 import * as poProjection from './poProjection';
+import * as customerPaymentProjection from './customerPaymentProjection';
+import * as vendorPayoutProjection from './vendorPayoutProjection';
 
 export interface ProjectionModule {
   EXTERNAL_FIELDS: readonly string[];
@@ -20,7 +22,21 @@ const REGISTRY: Partial<Record<DocumentType, ProjectionModule>> = {
     get projectExternal() { return poProjection.projectExternal; },
     get renderPlainTextExternal() { return poProjection.renderPlainTextExternal; },
     get renderPlainTextInternal() { return poProjection.renderPlainTextInternal; }
-  } as ProjectionModule
+  } as ProjectionModule,
+  customer_payment: {
+    get EXTERNAL_FIELDS() { return customerPaymentProjection.EXTERNAL_FIELDS; },
+    get PROJECTION_VERSION() { return customerPaymentProjection.PROJECTION_VERSION; },
+    get projectExternal() { return customerPaymentProjection.projectExternal; },
+    get renderPlainTextExternal() { return customerPaymentProjection.renderPlainTextExternal; },
+    get renderPlainTextInternal() { return customerPaymentProjection.renderPlainTextInternal; }
+  } as ProjectionModule,
+  vendor_payout: {
+    get EXTERNAL_FIELDS() { return vendorPayoutProjection.EXTERNAL_FIELDS; },
+    get PROJECTION_VERSION() { return vendorPayoutProjection.PROJECTION_VERSION; },
+    get projectExternal() { return vendorPayoutProjection.projectExternal; },
+    get renderPlainTextExternal() { return vendorPayoutProjection.renderPlainTextExternal; },
+    get renderPlainTextInternal() { return vendorPayoutProjection.renderPlainTextInternal; }
+  } as ProjectionModule,
 };
 
 export function hasProjectionFor(documentType: DocumentType): boolean {
