@@ -691,6 +691,7 @@ async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise
       shorthand: stringValue(payload.shorthand) || null,
       name,
       category,
+      subcategory: stringValue(payload.subcategory) || null,
       tags,
       intakeQty: qtyScale(payload.intakeQty ?? 0),
       availableQty: qtyScale(payload.availableQty ?? payload.intakeQty ?? 0),
@@ -730,6 +731,7 @@ async function updateBatch(tx: Tx, payload: Payload, commandId: string, toast = 
   const values: Record<string, unknown> = { updatedAt: new Date() };
   copyIfPresent(values, 'name', payload.name);
   copyIfPresent(values, 'category', payload.category);
+  copyIfPresent(values, 'subcategory', payload.subcategory);
   copyIfPresent(values, 'location', payload.location);
   copyIfPresent(values, 'lotCode', payload.lotCode);
   copyIfPresent(values, 'status', payload.status);
@@ -1032,6 +1034,7 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
       itemId,
       productName,
       category,
+      subcategory: stringValue(payload.subcategory) || null,
       tags,
       qty: qtyScale(qty),
       uom: stringValue(payload.uom) || 'lb',
@@ -1074,6 +1077,7 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   const values: Record<string, unknown> = { updatedAt: new Date() };
   if (payload.productName !== undefined || payload.name !== undefined) values.productName = stringValue(payload.productName ?? payload.name);
   copyIfPresent(values, 'category', payload.category);
+  copyIfPresent(values, 'subcategory', payload.subcategory);
   copyIfPresent(values, 'uom', payload.uom);
   copyIfPresent(values, 'sourceCode', payload.sourceCode);
   copyIfPresent(values, 'shorthand', payload.shorthand);
@@ -1378,6 +1382,7 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
         shorthand: line.shorthand,
         name: line.productName,
         category: line.category,
+        subcategory: line.subcategory,
         tags: line.tags,
         intakeQty: remainingQty,
         availableQty: 0,

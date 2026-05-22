@@ -182,6 +182,7 @@ export const purchaseOrderLines = pgTable(
     itemId: uuid('item_id').references(() => items.id, { onDelete: 'set null' }),
     productName: varchar('product_name', { length: 180 }).notNull(),
     category: varchar('category', { length: 80 }).notNull(),
+    subcategory: varchar('subcategory', { length: 80 }),
     tags: text('tags').array().notNull().default([]),
     qty: numeric('qty', { precision: 12, scale: 3 }).notNull().default('0'),
     receivedQty: numeric('received_qty', { precision: 12, scale: 3 }).notNull().default('0'),

@@ -465,6 +465,7 @@ export function PurchaseOrdersView() {
           purchaseOrderId,
           productName: line.productName,
           category: line.category || 'Flower',
+          subcategory: line.subcategory || undefined,
           tags: parseTagInput(String(line.tags ?? '')),
           qty: Number(line.qty || 0),
           unitCost: Number(line.unitCost || 0),
