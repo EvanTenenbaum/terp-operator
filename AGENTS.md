@@ -135,6 +135,104 @@ PLAYWRIGHT_SKIP_WEB_SERVER=1 pnpm exec playwright test tests/e2e/operator-consol
 
 Use the live local app at `http://127.0.0.1:5173` for browser proof when the change affects operator workflows.
 
+
+## QA Environment — On-Demand Persona Flow Testing
+
+When Evan says **"run QA"**, **"run QA on [scope]"**, or **"run QA against [branch]"**,
+follow this protocol exactly. Do not improvise.
+
+### Parameters
+- **Branch:** default `main`. Use Evan's branch if specified.
+- **Scope:** default `all`. Options: `all`, `critical`, `cross-persona`,
+  or any persona slug (`sales-operator`, `inventory-operator`, `payments-accounting`, etc.)
+
+### Step 1 — Launch QA environment on the fast runner
+
+```bash
+fast-runner exec \
+  --base origin/main \
+  --branch "fast-runner/qa-$(date +%Y%m%dT%H%M%S)" \
+  terp-operator -- QA_BRANCH=main pnpm qa:env:setup
+```
+
+Replace `main` with the target branch in both `--base` and `QA_BRANCH` if Evan specified one.
+
+Parse every `KEY=VALUE` line from the output. Extract:
+- `QA_APP_URL` — e.g. `http://100.104.134.78:5173`
+- `QA_USER_EMAIL` — `owner@terpagro.local`
+- `QA_USER_PASSWORD` — `terp-demo`
+- `QA_SEED_STATE` — JSON blob
+
+If `QA_ERROR=...` appears in output: **stop immediately**. Report to Evan:
+> "QA blocked: `[QA_ERROR value]` on branch `[branch]`. Check seed/migration state."
+
+If `QA_READY=true`: proceed.
+
+### Step 2 — Verify Tailscale access
+
+The runner is on the Tailscale network at `QA_APP_URL`. Vite binds to `0.0.0.0:5173`
+so the Mac mini can reach it directly. No tunnel or firewall change required.
+
+Verify connectivity:
+```bash
+curl -s "[QA_APP_URL]/api/health" | head -3
+```
+Expected: JSON health response.
+
+### Step 3 — Update seed-state-reference.md
+
+Parse `QA_SEED_STATE` JSON and update
+`docs/qa/persona-flows/_shared/seed-state-reference.md` with current entity data.
+
+### Step 4 — Load scenario files
+
+From `docs/qa/persona-flows/REGISTRY.md`, select flows by scope:
+- `all` → all 26 flows in REGISTRY order
+- `critical` → Risk = Critical flows only (X1, X2, flow 12)
+- `cross-persona` → flows X1 and X2 only
+- `[persona-slug]` → the 3 files in that persona's directory
+
+Load `_shared/navigation-primer.md` alongside every scenario.
+
+**URL substitution (required):** In all loaded scenario text, replace:
+- `http://127.0.0.1:5173` → `[QA_APP_URL]`
+- `http://localhost:5173` → `[QA_APP_URL]`
+
+### Step 5 — Authenticate
+
+Navigate to `[QA_APP_URL]`. Log in as:
+- Email: `owner@terpagro.local`
+- Password: `terp-demo`
+
+### Step 6 — Execute flows
+
+For each scenario in scope:
+1. Load the scenario file (with URL substitution applied)
+2. Follow the Pre-Run Checklist (mark seed state as confirmed — setup ran it)
+3. Execute all Flow Steps
+4. Evaluate Pass Criteria → record ✅ Pass / 🟡 Pass with findings / 🔴 Fail / ⬛ Blocked
+5. File findings: bugs → `gh issue create --label bug`, gaps → Linear TER project
+6. Save screenshots to `docs/qa/runs/screenshots/YYYYMMDD-[persona]-step[N]-[slug].png`
+
+### Step 7 — Write run report
+
+Save to `docs/qa/runs/YYYY-MM-DD-[scope]-report.md`.
+See `docs/superpowers/specs/2026-05-22-qa-env-setup-design.md` for report template.
+Compute and report the overall grade (A/B/C/D/F and score/100).
+
+### Step 8 — Tear down
+
+The runner job's `qa-env-setup.sh` trap stops the app automatically when the job
+exits. No manual teardown needed. Report grade and top findings to Evan.
+
+### Error reference
+
+| `QA_ERROR` value | Meaning | Action |
+|-----------------|---------|--------|
+| `seed_preflight_failed` | Schema not migrated or seed will fail | Run `pnpm db:migrate` first; file GH issue if seed itself is broken |
+| `seed_failed` | `pnpm db:seed:realistic` exited non-zero | Check runner logs; file GH issue for broken seed |
+| `app_start_timeout` | App didn't reach healthy state in 60s | Check `/tmp/qa-app.log` on the runner |
+
 ## Deep QA Gate (Global)
 
 This repo follows the global Deep QA gate (canonical source: `/Users/evantenenbaum/AGENTS.md`). The rules below are self-contained so GitHub-visible agents can use them without relying on local-only paths.
