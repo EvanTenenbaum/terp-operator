@@ -339,8 +339,7 @@ export function SalesView() {
               title="Recall this line from warehouse picking"
               onClick={() => {
                 if (!row.id || row.id.trim() === '') return;
-                // TODO: depends on CAP-030 backend merge (TER-1485)
-                runCommand('recallPickLine', { lineId: row.id }, 'Recall pick line');
+                runCommand('recallLineFromPicking', { lineId: row.id }, 'Recall pick line');
               }}
               type="button"
             >
