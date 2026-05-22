@@ -6,6 +6,8 @@ set -euo pipefail
 
 QA_BRANCH="${QA_BRANCH:-main}"
 APP_PID=""
+POSTGRES_CONTAINER="qa-postgres-$$"
+DOCKER_POSTGRES_STARTED=false
 
 # Source .env if present (runner worktree may not have env vars pre-loaded)
 if [ -f .env ]; then
@@ -15,12 +17,16 @@ if [ -f .env ]; then
   set +a
 fi
 
-# Cleanup: always kill app process on any exit
+# Cleanup: always kill app process and any ephemeral postgres on any exit
 cleanup() {
   if [ -n "$APP_PID" ]; then
     echo "[qa:setup] Stopping app (PID $APP_PID)..."
     kill "$APP_PID" 2>/dev/null || true
     wait "$APP_PID" 2>/dev/null || true
+  fi
+  if $DOCKER_POSTGRES_STARTED; then
+    echo "[qa:setup] Stopping ephemeral postgres container..."
+    docker rm -f "$POSTGRES_CONTAINER" 2>/dev/null || true
   fi
   echo "[qa:setup] QA env torn down."
 }
@@ -28,17 +34,49 @@ trap cleanup EXIT
 
 echo "[qa:setup] Starting QA environment for branch: $QA_BRANCH"
 
-# Gate 0: verify schema before committing to full seed
+# If DATABASE_URL is not set (runner has no .env), spin up ephemeral Docker postgres
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "[qa:setup] No DATABASE_URL — starting ephemeral postgres via Docker..."
+  docker run -d \
+    --name "$POSTGRES_CONTAINER" \
+    -e POSTGRES_DB=terp_agro \
+    -e POSTGRES_USER=terp_agro \
+    -e POSTGRES_PASSWORD=terp_agro \
+    -p 5432:5432 \
+    postgres:16-alpine
+  DOCKER_POSTGRES_STARTED=true
+  export DATABASE_URL="postgres://terp_agro:terp_agro@localhost:5432/terp_agro"
+
+  echo "[qa:setup] Waiting for postgres to be ready..."
+  for i in $(seq 1 30); do
+    if docker exec "$POSTGRES_CONTAINER" pg_isready -U terp_agro -d terp_agro -q 2>/dev/null; then
+      echo "[qa:setup] Postgres is ready."
+      break
+    fi
+    if [ "$i" -eq 30 ]; then
+      echo "QA_ERROR=seed_preflight_failed"
+      echo "QA_READY=false"
+      exit 1
+    fi
+    sleep 1
+  done
+fi
+
+# Migrate first (idempotent — creates tables on fresh DB; no-op on existing)
+echo "[qa:setup] Running migrations..."
+if ! pnpm db:migrate 2>&1; then
+  echo "QA_ERROR=seed_preflight_failed"
+  echo "QA_READY=false"
+  exit 1
+fi
+
+# Gate 0: verify schema after migration
 echo "[qa:setup] Running preflight check..."
 if ! bash scripts/qa-preflight.sh; then
   echo "QA_ERROR=seed_preflight_failed"
   echo "QA_READY=false"
   exit 1
 fi
-
-# Migrate (idempotent — safe to run even if already migrated)
-echo "[qa:setup] Running migrations..."
-pnpm db:migrate
 
 # Seed with realistic 100-day scenario
 echo "[qa:setup] Seeding database..."
