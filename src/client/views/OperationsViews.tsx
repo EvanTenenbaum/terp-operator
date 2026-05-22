@@ -67,8 +67,8 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'lines', width: 95 },
     { field: 'orderedQty', headerName: 'Ordered', type: 'numericColumn', width: 120 },
     { field: 'receivedQty', headerName: 'Received', type: 'numericColumn', width: 120 },
-    { field: 'buyerNotes', headerName: 'Buyer notes', editable: true, minWidth: 220 },
-    { field: 'internalNotes', headerName: 'Internal', editable: true, minWidth: 220 },
+    { field: 'buyerNotes', headerName: 'Internal notes', editable: true, minWidth: 220 },
+    { field: 'internalNotes', headerName: 'Internal notes (ops)', editable: true, minWidth: 220 },
     { field: 'externalNotes', headerName: 'External (vendor)', editable: true, minWidth: 220 },
     { field: 'orderedAt', width: 170 },
     { field: 'receivedAt', width: 170 },
@@ -258,6 +258,8 @@ export function PurchaseOrdersView() {
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
   const pushToast = useUiStore((state) => state.pushToast);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const storedGridFilter = useUiStore((state) => state.gridFilters?.purchaseOrders ?? '');
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedPo = selected[0];
   const lines = trpc.queries.purchaseOrderLines.useQuery(
@@ -346,10 +348,29 @@ export function PurchaseOrdersView() {
             <Undo2 className="h-4 w-4" aria-hidden="true" />
             Cancel draft PO
           </button>
+          <button
+            className="secondary-button compact-action"
+            type="button"
+            disabled={isRunning || !canWrite || String(row.status ?? '') !== 'approved' || Number(row.prepaymentAmount ?? 0) <= 0}
+            title={
+              String(row.status ?? '') !== 'approved'
+                ? 'PO must be approved before recording prepayment'
+                : Number(row.prepaymentAmount ?? 0) <= 0
+                ? 'PO has no prepayment amount set'
+                : 'Record vendor prepayment'
+            }
+            onClick={() => {
+              if (!row.id || row.id.trim() === '') return;
+              setPrepaymentDialogOpen(true);
+            }}
+          >
+            <CreditCard className="h-4 w-4" aria-hidden="true" />
+            Record Prepayment
+          </button>
         </>
       )
     }),
-    [isRunning, runCommand, canWrite]
+    [isRunning, runCommand, canWrite, setPrepaymentDialogOpen]
   );
 
   const purchaseOrderLineExpansionConfig = useMemo(
@@ -386,6 +407,10 @@ export function PurchaseOrdersView() {
     }),
     [isRunning, selectedPo?.id, runCommand, canWrite]
   );
+
+  function togglePreset(preset: string) {
+    setGridFilter('purchaseOrders', storedGridFilter === preset ? '' : preset);
+  }
 
   function openAuthoringWorkspace() {
     setAuthoringOpen(true);
@@ -787,32 +812,28 @@ export function PurchaseOrdersView() {
         onCellCommit={canWrite ? updatePoCell : undefined}
         actions={
           <>
-{canWrite ? (
+            <div role="group" aria-label="Filter by status">
+              <button type="button" className="secondary-button compact-action"
+                onClick={() => togglePreset('status:draft,approved,ordered,partially_received')}
+                aria-pressed={storedGridFilter === 'status:draft,approved,ordered,partially_received'}>
+                Active
+              </button>
+              <button type="button" className="secondary-button compact-action"
+                onClick={() => togglePreset('status:ordered,partially_received')}
+                aria-pressed={storedGridFilter === 'status:ordered,partially_received'}>
+                Ordered
+              </button>
+              <button type="button" className="secondary-button compact-action"
+                onClick={() => togglePreset('status:finalized')}
+                aria-pressed={storedGridFilter === 'status:finalized'}>
+                Finalized
+              </button>
+            </div>
+            {canWrite ? (
               <>
                 <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
                   {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
                   {purchaseOrderPrimaryLabel(selectedPoStatus)}
-                </button>
-                <button
-                  className="secondary-button compact-action"
-                  type="button"
-                  disabled={
-                    !selected.length ||
-                    isRunning ||
-                    selectedPoStatus !== 'approved' ||
-                    Number(selectedPo?.prepaymentAmount ?? 0) <= 0
-                  }
-                  title={
-                    selectedPoStatus !== 'approved'
-                      ? 'PO must be approved before recording prepayment'
-                      : Number(selectedPo?.prepaymentAmount ?? 0) <= 0
-                      ? 'PO has no prepayment amount set'
-                      : 'Record vendor prepayment'
-                  }
-                  onClick={() => setPrepaymentDialogOpen(true)}
-                >
-                  <CreditCard className="h-4 w-4" aria-hidden="true" />
-                  Record Prepayment
                 </button>
               </>
             ) : null}
