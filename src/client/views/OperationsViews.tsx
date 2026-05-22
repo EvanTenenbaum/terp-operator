@@ -261,7 +261,6 @@ export function PurchaseOrdersView() {
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
   const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
   const contextSignals = trpc.queries.poContextSignals.useQuery(undefined, { enabled: authoringOpen });
-  const contextSignals = trpc.queries.poContextSignals.useQuery(undefined, { enabled: authoringOpen });
   const historicalProducts = (reference.data?.availableBatches ?? [])
     .filter((row) => !defaultVendorId || row.vendorId === defaultVendorId)
     .slice(0, 8);
@@ -2592,43 +2591,6 @@ function labelFromToken(value: string) {
   return value
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function PoSignalsSection({
-  inventory,
-  pricing
-}: {
-  inventory: Array<{ category: string; availableQty: string; batchCount: string; uom: string | null }>;
-  pricing: Array<{ category: string; avgCost: string; minCost: string; maxCost: string; poCount: number; lastPoDate: string | null }>;
-}) {
-  const pricingMap = new Map(pricing.map((p) => [p.category, p]));
-  if (!inventory.length) return null;
-  return (
-    <>
-      <h3 className="section-title mt-4">Market signals</h3>
-      <div className="po-context-list">
-        {inventory.map((row) => {
-          const qty = Number(row.availableQty ?? 0);
-          const isOut = qty === 0;
-          const price = pricingMap.get(row.category);
-          return (
-            <div
-              key={row.category}
-              className="flex items-center justify-between gap-2 border border-line bg-white px-2 py-1.5 text-xs"
-            >
-              <span className="min-w-0 truncate font-medium text-ink">{row.category}</span>
-              <span className={isOut ? 'font-semibold text-red-600' : 'text-zinc-500'}>
-                {isOut ? 'OUT' : `${moneyish(qty)} ${row.uom ?? ''}`}
-              </span>
-              <span className="text-right text-zinc-500">
-                {price ? `$${moneyish(price.avgCost)}` : '—'}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </>
-  );
 }
 
 function PoSignalsSection({
