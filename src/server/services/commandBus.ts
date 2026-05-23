@@ -278,6 +278,36 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     }
 
     if (existing.status === 'pending') {
+      // Orphan pending-claim sweeper (GH #12 slice 2): a pending row that has
+      // outlived a reasonable execution window almost certainly belongs to a
+      // crashed/timed-out caller. Without this sweep, the idempotency key is
+      // permanently denied — every retry sees the orphaned 'pending' row and
+      // throws the "already in progress" error forever. Adopt the orphan by
+      // flipping it to 'failed' (so the original idempotency key replays a
+      // safe failed result on the next attempt) and surface a retryable
+      // error to the caller so the retry uses a NEW idempotency key.
+      const PENDING_STALE_THRESHOLD_MS = 5 * 60 * 1000;
+      const age = Date.now() - new Date(existing.createdAt).getTime();
+      if (age > PENDING_STALE_THRESHOLD_MS) {
+        const orphanResult: CommandResult = {
+          ok: false,
+          commandId: existing.id,
+          affectedIds: [],
+          toast: 'Command timed out without completing. Please retry.'
+        };
+        await db
+          .update(commandJournal)
+          .set({
+            status: 'failed',
+            result: orphanResult as unknown as Record<string, unknown>,
+            error: 'orphaned: pending claim exceeded stale threshold without completion'
+          })
+          .where(eq(commandJournal.id, existing.id));
+        // Surface a retryable error. We do NOT auto-re-execute under the same
+        // idempotency key here: the safer contract is that the caller observes
+        // the timeout and re-submits with a fresh idempotency key.
+        throw new Error('Previous attempt timed out. Please retry with a new request.');
+      }
       // Winner still running. Safe message — no SQL leak.
       throw new Error('Command already in progress for this idempotency key.');
     }
