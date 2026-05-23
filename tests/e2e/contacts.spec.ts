@@ -37,8 +37,8 @@ test('owner can navigate contacts directory and view a profile', async ({ page }
 
   // Switch to Appointments tab
   await page.getByRole('tab', { name: 'Appointments' }).click();
-  await expect(page.getByText('Upcoming')).toBeVisible();
-  await expect(page.getByText('Past')).toBeVisible();
+  await expect(page.getByText('Upcoming', { exact: true })).toBeVisible();
+  await expect(page.getByText('Past', { exact: true })).toBeVisible();
 
   // Add an appointment
   await page.getByRole('button', { name: 'Add Appointment' }).click();
