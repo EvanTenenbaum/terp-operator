@@ -40,8 +40,8 @@ test('owner can navigate contacts directory and view a profile', async ({ page }
   await expect(page.getByText('Upcoming', { exact: true })).toBeVisible();
   await expect(page.getByText('Past', { exact: true })).toBeVisible();
 
-  // Add an appointment — click the first Add Appointment button to open the dialog
-  await page.getByRole('button', { name: 'Add Appointment' }).first().click();
+  // Add an appointment — click the panel's Add Appointment (primary button, not the header stub)
+  await page.getByRole('region', { name: /upcoming/i }).getByRole('button', { name: 'Add Appointment' }).click();
   const apptDialog = page.getByRole('dialog', { name: /Appointment/i });
   await expect(apptDialog).toBeVisible({ timeout: 10_000 });
   await apptDialog.getByRole('textbox', { name: /Title/i }).fill('Test meeting');
