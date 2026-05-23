@@ -49,6 +49,8 @@ test('owner can navigate contacts directory and view a profile', async ({ page }
   const dateStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}T10:00`;
   await apptDialog.locator('input[type="datetime-local"]').first().fill(dateStr);
   await apptDialog.getByRole('button', { name: 'Add Appointment' }).click();
-  await expect(page.getByText('Appointment added', { exact: true })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('Test meeting', { exact: true })).toBeVisible({ timeout: 10_000 });
+  // Toast appears as both a visual button and an sr-only aria-live — target the visual toast
+  await expect(page.getByRole('button', { name: 'Appointment added' })).toBeVisible({ timeout: 10_000 });
+  // Appointment shows in the Upcoming list
+  await expect(page.getByRole('region', { name: /upcoming/i }).getByText('Test meeting')).toBeVisible({ timeout: 10_000 });
 });
