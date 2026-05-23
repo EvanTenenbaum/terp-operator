@@ -1476,6 +1476,13 @@ export const queriesRouter = router({
       );
       return { rows: result.rows };
     }),
+
+  mergeCandidateCount: protectedProcedure.query(async () => {
+    const result = await pool.query(
+      `SELECT COUNT(*) AS count FROM contact_merge_candidates WHERE reviewed = false AND dismissed = false`
+    );
+    return { count: Number(result.rows[0]?.count ?? 0) };
+  }),
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
@@ -1636,6 +1643,7 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
               order by b.category, b.name`;
     case 'clients':
       return `select c.id, c.name, c.credit_limit as "creditLimit", c.balance, c.tags, c.notes,
+                     c.contact_id AS "contactId",
                      count(i.id)::int as "invoiceCount"
               from customers c left join invoices i on i.customer_id = c.id
               group by c.id
@@ -1643,7 +1651,8 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
     case 'vendors':
       return `select vb.id, v.name as vendor, vb.vendor_id as "vendorId", vb.bill_no as "billNo", po.po_no as "poNo", vb.purchase_order_id as "purchaseOrderId",
                      vb.amount, vb.amount_paid as "amountPaid", vb.status, vb.due_date as "dueDate", vb.scheduled_for as "scheduledFor",
-                     vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered"
+                     vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered",
+                     v.contact_id AS "contactId"
               from vendor_bills vb
               left join vendors v on v.id = vb.vendor_id
               left join purchase_orders po on po.id = vb.purchase_order_id
@@ -1674,6 +1683,7 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
       return `select r.id, r.name, r.email, r.phone, r.balance, r.lifetime_earned as "lifetimeEarned",
                      r.payment_method as "paymentMethod", r.payment_details as "paymentDetails",
                      r.notes, r.active, r.created_at as "createdAt",
+                     r.contact_id AS "contactId",
                      count(distinct rr.id)::int as "relationshipsCount"
               from referees r
               left join referee_relationships rr on rr.referee_id = r.id and rr.active = true
@@ -1684,6 +1694,7 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                      p.fee_percentage as "feePercentage", p.fee_fixed_amount as "feeFixedAmount",
                      p.default_user_split as "defaultUserSplit", p.default_processor_split as "defaultProcessorSplit",
                      p.notes, p.active, p.created_at as "createdAt",
+                     p.contact_id AS "contactId",
                      coalesce(sum(pf.processing_fee_total), 0) as "totalFeesProcessed",
                      coalesce(sum(case when pf.user_fee_status = 'collectible' then pf.user_fee_share else 0 end), 0) as "userFeesCollectible",
                      coalesce(sum(case when pf.user_fee_status = 'collected' then pf.user_fee_share else 0 end), 0) as "userFeesCollected",

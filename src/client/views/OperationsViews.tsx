@@ -1,5 +1,6 @@
 import { CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -1505,7 +1506,32 @@ function InventoryRowActions({
 }
 
 export function ClientLedgerView() {
-  return <GridJourney view="clients" title="Client Ledger and Credit" />;
+  const navigate = useNavigate();
+  const clientColumns: ColDef<GridRow>[] = [
+    {
+      field: 'name',
+      pinned: 'left',
+      width: 190,
+      cellRenderer: (params: { data: GridRow; value: string }) =>
+        params.data?.contactId ? (
+          <button
+            className="text-button font-medium text-left"
+            onClick={() => navigate(`/contacts/${String(params.data.contactId)}`)}
+            type="button"
+          >
+            {params.value}
+          </button>
+        ) : (
+          <span>{params.value}</span>
+        )
+    },
+    { field: 'creditLimit', type: 'numericColumn', width: 140 },
+    { field: 'balance', type: 'numericColumn', width: 130 },
+    { field: 'tags', minWidth: 180 },
+    { field: 'notes', minWidth: 260 },
+    { field: 'invoiceCount', width: 120 }
+  ];
+  return <GridJourney view="clients" title="Client Ledger and Credit" columns={clientColumns} />;
 }
 
 export function VendorPayablesView() {
