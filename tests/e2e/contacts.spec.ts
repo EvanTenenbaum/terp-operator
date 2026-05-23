@@ -18,12 +18,17 @@ test('owner can navigate contacts directory and view a profile', async ({ page }
   await expect(page.getByText('All Contacts').first()).toBeVisible();
   await expect(page.locator('.ag-root:visible').first()).toBeVisible();
 
-  // Click into the first contact
-  const firstContactLink = page.locator('button.text-button').first();
+  // Wait for grid rows to actually render before clicking
+  await expect(page.locator('.ag-row')).toHaveCount({ minimum: 1 }, { timeout: 15_000 }).catch(() => null);
+  await page.waitForTimeout(500); // let AG Grid finish rendering cell renderers
+
+  // Click into the first contact — use grid-scoped selector to avoid non-grid text-buttons
+  const firstContactLink = page.locator('.ag-row button.text-button').first();
+  await expect(firstContactLink).toBeVisible({ timeout: 10_000 });
   await firstContactLink.click();
 
-  // Wait for profile navigation to complete
-  await page.waitForURL(/\/contacts\/[a-f0-9-]{36}/, { timeout: 15_000 });
+  // Wait for profile navigation to complete (React Router pushState)
+  await page.waitForURL(/\/contacts\/[a-f0-9-]{36}/, { timeout: 20_000 });
 
   // Profile page should load (tablist may take a moment for tRPC data to resolve)
   await expect(page.getByRole('tablist')).toBeVisible({ timeout: 20_000 });
