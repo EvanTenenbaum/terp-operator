@@ -114,7 +114,20 @@ export const commandNames = [
   'recallLineFromPicking',
   'acknowledgeWarehouseAlert',
   'returnPickedUnits',
-  'cancelFulfillmentLine'
+  'cancelFulfillmentLine',
+  // CAP-033 / TER-1564 — entity profiles / contacts system
+  'createContact',
+  'updateContact',
+  'archiveContact',
+  'addContactRole',
+  'linkContactToExistingEntity',
+  'linkContactToUser',
+  'createAppointment',
+  'updateAppointment',
+  'cancelAppointment',
+  'completeAppointment',
+  'updateVendor',
+  'updateProcessor'
 ] as const;
 
 // Commands whose frontend surface is deferred to a follow-up. The parity
@@ -273,7 +286,20 @@ export const commandLabels: Record<CommandName, string> = {
   recallLineFromPicking: 'Recall line from picking',
   acknowledgeWarehouseAlert: 'Acknowledge warehouse alert',
   returnPickedUnits: 'Return picked units',
-  cancelFulfillmentLine: 'Cancel fulfillment line'
+  cancelFulfillmentLine: 'Cancel fulfillment line',
+  // CAP-033 / TER-1564
+  createContact: 'Create contact',
+  updateContact: 'Update contact',
+  archiveContact: 'Archive contact',
+  addContactRole: 'Add role to contact',
+  linkContactToExistingEntity: 'Link contact to existing entity',
+  linkContactToUser: 'Link contact to user account',
+  createAppointment: 'Create appointment',
+  updateAppointment: 'Update appointment',
+  cancelAppointment: 'Cancel appointment',
+  completeAppointment: 'Complete appointment',
+  updateVendor: 'Update vendor',
+  updateProcessor: 'Update processor'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -390,7 +416,20 @@ export const commandMinRole: Record<CommandName, Role> = {
   recallLineFromPicking: 'operator',
   acknowledgeWarehouseAlert: 'operator',
   returnPickedUnits: 'operator',
-  cancelFulfillmentLine: 'operator'
+  cancelFulfillmentLine: 'operator',
+  // CAP-033 / TER-1564
+  createContact: 'operator',
+  updateContact: 'operator',
+  archiveContact: 'manager',
+  addContactRole: 'manager',
+  linkContactToExistingEntity: 'manager',
+  linkContactToUser: 'owner',
+  createAppointment: 'operator',
+  updateAppointment: 'operator',
+  cancelAppointment: 'operator',
+  completeAppointment: 'operator',
+  updateVendor: 'operator',
+  updateProcessor: 'owner'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -507,7 +546,20 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   recallLineFromPicking: { disposition: 'terminal', guidance: 'Release the line again with releaseLineForPicking if the recall was unintended.' },
   acknowledgeWarehouseAlert: { disposition: 'terminal', guidance: 'Acknowledgement is a one-way audit mark. Review the bag and reconcile if needed.' },
   returnPickedUnits: { disposition: 'offsettable', guidance: 'Re-record the pick quantity via recordWeighAndPack if the return was accidental.' },
-  cancelFulfillmentLine: { disposition: 'terminal', guidance: 'Contact sales to reopen the order line and re-release for picking if cancellation was incorrect.' }
+  cancelFulfillmentLine: { disposition: 'terminal', guidance: 'Contact sales to reopen the order line and re-release for picking if cancellation was incorrect.' },
+  // CAP-033 / TER-1564
+  createContact: { disposition: 'terminal', guidance: 'Use archiveContact to deactivate; new contacts cannot be unbuilt.' },
+  updateContact: { disposition: 'offsettable', guidance: 'Run updateContact again with the prior values.' },
+  archiveContact: { disposition: 'terminal', guidance: 'Cannot be reversed; create a new contact if archiving was a mistake.' },
+  addContactRole: { disposition: 'terminal', guidance: 'Role additions are append-only; do not remove roles via reversal.' },
+  linkContactToExistingEntity: { disposition: 'offsettable', guidance: 'Unlink by clearing the entity row contact_id via an admin path.' },
+  linkContactToUser: { disposition: 'offsettable', guidance: 'Unlink by clearing users.contact_id via an admin path.' },
+  createAppointment: { disposition: 'reversible', guidance: 'Use cancelAppointment to mark the appointment cancelled.' },
+  updateAppointment: { disposition: 'offsettable', guidance: 'Run updateAppointment again with the prior values.' },
+  cancelAppointment: { disposition: 'terminal', guidance: 'Cancelled appointments cannot be reactivated; create a new appointment instead.' },
+  completeAppointment: { disposition: 'terminal', guidance: 'Completed appointments cannot be uncompleted.' },
+  updateVendor: { disposition: 'offsettable', guidance: 'Run updateVendor again with the prior values.' },
+  updateProcessor: { disposition: 'offsettable', guidance: 'Run updateProcessor again with the prior values.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

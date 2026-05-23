@@ -40,6 +40,9 @@ export const users = pgTable('users', {
   // Null means "fall back to the legacy substring heuristic on email/name"
   // (see legacyWorkLoopFromSubstring in src/client/accessPolicy.ts).
   workLoop: varchar('work_loop', { length: 32 }),
+  // Contacts system link (CAP-033 / TER-1564, migration 0054).
+  // Lazy reference because `contacts` is declared later in this file.
+  contactId: uuid('contact_id').references((): AnyPgColumn => contacts.id),
   createdAt: now(),
   updatedAt: updated()
 });
@@ -52,6 +55,8 @@ export const vendors = pgTable('vendors', {
   consignmentDefault: boolean('consignment_default').notNull().default(false),
   contact: text('contact'),
   notes: text('notes'),
+  // Contacts system link (CAP-033 / TER-1564). Lazy reference; `contacts` declared later.
+  contactId: uuid('contact_id').references((): AnyPgColumn => contacts.id),
   createdAt: now(),
   updatedAt: updated()
 });
@@ -92,6 +97,8 @@ export const customers = pgTable('customers', {
   creditLimitReminderDays: integer('credit_limit_reminder_days'),
   creditLimitLastReviewedAt: timestamp('credit_limit_last_reviewed_at', { withTimezone: true }),
   creditLimitSnoozeCount: integer('credit_limit_snooze_count').notNull().default(0),
+  // Contacts system link (CAP-033 / TER-1564). Lazy reference; `contacts` declared later.
+  contactId: uuid('contact_id').references((): AnyPgColumn => contacts.id),
   createdAt: now(),
   updatedAt: updated()
 });
@@ -726,6 +733,8 @@ export const referees = pgTable(
     paymentDetails: text('payment_details'),
     notes: text('notes'),
     active: boolean('active').notNull().default(true),
+    // Contacts system link (CAP-033 / TER-1564). Lazy reference; `contacts` declared later.
+    contactId: uuid('contact_id').references((): AnyPgColumn => contacts.id),
     createdAt: now(),
     updatedAt: updated()
   },
@@ -819,6 +828,8 @@ export const paymentProcessors = pgTable(
     defaultProcessorSplit: numeric('default_processor_split', { precision: 5, scale: 2 }).notNull(),
     notes: text('notes'),
     active: boolean('active').notNull().default(true),
+    // Contacts system link (CAP-033 / TER-1564). Lazy reference; `contacts` declared later.
+    contactId: uuid('contact_id').references((): AnyPgColumn => contacts.id),
     createdAt: now(),
     updatedAt: updated()
   },
@@ -1149,4 +1160,86 @@ export const customerBalanceReconciliation = pgTable('customer_balance_reconcili
   runIdx: index('customer_balance_recon_run_idx').on(table.runId)
 }));
 
+// ─── Contacts system (CAP-033 / TER-1564) ───────────────────────────────────
+// Universal identity anchor for all entity types (customer, vendor, referee,
+// processor, contractor, employee). Existing operational tables get a nullable
+// `contact_id` FK; financial logic continues to read from those tables.
+// See migrations/0054_contacts_system.sql.
+
+export const contacts = pgTable('contacts', {
+  id: id(),
+  name: varchar('name', { length: 180 }).notNull(),
+  displayName: varchar('display_name', { length: 180 }),
+  phone: varchar('phone', { length: 40 }),
+  secondaryPhone: varchar('secondary_phone', { length: 40 }),
+  email: varchar('email', { length: 240 }),
+  address: text('address'),
+  companyName: varchar('company_name', { length: 180 }),
+  contactKind: varchar('contact_kind', { length: 20 }).notNull().default('individual'),
+  preferredContactMethod: varchar('preferred_contact_method', { length: 20 }).notNull().default('any'),
+  notes: text('notes'),
+  tags: text('tags').array().notNull().default([]),
+  isCustomer: boolean('is_customer').notNull().default(false),
+  isVendor: boolean('is_vendor').notNull().default(false),
+  isReferee: boolean('is_referee').notNull().default(false),
+  isProcessor: boolean('is_processor').notNull().default(false),
+  isContractor: boolean('is_contractor').notNull().default(false),
+  isEmployee: boolean('is_employee').notNull().default(false),
+  active: boolean('active').notNull().default(true),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  archivedBy: uuid('archived_by').references(() => users.id),
+  archivedReason: text('archived_reason'),
+  createdAt: now(),
+  updatedAt: updated()
+}, (table) => ({
+  nameIdx: index('contacts_name_idx').on(table.name),
+  updatedAtIdx: index('contacts_updated_at_idx').on(table.updatedAt)
+}));
+
+export const appointments = pgTable('appointments', {
+  id: id(),
+  contactId: uuid('contact_id').notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 240 }).notNull(),
+  description: text('description'),
+  startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+  endsAt: timestamp('ends_at', { withTimezone: true }),
+  appointmentType: varchar('appointment_type', { length: 40 }).notNull().default('meeting'),
+  status: varchar('status', { length: 32 }).notNull().default('scheduled'),
+  location: text('location'),
+  createdBy: uuid('created_by').references(() => users.id),
+  notes: text('notes'),
+  createdAt: now(),
+  updatedAt: updated()
+}, (table) => ({
+  contactIdx: index('appointments_contact_idx').on(table.contactId),
+  startsAtIdx: index('appointments_starts_at_idx').on(table.startsAt)
+}));
+
+export const contactLedgerEntries = pgTable('contact_ledger_entries', {
+  id: id(),
+  contactId: uuid('contact_id').notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  kind: varchar('kind', { length: 48 }).notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  method: varchar('method', { length: 32 }),
+  reference: varchar('reference', { length: 120 }),
+  note: text('note'),
+  commandId: uuid('command_id'),
+  createdAt: now()
+}, (table) => ({
+  contactIdx: index('contact_ledger_contact_idx').on(table.contactId),
+  createdAtIdx: index('contact_ledger_created_at_idx').on(table.contactId, table.createdAt)
+}));
+
+export const contactMergeCandidates = pgTable('contact_merge_candidates', {
+  id: id(),
+  contactAId: uuid('contact_a_id').notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  contactBId: uuid('contact_b_id').notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  matchReason: varchar('match_reason', { length: 80 }).notNull(),
+  reviewed: boolean('reviewed').notNull().default(false),
+  dismissed: boolean('dismissed').notNull().default(false),
+  mergedInto: uuid('merged_into').references(() => contacts.id),
+  createdAt: now()
+}, (table) => ({
+  pairUnique: uniqueIndex('contact_merge_candidates_pair_unique_idx').on(table.contactAId, table.contactBId)
+}));
 

@@ -10,6 +10,7 @@ import { db, pool } from '../db';
 import { env } from '../env';
 import { scrubDatabaseError } from '../trpc';
 import {
+  appointments,
   archiveRuns,
   backupSnapshots,
   batches,
@@ -17,6 +18,8 @@ import {
   clientLedgerEntries,
   commandJournal,
   connectorRequests,
+  contacts,
+  contactLedgerEntries,
   correctionJournalEntries,
   creditEngineConfig,
   creditEngineConfigHistory,
@@ -33,6 +36,7 @@ import {
   items,
   matchmakingMatches,
   paymentAllocations,
+  paymentProcessors,
   payments,
   periodLocks,
   photographyQueue,
@@ -49,6 +53,7 @@ import {
   systemSettings,
   tagCatalog,
   transactionTypes,
+  users,
   vendorBills,
   vendorPayments,
   vendorSupply,
@@ -62,7 +67,20 @@ import { applyPricingRule, asCustomerPricingRule, evaluatePrice, resolvePricingP
 import {
   commandInputSchema,
   customerPricingRuleSchema,
-  setLineLandedCostPayloadSchema
+  setLineLandedCostPayloadSchema,
+  // Contacts system (CAP-033 / TER-1564)
+  createContactPayloadSchema,
+  updateContactPayloadSchema,
+  archiveContactPayloadSchema,
+  addContactRolePayloadSchema,
+  linkContactToExistingEntityPayloadSchema,
+  linkContactToUserPayloadSchema,
+  createAppointmentPayloadSchema,
+  updateAppointmentPayloadSchema,
+  cancelAppointmentPayloadSchema,
+  completeAppointmentPayloadSchema,
+  updateVendorPayloadSchema,
+  updateProcessorPayloadSchema
 } from '../../shared/schemas';
 import {
   accrueRefereeCredit,
@@ -710,7 +728,31 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
       return revokePhotoUploadTokenCommand(tx, payload, commandId);
-
+    // ─── Contacts system (CAP-033 / TER-1564) ─────────────────────────────
+    case 'createContact':
+      return createContact(tx, payload, commandId);
+    case 'updateContact':
+      return updateContact(tx, payload, commandId);
+    case 'archiveContact':
+      return archiveContact(tx, payload, user, commandId);
+    case 'addContactRole':
+      return addContactRole(tx, payload, commandId);
+    case 'linkContactToExistingEntity':
+      return linkContactToExistingEntity(tx, payload, commandId);
+    case 'linkContactToUser':
+      return linkContactToUser(tx, payload, commandId);
+    case 'createAppointment':
+      return createAppointment(tx, payload, user.id, commandId);
+    case 'updateAppointment':
+      return updateAppointment(tx, payload, commandId);
+    case 'cancelAppointment':
+      return cancelAppointment(tx, payload, commandId);
+    case 'completeAppointment':
+      return completeAppointment(tx, payload, commandId);
+    case 'updateVendor':
+      return updateVendor(tx, payload, commandId);
+    case 'updateProcessor':
+      return updateProcessor(tx, payload, commandId);
   }
 }
 
@@ -3607,6 +3649,42 @@ async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionU
   const allocationIntent = stringValue(payload.allocationIntent) || allocationTargetType || 'fifo';
   const targetId = stringValue(payload.allocationTargetId);
 
+  // CAP-033 / TER-1564 — contact ledger branch.
+  // For contractor/employee/standalone-contact entities, write directly to
+  // contact_ledger_entries. Running balance is computed at read time via window
+  // function; not stored here. No invoice allocation, no client_ledger_entries
+  // touch — this is a flat append-only ledger.
+  if (entityType === 'contact') {
+    const contactId = requiredId(payload.entityId, 'entityId');
+    const kind = stringValue(payload.kind) || (direction === 'paying' ? 'payment_out' : 'adjustment');
+    // Sign convention: positive amount = money owed TO the contact.
+    // direction='paying' means we are paying them out → reduces what we owe →
+    // store as negative. direction='receiving' (rare for contacts) is the
+    // reverse. Keeping the signed math here so archiveContact's SUM>0 guard
+    // remains a clean "we still owe them" check.
+    const signedAmount = direction === 'paying' ? -Math.abs(amount) : Math.abs(amount);
+
+    const [entry] = await tx
+      .insert(contactLedgerEntries)
+      .values({
+        contactId,
+        kind,
+        amount: signedAmount.toFixed(2),
+        method,
+        reference,
+        note: notes ?? null,
+        commandId
+      })
+      .returning();
+
+    return {
+      ok: true,
+      commandId,
+      affectedIds: [entry.id, contactId],
+      toast: `Recorded ${direction === 'paying' ? 'payment of' : 'credit of'} $${Math.abs(amount).toFixed(2)} for contact.`
+    };
+  }
+
   if (entityType === 'customer' && direction === 'receiving') {
     const signedAmount = ['buyer_credit', 'down_payment', 'customer_down_payment'].includes(transactionType) ? -Math.abs(amount) : amount;
     let clientAllocationIntent = allocationTargetType === 'selected_invoice' ? 'selected' : allocationIntent;
@@ -5581,6 +5659,519 @@ function decodeShorthand(input?: string) {
     category: categoryMap[prefix] ?? prefix,
     tags: [prefix.toLowerCase(), rawName?.toLowerCase()].filter(Boolean) as string[]
   };
+}
+
+// ─── Contacts system handlers (CAP-033 / TER-1564) ──────────────────────────
+//
+// All handlers follow the existing pattern: take the transaction, the raw
+// payload (Record<string, unknown>), and the commandId; return a CommandResult
+// with affectedIds for the journal. Payload validation goes through the Zod
+// schemas added in src/shared/schemas.ts so the journal-side input matches the
+// type the handler expects.
+
+async function createContact(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = createContactPayloadSchema.parse(payload);
+  const name = parsed.name.trim();
+
+  const roleFlags = {
+    isCustomer: parsed.roles.includes('customer'),
+    isVendor: parsed.roles.includes('vendor'),
+    isReferee: parsed.roles.includes('referee'),
+    isProcessor: parsed.roles.includes('processor'),
+    isContractor: parsed.roles.includes('contractor'),
+    isEmployee: parsed.roles.includes('employee')
+  };
+
+  const [contact] = await tx
+    .insert(contacts)
+    .values({
+      name,
+      displayName: parsed.displayName ?? null,
+      phone: parsed.phone ?? null,
+      secondaryPhone: parsed.secondaryPhone ?? null,
+      email: parsed.email ?? null,
+      address: parsed.address ?? null,
+      companyName: parsed.companyName ?? null,
+      contactKind: parsed.contactKind,
+      preferredContactMethod: parsed.preferredContactMethod,
+      notes: parsed.notes ?? null,
+      tags: parsed.tags,
+      ...roleFlags
+    })
+    .returning();
+
+  const affectedIds: string[] = [contact.id];
+
+  // Create the customer operational row when 'customer' is included.
+  if (roleFlags.isCustomer) {
+    const [cust] = await tx
+      .insert(customers)
+      .values({
+        name,
+        creditLimit: moneyScale(parsed.creditLimit ?? 0),
+        balance: '0',
+        tags: parsed.tags,
+        notes: parsed.notes ?? null,
+        contactId: contact.id
+      })
+      .returning();
+    affectedIds.push(cust.id);
+  }
+
+  // Create the vendor operational row when 'vendor' is included.
+  if (roleFlags.isVendor) {
+    const [vend] = await tx
+      .insert(vendors)
+      .values({
+        name,
+        termsDays: parsed.termsDays ?? 14,
+        consignmentDefault: parsed.consignmentDefault ?? false,
+        notes: parsed.notes ?? null,
+        contactId: contact.id
+      })
+      .returning();
+    affectedIds.push(vend.id);
+  }
+
+  // Contractor / employee / referee / processor roles set the flag only.
+  // The referees and payment_processors operational tables hold richer
+  // financial data that is intentionally created via their own commands.
+
+  return { ok: true, commandId, affectedIds, toast: `Contact "${name}" created.` };
+}
+
+async function updateContact(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = updateContactPayloadSchema.parse(payload);
+  const { contactId } = parsed;
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.name !== undefined) values.name = parsed.name;
+  if (parsed.displayName !== undefined) values.displayName = parsed.displayName;
+  if (parsed.phone !== undefined) values.phone = parsed.phone;
+  if (parsed.secondaryPhone !== undefined) values.secondaryPhone = parsed.secondaryPhone;
+  if (parsed.email !== undefined) values.email = parsed.email;
+  if (parsed.address !== undefined) values.address = parsed.address;
+  if (parsed.companyName !== undefined) values.companyName = parsed.companyName;
+  if (parsed.contactKind !== undefined) values.contactKind = parsed.contactKind;
+  if (parsed.preferredContactMethod !== undefined) values.preferredContactMethod = parsed.preferredContactMethod;
+  if (parsed.notes !== undefined) values.notes = parsed.notes;
+
+  const result = await tx.update(contacts).set(values).where(eq(contacts.id, contactId)).returning({ id: contacts.id });
+  if (result.length === 0) throw new Error('Contact not found.');
+  return { ok: true, commandId, affectedIds: [contactId], toast: 'Contact updated.' };
+}
+
+async function archiveContact(tx: Tx, payload: Payload, user: SessionUser, commandId: string): Promise<CommandResult> {
+  const parsed = archiveContactPayloadSchema.parse(payload);
+  const { contactId, reason } = parsed;
+
+  const [contact] = await tx.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
+  if (!contact) throw new Error('Contact not found.');
+  if (!contact.active) throw new Error('Contact is already archived.');
+
+  // Per-role open-work guards. Use raw pool queries for tables that may not
+  // have Drizzle definitions imported here and to keep the predicates close
+  // to the spec.
+  if (contact.isCustomer) {
+    const [custRow] = await tx
+      .select({ id: customers.id })
+      .from(customers)
+      .where(eq(customers.contactId, contactId))
+      .limit(1);
+    if (custRow) {
+      const open = await pool.query(
+        `SELECT 1 FROM invoices WHERE customer_id = $1 AND status IN ('open','partial') LIMIT 1`,
+        [custRow.id]
+      );
+      if (open.rows.length > 0) {
+        throw new Error('Cannot archive: customer has open or partially-paid invoices.');
+      }
+    }
+  }
+
+  if (contact.isVendor) {
+    const [vendRow] = await tx
+      .select({ id: vendors.id })
+      .from(vendors)
+      .where(eq(vendors.contactId, contactId))
+      .limit(1);
+    if (vendRow) {
+      const open = await pool.query(
+        `SELECT 1 FROM vendor_bills WHERE vendor_id = $1 AND status NOT IN ('paid','void','cancelled') LIMIT 1`,
+        [vendRow.id]
+      );
+      if (open.rows.length > 0) {
+        throw new Error('Cannot archive: vendor has unpaid bills.');
+      }
+    }
+  }
+
+  if (contact.isReferee) {
+    const [refRow] = await tx
+      .select({ id: referees.id })
+      .from(referees)
+      .where(eq(referees.contactId, contactId))
+      .limit(1);
+    if (refRow) {
+      const open = await pool.query(
+        `SELECT 1 FROM referee_relationships WHERE referee_id = $1 AND active = true LIMIT 1`,
+        [refRow.id]
+      );
+      if (open.rows.length > 0) {
+        throw new Error('Cannot archive: referee has active relationships.');
+      }
+    }
+  }
+
+  if (contact.isProcessor) {
+    const [procRow] = await tx
+      .select({ id: paymentProcessors.id })
+      .from(paymentProcessors)
+      .where(eq(paymentProcessors.contactId, contactId))
+      .limit(1);
+    if (procRow) {
+      const open = await pool.query(
+        `SELECT 1 FROM processor_fees WHERE processor_id = $1 AND user_fee_status != 'collected' LIMIT 1`,
+        [procRow.id]
+      );
+      if (open.rows.length > 0) {
+        throw new Error('Cannot archive: processor has uncollected user fees.');
+      }
+    }
+  }
+
+  if (contact.isContractor || contact.isEmployee) {
+    // contact_ledger_entries: positive = owed to contact (per
+    // postTransactionLedgerRow's signing for entityType='contact'). A SUM>0
+    // means an outstanding balance still owed to the contact and blocks
+    // archive. SUM<=0 (paid in full or net even) is OK.
+    const bal = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0)::text AS balance FROM contact_ledger_entries WHERE contact_id = $1`,
+      [contactId]
+    );
+    const balance = Number(bal.rows[0]?.balance ?? 0);
+    if (balance > 0) {
+      throw new Error('Cannot archive: contact has outstanding balance owed.');
+    }
+  }
+
+  await tx
+    .update(contacts)
+    .set({
+      active: false,
+      archivedAt: new Date(),
+      archivedBy: user.id,
+      archivedReason: reason,
+      updatedAt: new Date()
+    })
+    .where(eq(contacts.id, contactId));
+
+  return { ok: true, commandId, affectedIds: [contactId], toast: 'Contact archived.' };
+}
+
+async function addContactRole(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = addContactRolePayloadSchema.parse(payload);
+  const { contactId, role } = parsed;
+
+  const [contact] = await tx.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
+  if (!contact) throw new Error('Contact not found.');
+
+  // Map role → flag column.
+  const flagSet: Record<string, unknown> = { updatedAt: new Date() };
+  switch (role) {
+    case 'customer':
+      flagSet.isCustomer = true;
+      break;
+    case 'vendor':
+      flagSet.isVendor = true;
+      break;
+    case 'referee':
+      flagSet.isReferee = true;
+      break;
+    case 'processor':
+      flagSet.isProcessor = true;
+      break;
+    case 'contractor':
+      flagSet.isContractor = true;
+      break;
+    case 'employee':
+      flagSet.isEmployee = true;
+      break;
+  }
+  await tx.update(contacts).set(flagSet).where(eq(contacts.id, contactId));
+
+  const affectedIds: string[] = [contactId];
+
+  // For customer/vendor, also create the operational row if one doesn't
+  // already exist (the contact may have just been migrated to a customer-only
+  // state and is being upgraded to a dual-role contact).
+  if (role === 'customer') {
+    const [existing] = await tx
+      .select({ id: customers.id })
+      .from(customers)
+      .where(eq(customers.contactId, contactId))
+      .limit(1);
+    if (!existing) {
+      const [cust] = await tx
+        .insert(customers)
+        .values({
+          name: contact.name,
+          creditLimit: moneyScale(parsed.creditLimit ?? 0),
+          balance: '0',
+          tags: [],
+          contactId
+        })
+        .returning();
+      affectedIds.push(cust.id);
+    }
+  } else if (role === 'vendor') {
+    const [existing] = await tx
+      .select({ id: vendors.id })
+      .from(vendors)
+      .where(eq(vendors.contactId, contactId))
+      .limit(1);
+    if (!existing) {
+      const [vend] = await tx
+        .insert(vendors)
+        .values({
+          name: contact.name,
+          termsDays: parsed.termsDays ?? 14,
+          consignmentDefault: parsed.consignmentDefault ?? false,
+          contactId
+        })
+        .returning();
+      affectedIds.push(vend.id);
+    }
+  }
+
+  return { ok: true, commandId, affectedIds, toast: `Role "${role}" added to contact.` };
+}
+
+async function linkContactToExistingEntity(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = linkContactToExistingEntityPayloadSchema.parse(payload);
+  const { contactId, entityType, entityId } = parsed;
+
+  const [contact] = await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.id, contactId)).limit(1);
+  if (!contact) throw new Error('Contact not found.');
+
+  if (entityType === 'customer') {
+    const [existing] = await tx
+      .select({ contactId: customers.contactId })
+      .from(customers)
+      .where(eq(customers.id, entityId))
+      .limit(1);
+    if (!existing) throw new Error('Customer not found.');
+    if (existing.contactId) throw new Error('This customer is already linked to a contact.');
+    await tx.update(customers).set({ contactId, updatedAt: new Date() }).where(eq(customers.id, entityId));
+    await tx.update(contacts).set({ isCustomer: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
+  } else if (entityType === 'vendor') {
+    const [existing] = await tx
+      .select({ contactId: vendors.contactId })
+      .from(vendors)
+      .where(eq(vendors.id, entityId))
+      .limit(1);
+    if (!existing) throw new Error('Vendor not found.');
+    if (existing.contactId) throw new Error('This vendor is already linked to a contact.');
+    await tx.update(vendors).set({ contactId, updatedAt: new Date() }).where(eq(vendors.id, entityId));
+    await tx.update(contacts).set({ isVendor: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
+  } else if (entityType === 'referee') {
+    const [existing] = await tx
+      .select({ contactId: referees.contactId })
+      .from(referees)
+      .where(eq(referees.id, entityId))
+      .limit(1);
+    if (!existing) throw new Error('Referee not found.');
+    if (existing.contactId) throw new Error('This referee is already linked to a contact.');
+    await tx.update(referees).set({ contactId, updatedAt: new Date() }).where(eq(referees.id, entityId));
+    await tx.update(contacts).set({ isReferee: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
+  } else if (entityType === 'processor') {
+    const [existing] = await tx
+      .select({ contactId: paymentProcessors.contactId })
+      .from(paymentProcessors)
+      .where(eq(paymentProcessors.id, entityId))
+      .limit(1);
+    if (!existing) throw new Error('Processor not found.');
+    if (existing.contactId) throw new Error('This processor is already linked to a contact.');
+    await tx.update(paymentProcessors).set({ contactId, updatedAt: new Date() }).where(eq(paymentProcessors.id, entityId));
+    await tx.update(contacts).set({ isProcessor: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
+  }
+
+  return { ok: true, commandId, affectedIds: [contactId, entityId], toast: 'Contact linked.' };
+}
+
+async function linkContactToUser(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = linkContactToUserPayloadSchema.parse(payload);
+  const { contactId, userId } = parsed;
+
+  const [contact] = await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.id, contactId)).limit(1);
+  if (!contact) throw new Error('Contact not found.');
+
+  const [user] = await tx.select({ contactId: users.contactId }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) throw new Error('User not found.');
+  if (user.contactId) throw new Error('This user is already linked to a contact.');
+
+  await tx.update(users).set({ contactId, updatedAt: new Date() }).where(eq(users.id, userId));
+  await tx.update(contacts).set({ isEmployee: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
+
+  return { ok: true, commandId, affectedIds: [contactId, userId], toast: 'User account linked to contact.' };
+}
+
+async function createAppointment(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  const parsed = createAppointmentPayloadSchema.parse(payload);
+
+  // Verify the contact exists; appointments must always anchor to a contact.
+  const [contact] = await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.id, parsed.contactId)).limit(1);
+  if (!contact) throw new Error('Contact not found.');
+
+  const [appt] = await tx
+    .insert(appointments)
+    .values({
+      contactId: parsed.contactId,
+      title: parsed.title,
+      appointmentType: parsed.appointmentType,
+      startsAt: new Date(parsed.startsAt),
+      endsAt: parsed.endsAt ? new Date(parsed.endsAt) : null,
+      location: parsed.location ?? null,
+      description: parsed.description ?? null,
+      notes: parsed.notes ?? null,
+      createdBy: userId
+    })
+    .returning();
+
+  return { ok: true, commandId, affectedIds: [appt.id, parsed.contactId], toast: 'Appointment added.' };
+}
+
+async function updateAppointment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = updateAppointmentPayloadSchema.parse(payload);
+  const { appointmentId } = parsed;
+
+  const [existing] = await tx
+    .select({ status: appointments.status, contactId: appointments.contactId })
+    .from(appointments)
+    .where(eq(appointments.id, appointmentId))
+    .limit(1);
+  if (!existing) throw new Error('Appointment not found.');
+  if (existing.status !== 'scheduled') {
+    throw new Error('Only scheduled appointments can be updated.');
+  }
+
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.title !== undefined) values.title = parsed.title;
+  if (parsed.appointmentType !== undefined) values.appointmentType = parsed.appointmentType;
+  if (parsed.startsAt !== undefined) values.startsAt = new Date(parsed.startsAt);
+  if (parsed.endsAt !== undefined) values.endsAt = parsed.endsAt ? new Date(parsed.endsAt) : null;
+  if (parsed.location !== undefined) values.location = parsed.location;
+  if (parsed.description !== undefined) values.description = parsed.description;
+  if (parsed.notes !== undefined) values.notes = parsed.notes;
+
+  await tx.update(appointments).set(values).where(eq(appointments.id, appointmentId));
+  return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment updated.' };
+}
+
+async function cancelAppointment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = cancelAppointmentPayloadSchema.parse(payload);
+  const { appointmentId, reason } = parsed;
+
+  const [existing] = await tx
+    .select({ status: appointments.status, contactId: appointments.contactId, notes: appointments.notes })
+    .from(appointments)
+    .where(eq(appointments.id, appointmentId))
+    .limit(1);
+  if (!existing) throw new Error('Appointment not found.');
+  if (existing.status === 'cancelled') {
+    return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment already cancelled.' };
+  }
+  if (existing.status === 'completed') {
+    throw new Error('Cannot cancel a completed appointment.');
+  }
+
+  // Preserve any existing notes and append the cancellation reason if provided
+  // (the prior notes are operator-authored content; do not clobber them).
+  const nextNotes = reason
+    ? (existing.notes ? `${existing.notes}\n\n[Cancelled] ${reason}` : `[Cancelled] ${reason}`)
+    : existing.notes;
+
+  await tx
+    .update(appointments)
+    .set({ status: 'cancelled', notes: nextNotes ?? null, updatedAt: new Date() })
+    .where(eq(appointments.id, appointmentId));
+
+  return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment cancelled.' };
+}
+
+async function completeAppointment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = completeAppointmentPayloadSchema.parse(payload);
+  const { appointmentId } = parsed;
+
+  const [existing] = await tx
+    .select({ status: appointments.status, contactId: appointments.contactId, notes: appointments.notes })
+    .from(appointments)
+    .where(eq(appointments.id, appointmentId))
+    .limit(1);
+  if (!existing) throw new Error('Appointment not found.');
+  if (existing.status === 'completed') {
+    return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment already completed.' };
+  }
+  if (existing.status === 'cancelled') {
+    throw new Error('Cannot complete a cancelled appointment.');
+  }
+
+  const completionNote = parsed.notes;
+  const nextNotes = completionNote
+    ? (existing.notes ? `${existing.notes}\n\n[Completed] ${completionNote}` : `[Completed] ${completionNote}`)
+    : existing.notes;
+
+  await tx
+    .update(appointments)
+    .set({ status: 'completed', notes: nextNotes ?? null, updatedAt: new Date() })
+    .where(eq(appointments.id, appointmentId));
+
+  return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment completed.' };
+}
+
+async function updateVendor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = updateVendorPayloadSchema.parse(payload);
+  const { vendorId } = parsed;
+
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.name !== undefined) values.name = parsed.name;
+  if (parsed.alias !== undefined) values.alias = parsed.alias;
+  if (parsed.termsDays !== undefined) values.termsDays = parsed.termsDays;
+  if (parsed.consignmentDefault !== undefined) values.consignmentDefault = parsed.consignmentDefault;
+  if (parsed.contact !== undefined) values.contact = parsed.contact;
+  if (parsed.notes !== undefined) values.notes = parsed.notes;
+
+  const result = await tx
+    .update(vendors)
+    .set(values)
+    .where(eq(vendors.id, vendorId))
+    .returning({ id: vendors.id });
+  if (result.length === 0) throw new Error('Vendor not found.');
+  return { ok: true, commandId, affectedIds: [vendorId], toast: 'Vendor updated.' };
+}
+
+async function updateProcessor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const parsed = updateProcessorPayloadSchema.parse(payload);
+  const { processorId } = parsed;
+
+  // Numeric fields are stored as strings (numeric(p,s)); preserve that contract.
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.name !== undefined) values.name = parsed.name;
+  if (parsed.processorType !== undefined) values.processorType = parsed.processorType;
+  if (parsed.feeType !== undefined) values.feeType = parsed.feeType;
+  if (parsed.feePercentage !== undefined) values.feePercentage = parsed.feePercentage.toString();
+  if (parsed.feeFixedAmount !== undefined) values.feeFixedAmount = parsed.feeFixedAmount.toString();
+  if (parsed.defaultUserSplit !== undefined) values.defaultUserSplit = parsed.defaultUserSplit.toString();
+  if (parsed.defaultProcessorSplit !== undefined) values.defaultProcessorSplit = parsed.defaultProcessorSplit.toString();
+  if (parsed.notes !== undefined) values.notes = parsed.notes;
+  if (parsed.active !== undefined) values.active = parsed.active;
+
+  const result = await tx
+    .update(paymentProcessors)
+    .set(values)
+    .where(eq(paymentProcessors.id, processorId))
+    .returning({ id: paymentProcessors.id });
+  if (result.length === 0) throw new Error('Processor not found.');
+  return { ok: true, commandId, affectedIds: [processorId], toast: 'Processor updated.' };
 }
 
 function stringValue(value: unknown) {

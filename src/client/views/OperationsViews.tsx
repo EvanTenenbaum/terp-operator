@@ -2667,7 +2667,7 @@ function GridJourney({
   columns,
   selectionActions
 }: {
-  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings' | 'credit-review' | 'pick'>;
+  view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings' | 'credit-review' | 'pick' | 'contacts'>;
   title: string;
   actions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
   prelude?: (runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
