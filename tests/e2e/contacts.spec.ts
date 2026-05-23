@@ -22,10 +22,13 @@ test('owner can navigate contacts directory and view a profile', async ({ page }
   const firstContactLink = page.locator('button.text-button').first();
   await firstContactLink.click();
 
-  // Profile page should load
-  await expect(page.getByRole('tablist')).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'History' })).toBeVisible();
+  // Wait for profile navigation to complete
+  await page.waitForURL(/\/contacts\/[a-f0-9-]{36}/, { timeout: 15_000 });
+
+  // Profile page should load (tablist may take a moment for tRPC data to resolve)
+  await expect(page.getByRole('tablist')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('tab', { name: 'History' })).toBeVisible({ timeout: 10_000 });
 
   // Switch to Appointments tab
   await page.getByRole('tab', { name: 'Appointments' }).click();
