@@ -21,6 +21,9 @@ export function ContactsView() {
     query: searchQuery || undefined,
   });
 
+  const { data: mergeMeta } = trpc.queries.mergeCandidateCount.useQuery();
+  const mergeCount = mergeMeta?.count ?? 0;
+
   const columnDefs: ColDef<GridRow>[] = [
     {
       field: 'name',
@@ -110,6 +113,13 @@ export function ContactsView() {
           </button>
         </div>
       </div>
+
+      {mergeCount > 0 && (
+        <div className="selection-pill warning flex items-center gap-2 px-4 py-2 text-sm" role="alert">
+          <span>{mergeCount} possible duplicate contact{mergeCount > 1 ? 's' : ''} found.</span>
+          <button className="text-button text-xs" type="button">Review and merge</button>
+        </div>
+      )}
 
       <div className="flex-1">
         <OperatorGrid
