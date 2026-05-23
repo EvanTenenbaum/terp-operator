@@ -27,7 +27,8 @@ const viewLabels: Record<ViewKey, string> = {
   photography: 'Photography',
   contacts: 'Contacts', // CAP-033 / TER-1564
   settings: 'Settings',
-  pick: 'Pick Queue' // CAP-030 / TER-1513
+  pick: 'Pick Queue', // CAP-030 / TER-1513
+  contacts: 'Contacts' // CAP-029 / TER-1564
 };
 
 export function IdentityRibbon() {
