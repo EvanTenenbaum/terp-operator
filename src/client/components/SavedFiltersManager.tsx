@@ -32,8 +32,10 @@ export function SavedFiltersManager({
   });
 
   function canEdit(filter: SavedFilterOutput): boolean {
-    if (filter.userId === currentUserId) return true;
-    return filter.isGlobal && canManageGlobal;
+    // Global filters require manager/owner role regardless of who created them.
+    // The creator-owns check must NOT short-circuit for global filters.
+    if (filter.isGlobal) return canManageGlobal;
+    return filter.userId === currentUserId;
   }
 
   function startEdit(filter: SavedFilterOutput) {
