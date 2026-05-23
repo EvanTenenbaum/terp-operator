@@ -3,7 +3,14 @@ import { createWriteStream } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import PDFDocument from 'pdfkit';
+import Decimal from 'decimal.js';
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+
+// Money precision policy (TER-1566): all monetary accumulation goes through
+// Decimal to avoid IEEE 754 drift on running sums. 20 digits of precision is
+// more than enough headroom for numeric(12,4) DB columns; ROUND_HALF_UP
+// matches accounting convention.
+Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 import type { Server as SocketServer } from 'socket.io';
 import { z } from 'zod';
 import { db, pool } from '../db';
@@ -142,10 +149,37 @@ export function redactSensitiveDeltaFields(commandName: string, result: CommandR
 }
 type Payload = Record<string, unknown>;
 
-const moneyScale = (value: unknown) => {
-  const number = Number(value ?? 0);
-  return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+const moneyScale = (value: unknown): string => {
+  try {
+    return new Decimal(String(value ?? 0)).toDecimalPlaces(2).toFixed(2);
+  } catch {
+    return '0.00';
+  }
 };
+
+/**
+ * Sum any number of money-shaped values with Decimal precision and return a
+ * scaled string suitable for a numeric(12,4) column write. Use this anywhere
+ * a running balance, total, or amount-paid is accumulated across rows.
+ */
+const addMoney = (...values: unknown[]): string =>
+  values
+    .reduce<Decimal>(
+      (acc, v) => acc.plus(new Decimal(String(v ?? 0))),
+      new Decimal(0)
+    )
+    .toDecimalPlaces(2)
+    .toFixed(2);
+
+/**
+ * Multiply two money-shaped values with Decimal precision (e.g. unit cost * qty).
+ */
+const mulMoney = (a: unknown, b: unknown): string =>
+  new Decimal(String(a ?? 0))
+    .times(new Decimal(String(b ?? 0)))
+    .toDecimalPlaces(2)
+    .toFixed(2);
+
 const qtyScale = (value: unknown) => Number(value ?? 0).toFixed(3);
 const code = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 999).toString().padStart(3, '0')}`;
 const oneWeek = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -888,23 +922,34 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
     if (text) reasonByBatch.set(batchId, text);
   }
 
-  const total = rows.reduce((sum: number, row: typeof batches.$inferSelect) => sum + Number(row.intakeQty) * Number(row.unitCost), 0);
+  // Decimal-precise COGS accumulation (TER-1566): summing Number(qty)*Number(cost)
+  // across many lines drifts on IEEE 754; use Decimal so the receipt total
+  // matches the per-line subtotals exactly.
+  const total = (rows as Array<typeof batches.$inferSelect>)
+    .reduce(
+      (sum: Decimal, row) =>
+        sum.plus(new Decimal(String(row.intakeQty)).times(String(row.unitCost))),
+      new Decimal(0)
+    )
+    .toDecimalPlaces(2)
+    .toFixed(2);
   const [receipt] = await tx
     .insert(purchaseReceipts)
-    .values({ receiptNo: code('RCPT'), vendorId: rows[0].vendorId, purchaseOrderId, total: moneyScale(total), status: 'posted' })
+    .values({ receiptNo: code('RCPT'), vendorId: rows[0].vendorId, purchaseOrderId, total, status: 'posted' })
     .returning();
 
   const affected = [receipt.id, ...batchIds];
   const discrepancyNotes: string[] = [];
   const stamp = new Date().toISOString().slice(0, 10);
   for (const row of rows) {
-    const subtotal = Number(row.intakeQty) * Number(row.unitCost);
+    // Per-line subtotal uses Decimal so it matches the receipt total to the cent.
+    const subtotal = mulMoney(row.intakeQty, row.unitCost);
     await tx.insert(purchaseReceiptLines).values({
       receiptId: receipt.id,
       batchId: row.id,
       qty: row.intakeQty,
       unitCost: row.unitCost,
-      subtotal: moneyScale(subtotal)
+      subtotal
     });
     const operatorReason = reasonByBatch.get(row.id);
     const batchNotesAddition = operatorReason ? `Discrepancy reason on ${stamp}: ${operatorReason}` : null;
@@ -945,8 +990,16 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
       await tx.update(purchaseOrders).set({ internalNotes: merged, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
     }
     const poLineRows = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
-    const actualPoTotal = poLineRows.reduce((sum: number, line: typeof purchaseOrderLines.$inferSelect) => sum + Number(line.receivedQty) * Number(line.unitCost), 0);
-    await tx.update(purchaseOrders).set({ total: moneyScale(actualPoTotal), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+    // Decimal-precise PO total: same drift concern as receipt total above.
+    const actualPoTotal = (poLineRows as Array<typeof purchaseOrderLines.$inferSelect>)
+      .reduce(
+        (sum: Decimal, line) =>
+          sum.plus(new Decimal(String(line.receivedQty)).times(String(line.unitCost))),
+        new Decimal(0)
+      )
+      .toDecimalPlaces(2)
+      .toFixed(2);
+    await tx.update(purchaseOrders).set({ total: actualPoTotal, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
   }
 
   const grouped = new Map<string, number>();
@@ -2900,9 +2953,12 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
     .insert(invoices)
     .values({ invoiceNo: code('INV'), customerId: freshOrder.customerId, orderId, total: freshOrder.total, dueDate: oneWeek(), status: 'open' })
     .returning();
-  const nextBalance = Number(customer.balance) + Number(freshOrder.total);
-  await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
-  await tx.insert(clientLedgerEntries).values({ customerId: customer.id, invoiceId: invoice.id, kind: 'invoice', amount: freshOrder.total, balanceAfter: moneyScale(nextBalance), note: freshOrder.orderNo });
+  // Customer balance accumulation must be Decimal (TER-1566): repeated
+  // Number()-rounded sums across many invoices drift the running balance
+  // away from the per-invoice sum.
+  const nextBalance = addMoney(customer.balance, freshOrder.total);
+  await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id));
+  await tx.insert(clientLedgerEntries).values({ customerId: customer.id, invoiceId: invoice.id, kind: 'invoice', amount: freshOrder.total, balanceAfter: nextBalance, note: freshOrder.orderNo });
   const exceptionTotals = computeOrderExceptionTotals(
     lines.map((line: typeof salesOrderLines.$inferSelect) => ({
       qty: Number(line.qty),
@@ -3181,8 +3237,11 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
     const allocationAmount = Math.min(open, remaining, payload.amount != null ? Number(payload.amount) : remaining);
     if (allocationAmount <= 0) continue;
     const [allocation] = await tx.insert(paymentAllocations).values({ paymentId, invoiceId: invoice.id, amount: moneyScale(allocationAmount) }).returning();
-    const invoicePaid = Number(invoice.amountPaid) + allocationAmount;
-    await tx.update(invoices).set({ amountPaid: moneyScale(invoicePaid), status: invoicePaid >= Number(invoice.total) ? 'paid' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+    // Invoice running-paid accumulation (TER-1566): use Decimal so a sequence
+    // of partial allocations sums exactly to total when the invoice is paid in
+    // full. Stored value remains a numeric-compatible string.
+    const invoicePaid = addMoney(invoice.amountPaid, allocationAmount);
+    await tx.update(invoices).set({ amountPaid: invoicePaid, status: new Decimal(invoicePaid).gte(String(invoice.total)) ? 'paid' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
     remaining -= allocationAmount;
     affected.push(invoice.id, allocation.id);
   }
@@ -3194,9 +3253,14 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
       sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${payment.customerId} FOR UPDATE`
     );
     const customer = customerRows.rows[0];
-    const nextBalance = Number(customer.balance) - totalAllocated;
-    await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
-    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: moneyScale(nextBalance), note: 'Auto-applied to oldest open invoices' }).returning();
+    // Decimal subtraction so the customer's running balance stays exact
+    // across many payments.
+    const nextBalance = new Decimal(String(customer.balance))
+      .minus(new Decimal(String(totalAllocated)))
+      .toDecimalPlaces(2)
+      .toFixed(2);
+    await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: nextBalance, note: 'Auto-applied to oldest open invoices' }).returning();
     affected.push(payment.customerId, entry.id);
   }
   if (payment.customerId) {
@@ -3221,9 +3285,12 @@ async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): P
   );
   const invoice = invoiceRows.rows[0];
   await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, allocationId));
-  await tx.update(payments).set({ unappliedAmount: moneyScale(Number(payment.unappliedAmount) + Number(allocation.amount)), updatedAt: new Date() }).where(eq(payments.id, payment.id));
-  const paid = Math.max(0, Number(invoice.amountPaid) - Number(allocation.amount));
-  await tx.update(invoices).set({ amountPaid: moneyScale(paid), status: paid <= 0 ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+  // Decimal-precise unallocation: payment.unappliedAmount grows back exactly.
+  await tx.update(payments).set({ unappliedAmount: addMoney(payment.unappliedAmount, allocation.amount), updatedAt: new Date() }).where(eq(payments.id, payment.id));
+  const paidDec = new Decimal(String(invoice.amountPaid))
+    .minus(new Decimal(String(allocation.amount)));
+  const paid = paidDec.isNegative() ? new Decimal(0) : paidDec;
+  await tx.update(invoices).set({ amountPaid: paid.toDecimalPlaces(2).toFixed(2), status: paid.lte(0) ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
   return { ok: true, commandId, affectedIds: [allocationId, payment.id, invoice.id], toast: 'Payment allocation reversed.' };
 }
 
@@ -3293,8 +3360,12 @@ async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string):
   if (Number(bill.amountPaid) + amount > Number(bill.amount)) throw new Error('Vendor payout cannot exceed the open bill balance.');
   const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
   const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null, createdAt: transactionDate }).returning();
-  const paid = Number(bill.amountPaid) + amount;
-  await tx.update(vendorBills).set({ amountPaid: moneyScale(paid), status: paid >= Number(bill.amount) ? 'paid' : 'partial', dueReason: paid >= Number(bill.amount) ? 'Paid in full' : 'Partially paid vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
+  // Decimal-precise vendor bill amountPaid accumulation (TER-1566): so the
+  // bill flips to 'paid' exactly when paid==amount, not when the float sum
+  // happens to overshoot.
+  const paid = addMoney(bill.amountPaid, amount);
+  const isFullyPaid = new Decimal(paid).gte(String(bill.amount));
+  await tx.update(vendorBills).set({ amountPaid: paid, status: isFullyPaid ? 'paid' : 'partial', dueReason: isFullyPaid ? 'Paid in full' : 'Partially paid vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
 
   return { ok: true, commandId, affectedIds: [billId, payment.id], toast: 'Vendor payout recorded and traceable.' };
 }
@@ -3310,7 +3381,11 @@ async function voidVendorPayment(tx: Tx, payload: Payload, commandId: string): P
     sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.id} = ${payment.vendorBillId} FOR UPDATE`
   );
   const bill = billRows.rows[0];
-  await tx.update(vendorBills).set({ amountPaid: moneyScale(Math.max(0, Number(bill.amountPaid) - Number(payment.amount))), status: 'approved', dueReason: bill.consignmentTriggered ? 'Due because consigned inventory depleted' : 'Approved vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+  // Decimal-precise reversal: clamp at zero with Decimal so a series of
+  // void/record cycles doesn't accumulate drift.
+  const reversedPaidDec = new Decimal(String(bill.amountPaid)).minus(new Decimal(String(payment.amount)));
+  const reversedPaid = (reversedPaidDec.isNegative() ? new Decimal(0) : reversedPaidDec).toDecimalPlaces(2).toFixed(2);
+  await tx.update(vendorBills).set({ amountPaid: reversedPaid, status: 'approved', dueReason: bill.consignmentTriggered ? 'Due because consigned inventory depleted' : 'Approved vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
   return { ok: true, commandId, affectedIds: [paymentId, bill.id], toast: 'Vendor payout voided.' };
 }
 
