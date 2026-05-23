@@ -491,6 +491,10 @@ function esc(s: string): string {
 export function renderPrintHtml(
   p: ExternalReceiptProjection | InternalReceiptProjection
 ): string {
+  const isInternal = '__INTERNAL_ONLY__' in p && p.__INTERNAL_ONLY__ === true;
+  const watermark = isInternal
+    ? `<div data-testid="watermark" style="position:fixed;top:40%;left:0;width:100%;text-align:center;font-size:3em;color:rgba(200,0,0,0.18);transform:rotate(-30deg);pointer-events:none;z-index:1000;font-weight:bold;letter-spacing:0.2em">INTERNAL — DO NOT SEND</div>`
+    : '';
   const lineRows = p.lines
     .map(
       (l) =>
@@ -500,7 +504,7 @@ export function renderPrintHtml(
     .join('');
   return (
     `<!doctype html><html><head><title>${esc(p.header.title)}</title></head>` +
-    `<body><h1>${esc(p.header.title)} ${esc(p.header.documentNo)}</h1>` +
+    `<body>${watermark}<h1>${esc(p.header.title)} ${esc(p.header.documentNo)}</h1>` +
     `<p>To: ${esc(p.header.counterparty)} — ${esc(p.header.dateISO)}</p>` +
     `<table>${lineRows}</table>` +
     `<p>Total: ${p.totals.total}</p>` +

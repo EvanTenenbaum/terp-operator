@@ -47,6 +47,25 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
   const vpInternalQuery = trpc.queries.vendorPaymentInternalReceipt.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment && isManagerOrOwner });
   const vpSignalTextQuery = trpc.queries.vendorPaymentSignalText.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment });
 
+  const poPrintHtmlQuery = trpc.queries.purchaseOrderPrintHtml.useQuery(
+    { purchaseOrderId: poId, audience },
+    { enabled: isPo }
+  );
+  const soPrintHtmlQuery = trpc.queries.salesOrderPrintHtml.useQuery(
+    { salesOrderId: soId, audience },
+    { enabled: isSo }
+  );
+  const payPrintHtmlQuery = trpc.queries.paymentPrintHtml.useQuery(
+    { paymentId: payId, audience },
+    { enabled: isPayment }
+  );
+  const vpPrintHtmlQuery = trpc.queries.vendorPaymentPrintHtml.useQuery(
+    { vendorPaymentId: vpId, audience },
+    { enabled: isVendorPayment }
+  );
+
+  const printHtmlQuery = isPo ? poPrintHtmlQuery : isSo ? soPrintHtmlQuery : isPayment ? payPrintHtmlQuery : vpPrintHtmlQuery;
+
   const externalQuery = isPo ? poExternalQuery : isSo ? soExternalQuery : isPayment ? payExternalQuery : vpExternalQuery;
   const internalQuery = isPo ? poInternalQuery : isSo ? soInternalQuery : isPayment ? payInternalQuery : vpInternalQuery;
   const signalTextQuery = isPo ? poSignalTextQuery : isSo ? soSignalTextQuery : isPayment ? paySignalTextQuery : vpSignalTextQuery;
@@ -60,6 +79,22 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
     const text = signalTextQuery.data;
     if (!text) return;
     try { await navigator.clipboard.writeText(text); } catch { /* ignored */ }
+  }
+
+  function openPrintWindow(html: string): void {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
+  function handlePrint() {
+    const html = printHtmlQuery.data;
+    if (!html) return;
+    openPrintWindow(html);
   }
 
   const projection = audience === 'external' ? externalReceipt : internalReceipt;
@@ -91,6 +126,9 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
             onClick={copySignalText} disabled={!signalTextQuery.data}
             title="Copy plain-text receipt for Signal">Copy for Signal</button>
         ) : null}
+        <button type="button" data-testid="receipt-print" className="secondary-button compact-action"
+          onClick={handlePrint} disabled={!printHtmlQuery.data}
+          title="Print receipt">Print</button>
       </header>
       {isLoading ? (
         <p className="page-subtitle">Loading receipt…</p>
