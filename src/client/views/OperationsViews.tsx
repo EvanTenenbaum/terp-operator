@@ -1736,7 +1736,13 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
           Why
           <input className="input" value={dueReason} onChange={(event) => setDueReason(event.target.value)} />
         </label>
-        <button className="secondary-button" type="button" disabled={!(vendorId || selectedBill?.vendorId) || !amount || isRunning} onClick={() => runCommand('createVendorBill', { vendorId: vendorId || selectedBill?.vendorId, amount: Number(amount), dueDate: dueDate || undefined, dueReason }, 'Create manual vendor bill')}>
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={!(vendorId || selectedBill?.vendorId) || !amount || isRunning}
+          title={!(vendorId || selectedBill?.vendorId) ? 'Select a vendor to create a bill' : !amount ? 'Enter an amount to create a bill' : undefined}
+          onClick={() => runCommand('createVendorBill', { vendorId: vendorId || selectedBill?.vendorId, amount: Number(amount), dueDate: dueDate || undefined, dueReason }, 'Create manual vendor bill')}
+        >
           Create bill
         </button>
       </div>
