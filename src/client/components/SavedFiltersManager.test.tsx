@@ -104,6 +104,20 @@ describe('SavedFiltersManager', () => {
     expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
   });
 
+  it('hides edit and delete for global filter created by current user when not a manager', () => {
+    // Regression test for GH #206: creator check must not bypass the global gate.
+    render(
+      <SavedFiltersManager
+        savedFilters={[makeFilter({ isGlobal: true, userId: 'user-1' })]}
+        currentUserId="user-1"
+        canManageGlobal={false}
+        onFiltersChanged={() => {}}
+      />
+    );
+    expect(screen.queryByRole('button', { name: /rename/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /delete/i })).toBeNull();
+  });
+
   it('enters rename mode on pencil click and calls updateFilter on save', async () => {
     const user = userEvent.setup();
     render(
