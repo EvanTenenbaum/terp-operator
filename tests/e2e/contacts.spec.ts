@@ -15,7 +15,7 @@ test('owner can navigate contacts directory and view a profile', async ({ page }
 
   // Navigate to Contacts
   await page.getByRole('navigation').getByRole('button', { name: /Contacts/ }).click();
-  await expect(page.getByText('All Contacts')).toBeVisible();
+  await expect(page.getByText('All Contacts').first()).toBeVisible();
   await expect(page.locator('.ag-root:visible').first()).toBeVisible();
 
   // Click into the first contact
