@@ -1746,11 +1746,16 @@ export async function setBatchMediaRole(
       .returning();
   } catch (err) {
     const code = (err as { code?: string } | null)?.code;
-    const message = err instanceof Error ? err.message : String(err);
-    if (code === '23505' || /unique/i.test(message)) {
+    // Defense in depth (GH #24 follow-up): even though the outer dispatcher
+    // catch path scrubs DB error text before it reaches the tRPC envelope, we
+    // also re-throw a scrubbed message here so any intermediate layer that
+    // surfaces err.message cannot leak SQL/Drizzle internals.
+    const { safeMessage } = scrubDatabaseError(err);
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    if (code === '23505' || /unique/i.test(rawMessage)) {
       throw new Error('Another media row is already the primary for this batch. Demote it first or replace it.');
     }
-    throw err;
+    throw new Error(safeMessage);
   }
 
   return {
@@ -1807,6 +1812,8 @@ export async function deleteBatchMedia(
   try {
     await deleteMedia(row.filePath, row.thumbnailPath ?? undefined, row.mediumPath ?? undefined);
   } catch (err) {
+    // non-DB error: deleteMedia is filesystem/storage I/O, so err.message is
+    // safe to surface in server-side logs (no SQL text to leak).
     const message = err instanceof Error ? err.message : String(err);
     // eslint-disable-next-line no-console
     console.warn(`[deleteBatchMedia] file cleanup failed for ${mediaId}: ${message}`);
@@ -2160,7 +2167,13 @@ async function reserveInventoryForOrder(tx: Tx, payload: Payload, commandId: str
   const affected = [orderId];
   for (const line of lines) {
     if (!line.batchId || line.status === 'reserved') continue;
-    const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+    // Lock batch row to prevent concurrent reservation double-booking (GH #18A).
+    // Two callers reserving the same batch would otherwise both read the same
+    // reservedQty, both pass the availability check, and both increment.
+    const batchRows = await tx.execute(
+      sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${line.batchId} FOR UPDATE`
+    );
+    const batch = batchRows.rows[0];
     if (!batch) throw new Error(`${line.itemName} batch no longer exists.`);
     if (Number(batch.availableQty) - Number(batch.reservedQty) < Number(line.qty)) throw new Error(`${line.itemName} is short on available quantity.`);
     await tx.update(batches).set({ reservedQty: qtyScale(Number(batch.reservedQty) + Number(line.qty)), updatedAt: new Date() }).where(eq(batches.id, batch.id));
