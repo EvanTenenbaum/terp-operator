@@ -28,7 +28,8 @@ const viewLabels: Record<ViewKey, string> = {
   contacts: 'Contacts', // CAP-033 / TER-1564
   settings: 'Settings',
   pick: 'Pick Queue', // CAP-030 / TER-1513
-  contacts: 'Contacts' // CAP-029 / TER-1564
+  contacts: 'Contacts', // CAP-029 / TER-1564
+  'contacts-customer-orders': 'Customer Orders', // CAP-029 / TER-1564: sub-grid in ContactCustomerPanel
 };
 
 export function IdentityRibbon() {
