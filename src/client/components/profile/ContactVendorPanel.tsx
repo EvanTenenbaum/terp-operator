@@ -1,10 +1,52 @@
+import { WorkspacePanel } from '../WorkspacePanel';
 import type { ContactProfileData } from './types';
 
 interface Props { data: ContactProfileData; }
 
-// Phase 7 stub — full implementation coming in next phase
-export function ContactVendorPanel({ data: _data }: Props) {
+export function ContactVendorPanel({ data }: Props) {
+  const vendor = data.vendor as Record<string, unknown> | null;
+  const vendorId = vendor?.id as string | undefined;
+
+  if (!vendorId || !vendor) {
+    return <p className="text-sm text-zinc-500 p-4">No vendor record linked.</p>;
+  }
+
   return (
-    <div className="p-4 text-sm text-zinc-400">Vendor panel — coming in Phase 7.</div>
+    <div className="space-y-4">
+      <WorkspacePanel panelId="contact-vendor-account" title="Vendor Account">
+        <div className="context-drawer-card p-3 space-y-1 text-sm">
+          <label className="field-inline">
+            <span className="text-zinc-500">Terms</span>
+            <span>Net-{String(vendor.terms_days ?? 14)}</span>
+          </label>
+          <label className="field-inline">
+            <span className="text-zinc-500">Consignment</span>
+            <span>{vendor.consignment_default ? 'Yes' : 'No'}</span>
+          </label>
+          <label className="field-inline">
+            <span className="text-zinc-500">Contact person</span>
+            <span>{String(vendor.contact ?? '—')}</span>
+          </label>
+          <label className="field-inline">
+            <span className="text-zinc-500">Open bills</span>
+            <span>
+              {String(vendor.open_bills_count ?? 0)} totaling ${Number(vendor.open_bills_amount ?? 0).toFixed(2)}
+            </span>
+          </label>
+          <label className="field-inline">
+            <span className="text-zinc-500">Open POs</span>
+            <span>{String(vendor.open_po_count ?? 0)}</span>
+          </label>
+          <label className="field-inline">
+            <span className="text-zinc-500">Total billed</span>
+            <span>${Number(vendor.total_billed ?? 0).toFixed(2)}</span>
+          </label>
+          <label className="field-inline">
+            <span className="text-zinc-500">Total paid</span>
+            <span>${Number(vendor.total_paid ?? 0).toFixed(2)}</span>
+          </label>
+        </div>
+      </WorkspacePanel>
+    </div>
   );
 }
