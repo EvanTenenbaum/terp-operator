@@ -57,7 +57,7 @@ async function goDashboard(page: Page) {
 
 async function goIntake(page: Page) {
   await nav(page).getByRole('button', { name: /Intake/ }).click();
-  await expect(page.getByText('Intake queue')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Intake queue').first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function goInventory(page: Page) {
@@ -67,7 +67,7 @@ async function goInventory(page: Page) {
 
 async function goSales(page: Page) {
   await nav(page).getByRole('button', { name: /^Sales/ }).click();
-  await expect(page.getByText('Sales Orders')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Sales Orders').first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function goPurchaseOrders(page: Page) {
@@ -77,7 +77,7 @@ async function goPurchaseOrders(page: Page) {
 
 async function goFulfillment(page: Page) {
   await nav(page).getByRole('button', { name: /Fulfillment/ }).click();
-  await expect(page.getByText('Fulfillment Lines')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Fulfillment Lines').first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function goOrders(page: Page) {
@@ -101,12 +101,27 @@ async function goClients(page: Page) {
   await page.waitForTimeout(2_000);
 }
 
+async function expandAdminNav(page: Page) {
+  // Recovery and Closeout are under the Admin sidebar section which may be collapsed
+  const recoveryVisible = nav(page).getByRole('button', { name: /Recovery/ });
+  if (!(await recoveryVisible.isVisible({ timeout: 1_500 }).catch(() => false))) {
+    // Try clicking an Admin section expander
+    const adminSection = nav(page).getByRole('button', { name: /Admin/i });
+    if (await adminSection.isVisible({ timeout: 1_500 }).catch(() => false)) {
+      await adminSection.click();
+      await page.waitForTimeout(500);
+    }
+  }
+}
+
 async function goRecovery(page: Page) {
+  await expandAdminNav(page);
   await nav(page).getByRole('button', { name: /Recovery/ }).click();
   await page.waitForTimeout(2_000);
 }
 
 async function goCloseout(page: Page) {
+  await expandAdminNav(page);
   await nav(page).getByRole('button', { name: /Closeout/ }).click();
   await page.waitForTimeout(2_000);
 }
@@ -121,7 +136,7 @@ async function createPO(page: Page, productName: string, qty: number, cost: numb
   await goPurchaseOrders(page);
   const main = page.getByRole('main');
   await main.getByRole('button', { name: 'New PO' }).click();
-  await expect(page.getByText('New PO lines')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('New PO lines').first()).toBeVisible({ timeout: 10_000 });
   const poWorkspace = page.getByLabel('New purchase order workspace');
   await poWorkspace.locator('.ag-cell[col-id="productName"]').first().dblclick();
   await page.keyboard.type(productName);
@@ -152,7 +167,7 @@ test('X1 – Cross-Persona: Full Purchase-to-Payment Lifecycle', async ({ page }
   await goPurchaseOrders(page);
   const main = page.getByRole('main');
   await main.getByRole('button', { name: 'New PO' }).click();
-  await expect(page.getByText('New PO lines')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('New PO lines').first()).toBeVisible({ timeout: 10_000 });
 
   const poWorkspace = page.getByLabel('New purchase order workspace');
   await poWorkspace.locator('.ag-cell[col-id="productName"]').first().dblclick();
@@ -177,7 +192,7 @@ test('X1 – Cross-Persona: Full Purchase-to-Payment Lifecycle', async ({ page }
   // Step 3: Go to Intake
   await goIntake(page);
   await shot(page, 'x1-step3-intake');
-  const intakeQueueVisible = await page.getByText('Intake queue').isVisible({ timeout: 5_000 }).catch(() => false);
+  const intakeQueueVisible = await page.getByText('Intake queue').first().isVisible({ timeout: 5_000 }).catch(() => false);
   expect(intakeQueueVisible).toBe(true);
 
   // Step 4: Verify intake / process
@@ -195,12 +210,12 @@ test('X1 – Cross-Persona: Full Purchase-to-Payment Lifecycle', async ({ page }
     await customerSelect.selectOption({ label: 'Capitol Cure' });
   }
   await shot(page, 'x1-step5-sale-created');
-  await expect(page.getByText('Sales Orders')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Sales Orders').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 7: Check Fulfillment
   await goFulfillment(page);
   await shot(page, 'x1-step7-fulfillment');
-  const fulfillmentVisible = await page.getByText('Fulfillment Lines').isVisible({ timeout: 5_000 }).catch(() => false);
+  const fulfillmentVisible = await page.getByText('Fulfillment Lines').first().isVisible({ timeout: 5_000 }).catch(() => false);
   expect(fulfillmentVisible).toBe(true);
 
   // Step 8: Check Payments
@@ -226,7 +241,7 @@ test('X2 – Cross-Persona: Intake Reversal Mid-Sale', async ({ page }) => {
   // Step 2: Try to create a sale
   await goSales(page);
   await shot(page, 'x2-step2-sales');
-  const salesVisible = await page.getByText('Sales Orders').isVisible({ timeout: 5_000 }).catch(() => false);
+  const salesVisible = await page.getByText('Sales Orders').first().isVisible({ timeout: 5_000 }).catch(() => false);
   expect(salesVisible).toBe(true);
 
   // Step 3: Navigate to Recovery - check reversal path
@@ -272,7 +287,7 @@ test('OM1 – Owner: Morning Triage (Normal)', async ({ page }) => {
   // Step 3: Try drilling into a view from dashboard
   // Try clicking any navigation item to verify navigation
   await nav(page).getByRole('button', { name: /Intake/ }).click();
-  await expect(page.getByText('Intake queue')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Intake queue').first()).toBeVisible({ timeout: 15_000 });
   await shot(page, 'om1-step3-drill-intake');
 
   // Step 4: Find a row
@@ -379,7 +394,7 @@ test('SO1 – Sales: Instant Sale Normal Path', async ({ page }) => {
     await customerSelect.selectOption({ label: 'Capitol Cure' });
   }
   await page.waitForTimeout(1_000);
-  await expect(page.getByText('Sales Orders')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Sales Orders').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 2: Check Inventory Finder
   const finder = page.getByTestId('inventory-finder');
@@ -443,7 +458,7 @@ test('SO2 – Sales: Customer Credit Hold Edge Case', async ({ page }) => {
   await goSales(page);
   await shot(page, 'so2-step7-no-phantom-state');
   // Key: Sales view is navigable
-  expect(await page.getByText('Sales Orders').isVisible({ timeout: 5_000 })).toBe(true);
+  expect(await page.getByText('Sales Orders').first().isVisible({ timeout: 5_000 })).toBe(true);
 });
 
 test('SO3 – Sales: No Available Inventory Error Path', async ({ page }) => {
@@ -497,7 +512,7 @@ test('IO1 – Inventory: Receive Batch Normal Path', async ({ page }) => {
   // Step 1: Navigate to Intake
   await goIntake(page);
   await shot(page, 'io1-step1-intake');
-  await expect(page.getByText('Intake queue')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Intake queue').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 2: Create intake row
   // Check for "Receive" button or add row
@@ -535,7 +550,7 @@ test('IO2 – Inventory: Flagged Batch Edge Case', async ({ page }) => {
   // Step 1: Create a suspicious intake row
   await goIntake(page);
   await shot(page, 'io2-step1-intake');
-  await expect(page.getByText('Intake queue')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Intake queue').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 2: Look for flag action
   await shot(page, 'io2-step2-flag-row');
@@ -560,7 +575,7 @@ test('IO2 – Inventory: Flagged Batch Edge Case', async ({ page }) => {
   await shot(page, 'io2-step6-inventory-corrected');
 
   // Key assertion
-  expect(await page.getByText('Intake queue').isVisible({ timeout: 5_000 })).toBe(false);
+  expect(await page.getByText('Intake queue').first().isVisible({ timeout: 5_000 })).toBe(false);
   expect(await page.getByRole('navigation').isVisible()).toBe(true);
 });
 
@@ -595,7 +610,7 @@ test('IO3 – Inventory: Reversal After Bad Post', async ({ page }) => {
   // Step 6: Create corrected receipt
   await goIntake(page);
   await shot(page, 'io3-step6-corrected-receipt');
-  await expect(page.getByText('Intake queue')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Intake queue').first()).toBeVisible({ timeout: 10_000 });
 
   expect(await page.getByRole('navigation').isVisible()).toBe(true);
 });
@@ -725,7 +740,7 @@ test('WO1 – Warehouse: Pick, Weigh, Fulfill Normal', async ({ page }) => {
   // Step 1: Check Fulfillment queue
   await goFulfillment(page);
   await shot(page, 'wo1-step1-fulfillment-queue');
-  await expect(page.getByText('Fulfillment Lines')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Fulfillment Lines').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 2: Find open order
   await shot(page, 'wo1-step2-find-order');
@@ -753,7 +768,7 @@ test('WO1 – Warehouse: Pick, Weigh, Fulfill Normal', async ({ page }) => {
   await goInventory(page);
   await shot(page, 'wo1-step6-inventory-decreased');
 
-  expect(await page.getByText('Fulfillment Lines').isVisible({ timeout: 5_000 })).toBe(false);
+  expect(await page.getByText('Fulfillment Lines').first().isVisible({ timeout: 5_000 })).toBe(false);
   expect(await page.getByRole('navigation').isVisible()).toBe(true);
 });
 
@@ -764,7 +779,7 @@ test('WO2 – Warehouse: Weight Discrepancy Edge Case', async ({ page }) => {
   // Step 1: Find order in Fulfillment
   await goFulfillment(page);
   await shot(page, 'wo2-step1-fulfillment');
-  await expect(page.getByText('Fulfillment Lines')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Fulfillment Lines').first()).toBeVisible({ timeout: 10_000 });
 
   const fulfillmentRows = await page.locator('.ag-center-cols-container .ag-row')
     .count().catch(() => 0);
@@ -790,7 +805,7 @@ test('WO3 – Warehouse: Partial Fulfillment Error Path', async ({ page }) => {
   // Step 1: Find multi-line order in Fulfillment
   await goFulfillment(page);
   await shot(page, 'wo3-step1-fulfillment');
-  await expect(page.getByText('Fulfillment Lines')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Fulfillment Lines').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 2: Fulfill only first line
   await shot(page, 'wo3-step2-first-line-only');
@@ -837,17 +852,17 @@ test('SUP1 – Support: Trace Order Status Normal', async ({ page }) => {
   // Step 3: Check Fulfillment status
   await goFulfillment(page);
   await shot(page, 'sup1-step3-fulfillment-status');
-  await expect(page.getByText('Fulfillment Lines')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Fulfillment Lines').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 4: Cross-reference with Sales
   await goSales(page);
   await shot(page, 'sup1-step4-sales-status');
-  await expect(page.getByText('Sales Orders')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Sales Orders').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 5: Document complete status chain
   await shot(page, 'sup1-step5-status-chain');
   // Three views navigated without error - this is a passing support triage flow
-  expect(await page.getByText('Sales Orders').isVisible()).toBe(true);
+  expect(await page.getByText('Sales Orders').first().isVisible()).toBe(true);
 });
 
 test('SUP2 – Support: Reconstruct Payment History Edge Case', async ({ page }) => {
@@ -919,7 +934,7 @@ test('PHOTO1 – Photographer: Batch Photo Session Normal', async ({ page }) => 
   // Step 1: Check media status column in Inventory
   await goInventory(page);
   await shot(page, 'photo1-step1-inventory');
-  await expect(page.getByText('Photography Queue')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Photography Queue').first()).toBeVisible({ timeout: 10_000 });
 
   // Step 2: Find batches without photos
   await shot(page, 'photo1-step2-no-photos');
@@ -944,7 +959,7 @@ test('PHOTO1 – Photographer: Batch Photo Session Normal', async ({ page }) => 
   await goSales(page);
   await shot(page, 'photo1-step5-sales-readiness');
 
-  expect(await page.getByText('Photography Queue').isVisible({ timeout: 5_000 })).toBe(false);
+  expect(await page.getByText('Photography Queue').first().isVisible({ timeout: 5_000 })).toBe(false);
   expect(await page.getByRole('navigation').isVisible()).toBe(true);
 });
 
@@ -955,10 +970,10 @@ test('PHOTO2 – Photographer: Missing Media Blocker Edge Case', async ({ page }
   // Step 1: Find Live batches missing media
   await goInventory(page);
   await shot(page, 'photo2-step1-missing-media');
-  await expect(page.getByText('Photography Queue')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Photography Queue').first()).toBeVisible({ timeout: 10_000 });
 
   // Check photography queue content
-  const photoQueue = page.getByText('Photography Queue');
+  const photoQueue = page.getByText('Photography Queue').first();
   await shot(page, 'photo2-step2-catalog-blockers');
 
   // Step 3: Try to flag a batch as "needs photography"
@@ -984,7 +999,7 @@ test('PHOTO3 – Photographer: Catalog Readiness Sweep Normal', async ({ page })
   // Step 1: Count all Live batches
   await goInventory(page);
   await shot(page, 'photo3-step1-live-count');
-  await expect(page.getByText('Photography Queue')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Photography Queue').first()).toBeVisible({ timeout: 10_000 });
   await page.waitForTimeout(2_000);
 
   // Check row count indicator
@@ -1007,7 +1022,7 @@ test('PHOTO3 – Photographer: Catalog Readiness Sweep Normal', async ({ page })
   await shot(page, 'photo3-step5-friction-assessment');
 
   // Key: Inventory view with photography controls
-  expect(await page.getByText('Photography Queue').isVisible()).toBe(true);
+  expect(await page.getByText('Photography Queue').first().isVisible()).toBe(true);
 });
 
 // ─── CONNECTOR ACTOR FLOWS ───────────────────────────────────────────────────
