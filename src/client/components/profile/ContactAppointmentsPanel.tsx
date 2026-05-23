@@ -68,7 +68,7 @@ export function ContactAppointmentsPanel({ contactId }: Props) {
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium">{String(appt.title)}</p>
                   <p className="text-xs text-zinc-500">{formatDateTime(String(appt.starts_at))}</p>
-                  {appt.location && <p className="text-xs text-zinc-400">{String(appt.location)}</p>}
+                  {appt.location ? <p className="text-xs text-zinc-400">{String(appt.location)}</p> : null}
                   <span className="selection-pill text-xs">{String(appt.appointment_type)}</span>
                 </div>
                 <div className="flex gap-2 shrink-0">
