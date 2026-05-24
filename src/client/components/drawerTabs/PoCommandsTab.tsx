@@ -42,7 +42,7 @@ export function PoCommandsTab({ poId, poStatus }: PoCommandsTabProps) {
   }
 
   const status = String(poStatus ?? '');
-  const canApprove = status === 'draft' || status === 'finalized';
+  const canApprove = status === 'finalized'; // draft POs must be finalized before approval (commandBus enforces this)
   const canReceive = status === 'approved' || status === 'ordered' || status === 'partially_received';
   const isTerminal = status === 'received' || status === 'cancelled';
 
