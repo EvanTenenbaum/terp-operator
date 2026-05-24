@@ -120,6 +120,16 @@ const t = initTRPC.context<TrpcContext>().create({
       };
     }
 
+    // In production, always strip stack traces regardless of error type.
+    // tRPC v10 captures isDev at initTRPC.create() time; the formatter
+    // is the only reliable way to enforce this in isolated-module tests.
+    // Destructure stack out entirely rather than setting it to undefined,
+    // because superjson serialises undefined→null which still fails the test.
+    if (process.env.NODE_ENV === 'production') {
+      const { stack: _discardedStack, ...dataWithoutStack } = shape.data ?? {};
+      return { ...shape, data: dataWithoutStack };
+    }
+
     return shape;
   }
 });

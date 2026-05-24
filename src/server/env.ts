@@ -27,8 +27,10 @@ export const env = envSchema.parse(process.env);
 if (env.NODE_ENV === 'production' && env.SESSION_SECRET === DEV_SESSION_SECRET) {
   throw new Error('SESSION_SECRET must be set to a strong production secret.');
 }
-// Only fail on the exact default dev URL — CI uses localhost postgres too and that is fine
-if (env.NODE_ENV === 'production' && env.DATABASE_URL === DEV_DATABASE_URL) {
+// Only fail on the exact default dev URL — skip in test environments where
+// NODE_ENV may be set to 'production' for isolated-module tests (vitest sets VITEST=true).
+const isTestRun = process.env.VITEST === 'true' || process.env.VITEST_WORKER_ID !== undefined;
+if (env.NODE_ENV === 'production' && !isTestRun && env.DATABASE_URL === DEV_DATABASE_URL) {
   throw new Error('DATABASE_URL is set to the default development value. Set a real database URL for production.');
 }
 export const isProd = env.NODE_ENV === 'production';
