@@ -346,6 +346,7 @@ export function defaultTabForEntity(entityType: string) {
     vendor: 'profile',
     lot: 'movement',
     order: 'lines',
+    salesOrder: 'balance',
     po: 'lines',
     vendorBill: 'due-reason',
     payment: 'allocations',
@@ -389,6 +390,9 @@ function launchForView(view: ViewKey): QuickLaunchMode | null {
 }
 
 function inferDrawerEntity(view: ViewKey, row: GridRow): DrawerEntityRef {
+  // CAP-007: When a sales order row is selected in the sales view, expose
+  // the salesOrder entity type so the drawer shows order-specific tabs.
+  if (view === 'sales' && row.orderNo) return { entityType: 'salesOrder', entityId: String(row.id) };
   if (view === 'sales' && row.customerId) return { entityType: 'customer', entityId: String(row.customerId) };
   if (view === 'matchmaking' && row.customerNeedId) return { entityType: 'customerNeed', entityId: String(row.customerNeedId) };
   if (view === 'matchmaking' && row.vendorSupplyId) return { entityType: 'vendorSupply', entityId: String(row.vendorSupplyId) };
