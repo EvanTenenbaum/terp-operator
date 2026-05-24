@@ -1,5 +1,20 @@
 import { test, expect, Page } from '@playwright/test';
 
+// Helper to wait for backend to be ready
+async function waitForBackend(page: Page) {
+  await expect.poll(async () => (await page.request.get('/api/health')).ok(), { timeout: 45_000 }).toBe(true);
+}
+
+// Helper to log in before each test
+async function login(page: Page) {
+  await waitForBackend(page);
+  await page.goto('/');
+  await page.getByLabel('Email').fill('owner@terpagro.local');
+  await page.getByLabel('Password').fill('terp-demo');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByText('Owner Daily Decision View')).toBeVisible({ timeout: 20000 });
+}
+
 // Helper to wait for network idle
 async function waitForLoad(page: Page) {
   await page.waitForLoadState('networkidle');
@@ -22,7 +37,7 @@ test.describe('Payment Processor System - Manual QA', () => {
 
   test.beforeEach(async ({ page }) => {
     consoleErrors = setupConsoleMonitor(page);
-    await page.goto('http://localhost:5173');
+    await login(page);
     await waitForLoad(page);
   });
 

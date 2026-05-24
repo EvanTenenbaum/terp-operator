@@ -59,7 +59,7 @@ test.describe('URL Routing', () => {
     // Navigate directly to intake
     await page.goto('/intake');
     await expect(page).toHaveURL(/\/intake/);
-    await expect(page.locator('text=Intake')).toBeVisible();
+    await expect(page.locator('[data-testid="sidenav-item-intake"]')).toBeVisible();
 
     // Navigate directly to purchase orders
     await page.goto('/purchaseOrders');

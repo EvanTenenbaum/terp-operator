@@ -32,8 +32,8 @@ test.describe('Phase 2 Inline Expansion QA', () => {
     // Navigate to Vendor Payouts view (was 'Operations' — no such nav group; vendor bills live at /vendors)
     await page.click('[data-testid="sidenav-item-vendors"]');
 
-    // Wait for vendor bills grid to load
-    await expect(page.getByText('Vendor Bills')).toBeVisible({ timeout: 10000 });
+    // Wait for vendor payables grid to load (WorkspacePanel renders aria-label="Vendor Payables")
+    await expect(page.locator('section[aria-label="Vendor Payables"]')).toBeVisible({ timeout: 10000 });
 
     // Check if there are any vendor bill rows
     const gridRows = await page.locator('.ag-row').count();
@@ -149,8 +149,8 @@ test.describe('Phase 2 Inline Expansion QA', () => {
     // Navigate to Orders view (was 'Sales' — strict mode violation; sales orders live at /orders)
     await page.click('[data-testid="sidenav-item-orders"]');
 
-    // Wait for sales orders grid to load — use role heading to avoid strict-mode violation on bare text
-    await expect(page.getByRole('heading', { name: 'Sales Orders' })).toBeVisible({ timeout: 10000 });
+    // Wait for orders grid to load — WorkspacePanel renders aria-label="Orders" on its section element
+    await expect(page.locator('section[aria-label="Orders"]')).toBeVisible({ timeout: 10000 });
 
     // Check if there are any sales order rows
     const gridRows = await page.locator('.ag-row').count();
@@ -206,8 +206,8 @@ test.describe('Phase 2 Inline Expansion QA', () => {
     // Navigate to Vendor Payouts view (was 'Operations' — no such nav group; vendor bills live at /vendors)
     await page.click('[data-testid="sidenav-item-vendors"]');
 
-    // Wait for vendor bills grid
-    await expect(page.getByText('Vendor Bills')).toBeVisible({ timeout: 10000 });
+    // Wait for vendor payables grid (WorkspacePanel renders aria-label="Vendor Payables")
+    await expect(page.locator('section[aria-label="Vendor Payables"]')).toBeVisible({ timeout: 10000 });
 
     const chevronCells = page.locator('.expansion-chevron-cell');
     const count = await chevronCells.count();
@@ -244,7 +244,8 @@ test.describe('Phase 2 Inline Expansion QA', () => {
     // Navigate to Orders view (was 'Sales' — strict mode violation; sales orders live at /orders)
     await page.click('[data-testid="sidenav-item-orders"]');
 
-    await expect(page.getByRole('heading', { name: 'Sales Orders' })).toBeVisible({ timeout: 10000 });
+    // Wait for orders grid (WorkspacePanel renders aria-label="Orders" on its section element)
+    await expect(page.locator('section[aria-label="Orders"]')).toBeVisible({ timeout: 10000 });
 
     const chevronCell = page.locator('.expansion-chevron-cell').first();
 
