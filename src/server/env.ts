@@ -26,4 +26,7 @@ export const env = envSchema.parse(process.env);
 if (env.NODE_ENV === 'production' && env.SESSION_SECRET === DEV_SESSION_SECRET) {
   throw new Error('SESSION_SECRET must be set to a strong production secret.');
 }
+if (env.NODE_ENV === 'production' && env.DATABASE_URL.includes('localhost')) {
+  throw new Error('DATABASE_URL must point to a production database, not localhost.');
+}
 export const isProd = env.NODE_ENV === 'production';

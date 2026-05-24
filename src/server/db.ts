@@ -26,7 +26,8 @@ export const poolConfig = {
   ssl: env.DATABASE_SSL ? { rejectUnauthorized: env.DATABASE_SSL_REJECT_UNAUTHORIZED } : undefined,
   max: 25,
   statement_timeout: 60_000,
-  idleTimeoutMillis: 30_000
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 5000
 } as const;
 
 export const pool = new pg.Pool(poolConfig);
