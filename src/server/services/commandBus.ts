@@ -1224,7 +1224,11 @@ async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string):
 async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const purchaseOrderId = requiredId(payload.purchaseOrderId, 'purchaseOrderId');
 
-  // Lock PO row to prevent concurrent line addition and total recalc races
+  // Lock PO row to prevent concurrent line addition and total recalc races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // columns like `po_no` must be read via bracket notation — camelCase
+  // (`order.poNo`) would silently produce `undefined`. See refundPayment for
+  // the same pattern.
   const orderRows = await tx.execute(
     sql`SELECT * FROM ${purchaseOrders} WHERE ${purchaseOrders.id} = ${purchaseOrderId} FOR UPDATE`
   );
@@ -1278,7 +1282,7 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
       unitPrice: moneyScale(unitCost),
       costRangeLow: costRangeLow != null ? moneyScale(costRangeLow) : null,
       costRangeHigh: costRangeHigh != null ? moneyScale(costRangeHigh) : null,
-      sourceCode: stringValue(payload.sourceCode) || order.poNo,
+      sourceCode: stringValue(payload.sourceCode) || (order['po_no'] as string),
       shorthand: stringValue(payload.shorthand) || null,
       legacyMarker: stringValue(payload.legacyMarker) || stringValue(payload.ownershipStatus) || null,
       ownershipStatus: ownership(payload.ownershipStatus),
@@ -1293,7 +1297,7 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
     ok: true,
     commandId,
     affectedIds: [purchaseOrderId, line.id],
-    toast: status === 'needs_fix' ? `${productName} added; enter unit cost before approving PO.` : `${productName} added to ${order.poNo}.`
+    toast: status === 'needs_fix' ? `${productName} added; enter unit cost before approving PO.` : `${productName} added to ${order['po_no']}.`
   };
 }
 
@@ -1522,7 +1526,11 @@ async function recordVendorPrepayment(tx: Tx, payload: Payload, commandId: strin
 async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
 
-  // Lock PO row to prevent concurrent approval races
+  // Lock PO row to prevent concurrent approval races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // columns like `vendor_id` and `po_no` must be read via bracket notation —
+  // camelCase access would silently produce `undefined`. See refundPayment for
+  // the same pattern.
   const orderRows = await tx.execute(
     sql`SELECT * FROM ${purchaseOrders} WHERE ${purchaseOrders.id} = ${purchaseOrderId} FOR UPDATE`
   );
@@ -1559,14 +1567,14 @@ async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, co
 
   const affected = [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)];
   let createdCount = 0;
-  if (order.vendorId) {
+  if (order['vendor_id']) {
     const received = await receivePurchaseOrder(tx, { purchaseOrderId }, commandId);
     affected.push(...received.affectedIds);
     createdCount = Math.max(received.affectedIds.length - 1 - lines.length, 0);
   }
   const toast = createdCount
-    ? `${order.poNo} approved and ${createdCount} draft intake row(s) created.`
-    : `${order.poNo} approved and ready to receive when product arrives.`;
+    ? `${order['po_no']} approved and ${createdCount} draft intake row(s) created.`
+    : `${order['po_no']} approved and ready to receive when product arrives.`;
   return { ok: true, commandId, affectedIds: [...new Set(affected)], toast };
 }
 
@@ -1756,14 +1764,17 @@ async function adjustBatchQuantity(tx: Tx, payload: Payload, commandId: string, 
   const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
   const delta = requiredNumber(payload.deltaQty ?? payload.qtyDelta, 'deltaQty');
 
-  // Lock batch row to prevent concurrent quantity adjustment races
+  // Lock batch row to prevent concurrent quantity adjustment races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // columns like `available_qty` must be read via bracket notation — camelCase
+  // access would silently produce `undefined` → NaN → corrupt inventory.
   const batchRows = await tx.execute(
     sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${batchId} FOR UPDATE`
   );
   const row = batchRows.rows[0];
   if (!row) throw new Error('Batch not found.');
   if (!reason && !stringValue(payload.reason)) throw new Error('Adjustment reason is required so inventory corrections stay traceable.');
-  const nextQty = Number(row.availableQty) + delta;
+  const nextQty = Number(row['available_qty']) + delta;
   if (nextQty < 0) throw new Error('Available quantity cannot go below zero.');
   await tx.update(batches).set({ availableQty: qtyScale(nextQty), updatedAt: new Date() }).where(eq(batches.id, batchId));
   await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'manual_adjustment', qtyDelta: qtyScale(delta), reason });
@@ -1812,21 +1823,24 @@ async function transferInventoryOwnership(tx: Tx, payload: Payload, commandId: s
   const movementReason = requiredString(reason || payload.reason, 'reason');
   const vendorId = payload.vendorId != null ? stringValue(payload.vendorId) || null : undefined;
 
-  // Lock batch row to prevent concurrent ownership transfer races
+  // Lock batch row to prevent concurrent ownership transfer races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // columns like `vendor_id` and `ownership_status` must be read via bracket
+  // notation — camelCase access would silently produce `undefined`.
   const batchRows = await tx.execute(
     sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${batchId} FOR UPDATE`
   );
   const row = batchRows.rows[0];
   if (!row) throw new Error('Batch not found.');
-  if (ownershipStatus === 'C' && !(vendorId ?? row.vendorId)) throw new Error('Consigned inventory needs a vendor before ownership transfer.');
-  if (row.ownershipStatus === ownershipStatus && (vendorId === undefined || row.vendorId === vendorId)) {
+  if (ownershipStatus === 'C' && !(vendorId ?? row['vendor_id'])) throw new Error('Consigned inventory needs a vendor before ownership transfer.');
+  if (row['ownership_status'] === ownershipStatus && (vendorId === undefined || row['vendor_id'] === vendorId)) {
     return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} already has ${ownershipStatus} ownership.`, delta: { ownershipStatus, unchanged: true } };
   }
   const values: Record<string, unknown> = { ownershipStatus, updatedAt: new Date() };
   if (vendorId !== undefined) values.vendorId = vendorId;
   await tx.update(batches).set(values).where(eq(batches.id, batchId));
-  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'ownership_transfer', qtyDelta: '0.000', reason: `${row.ownershipStatus} -> ${ownershipStatus}: ${movementReason}` });
-  return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} ownership moved to ${ownershipStatus}.`, delta: { fromOwnershipStatus: row.ownershipStatus, toOwnershipStatus: ownershipStatus } };
+  await tx.insert(inventoryMovements).values({ batchId, commandId, kind: 'ownership_transfer', qtyDelta: '0.000', reason: `${row['ownership_status']} -> ${ownershipStatus}: ${movementReason}` });
+  return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} ownership moved to ${ownershipStatus}.`, delta: { fromOwnershipStatus: row['ownership_status'], toOwnershipStatus: ownershipStatus } };
 }
 
 async function attachBatchPhoto(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
@@ -2361,13 +2375,16 @@ async function reserveInventoryForOrder(tx: Tx, payload: Payload, commandId: str
     // Lock batch row to prevent concurrent reservation double-booking (GH #18A).
     // Two callers reserving the same batch would otherwise both read the same
     // reservedQty, both pass the availability check, and both increment.
+    // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+    // columns must be read via bracket notation — camelCase access would
+    // silently produce `undefined` → NaN → corrupt reserved/available qty.
     const batchRows = await tx.execute(
       sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${line.batchId} FOR UPDATE`
     );
     const batch = batchRows.rows[0];
     if (!batch) throw new Error(`${line.itemName} batch no longer exists.`);
-    if (Number(batch.availableQty) - Number(batch.reservedQty) < Number(line.qty)) throw new Error(`${line.itemName} is short on available quantity.`);
-    await tx.update(batches).set({ reservedQty: qtyScale(Number(batch.reservedQty) + Number(line.qty)), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+    if (Number(batch['available_qty']) - Number(batch['reserved_qty']) < Number(line.qty)) throw new Error(`${line.itemName} is short on available quantity.`);
+    await tx.update(batches).set({ reservedQty: qtyScale(Number(batch['reserved_qty']) + Number(line.qty)), updatedAt: new Date() }).where(eq(batches.id, batch.id));
     await tx.update(salesOrderLines).set({ status: 'reserved', updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
     affected.push(batch.id, line.id);
   }
@@ -3009,31 +3026,40 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
   await recalcOrder(tx, orderId);
   const [freshOrder] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
 
-  // Lock customer row to prevent concurrent balance update races
+  // Lock customer row to prevent concurrent balance update races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // columns like `credit_limit` must be read via bracket notation — camelCase
+  // access would silently produce `undefined` → NaN credit check.
   const customerRows = await tx.execute(
     sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${freshOrder.customerId} FOR UPDATE`
   );
   const customer = customerRows.rows[0];
   if (!customer) throw new Error('Customer not found.');
-  if (Number(customer.balance) + Number(freshOrder.total) > Number(customer.creditLimit)) {
+  if (Number(customer.balance) + Number(freshOrder.total) > Number(customer['credit_limit'])) {
     throw new Error(`${customer.name} would exceed credit limit. Request a credit override before posting.`);
   }
 
   const affected = [orderId];
   for (const line of lines) {
-    // Lock batch row to prevent concurrent quantity update races
+    // Lock batch row to prevent concurrent quantity update races.
+    // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+    // columns like `available_qty`, `reserved_qty`, `ownership_status`,
+    // `vendor_id`, and `unit_cost` must be read via bracket notation —
+    // camelCase access would silently produce `undefined` → NaN writes to
+    // inventory and vendor bills.
     const batchRows = await tx.execute(
       sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${line.batchId} FOR UPDATE`
     );
     const batch = batchRows.rows[0];
-    const nextAvailable = Number(batch.availableQty) - Number(line.qty);
-    const nextReserved = Math.max(0, Number(batch.reservedQty) - Number(line.qty));
+    const batchVendorId = batch['vendor_id'] as string | null | undefined;
+    const nextAvailable = Number(batch['available_qty']) - Number(line.qty);
+    const nextReserved = Math.max(0, Number(batch['reserved_qty']) - Number(line.qty));
     await tx.update(batches).set({ availableQty: qtyScale(nextAvailable), reservedQty: qtyScale(nextReserved), updatedAt: new Date() }).where(eq(batches.id, batch.id));
-    if (batch.ownershipStatus === 'C' && nextAvailable <= 0 && batch.vendorId) {
+    if (batch['ownership_status'] === 'C' && nextAvailable <= 0 && batchVendorId) {
       const [bill] = await tx
         .select()
         .from(vendorBills)
-        .where(sql`${vendorBills.vendorId} = ${batch.vendorId} and ${vendorBills.status} in ('open','approved','scheduled','partial')`)
+        .where(sql`${vendorBills.vendorId} = ${batchVendorId} and ${vendorBills.status} in ('open','approved','scheduled','partial')`)
         .orderBy(vendorBills.createdAt)
         .limit(1);
       if (bill) {
@@ -3043,13 +3069,13 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
           .where(eq(vendorBills.id, bill.id));
         affected.push(bill.id);
       } else {
-        const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, batch.vendorId)).limit(1);
+        const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, batchVendorId)).limit(1);
         const [createdBill] = await tx
           .insert(vendorBills)
           .values({
-            vendorId: batch.vendorId,
+            vendorId: batchVendorId,
             billNo: code('VBILL-CONSIGN'),
-            amount: moneyScale(Number(line.qty) * Number(batch.unitCost)),
+            amount: moneyScale(Number(line.qty) * Number(batch['unit_cost'])),
             dueDate: new Date(Date.now() + (vendor?.termsDays ?? 14) * 24 * 60 * 60 * 1000),
             termsDays: vendor?.termsDays ?? 14,
             status: 'approved',
@@ -3155,15 +3181,19 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
         const pendingBillRows = await tx.execute(
           sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.vendorId} = ${exBatch.vendorId} AND ${vendorBills.status} IN ('open','approved','scheduled','partial') ORDER BY ${vendorBills.createdAt} LIMIT 1 FOR UPDATE SKIP LOCKED`
         );
-        const pendingBill = (pendingBillRows.rows[0] as typeof vendorBills.$inferSelect | undefined) ?? null;
+        // Raw `SELECT *` returns Postgres column names (snake_case). The
+        // `as typeof vendorBills.$inferSelect` cast lies to TypeScript — at
+        // runtime `pendingBill.discrepancyNotes` would be `undefined`. Read
+        // the snake_case key via bracket notation.
+        const pendingBill = pendingBillRows.rows[0];
         if (pendingBill) {
-          const prior = pendingBill.discrepancyNotes;
+          const prior = pendingBill['discrepancy_notes'] as string | null | undefined;
           const newNote = `Pending below-floor COGS credit: order ${freshOrder.orderNo}, line ${line.itemName}, variance $${variance.toFixed(2)} (vendor_approval_pending)`;
           const merged = [prior, newNote].filter(Boolean).join('\n');
           await tx
             .update(vendorBills)
             .set({ discrepancyNotes: merged, updatedAt: new Date() })
-            .where(eq(vendorBills.id, pendingBill.id));
+            .where(eq(vendorBills.id, pendingBill.id as string));
         }
       }
     }
@@ -3327,61 +3357,69 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
 async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const paymentId = requiredId(payload.paymentId, 'paymentId');
 
-  // Lock payment row to prevent concurrent allocation races
+  // Lock payment row to prevent concurrent allocation races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // columns like `unapplied_amount` and `customer_id` must be read via
+  // bracket notation — camelCase access would silently produce `undefined` →
+  // NaN writes to invoice.amount_paid and customer.balance.
   const paymentRows = await tx.execute(
     sql`SELECT * FROM ${payments} WHERE ${payments.id} = ${paymentId} FOR UPDATE`
   );
   const payment = paymentRows.rows[0];
   if (!payment) throw new Error('Payment not found.');
-  if (Number(payment.unappliedAmount) <= 0) throw new Error('Payment has no unapplied amount.');
+  if (Number(payment['unapplied_amount']) <= 0) throw new Error('Payment has no unapplied amount.');
+  const paymentCustomerId = payment['customer_id'] as string | null | undefined;
 
-  // Lock invoices to prevent concurrent payment application races
+  // Lock invoices to prevent concurrent payment application races.
+  // Raw rows: `amount_paid` is multi-word, single-word `total` and `id` are fine.
   const invoicesToPay = payload.invoiceId
     ? (await tx.execute(
         sql`SELECT * FROM ${invoices} WHERE ${invoices.id} = ${requiredId(payload.invoiceId, 'invoiceId')} FOR UPDATE`
       )).rows
     : (await tx.execute(
-        sql`SELECT * FROM ${invoices} WHERE ${invoices.customerId} = ${payment.customerId} AND ${invoices.status} in ('open', 'partial') ORDER BY ${invoices.createdAt} FOR UPDATE`
+        sql`SELECT * FROM ${invoices} WHERE ${invoices.customerId} = ${paymentCustomerId} AND ${invoices.status} in ('open', 'partial') ORDER BY ${invoices.createdAt} FOR UPDATE`
       )).rows;
 
   if (!invoicesToPay.length) throw new Error('No open invoice found for allocation.');
-  let remaining = Number(payment.unappliedAmount);
+  let remaining = Number(payment['unapplied_amount']);
   const affected = [paymentId];
   for (const invoice of invoicesToPay) {
     if (remaining <= 0) break;
     // TER-1566: Decimal-precise open amount so allocationAmount boundary is exact.
-    const open = Number(subMoney(invoice.total, invoice.amountPaid));
+    const open = Number(subMoney(invoice.total, invoice['amount_paid']));
     const allocationAmount = Math.min(open, remaining, payload.amount != null ? Number(payload.amount) : remaining);
     if (allocationAmount <= 0) continue;
-    const [allocation] = await tx.insert(paymentAllocations).values({ paymentId, invoiceId: invoice.id, amount: moneyScale(allocationAmount) }).returning();
+    const [allocation] = await tx.insert(paymentAllocations).values({ paymentId, invoiceId: invoice.id as string, amount: moneyScale(allocationAmount) }).returning();
     // Invoice running-paid accumulation (TER-1566): use Decimal so a sequence
     // of partial allocations sums exactly to total when the invoice is paid in
     // full. Stored value remains a numeric-compatible string.
-    const invoicePaid = addMoney(invoice.amountPaid, allocationAmount);
-    await tx.update(invoices).set({ amountPaid: invoicePaid, status: new Decimal(invoicePaid).gte(String(invoice.total)) ? 'paid' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+    const invoicePaid = addMoney(invoice['amount_paid'], allocationAmount);
+    await tx.update(invoices).set({ amountPaid: invoicePaid, status: new Decimal(invoicePaid).gte(String(invoice.total)) ? 'paid' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id as string));
     remaining -= allocationAmount;
-    affected.push(invoice.id, allocation.id);
+    affected.push(invoice.id as string, allocation.id);
   }
   await tx.update(payments).set({ unappliedAmount: moneyScale(remaining), updatedAt: new Date() }).where(eq(payments.id, paymentId));
-  const totalAllocated = Number(payment.unappliedAmount) - remaining;
-  if (payment.customerId && totalAllocated > 0) {
-    // Lock customer row to prevent concurrent balance update races
+  const totalAllocated = Number(payment['unapplied_amount']) - remaining;
+  if (paymentCustomerId && totalAllocated > 0) {
+    // Lock customer row to prevent concurrent balance update races.
+    // `balance` is single-word so dot access is safe, but use bracket notation
+    // to match the snake_case row contract.
     const customerRows = await tx.execute(
-      sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${payment.customerId} FOR UPDATE`
+      sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${paymentCustomerId} FOR UPDATE`
     );
     const customer = customerRows.rows[0];
     // Decimal subtraction so the customer's running balance stays exact
     // across many payments.
-    const nextBalance = new Decimal(String(customer.balance))
+    const nextBalance = new Decimal(String(customer['balance']))
       .minus(new Decimal(String(totalAllocated)))
       .toDecimalPlaces(2)
       .toFixed(2);
-    await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, payment.customerId));
-    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: payment.customerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: nextBalance, note: 'Auto-applied to oldest open invoices' }).returning();
-    affected.push(payment.customerId, entry.id);
+    await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, paymentCustomerId));
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId: paymentCustomerId, paymentId, kind: 'payment_allocation', amount: moneyScale(-totalAllocated), balanceAfter: nextBalance, note: 'Auto-applied to oldest open invoices' }).returning();
+    affected.push(paymentCustomerId, entry.id);
   }
-  if (payment.customerId) {
-    await enqueueCustomerRecompute(tx, payment.customerId, 'event:allocatePayment', commandId);
+  if (paymentCustomerId) {
+    await enqueueCustomerRecompute(tx, paymentCustomerId, 'event:allocatePayment', commandId);
   }
   return { ok: true, commandId, affectedIds: affected, toast: `Allocated ${moneyScale(totalAllocated)} to oldest open invoices.` };
 }
@@ -3391,7 +3429,10 @@ async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): P
   const [allocation] = await tx.select().from(paymentAllocations).where(eq(paymentAllocations.id, allocationId)).limit(1);
   if (!allocation) throw new Error('Allocation not found.');
 
-  // Lock payment and invoice rows to prevent concurrent unallocation races
+  // Lock payment and invoice rows to prevent concurrent unallocation races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // columns like `unapplied_amount` and `amount_paid` must be read via
+  // bracket notation — camelCase access would silently produce `undefined`.
   const paymentRows = await tx.execute(
     sql`SELECT * FROM ${payments} WHERE ${payments.id} = ${allocation.paymentId} FOR UPDATE`
   );
@@ -3402,13 +3443,13 @@ async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): P
   );
   const invoice = invoiceRows.rows[0];
   await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, allocationId));
-  // Decimal-precise unallocation: payment.unappliedAmount grows back exactly.
-  await tx.update(payments).set({ unappliedAmount: addMoney(payment.unappliedAmount, allocation.amount), updatedAt: new Date() }).where(eq(payments.id, payment.id));
-  const paidDec = new Decimal(String(invoice.amountPaid))
+  // Decimal-precise unallocation: payment.unapplied_amount grows back exactly.
+  await tx.update(payments).set({ unappliedAmount: addMoney(payment['unapplied_amount'], allocation.amount), updatedAt: new Date() }).where(eq(payments.id, payment.id as string));
+  const paidDec = new Decimal(String(invoice['amount_paid']))
     .minus(new Decimal(String(allocation.amount)));
   const paid = paidDec.isNegative() ? new Decimal(0) : paidDec;
-  await tx.update(invoices).set({ amountPaid: paid.toDecimalPlaces(2).toFixed(2), status: paid.lte(0) ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
-  return { ok: true, commandId, affectedIds: [allocationId, payment.id, invoice.id], toast: 'Payment allocation reversed.' };
+  await tx.update(invoices).set({ amountPaid: paid.toDecimalPlaces(2).toFixed(2), status: paid.lte(0) ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id as string));
+  return { ok: true, commandId, affectedIds: [allocationId, payment.id as string, invoice.id as string], toast: 'Payment allocation reversed.' };
 }
 
 async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -3492,19 +3533,22 @@ async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string
   const invoiceId = requiredId(payload.invoiceId, 'invoiceId');
   const amount = requiredNumber(payload.amount, 'amount');
 
-  // Lock invoice row to prevent concurrent total adjustment races
+  // Lock invoice row to prevent concurrent total adjustment races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // `amount_paid` must be read via bracket notation — camelCase access would
+  // silently produce `undefined` → NaN comparisons that always pass/fail.
   const invoiceRows = await tx.execute(
     sql`SELECT * FROM ${invoices} WHERE ${invoices.id} = ${invoiceId} FOR UPDATE`
   );
   const invoice = invoiceRows.rows[0];
   if (!invoice) throw new Error('Invoice not found.');
-  const openBalance = Number(invoice.total) - Number(invoice.amountPaid);
+  const openBalance = Number(invoice.total) - Number(invoice['amount_paid']);
   if (amount > openBalance + 0.001) {
     // 0.001 tolerance for float drift; the constraint is strict
     return { ok: false, commandId, affectedIds: [], toast: `Discount amount exceeds open balance ($${openBalance.toFixed(2)}). Reverse a payment first or reduce the discount.` };
   }
   const nextTotal = Math.max(0, Number(invoice.total) - amount);
-  await tx.update(invoices).set({ total: moneyScale(nextTotal), status: Number(invoice.amountPaid) >= nextTotal ? 'paid' : invoice.status, updatedAt: new Date() }).where(eq(invoices.id, invoiceId));
+  await tx.update(invoices).set({ total: moneyScale(nextTotal), status: Number(invoice['amount_paid']) >= nextTotal ? 'paid' : (invoice.status as string), updatedAt: new Date() }).where(eq(invoices.id, invoiceId));
   return { ok: true, commandId, affectedIds: [invoiceId], toast: 'Early-pay discount applied.' };
 }
 
@@ -3537,7 +3581,10 @@ async function scheduleVendorPayment(tx: Tx, payload: Payload, commandId: string
 async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const billId = requiredId(payload.vendorBillId ?? payload.id, 'vendorBillId');
 
-  // Lock vendor bill row to prevent concurrent payment races
+  // Lock vendor bill row to prevent concurrent payment races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // `amount_paid` must be read via bracket notation — camelCase access would
+  // silently produce `undefined` → NaN writes to vendor bill totals.
   const billRows = await tx.execute(
     sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.id} = ${billId} FOR UPDATE`
   );
@@ -3547,15 +3594,15 @@ async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string):
     throw new Error('Schedule this vendor payment before recording payment. Scheduled means a real appointment/payment event exists.');
   }
   // TER-1566: Decimal-precise default payment amount when not specified.
-  const amount = payload.amount != null ? requiredNumber(payload.amount, 'amount') : Number(subMoney(bill.amount, bill.amountPaid));
+  const amount = payload.amount != null ? requiredNumber(payload.amount, 'amount') : Number(subMoney(bill.amount, bill['amount_paid']));
   if (amount <= 0) throw new Error('Vendor payout amount must be greater than zero.');
-  if (Number(bill.amountPaid) + amount > Number(bill.amount)) throw new Error('Vendor payout cannot exceed the open bill balance.');
+  if (Number(bill['amount_paid']) + amount > Number(bill.amount)) throw new Error('Vendor payout cannot exceed the open bill balance.');
   const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
   const [payment] = await tx.insert(vendorPayments).values({ vendorBillId: billId, amount: moneyScale(amount), method: stringValue(payload.method) || 'cash', reference: stringValue(payload.reference) || null, createdAt: transactionDate }).returning();
   // Decimal-precise vendor bill amountPaid accumulation (TER-1566): so the
   // bill flips to 'paid' exactly when paid==amount, not when the float sum
   // happens to overshoot.
-  const paid = addMoney(bill.amountPaid, amount);
+  const paid = addMoney(bill['amount_paid'], amount);
   const isFullyPaid = new Decimal(paid).gte(String(bill.amount));
   await tx.update(vendorBills).set({ amountPaid: paid, status: isFullyPaid ? 'paid' : 'partial', dueReason: isFullyPaid ? 'Paid in full' : 'Partially paid vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
 
@@ -3568,17 +3615,21 @@ async function voidVendorPayment(tx: Tx, payload: Payload, commandId: string): P
   if (!payment) throw new Error('Vendor payment not found.');
   await tx.update(vendorPayments).set({ status: 'void' }).where(eq(vendorPayments.id, paymentId));
 
-  // Lock vendor bill row to prevent concurrent payment reversal races
+  // Lock vendor bill row to prevent concurrent payment reversal races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
+  // `amount_paid` and `consignment_triggered` must be read via bracket
+  // notation — camelCase access would silently produce `undefined` → NaN
+  // writes and an always-false consignment branch.
   const billRows = await tx.execute(
     sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.id} = ${payment.vendorBillId} FOR UPDATE`
   );
   const bill = billRows.rows[0];
   // Decimal-precise reversal: clamp at zero with Decimal so a series of
   // void/record cycles doesn't accumulate drift.
-  const reversedPaidDec = new Decimal(String(bill.amountPaid)).minus(new Decimal(String(payment.amount)));
+  const reversedPaidDec = new Decimal(String(bill['amount_paid'])).minus(new Decimal(String(payment.amount)));
   const reversedPaid = (reversedPaidDec.isNegative() ? new Decimal(0) : reversedPaidDec).toDecimalPlaces(2).toFixed(2);
-  await tx.update(vendorBills).set({ amountPaid: reversedPaid, status: 'approved', dueReason: bill.consignmentTriggered ? 'Due because consigned inventory depleted' : 'Approved vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
-  return { ok: true, commandId, affectedIds: [paymentId, bill.id], toast: 'Vendor payout voided.' };
+  await tx.update(vendorBills).set({ amountPaid: reversedPaid, status: 'approved', dueReason: bill['consignment_triggered'] ? 'Due because consigned inventory depleted' : 'Approved vendor payable', updatedAt: new Date() }).where(eq(vendorBills.id, bill.id as string));
+  return { ok: true, commandId, affectedIds: [paymentId, bill.id as string], toast: 'Vendor payout voided.' };
 }
 
 async function recordWeighAndPack(tx: Tx, payload: Payload, commandId: string, toast = 'Weigh and pack recorded.'): Promise<CommandResult> {
