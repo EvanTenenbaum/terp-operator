@@ -2966,7 +2966,11 @@ async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Pr
       sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${line.batchId} FOR UPDATE`
     );
     const batch = batchRows.rows[0];
-    if (batch) await tx.update(batches).set({ reservedQty: qtyScale(Math.max(0, Number(batch.reservedQty) - Number(line.qty))), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+    // Raw `SELECT *` returns Postgres column names (snake_case), so reservedQty
+    // is undefined here — read `reserved_qty`. Same shape as logPayment / other
+    // FOR UPDATE rows in this file. Writing the camelCase key would store NaN
+    // and corrupt the batch's reserved quantity.
+    if (batch) await tx.update(batches).set({ reservedQty: qtyScale(Math.max(0, Number(batch['reserved_qty']) - Number(line.qty))), updatedAt: new Date() }).where(eq(batches.id, batch.id));
   }
   await tx.update(salesOrders).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
   return { ok: true, commandId, affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)], toast: 'Sales order cancelled and reservations released.' };
@@ -3410,53 +3414,74 @@ async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): P
 async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const paymentId = requiredId(payload.paymentId, 'paymentId');
 
-  // Lock payment row to prevent concurrent refund races
+  // Lock payment row to prevent concurrent refund races. Raw `SELECT *` returns
+  // Postgres column names (snake_case), so every read below uses bracket-string
+  // access — camelCase dot access would silently produce `undefined` → NaN.
   const paymentRows = await tx.execute(
     sql`SELECT * FROM ${payments} WHERE ${payments.id} = ${paymentId} FOR UPDATE`
   );
   const payment = paymentRows.rows[0];
   if (!payment) throw new Error('Payment not found.');
-  if (payment.status === 'refunded') throw new Error('Payment has already been refunded.');
+  if (payment['status'] === 'refunded') throw new Error('Payment has already been refunded.');
+
+  // Allocation precondition (mirror of the reverseTransaction → logPayment
+  // guard): a payment must be fully unallocated before refund, otherwise the
+  // customer balance and invoice amount_paid totals would drift. For positive
+  // amounts that means unappliedAmount === amount; for negative amounts
+  // (buyer_credit) Math.max(0, amount) === 0, so unappliedAmount must be 0.
+  // Operators must call unallocatePayment for each allocation first.
+  const paymentAmount = Number(payment['amount']);
+  if (Number(payment['unapplied_amount']) !== Math.max(0, paymentAmount)) {
+    throw new Error('Unallocate this payment before refunding.');
+  }
 
   await tx.update(payments).set({ status: 'refunded', unappliedAmount: '0.00', updatedAt: new Date() }).where(eq(payments.id, paymentId));
 
   const affected = [paymentId];
-  const paymentAmount = Number(payment.amount);
 
   // Update customer balance and write a ledger entry to preserve integrity.
-  // A positive payment (money_in) reduced the customer's outstanding balance;
-  // refunding it reverses that — the balance increases by the payment amount.
-  // A negative payment (buyer_credit) increased the balance; refund decreases it.
-  if (payment.customerId) {
+  // This mirrors the canonical reverseTransaction → logPayment reversal:
+  //   - logPayment only decrements customer.balance for negative amounts
+  //     (buyer_credit), via Decimal `balance.minus(|amount|)`. Positive amounts
+  //     do not touch the balance at logPayment time — the balance only moves
+  //     when allocatePayment runs, and we have already required those
+  //     allocations to be reversed above.
+  //   - Therefore refund must add `|amount|` back only when amount < 0; for a
+  //     positive, fully-unallocated payment the balance is already at the
+  //     correct value and only the status flip is needed.
+  const customerId = payment['customer_id'] as string | null | undefined;
+  if (customerId) {
     // Lock customer row to prevent concurrent balance update races
     const customerRows = await tx.execute(
-      sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${payment.customerId} FOR UPDATE`
+      sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${customerId} FOR UPDATE`
     );
     const customer = customerRows.rows[0];
     if (customer) {
-      const balanceDelta = paymentAmount > 0 ? paymentAmount : paymentAmount; // positive payment → increase balance; negative → decrease
-      const nextBalance = new Decimal(String(customer.balance ?? 0))
-        .plus(new Decimal(String(balanceDelta)))
-        .toDecimalPlaces(2)
-        .toFixed(2);
-      await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id as string));
-      const [entry] = await tx.insert(clientLedgerEntries).values({
-        customerId: customer.id as string,
-        paymentId,
-        kind: 'payment_refund',
-        amount: moneyScale(balanceDelta),
-        balanceAfter: nextBalance,
-        note: `Refund of payment ${paymentId}`
-      }).returning();
-      affected.push(customer.id as string, entry.id);
+      if (paymentAmount < 0) {
+        const credit = Math.abs(paymentAmount);
+        const nextBalance = new Decimal(String(customer['balance'] ?? 0))
+          .plus(new Decimal(String(credit)))
+          .toDecimalPlaces(2)
+          .toFixed(2);
+        await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer['id'] as string));
+        const [entry] = await tx.insert(clientLedgerEntries).values({
+          customerId: customer['id'] as string,
+          paymentId,
+          kind: 'payment_refund',
+          amount: moneyScale(credit),
+          balanceAfter: nextBalance,
+          note: `Refund of buyer credit payment ${paymentId}`
+        }).returning();
+        affected.push(customer['id'] as string, entry.id);
+      }
+      // else: positive payment with no live allocations — nothing to reverse on
+      // the customer balance; the status flip above is the complete refund.
     } else {
-      // TODO: refundPayment must update customers.balance and write a clientLedgerEntries row
-      // Customer row not found — this creates a ledger integrity gap.
+      // Customer row not found — ledger integrity gap; surface for follow-up.
       console.error('[refundPayment] WARNING: customer not found for payment — balance not updated, ledger gap:', paymentId);
     }
   } else {
-    // TODO: refundPayment must update customers.balance and write a clientLedgerEntries row
-    // Currently this creates a ledger integrity gap — payment has no customerId.
+    // Payment has no customerId — same gap. No balance to update.
     console.error('[refundPayment] WARNING: customer balance not updated on refund — no customerId on payment:', paymentId);
   }
 
