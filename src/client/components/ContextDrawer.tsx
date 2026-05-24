@@ -10,6 +10,12 @@ import { CustomerCreditPanel } from './credit/CustomerCreditPanel';
 import { SalesOutputTab } from './drawerTabs/SalesOutputTab';
 import { SalesPricingTab } from './drawerTabs/SalesPricingTab';
 import { SalesCommandHistoryTab } from './drawerTabs/SalesCommandHistoryTab';
+import { PoLinesTab } from './drawerTabs/PoLinesTab';
+import { PoLinkedIntakeTab } from './drawerTabs/PoLinkedIntakeTab';
+import { PoVendorTab } from './drawerTabs/PoVendorTab';
+import { PoHistoryTab } from './drawerTabs/PoHistoryTab';
+import { LotMovementTab } from './drawerTabs/LotMovementTab';
+import { LotHistoryTab } from './drawerTabs/LotHistoryTab';
 
 const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   queue: [
@@ -201,6 +207,14 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   // Render conditionally — no extra query added here.
   const contactId = PROFILE_ENTITY_TYPES.has(entityType) && typeof row?.contactId === 'string' ? row.contactId : null;
 
+  // PO-specific drawer tabs (CAP-002 / CAP-003 — TER-1474 / TER-1476)
+  const isPoEntity = entityType === 'po';
+  const poId = isPoEntity ? (entityId ?? (row?.id ? String(row.id) : '')) : '';
+
+  // Lot-specific drawer tabs (CAP-011 — TER-1486)
+  const isLotEntity = entityType === 'lot';
+  const lotBatchId = isLotEntity ? (entityId ?? (row?.id ? String(row.id) : '')) : '';
+
   // salesOrder-specific drawer tabs (CAP-007/CAP-012)
   const isSalesOrderEntity = entityType === 'salesOrder';
   const salesOrderId = isSalesOrderEntity && entityId ? entityId : (row?.id ? String(row.id) : '');
@@ -215,6 +229,34 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
     { orderId: salesOrderId || '00000000-0000-0000-0000-000000000000' },
     { enabled: isSalesOrderEntity && Boolean(salesOrderId) }
   );
+
+  // CAP-002 / TER-1474 — PO lines tab
+  if (activeTab === 'lines' && isPoEntity) {
+    return <PoLinesTab poId={poId} />;
+  }
+  // CAP-003 / TER-1476 — PO linked-intake tab
+  if (activeTab === 'linked-intake' && isPoEntity) {
+    return <PoLinkedIntakeTab poId={poId} />;
+  }
+  // CAP-002 / TER-1474 — PO vendor tab. Full vendor context (terms, open
+  // bills, prior POs, last payment, notes) keyed on the PO's vendorId.
+  if (activeTab === 'vendor' && isPoEntity) {
+    const vendorName = typeof row?.vendor === 'string' ? row.vendor : undefined;
+    return <PoVendorTab vendorId={vendorId} vendorName={vendorName} />;
+  }
+  // CAP-002 / TER-1474 — PO history tab. Command journal scoped to this PO.
+  if (activeTab === 'history' && isPoEntity) {
+    return <PoHistoryTab poId={poId} />;
+  }
+
+  // CAP-011 / TER-1486 — Lot movement tab
+  if (activeTab === 'movement' && isLotEntity) {
+    return <LotMovementTab batchId={lotBatchId} />;
+  }
+  // CAP-011 / TER-1486 — Lot history tab. Command journal scoped to batch.
+  if (activeTab === 'history' && isLotEntity) {
+    return <LotHistoryTab batchId={lotBatchId} />;
+  }
 
   if (activeTab === 'pricing' && isSalesOrderEntity) {
     return (

@@ -6,6 +6,7 @@ import type {
   GridApi,
   GridReadyEvent,
   ICellRendererParams,
+  RowClickedEvent,
   ValueGetterParams
 } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -14,7 +15,7 @@ import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useUiStore } from '../store/uiStore';
-import type { CommandResult } from '../../shared/types';
+import type { CommandResult, GridRow } from '../../shared/types';
 import type { IntakeBatchRow, IntakeOrderRow } from './IntakeView.types';
 
 const EMPTY: IntakeOrderRow[] = [];
@@ -26,6 +27,14 @@ export function IntakeView() {
   const { runCommand, isRunning } = useCommandRunner();
   const utils = trpc.useUtils();
   const pushToast = useUiStore((state) => state.pushToast);
+  // CAP-003 / CAP-011 — TER-1476 / TER-1486: surface PO and batch context in
+  // the shared ContextDrawer when an intake row is selected. The outer master
+  // row is a PO (drawer → po tabs: lines, linked-intake, vendor); inner detail
+  // rows are batches (drawer → lot tabs: movement, sales, photos). The
+  // existing ReceiptPreviewDrawer is independent and continues to render in
+  // parallel for receipt-preview UX.
+  const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
 
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -111,6 +120,35 @@ export function IntakeView() {
     }
   }
 
+  // Outer master rows are PO groups — pin them as `po` entities so the drawer
+  // shows PO tabs (lines / linked-intake / vendor). Without this override the
+  // default `inferDrawerEntity` for the intake view would tag the row as a
+  // `lot` and the lot-tabs would query inventory_movements with a PO uuid.
+  const onOrderRowClicked = useCallback(
+    (event: RowClickedEvent<IntakeOrderRow>) => {
+      const row = event.data;
+      if (!row?.id) return;
+      // GridRow uses an index signature; IntakeOrderRow's stricter shape
+      // satisfies it but TS needs the cast to bridge the typed `status` fields.
+      setSelectedRows('intake', [row as unknown as GridRow]);
+      setDrawerEntity('intake', 'po', String(row.id));
+    },
+    [setSelectedRows, setDrawerEntity]
+  );
+
+  // Inner detail rows are batches — keep the default `lot` entity inference
+  // but ensure setSelectedRows captures the batch row so the drawer body
+  // renders batch-level facts and the lot-movement tab queries by batchId.
+  const onBatchRowClicked = useCallback(
+    (event: RowClickedEvent<IntakeBatchRow>) => {
+      const row = event.data;
+      if (!row?.id) return;
+      setSelectedRows('intake', [row as unknown as GridRow]);
+      setDrawerEntity('intake', 'lot', String(row.id));
+    },
+    [setSelectedRows, setDrawerEntity]
+  );
+
   const detailCellRendererParams = useMemo(
     () => ({
       detailGridOptions: {
@@ -149,13 +187,16 @@ export function IntakeView() {
         domLayout: 'autoHeight' as const,
         rowHeight: 28,
         headerHeight: 30,
+        // CAP-011 / TER-1486: pipe batch row clicks into the drawer so the
+        // lot-movement tab can render the selected batch's history.
+        onRowClicked: onBatchRowClicked,
       },
       getDetailRowData: (params: GetDetailRowDataParams<IntakeOrderRow>) => {
         params.successCallback(params.data?.batches ?? []);
       }
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canWrite, runCommand, me.data?.name]
+    [canWrite, runCommand, me.data?.name, onBatchRowClicked]
   );
 
   const columnDefs = useMemo<ColDef<IntakeOrderRow>[]>(
@@ -303,6 +344,7 @@ export function IntakeView() {
               context={{ busy, isRunning }}
               getRowId={(params) => String(params.data.id)}
               onGridReady={onGridReady}
+              onRowClicked={onOrderRowClicked}
               loading={intakeQueue.isLoading || isRunning || busy}
               isRowMaster={(data) => Boolean(data?.batches?.length)}
               animateRows={false}
