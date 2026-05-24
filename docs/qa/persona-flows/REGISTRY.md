@@ -11,6 +11,9 @@
 > Tell any agent: **"run persona QA"** or **"run persona flows"**
 > The agent reads AGENTS.md and spins up the full isolated environment via `pnpm qa:env:setup`.
 >
+> **Prerequisites for all flows:**
+> Entities confirmed per `_shared/seed-state-reference.md`. App live at `http://127.0.0.1:5173` (or use QA_APP_URL from `pnpm qa:env:setup`).
+>
 > **To run manually:**
 > Ensure `pnpm db:seed:realistic` has been run and app is live at `http://127.0.0.1:5173` (or use QA_APP_URL from `pnpm qa:env:setup`).
 > Entities confirmed per `_shared/seed-state-reference.md`.
@@ -30,17 +33,17 @@
 
 | # | Persona | File | Type | Risk | Commands | Est. Time | Last Validated |
 |---|---------|------|------|------|----------|-----------|---------------|
-| 1 | Owner / Main Manager | `owner-manager/01-morning-triage-normal.md` | normal | Normal | CMD-SALES, CMD-INTAKE | 10 min | not yet run |
+| 1 | Owner / Main Manager | `owner-manager/01-morning-triage-normal.md` | normal | Normal | CMD-SALES, CMD-INTAKE | 10 min | 2026-05-22 ✅ |
 | 2 | Owner / Main Manager | `owner-manager/02-exception-approval-edge.md` | edge-case | Deep QA | CMD-SALES, CMD-PAYMENTS | 12 min | not yet run |
 | 3 | Owner / Main Manager | `owner-manager/03-period-closeout-full-lifecycle.md` | full-lifecycle | Deep QA | CMD-CLOSEOUT | 20 min | not yet run |
 | 4 | Sales Operator | `sales-operator/01-instant-sale-normal.md` | normal | Normal | CMD-SALES | 8 min | not yet run |
 | 5 | Sales Operator | `sales-operator/02-customer-credit-hold-edge.md` | edge-case | Deep QA | CMD-SALES, CMD-PAYMENTS | 10 min | not yet run |
 | 6 | Sales Operator | `sales-operator/03-no-available-inventory-error.md` | error-path | Normal | CMD-SALES | 6 min | not yet run |
-| 7 | Inventory Operator | `inventory-operator/01-receive-batch-normal.md` | normal | Normal | CMD-INTAKE, CMD-PO | 10 min | not yet run |
-| 8 | Inventory Operator | `inventory-operator/02-flagged-batch-edge.md` | edge-case | Deep QA | CMD-INTAKE | 10 min | not yet run |
+| 7 | Inventory Operator | `inventory-operator/01-receive-batch-normal.md` | normal | Normal | CMD-INTAKE, CMD-PO | 10 min | 2026-05-22 ✅ |
+| 8 | Inventory Operator | `inventory-operator/02-flagged-batch-edge.md` | edge-case | Deep QA | CMD-INTAKE | 10 min | 2026-05-22 ✅ |
 | 9 | Inventory Operator | `inventory-operator/03-reversal-after-bad-post-error.md` | error-path | Deep QA | CMD-INTAKE, CMD-RECOVERY | 12 min | not yet run |
-| 10 | Payments / Accounting | `payments-accounting/01-log-and-allocate-payment-normal.md` | normal | Deep QA | CMD-PAYMENTS | 10 min | not yet run |
-| 11 | Payments / Accounting | `payments-accounting/02-unapplied-balance-edge.md` | edge-case | Deep QA | CMD-PAYMENTS | 12 min | not yet run |
+| 10 | Payments / Accounting | `payments-accounting/01-log-and-allocate-payment-normal.md` | normal | Deep QA | CMD-PAYMENTS | 10 min | 2026-05-22 ✅ |
+| 11 | Payments / Accounting | `payments-accounting/02-unapplied-balance-edge.md` | edge-case | Deep QA | CMD-PAYMENTS | 12 min | 2026-05-22 ✅ |
 | 12 | Payments / Accounting | `payments-accounting/03-vendor-bill-payment-lifecycle.md` | full-lifecycle | Critical | CMD-VENDOR, CMD-PAYMENTS | 15 min | not yet run |
 | 13 | Warehouse Operator | `warehouse-operator/01-pick-weigh-fulfill-normal.md` | normal | Normal | CMD-FULFILLMENT | 8 min | not yet run |
 | 14 | Warehouse Operator | `warehouse-operator/02-weight-discrepancy-edge.md` | edge-case | Deep QA | CMD-FULFILLMENT | 10 min | not yet run |
@@ -50,10 +53,10 @@
 | 18 | Support Operator | `support-operator/03-missing-batch-investigation-error.md` | error-path | Normal | CMD-RECOVERY | 8 min | not yet run |
 | 19 | Photographer / Readiness | `photographer-readiness/01-batch-photo-session-normal.md` | normal | Normal | CMD-INTAKE | 8 min | not yet run |
 | 20 | Photographer / Readiness | `photographer-readiness/02-missing-media-blocker-edge.md` | edge-case | Normal | CMD-INTAKE | 8 min | not yet run |
-| 21 | Photographer / Readiness | `photographer-readiness/03-catalog-readiness-sweep-normal.md` | normal | Normal | — (read-only) | 6 min | not yet run |
-| 22 | Connector Actor | `connector-actor/01-submit-connector-request-normal.md` | normal | Normal | CMD-CONNECTOR | 8 min | not yet run |
-| 23 | Connector Actor | `connector-actor/02-request-routing-edge.md` | edge-case | Normal | CMD-CONNECTOR | 8 min | not yet run |
-| 24 | Connector Actor | `connector-actor/03-safe-default-no-ledger-write-error.md` | error-path | Deep QA | CMD-CONNECTOR | 10 min | not yet run |
+| 21 | Photographer / Readiness | `photographer-readiness/03-catalog-readiness-sweep-normal.md` | normal | Normal | — (read-only) | 6 min | 2026-05-22 ✅ |
+| 22 | Connector Actor | `connector-actor/01-submit-connector-request-normal.md` | normal | Normal | CMD-CONNECTOR | 8 min | 2026-05-22 ✅ |
+| 23 | Connector Actor | `connector-actor/02-request-routing-edge.md` | edge-case | Normal | CMD-CONNECTOR | 8 min | 2026-05-22 ✅ |
+| 24 | Connector Actor | `connector-actor/03-safe-default-no-ledger-write-error.md` | error-path | Deep QA | CMD-CONNECTOR | 10 min | 2026-05-22 ✅ |
 
 ---
 
