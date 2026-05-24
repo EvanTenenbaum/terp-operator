@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { useCommandRunner } from '../useCommandRunner';
 import type { AppointmentType } from '../../../shared/types';
 
+/** Convert a UTC ISO string to a "YYYY-MM-DDTHH:MM" string in local time,
+ *  suitable for <input type="datetime-local">. */
+function toLocalInputString(isoUtc: string | undefined): string {
+  if (!isoUtc) return '';
+  const d = new Date(isoUtc);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 const APPOINTMENT_TYPES: AppointmentType[] = ['meeting','call','delivery','pickup','vacation','job','other'];
 
 interface Props {
@@ -24,8 +33,8 @@ export function AppointmentModal({ contactId, appointmentId, initialValues, onCl
 
   const [title, setTitle]          = useState(initialValues?.title ?? '');
   const [appointmentType, setType] = useState<AppointmentType>(initialValues?.appointmentType ?? 'meeting');
-  const [startsAt, setStartsAt]    = useState(initialValues?.startsAt?.slice(0, 16) ?? '');
-  const [endsAt, setEndsAt]        = useState(initialValues?.endsAt?.slice(0, 16) ?? '');
+  const [startsAt, setStartsAt]    = useState(toLocalInputString(initialValues?.startsAt));
+  const [endsAt, setEndsAt]        = useState(toLocalInputString(initialValues?.endsAt));
   const [location, setLocation]    = useState(initialValues?.location ?? '');
   const [notes, setNotes]          = useState(initialValues?.notes ?? '');
 

@@ -19,7 +19,7 @@ test('owner can navigate contacts directory and view a profile', async ({ page }
   await expect(page.locator('.ag-root:visible').first()).toBeVisible();
 
   // Wait for grid rows to actually render before clicking
-  await expect(page.locator('.ag-row')).toHaveCount({ minimum: 1 }, { timeout: 15_000 }).catch(() => null);
+  await expect(page.locator('.ag-row').first()).toBeVisible({ timeout: 15_000 }).catch(() => null);
   await page.waitForTimeout(500); // let AG Grid finish rendering cell renderers
 
   // Click into the first contact — use grid-scoped selector to avoid non-grid text-buttons

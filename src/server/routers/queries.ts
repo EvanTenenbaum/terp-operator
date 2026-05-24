@@ -1370,28 +1370,60 @@ export const queriesRouter = router({
 
       const [customerRow, vendorRow, refereeRow, processorRow, userRow, orderStats] = await Promise.all([
         contact.is_customer
-          ? pool.query(`SELECT cu.*, COUNT(DISTINCT so.id) AS lifetime_order_count,
-              COALESCE(SUM(so.total), 0) AS lifetime_revenue,
-              COUNT(DISTINCT i.id) FILTER (WHERE i.status IN ('open','partial')) AS open_invoices_count,
-              COALESCE(SUM(i.total - i.amount_paid) FILTER (WHERE i.status IN ('open','partial')), 0) AS open_invoices_amount,
-              COALESCE(MAX(EXTRACT(DAY FROM NOW() - i.created_at)) FILTER (WHERE i.status IN ('open','partial')), 0) AS oldest_open_invoice_days,
-              MAX(so.created_at) AS last_order_date
+          ? pool.query(`SELECT cu.*,
+              COALESCE(so_stats.lifetime_order_count, 0) AS lifetime_order_count,
+              COALESCE(so_stats.lifetime_revenue, 0) AS lifetime_revenue,
+              so_stats.last_order_date,
+              COALESCE(inv_stats.open_invoices_count, 0) AS open_invoices_count,
+              COALESCE(inv_stats.open_invoices_amount, 0) AS open_invoices_amount,
+              COALESCE(inv_stats.oldest_open_invoice_days, 0) AS oldest_open_invoice_days
             FROM customers cu
-            LEFT JOIN sales_orders so ON so.customer_id = cu.id
-            LEFT JOIN invoices i ON i.customer_id = cu.id
-            WHERE cu.contact_id = $1 GROUP BY cu.id`, [contactId])
+            LEFT JOIN (
+              SELECT customer_id,
+                COUNT(*) AS lifetime_order_count,
+                COALESCE(SUM(total), 0) AS lifetime_revenue,
+                MAX(created_at) AS last_order_date
+              FROM sales_orders
+              GROUP BY customer_id
+            ) so_stats ON so_stats.customer_id = cu.id
+            LEFT JOIN (
+              SELECT customer_id,
+                COUNT(*) FILTER (WHERE status IN ('open','partial')) AS open_invoices_count,
+                COALESCE(SUM(total - amount_paid) FILTER (WHERE status IN ('open','partial')), 0) AS open_invoices_amount,
+                COALESCE(MAX(EXTRACT(DAY FROM NOW() - created_at)) FILTER (WHERE status IN ('open','partial')), 0) AS oldest_open_invoice_days
+              FROM invoices
+              GROUP BY customer_id
+            ) inv_stats ON inv_stats.customer_id = cu.id
+            WHERE cu.contact_id = $1
+            GROUP BY cu.id, so_stats.lifetime_order_count, so_stats.lifetime_revenue, so_stats.last_order_date,
+              inv_stats.open_invoices_count, inv_stats.open_invoices_amount, inv_stats.oldest_open_invoice_days`, [contactId])
           : Promise.resolve({ rows: [] }),
         contact.is_vendor
           ? pool.query(`SELECT v.*,
-              COALESCE(SUM(vb.amount), 0) AS total_billed,
-              COALESCE(SUM(vb.amount_paid), 0) AS total_paid,
-              COUNT(DISTINCT vb.id) FILTER (WHERE vb.status NOT IN ('paid','void','reversed')) AS open_bills_count,
-              COALESCE(SUM(vb.amount - vb.amount_paid) FILTER (WHERE vb.status NOT IN ('paid','void','reversed')), 0) AS open_bills_amount,
-              COUNT(DISTINCT po.id) FILTER (WHERE po.status NOT IN ('received','cancelled')) AS open_po_count
+              COALESCE(bill_stats.total_billed, 0) AS total_billed,
+              COALESCE(bill_stats.total_paid, 0) AS total_paid,
+              COALESCE(bill_stats.open_bills_count, 0) AS open_bills_count,
+              COALESCE(bill_stats.open_bills_amount, 0) AS open_bills_amount,
+              COALESCE(po_stats.open_po_count, 0) AS open_po_count
             FROM vendors v
-            LEFT JOIN vendor_bills vb ON vb.vendor_id = v.id
-            LEFT JOIN purchase_orders po ON po.vendor_id = v.id
-            WHERE v.contact_id = $1 GROUP BY v.id`, [contactId])
+            LEFT JOIN (
+              SELECT vendor_id,
+                COALESCE(SUM(amount), 0) AS total_billed,
+                COALESCE(SUM(amount_paid), 0) AS total_paid,
+                COUNT(*) FILTER (WHERE status NOT IN ('paid','void','reversed')) AS open_bills_count,
+                COALESCE(SUM(amount - amount_paid) FILTER (WHERE status NOT IN ('paid','void','reversed')), 0) AS open_bills_amount
+              FROM vendor_bills
+              GROUP BY vendor_id
+            ) bill_stats ON bill_stats.vendor_id = v.id
+            LEFT JOIN (
+              SELECT vendor_id,
+                COUNT(*) FILTER (WHERE status NOT IN ('received','cancelled')) AS open_po_count
+              FROM purchase_orders
+              GROUP BY vendor_id
+            ) po_stats ON po_stats.vendor_id = v.id
+            WHERE v.contact_id = $1
+            GROUP BY v.id, bill_stats.total_billed, bill_stats.total_paid, bill_stats.open_bills_count,
+              bill_stats.open_bills_amount, po_stats.open_po_count`, [contactId])
           : Promise.resolve({ rows: [] }),
         contact.is_referee
           ? pool.query(`SELECT * FROM referees WHERE contact_id = $1 LIMIT 1`, [contactId])
