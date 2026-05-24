@@ -53,7 +53,13 @@ export function PhotographyQueuePanel() {
           Photo URL/path
           <input className="input" value={photoUrl} placeholder="/controlled/media/path/photo.jpg" onChange={(event) => setPhotoUrl(event.target.value)} />
         </label>
-        <button className="secondary-button" type="button" disabled={!selected || !photoUrl.trim() || isRunning} onClick={attach}>
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={!selected || !photoUrl.trim() || isRunning}
+          title={!selected ? 'Select a batch to attach media' : !photoUrl.trim() ? 'Enter a photo URL to attach' : undefined}
+          onClick={attach}
+        >
           <Camera className="h-4 w-4" aria-hidden="true" />
           Attach
         </button>
