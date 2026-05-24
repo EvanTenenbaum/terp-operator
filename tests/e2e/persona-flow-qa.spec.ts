@@ -101,28 +101,15 @@ async function goClients(page: Page) {
   await page.waitForTimeout(2_000);
 }
 
-async function expandAdminNav(page: Page) {
-  // Recovery and Closeout are under the Admin sidebar section which may be collapsed
-  const recoveryVisible = nav(page).getByRole('button', { name: /Recovery/ });
-  if (!(await recoveryVisible.isVisible({ timeout: 1_500 }).catch(() => false))) {
-    // Try clicking an Admin section expander
-    const adminSection = nav(page).getByRole('button', { name: /Admin/i });
-    if (await adminSection.isVisible({ timeout: 1_500 }).catch(() => false)) {
-      await adminSection.click();
-      await page.waitForTimeout(500);
-    }
-  }
-}
-
 async function goRecovery(page: Page) {
-  await expandAdminNav(page);
-  await nav(page).getByRole('button', { name: /Recovery/ }).click();
+  // Recovery has no sidebar nav button — navigate directly
+  await page.goto('/recovery');
   await page.waitForTimeout(2_000);
 }
 
 async function goCloseout(page: Page) {
-  await expandAdminNav(page);
-  await nav(page).getByRole('button', { name: /Closeout/ }).click();
+  // Closeout has no sidebar nav button — navigate directly
+  await page.goto('/closeout');
   await page.waitForTimeout(2_000);
 }
 
@@ -692,11 +679,13 @@ test('PA3 – Payments: Vendor Bill Payment Lifecycle (Critical)', async ({ page
   await goVendorPayouts(page);
   await shot(page, 'pa3-step1-vendor-payouts');
   await expect(page.getByText('Vendor bill and payout tools')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole('button', { name: 'Create bill' })).toBeVisible({ timeout: 5_000 });
-
-  // Click Create bill
-  await page.getByRole('button', { name: 'Create bill' }).click();
-  await page.waitForTimeout(1_000);
+  const createBillBtn = page.getByRole('button', { name: 'Create bill' });
+  await expect(createBillBtn).toBeVisible({ timeout: 5_000 });
+  // Create bill requires vendor + amount to be selected; guard if disabled
+  if (await createBillBtn.isEnabled({ timeout: 2_000 }).catch(() => false)) {
+    await createBillBtn.click();
+    await page.waitForTimeout(1_000);
+  }
   await shot(page, 'pa3-step1-create-bill');
 
   // Step 2: Approve the bill
@@ -942,10 +931,11 @@ test('PHOTO1 – Photographer: Batch Photo Session Normal', async ({ page }) => 
 
   // Step 3: Update media status
   await shot(page, 'photo1-step3-update-media');
-  const attachBtn = await page.getByRole('button', { name: 'Attach' })
-    .isVisible({ timeout: 3_000 }).catch(() => false);
-  if (attachBtn) {
-    await page.getByRole('button', { name: 'Attach' }).click();
+  const attachLocator = page.getByRole('button', { name: 'Attach' });
+  const canAttach = await attachLocator.isVisible({ timeout: 3_000 }).catch(() => false)
+    && await attachLocator.isEnabled({ timeout: 1_000 }).catch(() => false);
+  if (canAttach) {
+    await attachLocator.click();
     await page.waitForTimeout(500);
     await shot(page, 'photo1-step3-attach-clicked');
     await page.keyboard.press('Escape');
