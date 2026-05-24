@@ -226,7 +226,7 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
     );
   }
   if (activeTab === 'output' && isSalesOrderEntity) {
-    function handleExport() {
+    const handleExport = () => {
       const csv = buildSheetCsv(salesSheetState.sheetRows, salesSheetState.sheetMode, { showMargin });
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -235,7 +235,7 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
       link.download = salesSheetState.sheetMode === 'internal' ? 'terp-operator-sales-sheet.csv' : 'terp-operator-sales-catalog.csv';
       link.click();
       URL.revokeObjectURL(url);
-    }
+    };
     return (
       <SalesOutputTab
         orderId={salesOrderId}
