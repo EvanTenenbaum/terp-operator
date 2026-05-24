@@ -792,7 +792,6 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
       return revokePhotoUploadTokenCommand(tx, payload, commandId);
-<<<<<<< HEAD
     // ─── Contacts system (CAP-033 / TER-1564) ─────────────────────────────
     case 'createContact':
       return createContact(tx, payload, commandId);

@@ -223,7 +223,6 @@ export const linkContactToUserPayloadSchema = z.object({
 });
 
 export const createAppointmentPayloadSchema = z.object({
-export const createAppointmentPayloadSchema = z.object({
   contactId: z.string().uuid(),
   title: z.string().trim().min(1).max(240),
   appointmentType: appointmentTypeSchema.default('meeting'),
