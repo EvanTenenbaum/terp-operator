@@ -9,7 +9,7 @@ import { getCloseoutSafety } from '../services/closeout';
 import { getExternalReceipt, getInternalReceipt, renderPrintHtml, renderSignalText } from '../services/documentSnapshots';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
-import { paymentProcessors, processorFees } from '../schema';
+import { commandJournal, paymentProcessors, processorFees } from '../schema';
 import { projectLandedCostException } from '../projections/landedCostException';
 import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCostExceptionSql';
 
@@ -1573,6 +1573,29 @@ export const queriesRouter = router({
       `SELECT COUNT(*) AS count FROM contact_merge_candidates WHERE reviewed = false AND dismissed = false`
     );
     return { count: Number(result.rows[0]?.count ?? 0) };
+  }),
+
+  /**
+   * Returns recent command journal entries (up to 500, newest first).
+   * Used by adversarial idempotency tests to verify that concurrent requests
+   * with the same idempotency key produce exactly one journal row.
+   * Manager-gated so it cannot be called from viewer/operator surfaces.
+   */
+  commandJournal: protectedProcedure.query(async () => {
+    return db
+      .select({
+        id: commandJournal.id,
+        commandName: commandJournal.commandName,
+        idempotencyKey: commandJournal.idempotencyKey,
+        actorId: commandJournal.actorId,
+        actorName: commandJournal.actorName,
+        status: commandJournal.status,
+        affectedIds: commandJournal.affectedIds,
+        createdAt: commandJournal.createdAt,
+      })
+      .from(commandJournal)
+      .orderBy(desc(commandJournal.createdAt))
+      .limit(500);
   }),
 });
 

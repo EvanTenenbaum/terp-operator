@@ -102,10 +102,14 @@ test.describe('adversarial command contracts', () => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
     const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
-    // Filter for a batch with available qty >= 2 AND no price range (cost must be resolved so
-    // confirmSalesOrder passes the unitCostResolved check before reaching the duplicate-source check).
+    // Filter for a batch with available qty >= 2 AND a resolved unit cost (> 0).
+    // The original !row.priceRange filter is too aggressive — in the current seed every
+    // high-qty batch carries a priceRange, so the find returns undefined. Instead, look
+    // for a batch whose unitCost is already resolved (a fixed, positive number) so that
+    // confirmSalesOrder passes the unitCostResolved check before reaching the
+    // duplicate-source check.
     const batch = reference[0].result.data.json.availableBatches.find(
-      (row: { availableQty: string; priceRange?: unknown }) => Number(row.availableQty) >= 2 && !row.priceRange
+      (row: { availableQty: string; unitCost?: string }) => Number(row.availableQty) >= 2 && row.unitCost && Number(row.unitCost) > 0
     );
     const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
     const orderId = order.affectedIds[0];
@@ -254,10 +258,11 @@ test.describe('adversarial command contracts', () => {
 
     // approvePurchaseOrder internally calls receivePurchaseOrder when a vendor is set,
     // so the second explicit call returns the no-new-rows path which still contains
-    // 'draft intake rows' in the toast message.
+    // 'draft intake row' in the toast message. Use the singular stem so the assertion
+    // matches both "draft intake row(s)" and "draft intake rows".
     const received = commandData(await runCommand(page, 'receivePurchaseOrder', { purchaseOrderId }));
     expect(received.ok).toBe(true);
-    expect(received.toast).toContain('draft intake rows');
+    expect(received.toast).toContain('draft intake row');
 
     const intakeRows = await trpcQuery(page, 'queries.grid', { view: 'intake' });
     const linkedDraft = intakeRows[0].result.data.json.find((row: { purchaseOrderId?: string }) => row.purchaseOrderId === purchaseOrderId);
@@ -367,12 +372,13 @@ test.describe('adversarial command contracts', () => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
     const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
-    // Filter for a batch with no price range (fixed cost): confirmSalesOrder checks unitCostResolved
-    // BEFORE the pricing guardrail check, so a range-priced batch would throw 'unresolved landed COGS'
-    // instead of 'below pricing guardrails'. We need a batch with resolved cost to reach the
-    // guardrail check.
+    // Filter for a batch with a resolved (fixed, positive) unit cost: confirmSalesOrder checks
+    // unitCostResolved BEFORE the pricing guardrail check, so a range-priced batch would throw
+    // 'unresolved landed COGS' instead of 'below pricing guardrails'. Use unitCost > 0 rather
+    // than !row.priceRange — the current seed has no high-qty batch without priceRange, making
+    // the !priceRange filter return undefined.
     const batch = reference[0].result.data.json.availableBatches.find(
-      (row: { availableQty: string; priceRange?: unknown }) => Number(row.availableQty) >= 1 && !row.priceRange
+      (row: { availableQty: string; unitCost?: string }) => Number(row.availableQty) >= 1 && row.unitCost && Number(row.unitCost) > 0
     );
     const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
     const orderId = order.affectedIds[0];
