@@ -240,7 +240,7 @@ export function MobilePaymentsView() {
         className="sticky top-0 z-10 border-b"
         style={{ background: 'var(--m-field)', borderColor: 'var(--m-line)' }}
       >
-        <div className="flex" role="tablist" aria-label="Payments mode">
+        <div className="flex" aria-label="Payments mode">
           <TabButton active={tab === 'receive'} onClick={() => selectTab('receive')} label="Receive Payment" />
           <TabButton active={tab === 'pay'}     onClick={() => selectTab('pay')}     label="Pay Vendor" />
         </div>
@@ -381,8 +381,7 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
+      aria-pressed={active}
       onClick={onClick}
       className="flex-1 py-3 text-sm font-semibold"
       style={{
