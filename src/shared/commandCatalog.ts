@@ -151,15 +151,38 @@ export const internalOnlyCommandNames = [
 ] as const;
 
 // Commands that have been wired to the backend but whose frontend runCommand surface
-// is pending (PR #186 — CAP-030 frontend). Remove from this list when the frontend PR
-// lands so that parity enforcement kicks back in.
+// is pending. Remove from this list when the frontend PR lands so that parity
+// enforcement kicks back in.
+//
+// CAP-030 frontend (PR #186): releaseLineForPicking, releaseLinesForPicking,
+// recallLineFromPicking, acknowledgeWarehouseAlert, returnPickedUnits,
+// cancelFulfillmentLine.
+//
+// TER-1564 / CAP-033 entity profiles (Phase 1): createContact, updateContact,
+// archiveContact, addContactRole, linkContactToExistingEntity, linkContactToUser,
+// createAppointment, updateAppointment, cancelAppointment, completeAppointment,
+// updateVendor, updateProcessor.
 export const pendingFrontendCommandNames = [
+  // CAP-030
   'releaseLineForPicking',
   'releaseLinesForPicking',
   'recallLineFromPicking',
   'acknowledgeWarehouseAlert',
   'returnPickedUnits',
   'cancelFulfillmentLine',
+  // TER-1564 / CAP-033
+  'createContact',
+  'updateContact',
+  'archiveContact',
+  'addContactRole',
+  'linkContactToExistingEntity',
+  'linkContactToUser',
+  'createAppointment',
+  'updateAppointment',
+  'cancelAppointment',
+  'completeAppointment',
+  'updateVendor',
+  'updateProcessor',
 ] as const;
 
 
