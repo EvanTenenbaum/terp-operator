@@ -3182,9 +3182,9 @@ async function applyClientCredit(tx: Tx, payload: Payload, commandId: string): P
   const amount = requiredNumber(payload.amount, 'amount');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
-  const nextBalance = Number(customer.balance) - amount;
-  await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customerId));
-  const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, kind: 'credit', amount: moneyScale(-amount), balanceAfter: moneyScale(nextBalance), note: stringValue(payload.reason) || 'Client credit applied' }).returning();
+  const nextBalance = new Decimal(String(customer.balance ?? 0)).minus(String(amount)).toDecimalPlaces(2).toFixed(2);
+  await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customerId));
+  const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, kind: 'credit', amount: moneyScale(-amount), balanceAfter: nextBalance, note: stringValue(payload.reason) || 'Client credit applied' }).returning();
   return { ok: true, commandId, affectedIds: [customerId, entry.id], toast: `Applied ${moneyScale(amount)} credit to ${customer.name}.` };
 }
 
@@ -3231,9 +3231,9 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
   const affected = [payment.id, customerId];
   if (amount < 0) {
     const credit = Math.abs(amount);
-    const nextBalance = Number(customer.balance) - credit;
-    await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customerId));
-    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, paymentId: payment.id, kind: 'down_payment', amount: moneyScale(-credit), balanceAfter: moneyScale(nextBalance), note: 'Negative payment recorded as buyer credit', createdAt: transactionDate }).returning();
+    const nextBalance = new Decimal(String(customer.balance ?? 0)).minus(String(credit)).toDecimalPlaces(2).toFixed(2);
+    await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customerId));
+    const [entry] = await tx.insert(clientLedgerEntries).values({ customerId, paymentId: payment.id, kind: 'down_payment', amount: moneyScale(-credit), balanceAfter: nextBalance, note: 'Negative payment recorded as buyer credit', createdAt: transactionDate }).returning();
     affected.push(entry.id);
   }
 
@@ -4212,11 +4212,11 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
       if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
         const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
         if (customer) {
-          const nextBalance = Number(customer.balance) + Math.abs(Number(currentPayment.amount));
-          await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+          const nextBalance = new Decimal(String(customer.balance ?? 0)).plus(new Decimal(String(currentPayment.amount ?? 0)).abs()).toDecimalPlaces(2).toFixed(2);
+          await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id));
           const [entry] = await tx
             .insert(clientLedgerEntries)
-            .values({ customerId: customer.id, paymentId: currentPayment.id, kind: 'payment_reversal', amount: moneyScale(Math.abs(Number(currentPayment.amount))), balanceAfter: moneyScale(nextBalance), note: 'Buyer credit reversal' })
+            .values({ customerId: customer.id, paymentId: currentPayment.id, kind: 'payment_reversal', amount: moneyScale(Math.abs(Number(currentPayment.amount))), balanceAfter: nextBalance, note: 'Buyer credit reversal' })
             .returning();
           affected.push(customer.id, entry.id);
         }
@@ -4285,11 +4285,11 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
       if (Number(currentPayment.amount) < 0 && currentPayment.customerId) {
         const [customer] = await tx.select().from(customers).where(eq(customers.id, currentPayment.customerId)).limit(1);
         if (customer) {
-          const nextBalance = Number(customer.balance) + Math.abs(Number(currentPayment.amount));
-          await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+          const nextBalance = new Decimal(String(customer.balance ?? 0)).plus(new Decimal(String(currentPayment.amount ?? 0)).abs()).toDecimalPlaces(2).toFixed(2);
+          await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id));
           const [entry] = await tx
             .insert(clientLedgerEntries)
-            .values({ customerId: customer.id, paymentId: currentPayment.id, kind: 'payment_reversal', amount: moneyScale(Math.abs(Number(currentPayment.amount))), balanceAfter: moneyScale(nextBalance), note: 'Transaction ledger buyer credit reversal' })
+            .values({ customerId: customer.id, paymentId: currentPayment.id, kind: 'payment_reversal', amount: moneyScale(Math.abs(Number(currentPayment.amount))), balanceAfter: nextBalance, note: 'Transaction ledger buyer credit reversal' })
             .returning();
           affected.push(customer.id, entry.id);
         }
