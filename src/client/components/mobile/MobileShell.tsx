@@ -74,7 +74,7 @@ export function MobileShell() {
 
   return (
     <MobileToastProvider>
-      <div className="mobile-shell flex h-screen flex-col overflow-hidden">
+      <div className="mobile-shell flex h-dvh flex-col overflow-hidden">
         {/* Top header */}
         <header
           className="flex h-16 shrink-0 items-center justify-between border-b px-4"

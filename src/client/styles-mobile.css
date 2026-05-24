@@ -142,3 +142,13 @@
 @media (prefers-reduced-motion: reduce) {
   .mobile-shell * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Viewport height fix for mobile Safari < 15.4 which doesn't support dvh.
+   h-dvh (100dvh) is the primary value; this fallback ensures the shell still
+   fills the screen on older browsers. */
+@supports not (height: 100dvh) {
+  .mobile-shell {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+}
