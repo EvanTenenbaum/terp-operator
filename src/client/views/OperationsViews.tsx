@@ -16,6 +16,7 @@ import { useUiStore } from '../store/uiStore';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
 import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationshipDrawer';
 import { ReceiptPanel } from '../components/ReceiptPanel';
+import { ReceiptPreviewOverlay } from '../components/ReceiptPreviewOverlay';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -289,6 +290,7 @@ export function PurchaseOrdersView() {
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
+  const [receiptOverlayOpen, setReceiptOverlayOpen] = useState(false);
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
   const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
@@ -869,7 +871,22 @@ export function PurchaseOrdersView() {
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
             ) : null}
+            {selectedPoStatus === 'finalized' ? (
+              <button
+                type="button"
+                className="secondary-button compact-action"
+                onClick={() => setReceiptOverlayOpen(true)}
+              >
+                Preview receipt
+              </button>
+            ) : null}
           </section>
+          {receiptOverlayOpen && selectedPo?.id ? (
+            <ReceiptPreviewOverlay
+              purchaseOrderId={String(selectedPo.id)}
+              onClose={() => setReceiptOverlayOpen(false)}
+            />
+          ) : null}
           {['finalized', 'approved', 'ordered', 'partially_received', 'received'].includes(selectedPoStatus) ? (
             <ReceiptPanel purchaseOrderId={String(selectedPo.id)} />
           ) : null}
