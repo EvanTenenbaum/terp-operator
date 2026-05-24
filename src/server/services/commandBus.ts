@@ -3409,6 +3409,11 @@ async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string
   );
   const invoice = invoiceRows.rows[0];
   if (!invoice) throw new Error('Invoice not found.');
+  const openBalance = Number(invoice.total) - Number(invoice.amountPaid);
+  if (amount > openBalance + 0.001) {
+    // 0.001 tolerance for float drift; the constraint is strict
+    return { ok: false, commandId, affectedIds: [], toast: `Discount amount exceeds open balance ($${openBalance.toFixed(2)}). Reverse a payment first or reduce the discount.` };
+  }
   const nextTotal = Math.max(0, Number(invoice.total) - amount);
   await tx.update(invoices).set({ total: moneyScale(nextTotal), status: Number(invoice.amountPaid) >= nextTotal ? 'paid' : invoice.status, updatedAt: new Date() }).where(eq(invoices.id, invoiceId));
   return { ok: true, commandId, affectedIds: [invoiceId], toast: 'Early-pay discount applied.' };
