@@ -822,6 +822,8 @@ export function SalesView() {
             rows={(orders.data ?? []) as GridRow[]}
             columns={visibleOrderColumns}
             loading={orders.isLoading && !customerId}
+            isError={orders.isError}
+            onRetry={() => orders.refetch()}
             onSelectionChange={(selection) => setSelectedRows('sales', selection)}
             emptyTitle="No open sales shown"
             emptyChildren="Choose a customer to start."

@@ -48,6 +48,8 @@ interface OperatorGridProps {
   rows: GridRow[];
   columns: ColDef<GridRow>[];
   loading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   actions?: ReactNode;
   selectionActions?: (rows: GridRow[]) => ReactNode;
   onSelectionChange?: (rows: GridRow[]) => void;
@@ -71,6 +73,8 @@ export function OperatorGrid({
   rows,
   columns,
   loading,
+  isError,
+  onRetry,
   actions,
   selectionActions,
   onSelectionChange,
@@ -340,7 +344,13 @@ export function OperatorGrid({
         </div>
       ) : null}
       <div className="ag-theme-quartz grid-shell">
-        {renderedRows.length || loading ? (
+        {isError ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-500 p-8">
+            <p className="text-sm font-medium text-red-600">Failed to load data</p>
+            <p className="text-xs">Server error or connection issue</p>
+            {onRetry && <button className="btn-secondary text-xs" onClick={onRetry}>Retry</button>}
+          </div>
+        ) : renderedRows.length || loading ? (
           <AgGridReact<GridRow>
             rowData={renderedRows}
             columnDefs={columnDefs}

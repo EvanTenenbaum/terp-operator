@@ -20,14 +20,20 @@ async function loadClientConfig(): Promise<ClientConfig> {
     return { agGridLicenseKey: buildTimeKey };
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch('/api/client-config', { credentials: 'same-origin' });
+    const response = await fetch('/api/client-config', { credentials: 'same-origin', signal: controller.signal });
     if (!response.ok) {
       return {};
     }
     return (await response.json()) as ClientConfig;
   } catch {
+    // Timeout or network error — proceed without license key
+    console.warn('[loadClientConfig] Timed out or failed, proceeding without AG Grid license');
     return {};
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

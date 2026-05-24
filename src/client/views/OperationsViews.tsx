@@ -811,6 +811,8 @@ export function PurchaseOrdersView() {
         rows={(grid.data ?? []) as GridRow[]}
         columns={columnsByView.purchaseOrders ?? []}
         loading={grid.isLoading || isRunning}
+        isError={grid.isError}
+        onRetry={() => grid.refetch()}
         onSelectionChange={(rows) => {
           setSelectedRows('purchaseOrders', rows);
           setSelectedLines([]);
@@ -1068,6 +1070,8 @@ export function OrdersView() {
         rows={(grid.data ?? []) as GridRow[]}
         columns={columnsByView.orders ?? []}
         loading={grid.isLoading}
+        isError={grid.isError}
+        onRetry={() => grid.refetch()}
         onSelectionChange={(rows) => setSelectedRows('orders', rows)}
         onCellCommit={canWrite ? onCellCommit : undefined}
         actions={canWrite ? (
@@ -1957,6 +1961,8 @@ export function FulfillmentView() {
         rows={filteredPickRows}
         columns={columnsByView.fulfillment ?? []}
         loading={grid.isLoading || isRunning}
+        isError={grid.isError}
+        onRetry={() => grid.refetch()}
         onSelectionChange={(rows) => {
           setSelectedRows('fulfillment', rows);
           setSelectedLines([]);
@@ -2766,6 +2772,8 @@ function GridJourney({
         rows={(grid.data ?? []) as GridRow[]}
         columns={columns ?? columnsByView[view] ?? []}
         loading={grid.isLoading}
+        isError={grid.isError}
+        onRetry={() => grid.refetch()}
         onSelectionChange={(rows) => setSelectedRows(view, rows)}
         onCellCommit={(event) => onCellCommit?.(event, runCommand)}
         actions={canWrite ? actions?.(selected, runCommand) : null}

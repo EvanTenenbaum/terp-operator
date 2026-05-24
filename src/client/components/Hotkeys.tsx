@@ -126,6 +126,11 @@ export function Hotkeys() {
         return;
       }
 
+      // Guard destructive/command hotkeys when a modal dialog is open.
+      // Escape, Cmd+K, and navigation hotkeys (Cmd+1-6) intentionally remain
+      // unguarded — operators may still navigate or close the dialog.
+      if (document.querySelector('[role="dialog"]')) return;
+
       if (key === 'd') {
         event.preventDefault();
         if (activeView !== 'intake' || !rows.length) return pushToast('Select intake rows to duplicate.', 'info');

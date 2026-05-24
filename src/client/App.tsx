@@ -112,8 +112,18 @@ function AppContent() {
 
   if (!me.data) return <LoginView />;
 
+  // Show a top banner when the server becomes unreachable after login.
+  // failureCount > 0 avoids flicker on the first background refetch failure.
+  const isServerUnreachable = me.isError && me.failureCount > 0;
+
   return (
     <div className="flex h-screen overflow-hidden bg-white text-ink">
+      {isServerUnreachable && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white text-xs text-center py-1.5">
+          Connection lost — changes may not save.{' '}
+          <button className="underline ml-2" onClick={() => me.refetch()}>Reconnect</button>
+        </div>
+      )}
       <LocationSync />
       <SideNav user={me.data} />
       <div className="flex min-w-0 flex-1 flex-col">

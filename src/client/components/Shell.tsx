@@ -180,7 +180,9 @@ export function Keel({ user }: { user: SessionUser }) {
     onSuccess: () => {
       // UX-A1 (#15): clear persisted UI state on logout so the next operator
       // on a shared workstation does not inherit column/nav/drawer preferences
-      // from the previous operator.
+      // from the previous operator. resetSession clears in-memory entity
+      // context (selected rows, drawer refs, filters) for the same reason.
+      useUiStore.getState().resetSession();
       useUiStore.persist.clearStorage();
       return utils.auth.me.invalidate();
     }
