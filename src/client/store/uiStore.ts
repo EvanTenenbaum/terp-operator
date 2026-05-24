@@ -92,6 +92,9 @@ interface UiState {
   dismissToast: (id: string) => void;
   setDismissedShadowBanner: (dismissed: boolean) => void;
   setShowMargin: (show: boolean) => void;
+  // CAP-005 / TER-1478 — global finder overlay (phase 2)
+  finderOpen: boolean;
+  setFinderOpen: (open: boolean) => void;
   // CAP-030 / TER-1510 — non-persisted pick queue filter chips
   pickQueueFilters: Set<string>;
   setPickQueueFilter: (chip: string, active: boolean) => void;
@@ -125,6 +128,7 @@ export const useUiStore = create<UiState>()(
     dismissedShadowBanner: false,
     showMargin: true,
     salesSheetState: { orderId: null, sheetRows: [], sheetMode: 'internal', exportError: null },
+    finderOpen: false,
     pickQueueFilters: new Set<string>(),
     setActiveView: (view) =>
       set((state) => {
@@ -314,6 +318,11 @@ export const useUiStore = create<UiState>()(
     setSalesSheetState: (patch) =>
       set((state) => {
         state.salesSheetState = { ...state.salesSheetState, ...patch };
+      }),
+    setFinderOpen: (open) =>
+      set((state) => {
+        state.finderOpen = open;
+        state.announcement = open ? 'Global finder opened.' : 'Global finder closed.';
       }),
     setPickQueueFilter: (chip, active) =>
       set((state) => {

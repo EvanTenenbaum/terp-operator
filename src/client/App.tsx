@@ -7,6 +7,7 @@ import { trpc } from './api/trpc';
 import { Agentation } from 'agentation';
 import { invalidateAffectedQueries } from './components/useCommandRunner';
 import { CommandPalette } from './components/CommandPalette';
+import { GlobalFinderPanel } from './components/GlobalFinderPanel';
 import { ContextDrawer } from './components/ContextDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Hotkeys } from './components/Hotkeys';
@@ -155,6 +156,7 @@ function AppContent() {
       </div>
       <Hotkeys />
       <CommandPalette />
+      <GlobalFinderPanel />
       <ToastCenter />
       {import.meta.env.DEV && (
         <Agentation

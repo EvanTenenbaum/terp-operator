@@ -20,6 +20,8 @@ export function Hotkeys() {
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
   const setCommandPaletteAdvancedOpen = useUiStore((state) => state.setCommandPaletteAdvancedOpen);
+  const setFinderOpen = useUiStore((state) => state.setFinderOpen);
+  const finderOpen = useUiStore((state) => state.finderOpen);
   const setFocusedPanel = useUiStore((state) => state.setFocusedPanel);
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
@@ -57,6 +59,12 @@ export function Hotkeys() {
         setCommandPaletteOpen(true);
         return;
       }
+      // CAP-005 / TER-1478: Cmd+Shift+F opens the global finder
+      if (event.metaKey && event.shiftKey && key === 'f') {
+        event.preventDefault();
+        setFinderOpen(true);
+        return;
+      }
 
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -66,6 +74,10 @@ export function Hotkeys() {
         }
         if (commandPaletteOpen) {
           setCommandPaletteOpen(false);
+          return;
+        }
+        if (finderOpen) {
+          setFinderOpen(false);
           return;
         }
         if (focusedPanelId || focusMode) {
@@ -168,6 +180,7 @@ export function Hotkeys() {
     commandPaletteOpen,
     cycleDrawer,
     drawerState,
+    finderOpen,
     focusMode,
     focusedPanelId,
     pushToast,
@@ -178,6 +191,7 @@ export function Hotkeys() {
     setCommandPaletteOpen,
     setDrawerState,
     setDrawerTab,
+    setFinderOpen,
     setFocusedPanel,
     setFocusMode,
     toggleDrawer,
