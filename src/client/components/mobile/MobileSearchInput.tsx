@@ -24,12 +24,11 @@ export function MobileSearchInput({ value, onChange, placeholder = 'Search…', 
       </svg>
       <input
         type="search"
-        role="searchbox"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="h-11 w-full rounded-xl py-0 pl-9 pr-9 text-sm"
-        style={{ background: '#f1f3ee', border: 'none', outline: 'none', color: 'var(--m-ink)' }}
+        style={{ background: 'var(--m-search-bg)', border: 'none', outline: 'none', color: 'var(--m-ink)' }}
       />
       {value && (
         <button

@@ -1,4 +1,4 @@
-import React from 'react';
+import type { CSSProperties } from 'react';
 
 interface MobileFilterChipsProps {
   options: string[];
@@ -11,7 +11,7 @@ export function MobileFilterChips({ options, value, onChange, className }: Mobil
   return (
     <div
       className={`flex gap-2 overflow-x-auto py-2 ${className ?? ''}`}
-      style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+      style={{ scrollbarWidth: 'none' } as CSSProperties}
     >
       {options.map((option) => {
         const isActive = option === value;
@@ -19,7 +19,6 @@ export function MobileFilterChips({ options, value, onChange, className }: Mobil
           <button
             key={option}
             type="button"
-            role="button"
             aria-pressed={isActive}
             onClick={() => { if (!isActive) onChange(option); }}
             className={`m-chip shrink-0 ${isActive ? 'm-chip-active' : ''}`}
