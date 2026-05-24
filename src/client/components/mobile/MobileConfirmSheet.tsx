@@ -45,7 +45,7 @@ export function MobileConfirmSheet({
           className="mb-2 text-base font-semibold"
           style={{ color: 'var(--m-ink)' }}
         >
-          Review before confirming
+          Confirm action
         </h2>
         <p className="mb-6 text-sm" style={{ color: 'var(--m-muted)' }}>{summary}</p>
         <button type="button" onClick={onConfirm} className="m-btn-primary mb-3">
