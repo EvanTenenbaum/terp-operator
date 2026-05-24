@@ -39,6 +39,8 @@ import { CreditReviewView } from './views/CreditReviewView';
 import { MediaView } from './views/MediaView';
 import { PickView } from './views/PickView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
+import { ContactsView } from './views/ContactsView';
+import { ContactProfileView } from './views/ContactProfileView';
 
 // Sync URL with activeView state.
 // Nested routes intentionally use the first path segment as activeView
@@ -138,6 +140,8 @@ function AppContent() {
               <Route path="/photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
               {/* CAP-030 / TER-1503: warehouse pick queue (work-loop gated inside the view) */}
               <Route path="/pick" element={<PickView />} />
+              <Route path="/contacts" element={<ContactsView />} />
+              <Route path="/contacts/:id" element={<ContactProfileView />} />
               <Route path="/settings" element={<SettingsView />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

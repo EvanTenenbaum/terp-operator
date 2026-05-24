@@ -84,6 +84,7 @@ export type ViewKey =
   | 'credit-review'
   | 'photography'
   | 'contacts' // CAP-033 / TER-1564 — entity profiles directory + per-contact view
+  | 'contacts-customer-orders' // CAP-029 / TER-1564: order history sub-grid in ContactCustomerPanel
   | 'settings'
   | 'pick'; // CAP-030 / TER-1513
 

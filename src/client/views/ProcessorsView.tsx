@@ -1,5 +1,6 @@
 import { FolderOpen, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
@@ -7,44 +8,62 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { ProcessorDetailPanel } from '../components/ProcessorDetailPanel';
 import type { GridRow } from '../../shared/types';
 
-const columns: ColDef<GridRow>[] = [
-  { field: 'name', headerName: 'Processor Name', pinned: 'left', width: 200 },
-  { field: 'processorType', headerName: 'Type', width: 120 },
-  {
-    field: 'feeFormula',
-    headerName: 'Fee Formula',
-    width: 180,
-    valueGetter: (params) => {
-      const row = params.data;
-      if (!row) return '';
-      if (row.feeType === 'percentage') return `${row.feePercentage}%`;
-      if (row.feeType === 'fixed') return `$${Number(row.feeFixedAmount).toFixed(2)}`;
-      return `${row.feePercentage}% + $${Number(row.feeFixedAmount).toFixed(2)}`;
-    }
-  },
-  {
-    field: 'defaultSplit',
-    headerName: 'Default Split',
-    width: 180,
-    valueGetter: (params) => {
-      const row = params.data;
-      if (!row) return '';
-      return `User ${row.defaultUserSplit}% / Proc ${row.defaultProcessorSplit}%`;
-    }
-  },
-  { field: 'totalFeesProcessed', headerName: 'Total Fees', type: 'numericColumn', width: 130 },
-  { field: 'userFeesCollectible', headerName: 'User Collectible', type: 'numericColumn', width: 150 },
-  { field: 'userFeesCollected', headerName: 'User Collected', type: 'numericColumn', width: 150 },
-  { field: 'processorFeesUnpaid', headerName: 'Proc Unpaid', type: 'numericColumn', width: 130 },
-  { field: 'active', width: 100 },
-  { field: 'createdAt', width: 180 }
-];
-
 export function ProcessorsView() {
+  const navigate = useNavigate();
   const grid = trpc.queries.grid.useQuery({ view: 'processors' });
   const activeProcessors = trpc.queries.activeProcessors.useQuery();
   const { runCommand } = useCommandRunner();
   const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
+
+  const columns: ColDef<GridRow>[] = [
+    {
+      field: 'name',
+      headerName: 'Processor Name',
+      pinned: 'left',
+      width: 200,
+      cellRenderer: (params: { data: GridRow; value: string }) =>
+        params.data?.contactId ? (
+          <button
+            className="text-button font-medium text-left"
+            onClick={() => navigate(`/contacts/${String(params.data.contactId)}`)}
+            type="button"
+          >
+            {params.value}
+          </button>
+        ) : (
+          <span>{params.value}</span>
+        )
+    },
+    { field: 'processorType', headerName: 'Type', width: 120 },
+    {
+      field: 'feeFormula',
+      headerName: 'Fee Formula',
+      width: 180,
+      valueGetter: (params) => {
+        const row = params.data;
+        if (!row) return '';
+        if (row.feeType === 'percentage') return `${row.feePercentage}%`;
+        if (row.feeType === 'fixed') return `$${Number(row.feeFixedAmount).toFixed(2)}`;
+        return `${row.feePercentage}% + $${Number(row.feeFixedAmount).toFixed(2)}`;
+      }
+    },
+    {
+      field: 'defaultSplit',
+      headerName: 'Default Split',
+      width: 180,
+      valueGetter: (params) => {
+        const row = params.data;
+        if (!row) return '';
+        return `User ${row.defaultUserSplit}% / Proc ${row.defaultProcessorSplit}%`;
+      }
+    },
+    { field: 'totalFeesProcessed', headerName: 'Total Fees', type: 'numericColumn', width: 130 },
+    { field: 'userFeesCollectible', headerName: 'User Collectible', type: 'numericColumn', width: 150 },
+    { field: 'userFeesCollected', headerName: 'User Collected', type: 'numericColumn', width: 150 },
+    { field: 'processorFeesUnpaid', headerName: 'Proc Unpaid', type: 'numericColumn', width: 130 },
+    { field: 'active', width: 100 },
+    { field: 'createdAt', width: 180 }
+  ];
 
   const activeCount = activeProcessors.data?.length ?? 0;
 

@@ -1,5 +1,6 @@
 import { ChevronRight, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import clsx from 'clsx';
+import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
 import { activeEntityForState, defaultDrawerState, defaultTabForEntity, drawerStorageKey, queueDrawerEntity, storedDrawerForState, useUiStore } from '../store/uiStore';
 import { commandLabelFor } from '../../shared/commandCatalog';
@@ -175,11 +176,19 @@ export function getActiveDrawerStorageKey(view: ViewKey) {
   return drawerStorageKey(view, activeEntityForState(state, view));
 }
 
+const PROFILE_ENTITY_TYPES = new Set(['customer', 'vendor', 'referee', 'processor']);
+
 function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId }: { activeView: ViewKey; activeTab: string; row?: GridRow; entityType: string; entityId?: string | null }) {
+  const navigate = useNavigate();
   const customerId = inferCustomerId(row, activeView, entityType, entityId);
   const vendorId = inferVendorId(row, activeView, entityType, entityId);
   const relationship = trpc.queries.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
   const facts = compactFacts(row, entityType, relationship.data);
+
+  // contactId may be present on the row when the grid query includes it (added in 9.3).
+  // Render conditionally — no extra query added here.
+  const contactId = PROFILE_ENTITY_TYPES.has(entityType) && typeof row?.contactId === 'string' ? row.contactId : null;
+
   if (activeTab === 'credit') {
     if (customerId) {
       return <CustomerCreditPanel customerId={customerId} />;
@@ -191,10 +200,38 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
     );
   }
   if (activeTab === 'relationship' && (customerId || vendorId)) {
-    return <RelationshipContext data={relationship.data} row={row} />;
+    return (
+      <>
+        {contactId && (
+          <div className="flex justify-end px-2 pt-2 pb-1">
+            <button
+              className="text-button text-xs"
+              onClick={() => navigate(`/contacts/${contactId}`)}
+              aria-label="Open full profile"
+              type="button"
+            >
+              Open full profile →
+            </button>
+          </div>
+        )}
+        <RelationshipContext data={relationship.data} row={row} />
+      </>
+    );
   }
   return (
     <div className="context-drawer-card">
+      {contactId && (
+        <div className="flex justify-end pb-1">
+          <button
+            className="text-button text-xs"
+            onClick={() => navigate(`/contacts/${contactId}`)}
+            aria-label="Open full profile"
+            type="button"
+          >
+            Open full profile →
+          </button>
+        </div>
+      )}
       <h2 className="mt-1 truncate text-base font-semibold text-ink">{titleFor(row, activeTab)}</h2>
       <div className="mt-3 grid gap-2">
         {facts.length ? facts.map(([label, value]) => (

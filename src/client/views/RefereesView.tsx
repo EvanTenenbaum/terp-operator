@@ -1,5 +1,6 @@
 import { FolderOpen, Pencil, Plus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
@@ -9,22 +10,40 @@ import { RefereeDialog } from '../components/RefereeDialog';
 import { RefereeDetailPanel } from '../components/RefereeDetailPanel';
 import type { GridRow } from '../../shared/types';
 
-const columns: ColDef<GridRow>[] = [
-  { field: 'name', headerName: 'Referee Name', pinned: 'left', width: 200 },
-  { field: 'email', width: 200 },
-  { field: 'phone', width: 150 },
-  { field: 'balance', type: 'numericColumn', width: 130, headerName: 'Balance' },
-  { field: 'lifetimeEarned', type: 'numericColumn', width: 150, headerName: 'Lifetime Earned' },
-  { field: 'relationshipsCount', headerName: 'Relationships', type: 'numericColumn', width: 140 },
-  { field: 'paymentMethod', headerName: 'Payment Method', width: 150 },
-  { field: 'active', width: 100 },
-  { field: 'notes', editable: true, minWidth: 250 },
-  { field: 'createdAt', width: 180 }
-];
-
 export function RefereesView() {
+  const navigate = useNavigate();
   const grid = trpc.queries.grid.useQuery({ view: 'referees' });
   const { runCommand } = useCommandRunner();
+
+  const columns: ColDef<GridRow>[] = [
+    {
+      field: 'name',
+      headerName: 'Referee Name',
+      pinned: 'left',
+      width: 200,
+      cellRenderer: (params: { data: GridRow; value: string }) =>
+        params.data?.contactId ? (
+          <button
+            className="text-button font-medium text-left"
+            onClick={() => navigate(`/contacts/${String(params.data.contactId)}`)}
+            type="button"
+          >
+            {params.value}
+          </button>
+        ) : (
+          <span>{params.value}</span>
+        )
+    },
+    { field: 'email', width: 200 },
+    { field: 'phone', width: 150 },
+    { field: 'balance', type: 'numericColumn', width: 130, headerName: 'Balance' },
+    { field: 'lifetimeEarned', type: 'numericColumn', width: 150, headerName: 'Lifetime Earned' },
+    { field: 'relationshipsCount', headerName: 'Relationships', type: 'numericColumn', width: 140 },
+    { field: 'paymentMethod', headerName: 'Payment Method', width: 150 },
+    { field: 'active', width: 100 },
+    { field: 'notes', editable: true, minWidth: 250 },
+    { field: 'createdAt', width: 180 }
+  ];
   const [editingRow, setEditingRow] = useState<GridRow | null>(null);
   const [addRelationshipFor, setAddRelationshipFor] = useState<{ id: string; name: string } | null>(null);
   const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);

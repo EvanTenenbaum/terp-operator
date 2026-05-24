@@ -223,6 +223,7 @@ export const linkContactToUserPayloadSchema = z.object({
 });
 
 export const createAppointmentPayloadSchema = z.object({
+export const createAppointmentPayloadSchema = z.object({
   contactId: z.string().uuid(),
   title: z.string().trim().min(1).max(240),
   appointmentType: appointmentTypeSchema.default('meeting'),
@@ -231,7 +232,10 @@ export const createAppointmentPayloadSchema = z.object({
   location: z.string().optional(),
   description: z.string().optional(),
   notes: z.string().optional()
-});
+}).refine(
+  (v) => !v.endsAt || new Date(v.endsAt) > new Date(v.startsAt),
+  { message: 'endsAt must be after startsAt', path: ['endsAt'] }
+);
 
 export const updateAppointmentPayloadSchema = z.object({
   appointmentId: z.string().uuid(),
@@ -242,7 +246,10 @@ export const updateAppointmentPayloadSchema = z.object({
   location: z.string().nullish(),
   description: z.string().nullish(),
   notes: z.string().nullish()
-});
+}).refine(
+  (v) => !v.endsAt || !v.startsAt || new Date(v.endsAt) > new Date(v.startsAt),
+  { message: 'endsAt must be after startsAt', path: ['endsAt'] }
+);
 
 export const cancelAppointmentPayloadSchema = z.object({
   appointmentId: z.string().uuid(),
