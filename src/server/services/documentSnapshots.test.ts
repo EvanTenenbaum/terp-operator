@@ -14,7 +14,7 @@ import {
   renderSignalText,
   renderPrintHtml
 } from './documentSnapshots';
-import type { ExternalReceiptProjection } from './projections/types';
+import type { ExternalReceiptProjection, InternalReceiptProjection } from './projections/types';
 
 describe('canonicalizeJson (RFC 8785 subset)', () => {
   it('sorts object keys lexicographically', () => {
@@ -1029,5 +1029,40 @@ describe('renderPrintHtml', () => {
     expect(html).toContain('&amp;');
     expect(html).toContain('&quot;');
     expect(html).toContain('&#39;');
+  });
+
+  it('external projection has NO watermark', () => {
+    const html = renderPrintHtml(extFixture);
+    expect(html).not.toMatch(/internal/i);
+    expect(html).not.toContain('data-testid="watermark"');
+  });
+
+  it('internal projection HAS watermark', () => {
+    const intFixture: InternalReceiptProjection = {
+      kind: 'purchase_finalization',
+      header: { title: 'Purchase Order', counterparty: 'Vendor A', dateISO: '2026-05-20', documentNo: 'PO-1' },
+      lines: [{ name: 'Widget', qty: 10, unitPrice: 5, subtotal: 50, notes: 'Grade A' }],
+      totals: { subtotal: 50, total: 50 },
+      projectionVersion: 1,
+      __INTERNAL_ONLY__: true
+    };
+    const html = renderPrintHtml(intFixture);
+    expect(html).toContain('INTERNAL \u2014 DO NOT SEND');
+    expect(html).toContain('data-testid="watermark"');
+  });
+
+  it('internal watermark: no script/style/event-handler injection', () => {
+    const intFixture: InternalReceiptProjection = {
+      kind: 'purchase_finalization',
+      header: { title: 'Purchase Order', counterparty: 'Vendor A', dateISO: '2026-05-20', documentNo: 'PO-1' },
+      lines: [],
+      totals: { subtotal: 0, total: 0 },
+      projectionVersion: 1,
+      __INTERNAL_ONLY__: true
+    };
+    const html = renderPrintHtml(intFixture);
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/on\w+=/i);
+    expect(html).not.toMatch(/javascript:/i);
   });
 });

@@ -6,7 +6,7 @@ import { protectedProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
-import { getExternalReceipt, getInternalReceipt, renderSignalText } from '../services/documentSnapshots';
+import { getExternalReceipt, getInternalReceipt, renderPrintHtml, renderSignalText } from '../services/documentSnapshots';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
 import { paymentProcessors, processorFees } from '../schema';
@@ -1140,6 +1140,65 @@ export const queriesRouter = router({
       const projection = await getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
       if (!projection) return null;
       return renderSignalText(projection);
+    }),
+  purchaseOrderPrintHtml: protectedProcedure
+    .input(z.object({
+      purchaseOrderId: z.string().uuid(),
+      audience: z.enum(['external', 'internal']).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const aud = input.audience ?? 'external';
+      const projection = aud === 'internal'
+        ? await getInternalReceipt(pool, ctx.user, 'purchase_order', input.purchaseOrderId)
+        : await getExternalReceipt(pool, 'purchase_order', input.purchaseOrderId);
+      if (!projection) return null;
+      return renderPrintHtml(projection);
+    }),
+  salesOrderPrintHtml: protectedProcedure
+    .input(z.object({
+      salesOrderId: z.string().uuid(),
+      audience: z.enum(['external', 'internal']).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const aud = input.audience ?? 'external';
+      const invoiceId = await latestInvoiceIdForOrder(input.salesOrderId);
+      if (invoiceId) {
+        const fromInvoice = aud === 'internal'
+          ? await getInternalReceipt(pool, ctx.user, 'invoice', invoiceId)
+          : await getExternalReceipt(pool, 'invoice', invoiceId);
+        if (fromInvoice) return renderPrintHtml(fromInvoice);
+      }
+      const fromConfirmation = aud === 'internal'
+        ? await getInternalReceipt(pool, ctx.user, 'sales_order', input.salesOrderId)
+        : await getExternalReceipt(pool, 'sales_order', input.salesOrderId);
+      if (!fromConfirmation) return null;
+      return renderPrintHtml(fromConfirmation);
+    }),
+  paymentPrintHtml: protectedProcedure
+    .input(z.object({
+      paymentId: z.string().uuid(),
+      audience: z.enum(['external', 'internal']).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const aud = input.audience ?? 'external';
+      const projection = aud === 'internal'
+        ? await getInternalReceipt(pool, ctx.user, 'payment', input.paymentId)
+        : await getExternalReceipt(pool, 'payment', input.paymentId);
+      if (!projection) return null;
+      return renderPrintHtml(projection);
+    }),
+  vendorPaymentPrintHtml: protectedProcedure
+    .input(z.object({
+      vendorPaymentId: z.string().uuid(),
+      audience: z.enum(['external', 'internal']).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const aud = input.audience ?? 'external';
+      const projection = aud === 'internal'
+        ? await getInternalReceipt(pool, ctx.user, 'vendor_payment', input.vendorPaymentId)
+        : await getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
+      if (!projection) return null;
+      return renderPrintHtml(projection);
     }),
   // CAP-030 (TER-1498): Warehouse pick queue. Returns one row per pick_list that
   // still has at least one open + unpicked + non-cancelled fulfillment line on a
