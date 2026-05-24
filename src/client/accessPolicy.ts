@@ -2,9 +2,9 @@ import type { QuickLaunchMode, SessionUser, ViewKey } from '../shared/types';
 
 type WorkLoop = 'owner' | 'manager' | 'sales' | 'intake' | 'warehouse' | 'operator' | 'viewer';
 
-const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'contacts', 'processors', 'photography'];
+const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'contacts', 'processors', 'photography', 'connectors', 'recovery'];
 
-const managerPlusViews: readonly ViewKey[] = [...defaultOperatorViews, 'settings', 'credit-review'];
+const managerPlusViews: readonly ViewKey[] = [...defaultOperatorViews, 'settings', 'credit-review', 'closeout'];
 
 const viewsByLoop: Record<WorkLoop, readonly ViewKey[]> = {
   owner: managerPlusViews,
@@ -85,7 +85,6 @@ export function workLoopForUser(user: SessionUser | null | undefined): WorkLoop 
 }
 
 export function viewVisibleForUser(view: ViewKey, user: SessionUser) {
-  if (['connectors', 'recovery', 'closeout'].includes(view)) return false;
   const loop = workLoopForUser(user);
   if (!loop) return false;
   return viewsByLoop[loop].includes(view);

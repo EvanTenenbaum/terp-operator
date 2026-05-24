@@ -67,30 +67,31 @@ export function MatchmakingView() {
   const [selectedMatches, setSelectedMatches] = useState<GridRow[]>([]);
 
   const [customerId, setCustomerId] = useState('');
-  const [needProduct, setNeedProduct] = useState('Premium indoor flower');
-  const [needCategory, setNeedCategory] = useState('Flower');
-  const [needTags, setNeedTags] = useState('premium, flower');
-  const [qtyMin, setQtyMin] = useState('10');
-  const [qtyMax, setQtyMax] = useState('40');
-  const [targetPrice, setTargetPrice] = useState('1050');
+  const [needProduct, setNeedProduct] = useState('');
+  const [needCategory, setNeedCategory] = useState('');
+  const [needTags, setNeedTags] = useState('');
+  const [qtyMin, setQtyMin] = useState('0');
+  const [qtyMax, setQtyMax] = useState('');
+  const [targetPrice, setTargetPrice] = useState('');
   const [neededBy, setNeededBy] = useState('');
   const [urgency, setUrgency] = useState('normal');
   const [needNotes, setNeedNotes] = useState('');
 
   const [vendorId, setVendorId] = useState('');
-  const [supplyProduct, setSupplyProduct] = useState('Indoor Gelato smalls');
-  const [supplyCategory, setSupplyCategory] = useState('Flower');
-  const [supplyTags, setSupplyTags] = useState('premium, flower');
-  const [availableQty, setAvailableQty] = useState('20');
-  const [askingPrice, setAskingPrice] = useState('980');
+  const [supplyProduct, setSupplyProduct] = useState('');
+  const [supplyCategory, setSupplyCategory] = useState('');
+  const [supplyTags, setSupplyTags] = useState('');
+  const [availableQty, setAvailableQty] = useState('0');
+  const [askingPrice, setAskingPrice] = useState('');
   const [availableDate, setAvailableDate] = useState('');
   const [location, setLocation] = useState('');
   const [grade, setGrade] = useState('');
   const [terms, setTerms] = useState('');
   const [supplyNotes, setSupplyNotes] = useState('');
 
-  const defaultCustomerId = customerId || reference.data?.customers[0]?.id || '';
-  const defaultVendorId = vendorId || reference.data?.vendors[0]?.id || '';
+  // Operator must explicitly select a customer/vendor — no auto-defaulting to first record
+  const defaultCustomerId = customerId;
+  const defaultVendorId = vendorId;
 
   useEffect(() => {
     if (activeQuickLaunch === 'customerNeed') needProductRef.current?.focus();
