@@ -1,5 +1,4 @@
 import { trpc } from '../../api/trpc';
-import { commandLabelFor } from '../../../shared/commandCatalog';
 
 /**
  * LotMovementTab — inventory movement history for the active lot/batch.
@@ -93,7 +92,7 @@ export function LotMovementTab({ batchId }: LotMovementTabProps) {
                   {qtyish(row.qtyDelta)}
                 </span>
                 <span className="text-zinc-500">
-                  {row.commandId ? commandLabelFor(String(row.commandId)) : String(row.reason ?? '-')}
+                  {String(row.reason ?? '-')}
                 </span>
                 <span className="text-zinc-400">{dateish(row.createdAt)}</span>
               </div>
