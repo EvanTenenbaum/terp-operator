@@ -9,7 +9,8 @@ const pendingFrontendCommandNames = parseCommandNames(read('src/shared/commandCa
 // Query endpoints that are implemented on the backend but whose frontend surface is pending.
 // Remove each entry when the corresponding frontend usage lands.
 // CAP-030 frontend: PR #186 (draft) — pickQueue, pickListWithLines, releaseEligibility
-const pendingFrontendQueryNames = ['pickQueue', 'pickListWithLines', 'releaseEligibility'];
+// commandJournal: internal diagnostic endpoint used by idempotency e2e tests via page.evaluate; not a UI-facing query
+const pendingFrontendQueryNames = ['pickQueue', 'pickListWithLines', 'releaseEligibility', 'commandJournal'];
 const queryNames = parseRouterNames(read('src/server/routers/queries.ts'));
 const clientText = readClientSource();
 const commandSurfaceAliases = {
