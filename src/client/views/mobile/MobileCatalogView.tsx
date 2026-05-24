@@ -49,8 +49,10 @@ export function MobileCatalogView() {
   const filtered = rows.filter(row => {
     const name = String(row.name ?? '');
     if (search && !name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter === 'Has Photo' && !hasPhotos(row))  return false;
-    if (filter === 'No Photos' && hasPhotos(row))   return false;
+    if (filter === 'Has Photo'  && !hasPhotos(row))                              return false;
+    if (filter === 'No Photos'  && hasPhotos(row))                               return false;
+    if (filter === 'Published'  && Number(row.publishedMediaCount ?? 0) === 0)   return false;
+    if (filter === 'Draft'      && Number(row.publishedMediaCount ?? 0) > 0)     return false;
     return true;
   });
 

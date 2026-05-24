@@ -195,7 +195,7 @@ export function MobilePaymentsView() {
       }
     };
 
-    if (shouldConfirm('receive', amt, Number(row.total))) {
+    if (shouldConfirm('receive', amt, row.total != null ? Number(row.total) : null)) {
       setPending({ kind: 'receive', summary, confirmLabel: 'Record Receipt', run });
     } else {
       await run();

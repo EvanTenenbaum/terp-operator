@@ -79,6 +79,23 @@ describe('MobilePaymentsView', () => {
     expect(screen.getByRole('dialog', { name: /confirm action/i })).toBeInTheDocument();
   });
 
+  it('shows confirm sheet when receive amount differs from invoice total (partial)', () => {
+    mockGrid.mockImplementation(({ view }: { view: string }) => {
+      if (view === 'payments') return { data: [
+        ...INVOICES,
+        { id: 'i3', customer: 'Harbor House', invoiceNo: 'INV-2065', unappliedAmount: 5000, total: 15000, status: 'partial', createdAt: new Date().toISOString() }
+      ], isLoading: false };
+      if (view === 'vendors') return { data: BILLS, isLoading: false };
+      return { data: [], isLoading: false };
+    });
+    renderView();
+    fireEvent.click(screen.getByRole('button', { name: /harbor house/i }));
+    // amount pre-filled to 5000 (unappliedAmount) but total is 15000 → partial → confirm fires
+    fireEvent.click(screen.getByRole('button', { name: /^ach$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /record receipt/i }));
+    expect(screen.getByRole('dialog', { name: /confirm action/i })).toBeInTheDocument();
+  });
+
   it('disables Record Payment for operator role', () => {
     mockMe.mockReturnValue({ data: { id: 'u1', role: 'operator' } });
     renderView();
