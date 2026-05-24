@@ -21,6 +21,10 @@ import { describe, expect, it } from 'vitest';
  */
 
 const MIGRATION_PATH = resolve(__dirname, '../../../migrations/0041_money_invariants.sql');
+const RESTORE_MIGRATION_PATH = resolve(
+  __dirname,
+  '../../../migrations/0055_restore_money_invariants.sql'
+);
 
 describe('migration 0041_money_invariants', () => {
   const sql = readFileSync(MIGRATION_PATH, 'utf8');
@@ -78,5 +82,65 @@ describe('migration 0041_money_invariants', () => {
     expect(sql).toMatch(
       /ALTER TABLE purchase_order_lines\s+VALIDATE CONSTRAINT purchase_order_lines_qty_nonneg_chk/i
     );
+  });
+});
+
+/**
+ * Contract test for migration `0055_restore_money_invariants.sql`.
+ *
+ * Migration 0046 dropped the four NOT VALID CHECK constraints introduced in
+ * 0041 to unblock a write path that was emitting amount_paid fractionally
+ * above total due to seed/round-trip drift. The underlying drift sources
+ * have since been fixed (GH #121), so 0055 re-adds the constraints with the
+ * same idempotent guards. This test mirrors the 0041 contract test: it
+ * reads the migration file from disk and asserts that the four
+ * `ADD CONSTRAINT ... CHECK (...) NOT VALID` statements and their
+ * idempotency guards are present.
+ */
+describe('migration 0055_restore_money_invariants', () => {
+  const sql = readFileSync(RESTORE_MIGRATION_PATH, 'utf8');
+  const normalized = sql.replace(/\s+/g, ' ');
+
+  it('adds invoices.amount_paid CHECK constraint as NOT VALID', () => {
+    expect(normalized).toMatch(
+      /ALTER TABLE invoices\s+ADD CONSTRAINT invoices_amount_paid_chk\s+CHECK \(amount_paid >= 0 AND amount_paid <= total\)\s+NOT VALID/i
+    );
+  });
+
+  it('adds payments.unapplied_amount CHECK constraint as NOT VALID', () => {
+    expect(normalized).toMatch(
+      /ALTER TABLE payments\s+ADD CONSTRAINT payments_unapplied_amount_chk\s+CHECK \(unapplied_amount >= 0\)\s+NOT VALID/i
+    );
+  });
+
+  it('adds batches qty CHECK constraint covering intake, available, reserved as NOT VALID', () => {
+    expect(normalized).toMatch(
+      /ALTER TABLE batches\s+ADD CONSTRAINT batches_qty_nonneg_chk\s+CHECK \(intake_qty >= 0 AND available_qty >= 0 AND reserved_qty >= 0\)\s+NOT VALID/i
+    );
+  });
+
+  it('adds purchase_order_lines qty CHECK constraint covering qty + received_qty as NOT VALID', () => {
+    expect(normalized).toMatch(
+      /ALTER TABLE purchase_order_lines\s+ADD CONSTRAINT purchase_order_lines_qty_nonneg_chk\s+CHECK \(qty >= 0 AND received_qty >= 0\)\s+NOT VALID/i
+    );
+  });
+
+  it('guards every ADD CONSTRAINT with an idempotent pg_constraint existence check', () => {
+    // Re-runnable migrations are mandatory. Each constraint must be wrapped in
+    // a `IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '...')`
+    // guard so re-applying the migration is a no-op.
+    const expectedConames = [
+      'invoices_amount_paid_chk',
+      'payments_unapplied_amount_chk',
+      'batches_qty_nonneg_chk',
+      'purchase_order_lines_qty_nonneg_chk'
+    ];
+    for (const coname of expectedConames) {
+      const guard = new RegExp(
+        `IF NOT EXISTS \\(\\s*SELECT 1 FROM pg_constraint WHERE conname = '${coname}'\\s*\\)`,
+        'i'
+      );
+      expect(normalized).toMatch(guard);
+    }
   });
 });
