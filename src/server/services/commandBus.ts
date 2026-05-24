@@ -467,12 +467,15 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     }
 
     try {
+      // Strip toast from broadcast: toast strings may contain customer names or
+      // other operator-specific data that should not be visible to all connected
+      // users. Actors receive their own toast via the mutation's onSuccess callback.
+      // Other clients receive only the cache-invalidation signal (affectedIds).
       io.emit('command:completed', {
         commandId,
         commandName: input.name,
         actorId: user.id,
-        affectedIds: commandResult.affectedIds,
-        toast: storedResult.toast
+        affectedIds: commandResult.affectedIds
       });
     } catch (e) {
       console.warn('[commandBus] socket emit failed after commit:', e instanceof Error ? e.message : e);
@@ -4508,6 +4511,72 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
     for (const entry of snapshot.correctionJournalEntries ?? []) {
       await tx.update(correctionJournalEntries).set({ status: 'reversed' }).where(eq(correctionJournalEntries.id, entry.id));
       affected.push(entry.id);
+    }
+  } else if (original.commandName === 'finalizePurchaseOrder') {
+    // Reversal: finalized → draft (undo finalization, no lines were changed by this command)
+    for (const order of snapshot.purchaseOrders ?? []) {
+      await tx.update(purchaseOrders).set({ status: 'draft', finalizedAt: null, updatedAt: new Date() }).where(eq(purchaseOrders.id, order.id));
+      affected.push(order.id);
+    }
+  } else if (original.commandName === 'unfinalizePurchaseOrder') {
+    // Reversal: draft → finalized (re-finalize, restore finalizedAt from beforeSnapshot)
+    const priorPOs = new Map(
+      (beforeSnapshot.purchaseOrders ?? []).map((o: Record<string, unknown>) => [o.id, o])
+    );
+    for (const order of snapshot.purchaseOrders ?? []) {
+      const prior = priorPOs.get(order.id) as Record<string, unknown> | undefined;
+      await tx.update(purchaseOrders).set({
+        status: 'finalized',
+        finalizedAt: prior?.finalizedAt ? new Date(String(prior.finalizedAt)) : new Date(),
+        updatedAt: new Date()
+      }).where(eq(purchaseOrders.id, order.id));
+      affected.push(order.id);
+    }
+  } else if (original.commandName === 'setCustomerCreditLimit') {
+    // Reversal: restore prior credit limit and metadata from beforeSnapshot
+    for (const prior of beforeSnapshot.customers ?? []) {
+      const c = prior as Record<string, unknown>;
+      await tx.update(customers).set({
+        creditLimit: moneyScale(c.creditLimit),
+        creditLimitSource: String(c.creditLimitSource ?? 'manual'),
+        creditLimitManualSetAt: c.creditLimitManualSetAt ? new Date(String(c.creditLimitManualSetAt)) : null,
+        creditLimitManualSetBy: (c.creditLimitManualSetBy as string | null) ?? null,
+        creditLimitManualReason: (c.creditLimitManualReason as string | null) ?? null,
+        creditLimitLastReviewedAt: c.creditLimitLastReviewedAt ? new Date(String(c.creditLimitLastReviewedAt)) : null,
+        creditLimitSnoozeCount: Number(c.creditLimitSnoozeCount ?? 0),
+        updatedAt: new Date()
+      }).where(eq(customers.id, (prior as { id: string }).id));
+      affected.push((prior as { id: string }).id);
+      customersToRecompute.add((prior as { id: string }).id);
+    }
+  } else if (original.commandName === 'revertCustomerCreditToEngine') {
+    // Reversal: restore prior manual credit limit from beforeSnapshot (undo engine revert)
+    for (const prior of beforeSnapshot.customers ?? []) {
+      const c = prior as Record<string, unknown>;
+      await tx.update(customers).set({
+        creditLimit: moneyScale(c.creditLimit),
+        creditLimitSource: String(c.creditLimitSource ?? 'manual'),
+        creditLimitManualSetAt: c.creditLimitManualSetAt ? new Date(String(c.creditLimitManualSetAt)) : null,
+        creditLimitManualSetBy: (c.creditLimitManualSetBy as string | null) ?? null,
+        creditLimitManualReason: (c.creditLimitManualReason as string | null) ?? null,
+        creditLimitLastReviewedAt: c.creditLimitLastReviewedAt ? new Date(String(c.creditLimitLastReviewedAt)) : null,
+        creditLimitSnoozeCount: Number(c.creditLimitSnoozeCount ?? 0),
+        updatedAt: new Date()
+      }).where(eq(customers.id, (prior as { id: string }).id));
+      affected.push((prior as { id: string }).id);
+      customersToRecompute.add((prior as { id: string }).id);
+    }
+  } else if (original.commandName === 'snoozeCustomerCreditReminder') {
+    // Reversal: restore prior snooze fields from beforeSnapshot (undo the snooze increment)
+    for (const prior of beforeSnapshot.customers ?? []) {
+      const c = prior as Record<string, unknown>;
+      await tx.update(customers).set({
+        creditLimitLastReviewedAt: c.creditLimitLastReviewedAt ? new Date(String(c.creditLimitLastReviewedAt)) : null,
+        creditLimitSnoozeCount: Number(c.creditLimitSnoozeCount ?? 0),
+        creditLimitReminderDays: c.creditLimitReminderDays != null ? Number(c.creditLimitReminderDays) : null,
+        updatedAt: new Date()
+      }).where(eq(customers.id, (prior as { id: string }).id));
+      affected.push((prior as { id: string }).id);
     }
   } else {
     throw new Error(`${original.commandName} is ${policy?.disposition ?? 'not'} reversible: ${policy?.guidance ?? 'No reversal policy is registered.'}`);
