@@ -217,6 +217,9 @@ export function SalesView() {
   // facing exports are independently gated, see SalesView.csvExport.ts).
   const showMargin = useUiStore((state) => state.showMargin);
   const setShowMargin = useUiStore((state) => state.setShowMargin);
+  const setSalesSheetState = useUiStore((state) => state.setSalesSheetState);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
   const visibleOrderColumns = useMemo(() => selectVisibleSalesColumns(showMargin, orderColumns), [showMargin]);
   const visibleSuggestionColumns = useMemo(() => selectVisibleSalesColumns(showMargin, suggestionColumns), [showMargin]);
   const visibleLineColumns = useMemo(() => selectVisibleSalesColumns(showMargin, lineColumns), [showMargin]);
@@ -254,6 +257,17 @@ export function SalesView() {
   const isIndicatorDismissed = dismissedCreditIndicators.has(indicatorKey);
 
   const sheetRows = useMemo(() => selectedSuggestions.slice(0, 8), [selectedSuggestions]);
+
+  // TER-1569: sync live sales sheet state to the shared Zustand slice so the
+  // ContextDrawer Output/Pricing tabs can read it without prop drilling.
+  useEffect(() => {
+    setSalesSheetState({
+      orderId: selectedOrder?.id ? String(selectedOrder.id) : null,
+      sheetRows,
+      sheetMode,
+      exportError,
+    });
+  }, [setSalesSheetState, selectedOrder?.id, sheetRows, sheetMode, exportError]);
 
   const salesOrderExpansionConfig = useMemo(
     () => ({
@@ -430,10 +444,17 @@ export function SalesView() {
     void runCommand('createSalesOrder', { customerId }, 'Auto-start customer sale workspace').then((result) => {
       if (result.ok) {
         setActiveCustomerId(customerId);
-        void workspace.refetch();
+        // TER-1571: after workspace refetch, auto-activate the drawer for the new order.
+        void workspace.refetch().then((refreshed) => {
+          const newOrder = refreshed.data?.orders?.[0];
+          if (newOrder?.id) {
+            setDrawerEntity('sales', 'salesOrder', String(newOrder.id));
+            setDrawerState('sales', 'standard');
+          }
+        });
       }
     });
-  }, [autoStartedCustomerIds, canWrite, customerId, runCommand, setActiveCustomerId, workspace, workspace.isFetching, workspaceOrder]);
+  }, [autoStartedCustomerIds, canWrite, customerId, runCommand, setActiveCustomerId, setDrawerEntity, setDrawerState, workspace, workspace.isFetching, workspaceOrder]);
 
   async function createOrder() {
     if (!customerId) return;
@@ -561,6 +582,7 @@ export function SalesView() {
 
   async function exportSheet() {
     setExportError(null);
+    setSalesSheetState({ exportError: null });
     const mode = sheetMode === 'internal' ? 'internal' : 'catalog';
     const csv = buildSheetCsv(sheetRows, mode, { showMargin });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -587,9 +609,11 @@ export function SalesView() {
         );
         if (!result.ok) {
           setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
+          setSalesSheetState({ exportError: 'Sheet downloaded, but Recent Sheets snapshot failed.' });
         }
       } catch {
         setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
+        setSalesSheetState({ exportError: 'Sheet downloaded, but Recent Sheets snapshot failed.' });
       }
     }
   }

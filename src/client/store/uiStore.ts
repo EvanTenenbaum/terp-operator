@@ -50,6 +50,20 @@ interface UiState {
   // preference, like dismissedShadowBanner. Customer-facing exports are
   // independently gated (PR #80 / #15) and do NOT read this flag.
   showMargin: boolean;
+  // TER-1569/TER-1570/TER-1571: ephemeral sales sheet state synced from SalesView.
+  // NOT persisted — reset on every session so the drawer always reads live data.
+  salesSheetState: {
+    orderId: string | null;
+    sheetRows: GridRow[];
+    sheetMode: 'internal' | 'catalog';
+    exportError: string | null;
+  };
+  setSalesSheetState: (patch: {
+    orderId?: string | null;
+    sheetRows?: GridRow[];
+    sheetMode?: 'internal' | 'catalog';
+    exportError?: string | null;
+  }) => void;
   setActiveView: (view: ViewKey) => void;
   setActiveCustomerId: (customerId: string | null) => void;
   setActiveQuickLaunch: (mode: QuickLaunchMode | null) => void;
@@ -110,6 +124,7 @@ export const useUiStore = create<UiState>()(
     announcement: '',
     dismissedShadowBanner: false,
     showMargin: true,
+    salesSheetState: { orderId: null, sheetRows: [], sheetMode: 'internal', exportError: null },
     pickQueueFilters: new Set<string>(),
     setActiveView: (view) =>
       set((state) => {
@@ -295,6 +310,10 @@ export const useUiStore = create<UiState>()(
       set((state) => {
         state.showMargin = show;
         state.announcement = show ? 'Margin visible.' : 'Margin hidden.';
+      }),
+    setSalesSheetState: (patch) =>
+      set((state) => {
+        state.salesSheetState = { ...state.salesSheetState, ...patch };
       }),
     setPickQueueFilter: (chip, active) =>
       set((state) => {
