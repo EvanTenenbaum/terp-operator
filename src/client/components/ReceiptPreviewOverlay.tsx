@@ -47,6 +47,8 @@ export function ReceiptPreviewOverlay({ purchaseOrderId, onClose }: ReceiptPrevi
     { enabled: isManagerOrOwner }
   );
 
+  const activeQuery = mode === 'external' ? externalQuery : internalQuery;
+
   const projection: ProjectionLike | null =
     mode === 'external'
       ? (externalQuery.data as ProjectionLike | null | undefined) ?? null
@@ -119,7 +121,7 @@ export function ReceiptPreviewOverlay({ purchaseOrderId, onClose }: ReceiptPrevi
 
         {/* receipt body — always rendered so the element is immediately visible */}
         <div data-testid="receipt-preview-body" className="receipt-preview-body-html">
-          {externalQuery.isLoading ? (
+          {activeQuery.isLoading ? (
             <p className="page-subtitle">Loading receipt…</p>
           ) : projection ? (
             <ReceiptContent projection={projection} />
