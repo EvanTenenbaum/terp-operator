@@ -18,14 +18,27 @@ export type TriggerSource =
  * Callers normally pass a transaction client so the enqueue rolls back with the
  * triggering command if it fails. The Pool overload exists for tests and the
  * nightly bulk path.
+ *
+ * Implementation note: commandBus passes Drizzle ORM transaction objects (NodePgTransaction),
+ * which wrap a raw pg.PoolClient at `tx.session.client`. Drizzle's own `tx.query` property
+ * is a relational query-builder object, NOT the pg Pool.query() function. We unwrap to the
+ * raw PoolClient so the INSERT uses the same connection as the surrounding transaction
+ * (i.e., the enqueue stays transactional and rolls back with the command if it fails).
  */
 export async function enqueueCustomerRecompute(
-  client: Pool | PoolClient,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: Pool | PoolClient | any,
   customerId: string,
   source: TriggerSource,
   commandId: string | null
 ): Promise<void> {
-  await client.query(
+  // Unwrap Drizzle ORM transaction objects: NodePgTransaction stores the
+  // underlying pg.PoolClient at client.session.client (inherited from PgDatabase).
+  // Plain Pool / PoolClient callers have no .session, so the nullish fallback
+  // keeps the existing behaviour for those paths.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const pgClient: Pool | PoolClient = (client as any)?.session?.client ?? (client as Pool | PoolClient);
+  await pgClient.query(
     `INSERT INTO credit_recompute_queue (customer_id, enqueued_by, command_id, status)
        VALUES ($1, $2, $3, 'pending')
        ON CONFLICT (customer_id) WHERE status = 'pending' DO NOTHING`,

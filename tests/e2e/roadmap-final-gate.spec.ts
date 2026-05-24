@@ -60,7 +60,10 @@ test.describe('roadmap final gate', () => {
     await expect(page.getByRole('button', { name: /Category analytics report \d+ row/ })).toBeVisible();
 
     await nav.getByRole('button', { name: 'Inventory' }).click();
-    await expect(page.getByText('Inventory controls')).toBeVisible();
+    // "Inventory controls" section heading was removed; select a row first to activate
+    // SelectionSummary and the "Row actions" toggle, then open the action menu.
+    await page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first().click();
+    await page.getByRole('button', { name: 'Row actions' }).click();
     await expect(page.getByRole('button', { name: 'Set status' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Move location' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Move ownership' })).toBeVisible();

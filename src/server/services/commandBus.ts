@@ -342,14 +342,19 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     }
 
     // Validate command_name + payload — same-key reuse with different
-    // command or payload returns a 409-equivalent with a safe message.
+    // command or payload returns a 409-equivalent with a safe message that
+    // includes the mismatching values so callers can diagnose the collision.
     if (existing.commandName !== input.name) {
-      throw new Error('Idempotency key reused with different command or payload.');
+      throw new Error(
+        `Idempotency key reused with different command: first used '${existing.commandName}', now '${input.name}'.`
+      );
     }
     const existingPayload = canonicalStringify(existing.inputPayload ?? {});
     const currentPayload = canonicalStringify(journalPayload ?? {});
     if (existingPayload !== currentPayload) {
-      throw new Error('Idempotency key reused with different command or payload.');
+      throw new Error(
+        `Idempotency key reused with different payload for command '${input.name}'. Use a unique key for each distinct request.`
+      );
     }
 
     if (existing.status === 'pending') {
@@ -383,7 +388,30 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         // the timeout and re-submits with a fresh idempotency key.
         throw new Error('Previous attempt timed out. Please retry with a new request.');
       }
-      // Winner still running. Safe message — no SQL leak.
+      // Winner still running — poll briefly so truly concurrent callers (e.g.
+      // two simultaneous network requests with the same key) can replay the
+      // winner's result rather than receiving a 500 immediately. This handles
+      // the atomic-claim concurrency contract: one INSERT wins, the other polls
+      // until the winner commits, then replays the cached result.
+      const POLL_INTERVAL_MS = 50;
+      const MAX_POLLS = 20; // up to 1 second total wait
+      let polled = 0;
+      let current = existing;
+      while (current.status === 'pending' && polled < MAX_POLLS) {
+        await new Promise<void>(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        const [refreshed] = await db
+          .select()
+          .from(commandJournal)
+          .where(eq(commandJournal.idempotencyKey, input.idempotencyKey))
+          .limit(1);
+        if (refreshed) current = refreshed;
+        polled++;
+      }
+      if (current.status !== 'pending') {
+        // Winner finished — replay the cached result atomically.
+        return current.result as unknown as CommandResult;
+      }
+      // Still pending after polling — winner is taking too long.
       throw new Error('Command already in progress for this idempotency key.');
     }
 

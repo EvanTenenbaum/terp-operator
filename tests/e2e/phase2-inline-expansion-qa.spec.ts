@@ -29,11 +29,11 @@ test.describe('Phase 2 Inline Expansion QA', () => {
   });
 
   test('Vendor Bills - Payout actions inline expansion', async ({ page }) => {
-    // Navigate to Operations view
-    await page.getByText('Operations').click();
+    // Navigate to Vendor Payouts view (was 'Operations' — no such nav group; vendor bills live at /vendors)
+    await page.click('[data-testid="sidenav-item-vendors"]');
 
-    // Wait for vendor bills grid to load
-    await expect(page.getByText('Vendor Bills')).toBeVisible({ timeout: 10000 });
+    // Wait for vendor payables grid to load (WorkspacePanel renders aria-label="Vendor Payables")
+    await expect(page.locator('section[aria-label="Vendor Payables"]')).toBeVisible({ timeout: 10000 });
 
     // Check if there are any vendor bill rows
     const gridRows = await page.locator('.ag-row').count();
@@ -87,11 +87,15 @@ test.describe('Phase 2 Inline Expansion QA', () => {
   });
 
   test('Purchase Orders - Secondary actions inline expansion', async ({ page }) => {
-    // Navigate to Operations view
-    await page.getByText('Operations').click();
+    // Navigate to Purchase Orders view (was 'Operations' — no such nav group; POs live at /purchaseOrders)
+    await page.click('[data-testid="sidenav-item-purchaseOrders"]');
 
-    // Wait for PO grid to load
-    await expect(page.getByText('Purchase Orders')).toBeVisible({ timeout: 10000 });
+    // Wait for PO grid to load.
+    // getByText('Purchase Orders') resolves to 3+ elements (sidenav button, WorkspacePanel
+    // title span, SelectionSummary label). Use the WorkspacePanel section aria-label instead.
+    // OperatorGrid is rendered with title="Recent purchase orders" so the section is
+    // aria-label="Recent purchase orders".
+    await expect(page.locator('section[aria-label="Recent purchase orders"]')).toBeVisible({ timeout: 10000 });
 
     // Check if there are any PO rows
     const gridRows = await page.locator('.ag-row').count();
@@ -146,11 +150,11 @@ test.describe('Phase 2 Inline Expansion QA', () => {
   });
 
   test('Sales Orders - Order actions inline expansion', async ({ page }) => {
-    // Navigate to Sales view
-    await page.getByText('Sales').first().click();
+    // Navigate to Orders view (was 'Sales' — strict mode violation; sales orders live at /orders)
+    await page.click('[data-testid="sidenav-item-orders"]');
 
-    // Wait for sales orders grid to load
-    await expect(page.getByText('Sales Orders')).toBeVisible({ timeout: 10000 });
+    // Wait for orders grid to load — WorkspacePanel renders aria-label="Orders" on its section element
+    await expect(page.locator('section[aria-label="Orders"]')).toBeVisible({ timeout: 10000 });
 
     // Check if there are any sales order rows
     const gridRows = await page.locator('.ag-row').count();
@@ -203,11 +207,11 @@ test.describe('Phase 2 Inline Expansion QA', () => {
   });
 
   test('Auto-collapse behavior', async ({ page }) => {
-    // Navigate to Operations view
-    await page.getByText('Operations').click();
+    // Navigate to Vendor Payouts view (was 'Operations' — no such nav group; vendor bills live at /vendors)
+    await page.click('[data-testid="sidenav-item-vendors"]');
 
-    // Wait for vendor bills grid
-    await expect(page.getByText('Vendor Bills')).toBeVisible({ timeout: 10000 });
+    // Wait for vendor payables grid (WorkspacePanel renders aria-label="Vendor Payables")
+    await expect(page.locator('section[aria-label="Vendor Payables"]')).toBeVisible({ timeout: 10000 });
 
     const chevronCells = page.locator('.expansion-chevron-cell');
     const count = await chevronCells.count();
@@ -241,10 +245,11 @@ test.describe('Phase 2 Inline Expansion QA', () => {
   });
 
   test('Keyboard navigation', async ({ page }) => {
-    // Navigate to Sales view
-    await page.getByText('Sales').first().click();
+    // Navigate to Orders view (was 'Sales' — strict mode violation; sales orders live at /orders)
+    await page.click('[data-testid="sidenav-item-orders"]');
 
-    await expect(page.getByText('Sales Orders')).toBeVisible({ timeout: 10000 });
+    // Wait for orders grid (WorkspacePanel renders aria-label="Orders" on its section element)
+    await expect(page.locator('section[aria-label="Orders"]')).toBeVisible({ timeout: 10000 });
 
     const chevronCell = page.locator('.expansion-chevron-cell').first();
 
@@ -290,11 +295,13 @@ test.describe('Phase 2 Inline Expansion QA', () => {
       }
     });
 
-    // Navigate through all views with inline expansion
-    await page.getByText('Operations').click();
+    // Navigate through views with inline expansion
+    // (was 'Operations' — no such nav group; vendor bills live at /vendors)
+    await page.click('[data-testid="sidenav-item-vendors"]');
     await page.waitForTimeout(1000);
 
-    await page.getByText('Sales').first().click();
+    // (was 'Sales'.first() — strict mode violation; sales orders live at /orders)
+    await page.click('[data-testid="sidenav-item-orders"]');
     await page.waitForTimeout(1000);
 
     // Filter out known non-blocking errors (like ag-Grid license warnings)

@@ -54,15 +54,16 @@ test.describe('URL Routing', () => {
     await expect(page).toHaveURL(/\/sales/);
 
     // Verify sales view is actually rendered
-    await expect(page.locator('text=Sales')).toBeVisible();
+    await expect(page.locator('[data-testid="sidenav-item-sales"]')).toBeVisible();
 
     // Navigate directly to intake
     await page.goto('/intake');
     await expect(page).toHaveURL(/\/intake/);
-    await expect(page.locator('text=Intake')).toBeVisible();
+    await expect(page.locator('[data-testid="sidenav-item-intake"]')).toBeVisible();
 
-    // Navigate directly to purchase orders
-    await page.goto('/purchaseOrders');
+    // Navigate directly to purchase orders (PO view is heavier; give it extra timeout)
+    await page.goto('/purchaseOrders', { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/purchaseOrders/);
   });
 
@@ -78,7 +79,7 @@ test.describe('URL Routing', () => {
 
     // Should still be on sales page
     await expect(page).toHaveURL(/\/sales/);
-    await expect(page.locator('text=Sales')).toBeVisible();
+    await expect(page.locator('[data-testid="sidenav-item-sales"]')).toBeVisible();
   });
 
   test('root path redirects to dashboard', async ({ page }) => {

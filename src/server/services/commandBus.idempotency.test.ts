@@ -421,7 +421,7 @@ describe('atomic idempotency claim', () => {
         user,
         io
       )
-    ).rejects.toThrow(/Idempotency key reused with different command or payload/);
+    ).rejects.toThrow(/Idempotency key reused with different payload/);
 
     // Same key, DIFFERENT command name.
     await expect(
@@ -435,7 +435,7 @@ describe('atomic idempotency claim', () => {
         user,
         io
       )
-    ).rejects.toThrow(/Idempotency key reused with different command or payload/);
+    ).rejects.toThrow(/Idempotency key reused with different command/);
 
     // None of the thrown messages must leak SQL.
     const sqlLeakRegex = /(insert\s+into|command_journal|duplicate\s+key|unique\s+constraint)/i;
