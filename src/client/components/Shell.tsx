@@ -18,6 +18,7 @@ import {
   ReceiptText,
   Scale,
   Search,
+  ScanSearch,
   ShoppingCart,
   Settings,
   Users
@@ -166,6 +167,7 @@ export function Keel({ user }: { user: SessionUser }) {
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const activeView = useUiStore((state) => state.activeView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
+  const setFinderOpen = useUiStore((state) => state.setFinderOpen);
   const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
   const utils = trpc.useContext();
   const logout = trpc.auth.logout.useMutation({
@@ -195,6 +197,16 @@ export function Keel({ user }: { user: SessionUser }) {
         <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
         <span>Search</span>
         <kbd className="ml-auto">⌘K</kbd>
+      </button>
+      <button
+        type="button"
+        className="command-search keel-search"
+        title="Global finder — search across all entities (⌘⇧F)"
+        onClick={() => setFinderOpen(true)}
+      >
+        <ScanSearch className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+        <span>Find</span>
+        <kbd className="ml-auto">⌘⇧F</kbd>
       </button>
       <div className="keel-chip-row" aria-label="Start chips">
         {visibleChips.length ? (
