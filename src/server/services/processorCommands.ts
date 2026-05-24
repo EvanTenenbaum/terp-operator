@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import Decimal from 'decimal.js';
 import { paymentProcessors, processorFees } from '../schema';
 import type { PaymentProcessor } from '../schema';
 import type { CommandResult } from '../../shared/types';
@@ -30,7 +31,7 @@ export function calculateProcessingFee(
       if (processor.feePercentage == null) {
         throw new Error('Fee percentage is required for percentage fee type');
       }
-      return Math.round((amount * Number(processor.feePercentage) / 100) * 100) / 100;
+      return new Decimal(String(amount)).mul(String(processor.feePercentage)).div(100).toDecimalPlaces(2).toNumber();
 
     case 'fixed':
       if (processor.feeFixedAmount == null) {
@@ -42,8 +43,8 @@ export function calculateProcessingFee(
       if (processor.feePercentage == null || processor.feeFixedAmount == null) {
         throw new Error('Both fee percentage and fixed amount are required for hybrid fee type');
       }
-      const percentPart = Math.round((amount * Number(processor.feePercentage) / 100) * 100) / 100;
-      return percentPart + Number(processor.feeFixedAmount);
+      const percentPart = new Decimal(String(amount)).mul(String(processor.feePercentage)).div(100).toDecimalPlaces(2);
+      return percentPart.plus(String(processor.feeFixedAmount)).toDecimalPlaces(2).toNumber();
 
     default:
       throw new Error(`Invalid fee type: ${processor.feeType}`);
@@ -65,8 +66,9 @@ export function splitProcessingFee(
     throw new Error('User split percent must be between 0 and 100');
   }
 
-  const userShare = Math.round((feeTotal * userSplitPercent / 100) * 100) / 100;
-  const processorShare = Math.round((feeTotal - userShare) * 100) / 100;
+  const userShareDec = new Decimal(String(feeTotal)).mul(String(userSplitPercent)).div(100).toDecimalPlaces(2);
+  const userShare = userShareDec.toNumber();
+  const processorShare = new Decimal(String(feeTotal)).minus(userShareDec).toDecimalPlaces(2).toNumber();
 
   return { userShare, processorShare };
 }
@@ -83,7 +85,7 @@ export function calculateCustomerCredit(
   processorFeeShare: number,
   userFeeShare: number
 ): number {
-  return Math.round((grossAmount - processorFeeShare - userFeeShare) * 100) / 100;
+  return new Decimal(String(grossAmount)).minus(String(processorFeeShare)).minus(String(userFeeShare)).toDecimalPlaces(2).toNumber();
 }
 
 // =============================================================================

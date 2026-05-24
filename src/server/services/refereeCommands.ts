@@ -6,6 +6,7 @@
  */
 
 import { eq, and, or, sql, asc } from 'drizzle-orm';
+import Decimal from 'decimal.js';
 import { referees, refereeRelationships, refereeCredits, purchaseOrders, salesOrders } from '../schema';
 import type { CommandResult } from '../../shared/types';
 
@@ -33,7 +34,7 @@ export function calculateRefereeCredit(
   switch (feeType) {
     case 'percentage':
       if (!feePercentage) throw new Error('Percentage fee required');
-      return Math.round((transactionTotal * (feePercentage / 100)) * 100) / 100;
+      return new Decimal(String(transactionTotal)).mul(String(feePercentage)).div(100).toDecimalPlaces(2).toNumber();
     case 'fixed':
       if (!feeFixedAmount) throw new Error('Fixed amount required');
       return feeFixedAmount;
@@ -41,8 +42,8 @@ export function calculateRefereeCredit(
       if (!feePercentage || !feeFixedAmount) {
         throw new Error('Both percentage and fixed amount required for hybrid fee');
       }
-      const percentPart = Math.round((transactionTotal * (feePercentage / 100)) * 100) / 100;
-      return percentPart + feeFixedAmount;
+      const percentPart = new Decimal(String(transactionTotal)).mul(String(feePercentage)).div(100).toDecimalPlaces(2);
+      return percentPart.plus(String(feeFixedAmount)).toDecimalPlaces(2).toNumber();
     default:
       throw new Error(`Invalid fee type: ${feeType}`);
   }
