@@ -259,6 +259,7 @@ export function PurchaseOrdersView() {
   const selectedRows = useUiStore((state) => state.selectedRows.purchaseOrders);
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const pushToast = useUiStore((state) => state.pushToast);
   const setGridFilter = useUiStore((state) => state.setGridFilter);
   const storedGridFilter = useUiStore((state) => state.gridFilters?.purchaseOrders ?? '');
@@ -811,6 +812,13 @@ export function PurchaseOrdersView() {
         onSelectionChange={(rows) => {
           setSelectedRows('purchaseOrders', rows);
           setSelectedLines([]);
+          // CAP-002 / TER-1474: open PO drawer context on row selection
+          if (rows.length === 1 && rows[0]?.id) {
+            setDrawerEntity('purchaseOrders', 'po', String(rows[0].id));
+            setDrawerState('purchaseOrders', 'standard');
+          } else if (rows.length === 0) {
+            setDrawerState('purchaseOrders', 'closed');
+          }
         }}
         onCellCommit={canWrite ? updatePoCell : undefined}
         actions={
