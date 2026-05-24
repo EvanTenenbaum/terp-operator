@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
 import { activeEntityForState, defaultDrawerState, defaultTabForEntity, drawerStorageKey, queueDrawerEntity, storedDrawerForState, useUiStore } from '../store/uiStore';
+import { buildSheetCsv } from '../utils/salesExport';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { DrawerStateName, GridRow, ViewKey } from '../../shared/types';
 import { CustomerCreditPanel } from './credit/CustomerCreditPanel';
@@ -204,26 +205,47 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   const isSalesOrderEntity = entityType === 'salesOrder';
   const salesOrderId = isSalesOrderEntity && entityId ? entityId : (row?.id ? String(row.id) : '');
 
+  // TER-1569/TER-1570: live sales sheet state from SalesView via shared Zustand slice.
+  // All hooks must be called unconditionally before any early returns.
+  const salesSheetState = useUiStore((state) => state.salesSheetState);
+  const setSalesSheetState = useUiStore((state) => state.setSalesSheetState);
+  const showMargin = useUiStore((state) => state.showMargin);
+  // TER-1570: live orderLines for the active salesOrder entity.
+  const salesOrderLinesQuery = trpc.queries.salesOrderLines.useQuery(
+    { orderId: salesOrderId || '00000000-0000-0000-0000-000000000000' },
+    { enabled: isSalesOrderEntity && Boolean(salesOrderId) }
+  );
+
   if (activeTab === 'pricing' && isSalesOrderEntity) {
     return (
       <SalesPricingTab
         orderId={salesOrderId}
         selectedOrder={row}
-        orderLines={[]}
+        orderLines={salesOrderLinesQuery.data ?? []}
       />
     );
   }
   if (activeTab === 'output' && isSalesOrderEntity) {
+    const handleExport = () => {
+      const csv = buildSheetCsv(salesSheetState.sheetRows, salesSheetState.sheetMode, { showMargin });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = salesSheetState.sheetMode === 'internal' ? 'terp-operator-sales-sheet.csv' : 'terp-operator-sales-catalog.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    };
     return (
       <SalesOutputTab
         orderId={salesOrderId}
-        sheetMode="internal"
-        sheetRows={[]}
-        showMargin={true}
-        orderLines={[]}
-        onModeToggle={() => { /* no-op: full export state lives in SalesView */ }}
-        onExport={() => { /* no-op: export triggered from SalesView */ }}
-        exportError={null}
+        sheetMode={salesSheetState.sheetMode}
+        sheetRows={salesSheetState.sheetRows}
+        showMargin={showMargin}
+        orderLines={salesOrderLinesQuery.data ?? []}
+        onModeToggle={() => setSalesSheetState({ sheetMode: salesSheetState.sheetMode === 'internal' ? 'catalog' : 'internal' })}
+        onExport={handleExport}
+        exportError={salesSheetState.exportError}
       />
     );
   }
