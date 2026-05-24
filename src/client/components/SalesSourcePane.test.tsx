@@ -16,6 +16,9 @@ import userEvent from '@testing-library/user-event';
 // --- mock trpc & nested components so the tab strip can be tested in isolation ---
 vi.mock('../api/trpc', () => ({
   trpc: {
+    auth: {
+      me: { useQuery: () => ({ data: { id: 'test-user', role: 'owner', email: 'owner@test.local' }, isLoading: false }) }
+    },
     queries: {
       reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] } }) },
       recentCustomerSheets: { useQuery: () => ({ data: [], isLoading: false }) },
