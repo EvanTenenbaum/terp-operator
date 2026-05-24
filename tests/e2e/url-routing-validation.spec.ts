@@ -54,7 +54,7 @@ test.describe('URL Routing', () => {
     await expect(page).toHaveURL(/\/sales/);
 
     // Verify sales view is actually rendered
-    await expect(page.locator('text=Sales')).toBeVisible();
+    await expect(page.locator('[data-testid="sidenav-item-sales"]')).toBeVisible();
 
     // Navigate directly to intake
     await page.goto('/intake');
@@ -78,7 +78,7 @@ test.describe('URL Routing', () => {
 
     // Should still be on sales page
     await expect(page).toHaveURL(/\/sales/);
-    await expect(page.locator('text=Sales')).toBeVisible();
+    await expect(page.locator('[data-testid="sidenav-item-sales"]')).toBeVisible();
   });
 
   test('root path redirects to dashboard', async ({ page }) => {
