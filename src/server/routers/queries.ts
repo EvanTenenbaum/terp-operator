@@ -10,6 +10,7 @@ import { getExternalReceipt, getInternalReceipt, renderPrintHtml, renderSignalTe
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
 import { commandJournal, paymentProcessors, processorFees } from '../schema';
+import { assertRole } from '../rbac';
 import { projectLandedCostException } from '../projections/landedCostException';
 import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCostExceptionSql';
 
@@ -1581,7 +1582,9 @@ export const queriesRouter = router({
    * with the same idempotency key produce exactly one journal row.
    * Manager-gated so it cannot be called from viewer/operator surfaces.
    */
-  commandJournal: protectedProcedure.query(async () => {
+  commandJournal: protectedProcedure.query(async ({ ctx }) => {
+    assertRole(ctx.user, 'manager');
+
     return db
       .select({
         id: commandJournal.id,
