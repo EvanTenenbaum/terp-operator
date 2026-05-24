@@ -10,7 +10,8 @@ const pendingFrontendCommandNames = parseCommandNames(read('src/shared/commandCa
 // Remove each entry when the corresponding frontend usage lands.
 // CAP-030 frontend: PR #186 (draft) — pickQueue, pickListWithLines, releaseEligibility
 // commandJournal: internal diagnostic endpoint used by idempotency e2e tests via page.evaluate; not a UI-facing query
-const pendingFrontendQueryNames = ['pickQueue', 'pickListWithLines', 'releaseEligibility', 'commandJournal'];
+const pendingFrontendQueryNames = ['pickQueue', 'pickListWithLines', 'releaseEligibility', 'commandJournal', 'mergeCandidateCount'];
+// mergeCandidateCount: backend endpoint exists; merge UI is a TODO (GH #264 removed the dead button, full UI pending)
 const queryNames = parseRouterNames(read('src/server/routers/queries.ts'));
 const clientText = readClientSource();
 const commandSurfaceAliases = {
