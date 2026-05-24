@@ -11,6 +11,27 @@ interface SelectionSummaryProps {
   actions?: ReactNode;
 }
 
+const VIEW_LABELS: Partial<Record<string, string>> = {
+  intake: 'Intake',
+  purchaseOrders: 'Purchase Orders',
+  sales: 'Sales',
+  payments: 'Payments',
+  inventory: 'Inventory',
+  connectors: 'Connectors',
+  fulfillment: 'Fulfillment',
+  recovery: 'Recovery',
+  closeout: 'Closeout',
+  photography: 'Photography',
+  matchmaking: 'Matchmaking',
+  pickQueue: 'Pick Queue',
+  orders: 'Orders',
+  clients: 'Clients',
+  vendors: 'Vendors',
+  dashboard: 'Dashboard',
+  reports: 'Reports',
+  settings: 'Settings',
+};
+
 const sumFields = ['subtotal', 'total', 'amount', 'intakeQty', 'availableQty', 'qty', 'openBalance'];
 
 export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship, onOpenIssue, actions }: SelectionSummaryProps) {
@@ -28,7 +49,7 @@ export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship
     <div className="selection-summary" aria-live="polite">
       <div className="selection-summary-main">
         <span className="selection-pill">{rows.length} selected</span>
-        <span className="selection-pill">{view}</span>
+        <span className="selection-pill">{VIEW_LABELS[view] ?? view}</span>
         {sums.slice(0, 4).map((sum) => (
           <span className="selection-pill" key={sum.field}>
             <Sigma className="h-3.5 w-3.5" aria-hidden="true" />
@@ -54,9 +75,6 @@ export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship
             Issue
           </button>
         ) : null}
-        <button className="secondary-button compact-action" type="button" onClick={() => downloadSelectionPacket(view, rows)}>
-          Export JSON
-        </button>
         <button className="secondary-button compact-action" type="button" onClick={() => onOpenHistory(rows[0])}>
           <Clock className="h-4 w-4" aria-hidden="true" />
           History
@@ -89,13 +107,4 @@ function label(value: string) {
   return value.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase());
 }
 
-function downloadSelectionPacket(view: ViewKey, rows: GridRow[]) {
-  const payload = { generatedAt: new Date().toISOString(), view, selectedRowCount: rows.length, rows };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `terp-operator-${view}-selection-packet.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
+

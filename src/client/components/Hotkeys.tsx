@@ -41,6 +41,12 @@ export function Hotkeys() {
       const editingText = isEditingText(target);
       const key = event.key.toLowerCase();
 
+      // Guard Cmd+K (command palette) behind editingText — operators should not
+      // accidentally open the palette while typing in a grid cell or search input.
+      // Escape is intentionally left ungarded: its own condition checks (drawerState,
+      // commandPaletteOpen, focusedPanelId) prevent it from acting when nothing is open.
+      if (editingText && (event.metaKey && key === 'k')) return;
+
       if (event.metaKey && event.altKey && key === 'k') {
         event.preventDefault();
         setCommandPaletteAdvancedOpen(true);
