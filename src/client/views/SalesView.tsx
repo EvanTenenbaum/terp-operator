@@ -634,9 +634,9 @@ export function SalesView() {
         </label>
         <button className="primary-button" type="button" disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
           <Send className="h-4 w-4" aria-hidden="true" />
-          {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder))}
+          {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder), Boolean(orderLines.data?.length))}
         </button>
-        <span className="selection-pill">{selectedOrder ? `${String(selectedOrder.orderNo ?? 'Selected sale')} / ${selectedOrderStatus || 'open'}` : customerId ? 'Sale shell starting' : 'Pick customer to start'}</span>
+        <span className="selection-pill">{selectedOrder ? `${String(selectedOrder.orderNo ?? 'Selected sale')} / ${selectedOrderStatus || 'open'}` : customerId ? 'Draft — add your first item' : 'Pick customer to start'}</span>
         {!customerId ? showMarginToggle : null}
         <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
           {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
@@ -920,11 +920,12 @@ function PickStatusChip({ status }: { status: string | undefined }) {
   );
 }
 
-function salesPrimaryLabel(status: string, hasOrder: boolean) {
-  if (!hasOrder) return 'Start';
+function salesPrimaryLabel(status: string, hasOrder: boolean, hasLines: boolean) {
+  if (!hasOrder) return 'New Sale';
   if (status === 'confirmed') return 'Reserve';
   if (status === 'posted') return 'Posted';
   if (status === 'cancelled') return 'Cancelled';
+  if (!hasLines) return 'Add first line';
   return 'Price + Confirm';
 }
 

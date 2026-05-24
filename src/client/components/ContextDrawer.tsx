@@ -6,6 +6,9 @@ import { activeEntityForState, defaultDrawerState, defaultTabForEntity, drawerSt
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { DrawerStateName, GridRow, ViewKey } from '../../shared/types';
 import { CustomerCreditPanel } from './credit/CustomerCreditPanel';
+import { SalesOutputTab } from './drawerTabs/SalesOutputTab';
+import { SalesPricingTab } from './drawerTabs/SalesPricingTab';
+import { SalesCommandHistoryTab } from './drawerTabs/SalesCommandHistoryTab';
 
 const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   queue: [
@@ -41,6 +44,14 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'customer', label: 'Customer' },
     { key: 'output', label: 'Output' },
     { key: 'history', label: 'History' }
+  ],
+  salesOrder: [
+    { key: 'balance', label: 'Balance' },
+    { key: 'history', label: 'History' },
+    { key: 'notes', label: 'Notes' },
+    { key: 'pricing', label: 'Pricing' },
+    { key: 'output', label: 'Output' },
+    { key: 'commands', label: 'Commands' }
   ],
   po: [
     { key: 'relationship', label: 'Relationship' },
@@ -188,6 +199,42 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   // contactId may be present on the row when the grid query includes it (added in 9.3).
   // Render conditionally — no extra query added here.
   const contactId = PROFILE_ENTITY_TYPES.has(entityType) && typeof row?.contactId === 'string' ? row.contactId : null;
+
+  // salesOrder-specific drawer tabs (CAP-007/CAP-012)
+  const isSalesOrderEntity = entityType === 'salesOrder';
+  const salesOrderId = isSalesOrderEntity && entityId ? entityId : (row?.id ? String(row.id) : '');
+
+  if (activeTab === 'pricing' && isSalesOrderEntity) {
+    return (
+      <SalesPricingTab
+        orderId={salesOrderId}
+        selectedOrder={row}
+        orderLines={[]}
+      />
+    );
+  }
+  if (activeTab === 'output' && isSalesOrderEntity) {
+    return (
+      <SalesOutputTab
+        orderId={salesOrderId}
+        sheetMode="internal"
+        sheetRows={[]}
+        showMargin={true}
+        orderLines={[]}
+        onModeToggle={() => { /* no-op: full export state lives in SalesView */ }}
+        onExport={() => { /* no-op: export triggered from SalesView */ }}
+        exportError={null}
+      />
+    );
+  }
+  if (activeTab === 'commands' && isSalesOrderEntity) {
+    return (
+      <SalesCommandHistoryTab
+        orderId={salesOrderId}
+        customerId={customerId}
+      />
+    );
+  }
 
   if (activeTab === 'credit') {
     if (customerId) {
