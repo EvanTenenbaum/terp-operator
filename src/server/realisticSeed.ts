@@ -485,7 +485,7 @@ async function seedPurchasingAndInventory(
       purchaseReceiptId: null,
       billNo: `VBILL-${batch.batchCode}`,
       amount: money(billAmount),
-      amountPaid: money(billAmount * paidShare),
+      amountPaid: money(Math.min(billAmount * paidShare, billAmount)),
       dueDate: addDays(batch.createdAt, batch.ownershipStatus === 'C' ? 14 : 10),
       status: paidShare === 1 ? 'paid' : paidShare > 0 ? 'partial' : index % 4 === 0 ? 'scheduled' : 'approved',
       scheduledFor: index % 4 === 0 ? addDays(new Date(), 2 + (index % 7)) : null,
@@ -819,7 +819,7 @@ async function seedSalesAccountingAndFulfillment(
           orderId: '',
           status: paidAmount >= invoiceTotal - 0.01 ? 'paid' : paidAmount > 0 ? 'partial' : 'open',
           total: money(invoiceTotal),
-          amountPaid: money(paidAmount),
+          amountPaid: money(Math.min(paidAmount, invoiceTotal)),
           dueDate: overdueBias ? addDays(saleDate, 10) : dueDate,
           createdAt: saleDate,
           updatedAt: addDays(saleDate, 1)
