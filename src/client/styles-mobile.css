@@ -1,0 +1,141 @@
+/* Mobile design tokens — scoped to .mobile-shell to prevent cascade pollution of desktop views.
+   NEVER move these to :root without auditing styles.css for token name collisions. */
+.mobile-shell {
+  --m-ink:         #18211f;
+  --m-panel:       #f7f8f5;
+  --m-field:       #ffffff;
+  --m-line:        #d8ded6;
+  --m-accent:      #216e4e;
+  --m-accent-soft: #e7f1ec;
+  --m-accent-deep: #1a5840;
+  --m-amber:       #b06915;
+  --m-amber-soft:  #fff4df;
+  --m-danger:      #b42318;
+  --m-danger-soft: #fde7e4;
+  --m-success-soft:#e8f4ee;
+  --m-muted:       #6b7280;
+  --m-muted-2:     #9ca3af;
+
+  /* Status badge backgrounds + foregrounds */
+  --m-badge-ready-bg:    #dcefe5;
+  --m-badge-ready-fg:    #1f5a3f;
+  --m-badge-watch-bg:    #fdebd0;
+  --m-badge-watch-fg:    #b06915;
+  --m-badge-danger-bg:   #fde3e1;
+  --m-badge-danger-fg:   #b42318;
+  --m-badge-neutral-bg:  #e6eaef;
+  --m-badge-neutral-fg:  #314158;
+
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  background-color: var(--m-panel);
+  color: var(--m-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Note: all mobile custom properties use --m- prefix to guarantee no collision with
+   existing --accent, --line, etc. tokens in styles.css */
+
+.mobile-shell .m-card {
+  background: var(--m-field);
+  border: 1px solid var(--m-line);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.mobile-shell .m-section-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--m-muted-2);
+  padding: 16px 16px 8px;
+}
+
+.mobile-shell .m-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mobile-shell .m-badge-ready    { background: var(--m-badge-ready-bg);   color: var(--m-badge-ready-fg); }
+.mobile-shell .m-badge-watch    { background: var(--m-badge-watch-bg);   color: var(--m-badge-watch-fg); }
+.mobile-shell .m-badge-danger   { background: var(--m-badge-danger-bg);  color: var(--m-badge-danger-fg); }
+.mobile-shell .m-badge-neutral  { background: var(--m-badge-neutral-bg); color: var(--m-badge-neutral-fg); }
+
+.mobile-shell .m-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  background: var(--m-accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease, transform 80ms ease;
+}
+.mobile-shell .m-btn-primary:active { background: var(--m-accent-deep); transform: scale(0.98); }
+.mobile-shell .m-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.mobile-shell .m-btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  background: var(--m-field);
+  color: var(--m-ink);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 12px;
+  border: 1.5px solid var(--m-line);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.mobile-shell .m-btn-secondary:active { background: var(--m-panel); }
+
+.mobile-shell .m-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid var(--m-line);
+  background: var(--m-field);
+  color: var(--m-muted);
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  user-select: none;
+}
+.mobile-shell .m-chip-active {
+  background: var(--m-accent);
+  color: #fff;
+  border-color: var(--m-accent);
+}
+
+@keyframes m-fade-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes m-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-4px); }
+  40%       { transform: translateX(4px); }
+  60%       { transform: translateX(-3px); }
+  80%       { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-shell * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
