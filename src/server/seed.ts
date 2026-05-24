@@ -34,8 +34,24 @@ async function seed() {
   if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
     throw new Error('Refusing to seed in production without ALLOW_DEMO_SEED=true.');
   }
+
+  // Guard: ALLOW_DEMO_SEED=false means never seed (useful for alpha/live environments)
+  if (process.env.ALLOW_DEMO_SEED === 'false') {
+    console.log('[seed] ALLOW_DEMO_SEED=false — skipping seed entirely');
+    await pool.end();
+    return;
+  }
+
   await pool.query('select pg_advisory_lock($1)', [seedLockKey]);
   try {
+    // Idempotency guard: only seed if the database is empty
+    const { rows } = await pool.query<{ count: number }>('SELECT COUNT(*)::int AS count FROM users');
+    const userCount = rows[0]?.count ?? 0;
+    if (userCount > 0 && process.env.FORCE_RESEED !== 'true') {
+      console.log(`[seed] Skipping: ${userCount} users already exist. Set FORCE_RESEED=true to override.`);
+      return;
+    }
+
     await pool.query(`
       truncate table
         "session", command_journal, backup_snapshots, photography_queue, archive_runs, period_locks, correction_journal_entries,

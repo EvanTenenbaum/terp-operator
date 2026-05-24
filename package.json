@@ -22,7 +22,7 @@
     "qa:env:setup": "bash scripts/qa-env-setup.sh",
     "qa:preflight": "bash scripts/qa-preflight.sh",
     "qa:export-seed": "node scripts/qa-export-seed-state.js",
-    "start:staging": "NODE_ENV=production pnpm db:migrate:prod && ALLOW_DEMO_SEED=true DEMO_SEED_SCENARIO=${DEMO_SEED_SCENARIO:-realistic_100d} pnpm db:seed:prod && (DATABASE_SSL=${DATABASE_SSL:-false} pnpm audit:realistic-demo || echo '[start:staging] audit:realistic-demo FAILED — continuing boot so server is reachable. See logs above for failed assertions; tracked at #121.') && NODE_ENV=production node dist/server/index.js",
+    "start:staging": "NODE_ENV=production pnpm db:migrate:prod && DEMO_SEED_SCENARIO=${DEMO_SEED_SCENARIO:-realistic_100d} pnpm db:seed:prod && (DATABASE_SSL=${DATABASE_SSL:-false} pnpm audit:realistic-demo || echo '[start:staging] audit:realistic-demo FAILED — continuing boot so server is reachable. See logs above for failed assertions; tracked at #121.') && NODE_ENV=production node dist/server/index.js",
     "staging:reset": "bash scripts/reset-staging-data.sh",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
