@@ -10,9 +10,13 @@ export function PhotographyQueuePanel() {
   const queue = trpc.queries.photographyQueue.useQuery();
   const [batchId, setBatchId] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
+  const [filterMode, setFilterMode] = useState<'needs-media' | 'all'>('needs-media');
   const { runCommand, isRunning } = useCommandRunner();
   const rows = (inventory.data ?? []) as GridRow[];
-  const open = useMemo(() => rows.filter((row) => String(row.mediaStatus ?? 'open') !== 'done'), [rows]);
+  const open = useMemo(
+    () => rows.filter((row) => filterMode === 'all' || String(row.mediaStatus ?? 'open') !== 'done'),
+    [rows, filterMode]
+  );
   const ready = rows.length - open.length;
   const selected = open.find((row) => row.id === batchId) ?? open[0];
 
@@ -37,6 +41,22 @@ export function PhotographyQueuePanel() {
         </div>
       }
     >
+      <div className="flex gap-1 mb-2">
+        <button
+          type="button"
+          className={filterMode === 'needs-media' ? 'selection-pill warning' : 'selection-pill'}
+          onClick={() => setFilterMode('needs-media')}
+        >
+          Needs media ({rows.filter((r) => String(r.mediaStatus ?? 'open') !== 'done').length})
+        </button>
+        <button
+          type="button"
+          className={filterMode === 'all' ? 'selection-pill success' : 'selection-pill'}
+          onClick={() => setFilterMode('all')}
+        >
+          All ({rows.length})
+        </button>
+      </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <label className="field-inline">
           Media batch
@@ -80,14 +100,16 @@ export function PhotographyQueuePanel() {
               </tr>
             </thead>
             <tbody>
-              {queue.data.map((row) => (
-                <tr key={String(row.id)}>
-                  <td>{String(row.batchCode ?? row.batchId)}</td>
-                  <td>{humanMediaStatus(row.status)}</td>
-                  <td>{humanMediaStatus(row.mediaStatus)}</td>
-                  <td>{String(row.notes ?? '')}</td>
-                </tr>
-              ))}
+              {(queue.data ?? [])
+                .filter((row) => filterMode === 'all' || String(row.mediaStatus ?? 'open') !== 'done')
+                .map((row) => (
+                  <tr key={String(row.id)}>
+                    <td>{String(row.batchCode ?? row.batchId)}</td>
+                    <td>{humanMediaStatus(row.status)}</td>
+                    <td>{humanMediaStatus(row.mediaStatus)}</td>
+                    <td>{String(row.notes ?? '')}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

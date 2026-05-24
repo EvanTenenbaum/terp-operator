@@ -12,6 +12,20 @@ const columns: ColDef<GridRow>[] = [
   { field: 'publishedMediaCount', headerName: 'Published', type: 'numericColumn', width: 100 },
   { field: 'draftMediaCount', headerName: 'Drafts', type: 'numericColumn', width: 100 },
   {
+    colId: 'mediaStatus',
+    headerName: 'Media status',
+    width: 130,
+    valueGetter: (params) => {
+      const published = Number(params.data?.publishedMediaCount ?? 0);
+      const drafts = Number(params.data?.draftMediaCount ?? 0);
+      const total = published + drafts;
+      if (total === 0) return 'No media';
+      if (total < 3) return 'Has media';
+      return 'Complete';
+    },
+    filter: 'agSetColumnFilter'
+  },
+  {
     field: 'hasPrimaryPhoto',
     headerName: 'Photo?',
     width: 90,
