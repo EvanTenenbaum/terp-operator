@@ -1826,6 +1826,12 @@ async function transferInventoryOwnership(tx: Tx, payload: Payload, commandId: s
 async function attachBatchPhoto(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
   const photoUrl = requiredString(payload.photoUrl, 'photoUrl');
+  if (!/^https?:\/\/.+/.test(photoUrl)) {
+    throw new Error('photoUrl must be a valid http or https URL.');
+  }
+  if (photoUrl.length > 2048) {
+    throw new Error('photoUrl must be 2048 characters or fewer.');
+  }
   await tx.update(batches).set({ photoUrl, mediaStatus: 'done', updatedAt: new Date() }).where(eq(batches.id, batchId));
   await tx.insert(photographyQueue).values({ batchId, requestedBy: userId, status: 'done', notes: stringValue(payload.notes) || null });
   return { ok: true, commandId, affectedIds: [batchId], toast: 'Batch photo attached.' };
