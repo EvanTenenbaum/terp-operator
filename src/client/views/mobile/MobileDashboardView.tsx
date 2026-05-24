@@ -1,5 +1,41 @@
+import { useNavigate } from 'react-router-dom';
 import { trpc } from '../../api/trpc';
 import type { KpiMetric } from '../../../shared/types';
+
+interface WorkQueueRow {
+  id: string;
+  route: string;
+  lane: string;
+  title: string;
+  status: string;
+  createdAt: string;
+  detail: string;
+}
+
+interface LaneGroup {
+  lane: string;
+  route: string;
+  count: number;
+  preview: string;
+}
+
+function groupByLane(rows: readonly WorkQueueRow[]): LaneGroup[] {
+  const map = new Map<string, LaneGroup>();
+  for (const row of rows) {
+    const existing = map.get(row.lane);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      map.set(row.lane, {
+        lane: row.lane,
+        route: row.route,
+        count: 1,
+        preview: row.detail,
+      });
+    }
+  }
+  return Array.from(map.values());
+}
 
 function Skeleton() {
   return (
@@ -26,11 +62,13 @@ function severitySubColor(severity: KpiMetric['severity']) {
 }
 
 export function MobileDashboardView() {
+  const navigate = useNavigate();
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 30_000 });
   const workQueue  = trpc.queries.workQueue.useQuery(undefined,  { refetchInterval: 30_000 });
 
   const metrics  = dashboard.data?.metrics ?? [];
-  const queues   = dashboard.data?.pendingQueues ?? [];
+  const workRows = (workQueue.data ?? []) as WorkQueueRow[];
+  const laneGroups = groupByLane(workRows);
   const activity = dashboard.data?.recentActivity ?? [];
   const health   = dashboard.data?.health;
   const loading  = dashboard.isLoading;
@@ -39,9 +77,6 @@ export function MobileDashboardView() {
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const dateStr  = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
-  // workQueue is loaded — suppress unused variable warning
-  void workQueue;
 
   return (
     <div className="pb-6">
@@ -52,8 +87,8 @@ export function MobileDashboardView() {
       >
         <p className="text-sm opacity-80">{greeting}</p>
         <p className="mt-0.5 text-xl font-bold">{dateStr}</p>
-        {queues.length > 0 && (
-          <p className="mt-2 text-xs opacity-70">{queues.length} queues need attention</p>
+        {laneGroups.length > 0 && (
+          <p className="mt-2 text-xs opacity-70">{laneGroups.length} queues need attention</p>
         )}
       </div>
 
@@ -88,22 +123,33 @@ export function MobileDashboardView() {
       {/* Work queue */}
       <p className="m-section-header">Work Queue</p>
       <div className="px-4">
-        {loading
+        {loading || workQueue.isLoading
           ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="py-4"><Skeleton /></div>)
-          : queues.map((q) => (
-              <div
-                key={q.key}
-                className="flex min-h-14 items-center justify-between border-b py-4 last:border-0"
+          : laneGroups.map((g) => (
+              <button
+                key={g.lane}
+                type="button"
+                onClick={() => navigate('/' + g.route)}
+                className="flex min-h-14 w-full items-center justify-between border-b py-4 text-left last:border-0"
                 style={{ borderColor: 'var(--m-line)' }}
+                aria-label={`${g.lane}: ${g.count} item${g.count === 1 ? '' : 's'}`}
               >
-                <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>{q.label}</span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>{g.lane}</span>
+                  <span
+                    className="truncate text-xs"
+                    style={{ color: 'var(--m-muted-2)' }}
+                  >
+                    {g.preview}
+                  </span>
+                </span>
                 <span
                   className="ml-3 inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full px-2 text-xs font-bold text-white"
                   style={{ background: 'var(--m-accent)' }}
                 >
-                  {q.count}
+                  {g.count}
                 </span>
-              </div>
+              </button>
             ))}
       </div>
 

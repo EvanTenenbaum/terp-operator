@@ -1,7 +1,16 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const navigateMock = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
 
 vi.mock('../../api/trpc', () => ({
   trpc: {
@@ -30,7 +39,14 @@ const QUEUES = [
   { key: 'payments', label: 'Payments to apply', count: 7,  route: 'payments' },
 ];
 
+const WORK_QUEUE_ROWS = [
+  { id: 'so-1', route: 'orders',   lane: 'Sales',    title: 'SO-1001', status: 'draft', detail: 'Green Leaf / $11,200',   createdAt: new Date().toISOString() },
+  { id: 'so-2', route: 'orders',   lane: 'Sales',    title: 'SO-1002', status: 'draft', detail: 'Blue River / $4,300',    createdAt: new Date().toISOString() },
+  { id: 'inv-1', route: 'payments', lane: 'Payments', title: 'INV-9001', status: 'open',  detail: 'Acme / due $1,200',     createdAt: new Date().toISOString() },
+];
+
 beforeEach(() => {
+  navigateMock.mockClear();
   mockDashboard.mockReturnValue({
     data: {
       metrics: METRICS,
@@ -44,7 +60,7 @@ beforeEach(() => {
     isLoading: false,
     refetch: vi.fn(),
   });
-  mockWorkQueue.mockReturnValue({ data: QUEUES, isLoading: false });
+  mockWorkQueue.mockReturnValue({ data: WORK_QUEUE_ROWS, isLoading: false });
 });
 
 function renderView() {
@@ -66,12 +82,20 @@ describe('MobileDashboardView', () => {
     expect(screen.getByText('Receivables')).toBeInTheDocument();
   });
 
-  it('renders work queue with counts', () => {
+  it('renders work queue grouped by lane with counts and previews', () => {
     renderView();
-    expect(screen.getByText('Sales to confirm')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
-    expect(screen.getByText('Payments to apply')).toBeInTheDocument();
-    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByText('Sales')).toBeInTheDocument();
+    expect(screen.getByText('Green Leaf / $11,200')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('Payments')).toBeInTheDocument();
+    expect(screen.getByText('Acme / due $1,200')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+  });
+
+  it('navigates to the lane route when a work queue row is clicked', () => {
+    renderView();
+    fireEvent.click(screen.getByRole('button', { name: /sales: 2 items/i }));
+    expect(navigateMock).toHaveBeenCalledWith('/orders');
   });
 
   it('renders health banner when health is ok', () => {

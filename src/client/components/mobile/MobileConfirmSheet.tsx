@@ -1,3 +1,5 @@
+import { useFocusTrap } from '../../hooks/useFocusTrap';
+
 interface MobileConfirmSheetProps {
   open: boolean;
   summary: string;
@@ -13,6 +15,8 @@ export function MobileConfirmSheet({
   onConfirm,
   onCancel,
 }: MobileConfirmSheetProps) {
+  const sheetRef = useFocusTrap<HTMLDivElement>(open, onCancel);
+
   if (!open) return null;
 
   return (
@@ -27,15 +31,20 @@ export function MobileConfirmSheet({
       />
       {/* Sheet */}
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Confirm action"
+        aria-labelledby="confirm-sheet-title"
         className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white px-4 pb-8 pt-3 shadow-2xl"
         style={{ animation: 'm-fade-slide-in 180ms ease-out' }}
       >
         {/* Drag handle */}
         <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-zinc-200" aria-hidden="true" />
-        <h2 className="mb-2 text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
+        <h2
+          id="confirm-sheet-title"
+          className="mb-2 text-base font-semibold"
+          style={{ color: 'var(--m-ink)' }}
+        >
           Review before confirming
         </h2>
         <p className="mb-6 text-sm" style={{ color: 'var(--m-muted)' }}>{summary}</p>

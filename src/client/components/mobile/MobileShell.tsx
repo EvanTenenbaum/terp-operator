@@ -1,8 +1,16 @@
 import type React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { trpc } from '../../api/trpc';
 import { LoginView } from '../../views/LoginView';
 import { MobileToastProvider } from './MobileToast';
+
+const VIEW_TITLES: Record<string, string> = {
+  dashboard: 'Dashboard',
+  inventory: 'Inventory',
+  catalog: 'Catalog',
+  payments: 'Payments',
+  contacts: 'Contacts',
+};
 
 function IconDashboard() {
   return (
@@ -50,6 +58,9 @@ const NAV_TABS = [
 
 export function MobileShell() {
   const me = trpc.auth.me.useQuery();
+  const location = useLocation();
+  const segment = location.pathname.split('/').filter(Boolean)[1] ?? 'dashboard';
+  const viewTitle = VIEW_TITLES[segment] ?? 'TERP';
 
   if (me.isLoading) {
     return (
@@ -71,6 +82,12 @@ export function MobileShell() {
         >
           <span className="text-sm font-bold tracking-widest" style={{ color: 'var(--m-accent)' }}>
             TERP
+          </span>
+          <span
+            className="flex-1 text-center text-base font-semibold"
+            style={{ color: 'var(--m-ink)' }}
+          >
+            {viewTitle}
           </span>
           <button
             type="button"
