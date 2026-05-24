@@ -102,7 +102,11 @@ test.describe('adversarial command contracts', () => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
     const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
-    const batch = reference[0].result.data.json.availableBatches.find((row: { availableQty: string }) => Number(row.availableQty) >= 2);
+    // Filter for a batch with available qty >= 2 AND no price range (cost must be resolved so
+    // confirmSalesOrder passes the unitCostResolved check before reaching the duplicate-source check).
+    const batch = reference[0].result.data.json.availableBatches.find(
+      (row: { availableQty: string; priceRange?: unknown }) => Number(row.availableQty) >= 2 && !row.priceRange
+    );
     const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
     const orderId = order.affectedIds[0];
 
@@ -240,9 +244,17 @@ test.describe('adversarial command contracts', () => {
     expect(premature.ok).toBe(false);
     expect(premature.toast).toContain('Approve this purchase order');
 
+    // May 2026 breaking change: approvePurchaseOrder now requires finalized status.
+    // A PO must go draft → finalized → approved. Finalization validates the lines.
+    const finalized = commandData(await runCommand(page, 'finalizePurchaseOrder', { purchaseOrderId }));
+    expect(finalized.ok).toBe(true);
+
     const approved = commandData(await runCommand(page, 'approvePurchaseOrder', { purchaseOrderId }));
     expect(approved.ok).toBe(true);
 
+    // approvePurchaseOrder internally calls receivePurchaseOrder when a vendor is set,
+    // so the second explicit call returns the no-new-rows path which still contains
+    // 'draft intake rows' in the toast message.
     const received = commandData(await runCommand(page, 'receivePurchaseOrder', { purchaseOrderId }));
     expect(received.ok).toBe(true);
     expect(received.toast).toContain('draft intake rows');
@@ -277,17 +289,25 @@ test.describe('adversarial command contracts', () => {
     const reference = await trpcQuery(page, 'queries.reference');
     const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
 
+    // Record the balance BEFORE the credit so assertions are relative to starting state.
+    // The realistic seed leaves Cobalt Reserve with a non-zero balance, so we cannot
+    // assert the absolute value of -100; instead assert it changed by the payment amount.
+    const before = await trpcQuery(page, 'queries.grid', { view: 'clients' });
+    const initialBalance = Number(before[0].result.data.json.find((row: { id: string }) => row.id === customer.id).balance);
+
     const credit = commandData(await runCommand(page, 'logPayment', { customerId: customer.id, amount: -100, method: 'cash', notes: 'adversarial buyer credit' }));
     expect(credit.ok).toBe(true);
 
     const withCredit = await trpcQuery(page, 'queries.grid', { view: 'clients' });
-    expect(Number(withCredit[0].result.data.json.find((row: { id: string }) => row.id === customer.id).balance)).toBe(-100);
+    // Balance should have decreased by 100 (the credit amount)
+    expect(Number(withCredit[0].result.data.json.find((row: { id: string }) => row.id === customer.id).balance)).toBeCloseTo(initialBalance - 100, 2);
 
     const reversed = commandData(await runCommand(page, 'reverseCommandById', { commandId: credit.commandId }));
     expect(reversed.ok).toBe(true);
 
     const afterReverse = await trpcQuery(page, 'queries.grid', { view: 'clients' });
-    expect(Number(afterReverse[0].result.data.json.find((row: { id: string }) => row.id === customer.id).balance)).toBe(0);
+    // After reversal, balance should be back to the original value
+    expect(Number(afterReverse[0].result.data.json.find((row: { id: string }) => row.id === customer.id).balance)).toBeCloseTo(initialBalance, 2);
   });
 
   test('archive enforces the same open-work blockers preview reports', async ({ page }) => {
@@ -347,7 +367,13 @@ test.describe('adversarial command contracts', () => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
     const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
-    const batch = reference[0].result.data.json.availableBatches.find((row: { availableQty: string }) => Number(row.availableQty) >= 1);
+    // Filter for a batch with no price range (fixed cost): confirmSalesOrder checks unitCostResolved
+    // BEFORE the pricing guardrail check, so a range-priced batch would throw 'unresolved landed COGS'
+    // instead of 'below pricing guardrails'. We need a batch with resolved cost to reach the
+    // guardrail check.
+    const batch = reference[0].result.data.json.availableBatches.find(
+      (row: { availableQty: string; priceRange?: unknown }) => Number(row.availableQty) >= 1 && !row.priceRange
+    );
     const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
     const orderId = order.affectedIds[0];
 
