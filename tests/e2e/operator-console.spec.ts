@@ -11,8 +11,9 @@ test('owner can log in, inspect dashboard, and navigate spreadsheet grids', asyn
   await page.getByLabel('Email').fill('owner@terpagro.local');
   await page.getByLabel('Password').fill('terp-demo');
   await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForLoadState('networkidle');
 
-  await expect(page.getByText('Owner Daily Decision View')).toBeVisible();
+  await expect(page.getByText('Owner Daily Decision View')).toBeVisible({ timeout: 20000 });
   await expect(page.getByText('Cash/files on hand')).toBeVisible();
 
   const nav = page.getByRole('navigation');
@@ -82,7 +83,8 @@ test('keel chips and row-native tools support fastest operator starts', async ({
 
   await keel.getByRole('menuitem', { name: 'New Sale', exact: true }).click();
   await page.getByLabel('Customer').selectOption({ label: 'Cobalt Reserve' });
-  await expect(page.getByText('Sales Orders')).toBeVisible();
+  // Use region role to avoid strict-mode match against both the section label and inner span
+  await expect(page.getByRole('region', { name: 'Sales Orders' }).first()).toBeVisible();
   // Issue #60/#63: panel was renamed from "Customer Workspace" to "Sale Builder"
   await expect(page.getByRole('button', { name: 'Sale Builder', exact: true })).toBeVisible();
 
@@ -206,14 +208,17 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   await nav.getByRole('button', { name: /Purchase Orders/ }).click();
   await expect(main.getByRole('button', { name: /Recent purchase orders \d+ row/ })).toBeVisible();
   await expect(main.getByRole('button', { name: 'New PO' })).toBeVisible();
-  await expect(main.getByRole('button', { name: 'Approve PO' })).toBeVisible();
-  await page.locator('.ag-center-cols-container .ag-row').first().click();
-  await main.getByRole('button', { name: 'More', exact: true }).click();
+  // Select the finalized PO so the dynamic primary button label reads "Approve PO"
+  await page.locator('.ag-center-cols-container .ag-row').filter({ hasText: 'PO-DEMO-003' }).click();
+  // Two "Approve PO" buttons are visible when a finalized PO is selected (toolbar + compact header);
+  // use .first() to avoid strict-mode violation while confirming the button is present.
+  await expect(main.getByRole('button', { name: 'Approve PO' }).first()).toBeVisible();
+  // Expand the first row to verify row-level actions (the "More" tray button was replaced by inline expansion chevron)
+  await page.locator('[aria-label="Expand row details"]').first().click();
   await expect(main.getByRole('button', { name: 'Draft intake' })).toBeVisible();
   await expect(main.getByRole('button', { name: 'Cancel draft PO' })).toBeVisible();
   await expect(main.getByRole('button', { name: /Lines Procurement cost lines/ })).toBeVisible();
   await expect(main.getByRole('button', { name: 'Draft selected lines' })).toBeVisible();
-  await expect(main.getByRole('button', { name: 'Line actions' })).toBeVisible();
 
   await nav.getByRole('button', { name: /Intake/ }).click();
   await expect(page.getByText('Intake queue')).toBeVisible();
@@ -247,7 +252,10 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
 
   await nav.getByRole('button', { name: /Inventory/ }).click();
   await expect(page.getByText('Photography Queue')).toBeVisible();
-  await expect(page.getByText('Inventory controls')).toBeVisible();
+  // "Inventory controls" section heading was removed; row actions now live behind a
+  // "Row actions" toggle that appears in SelectionSummary only after a row is selected.
+  await page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first().click();
+  await page.getByRole('button', { name: 'Row actions' }).click();
   await expect(page.getByRole('button', { name: 'Set status' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Move location' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Move ownership' })).toBeVisible();

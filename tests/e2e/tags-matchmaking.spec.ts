@@ -77,6 +77,8 @@ test.describe('tags and deterministic matchmaking', () => {
     );
     expect(line.ok).toBe(true);
 
+    // approvePurchaseOrder now requires finalized status (May 2026 workflow change: draft → finalized → approved)
+    expect(commandData(await runCommand(page, 'finalizePurchaseOrder', { purchaseOrderId })).ok).toBe(true);
     expect(commandData(await runCommand(page, 'approvePurchaseOrder', { purchaseOrderId })).ok).toBe(true);
     expect(commandData(await runCommand(page, 'receivePurchaseOrder', { purchaseOrderId })).ok).toBe(true);
 
@@ -195,6 +197,8 @@ test.describe('tags and deterministic matchmaking', () => {
     await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeDisabled();
+    // Wait for the first AG Grid row to be stable before clicking (avoids element detach on re-render)
+    await expect(page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first()).toBeVisible({ timeout: 10000 });
     await page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first().click();
     await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeEnabled();
