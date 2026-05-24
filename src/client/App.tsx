@@ -42,6 +42,13 @@ import { PickView } from './views/PickView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 import { ContactsView } from './views/ContactsView';
 import { ContactProfileView } from './views/ContactProfileView';
+import { MobileShell } from './components/mobile/MobileShell';
+import { MobileDashboardView } from './views/mobile/MobileDashboardView';
+import { MobileInventoryView } from './views/mobile/MobileInventoryView';
+import { MobileCatalogView } from './views/mobile/MobileCatalogView';
+import { MobilePaymentsView } from './views/mobile/MobilePaymentsView';
+import { MobileContactsView } from './views/mobile/MobileContactsView';
+import { MobileContactProfileView } from './views/mobile/MobileContactProfileView';
 
 // Phase 0b — CAP-007 / CAP-008 canvas grammar feature flag.
 // Default: enabled. Set VITE_CANVAS_GRAMMAR_ENABLED=false to revert to pre-canvas shell.
@@ -199,7 +206,20 @@ export function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <AppContent />
+        <Routes>
+          {/* Mobile shell — no SideNav, no Keel, handles its own auth */}
+          <Route path="/mobile/*" element={<MobileShell />}>
+            <Route path="dashboard" element={<MobileDashboardView />} />
+            <Route path="inventory" element={<MobileInventoryView />} />
+            <Route path="catalog"   element={<MobileCatalogView />} />
+            <Route path="payments"  element={<MobilePaymentsView />} />
+            <Route path="contacts"  element={<MobileContactsView />} />
+            <Route path="contacts/:id" element={<MobileContactProfileView />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+          </Route>
+          {/* Desktop shell — all other routes */}
+          <Route path="*" element={<AppContent />} />
+        </Routes>
       </BrowserRouter>
     </ErrorBoundary>
   );

@@ -5,6 +5,7 @@ import { trpc, trpcClient } from './api/trpc';
 import { App } from './App';
 import { registerUiStoreStorageSync } from './store/uiStoreStorageSync';
 import './styles.css';
+import './styles-mobile.css';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 import 'ag-grid-enterprise';

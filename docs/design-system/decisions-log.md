@@ -15,6 +15,55 @@
 
 ---
 
+## 2026-05-24 — Mobile views: CSS scoped under .mobile-shell with --m- prefix
+**Decision:** All mobile CSS custom properties declared in `styles-mobile.css` under `.mobile-shell { }`, using `--m-` prefix. NOT declared on `:root`.
+**Rationale:** `styles.css` already declares `--accent`, `--line`, and others globally. Scoping + prefix prevents silent cascade pollution of desktop AG Grid views, drawers, and the keel header.
+**Example:** `src/client/styles-mobile.css`.
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** AQA finding M5 from 2026-05-24 spec review.
+
+---
+
+## 2026-05-24 — Mobile views: no AG Grid on any mobile view
+**Decision:** All five mobile views use Tailwind card/list layouts. AG Grid is explicitly excluded from all /mobile/* routes.
+**Rationale:** AG Grid is keyboard-first, spreadsheet-native, and breaks on touch input. Mobile views need tap-first dense lists with 44–56px minimum tap targets.
+**Example:** `src/client/views/mobile/*.tsx`.
+**Author:** Claude Sonnet 4.6 via Evan
+
+---
+
+## 2026-05-24 — Mobile payments: canonical confirm-sheet trigger table
+**Decision:** Pay Vendor tab always triggers a confirm sheet. Receive Payment triggers only when amount ≥ $20,000 OR amount ≠ invoice total.
+**Rationale:** Vendor payments are unconditionally high-risk (external financial relationship). Customer receipts at small exact amounts have lower reversal impact.
+**Example:** `src/client/views/mobile/MobilePaymentsView.tsx` → exported `shouldConfirm()`.
+**Author:** Claude Sonnet 4.6 via Evan
+
+---
+
+## 2026-05-24 — Mobile views: URL search param for cross-view batch targeting
+**Decision:** `MobileCatalogView` passes `?expand={batchId}` to `/mobile/inventory`. `MobileInventoryView` reads this on mount, expands that row, and removes the param via `setSearchParams`.
+**Rationale:** Local `useState` is ephemeral per view instance. `useUiStore` would pollute global state. URL params are the standard React Router cross-view handoff and are testable.
+**Example:** `src/client/views/mobile/MobileInventoryView.tsx` (useSearchParams expand effect).
+**Author:** Claude Sonnet 4.6 via Evan
+
+---
+
+## 2026-05-24 — Mobile contacts: delivery-gated stub
+**Decision:** `MobileContactsView` and `MobileContactProfileView` ship as stubs with a gate message until `queries.contactDirectory` and `queries.contactProfile` are available in the tRPC router (CAP-033 Phase 4).
+**Rationale:** Shipping real UI against missing backend queries causes runtime failures. The stub makes the Contacts tab visible and navigable without a failure path.
+**Example:** `src/client/views/mobile/MobileContactsView.tsx`.
+**Author:** Claude Sonnet 4.6 via Evan
+
+---
+
+## 2026-05-24 — Mobile payments: recordVendorPayment requires manager role
+**Decision:** The Record Payment button in `MobilePaymentsView` is disabled with a tooltip "Manager role required." for users with `role < manager` (i.e., `operator` or `viewer`). The form fields remain visible.
+**Rationale:** `recordVendorPayment` requires manager minimum per `commandCatalog.ts`. Silently failing after a confirm flow is a worse UX than a clear disabled state at the action point.
+**Example:** `src/client/views/mobile/MobilePaymentsView.tsx` → `canPayVendor`.
+**Author:** Claude Sonnet 4.6 via Evan
+
+---
+
 ## 2026-05-22 — CAP-030 pick-status chip colors (TER-1508)
 **Decision:** Pick-status chips use Tailwind utility classes directly (`bg-blue-100 text-blue-800` etc.) rather than a semantic CSS class.
 **Rationale:** Five states, one-off use in SalesView line expansion. If pick-status chips appear elsewhere, extract to `.pick-status-chip-*` semantic pattern then.
