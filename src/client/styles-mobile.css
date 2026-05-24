@@ -15,6 +15,7 @@
   --m-success-soft:#e8f4ee;
   --m-muted:       #6b7280;
   --m-muted-2:     #9ca3af;
+  --m-on-accent:   #ffffff;
 
   /* Status badge backgrounds + foregrounds */
   --m-badge-ready-bg:    #dcefe5;
@@ -75,7 +76,7 @@
   min-height: 56px;
   padding: 0 16px;
   background: var(--m-accent);
-  color: #fff;
+  color: var(--m-on-accent);
   font-size: 16px;
   font-weight: 600;
   border-radius: 14px;
@@ -102,6 +103,7 @@
   transition: border-color 120ms ease;
 }
 .mobile-shell .m-btn-secondary:active { background: var(--m-panel); }
+.mobile-shell .m-btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .mobile-shell .m-chip {
   display: inline-flex;
@@ -119,9 +121,9 @@
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
   user-select: none;
 }
-.mobile-shell .m-chip-active {
+.mobile-shell .m-chip.m-chip-active {
   background: var(--m-accent);
-  color: #fff;
+  color: var(--m-on-accent);
   border-color: var(--m-accent);
 }
 
