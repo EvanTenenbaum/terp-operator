@@ -1683,13 +1683,16 @@ async function rejectBatch(tx: Tx, payload: Payload, commandId: string): Promise
         affected.push(poLine.id);
       }
     }
-    const billRows = await tx.select().from(vendorBills).where(eq(vendorBills.purchaseOrderId, row.purchaseOrderId));
-    for (const bill of billRows as Array<typeof vendorBills.$inferSelect>) {
+    // Lock vendor bill rows to prevent concurrent bill-amount adjustment races during rejection
+    const billResult = await tx.execute(
+      sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.purchaseOrderId} = ${row.purchaseOrderId} FOR UPDATE`
+    );
+    for (const bill of billResult.rows) {
       if (bill.status === 'paid' || bill.status === 'void') continue;
       // TER-1566: Decimal-precise rejection adjustment — bill.amount minus qty*cost.
       const next = subMoneyMin0(bill.amount, mulMoney(row.intakeQty, row.unitCost));
       await tx.update(vendorBills).set({ amount: next, updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
-      affected.push(bill.id);
+      affected.push(bill.id as string);
     }
   }
   return { ok: true, commandId, affectedIds: [...new Set(affected)], toast: `${row.batchCode} rejected: ${rejectionReason}` };
@@ -2955,7 +2958,11 @@ async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Pr
   }
   for (const line of lines) {
     if (!line.batchId || line.status !== 'reserved') continue;
-    const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+    // Lock batch row to prevent concurrent reservation-release races during cancellation
+    const batchRows = await tx.execute(
+      sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${line.batchId} FOR UPDATE`
+    );
+    const batch = batchRows.rows[0];
     if (batch) await tx.update(batches).set({ reservedQty: qtyScale(Math.max(0, Number(batch.reservedQty) - Number(line.qty))), updatedAt: new Date() }).where(eq(batches.id, batch.id));
   }
   await tx.update(salesOrders).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
@@ -3399,10 +3406,58 @@ async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): P
 
 async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const paymentId = requiredId(payload.paymentId, 'paymentId');
-  const [payment] = await tx.select().from(payments).where(eq(payments.id, paymentId)).limit(1);
+
+  // Lock payment row to prevent concurrent refund races
+  const paymentRows = await tx.execute(
+    sql`SELECT * FROM ${payments} WHERE ${payments.id} = ${paymentId} FOR UPDATE`
+  );
+  const payment = paymentRows.rows[0];
   if (!payment) throw new Error('Payment not found.');
+  if (payment.status === 'refunded') throw new Error('Payment has already been refunded.');
+
   await tx.update(payments).set({ status: 'refunded', unappliedAmount: '0.00', updatedAt: new Date() }).where(eq(payments.id, paymentId));
-  return { ok: true, commandId, affectedIds: [paymentId], toast: 'Payment refunded.' };
+
+  const affected = [paymentId];
+  const paymentAmount = Number(payment.amount);
+
+  // Update customer balance and write a ledger entry to preserve integrity.
+  // A positive payment (money_in) reduced the customer's outstanding balance;
+  // refunding it reverses that — the balance increases by the payment amount.
+  // A negative payment (buyer_credit) increased the balance; refund decreases it.
+  if (payment.customerId) {
+    // Lock customer row to prevent concurrent balance update races
+    const customerRows = await tx.execute(
+      sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${payment.customerId} FOR UPDATE`
+    );
+    const customer = customerRows.rows[0];
+    if (customer) {
+      const balanceDelta = paymentAmount > 0 ? paymentAmount : paymentAmount; // positive payment → increase balance; negative → decrease
+      const nextBalance = new Decimal(String(customer.balance ?? 0))
+        .plus(new Decimal(String(balanceDelta)))
+        .toDecimalPlaces(2)
+        .toFixed(2);
+      await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id as string));
+      const [entry] = await tx.insert(clientLedgerEntries).values({
+        customerId: customer.id as string,
+        paymentId,
+        kind: 'payment_refund',
+        amount: moneyScale(balanceDelta),
+        balanceAfter: nextBalance,
+        note: `Refund of payment ${paymentId}`
+      }).returning();
+      affected.push(customer.id as string, entry.id);
+    } else {
+      // TODO: refundPayment must update customers.balance and write a clientLedgerEntries row
+      // Customer row not found — this creates a ledger integrity gap.
+      console.error('[refundPayment] WARNING: customer not found for payment — balance not updated, ledger gap:', paymentId);
+    }
+  } else {
+    // TODO: refundPayment must update customers.balance and write a clientLedgerEntries row
+    // Currently this creates a ledger integrity gap — payment has no customerId.
+    console.error('[refundPayment] WARNING: customer balance not updated on refund — no customerId on payment:', paymentId);
+  }
+
+  return { ok: true, commandId, affectedIds: affected, toast: 'Payment refunded.' };
 }
 
 async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -4520,6 +4575,14 @@ async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: s
 async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
   await acquirePeriodCloseoutLock(tx, period);
+  // Guard: prevent double-archiving the same period (idempotent protection under the advisory lock).
+  const [existingArchive] = await tx.select({ id: archiveRuns.id })
+    .from(archiveRuns)
+    .where(eq(archiveRuns.period, period))
+    .limit(1);
+  if (existingArchive) {
+    throw new Error(`Period ${period} has already been archived. Archive run ID: ${existingArchive.id}.`);
+  }
   const safety = await getCloseoutSafety(tx, period);
   if (!safety.locked) throw new Error(`${period} must be locked before archiving.`);
   if (!safety.eligible) {
@@ -4727,9 +4790,14 @@ export async function reviewMatchmakingMatch(tx: Tx, payload: Payload, status: '
 
 async function recalcOrder(tx: Tx, orderId: string, strategy?: string) {
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
-  const total = lines.reduce((sum: number, line: typeof salesOrderLines.$inferSelect) => sum + Number(line.qty) * Number(line.unitPrice), 0);
-  const cost = lines.reduce((sum: number, line: typeof salesOrderLines.$inferSelect) => sum + Number(line.qty) * Number(line.unitCost), 0);
-  const values: Record<string, unknown> = { total: moneyScale(total), internalMargin: moneyScale(total - cost), updatedAt: new Date() };
+  // Decimal-precise accumulation: avoid floating-point drift on large line counts.
+  const total = lines.reduce((sum: Decimal, line: typeof salesOrderLines.$inferSelect) =>
+    sum.plus(new Decimal(String(line.qty ?? 0)).times(new Decimal(String(line.unitPrice ?? 0)))),
+    new Decimal(0));
+  const cost = lines.reduce((sum: Decimal, line: typeof salesOrderLines.$inferSelect) =>
+    sum.plus(new Decimal(String(line.qty ?? 0)).times(new Decimal(String(line.unitCost ?? 0)))),
+    new Decimal(0));
+  const values: Record<string, unknown> = { total: moneyScale(total.toFixed()), internalMargin: moneyScale(total.minus(cost).toFixed()), updatedAt: new Date() };
   if (strategy) values.pricingStrategy = strategy;
   await tx.update(salesOrders).set(values).where(eq(salesOrders.id, orderId));
 }
@@ -4763,19 +4831,20 @@ function buildPricingSnapshot(lines: Array<typeof salesOrderLines.$inferSelect>,
 
 async function recalcPurchaseOrder(tx: Tx, purchaseOrderId: string) {
   const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
-  const total = lines.reduce((sum: number, line: typeof purchaseOrderLines.$inferSelect) => {
-    const qty = Number(line.qty);
-    let cost = Number(line.unitCost);
+  // Decimal-precise accumulation: avoid floating-point drift on large line counts.
+  const total = lines.reduce((sum: Decimal, line: typeof purchaseOrderLines.$inferSelect) => {
+    const qty = new Decimal(String(line.qty ?? 0));
+    let cost = new Decimal(String(line.unitCost ?? 0));
 
     // If line has cost range instead of fixed cost, use midpoint for estimate
-    if (cost === 0 && line.costRangeLow != null && line.costRangeHigh != null) {
+    if (cost.isZero() && line.costRangeLow != null && line.costRangeHigh != null) {
       const midpoint = rangeMidpoint(Number(line.costRangeLow), Number(line.costRangeHigh));
-      cost = midpoint ?? 0;
+      cost = new Decimal(String(midpoint ?? 0));
     }
 
-    return sum + qty * cost;
-  }, 0);
-  await tx.update(purchaseOrders).set({ total: moneyScale(total), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+    return sum.plus(qty.times(cost));
+  }, new Decimal(0));
+  await tx.update(purchaseOrders).set({ total: moneyScale(total.toFixed()), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
 }
 
 function assertPurchaseOrderEditable(status: string) {
