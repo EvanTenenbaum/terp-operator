@@ -42,6 +42,10 @@ import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 import { ContactsView } from './views/ContactsView';
 import { ContactProfileView } from './views/ContactProfileView';
 
+// Phase 0b — CAP-007 / CAP-008 canvas grammar feature flag.
+// Default: enabled. Set VITE_CANVAS_GRAMMAR_ENABLED=false to revert to pre-canvas shell.
+const CANVAS_GRAMMAR_ENABLED = import.meta.env.VITE_CANVAS_GRAMMAR_ENABLED !== 'false';
+
 // Sync URL with activeView state.
 // Nested routes intentionally use the first path segment as activeView
 // (e.g. /photography/mobile/:batchId -> photography).
@@ -112,10 +116,10 @@ function AppContent() {
       <LocationSync />
       <SideNav user={me.data} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Keel user={me.data} />
-        <IdentityRibbon />
-        <div className={clsx('canvas-shell', (focusedPanelId || focusMode) && 'canvas-shell-focus')}>
-          <main className={clsx('min-h-0 flex-1 overflow-auto', focusedPanelId || focusMode ? 'p-2' : 'p-4')}>
+        {CANVAS_GRAMMAR_ENABLED && <Keel user={me.data} />}
+        {CANVAS_GRAMMAR_ENABLED && <IdentityRibbon />}
+        <div className={clsx(CANVAS_GRAMMAR_ENABLED && 'canvas-shell', CANVAS_GRAMMAR_ENABLED && (focusedPanelId || focusMode) && 'canvas-shell-focus')}>
+          <main className={clsx('min-h-0 flex-1 overflow-auto', CANVAS_GRAMMAR_ENABLED && (focusedPanelId || focusMode) ? 'p-2' : 'p-4')}>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardView />} />
@@ -146,7 +150,7 @@ function AppContent() {
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </main>
-          <ContextDrawer />
+          {CANVAS_GRAMMAR_ENABLED && <ContextDrawer />}
         </div>
       </div>
       <Hotkeys />
