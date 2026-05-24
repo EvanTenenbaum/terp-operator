@@ -198,6 +198,29 @@ const mulMoney = (a: unknown, b: unknown): string =>
     .toDecimalPlaces(2)
     .toFixed(2);
 
+/**
+ * Subtract two money-shaped values with Decimal precision. Returns a scaled
+ * string. Result is NOT clamped — use subMoneyMin0 when the result cannot be
+ * negative (e.g. reversing amountPaid that may have already been corrected).
+ * Phase 1 cleanup for TER-1566: fixes reversal-handler sites missed in the
+ * initial Decimal.js pass.
+ */
+const subMoney = (a: unknown, b: unknown): string =>
+  new Decimal(String(a ?? 0))
+    .minus(new Decimal(String(b ?? 0)))
+    .toDecimalPlaces(2)
+    .toFixed(2);
+
+/**
+ * Same as subMoney but clamped at "0.00". Use when the result must be
+ * non-negative (e.g. reversing bill.amountPaid or invoice.amountPaid where
+ * concurrent corrections may have already reduced the value).
+ */
+const subMoneyMin0 = (a: unknown, b: unknown): string => {
+  const d = new Decimal(String(a ?? 0)).minus(new Decimal(String(b ?? 0)));
+  return (d.isNegative() ? new Decimal(0) : d).toDecimalPlaces(2).toFixed(2);
+};
+
 const qtyScale = (value: unknown) => Number(value ?? 0).toFixed(3);
 const code = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 999).toString().padStart(3, '0')}`;
 const oneWeek = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -1633,8 +1656,9 @@ async function rejectBatch(tx: Tx, payload: Payload, commandId: string): Promise
     const billRows = await tx.select().from(vendorBills).where(eq(vendorBills.purchaseOrderId, row.purchaseOrderId));
     for (const bill of billRows as Array<typeof vendorBills.$inferSelect>) {
       if (bill.status === 'paid' || bill.status === 'void') continue;
-      const next = Math.max(Number(bill.amount) - Number(row.intakeQty) * Number(row.unitCost), 0);
-      await tx.update(vendorBills).set({ amount: moneyScale(next), updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+      // TER-1566: Decimal-precise rejection adjustment — bill.amount minus qty*cost.
+      const next = subMoneyMin0(bill.amount, mulMoney(row.intakeQty, row.unitCost));
+      await tx.update(vendorBills).set({ amount: next, updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
       affected.push(bill.id);
     }
   }
@@ -3275,7 +3299,8 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
   const affected = [paymentId];
   for (const invoice of invoicesToPay) {
     if (remaining <= 0) break;
-    const open = Number(invoice.total) - Number(invoice.amountPaid);
+    // TER-1566: Decimal-precise open amount so allocationAmount boundary is exact.
+    const open = Number(subMoney(invoice.total, invoice.amountPaid));
     const allocationAmount = Math.min(open, remaining, payload.amount != null ? Number(payload.amount) : remaining);
     if (allocationAmount <= 0) continue;
     const [allocation] = await tx.insert(paymentAllocations).values({ paymentId, invoiceId: invoice.id, amount: moneyScale(allocationAmount) }).returning();
@@ -3397,7 +3422,8 @@ async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string):
   if (bill.status !== 'scheduled' && payload.overrideUnscheduled !== true) {
     throw new Error('Schedule this vendor payment before recording payment. Scheduled means a real appointment/payment event exists.');
   }
-  const amount = payload.amount != null ? requiredNumber(payload.amount, 'amount') : Number(bill.amount) - Number(bill.amountPaid);
+  // TER-1566: Decimal-precise default payment amount when not specified.
+  const amount = payload.amount != null ? requiredNumber(payload.amount, 'amount') : Number(subMoney(bill.amount, bill.amountPaid));
   if (amount <= 0) throw new Error('Vendor payout amount must be greater than zero.');
   if (Number(bill.amountPaid) + amount > Number(bill.amount)) throw new Error('Vendor payout cannot exceed the open bill balance.');
   const transactionDate = dateOrNull(payload.date ?? payload.createdAt) ?? new Date();
@@ -4077,11 +4103,12 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
       if (invoice.customerId) {
         const [customer] = await tx.select().from(customers).where(eq(customers.id, invoice.customerId)).limit(1);
         if (customer) {
-          const nextBalance = Number(customer.balance) - Number(invoice.total);
-          await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+          // TER-1566: Decimal-precise balance reversal (balance may go negative if customer had credit).
+          const nextBalance = subMoney(customer.balance, invoice.total);
+          await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id));
           const [entry] = await tx
             .insert(clientLedgerEntries)
-            .values({ customerId: customer.id, invoiceId: invoice.id, kind: 'sale_reversal', amount: moneyScale(-Number(invoice.total)), balanceAfter: moneyScale(nextBalance), note: `Reversal of ${original.commandName}` })
+            .values({ customerId: customer.id, invoiceId: invoice.id, kind: 'sale_reversal', amount: moneyScale(-Number(invoice.total)), balanceAfter: nextBalance, note: `Reversal of ${original.commandName}` })
             .returning();
           affected.push(customer.id, entry.id);
           customersToRecompute.add(customer.id);
@@ -4200,18 +4227,19 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
       const [payment] = await tx.select().from(payments).where(eq(payments.id, currentAllocation.paymentId)).limit(1);
       const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, currentAllocation.invoiceId)).limit(1);
       await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, currentAllocation.id));
-      if (payment) await tx.update(payments).set({ unappliedAmount: moneyScale(Number(payment.unappliedAmount) + Number(currentAllocation.amount)), updatedAt: new Date() }).where(eq(payments.id, payment.id));
+      // TER-1566: Decimal-precise allocation reversal — addMoney/subMoneyMin0 match the forward-path helpers.
+      if (payment) await tx.update(payments).set({ unappliedAmount: addMoney(payment.unappliedAmount, currentAllocation.amount), updatedAt: new Date() }).where(eq(payments.id, payment.id));
       if (invoice) {
-        const paid = Math.max(0, Number(invoice.amountPaid) - Number(currentAllocation.amount));
-        await tx.update(invoices).set({ amountPaid: moneyScale(paid), status: paid <= 0 ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+        const paid = subMoneyMin0(invoice.amountPaid, currentAllocation.amount);
+        await tx.update(invoices).set({ amountPaid: paid, status: new Decimal(paid).lte(0) ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
         if (invoice.customerId) {
           const [customer] = await tx.select().from(customers).where(eq(customers.id, invoice.customerId)).limit(1);
           if (customer) {
-            const nextBalance = Number(customer.balance) + Number(currentAllocation.amount);
-            await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+            const nextBalance = addMoney(customer.balance, currentAllocation.amount);
+            await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id));
             const [entry] = await tx
               .insert(clientLedgerEntries)
-              .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: payment?.id, kind: 'allocation_reversal', amount: moneyScale(Number(currentAllocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Payment allocation reversal' })
+              .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: payment?.id, kind: 'allocation_reversal', amount: moneyScale(currentAllocation.amount), balanceAfter: nextBalance, note: 'Payment allocation reversal' })
               .returning();
             affected.push(customer.id, entry.id);
             customersToRecompute.add(customer.id);
@@ -4229,16 +4257,17 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
         const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, allocation.invoiceId)).limit(1);
         await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, allocation.id));
         if (invoice) {
-          const paid = Math.max(0, Number(invoice.amountPaid) - Number(allocation.amount));
-          await tx.update(invoices).set({ amountPaid: moneyScale(paid), status: paid <= 0 ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+          // TER-1566: Decimal-precise ledger reversal — match allocatePayment reversal pattern above.
+          const paid = subMoneyMin0(invoice.amountPaid, allocation.amount);
+          await tx.update(invoices).set({ amountPaid: paid, status: new Decimal(paid).lte(0) ? 'open' : 'partial', updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
           if (invoice.customerId) {
             const [customer] = await tx.select().from(customers).where(eq(customers.id, invoice.customerId)).limit(1);
             if (customer) {
-              const nextBalance = Number(customer.balance) + Number(allocation.amount);
-              await tx.update(customers).set({ balance: moneyScale(nextBalance), updatedAt: new Date() }).where(eq(customers.id, customer.id));
+              const nextBalance = addMoney(customer.balance, allocation.amount);
+              await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id));
               const [entry] = await tx
                 .insert(clientLedgerEntries)
-                .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: currentPayment.id, kind: 'allocation_reversal', amount: moneyScale(Number(allocation.amount)), balanceAfter: moneyScale(nextBalance), note: 'Transaction ledger allocation reversal' })
+                .values({ customerId: customer.id, invoiceId: invoice.id, paymentId: currentPayment.id, kind: 'allocation_reversal', amount: moneyScale(allocation.amount), balanceAfter: nextBalance, note: 'Transaction ledger allocation reversal' })
                 .returning();
               affected.push(customer.id, entry.id);
               customersToRecompute.add(customer.id);
@@ -4314,10 +4343,11 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
       await tx.update(vendorPayments).set({ status: 'void' }).where(eq(vendorPayments.id, currentPayment.id));
       const [bill] = await tx.select().from(vendorBills).where(eq(vendorBills.id, currentPayment.vendorBillId)).limit(1);
       if (bill) {
-        const amountPaid = Math.max(0, Number(bill.amountPaid) - Number(currentPayment.amount));
+        // TER-1566: Decimal-precise vendor bill reversal — mirrors recordVendorPayment forward path.
+        const amountPaid = subMoneyMin0(bill.amountPaid, currentPayment.amount);
         await tx
           .update(vendorBills)
-          .set({ amountPaid: moneyScale(amountPaid), status: bill.scheduledFor ? 'scheduled' : 'approved', updatedAt: new Date() })
+          .set({ amountPaid, status: bill.scheduledFor ? 'scheduled' : 'approved', updatedAt: new Date() })
           .where(eq(vendorBills.id, bill.id));
         affected.push(bill.id);
       }
