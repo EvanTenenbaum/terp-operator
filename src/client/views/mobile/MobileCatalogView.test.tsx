@@ -47,7 +47,9 @@ describe('MobileCatalogView', () => {
 
   it('shows No Photos badge for row without media', () => {
     renderView();
-    expect(screen.getByText('No Photos')).toBeInTheDocument();
+    // 'No Photos' appears in the filter chip and the card badge — ensure badge is present (span element)
+    const items = screen.getAllByText('No Photos');
+    expect(items.some(el => el.tagName === 'SPAN')).toBe(true);
   });
 
   it('opens bottom sheet when a card is tapped', () => {

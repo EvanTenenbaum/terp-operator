@@ -106,9 +106,19 @@ export function MobileInventoryView() {
       ) : (
         <div className="divide-y px-4" style={{ borderColor: 'var(--m-line)' }}>
           {filtered.map(row => {
-            const id = String(row.id);
-            const isExpanded = expandedId === id;
-            const status = String(row.status ?? '');
+            const id          = String(row.id);
+            const isExpanded  = expandedId === id;
+            const status      = String(row.status ?? '');
+            const batchCode   = String(row.batchCode ?? '');
+            const name        = String(row.name ?? '');
+            const vendor      = String(row.vendor ?? '');
+            const availableQty = Number(row.availableQty ?? 0);
+            const uom         = String(row.uom ?? 'lb');
+            const unitPrice   = Number(row.unitPrice ?? 0);
+            const unitCost    = Number(row.unitCost ?? 0);
+            const location    = String(row.location ?? '—');
+            const tags        = String(row.tags ?? '');
+            const expDate     = row.expirationDate ? String(row.expirationDate) : null;
 
             return (
               <div key={id} ref={el => { rowRefs.current[id] = el; }}>
@@ -117,31 +127,31 @@ export function MobileInventoryView() {
                   className="flex w-full min-h-[64px] flex-col gap-1 py-4 text-left"
                   onClick={() => toggleExpand(id)}
                   aria-expanded={isExpanded}
-                  aria-label={`${row.name} — ${statusLabel(status)}`}
+                  aria-label={`${name} — ${statusLabel(status)}`}
                 >
                   {/* Top: batch code · name · status badge */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-baseline gap-1.5">
                       <span className="shrink-0 font-mono text-xs" style={{ color: 'var(--m-muted-2)' }}>
-                        {row.batchCode}
+                        {batchCode}
                       </span>
                       <span className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                        {row.name}
+                        {name}
                       </span>
                     </div>
                     <span className={statusBadgeClass(status)}>{statusLabel(status)}</span>
                   </div>
                   {/* Middle: vendor · qty+price */}
                   <div className="flex items-center justify-between text-xs" style={{ color: 'var(--m-muted-2)' }}>
-                    <span>{row.vendor}</span>
+                    <span>{vendor}</span>
                     <span style={{ color: 'var(--m-muted)' }}>
-                      {Number(row.availableQty ?? 0).toLocaleString()} {row.uom ?? 'lb'} · ${Number(row.unitPrice ?? 0).toLocaleString()}/lb
+                      {availableQty.toLocaleString()} {uom} · ${unitPrice.toLocaleString()}/lb
                     </span>
                   </div>
                   {/* Expiry warning */}
-                  {row.expirationDate && (
+                  {expDate && (
                     <p className="text-xs" style={{ color: 'var(--m-amber)' }}>
-                      ⚠ Expires {new Date(String(row.expirationDate)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      ⚠ Expires {new Date(expDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                   )}
                 </button>
@@ -153,17 +163,17 @@ export function MobileInventoryView() {
                       <div>
                         <p className="font-semibold uppercase" style={{ color: 'var(--m-muted-2)', fontSize: 10, letterSpacing: '0.06em' }}>Cost / Price</p>
                         <p style={{ color: 'var(--m-ink)' }}>
-                          ${Number(row.unitCost ?? 0).toLocaleString()} / ${Number(row.unitPrice ?? 0).toLocaleString()} per lb
+                          ${unitCost.toLocaleString()} / ${unitPrice.toLocaleString()} per lb
                         </p>
                       </div>
                       <div>
                         <p className="font-semibold uppercase" style={{ color: 'var(--m-muted-2)', fontSize: 10, letterSpacing: '0.06em' }}>Location</p>
-                        <p style={{ color: 'var(--m-ink)' }}>{String(row.location ?? '—')}</p>
+                        <p style={{ color: 'var(--m-ink)' }}>{location}</p>
                       </div>
                     </div>
-                    {row.tags && (
+                    {tags && (
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {String(row.tags).split(',').filter(Boolean).map(tag => (
+                        {tags.split(',').filter(Boolean).map(tag => (
                           <span
                             key={tag}
                             className="rounded-lg px-2 py-0.5 text-xs"
