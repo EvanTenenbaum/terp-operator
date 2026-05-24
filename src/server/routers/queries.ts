@@ -10,7 +10,7 @@ import { getExternalReceipt, getInternalReceipt, renderPrintHtml, renderSignalTe
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
 import { commandJournal, paymentProcessors, processorFees } from '../schema';
-import { assertRole } from '../rbac';
+import { assertRole, canRole } from '../rbac';
 import { projectLandedCostException } from '../projections/landedCostException';
 import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCostExceptionSql';
 
@@ -199,7 +199,7 @@ export const queriesRouter = router({
   drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input }) => {
     return (await pool.query(drilldownSql(input.metricKey))).rows;
   }),
-  recoverySearch: protectedProcedure.input(z.object({ q: z.string().default('') })).query(async ({ input }) => {
+  recoverySearch: protectedProcedure.input(z.object({ q: z.string().trim().max(200).default('') })).query(async ({ input, ctx }) => {
     // [#35 DYN-M3] Previously the WHERE clause only matched UUIDs
     // (`affected_ids::text`) and metadata columns. Operators searching by a
     // human-readable name like "Harbor Wellness" got `[]` because the
@@ -207,7 +207,11 @@ export const queriesRouter = router({
     // toast inside `result` and the operator-supplied `reason`. The query
     // stays parameterized; no string interpolation of user input.
     const q = `%${input.q.trim()}%`;
-    return (
+    // [FIX-5] inputPayload may contain sensitive command arguments (amounts,
+    // PII, correction reasons). Restrict it to manager+ to prevent operators
+    // from reading raw command arguments they did not author.
+    const canViewPayload = canRole(ctx.user.role, 'manager');
+    const rows = (
       await pool.query(
         `select id, command_name as "commandName", actor_name as "actorName", status, error, created_at as "createdAt", result,
                 input_payload as "inputPayload", affected_ids as "affectedIds", reversed_by_command_id as "reversedByCommandId"
@@ -224,6 +228,11 @@ export const queriesRouter = router({
         [q]
       )
     ).rows;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return rows.map((row: any) => ({
+      ...row,
+      inputPayload: canViewPayload ? row.inputPayload : undefined,
+    }));
   }),
   workQueue: protectedProcedure.query(async () => {
     return (
@@ -598,7 +607,7 @@ export const queriesRouter = router({
       commands: commands.rows
     };
   }),
-  globalSearch: protectedProcedure.input(z.object({ q: z.string().min(1) })).query(async ({ input }) => {
+  globalSearch: protectedProcedure.input(z.object({ q: z.string().trim().min(1).max(200) })).query(async ({ input }) => {
     const q = `%${input.q.trim()}%`;
     const [customerRows, vendorRows, purchaseOrderRows, orderRows, invoiceRows, paymentRows, batchRows, needRows, supplyRows, pickRows, connectorRows, commandRows] = await Promise.all([
       pool.query('select id, id as "customerId", name as label, balance as detail, \'customer\' as type from customers where name ilike $1 or notes ilike $1 or tags::text ilike $1 limit 8', [q]),
@@ -825,7 +834,7 @@ export const queriesRouter = router({
     };
   }),
   findReplacePreview: protectedProcedure
-    .input(z.object({ table: z.enum(['batches', 'customers', 'vendors', 'sales_orders', 'connector_requests']), find: z.string().min(1), replacement: z.string().default('') }))
+    .input(z.object({ table: z.enum(['batches', 'customers', 'vendors', 'sales_orders', 'connector_requests']), find: z.string().min(1).max(200), replacement: z.string().max(2000).default('') }))
     .query(async ({ input }) => {
       const fields = replaceFields(input.table);
       const pattern = `%${input.find}%`;

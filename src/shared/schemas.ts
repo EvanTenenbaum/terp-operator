@@ -10,13 +10,16 @@ export const paymentMethodSchema = z.enum(['cash', 'check', 'card', 'crypto', 'w
 export const commandNameSchema = z.enum(commandNames);
 
 export const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6)
+  email: z.string().email().max(254),
+  // bcrypt only processes the first 72 bytes of a password; accepting longer
+  // inputs silently truncates them at the library level, which can cause
+  // unexpected hash collisions. Reject anything over 72 chars up front.
+  password: z.string().min(6).max(72)
 });
 
 export const commandInputSchema = z.object({
   name: commandNameSchema,
-  idempotencyKey: z.string().min(8, 'Idempotency key is required for every write.'),
+  idempotencyKey: z.string().min(8, 'Idempotency key is required for every write.').max(128),
   // Every command write must record a non-trivial reason for the immutable
   // audit journal (see issue #25). Direct-API callers and the tRPC
   // `commands.run` mutation both validate against this schema; if `reason` is
@@ -36,23 +39,23 @@ export const batchPayloadSchema = z.object({
   vendorId: z.string().uuid().optional(),
   purchaseOrderId: z.string().uuid().optional(),
   purchaseOrderLineId: z.string().uuid().optional(),
-  sourceCode: z.string().trim().optional(),
-  shorthand: z.string().trim().optional(),
-  name: z.string().trim().min(2).optional(),
-  category: z.string().trim().optional(),
+  sourceCode: z.string().trim().max(128).optional(),
+  shorthand: z.string().trim().max(256).optional(),
+  name: z.string().trim().min(2).max(256).optional(),
+  category: z.string().trim().max(256).optional(),
   tags: z.array(z.string()).optional(),
   intakeQty: z.coerce.number().positive().optional(),
   availableQty: z.coerce.number().min(0).optional(),
   uom: z.string().trim().default('lb').optional(),
   unitCost: z.coerce.number().min(0).optional(),
   unitPrice: z.coerce.number().min(0).optional(),
-  location: z.string().trim().optional(),
-  lotCode: z.string().trim().optional(),
+  location: z.string().trim().max(1000).optional(),
+  lotCode: z.string().trim().max(128).optional(),
   intakeDate: z.string().optional(),
   ticketCost: z.coerce.number().min(0).optional(),
-  priceRange: z.string().trim().optional(),
-  notes: z.string().optional(),
-  legacyMarker: z.string().trim().optional(),
+  priceRange: z.string().trim().max(256).optional(),
+  notes: z.string().max(5000).optional(),
+  legacyMarker: z.string().trim().max(128).optional(),
   expirationDate: z.string().optional(),
   ownershipStatus: ownershipSchema.optional(),
   arrivalConfirmed: z.boolean().optional(),
@@ -64,10 +67,10 @@ export const batchPayloadSchema = z.object({
 export const inventoryTransferPayloadSchema = z.object({
   batchId: z.string().uuid(),
   status: inventoryStatusSchema.optional(),
-  location: z.string().trim().min(1).optional(),
+  location: z.string().trim().min(1).max(1000).optional(),
   ownershipStatus: ownershipSchema.optional(),
   vendorId: z.string().uuid().optional(),
-  reason: z.string().trim().min(3)
+  reason: z.string().trim().min(3).max(1000)
 });
 
 export const salesOrderPayloadSchema = z.object({
@@ -79,16 +82,16 @@ export const salesOrderPayloadSchema = z.object({
   unitCost: z.coerce.number().min(0).optional(),
   landedCost: z.coerce.number().min(0).optional(),
   landedCostBasis: z.enum(['fixed', 'pick-low', 'pick-mid', 'pick-high', 'manual']).optional(),
-  strategy: z.string().optional(),
-  deliveryWindow: z.string().optional(),
-  sourceRowKey: z.string().optional(),
-  unresolvedSourceText: z.string().optional(),
-  legacyStatusMarker: z.string().optional(),
+  strategy: z.string().max(64).optional(),
+  deliveryWindow: z.string().max(512).optional(),
+  sourceRowKey: z.string().max(512).optional(),
+  unresolvedSourceText: z.string().max(512).optional(),
+  legacyStatusMarker: z.string().max(128).optional(),
   packed: z.boolean().optional(),
   inventoryPosted: z.boolean().optional(),
   paymentFollowup: z.boolean().optional(),
-  notes: z.string().optional(),
-  status: z.string().optional()
+  notes: z.string().max(5000).optional(),
+  status: z.enum(['draft', 'reserved', 'confirmed', 'posted', 'fulfilled', 'cancelled', 'reversed', 'needs_fix']).optional()
 });
 
 // Percent basis: amount is a decimal markup multiplier (0.30 = 30%); cap at 2 = 200%.
@@ -145,12 +148,12 @@ export const paymentPayloadSchema = z.object({
       'Amount must be cent-aligned (at most 2 decimal places).'
     ),
   method: paymentMethodSchema.default('cash'),
-  reference: z.string().optional(),
-  locationBucket: z.string().optional(),
-  direction: z.string().optional(),
-  category: z.string().optional(),
-  allocationIntent: z.string().optional(),
-  notes: z.string().optional()
+  reference: z.string().max(256).optional(),
+  locationBucket: z.string().max(256).optional(),
+  direction: z.string().max(256).optional(),
+  category: z.string().max(256).optional(),
+  allocationIntent: z.string().max(256).optional(),
+  notes: z.string().max(5000).optional()
 });
 
 export const csvImportSchema = z.object({
@@ -171,11 +174,11 @@ export const createContactPayloadSchema = z.object({
   phone: z.string().trim().max(40).optional(),
   secondaryPhone: z.string().trim().max(40).optional(),
   email: z.string().trim().email().max(240).optional(),
-  address: z.string().optional(),
+  address: z.string().max(5000).optional(),
   companyName: z.string().trim().max(180).optional(),
   contactKind: contactKindSchema.default('individual'),
   preferredContactMethod: preferredContactMethodSchema.default('any'),
-  notes: z.string().optional(),
+  notes: z.string().max(5000).optional(),
   tags: z.array(z.string()).default([]),
   roles: z.array(contactRoleSchema).min(1, 'At least one role is required.'),
   // Role-specific optional fields
@@ -191,16 +194,16 @@ export const updateContactPayloadSchema = z.object({
   phone: z.string().trim().max(40).nullish(),
   secondaryPhone: z.string().trim().max(40).nullish(),
   email: z.string().trim().email().max(240).nullish(),
-  address: z.string().nullish(),
+  address: z.string().max(5000).nullish(),
   companyName: z.string().trim().max(180).nullish(),
   contactKind: contactKindSchema.optional(),
   preferredContactMethod: preferredContactMethodSchema.optional(),
-  notes: z.string().nullish()
+  notes: z.string().max(5000).nullish()
 });
 
 export const archiveContactPayloadSchema = z.object({
   contactId: z.string().uuid(),
-  reason: z.string().trim().min(1, 'Reason is required.')
+  reason: z.string().trim().min(1, 'Reason is required.').max(1000)
 });
 
 export const addContactRolePayloadSchema = z.object({
@@ -228,9 +231,9 @@ export const createAppointmentPayloadSchema = z.object({
   appointmentType: appointmentTypeSchema.default('meeting'),
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime().optional(),
-  location: z.string().optional(),
-  description: z.string().optional(),
-  notes: z.string().optional()
+  location: z.string().max(1000).optional(),
+  description: z.string().max(5000).optional(),
+  notes: z.string().max(5000).optional()
 }).refine(
   (v) => !v.endsAt || new Date(v.endsAt) > new Date(v.startsAt),
   { message: 'endsAt must be after startsAt', path: ['endsAt'] }
@@ -242,9 +245,9 @@ export const updateAppointmentPayloadSchema = z.object({
   appointmentType: appointmentTypeSchema.optional(),
   startsAt: z.string().datetime().optional(),
   endsAt: z.string().datetime().nullish(),
-  location: z.string().nullish(),
-  description: z.string().nullish(),
-  notes: z.string().nullish()
+  location: z.string().max(1000).nullish(),
+  description: z.string().max(5000).nullish(),
+  notes: z.string().max(5000).nullish()
 }).refine(
   (v) => !v.endsAt || !v.startsAt || new Date(v.endsAt) > new Date(v.startsAt),
   { message: 'endsAt must be after startsAt', path: ['endsAt'] }
@@ -252,12 +255,12 @@ export const updateAppointmentPayloadSchema = z.object({
 
 export const cancelAppointmentPayloadSchema = z.object({
   appointmentId: z.string().uuid(),
-  reason: z.string().optional()
+  reason: z.string().max(1000).optional()
 });
 
 export const completeAppointmentPayloadSchema = z.object({
   appointmentId: z.string().uuid(),
-  notes: z.string().optional()
+  notes: z.string().max(5000).optional()
 });
 
 export const updateVendorPayloadSchema = z.object({
@@ -266,19 +269,19 @@ export const updateVendorPayloadSchema = z.object({
   alias: z.string().trim().max(80).nullish(),
   termsDays: z.coerce.number().int().min(0).max(365).optional(),
   consignmentDefault: z.boolean().optional(),
-  contact: z.string().nullish(),
-  notes: z.string().nullish()
+  contact: z.string().max(5000).nullish(),
+  notes: z.string().max(5000).nullish()
 });
 
 export const updateProcessorPayloadSchema = z.object({
   processorId: z.string().uuid(),
   name: z.string().trim().min(1).max(180).optional(),
-  processorType: z.string().optional(),
-  feeType: z.string().optional(),
+  processorType: z.string().max(64).optional(),
+  feeType: z.string().max(64).optional(),
   feePercentage: z.coerce.number().min(0).max(100).optional(),
   feeFixedAmount: z.coerce.number().min(0).optional(),
   defaultUserSplit: z.coerce.number().min(0).max(100).optional(),
   defaultProcessorSplit: z.coerce.number().min(0).max(100).optional(),
-  notes: z.string().nullish(),
+  notes: z.string().max(5000).nullish(),
   active: z.boolean().optional()
 });
