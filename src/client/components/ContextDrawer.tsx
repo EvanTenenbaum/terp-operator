@@ -16,6 +16,8 @@ import { PoVendorTab } from './drawerTabs/PoVendorTab';
 import { PoHistoryTab } from './drawerTabs/PoHistoryTab';
 import { LotMovementTab } from './drawerTabs/LotMovementTab';
 import { LotHistoryTab } from './drawerTabs/LotHistoryTab';
+import { LotPhotosTab } from './drawerTabs/LotPhotosTab';
+import { PoCommandsTab } from './drawerTabs/PoCommandsTab';
 
 const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   queue: [
@@ -65,7 +67,8 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'lines', label: 'Lines' },
     { key: 'vendor', label: 'Vendor' },
     { key: 'linked-intake', label: 'Linked intake' },
-    { key: 'history', label: 'History' }
+    { key: 'history', label: 'History' },
+    { key: 'commands', label: 'Commands' }
   ],
   vendorBill: [
     { key: 'relationship', label: 'Relationship' },
@@ -248,6 +251,10 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   if (activeTab === 'history' && isPoEntity) {
     return <PoHistoryTab poId={poId} />;
   }
+  // CMD-PO / TER-1512 — PO commands tab. Status-aware Approve/Receive actions.
+  if (activeTab === 'commands' && isPoEntity) {
+    return <PoCommandsTab poId={poId} poStatus={row?.status as string | undefined} />;
+  }
 
   // CAP-011 / TER-1486 — Lot movement tab
   if (activeTab === 'movement' && isLotEntity) {
@@ -256,6 +263,10 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   // CAP-011 / TER-1486 — Lot history tab. Command journal scoped to batch.
   if (activeTab === 'history' && isLotEntity) {
     return <LotHistoryTab batchId={lotBatchId} />;
+  }
+  // CAP-023 / TER-1501 — Lot photos tab. Media files and readiness status.
+  if (activeTab === 'photos' && isLotEntity) {
+    return <LotPhotosTab batchId={lotBatchId} mediaStatus={row?.mediaStatus as string | undefined} />;
   }
 
   if (activeTab === 'pricing' && isSalesOrderEntity) {
