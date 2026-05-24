@@ -42,6 +42,17 @@ export function DashboardView() {
     { field: 'createdAt', width: 180 }
   ];
 
+  if (dashboard.isError || workQueue.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-500">
+        <p className="text-sm">Unable to load dashboard. Check your connection.</p>
+        <button className="btn-secondary text-xs" onClick={() => { dashboard.refetch(); workQueue.refetch(); }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="view-stack">
       <div className="flex items-center justify-between">

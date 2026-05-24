@@ -15,7 +15,7 @@ export function ContactsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
-  const { data, isLoading } = trpc.queries.contactDirectory.useQuery({
+  const { data, isLoading, isError, refetch } = trpc.queries.contactDirectory.useQuery({
     limit: 50,
     roleFilter: roleFilter.length ? roleFilter : undefined,
     query: searchQuery || undefined,
@@ -122,6 +122,8 @@ export function ContactsView() {
           rows={data?.rows ?? []}
           columns={columnDefs}
           loading={isLoading}
+          isError={isError}
+          onRetry={() => refetch()}
           emptyTitle="No contacts yet"
           emptyChildren={
             <p className="text-sm text-zinc-500">

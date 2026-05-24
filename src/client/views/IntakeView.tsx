@@ -290,6 +290,17 @@ export function IntakeView() {
     event.api.sizeColumnsToFit();
   }, []);
 
+  if (intakeQueue.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-500">
+        <p className="text-sm">Unable to load intake queue. Check your connection.</p>
+        <button className="btn-secondary text-xs" onClick={() => intakeQueue.refetch()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-row min-h-0 flex-1">
       <div className="view-stack flex-1 min-w-0">

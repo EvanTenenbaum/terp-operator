@@ -92,6 +92,10 @@ interface UiState {
   dismissToast: (id: string) => void;
   setDismissedShadowBanner: (dismissed: boolean) => void;
   setShowMargin: (show: boolean) => void;
+  // Clears entity-specific session state on logout (selected rows, drawer
+  // entity refs, filters, sales sheet, customer context). Preserves operator
+  // preferences (sideNavCollapsed, showMargin, gridColumnPrefs, etc.).
+  resetSession: () => void;
   // CAP-005 / TER-1478 — global finder overlay (phase 2)
   finderOpen: boolean;
   setFinderOpen: (open: boolean) => void;
@@ -314,6 +318,26 @@ export const useUiStore = create<UiState>()(
       set((state) => {
         state.showMargin = show;
         state.announcement = show ? 'Margin visible.' : 'Margin hidden.';
+      }),
+    resetSession: () =>
+      set((state) => {
+        state.activeView = 'dashboard';
+        state.activeCustomerId = null;
+        state.selectedRows = {};
+        state.activeDrawerEntityByView = {};
+        state.drawerByView = {};
+        state.gridFilters = {};
+        state.drilldownMetric = null;
+        state.routeHistory = [];
+        state.toasts = [];
+        state.salesSheetState = { orderId: null, sheetRows: [], sheetMode: 'internal', exportError: null };
+        state.focusedPanelId = null;
+        state.focusMode = false;
+        state.finderOpen = false;
+        state.commandPaletteOpen = false;
+        state.commandPaletteAdvancedOpen = false;
+        state.pickQueueFilters = new Set();
+        state.announcement = 'Signed out.';
       }),
     setSalesSheetState: (patch) =>
       set((state) => {
