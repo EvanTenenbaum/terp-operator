@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-22T18:58:20.623Z",
-  "componentCount": 60,
+  "generated": "2026-05-24T15:14:10.699Z",
+  "componentCount": 79,
   "byCategory": {
-    "drawer": 20,
+    "drawer": 28,
     "form": 8,
     "navigation": 6,
+    "other": 26,
     "grid": 10,
-    "other": 15,
     "hook": 1
   },
   "components": [
@@ -32,6 +32,14 @@
       "category": "navigation",
       "exports": [
         "CommandPalette"
+      ]
+    },
+    {
+      "name": "ContactCreateModal",
+      "path": "src/client/components/ContactCreateModal.tsx",
+      "category": "other",
+      "exports": [
+        "ContactCreateModal"
       ]
     },
     {
@@ -256,6 +264,14 @@
       ]
     },
     {
+      "name": "ReceiptPreviewOverlay",
+      "path": "src/client/components/ReceiptPreviewOverlay.tsx",
+      "category": "other",
+      "exports": [
+        "ReceiptPreviewOverlay"
+      ]
+    },
+    {
       "name": "RecentSheetsPanel",
       "path": "src/client/components/RecentSheetsPanel.tsx",
       "category": "drawer",
@@ -361,6 +377,14 @@
       ]
     },
     {
+      "name": "SavedFiltersManager",
+      "path": "src/client/components/SavedFiltersManager.tsx",
+      "category": "other",
+      "exports": [
+        "SavedFiltersManager"
+      ]
+    },
+    {
       "name": "SelectionSummary",
       "path": "src/client/components/SelectionSummary.tsx",
       "category": "other",
@@ -427,6 +451,22 @@
       ]
     },
     {
+      "name": "CreditDivergencePanel",
+      "path": "src/client/components/credit/CreditDivergencePanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "CreditDivergencePanel"
+      ]
+    },
+    {
+      "name": "CreditQueueHealthWidget",
+      "path": "src/client/components/credit/CreditQueueHealthWidget.tsx",
+      "category": "other",
+      "exports": [
+        "CreditQueueHealthWidget"
+      ]
+    },
+    {
       "name": "CustomerCreditPanel",
       "path": "src/client/components/credit/CustomerCreditPanel.tsx",
       "category": "drawer",
@@ -468,6 +508,30 @@
         "formatWeightsSummary",
         "progressGlyph",
         "shouldShowSalesCreditIndicator"
+      ]
+    },
+    {
+      "name": "SalesCommandHistoryTab",
+      "path": "src/client/components/drawerTabs/SalesCommandHistoryTab.tsx",
+      "category": "other",
+      "exports": [
+        "SalesCommandHistoryTab"
+      ]
+    },
+    {
+      "name": "SalesOutputTab",
+      "path": "src/client/components/drawerTabs/SalesOutputTab.tsx",
+      "category": "other",
+      "exports": [
+        "SalesOutputTab"
+      ]
+    },
+    {
+      "name": "SalesPricingTab",
+      "path": "src/client/components/drawerTabs/SalesPricingTab.tsx",
+      "category": "other",
+      "exports": [
+        "SalesPricingTab"
       ]
     },
     {
@@ -521,6 +585,94 @@
         "PickListWithLines",
         "PickQueueItem",
         "WarehouseAlertInterrupt"
+      ]
+    },
+    {
+      "name": "AppointmentModal",
+      "path": "src/client/components/profile/AppointmentModal.tsx",
+      "category": "other",
+      "exports": [
+        "AppointmentModal"
+      ]
+    },
+    {
+      "name": "ContactAppointmentsPanel",
+      "path": "src/client/components/profile/ContactAppointmentsPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ContactAppointmentsPanel"
+      ]
+    },
+    {
+      "name": "ContactCustomerPanel",
+      "path": "src/client/components/profile/ContactCustomerPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ContactCustomerPanel"
+      ]
+    },
+    {
+      "name": "ContactHistoryPanel",
+      "path": "src/client/components/profile/ContactHistoryPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ContactHistoryPanel"
+      ]
+    },
+    {
+      "name": "ContactMoneyPanel",
+      "path": "src/client/components/profile/ContactMoneyPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ContactMoneyPanel"
+      ]
+    },
+    {
+      "name": "ContactOverviewPanel",
+      "path": "src/client/components/profile/ContactOverviewPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ContactOverviewPanel"
+      ]
+    },
+    {
+      "name": "ContactProfileHeader",
+      "path": "src/client/components/profile/ContactProfileHeader.tsx",
+      "category": "other",
+      "exports": [
+        "ContactProfileHeader"
+      ]
+    },
+    {
+      "name": "ContactSettingsPanel",
+      "path": "src/client/components/profile/ContactSettingsPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ContactSettingsPanel"
+      ]
+    },
+    {
+      "name": "ContactVendorPanel",
+      "path": "src/client/components/profile/ContactVendorPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "ContactVendorPanel"
+      ]
+    },
+    {
+      "name": "EntityProfileTabs",
+      "path": "src/client/components/profile/EntityProfileTabs.tsx",
+      "category": "other",
+      "exports": [
+        "EntityProfileTabs"
+      ]
+    },
+    {
+      "name": "types",
+      "path": "src/client/components/profile/types.ts",
+      "category": "other",
+      "exports": [
+        "ContactProfileData"
       ]
     },
     {
