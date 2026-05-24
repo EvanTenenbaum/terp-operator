@@ -26,7 +26,7 @@ test('owner can log in, inspect dashboard, and navigate spreadsheet grids', asyn
   await page.keyboard.press('Escape');
 
   await nav.getByRole('button', { name: /Sales/ }).click();
-  await expect(page.getByText('Sales Orders')).toBeVisible();
+  await expect(page.getByText('Sales Orders').first()).toBeVisible();
 
   await nav.getByRole('button', { name: /Fulfillment/ }).click();
   await expect(page.getByRole('button', { name: /Fulfillment \d+ row/ })).toBeVisible();
@@ -103,7 +103,7 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await keel.getByRole('menuitem', { name: 'New PO' }).click();
   await expect(page.getByRole('button', { name: /Recent purchase orders \d+ row/ })).toBeVisible();
   await page.getByRole('main').getByRole('button', { name: 'New PO' }).click();
-  await expect(page.getByText('New PO lines')).toBeVisible();
+  await expect(page.getByText('New PO lines').first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Add line row/ })).toBeVisible();
   const poWorkspace = page.getByLabel('New purchase order workspace');
   await poWorkspace.locator('.ag-cell[col-id="productName"]').first().dblclick();
@@ -209,7 +209,10 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   await expect(main.getByRole('button', { name: /Recent purchase orders \d+ row/ })).toBeVisible();
   await expect(main.getByRole('button', { name: 'New PO' })).toBeVisible();
   // Select the finalized PO so the dynamic primary button label reads "Approve PO"
-  await page.locator('.ag-center-cols-container .ag-row').filter({ hasText: 'PO-DEMO-003' }).click();
+  // Use force: true to avoid AG Grid row detach race during virtualization
+  const poRow = page.locator('.ag-row', { hasText: 'PO-DEMO-003' });
+  await expect(poRow).toBeVisible({ timeout: 15000 });
+  await poRow.click({ force: true });
   // Two "Approve PO" buttons are visible when a finalized PO is selected (toolbar + compact header);
   // use .first() to avoid strict-mode violation while confirming the button is present.
   await expect(main.getByRole('button', { name: 'Approve PO' }).first()).toBeVisible();

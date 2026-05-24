@@ -197,9 +197,12 @@ test.describe('tags and deterministic matchmaking', () => {
     await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeDisabled();
-    // Wait for the first AG Grid row to be stable before clicking (avoids element detach on re-render)
-    await expect(page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first()).toBeVisible({ timeout: 10000 });
-    await page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first().click();
+    // Wait for the first AG Grid row to be attached and visible before clicking.
+    // toBeAttached must precede toBeVisible — AG Grid can detach rows even after they appear visible during re-render.
+    const firstRow = page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first();
+    await expect(firstRow).toBeAttached({ timeout: 10000 });
+    await expect(firstRow).toBeVisible({ timeout: 5000 });
+    await firstRow.click({ force: true });
     await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeEnabled();
   });
