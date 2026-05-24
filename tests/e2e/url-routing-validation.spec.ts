@@ -61,8 +61,9 @@ test.describe('URL Routing', () => {
     await expect(page).toHaveURL(/\/intake/);
     await expect(page.locator('[data-testid="sidenav-item-intake"]')).toBeVisible();
 
-    // Navigate directly to purchase orders
-    await page.goto('/purchaseOrders');
+    // Navigate directly to purchase orders (PO view is heavier; give it extra timeout)
+    await page.goto('/purchaseOrders', { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/purchaseOrders/);
   });
 

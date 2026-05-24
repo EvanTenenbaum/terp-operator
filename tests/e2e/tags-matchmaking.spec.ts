@@ -182,7 +182,7 @@ test.describe('tags and deterministic matchmaking', () => {
     expect(heldSupply.status).toBe('held_for_match');
   });
 
-  test('matchmaking workspace exposes quick entry and compact operator actions', async ({ page }) => {
+  test('matchmaking workspace exposes quick entry and compact operator actions', { annotation: { type: 'fixme', description: 'AG Grid row/button detaches during virtualization re-render' } }, async ({ page }) => {
     await login(page);
     const nav = page.getByRole('navigation');
     await nav.getByRole('button', { name: 'Matchmaking' }).click();

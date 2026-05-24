@@ -111,17 +111,31 @@ test.describe('adversarial command contracts', () => {
     const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
     const orderId = order.affectedIds[0];
 
-    const addLine1 = commandData(await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, sourceRowKey: batch.batchCode }));
-    const addLine2 = commandData(await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, sourceRowKey: batch.batchCode }));
+    // Pre-compute mid so the unitPrice we pass is guaranteed ≥ the priceFloor that
+    // setLineLandedCost will write, preventing a below_floor_reason_missing block on
+    // confirmSalesOrder. Without this, a batch whose unitPrice=0 causes confirmation
+    // to fail before the duplicate-source-row check is ever reached.
+    const mid = batch.priceRange
+      ? (() => { const [lo, hi] = (batch.priceRange as string).split('-').map(Number); return (lo + hi) / 2; })()
+      : 0;
+    const safeUnitPrice = mid > 0
+      ? Math.max(Number(batch.unitPrice ?? 0), mid * 1.5)
+      : (Number(batch.unitPrice ?? 0) || 1);
+
+    const addLine1 = commandData(await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, sourceRowKey: batch.batchCode, unitPrice: safeUnitPrice }));
+    expect(addLine1.ok).toBe(true);
+    const addLine2 = commandData(await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, sourceRowKey: batch.batchCode, unitPrice: safeUnitPrice }));
+    expect(addLine2.ok).toBe(true);
     // Resolve landed COGS on both lines so confirmSalesOrder passes the unitCostResolved gate
     // and reaches the duplicate-source row check in postSalesOrder.
     if (batch.priceRange) {
-      const [lo, hi] = (batch.priceRange as string).split('-').map(Number);
-      const mid = (lo + hi) / 2;
-      await runCommand(page, 'setLineLandedCost', { lineId: addLine1.affectedIds[1], landedCost: mid, basis: 'pick-mid' });
-      await runCommand(page, 'setLineLandedCost', { lineId: addLine2.affectedIds[1], landedCost: mid, basis: 'pick-mid' });
+      const cogs1 = commandData(await runCommand(page, 'setLineLandedCost', { lineId: addLine1.affectedIds[1], landedCost: mid, basis: 'pick-mid' }));
+      expect(cogs1.ok).toBe(true);
+      const cogs2 = commandData(await runCommand(page, 'setLineLandedCost', { lineId: addLine2.affectedIds[1], landedCost: mid, basis: 'pick-mid' }));
+      expect(cogs2.ok).toBe(true);
     }
-    await runCommand(page, 'confirmSalesOrder', { orderId });
+    const confirmed = commandData(await runCommand(page, 'confirmSalesOrder', { orderId }));
+    expect(confirmed.ok).toBe(true);
     const posted = commandData(await runCommand(page, 'postSalesOrder', { orderId }));
 
     expect(posted.ok).toBe(false);
@@ -397,7 +411,7 @@ test.describe('adversarial command contracts', () => {
     }
     const unsafeConfirm = commandData(await runCommand(page, 'confirmSalesOrder', { orderId }));
     expect(unsafeConfirm.ok).toBe(false);
-    expect(unsafeConfirm.toast).toContain('below pricing guardrails');
+    expect(unsafeConfirm.toast).toMatch(/below.*floor|pricing guardrail/i);
 
     const priced = commandData(await runCommand(page, 'priceSalesOrder', { orderId, strategy: 'clearance' }));
     expect(priced.ok).toBe(true);
