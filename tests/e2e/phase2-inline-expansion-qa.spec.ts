@@ -90,8 +90,12 @@ test.describe('Phase 2 Inline Expansion QA', () => {
     // Navigate to Purchase Orders view (was 'Operations' — no such nav group; POs live at /purchaseOrders)
     await page.click('[data-testid="sidenav-item-purchaseOrders"]');
 
-    // Wait for PO grid to load
-    await expect(page.getByText('Purchase Orders')).toBeVisible({ timeout: 10000 });
+    // Wait for PO grid to load.
+    // getByText('Purchase Orders') resolves to 3+ elements (sidenav button, WorkspacePanel
+    // title span, SelectionSummary label). Use the WorkspacePanel section aria-label instead.
+    // OperatorGrid is rendered with title="Recent purchase orders" so the section is
+    // aria-label="Recent purchase orders".
+    await expect(page.locator('section[aria-label="Recent purchase orders"]')).toBeVisible({ timeout: 10000 });
 
     // Check if there are any PO rows
     const gridRows = await page.locator('.ag-row').count();

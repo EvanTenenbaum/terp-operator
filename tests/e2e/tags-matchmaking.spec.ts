@@ -197,11 +197,16 @@ test.describe('tags and deterministic matchmaking', () => {
     await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeDisabled();
-    // Wait for the first AG Grid row to be attached and visible before clicking.
-    // toBeAttached must precede toBeVisible — AG Grid can detach rows even after they appear visible during re-render.
-    const firstRow = page.locator('.ag-root:visible').first().locator('.ag-center-cols-container .ag-row').first();
-    await expect(firstRow).toBeAttached({ timeout: 10000 });
-    await expect(firstRow).toBeVisible({ timeout: 5000 });
+    // Wait for the matchmaking board data to fully settle before interacting with rows.
+    // AG Grid re-renders rows as async data arrives, causing element detachment.
+    // Fix: (1) wait for networkidle + extra React-settle delay, (2) scope to the
+    // specific "Deterministic Matches" WorkspacePanel so .ag-root is unambiguous,
+    // (3) use row-index="0" attribute instead of .first() — row-index is stable
+    // across virtual-scroll re-renders; .first() re-queries the entire DOM on each retry.
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1500); // allow AG Grid to finish its final re-render pass
+    const firstRow = page.locator('section[aria-label="Deterministic Matches"] .ag-center-cols-container .ag-row[row-index="0"]');
+    await expect(firstRow).toBeAttached({ timeout: 15000 });
     await firstRow.click({ force: true });
     await expect(page.getByRole('button', { name: 'Accept' }).first()).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Dismiss' }).first()).toBeEnabled();

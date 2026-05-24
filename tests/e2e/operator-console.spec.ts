@@ -30,7 +30,7 @@ test('owner can log in, inspect dashboard, and navigate spreadsheet grids', asyn
 
   await nav.getByRole('button', { name: /Fulfillment/ }).click();
   await expect(page.getByRole('button', { name: /Fulfillment \d+ row/ })).toBeVisible();
-  await expect(page.getByText('Fulfillment Lines')).toBeVisible();
+  await expect(page.getByText('Fulfillment Lines').first()).toBeVisible();
 
   await nav.getByRole('button', { name: /Settings/ }).click();
   await expect(page.getByRole('heading', { name: 'Requests' })).toBeVisible();
@@ -110,7 +110,9 @@ test('keel chips and row-native tools support fastest operator starts', async ({
   await page.keyboard.type('QA Zero Cost');
   await page.keyboard.press('Enter');
   await expect(poWorkspace.getByRole('button', { name: 'Approve PO' })).toBeDisabled();
-  await expect(poWorkspace.locator('.workspace-panel-actions .selection-pill.danger', { hasText: '1 filled line needs units and unit cost.' })).toBeVisible();
+  // Component text was updated from "units and unit cost" to "units and cost (fixed or range)"
+  // to reflect that PO lines accept either a fixed unit cost or a valid cost range.
+  await expect(poWorkspace.locator('.workspace-panel-actions .selection-pill.danger', { hasText: '1 filled line needs units and cost (fixed or range).' })).toBeVisible();
 
   await keel.getByRole('button', { name: 'Quick actions' }).click();
   await keel.getByRole('menuitem', { name: 'Receive', exact: true }).click();
@@ -216,8 +218,14 @@ test('backend-wired operator abilities are visible in the frontend', async ({ pa
   // Two "Approve PO" buttons are visible when a finalized PO is selected (toolbar + compact header);
   // use .first() to avoid strict-mode violation while confirming the button is present.
   await expect(main.getByRole('button', { name: 'Approve PO' }).first()).toBeVisible();
-  // Expand the first row to verify row-level actions (the "More" tray button was replaced by inline expansion chevron)
-  await page.locator('[aria-label="Expand row details"]').first().click();
+  // Expand the first row to verify row-level actions (the "More" tray button was replaced by inline expansion chevron).
+  // AG Grid re-renders rows after row selection (virtualization), which can detach the expand
+  // button before the click lands. Wait for the element to be attached and visible first.
+  await page.waitForTimeout(300);
+  const expandBtn = page.locator('[aria-label="Expand row details"]').first();
+  await expect(expandBtn).toBeAttached({ timeout: 10000 });
+  await expect(expandBtn).toBeVisible({ timeout: 5000 });
+  await expandBtn.click({ force: true });
   await expect(main.getByRole('button', { name: 'Draft intake' })).toBeVisible();
   await expect(main.getByRole('button', { name: 'Cancel draft PO' })).toBeVisible();
   await expect(main.getByRole('button', { name: /Lines Procurement cost lines/ })).toBeVisible();

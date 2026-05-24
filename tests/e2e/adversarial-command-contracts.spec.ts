@@ -102,20 +102,25 @@ test.describe('adversarial command contracts', () => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
     const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
-    // Filter for a batch with available qty >= 2 AND a resolved unit cost (> 0).
-    // The original !row.priceRange filter is too aggressive — in the current seed every
-    // high-qty batch carries a priceRange, so the find returns undefined. Instead, look
-    // for a batch whose unitCost is already resolved (a fixed, positive number) so that
-    // confirmSalesOrder passes the unitCostResolved check before reaching the
-    // duplicate-source check.
+    // All seed batches carry a priceRange; addSalesOrderLine therefore sets unitCostResolved=false
+    // on every new line. confirmSalesOrder checks unitCostResolved BEFORE the duplicate-source
+    // check, so we must resolve landed COGS on both lines via setLineLandedCost before confirming.
     const batch = reference[0].result.data.json.availableBatches.find(
-      (row: { availableQty: string; unitCost?: string }) => Number(row.availableQty) >= 2 && row.unitCost && Number(row.unitCost) > 0
+      (row: { availableQty: string; unitCost?: string; priceRange?: string }) => Number(row.availableQty) >= 2 && row.unitCost && Number(row.unitCost) > 0
     );
     const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
     const orderId = order.affectedIds[0];
 
-    await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, sourceRowKey: batch.batchCode });
-    await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, sourceRowKey: batch.batchCode });
+    const addLine1 = commandData(await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, sourceRowKey: batch.batchCode }));
+    const addLine2 = commandData(await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, sourceRowKey: batch.batchCode }));
+    // Resolve landed COGS on both lines so confirmSalesOrder passes the unitCostResolved gate
+    // and reaches the duplicate-source row check in postSalesOrder.
+    if (batch.priceRange) {
+      const [lo, hi] = (batch.priceRange as string).split('-').map(Number);
+      const mid = (lo + hi) / 2;
+      await runCommand(page, 'setLineLandedCost', { lineId: addLine1.affectedIds[1], landedCost: mid, basis: 'pick-mid' });
+      await runCommand(page, 'setLineLandedCost', { lineId: addLine2.affectedIds[1], landedCost: mid, basis: 'pick-mid' });
+    }
     await runCommand(page, 'confirmSalesOrder', { orderId });
     const posted = commandData(await runCommand(page, 'postSalesOrder', { orderId }));
 
@@ -372,18 +377,24 @@ test.describe('adversarial command contracts', () => {
     await login(page);
     const reference = await trpcQuery(page, 'queries.reference');
     const customer = reference[0].result.data.json.customers.find((row: { name: string }) => row.name === 'Cobalt Reserve');
-    // Filter for a batch with a resolved (fixed, positive) unit cost: confirmSalesOrder checks
-    // unitCostResolved BEFORE the pricing guardrail check, so a range-priced batch would throw
-    // 'unresolved landed COGS' instead of 'below pricing guardrails'. Use unitCost > 0 rather
-    // than !row.priceRange — the current seed has no high-qty batch without priceRange, making
-    // the !priceRange filter return undefined.
+    // All seed batches carry a priceRange; addSalesOrderLine sets unitCostResolved=false on the
+    // new line. confirmSalesOrder checks unitCostResolved BEFORE the pricing guardrail check, so
+    // we must resolve landed COGS via setLineLandedCost first, then confirm with a deliberately
+    // low unitPrice (1) to trigger the 'below pricing guardrails' guard.
     const batch = reference[0].result.data.json.availableBatches.find(
-      (row: { availableQty: string; unitCost?: string }) => Number(row.availableQty) >= 1 && row.unitCost && Number(row.unitCost) > 0
+      (row: { availableQty: string; unitCost?: string; priceRange?: string }) => Number(row.availableQty) >= 1 && row.unitCost && Number(row.unitCost) > 0
     );
     const order = commandData(await runCommand(page, 'createSalesOrder', { customerId: customer.id }));
     const orderId = order.affectedIds[0];
 
-    await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, unitPrice: 1 });
+    const addLine = commandData(await runCommand(page, 'addSalesOrderLine', { orderId, batchId: batch.id, qty: 1, unitPrice: 1 }));
+    // Resolve landed COGS so confirmSalesOrder reaches the pricing guardrail check
+    // (unitPrice 1 is far below the priceFloor that setLineLandedCost establishes).
+    if (batch.priceRange) {
+      const [lo, hi] = (batch.priceRange as string).split('-').map(Number);
+      const mid = (lo + hi) / 2;
+      await runCommand(page, 'setLineLandedCost', { lineId: addLine.affectedIds[1], landedCost: mid, basis: 'pick-mid' });
+    }
     const unsafeConfirm = commandData(await runCommand(page, 'confirmSalesOrder', { orderId }));
     expect(unsafeConfirm.ok).toBe(false);
     expect(unsafeConfirm.toast).toContain('below pricing guardrails');
