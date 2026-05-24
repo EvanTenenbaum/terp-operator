@@ -503,6 +503,8 @@ export function PurchaseOrdersView() {
       );
     }
     if (options.approve) {
+      // Finalize the PO before approval — required by the PO state machine
+      await runCommand('finalizePurchaseOrder', { purchaseOrderId }, 'Finalize PO draft before approval');
       const payload: Record<string, unknown> = { purchaseOrderId };
       if (refereeRelationshipId) {
         payload.refereeRelationshipId = refereeRelationshipId;
@@ -1026,8 +1028,17 @@ export function OrdersView() {
       runCommand('setDeliveryWindow', { orderId: event.data.id, deliveryWindow: event.newValue }, 'Inline delivery window edit');
       return;
     }
-    if (['notes', 'packed', 'inventoryPosted', 'paymentFollowup'].includes(String(event.colDef.field))) {
+    if (['packed', 'inventoryPosted', 'paymentFollowup'].includes(String(event.colDef.field))) {
+      // TODO: These fields belong to sales order lines, not the order header.
+      // This call passes orderId but the command expects lineId. The OrdersView
+      // grid rows represent orders, not individual lines, so the correct lineId
+      // is ambiguous here. This needs a data-model review before fixing.
+      // See audit finding: packed/inventoryPosted/paymentFollowup need lineId not orderId.
+      console.error('[OrdersView] WARNING: packed/inventoryPosted/paymentFollowup fields need lineId not orderId — see audit finding');
       runCommand('updateSalesOrderLine', { orderId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline order closeout edit: ${event.colDef.field}`);
+    }
+    if (event.colDef.field === 'notes') {
+      runCommand('updateSalesOrderLine', { orderId: event.data.id, notes: event.newValue }, 'Inline order notes edit');
     }
   }
 

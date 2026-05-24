@@ -837,20 +837,6 @@ export function SalesView() {
         </div>
       )}
 
-      {customerId ? (
-        <OperatorGrid
-          view="sales"
-          title="Sales Orders"
-          rows={(orders.data ?? []) as GridRow[]}
-          columns={visibleOrderColumns}
-          loading={orders.isLoading}
-          onSelectionChange={(selection) => setSelectedRows('sales', selection)}
-          emptyTitle="No open sales shown"
-          emptyChildren="No lines yet."
-          expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
-        />
-      ) : null}
-
       {customerId ? <div className="min-h-[340px]">
         <OperatorGrid
           view="sales"

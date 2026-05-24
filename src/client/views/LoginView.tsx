@@ -3,8 +3,8 @@ import { trpc } from '../api/trpc';
 
 export function LoginView() {
   const utils = trpc.useContext();
-  const [email, setEmail] = useState('owner@terpagro.local');
-  const [password, setPassword] = useState('terp-demo');
+  const [email, setEmail] = useState(import.meta.env.DEV ? 'owner@terpagro.local' : '');
+  const [password, setPassword] = useState(import.meta.env.DEV ? 'terp-demo' : '');
   const login = trpc.auth.login.useMutation({
     onSuccess: () => utils.auth.me.invalidate()
   });
@@ -32,7 +32,9 @@ export function LoginView() {
         <button className="primary-button mt-5 w-full" type="submit" disabled={login.isLoading}>
           {login.isLoading ? 'Signing in...' : 'Sign in'}
         </button>
-        <div className="mt-4 text-xs text-zinc-500">Demo password for all seeded users: terp-demo</div>
+        {import.meta.env.DEV && (
+          <div className="mt-4 text-xs text-zinc-500">Demo password for all seeded users: terp-demo</div>
+        )}
       </form>
     </main>
   );

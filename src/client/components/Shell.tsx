@@ -1,4 +1,5 @@
 import {
+  Archive,
   ArrowDown,
   ArrowUp,
   BadgeDollarSign,
@@ -15,7 +16,9 @@ import {
   PackagePlus,
   PanelLeftClose,
   PanelLeftOpen,
+  Plug,
   ReceiptText,
+  RotateCcw,
   Scale,
   Search,
   ScanSearch,
@@ -75,6 +78,9 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: 'Admin',
     items: [
+      { view: 'recovery', label: 'Recovery', icon: RotateCcw },
+      { view: 'closeout', label: 'Closeout', icon: Archive },
+      { view: 'connectors', label: 'Connectors', icon: Plug },
       { view: 'settings', label: 'Settings', icon: Settings }
     ]
   }
