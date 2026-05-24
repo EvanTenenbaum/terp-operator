@@ -1004,13 +1004,13 @@ describe('postSalesOrder COGS exception accounting (#64 PR-3)', () => {
     });
     const existingBill: Row = {
       id: VBILL_ID,
-      vendorId: VENDOR_A,
-      billNo: 'VBILL-1',
+      vendor_id: VENDOR_A,
+      bill_no: 'VBILL-1',
       amount: '500.00',
-      amountPaid: '0.00',
+      amount_paid: '0.00',
       status: 'open',
-      discrepancyNotes: 'prior note',
-      dueReason: null
+      discrepancy_notes: 'prior note',
+      due_reason: null
     };
     const captures: PostTxCaptures = { inserts: [], updates: [] };
     const queues = seedQueues({
