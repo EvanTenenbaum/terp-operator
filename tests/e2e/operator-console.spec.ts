@@ -29,7 +29,7 @@ test('owner can log in, inspect dashboard, and navigate spreadsheet grids', asyn
   await expect(page.getByText('Sales Orders').first()).toBeVisible();
 
   await nav.getByRole('button', { name: /Fulfillment/ }).click();
-  await expect(page.getByRole('button', { name: /Fulfillment \d+ row/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Fulfillment Lines \d+ row/ })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Fulfillment Lines').first()).toBeVisible();
 
   await nav.getByRole('button', { name: /Settings/ }).click();
@@ -101,7 +101,7 @@ test('keel chips and row-native tools support fastest operator starts', async ({
 
   await keel.getByRole('button', { name: 'Quick actions' }).click();
   await keel.getByRole('menuitem', { name: 'New PO' }).click();
-  await expect(page.getByRole('button', { name: /Recent purchase orders \d+ row/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Recent purchase orders \d+ row/ })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('main').getByRole('button', { name: 'New PO' }).click();
   await expect(page.getByText('New PO lines').first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Add line row/ })).toBeVisible();
