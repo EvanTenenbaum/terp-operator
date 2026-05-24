@@ -1,0 +1,15 @@
+.env
+.env.*
+node_modules/
+dist/
+test-results/
+playwright-report/
+coverage/
+storage/journal/
+storage/archives/
+storage/media/
+.git/
+docs/
+artifacts/
+*.log
+.DS_Store
