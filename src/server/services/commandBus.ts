@@ -180,7 +180,7 @@ const moneyScale = (value: unknown): string => {
  * scaled string suitable for a numeric(12,4) column write. Use this anywhere
  * a running balance, total, or amount-paid is accumulated across rows.
  */
-const addMoney = (...values: unknown[]): string =>
+export const addMoney = (...values: unknown[]): string =>
   values
     .reduce<Decimal>(
       (acc, v) => acc.plus(new Decimal(String(v ?? 0))),
@@ -205,7 +205,7 @@ const mulMoney = (a: unknown, b: unknown): string =>
  * Phase 1 cleanup for TER-1566: fixes reversal-handler sites missed in the
  * initial Decimal.js pass.
  */
-const subMoney = (a: unknown, b: unknown): string =>
+export const subMoney = (a: unknown, b: unknown): string =>
   new Decimal(String(a ?? 0))
     .minus(new Decimal(String(b ?? 0)))
     .toDecimalPlaces(2)
@@ -216,7 +216,7 @@ const subMoney = (a: unknown, b: unknown): string =>
  * non-negative (e.g. reversing bill.amountPaid or invoice.amountPaid where
  * concurrent corrections may have already reduced the value).
  */
-const subMoneyMin0 = (a: unknown, b: unknown): string => {
+export const subMoneyMin0 = (a: unknown, b: unknown): string => {
   const d = new Decimal(String(a ?? 0)).minus(new Decimal(String(b ?? 0)));
   return (d.isNegative() ? new Decimal(0) : d).toDecimalPlaces(2).toFixed(2);
 };
@@ -1069,12 +1069,12 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
     await tx.update(purchaseOrders).set({ total: actualPoTotal, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
   }
 
-  const grouped = new Map<string, number>();
+  const grouped = new Map<string, Decimal>();
   const reasonsByVendor = new Map<string, string[]>();
   for (const row of rows) {
     if (!row.vendorId) continue;
-    const amount = Number(row.intakeQty) * Number(row.unitCost);
-    grouped.set(row.vendorId, (grouped.get(row.vendorId) ?? 0) + amount);
+    const amount = new Decimal(String(row.intakeQty ?? 0)).times(String(row.unitCost ?? 0));
+    grouped.set(row.vendorId, (grouped.get(row.vendorId) ?? new Decimal(0)).plus(amount));
     const operatorReason = reasonByBatch.get(row.id);
     if (operatorReason) {
       const list = reasonsByVendor.get(row.vendorId) ?? [];
@@ -1093,7 +1093,7 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
         purchaseReceiptId: receipt.id,
         purchaseOrderId,
         billNo: code('VBILL'),
-        amount: moneyScale(amount),
+        amount: amount.toDecimalPlaces(2).toFixed(2),
         dueDate: new Date(Date.now() + (vendor?.termsDays ?? 14) * 24 * 60 * 60 * 1000),
         termsDays: vendor?.termsDays ?? 14,
         status: 'open',
