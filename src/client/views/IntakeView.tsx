@@ -470,6 +470,8 @@ function buildBatchColumns(
       minWidth: 110
     },
     { field: 'status', minWidth: 110 },
+    { field: 'arrivalStatus', headerName: 'Arrival', width: 110 },
+    { field: 'mediaStatus', headerName: 'Media', width: 110 },
     { field: 'notes', headerName: 'Notes', editable: false, minWidth: 220 },
     {
       headerName: 'Actions',
