@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       # Phase 7 — credit-engine CI gate hardening (issue #68). Pin the
       # negative-role matrix + metrics unit tests as explicit CI steps so a

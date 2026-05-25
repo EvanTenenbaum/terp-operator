@@ -18,11 +18,14 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // Allow the fast runner (DigitalOcean Tailscale) to reach the dev server.
-    // Vite 6 DNS rebinding protection blocks cross-host requests by default.
-    // M5 FIX: scoped to non-production so vite preview in prod-like contexts
-    // still enforces host validation.
-    allowedHosts: process.env.NODE_ENV !== 'production' ? true : undefined,
+    // GH #331: explicitly restrict allowed hosts instead of allowedHosts: true.
+    // 'localhost' and '127.0.0.1' cover the normal local dev workflow.
+    // The Tailscale host pattern covers Mac mini access over the Tailscale
+    // network (e.g. 100.x.x.x or *.tailscale.ts.net). If you need broader
+    // access in a specific dev environment, set allowedHosts: 'all' in a
+    // local vite.config.local.ts (never commit that). Never use allowedHosts: true
+    // in committed config — it silently disables the Host header check.
+    allowedHosts: ['localhost', '127.0.0.1', '.tailscale.ts.net'],
     proxy: {
       '/trpc': 'http://localhost:8787',
       '/api': 'http://localhost:8787',

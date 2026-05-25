@@ -1511,15 +1511,31 @@ export const queriesRouter = router({
   contactProfile: protectedProcedure
     .input(z.object({ contactId: z.string().uuid() }))
     .query(async ({ input: { contactId } }) => {
+      // GH #315: explicit column list — prevents future sensitive columns from
+      // leaking automatically when the contacts table gains new fields.
       const contactResult = await pool.query(
-        `SELECT * FROM contacts WHERE id = $1`, [contactId]
+        `SELECT id, name, display_name, phone, secondary_phone, email, address,
+                company_name, contact_kind, preferred_contact_method, notes, tags,
+                is_customer, is_vendor, is_referee, is_processor, is_contractor, is_employee,
+                active, archived_at, archived_by, archived_reason, created_at, updated_at
+         FROM contacts WHERE id = $1`,
+        [contactId]
       );
       const contact = contactResult.rows[0] as Record<string, unknown> | undefined;
       if (!contact) throw new TRPCError({ code: 'NOT_FOUND', message: 'Contact not found' });
 
       const [customerRow, vendorRow, refereeRow, processorRow, userRow, orderStats] = await Promise.all([
+        // GH #315: explicit column list for customers — prevents future internal
+        // credit-engine or PII columns from being silently exposed to the client.
         contact.is_customer
-          ? pool.query(`SELECT cu.*,
+          ? pool.query(`SELECT cu.id, cu.name, cu.credit_limit, cu.balance, cu.tags,
+              cu.pricing_rule, cu.notes, cu.engine_max, cu.stance_id,
+              cu.credit_limit_source, cu.engine_enabled, cu.engine_disabled_at,
+              cu.engine_disabled_by, cu.engine_disabled_reason, cu.last_assessment_id,
+              cu.credit_limit_manual_set_at, cu.credit_limit_manual_set_by,
+              cu.credit_limit_manual_reason, cu.credit_limit_reminder_days,
+              cu.credit_limit_last_reviewed_at, cu.credit_limit_snooze_count,
+              cu.contact_id, cu.created_at, cu.updated_at,
               COALESCE(so_stats.lifetime_order_count, 0) AS lifetime_order_count,
               COALESCE(so_stats.lifetime_revenue, 0) AS lifetime_revenue,
               so_stats.last_order_date,
@@ -1544,11 +1560,21 @@ export const queriesRouter = router({
               GROUP BY customer_id
             ) inv_stats ON inv_stats.customer_id = cu.id
             WHERE cu.contact_id = $1
-            GROUP BY cu.id, so_stats.lifetime_order_count, so_stats.lifetime_revenue, so_stats.last_order_date,
+            GROUP BY cu.id, cu.name, cu.credit_limit, cu.balance, cu.tags, cu.pricing_rule,
+              cu.notes, cu.engine_max, cu.stance_id, cu.credit_limit_source, cu.engine_enabled,
+              cu.engine_disabled_at, cu.engine_disabled_by, cu.engine_disabled_reason,
+              cu.last_assessment_id, cu.credit_limit_manual_set_at, cu.credit_limit_manual_set_by,
+              cu.credit_limit_manual_reason, cu.credit_limit_reminder_days,
+              cu.credit_limit_last_reviewed_at, cu.credit_limit_snooze_count, cu.contact_id,
+              cu.created_at, cu.updated_at,
+              so_stats.lifetime_order_count, so_stats.lifetime_revenue, so_stats.last_order_date,
               inv_stats.open_invoices_count, inv_stats.open_invoices_amount, inv_stats.oldest_open_invoice_days`, [contactId])
           : Promise.resolve({ rows: [] }),
+        // GH #315: explicit column list for vendors — prevents future columns
+        // (e.g. internal payment routing fields) from leaking to the client.
         contact.is_vendor
-          ? pool.query(`SELECT v.*,
+          ? pool.query(`SELECT v.id, v.name, v.alias, v.terms_days, v.consignment_default,
+              v.contact, v.notes, v.contact_id, v.created_at, v.updated_at,
               COALESCE(bill_stats.total_billed, 0) AS total_billed,
               COALESCE(bill_stats.total_paid, 0) AS total_paid,
               COALESCE(bill_stats.open_bills_count, 0) AS open_bills_count,
@@ -1571,14 +1597,33 @@ export const queriesRouter = router({
               GROUP BY vendor_id
             ) po_stats ON po_stats.vendor_id = v.id
             WHERE v.contact_id = $1
-            GROUP BY v.id, bill_stats.total_billed, bill_stats.total_paid, bill_stats.open_bills_count,
+            GROUP BY v.id, v.name, v.alias, v.terms_days, v.consignment_default, v.contact,
+              v.notes, v.contact_id, v.created_at, v.updated_at,
+              bill_stats.total_billed, bill_stats.total_paid, bill_stats.open_bills_count,
               bill_stats.open_bills_amount, po_stats.open_po_count`, [contactId])
           : Promise.resolve({ rows: [] }),
+        // GH #315: explicit referee columns — tax_id and payment_details are
+        // sensitive; enumerating columns ensures future additions are not
+        // accidentally included unless explicitly opted in.
         contact.is_referee
-          ? pool.query(`SELECT * FROM referees WHERE contact_id = $1 LIMIT 1`, [contactId])
+          ? pool.query(
+              `SELECT id, name, email, phone, tax_id, balance, lifetime_earned,
+                      payment_method, payment_details, notes, active,
+                      contact_id, created_at, updated_at
+               FROM referees WHERE contact_id = $1 LIMIT 1`,
+              [contactId]
+            )
           : Promise.resolve({ rows: [] }),
+        // GH #315: explicit processor columns — fee configuration is sensitive
+        // financial data; explicit list prevents future fields from leaking.
         contact.is_processor
-          ? pool.query(`SELECT * FROM payment_processors WHERE contact_id = $1 LIMIT 1`, [contactId])
+          ? pool.query(
+              `SELECT id, name, processor_type, fee_type, fee_percentage, fee_fixed_amount,
+                      default_user_split, default_processor_split, notes, active,
+                      contact_id, created_at, updated_at
+               FROM payment_processors WHERE contact_id = $1 LIMIT 1`,
+              [contactId]
+            )
           : Promise.resolve({ rows: [] }),
         contact.is_employee
           ? pool.query(`SELECT id, name, email, role, work_loop AS "workLoop" FROM users WHERE contact_id = $1 LIMIT 1`, [contactId])
@@ -1601,13 +1646,22 @@ export const queriesRouter = router({
   contactAppointments: protectedProcedure
     .input(z.object({ contactId: z.string().uuid() }))
     .query(async ({ input: { contactId } }) => {
+      // GH #315: explicit appointment columns — prevents future internal audit or
+      // notification fields from leaking when the appointments table gains new columns.
+      const apptCols = `id, contact_id, title, description, starts_at, ends_at,
+                         appointment_type, status, location, created_by, notes,
+                         created_at, updated_at`;
       const [upcomingResult, pastResult] = await Promise.all([
         pool.query(
-          `SELECT * FROM appointments WHERE contact_id = $1 AND starts_at > NOW() AND status = 'scheduled' ORDER BY starts_at ASC`,
+          `SELECT ${apptCols} FROM appointments
+           WHERE contact_id = $1 AND starts_at > NOW() AND status = 'scheduled'
+           ORDER BY starts_at ASC`,
           [contactId]
         ),
         pool.query(
-          `SELECT * FROM appointments WHERE contact_id = $1 AND (starts_at <= NOW() OR status IN ('completed','cancelled')) ORDER BY starts_at DESC LIMIT 50`,
+          `SELECT ${apptCols} FROM appointments
+           WHERE contact_id = $1 AND (starts_at <= NOW() OR status IN ('completed','cancelled'))
+           ORDER BY starts_at DESC LIMIT 50`,
           [contactId]
         ),
       ]);
