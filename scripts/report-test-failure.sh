@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: report-test-failure.sh <tier> <run-id>
-# Called from CI workflows on failure. Requires GH_TOKEN env var.
+# Called from CI workflows on failure. Requires GH_TOKEN env var (issues:write scope).
 set -euo pipefail
 
 TIER="${1:-unknown}"
@@ -10,23 +10,30 @@ TIMESTAMP="$(date -u '+%Y-%m-%d %H:%M UTC')"
 
 echo "[report-test-failure] tier=${TIER} run=${RUN_ID}"
 
-# AQA fix: ensure required labels exist before trying to file an issue.
-# --force is a no-op if the label already exists (idempotent).
-gh label create "tracking:known-issue" --color "d73a4a" --description "Confirmed or suspected bug, runtime failure, confusing UX, data drift, or test gap." --force 2>/dev/null || true
-gh label create "source:agent"         --color "bfdadc" --description "Created or updated by an agent." --force 2>/dev/null || true
-gh label create "area:qa"              --color "fef2c0" --description "Tests, verification, coverage, or release gates." --force 2>/dev/null || true
+# Label preflight — idempotent, fails gracefully if GH_TOKEN lacks label:write
+# (separate from issues:write). The || true prevents script abort; if labels
+# already exist the create is a no-op.
+gh label create "tracking:known-issue" --color "d73a4a" \
+  --description "Confirmed or suspected bug, runtime failure, confusing UX, data drift, or test gap." \
+  --force 2>/dev/null || true
+gh label create "source:agent" --color "bfdadc" \
+  --description "Created or updated by an agent." \
+  --force 2>/dev/null || true
+gh label create "area:qa" --color "fef2c0" \
+  --description "Tests, verification, coverage, or release gates." \
+  --force 2>/dev/null || true
 
-# AQA fix: strip brackets from search query — GitHub search treats [ ] as
-# grouping operators and may not find exact bracket-wrapped titles.
-# Instead, search by TIER alone with in:title and rely on jq contains() for
-# exact title matching. This is safer than bracket-inclusive search.
+# H1 FIX: avoid GitHub search for de-dup (search tokenizes on hyphens, making
+# tier-scoped matching unreliable for names like "post-deploy-smoke").
+# Instead, list all open QA+agent issues and filter locally with jq startswith().
+# This is O(N) on open issues but reliable; N is small in practice.
 EXISTING=$(gh issue list \
   --state open \
   --label "area:qa" \
   --label "source:agent" \
-  --search "${TIER} Test failure in:title" \
+  --limit 100 \
   --json number,title \
-  --jq ".[] | select(.title | ascii_downcase | contains(\"${TIER}\" | ascii_downcase)) | .number" \
+  --jq ".[] | select(.title | startswith(\"[${TIER}]\")) | .number" \
   2>/dev/null | head -1 || true)
 
 if [ -n "$EXISTING" ]; then
@@ -45,7 +52,7 @@ else
 **Run**: ${RUN_URL}
 **Time**: ${TIMESTAMP}
 
-Automated monitoring run failed. Check the run link for failing spec names and full error output.
+Automated monitoring run failed. Check the run link for failing spec names, full error output, and the uploaded Playwright trace artifact.
 
 ## Reproduce locally
 
