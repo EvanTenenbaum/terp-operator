@@ -1,6 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db } from './db';
+
+// Resolve persistent storage directories from env so seed data paths survive
+// container restarts. Falls back to the same defaults as env.ts for
+// local dev where .env may not be loaded (GH #311, GH #312, TER-1608).
+const SEED_ARCHIVE_DIR = process.env.ARCHIVE_DIR ?? './storage/archives';
 import {
   archiveRuns,
   backupSnapshots,
@@ -889,7 +894,7 @@ async function seedSalesAccountingAndFulfillment(
         labelFormat: index % 2 ? '4x6' : '2x1',
         unitsPerBag: 10,
         labelsPrinted: order.status === 'fulfilled',
-        manifestPath: `/tmp/terp-agro/manifests/${order.orderNo}.csv`,
+        manifestPath: `${SEED_ARCHIVE_DIR}/manifests/${order.orderNo}.csv`,
         tracking: order.status === 'fulfilled' ? `TRK-${order.orderNo}` : null,
         createdAt: addDays(order.createdAt, 1),
         updatedAt: addDays(order.createdAt, 1)
@@ -1094,9 +1099,9 @@ async function seedOperationalControls(
     period: periodKey(daysAgo(65)),
     status: 'archived',
     controlTotals: { batches: Math.floor(counts.batchCount * 0.4), orders: Math.floor(counts.orderCount * 0.33), invoices: Math.floor(counts.invoiceCount * 0.33), payments: Math.floor(counts.paymentCount * 0.33), revenue: money(counts.totalRevenue * 0.33) },
-    csvPath: '/tmp/terp-agro/archives/realistic-batches.csv',
-    jsonlPath: '/tmp/terp-agro/archives/realistic-commands.jsonl',
-    pdfPath: '/tmp/terp-agro/archives/realistic-summary.pdf',
+    csvPath: `${SEED_ARCHIVE_DIR}/realistic-batches.csv`,
+    jsonlPath: `${SEED_ARCHIVE_DIR}/realistic-commands.jsonl`,
+    pdfPath: `${SEED_ARCHIVE_DIR}/realistic-summary.pdf`,
     createdAt: daysAgo(3)
   });
   await db.insert(backupSnapshots).values({

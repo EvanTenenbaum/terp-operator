@@ -42,12 +42,18 @@ services:
         scope: RUN_TIME
         type: SECRET
         value: "__SESSION_SECRET__"
+      # NOTE: DO App Platform has no persistent filesystem volumes for App services.
+      # Journal and archive data written here is ephemeral and will be wiped on
+      # every redeploy. This is intentional for staging (demo-data only, see
+      # deploy/staging/README.md). If durable audit logs are needed for a staging
+      # environment, use the Droplet + Caddy alternative in deploy/staging/README.md
+      # which mounts named Docker volumes via docker-compose.prod.yml (GH #312).
       - key: JOURNAL_DIR
         scope: RUN_TIME
-        value: /tmp/terp-agro/journal
+        value: /workspace/storage/journal
       - key: ARCHIVE_DIR
         scope: RUN_TIME
-        value: /tmp/terp-agro/archives
+        value: /workspace/storage/archives
       - key: VITE_TRPC_URL
         scope: RUN_AND_BUILD_TIME
         value: /trpc

@@ -15,7 +15,7 @@ RUN pnpm install --prod --frozen-lockfile=false
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 COPY scripts ./scripts
-RUN mkdir -p storage/journal storage/archives
+RUN mkdir -p storage/journal storage/archives storage/media
 EXPOSE 8787
 # node:22-alpine ships wget via busybox; -q silences progress, -O- writes to stdout
 # so the check exits 0 only when /api/health returns a 2xx body. Orchestrators

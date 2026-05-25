@@ -42,3 +42,41 @@ ALLOW_DEMO_SEED=true pnpm staging:reset
 ```
 
 Never point `ALLOW_DEMO_SEED=true` at a production operational database.
+
+## Storage and Data Persistence
+
+### App Platform (ephemeral by design)
+
+DO App Platform services have **no persistent local filesystem**. Journal and archive
+directories (`JOURNAL_DIR`, `ARCHIVE_DIR`) are written to `/workspace/storage/journal`
+and `/workspace/storage/archives` inside the container, but these paths are **wiped on
+every redeploy**. This is intentional for the staging environment — it runs demo data
+only and is reset on each deploy via `pnpm start:staging`.
+
+If durable audit logs are required for a staging session (e.g. debugging a multi-step
+command-bus flow), use the **Droplet + Caddy alternative** below, which mounts named
+Docker volumes.
+
+### Droplet + Caddy (persistent named volumes)
+
+The Droplet path uses `docker-compose.prod.yml` which mounts three named volumes:
+
+| Volume | Container path | Purpose |
+|---|---|---|
+| `terp-agro-journal` | `/app/storage/journal` | JSONL command audit trail |
+| `terp-agro-archives` | `/app/storage/archives` | Finalization archive files |
+| `terp-agro-media` | `/app/storage/media` | Photography module uploads |
+
+These volumes persist across `docker compose restart`, image rebuilds, and `docker compose
+up -d --build` redeployments. To inspect or back them up:
+
+```bash
+docker volume inspect terp-agro-journal
+docker run --rm -v terp-agro-journal:/data alpine tar czf - /data > journal-backup.tar.gz
+```
+
+### Production
+
+Production uses the same `docker-compose.prod.yml` volume layout. All three named volumes
+(`terp-agro-journal`, `terp-agro-archives`, `terp-agro-media`) must be present before
+the first `docker compose up`. Docker creates them automatically on the first run.

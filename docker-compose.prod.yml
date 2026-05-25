@@ -11,6 +11,9 @@ services:
     volumes:
       - terp-agro-journal:/app/storage/journal
       - terp-agro-archives:/app/storage/archives
+      # Photography module upload directory — must be a named volume so batch photos
+      # survive container restarts and redeployments (GH #311).
+      - terp-agro-media:/app/storage/media
 
   postgres:
     image: postgres:16-alpine
@@ -31,3 +34,4 @@ volumes:
   terp-agro-postgres:
   terp-agro-journal:
   terp-agro-archives:
+  terp-agro-media:
