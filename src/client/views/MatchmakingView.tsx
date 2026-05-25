@@ -1,4 +1,5 @@
 import { Check, Plus, RotateCcw, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -82,6 +83,15 @@ export function MatchmakingView() {
     if (activeQuickLaunch === 'customerNeed') needProductRef.current?.focus();
     if (activeQuickLaunch === 'vendorSupply') supplyProductRef.current?.focus();
   }, [activeQuickLaunch]);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterCustomerId = searchParams.get('customer') ?? '';
+  const filterVendorId = searchParams.get('vendor') ?? '';
+  const hasFilter = Boolean(filterCustomerId || filterVendorId);
+
+  function clearFilter() {
+    setSearchParams({});
+  }
 
   async function updateSettings(patch: Record<string, unknown>) {
     try {
@@ -384,6 +394,28 @@ export function MatchmakingView() {
     },
   ], [isRunning, canWrite, runCommand, opportunities]);
 
+  const filteredNeeds = useMemo(() => {
+    const rows = (board.data?.needs ?? []) as GridRow[];
+    if (!filterCustomerId) return rows;
+    return rows.filter((r) => r.customerId === filterCustomerId || r.customer_id === filterCustomerId);
+  }, [board.data?.needs, filterCustomerId]);
+
+  const filteredSupplies = useMemo(() => {
+    const rows = (board.data?.supplies ?? []) as GridRow[];
+    if (!filterVendorId) return rows;
+    return rows.filter((r) => r.vendorId === filterVendorId || r.vendor_id === filterVendorId);
+  }, [board.data?.supplies, filterVendorId]);
+
+  const filteredMatches = useMemo(() => {
+    const rows = (board.data?.matches ?? []) as GridRow[];
+    if (!filterCustomerId && !filterVendorId) return rows;
+    return rows.filter((r) => {
+      if (filterCustomerId && r.customerId !== filterCustomerId) return false;
+      if (filterVendorId && r.vendorId !== filterVendorId) return false;
+      return true;
+    });
+  }, [board.data?.matches, filterCustomerId, filterVendorId]);
+
   return (
     <div className="view-stack">
       <WorkspacePanel
@@ -478,6 +510,19 @@ Maximum score:                     100`}
           </details>
         </div>
       </WorkspacePanel>
+
+      {hasFilter && (
+        <div className="flex items-center gap-2 px-1 py-1">
+          <span className="text-sm text-zinc-500">
+            Filtered to:{' '}
+            {filterCustomerId && reference.data?.customers.find((c) => c.id === filterCustomerId)?.name}
+            {filterVendorId && reference.data?.vendors.find((v) => v.id === filterVendorId)?.name}
+          </span>
+          <button className="text-xs text-zinc-400 hover:text-zinc-700 underline" onClick={clearFilter} type="button">
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {canWrite ? (
         <WorkspacePanel panelId="matchmaking:entry" title="Matchmaking Entry" contentClassName="p-3">
@@ -583,7 +628,7 @@ Maximum score:                     100`}
       <OperatorGrid
         view="matchmaking"
         title="Deterministic Matches"
-        rows={(board.data?.matches ?? []) as GridRow[]}
+        rows={filteredMatches}
         columns={matchColumns}
         rowClassRules={matchRowClassRules}
         loading={board.isLoading || isRunning}
@@ -631,7 +676,7 @@ Maximum score:                     100`}
         <OperatorGrid
           view="matchmaking"
           title="Customer Needs"
-          rows={(board.data?.needs ?? []) as GridRow[]}
+          rows={filteredNeeds}
           columns={needColumns}
           loading={board.isLoading || isRunning}
           onCellCommit={canWrite ? updateNeedCell : undefined}
@@ -639,7 +684,7 @@ Maximum score:                     100`}
         <OperatorGrid
           view="matchmaking"
           title="Vendor Stock"
-          rows={(board.data?.supplies ?? []) as GridRow[]}
+          rows={filteredSupplies}
           columns={supplyColumns}
           loading={board.isLoading || isRunning}
           onCellCommit={canWrite ? updateSupplyCell : undefined}
