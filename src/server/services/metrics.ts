@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm';
 import { db, pingDatabase, pool } from '../db';
 import { batches, commandJournal, invoices, salesOrders, vendorBills } from '../schema';
 import { checkJournalWritable } from './journal';
-import type { DashboardData, HealthStatus, KpiMetric } from '../../shared/types';
+import type { DashboardData, HealthStatus, KpiMetric, Role } from '../../shared/types';
+import { canRole } from '../rbac';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
@@ -35,43 +36,24 @@ export async function getHealth(): Promise<HealthStatus> {
   };
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
-  const cashRow = (await pool.query<{ cash: string }>("select coalesce(sum(amount), 0)::text as cash from payments where status = 'posted'")).rows[0];
-  const receivablesRow = (
-    await pool.query<{ receivables: string }>(
-      "select coalesce(sum(total - amount_paid), 0)::text as receivables from invoices where status in ('open', 'partial')"
-    )
-  ).rows[0];
-  const payablesRow = (
-    await pool.query<{ payables: string }>(
-      "select coalesce(sum(amount - amount_paid), 0)::text as payables from vendor_bills where status in ('open', 'approved', 'scheduled')"
-    )
-  ).rows[0];
-  const inventoryRow = (
-    await pool.query<{ inventory_value: string }>(
-      "select coalesce(sum(available_qty * unit_cost), 0)::text as inventory_value from batches where status in ('posted', 'ready', 'draft')"
-    )
-  ).rows[0];
+export async function getDashboardData(role: Role): Promise<DashboardData> {
+  const isManager = canRole(role, 'manager');
+  const cashRow = isManager ? (await pool.query<{ cash: string }>("select coalesce(sum(amount), 0)::text as cash from payments where status = 'posted'")).rows[0] : null;
+  const receivablesRow = isManager ? (await pool.query<{ receivables: string }>("select coalesce(sum(total - amount_paid), 0)::text as receivables from invoices where status in ('open', 'partial')")).rows[0] : null;
+  const payablesRow = isManager ? (await pool.query<{ payables: string }>("select coalesce(sum(amount - amount_paid), 0)::text as payables from vendor_bills where status in ('open', 'approved', 'scheduled')")).rows[0] : null;
+  const inventoryRow = isManager ? (await pool.query<{ inventory_value: string }>("select coalesce(sum(available_qty * unit_cost), 0)::text as inventory_value from batches where status in ('posted', 'ready', 'draft')")).rows[0] : null;
   const agingRow = (
     await pool.query<{ aging_count: string }>(
       "select count(*)::text as aging_count from batches where status = 'posted' and created_at < now() - interval '30 days' and available_qty > 0"
     )
   ).rows[0];
-  const debtRow = (
-    await pool.query<{ debt_name: string | null; debt: string | null }>(
-      'select c.name as debt_name, c.balance::text as debt from customers c order by c.balance desc limit 1'
-    )
-  ).rows[0];
+  const debtRow = isManager ? (await pool.query<{ debt_name: string | null; debt: string | null }>('select c.name as debt_name, c.balance::text as debt from customers c order by c.balance desc limit 1')).rows[0] : null;
   const opportunityRow = (
     await pool.query<{ opportunities: string }>(
       "select count(*)::text as opportunities from matchmaking_matches where status = 'open'"
     )
   ).rows[0];
-  const moneyBuckets = (
-    await pool.query<{ bucket: string; amount: string }>(
-      "select coalesce(location_bucket, 'unassigned') as bucket, coalesce(sum(amount), 0)::text as amount from payments where status = 'posted' group by coalesce(location_bucket, 'unassigned') order by bucket"
-    )
-  ).rows;
+  const moneyBuckets = isManager ? (await pool.query<{ bucket: string; amount: string }>("select coalesce(location_bucket, 'unassigned') as bucket, coalesce(sum(amount), 0)::text as amount from payments where status = 'posted' group by coalesce(location_bucket, 'unassigned') order by bucket")).rows : [];
 
   const intakeReady = await db.select({ count: sql<number>`count(*)::int` }).from(batches).where(sql`${batches.status} = 'ready'`);
   const salesReady = await db.select({ count: sql<number>`count(*)::int` }).from(salesOrders).where(sql`${salesOrders.status} = 'confirmed'`);
@@ -94,28 +76,32 @@ export async function getDashboardData(): Promise<DashboardData> {
       label: 'Cash/files on hand',
       value: money.format(Number(cashRow?.cash ?? 0)),
       definition: 'Posted payments recorded in TERP Agro, net of reversals and refunds.',
-      severity: 'good'
+      severity: 'good',
+      minRole: 'manager'
     },
     {
       key: 'payables',
       label: 'Payables due/scheduled',
       value: money.format(Number(payablesRow?.payables ?? 0)),
       definition: 'Open, approved, or scheduled vendor bills not fully paid.',
-      severity: Number(payablesRow?.payables ?? 0) > 50_000 ? 'watch' : 'neutral'
+      severity: Number(payablesRow?.payables ?? 0) > 50_000 ? 'watch' : 'neutral',
+      minRole: 'manager'
     },
     {
       key: 'receivables',
       label: 'Receivables',
       value: money.format(Number(receivablesRow?.receivables ?? 0)),
       definition: 'Open customer invoice balances after allocations.',
-      severity: Number(receivablesRow?.receivables ?? 0) > 40_000 ? 'watch' : 'neutral'
+      severity: Number(receivablesRow?.receivables ?? 0) > 40_000 ? 'watch' : 'neutral',
+      minRole: 'manager'
     },
     {
       key: 'inventory_value',
       label: 'Inventory value',
       value: money.format(Number(inventoryRow?.inventory_value ?? 0)),
       definition: 'Available posted inventory valued at unit cost.',
-      severity: 'neutral'
+      severity: 'neutral',
+      minRole: 'manager'
     },
     {
       key: 'aging_inventory',
@@ -129,7 +115,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       label: 'Debt leaderboard',
       value: debtRow?.debt_name ? `${debtRow.debt_name}: ${money.format(Number(debtRow.debt ?? 0))}` : 'No debt',
       definition: 'Customer with the highest current balance.',
-      severity: Number(debtRow?.debt ?? 0) > 20_000 ? 'bad' : 'neutral'
+      severity: Number(debtRow?.debt ?? 0) > 20_000 ? 'bad' : 'neutral',
+      minRole: 'manager'
     },
     {
       key: 'matchmaking',
@@ -140,8 +127,10 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   ];
 
+  const visibleMetrics = metrics.filter(m => !m.minRole || canRole(role, m.minRole));
+
   return {
-    metrics,
+    metrics: visibleMetrics,
     pendingQueues: [
       { key: 'intake', label: 'Intake ready', count: intakeReady[0]?.count ?? 0 },
       { key: 'sales', label: 'Sales ready', count: salesReady[0]?.count ?? 0 },

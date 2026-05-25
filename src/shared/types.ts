@@ -131,6 +131,7 @@ export interface KpiMetric {
   value: string;
   definition: string;
   severity: 'good' | 'watch' | 'bad' | 'neutral';
+  minRole?: 'manager' | 'owner';  // absent = visible to all roles
 }
 
 export interface DashboardData {

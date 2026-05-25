@@ -20,7 +20,7 @@ import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCos
 export const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors', 'photography']);
 
 export const queriesRouter = router({
-  dashboard: protectedProcedure.query(() => getDashboardData()),
+  dashboard: protectedProcedure.query(({ ctx }) => getDashboardData(ctx.user.role)),
   health: protectedProcedure.query(() => getHealth()),
   reference: protectedProcedure.query(async () => {
     const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors, pricingDefaults] = await Promise.all([
@@ -97,8 +97,16 @@ export const queriesRouter = router({
         .map((name) => ({ name, label: commandLabels[name], minRole: commandMinRole[name] }))
     };
   }),
-  grid: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input }) => {
-    return (await pool.query(gridSql(input.view))).rows;
+  grid: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input, ctx }) => {
+    const rows = (await pool.query(gridSql(input.view))).rows;
+    const canViewSensitive = canRole(ctx.user.role, 'manager');
+    if (input.view === 'sales' && !canViewSensitive) {
+      return rows.map((row) => ({ ...row, internalMargin: null, marginWaivedTotal: null }));
+    }
+    if (input.view === 'inventory' && !canViewSensitive) {
+      return rows.map((row) => ({ ...row, unitCost: null }));
+    }
+    return rows;
   }),
   transactionLedger: protectedProcedure.query(async () => {
     const rows = (
@@ -196,7 +204,11 @@ export const queriesRouter = router({
     ]);
     return { needs: needs.rows, supplies: supplies.rows, matches: matches.rows };
   }),
-  drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input }) => {
+  drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input, ctx }) => {
+    const sensitiveKeys = new Set(['cash', 'payables', 'receivables', 'inventory_value', 'debt_leader']);
+    if (sensitiveKeys.has(input.metricKey) && !canRole(ctx.user.role, 'manager')) {
+      return [];
+    }
     return (await pool.query(drilldownSql(input.metricKey))).rows;
   }),
   recoverySearch: protectedProcedure.input(z.object({ q: z.string().trim().max(200).default('') })).query(async ({ input, ctx }) => {
