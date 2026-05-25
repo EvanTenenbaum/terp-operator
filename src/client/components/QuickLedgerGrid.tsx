@@ -2,37 +2,10 @@ import { Check, ChevronDown, ChevronRight, Plus, RotateCcw, SlidersHorizontal } 
 import { useMemo, useState } from 'react';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
+import type { LedgerDraft, LedgerDirection, LedgerEntityType } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
 import { WorkspacePanel } from './WorkspacePanel';
-
-type LedgerDirection = 'receiving' | 'paying';
-type LedgerEntityType = 'customer' | 'vendor' | 'referee' | 'staff' | 'processor' | 'other';
-type LedgerStatus = 'draft' | 'posted' | 'needs_fix';
-
-interface LedgerDraft {
-  id: string;
-  date: string;
-  direction: LedgerDirection;
-  entityType: LedgerEntityType;
-  entityId: string;
-  entityName: string;
-  transactionType: string;
-  allocationTargetType: string;
-  allocationTargetId: string;
-  amount: string;
-  method: string;
-  bucket: string;
-  reference: string;
-  notes: string;
-  status: LedgerStatus;
-  issue?: string;
-  // Processor fields (optional)
-  processorId?: string;
-  grossAmount?: string;
-  processingFeeTotal?: string;
-  userSplitPercent?: string;
-}
 
 interface PostedLedgerRow {
   id: string;
@@ -128,10 +101,12 @@ export function QuickLedgerGrid() {
   const transactionLedger = trpc.queries.transactionLedger.useQuery();
   const vendorBills = trpc.queries.grid.useQuery({ view: 'vendors' });
   const me = trpc.auth.me.useQuery();
-  const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const { runCommand, isRunning } = useCommandRunner();
   const [collapsed, setCollapsed] = useState<Record<LedgerDirection, boolean>>({ receiving: false, paying: false });
-  const [drafts, setDrafts] = useState<LedgerDraft[]>(() => [makeRow(activeQuickLaunch === 'moneyOut' ? 'paying' : 'receiving')]);
+  // CAP-024: Drafts lifted to uiStore so they survive route changes.
+  const drafts = useUiStore((state) => state.ledgerDrafts);
+  const setLedgerDrafts = useUiStore((state) => state.setLedgerDrafts);
+  // activeRowId remains local — it's ephemeral focus state, not worth persisting.
   const [activeRowId, setActiveRowId] = useState(drafts[0]?.id ?? '');
   const [typeDrawerOpen, setTypeDrawerOpen] = useState(false);
   const [typeDraft, setTypeDraft] = useState<TypeDraft>(() => makeTypeDraft('paying'));
@@ -155,37 +130,36 @@ export function QuickLedgerGrid() {
 
   function addRow(direction: LedgerDirection) {
     const row = makeRow(direction);
-    setDrafts((current) => [row, ...current]);
+    setLedgerDrafts([row, ...drafts]);
     setActiveRowId(row.id);
     setCollapsed((current) => ({ ...current, [direction]: false }));
   }
 
   function updateRow(id: string, patch: Partial<LedgerDraft>) {
-    setDrafts((current) =>
-      current.map((row) => {
-        if (row.id !== id) return row;
-        const next = { ...row, ...patch, status: row.status === 'posted' ? row.status : 'draft' as const, issue: undefined };
-        if (patch.direction || patch.entityType) {
-          const direction = patch.direction ?? row.direction;
-          const entityType = patch.entityType ?? row.entityType;
-          next.transactionType = defaultTransactionType(direction, entityType);
-          next.allocationTargetType = defaultAllocationTarget(direction, entityType, next.transactionType);
-          next.allocationTargetId = '';
-          next.entityId = patch.entityType ? '' : next.entityId;
-          next.entityName = patch.entityType ? '' : next.entityName;
-          next.method = direction === 'paying' ? 'cash' : 'cash';
-          next.bucket = direction === 'paying' ? 'accounting' : 'cash-file-a';
-        }
-        if (patch.transactionType) {
-          const selectedType = typeOptions.find((option) => option.slug === patch.transactionType);
-          next.method = selectedType?.defaultMethod ?? next.method;
-          next.bucket = selectedType?.defaultBucket ?? next.bucket;
-          next.allocationTargetType = selectedType?.defaultAllocationIntent ?? defaultAllocationTarget(next.direction, next.entityType, patch.transactionType);
-          next.allocationTargetId = '';
-        }
-        return next;
-      })
-    );
+    const updated = drafts.map((row) => {
+      if (row.id !== id) return row;
+      const next = { ...row, ...patch, status: row.status === 'posted' ? row.status : 'draft' as const, issue: undefined };
+      if (patch.direction || patch.entityType) {
+        const direction = patch.direction ?? row.direction;
+        const entityType = patch.entityType ?? row.entityType;
+        next.transactionType = defaultTransactionType(direction, entityType);
+        next.allocationTargetType = defaultAllocationTarget(direction, entityType, next.transactionType);
+        next.allocationTargetId = '';
+        next.entityId = patch.entityType ? '' : next.entityId;
+        next.entityName = patch.entityType ? '' : next.entityName;
+        next.method = 'cash';
+        next.bucket = direction === 'paying' ? 'accounting' : 'cash-file-a';
+      }
+      if (patch.transactionType) {
+        const selectedType = typeOptions.find((option) => option.slug === patch.transactionType);
+        next.method = selectedType?.defaultMethod ?? next.method;
+        next.bucket = selectedType?.defaultBucket ?? next.bucket;
+        next.allocationTargetType = selectedType?.defaultAllocationIntent ?? defaultAllocationTarget(next.direction, next.entityType, patch.transactionType);
+        next.allocationTargetId = '';
+      }
+      return next;
+    });
+    setLedgerDrafts(updated);
     setActiveRowId(id);
   }
 
@@ -217,7 +191,7 @@ export function QuickLedgerGrid() {
     );
     if (result.ok) {
       const replacement = makeRow(row.direction);
-      setDrafts((current) => [replacement, ...current.filter((draft) => draft.id !== row.id)]);
+      setLedgerDrafts([replacement, ...drafts.filter((draft) => draft.id !== row.id)]);
       setActiveRowId(replacement.id);
       setCollapsed((current) => ({ ...current, [row.direction]: false }));
       return;
@@ -248,7 +222,7 @@ export function QuickLedgerGrid() {
   }
 
   function mark(id: string, patch: Partial<LedgerDraft>) {
-    setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+    setLedgerDrafts(drafts.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
   function section(direction: LedgerDirection) {
@@ -591,7 +565,13 @@ function DraftLedgerRow({
           {targetOptions.map((target) => <option key={`${target.type}:${target.id}`} value={`${target.type}:${target.id}`}>{target.label}</option>)}
         </select>
       </td>
-      <td><input value={row.amount} inputMode="decimal" onFocus={onFocus} onChange={(event) => onUpdate({ amount: event.target.value })} /></td>
+      <td>
+        <input value={row.amount} inputMode="decimal" onFocus={onFocus} onChange={(event) => onUpdate({ amount: event.target.value })} />
+        {/* CAP-004: visual label when operator enters a negative amount (buyer credit / down payment) */}
+        {row.amount.startsWith('-') || Number(row.amount) < 0 ? (
+          <span className="selection-pill">Buyer credit / Down payment</span>
+        ) : null}
+      </td>
       <td>
         <select value={row.method} onChange={(event) => onUpdate({ method: event.target.value })}>
           {methods.map((method) => <option key={method} value={method}>{labelFromToken(method)}</option>)}
@@ -611,6 +591,10 @@ function DraftLedgerRow({
           <Check className="h-4 w-4" aria-hidden="true" />
           <span className="sr-only">Commit ledger row</span>
         </button>
+        {/* CAP-004: role-gate note for viewers */}
+        {accessIssue ? (
+          <p className="text-xs text-zinc-400 mt-1">Manager or owner required to post ledger rows.</p>
+        ) : null}
       </td>
     </tr>
   );
