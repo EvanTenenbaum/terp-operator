@@ -11,8 +11,8 @@ test.describe('health', () => {
   test('app shell loads without JS crash', async ({ page }) => {
     test.setTimeout(30_000);
 
-    // AQA fix: register pageerror listener BEFORE navigation so errors during
-    // initial page load are captured, not just errors fired after the await chain.
+    // Register pageerror listener BEFORE navigation — errors during initial
+    // load are captured from the first byte, not just after the await chain.
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
@@ -22,9 +22,13 @@ test.describe('health', () => {
       page.locator('input[type="email"], [role="navigation"]').first()
     ).toBeVisible({ timeout: 15_000 });
 
-    // Give any immediately-queued async errors a moment to propagate.
-    // Note: waitForLoadState('networkidle') is intentionally NOT used here —
-    // socket.io connections keep the network non-idle indefinitely, causing a hang.
+    // M7 FIX: use load state + brief buffer instead of a fixed 1.5s wait.
+    // waitForLoadState('load') fires after the main document and synchronous
+    // resources finish loading. We explicitly avoid 'networkidle' because
+    // socket.io connections keep the network permanently non-idle.
+    // The 1.5s wait after load gives async React/tRPC chunks time to evaluate
+    // and throw any runtime errors before we check the error array.
+    await page.waitForLoadState('load');
     await page.waitForTimeout(1_500);
     expect(errors, `Unexpected JS errors on load: ${errors.join('; ')}`).toHaveLength(0);
   });

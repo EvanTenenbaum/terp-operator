@@ -4,6 +4,12 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   test: {
+    // M4: DB-dependent tests (require live Postgres) are excluded from the
+    // default vitest run. NAMING CONVENTION: any new test that requires a live
+    // database connection must be named *.integration.test.ts or *.db.test.ts
+    // so the glob patterns in CI workflows catch it automatically.
+    // DO NOT add individual filenames to the workflow --exclude lists; use the
+    // naming convention instead. Files listed today predate this convention.
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
