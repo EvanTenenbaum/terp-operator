@@ -400,7 +400,7 @@ export function defaultTabForEntity(entityType: string) {
     order: 'lines',
     salesOrder: 'balance',
     po: 'lines',
-    vendorBill: 'due-reason',
+    vendorBill: 'details',
     payment: 'allocations',
     pick: 'lines',
     connector: 'request',
