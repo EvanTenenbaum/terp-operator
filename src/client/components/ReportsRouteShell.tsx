@@ -1,224 +1,222 @@
-import { BarChart3, Download, Filter } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import type { ColDef } from 'ag-grid-community';
-import { trpc } from '../api/trpc';
-import { useUiStore } from '../store/uiStore';
-import type { GridRow } from '../../shared/types';
-import { OperatorGrid } from './OperatorGrid';
+/**
+ * ReportsRouteShell — Phase 6 scaffold
+ *
+ * This file ships the Reports route as a structured stub: 7 report tabs with
+ * realistic column headers, empty tables, and clear TODO markers. No live tRPC
+ * queries are wired yet — all data is static so the shell can ship before math
+ * fixtures are ready.
+ *
+ * TODO(phase6): wire real report queries once math fixtures pass. See each
+ * report definition below for the expected query name.
+ * Reference: docs/roadmap/phase-readiness/6.md
+ */
 
-const reportOptions = [
-  'Revenue',
-  'Aging inventory',
-  'Payables due',
-  'Cash movement',
-  'Vendor performance',
-  'Category analytics',
-  'Client sales history'
+import { BarChart3, Download } from 'lucide-react';
+import { useState } from 'react';
+import { EmptyState } from './EmptyState';
+
+// ── Report registry ───────────────────────────────────────────────────────────
+// Each entry drives the chip, the section heading, the description, and the
+// empty table column headers. Mark `gated: true` to show a notice instead of
+// a table (used for Closeout Period until Phase 5 archive gates pass).
+
+type ReportDef = {
+  key: string;
+  label: string;
+  description: string;
+  columns: readonly string[];
+  /** When true, renders a phase-gate notice instead of an empty table. */
+  gated?: boolean;
+};
+
+const REPORT_DEFS: readonly ReportDef[] = [
+  {
+    key: 'revenue-summary',
+    label: 'Revenue Summary',
+    description: 'Total revenue by status, period, and category.',
+    // TODO(phase6): wire queries.revenueReport — group by period + category
+    columns: ['Period', 'Category', 'Units', 'Revenue', 'Avg Unit Price'],
+  },
+  {
+    key: 'payables-aging',
+    label: 'Payables Aging',
+    description: 'Open vendor bills bucketed by days outstanding.',
+    // TODO(phase6): wire queries.payablesAgingReport — bucket by daysOutstanding
+    columns: ['Vendor', 'Bill ID', 'Days Outstanding', 'Amount Due', 'Status'],
+  },
+  {
+    key: 'receivables-aging',
+    label: 'Receivables Aging',
+    description: 'Open customer balances bucketed by days outstanding.',
+    // TODO(phase6): wire queries.receivablesAgingReport — bucket by daysOutstanding
+    columns: ['Customer', 'Invoice ID', 'Days Outstanding', 'Balance Due', 'Status'],
+  },
+  {
+    key: 'inventory-aging',
+    label: 'Inventory Aging',
+    description: 'Available inventory value grouped by batch age.',
+    // TODO(phase6): wire queries.inventoryAgingReport — group by ageBucket
+    columns: ['Batch', 'Category', 'Age (days)', 'QOH', 'Carrying Value'],
+  },
+  {
+    key: 'category-performance',
+    label: 'Category Performance',
+    description: 'Sales volume and margin by product category.',
+    // TODO(phase6): wire queries.categoryPerformanceReport — group by category
+    columns: ['Category', 'Units Sold', 'Revenue', 'COGS', 'Margin %'],
+  },
+  {
+    key: 'cash-flow',
+    label: 'Cash Flow',
+    description: 'Money in and out grouped by method and direction.',
+    // TODO(phase6): wire queries.cashFlowReport — group by direction + method + date
+    columns: ['Date', 'Direction', 'Method', 'Amount', 'Running Balance'],
+  },
+  {
+    key: 'closeout-period',
+    label: 'Closeout Period',
+    description: 'Period closeout summary — available after Phase 5 archive gates.',
+    // TODO(phase6): wire queries.closeoutPeriodReport — requires CAP-020 archive gates
+    columns: [],
+    gated: true,
+  },
 ];
 
-const reportColumns: ColDef<GridRow>[] = [
-  { field: 'label', headerName: 'Group', pinned: 'left', minWidth: 190 },
-  { field: 'status', width: 125 },
-  { field: 'amount', type: 'numericColumn', width: 130 },
-  { field: 'count', type: 'numericColumn', width: 105 },
-  { field: 'source', width: 145 }
-];
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function ReportsRouteShell() {
-  const [activeReport, setActiveReport] = useState(reportOptions[0]);
-  const setSelectedRows = useUiStore((state) => state.setSelectedRows);
-  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
-  const setDrawerState = useUiStore((state) => state.setDrawerState);
-  const sales = trpc.queries.grid.useQuery({ view: 'sales' });
-  const inventory = trpc.queries.grid.useQuery({ view: 'inventory' });
-  const vendors = trpc.queries.grid.useQuery({ view: 'vendors' });
-  const payments = trpc.queries.grid.useQuery({ view: 'payments' });
-  const clients = trpc.queries.grid.useQuery({ view: 'clients' });
-  const title = `${activeReport} report`;
+  const [activeReport, setActiveReport] = useState(REPORT_DEFS[0].key);
 
-  const rows = useMemo(
-    () =>
-      buildReportRows(activeReport, {
-        sales: (sales.data ?? []) as GridRow[],
-        inventory: (inventory.data ?? []) as GridRow[],
-        vendors: (vendors.data ?? []) as GridRow[],
-        payments: (payments.data ?? []) as GridRow[],
-        clients: (clients.data ?? []) as GridRow[]
-      }),
-    [activeReport, clients.data, inventory.data, payments.data, sales.data, vendors.data]
-  );
+  const currentReport = REPORT_DEFS.find((r) => r.key === activeReport) ?? REPORT_DEFS[0];
 
-  function onSelectionChange(selection: GridRow[]) {
-    setSelectedRows('reports', selection);
-    if (selection[0]) {
-      setDrawerEntity('reports', 'report', selection[0].id);
-      setDrawerState('reports', 'peek');
-    }
-  }
+  // TODO(phase6): populate rows from the matching tRPC query. Until then all
+  // reports are empty — the Export button is intentionally disabled.
+  const rows: never[] = [];
 
   function exportCsv() {
-    const headers = ['id', 'label', 'status', 'amount', 'count', 'source'];
-    const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n');
-    downloadText(`terp-agro-${activeReport.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`, csv, 'text/csv;charset=utf-8');
+    // TODO(phase6): replace stub CSV with real report rows from tRPC
+    const headers = currentReport.columns.slice();
+    const csv = headers.join(',') + '\n';
+    downloadText(`terp-operator-${currentReport.key}.csv`, csv, 'text/csv;charset=utf-8');
   }
 
-  const loading = sales.isLoading || inventory.isLoading || vendors.isLoading || payments.isLoading || clients.isLoading;
+  const canExport = !currentReport.gated && rows.length > 0;
 
   return (
     <div className="view-stack reports-route-shell">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">Live source rows grouped for owner decisions.</p>
+          <p className="page-subtitle">
+            Operator projections for owner decisions — math fixtures coming in Phase 6.
+          </p>
         </div>
-        <button type="button" className="secondary-button" onClick={exportCsv} disabled={!rows.length}>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={exportCsv}
+          disabled={!canExport}
+          title={
+            currentReport.gated
+              ? 'Export not available — Phase 5 archive gate required'
+              : 'Export available once Phase 6 math fixtures pass'
+          }
+        >
           <Download className="h-4 w-4" aria-hidden="true" />
-          Export
+          Export CSV
         </button>
       </div>
+
+      {/* ── Report picker chips ─────────────────────────────────────────────── */}
       <div className="report-chip-row" aria-label="Report picker">
-        {reportOptions.map((report) => (
-          <button key={report} type="button" className={activeReport === report ? 'report-chip report-chip-active' : 'report-chip'} onClick={() => setActiveReport(report)}>
-            {report}
+        {REPORT_DEFS.map((report) => (
+          <button
+            key={report.key}
+            type="button"
+            className={activeReport === report.key ? 'report-chip report-chip-active' : 'report-chip'}
+            onClick={() => setActiveReport(report.key)}
+            aria-pressed={activeReport === report.key}
+          >
+            {report.label}
           </button>
         ))}
       </div>
-      <div className="report-parameter-strip" aria-label="Report parameters">
-        <span className="report-filter-pill">
-          <Filter className="h-4 w-4" aria-hidden="true" />
-          Live database
+
+      {/* ── Active report body ──────────────────────────────────────────────── */}
+      {currentReport.gated ? (
+        // Closeout Period — gated until Phase 5 archive gates pass (CAP-020)
+        <div className="report-table-wrap">
+          <div className="mb-3">
+            <h2 className="section-title">{currentReport.label}</h2>
+            <p className="mt-1 text-sm text-zinc-600">{currentReport.description}</p>
+          </div>
+          <EmptyState title="Available after Phase 5 — CAP-020 archive gates required">
+            This report requires the Closeout Period archive gate to be complete before data
+            is available. Once Phase 5 (Recovery &amp; Closeout) is live, this report will show
+            period summary financials.
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="report-table-wrap">
+          <div className="mb-3">
+            <h2 className="section-title">{currentReport.label}</h2>
+            <p className="mt-1 text-sm text-zinc-600">{currentReport.description}</p>
+          </div>
+          {/* TODO(phase6): replace empty table with live rows from the wired tRPC query */}
+          <table className="report-table" aria-label={`${currentReport.label} data table`}>
+            <thead>
+              <tr>
+                {currentReport.columns.map((col) => (
+                  <th key={col} scope="col">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={currentReport.columns.length || 1}
+                    className="py-8 text-center text-sm text-zinc-500"
+                  >
+                    No data — math fixtures coming in Phase 6
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── Bottom action strip ──────────────────────────────────────────────── */}
+      <div className="control-band">
+        <span className="text-xs text-zinc-500">
+          {currentReport.gated
+            ? 'Export not available — Phase 5 gate required'
+            : 'Export CSV — available once Phase 6 math fixtures pass'}
         </span>
-        <span className="report-filter-pill">Status grouped</span>
-        <span className="report-filter-pill">Source rows selectable</span>
+        <button
+          type="button"
+          className="secondary-button compact-action"
+          onClick={exportCsv}
+          disabled={!canExport}
+          title={
+            currentReport.gated
+              ? 'Export not available — Phase 5 archive gate required'
+              : 'Export available once Phase 6 math fixtures pass'
+          }
+        >
+          <BarChart3 className="h-4 w-4" aria-hidden="true" />
+          Export report
+        </button>
       </div>
-      <OperatorGrid
-        view="reports"
-        title={title}
-        rows={rows}
-        columns={reportColumns}
-        loading={loading}
-        onSelectionChange={onSelectionChange}
-        actions={
-          <button type="button" className="secondary-button compact-action" onClick={exportCsv} disabled={!rows.length}>
-            <BarChart3 className="h-4 w-4" aria-hidden="true" />
-            Export report
-          </button>
-        }
-      />
     </div>
   );
 }
 
-function buildReportRows(activeReport: string, data: Record<'sales' | 'inventory' | 'vendors' | 'payments' | 'clients', GridRow[]>): GridRow[] {
-  if (activeReport === 'Revenue') {
-    return groupRows(data.sales, (row) => String(row.status ?? 'unknown'), {
-      idPrefix: 'revenue',
-      source: 'Sales orders',
-      amount: (row) => Number(row.total ?? 0),
-      definition: 'Sales order totals grouped by live order status.'
-    });
-  }
-  if (activeReport === 'Aging inventory') {
-    return groupRows(data.inventory, (row) => ageBucket(Number(row.ageDays ?? 0)), {
-      idPrefix: 'aging',
-      source: 'Inventory',
-      amount: (row) => Number(row.availableQty ?? 0) * Number(row.unitCost ?? 0),
-      definition: 'Available inventory value grouped by batch age.'
-    });
-  }
-  if (activeReport === 'Payables due') {
-    return groupRows(data.vendors, (row) => String(row.status ?? 'unknown'), {
-      idPrefix: 'payables',
-      source: 'Vendor bills',
-      amount: (row) => Number(row.amount ?? 0) - Number(row.amountPaid ?? 0),
-      definition: 'Open vendor payable balance grouped by payable status.'
-    });
-  }
-  if (activeReport === 'Cash movement') {
-    return groupRows(data.payments, (row) => `${String(row.direction ?? 'money')} / ${String(row.method ?? 'method')}`, {
-      idPrefix: 'cash',
-      source: 'Payments',
-      amount: (row) => Number(row.amount ?? 0),
-      definition: 'Logged money movement grouped by direction and method.'
-    });
-  }
-  if (activeReport === 'Vendor performance') {
-    return groupRows(data.vendors, (row) => String(row.vendor ?? 'Unknown vendor'), {
-      idPrefix: 'vendor',
-      source: 'Vendor bills',
-      amount: (row) => Number(row.amount ?? 0) - Number(row.amountPaid ?? 0),
-      definition: 'Vendor bill exposure by vendor.'
-    });
-  }
-  if (activeReport === 'Category analytics') {
-    return groupRows(data.inventory, (row) => String(row.category ?? 'Uncategorized'), {
-      idPrefix: 'category',
-      source: 'Inventory',
-      amount: (row) => Number(row.availableQty ?? 0) * Number(row.unitPrice ?? 0),
-      definition: 'Available retail inventory value by category.'
-    });
-  }
-  return data.clients.map((row) => ({
-    id: `client-${row.id}`,
-    label: String(row.name ?? 'Unknown client'),
-    status: Number(row.balance ?? 0) > 0 ? 'open' : 'paid',
-    amount: Number(row.balance ?? 0),
-    count: Number(row.invoiceCount ?? 0),
-    definition: 'Client balance and invoice count from the live client ledger.',
-    source: 'Clients'
-  }));
-}
-
-function groupRows(
-  rows: GridRow[],
-  labelFor: (row: GridRow) => string,
-  config: { idPrefix: string; source: string; amount: (row: GridRow) => number; definition: string }
-) {
-  const groups = new Map<string, { amount: number; count: number }>();
-  for (const row of rows) {
-    const label = labelFor(row);
-    const current = groups.get(label) ?? { amount: 0, count: 0 };
-    current.amount += config.amount(row);
-    current.count += 1;
-    groups.set(label, current);
-  }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([label, value]) => ({
-      id: `${config.idPrefix}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'none'}`,
-      label,
-      status: statusForLabel(label),
-      amount: value.amount,
-      count: value.count,
-      definition: config.definition,
-      source: config.source
-    }));
-}
-
-function statusForLabel(label: string): GridRow['status'] {
-  const normalized = label.toLowerCase();
-  if (normalized.includes('posted') || normalized.includes('received')) return 'posted';
-  if (normalized.includes('draft')) return 'draft';
-  if (normalized.includes('paid')) return 'paid';
-  if (normalized.includes('scheduled')) return 'scheduled';
-  if (normalized.includes('approved')) return 'approved';
-  if (normalized.includes('held')) return 'held';
-  if (normalized.includes('damaged')) return 'damaged';
-  if (normalized.includes('returned')) return 'returned';
-  if (normalized.includes('confirmed')) return 'confirmed';
-  return 'open';
-}
-
-function ageBucket(ageDays: number) {
-  if (ageDays >= 60) return '60+ days';
-  if (ageDays >= 30) return '30-59 days';
-  return '0-29 days';
-}
-
-function csvValue(value: unknown) {
-  const raw = value == null ? '' : String(value);
-  return /[",\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
-}
+// ── Utility ───────────────────────────────────────────────────────────────────
 
 function downloadText(filename: string, value: string, type: string) {
   const blob = new Blob([value], { type });

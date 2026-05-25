@@ -70,6 +70,32 @@ export function DashboardView() {
           <KpiCard key={metric.key} metric={metric} onOpen={setDrilldownMetric} />
         ))}
       </div>
+
+      {/* ── Today Focus ─────────────────────────────────────────────────────── */}
+      {/* Phase 6 scaffold: static stub tiles — wire tRPC queries when math     */}
+      {/* fixtures pass. Each tile marked with TODO(phase6) for the query.       */}
+      <WorkspacePanel
+        panelId="dashboard:today-focus"
+        title="Today Focus"
+        subtitle="Key decisions for today — data coming in Phase 6"
+        headingLevel={2}
+        contentClassName="p-3"
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {/* TODO(phase6): wire queries.dashboard → cash metric for live Cash Position */}
+          <TodayFocusTile label="Cash Position" />
+          {/* TODO(phase6): wire queries.dashboard → payables metric for Payables Due Today */}
+          <TodayFocusTile label="Payables Due Today" />
+          {/* TODO(phase6): wire queries.dashboard → receivables metric for Receivables Due Today */}
+          <TodayFocusTile label="Receivables Due Today" />
+          {/* TODO(phase6): wire queries.dashboard → pendingQueues sales count for Open Orders */}
+          <TodayFocusTile label="Open Orders" />
+          {/* TODO(phase6): wire queries.dashboard → pendingQueues fulfillment count for Pending Fulfillments */}
+          <TodayFocusTile label="Pending Fulfillments" />
+        </div>
+      </WorkspacePanel>
+      {/* ── End Today Focus ──────────────────────────────────────────────────── */}
+
       <WorkspacePanel panelId="dashboard:money-buckets" title="Money Buckets" headingLevel={2} contentClassName="p-3">
         <div className="definition-list">
           {(dashboard.data?.moneyBuckets ?? []).map((bucket) => (
@@ -152,6 +178,29 @@ export function DashboardView() {
     </div>
   );
 }
+
+// ── Phase 6 Today Focus tile ───────────────────────────────────────────────
+// Static stub tile used in the Today Focus section. Replace `value` prop with
+// real data once the matching tRPC query lands in Phase 6.
+// Visual style mirrors KpiCard (same border/bg/padding) without requiring a
+// full KpiMetric shape — keeps the stub self-contained and easy to wire later.
+function TodayFocusTile({ label }: { label: string }) {
+  return (
+    <div className="border border-line bg-white p-3">
+      <span className="text-xs font-semibold uppercase text-zinc-600">{label}</span>
+      {/* TODO(phase6): replace "--" with live value from the wired tRPC query */}
+      <div className="mt-2 text-xl font-bold text-ink">--</div>
+      {/* TODO(phase6): replace href="#" with navigation to the source-row view */}
+      <a
+        href="#"
+        className="mt-2 inline-flex items-center text-xs text-accent hover:underline focus:outline-none focus-visible:shadow-focus"
+      >
+        View
+      </a>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function workUrgencySort(a: GridRow, b: GridRow) {
   const score = urgencyScore(b) - urgencyScore(a);
