@@ -65,7 +65,7 @@ export function VendorBillDetailsTab({ vendorBillId, row, role }: VendorBillDeta
   const isTerminal = status === 'paid' || status === 'voided';
   const showApprove = status === 'open' || status === 'pending';
   const showSchedule = status === 'approved';
-  const showRecord = status === 'scheduled' || status === 'partial';
+  const showRecord = status === 'scheduled';
 
   function handleApprove() {
     runCommand('approveVendorBill', { vendorBillId }, 'Approve vendor bill');
@@ -240,6 +240,12 @@ export function VendorBillDetailsTab({ vendorBillId, row, role }: VendorBillDeta
         {isTerminal ? (
           <p className="mt-2 text-xs text-zinc-400">
             This bill is {status} — no further actions available.
+          </p>
+        ) : null}
+
+        {status === 'partial' ? (
+          <p className="mt-2 text-xs text-zinc-400">
+            Partially paid — schedule another payment to continue.
           </p>
         ) : null}
       </section>

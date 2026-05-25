@@ -1593,7 +1593,7 @@ export function VendorPayablesView() {
         const isTerminal = rowStatus === 'paid' || rowStatus === 'voided';
         const showApprove = rowStatus === 'open' || rowStatus === 'pending';
         const showSchedule = rowStatus === 'approved';
-        const showRecord = rowStatus === 'scheduled' || rowStatus === 'partial';
+        const showRecord = rowStatus === 'scheduled';
 
         if (!canWrite) {
           return (
