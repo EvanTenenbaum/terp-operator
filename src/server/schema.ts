@@ -4,6 +4,7 @@ import {
   bigint,
   bigserial,
   boolean,
+  check,
   date,
   index,
   integer,
@@ -397,9 +398,12 @@ export const paymentAllocations = pgTable('payment_allocations', {
   id: id(),
   paymentId: uuid('payment_id').references(() => payments.id, { onDelete: 'cascade' }).notNull(),
   invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'cascade' }).notNull(),
+  // GH #298: amount must be strictly positive (enforced by DB CHECK via migration 0057).
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   createdAt: now()
-});
+}, (table) => ({
+  amountPositive: check('payment_allocations_amount_positive', sql`${table.amount} > 0`)
+}));
 
 export const vendorBills = pgTable('vendor_bills', {
   id: id(),

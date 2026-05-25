@@ -240,20 +240,31 @@ kbd {
 .primary-button,
 .secondary-button,
 .text-button,
-.icon-button {
+.icon-button,
+.btn-primary,
+.btn-secondary {
   @apply inline-flex h-8 items-center justify-center gap-2 border text-sm font-medium transition focus:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45;
 }
 
-.primary-button {
+.primary-button,
+.btn-primary {
   @apply border-accent bg-accent px-3 text-white hover:bg-emerald-800;
 }
 
-.primary-button:disabled {
+.primary-button:disabled,
+.btn-primary:disabled {
   @apply border-zinc-300 bg-zinc-200 text-zinc-500 hover:bg-zinc-200;
 }
 
-.secondary-button {
+/* GH #286: btn-secondary — outlined/lighter secondary action variant.
+   Mirrors .secondary-button; both class names are valid. */
+.secondary-button,
+.btn-secondary {
   @apply border-line bg-white px-3 text-ink hover:border-accent;
+}
+
+.btn-secondary:disabled {
+  @apply border-zinc-300 bg-zinc-200 text-zinc-500 hover:bg-zinc-200;
 }
 
 .text-button {
