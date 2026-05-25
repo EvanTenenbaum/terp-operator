@@ -19,6 +19,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
 import { EmptyState } from './EmptyState';
+import { workLoopForUser } from '../accessPolicy';
 import type { GridRow, ViewKey } from '../../shared/types';
 
 // ── Report registry ───────────────────────────────────────────────────────────
@@ -28,8 +29,9 @@ type ReportDef = {
   label: string;
   description: string;
   columns: readonly string[];
-  /** When true, renders a phase-gate notice instead of a table. */
   gated?: boolean;
+  /** Manager+ only. Hides this report from non-manager users. */
+  minLoop?: 'manager';
 };
 
 const REPORT_DEFS: readonly ReportDef[] = [
@@ -44,6 +46,7 @@ const REPORT_DEFS: readonly ReportDef[] = [
     label: 'Payables Due',
     description: 'Open vendor bills grouped by status. Overdue shown at top.',
     columns: ['Status', 'Bills', 'Outstanding Balance', 'Overdue?'] as const,
+    minLoop: 'manager',
   },
   {
     key: 'client-balances',
@@ -56,6 +59,7 @@ const REPORT_DEFS: readonly ReportDef[] = [
     label: 'Inventory Aging',
     description: 'Available inventory value grouped by age since intake date.',
     columns: ['Age Range', 'Lots', 'Total Available Qty', 'Cost Value', 'Retail Value'] as const,
+    minLoop: 'manager',
   },
   {
     key: 'category-performance',
@@ -68,18 +72,21 @@ const REPORT_DEFS: readonly ReportDef[] = [
     label: 'Cash Movement',
     description: 'Posted payments grouped by direction and method.',
     columns: ['Direction / Method', 'Transactions', 'Total Amount', 'Net Position'] as const,
+    minLoop: 'manager',
   },
   {
     key: 'vendor-performance',
     label: 'Vendor Performance',
     description: 'Outstanding vendor bills grouped by vendor.',
     columns: ['Vendor', 'Bills', 'Total Billed', 'Outstanding Balance'] as const,
+    minLoop: 'manager',
   },
   {
     key: 'client-sales-history',
     label: 'Client Sales History',
     description: 'Sales orders grouped by client — all time, live.',
     columns: ['Client', 'Total Orders', 'Posted Revenue', 'In Pipeline'] as const,
+    minLoop: 'manager',
   },
   {
     key: 'closeout-period',
@@ -122,8 +129,12 @@ type ReportRow = Record<string, string | number>;
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ReportsRouteShell() {
-  const [activeReport, setActiveReport] = useState(REPORT_DEFS[0].key);
   const navigate = useNavigate();
+  const [activeReport, setActiveReport] = useState(() => REPORT_DEFS[0].key);
+  const me = trpc.auth.me.useQuery();
+  const myLoop = me.data ? workLoopForUser(me.data) : null;
+  const isManagerPlus = myLoop === 'manager' || myLoop === 'owner';
+  const visibleReports = REPORT_DEFS.filter((r) => !r.minLoop || isManagerPlus);
 
   const currentReport = REPORT_DEFS.find((r) => r.key === activeReport) ?? REPORT_DEFS[0];
 
@@ -133,11 +144,11 @@ export function ReportsRouteShell() {
 
   const vendorsGrid = trpc.queries.grid.useQuery(
     { view: 'vendors' },
-    { enabled: needsSources.includes('vendors') }
+    { enabled: needsSources.includes('vendors') && isManagerPlus }
   );
   const paymentsGrid = trpc.queries.grid.useQuery(
     { view: 'payments' },
-    { enabled: needsSources.includes('payments') }
+    { enabled: needsSources.includes('payments') && isManagerPlus }
   );
   const inventoryGrid = trpc.queries.grid.useQuery(
     { view: 'inventory' },
@@ -145,7 +156,7 @@ export function ReportsRouteShell() {
   );
   const clientsGrid = trpc.queries.grid.useQuery(
     { view: 'clients' },
-    { enabled: needsSources.includes('clients') }
+    { enabled: needsSources.includes('clients') && isManagerPlus }
   );
   const salesGrid = trpc.queries.grid.useQuery(
     { view: 'sales' },
@@ -239,7 +250,7 @@ export function ReportsRouteShell() {
 
       {/* ── Report picker chips ─────────────────────────────────────────────── */}
       <div className="report-chip-row" aria-label="Report picker">
-        {REPORT_DEFS.map((report) => (
+        {visibleReports.map((report) => (
           <button
             key={report.key}
             type="button"
