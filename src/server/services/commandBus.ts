@@ -789,6 +789,12 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return reviewMatchmakingMatch(tx, payload, 'dismissed', user.id, commandId);
     case 'reopenMatchmakingMatch':
       return reopenMatchmakingMatch(tx, payload, user.id, commandId);
+    case 'updateMatchmakingSettings':
+      return updateMatchmakingSettings(tx, payload, user.id, commandId);
+    case 'noteMatchmakingOutreach':
+      return noteMatchmakingOutreach(tx, payload, user.id, commandId);
+    case 'dismissMatchmakingWorkQueueItem':
+      return dismissMatchmakingWorkQueueItem(tx, payload, user.id, commandId);
     case 'setItemAlias':
       return setItemAlias(tx, payload, commandId);
     case 'createReferee':
@@ -4920,6 +4926,105 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
  * `vendorSupply.status = 'held_for_match'` are likewise NOT reverted here; those
  * are owned by the wider matchmaking workflow and not part of the reverse path.
  */
+export async function updateMatchmakingSettings(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const floor = payload.matchQualityFloor != null ? Number(payload.matchQualityFloor) : undefined;
+  const threshold = payload.workQueueThreshold != null ? Number(payload.workQueueThreshold) : undefined;
+
+  const [current] = await tx.select().from(matchmakingSettings).limit(1);
+  const effectiveFloor = floor ?? current?.matchQualityFloor ?? 35;
+  const effectiveThreshold = threshold ?? current?.workQueueThreshold ?? 75;
+
+  if (effectiveThreshold < effectiveFloor) {
+    throw new Error('Work queue threshold must be ≥ match quality floor.');
+  }
+
+  const values: Record<string, unknown> = { updatedAt: new Date(), updatedBy: userId };
+  if (floor != null) values.matchQualityFloor = floor;
+  if (threshold != null) values.workQueueThreshold = threshold;
+  if (payload.historyLookbackDays != null) values.historyLookbackDays = Number(payload.historyLookbackDays);
+  if (payload.repeatThreshold != null) values.repeatThreshold = Number(payload.repeatThreshold);
+  if (payload.gapFloorQty != null) values.gapFloorQty = Number(payload.gapFloorQty);
+  if (payload.showClientsColumn != null) values.showClientsColumn = Boolean(payload.showClientsColumn);
+  if (payload.showVendorsColumn != null) values.showVendorsColumn = Boolean(payload.showVendorsColumn);
+  if (payload.workQueueEnabled != null) values.workQueueEnabled = Boolean(payload.workQueueEnabled);
+
+  if (current) {
+    await tx.update(matchmakingSettings).set(values).where(eq(matchmakingSettings.id, current.id));
+  } else {
+    await tx.insert(matchmakingSettings).values({ ...values } as typeof matchmakingSettings.$inferInsert);
+  }
+
+  return { ok: true, commandId, affectedIds: [], toast: 'Matchmaking settings updated.' };
+}
+
+export async function noteMatchmakingOutreach(
+  tx: Tx,
+  payload: Payload,
+  _userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const entityType = String(payload.entityType ?? '');
+  const entityId = requiredId(payload.entityId, 'entityId');
+  const context = String(payload.context ?? '');
+  const leg = Number(payload.leg ?? 0);
+
+  if (!['customer', 'vendor'].includes(entityType)) {
+    throw new Error('entityType must be customer or vendor');
+  }
+  if (![2, 3].includes(leg)) {
+    throw new Error('leg must be 2 or 3');
+  }
+  if (!context) {
+    throw new Error('context (category slug or batch id) is required');
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [entityId],
+    toast: `Outreach noted. This suggestion will be hidden for 30 days.`,
+  };
+}
+
+export async function dismissMatchmakingWorkQueueItem(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const itemType = String(payload.itemType ?? '');
+  const itemId = String(payload.itemId ?? '');
+
+  if (!['match', 'opportunity'].includes(itemType)) {
+    throw new Error('itemType must be match or opportunity');
+  }
+
+  if (itemType === 'opportunity' && payload.entityType && payload.entityId && payload.context) {
+    // Re-route to noteMatchmakingOutreach logic for opportunity items.
+    // IMPORTANT: the command journal entry is written by the command bus with
+    // command_name = 'dismissMatchmakingWorkQueueItem'. The Leg 2/3 snooze queries
+    // in matchmakingOpportunities check BOTH command names, so this is safe.
+    return noteMatchmakingOutreach(tx, {
+      entityType: payload.entityType,
+      entityId: payload.entityId,
+      context: payload.context,
+      leg: payload.leg,
+    }, userId, commandId);
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: itemId ? [itemId] : [],
+    toast: 'Removed from work queue for 30 days.',
+  };
+}
+
 export async function reopenMatchmakingMatch(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const matchId = requiredId(payload.matchId ?? payload.id, 'matchId');
   const [match] = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.id, matchId)).limit(1);
