@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm';
 import { db, pingDatabase, pool } from '../db';
 import { batches, commandJournal, invoices, salesOrders, vendorBills } from '../schema';
 import { checkJournalWritable } from './journal';
-import type { DashboardData, HealthStatus, KpiMetric } from '../../shared/types';
+import type { DashboardData, HealthStatus, KpiMetric, Role } from '../../shared/types';
+import { canRole } from '../rbac';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
@@ -35,7 +36,7 @@ export async function getHealth(): Promise<HealthStatus> {
   };
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getDashboardData(role: Role): Promise<DashboardData> {
   const cashRow = (await pool.query<{ cash: string }>("select coalesce(sum(amount), 0)::text as cash from payments where status = 'posted'")).rows[0];
   const receivablesRow = (
     await pool.query<{ receivables: string }>(
@@ -94,28 +95,32 @@ export async function getDashboardData(): Promise<DashboardData> {
       label: 'Cash/files on hand',
       value: money.format(Number(cashRow?.cash ?? 0)),
       definition: 'Posted payments recorded in TERP Agro, net of reversals and refunds.',
-      severity: 'good'
+      severity: 'good',
+      minRole: 'manager'
     },
     {
       key: 'payables',
       label: 'Payables due/scheduled',
       value: money.format(Number(payablesRow?.payables ?? 0)),
       definition: 'Open, approved, or scheduled vendor bills not fully paid.',
-      severity: Number(payablesRow?.payables ?? 0) > 50_000 ? 'watch' : 'neutral'
+      severity: Number(payablesRow?.payables ?? 0) > 50_000 ? 'watch' : 'neutral',
+      minRole: 'manager'
     },
     {
       key: 'receivables',
       label: 'Receivables',
       value: money.format(Number(receivablesRow?.receivables ?? 0)),
       definition: 'Open customer invoice balances after allocations.',
-      severity: Number(receivablesRow?.receivables ?? 0) > 40_000 ? 'watch' : 'neutral'
+      severity: Number(receivablesRow?.receivables ?? 0) > 40_000 ? 'watch' : 'neutral',
+      minRole: 'manager'
     },
     {
       key: 'inventory_value',
       label: 'Inventory value',
       value: money.format(Number(inventoryRow?.inventory_value ?? 0)),
       definition: 'Available posted inventory valued at unit cost.',
-      severity: 'neutral'
+      severity: 'neutral',
+      minRole: 'manager'
     },
     {
       key: 'aging_inventory',
@@ -129,7 +134,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       label: 'Debt leaderboard',
       value: debtRow?.debt_name ? `${debtRow.debt_name}: ${money.format(Number(debtRow.debt ?? 0))}` : 'No debt',
       definition: 'Customer with the highest current balance.',
-      severity: Number(debtRow?.debt ?? 0) > 20_000 ? 'bad' : 'neutral'
+      severity: Number(debtRow?.debt ?? 0) > 20_000 ? 'bad' : 'neutral',
+      minRole: 'manager'
     },
     {
       key: 'matchmaking',
@@ -140,8 +146,10 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   ];
 
+  const visibleMetrics = metrics.filter(m => !m.minRole || canRole(role, m.minRole));
+
   return {
-    metrics,
+    metrics: visibleMetrics,
     pendingQueues: [
       { key: 'intake', label: 'Intake ready', count: intakeReady[0]?.count ?? 0 },
       { key: 'sales', label: 'Sales ready', count: salesReady[0]?.count ?? 0 },
@@ -151,11 +159,13 @@ export async function getDashboardData(): Promise<DashboardData> {
       ...activity,
       createdAt: activity.createdAt.toISOString()
     })),
-    moneyBuckets: moneyBuckets.map((bucket) => ({
-      bucket: bucket.bucket,
-      amount: bucket.amount,
-      definition: 'Posted payment rows assigned to this cash/file bucket. Negative rows are buyer credits/down payments.'
-    })),
+    moneyBuckets: canRole(role, 'manager')
+      ? moneyBuckets.map((bucket) => ({
+          bucket: bucket.bucket,
+          amount: bucket.amount,
+          definition: 'Posted payment rows assigned to this cash/file bucket. Negative rows are buyer credits/down payments.'
+        }))
+      : [],
     health: await getHealth()
   };
 }

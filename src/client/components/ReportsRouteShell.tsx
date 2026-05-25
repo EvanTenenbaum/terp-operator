@@ -5,15 +5,16 @@ import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import { OperatorGrid } from './OperatorGrid';
+import { workLoopForUser } from '../accessPolicy';
 
-const reportOptions = [
-  'Revenue',
-  'Aging inventory',
-  'Payables due',
-  'Cash movement',
-  'Vendor performance',
-  'Category analytics',
-  'Client sales history'
+const reportOptions: { label: string; minLoop: 'manager' | null }[] = [
+  { label: 'Revenue', minLoop: null },
+  { label: 'Aging inventory', minLoop: 'manager' },
+  { label: 'Payables due', minLoop: 'manager' },
+  { label: 'Cash movement', minLoop: 'manager' },
+  { label: 'Vendor performance', minLoop: 'manager' },
+  { label: 'Category analytics', minLoop: null },
+  { label: 'Client sales history', minLoop: 'manager' },
 ];
 
 const reportColumns: ColDef<GridRow>[] = [
@@ -25,7 +26,11 @@ const reportColumns: ColDef<GridRow>[] = [
 ];
 
 export function ReportsRouteShell() {
-  const [activeReport, setActiveReport] = useState(reportOptions[0]);
+  const me = trpc.auth.me.useQuery();
+  const myLoop = me.data ? workLoopForUser(me.data) : null;
+  const isManagerPlus = myLoop === 'manager' || myLoop === 'owner';
+  const visibleReports = reportOptions.filter(r => !r.minLoop || isManagerPlus);
+  const [activeReport, setActiveReport] = useState(() => visibleReports[0]?.label ?? reportOptions[0].label);
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
@@ -77,9 +82,9 @@ export function ReportsRouteShell() {
         </button>
       </div>
       <div className="report-chip-row" aria-label="Report picker">
-        {reportOptions.map((report) => (
-          <button key={report} type="button" className={activeReport === report ? 'report-chip report-chip-active' : 'report-chip'} onClick={() => setActiveReport(report)}>
-            {report}
+        {visibleReports.map((report) => (
+          <button key={report.label} type="button" className={activeReport === report.label ? 'report-chip report-chip-active' : 'report-chip'} onClick={() => setActiveReport(report.label)}>
+            {report.label}
           </button>
         ))}
       </div>
