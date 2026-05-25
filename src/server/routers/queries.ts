@@ -204,6 +204,31 @@ export const queriesRouter = router({
     ]);
     return { needs: needs.rows, supplies: supplies.rows, matches: matches.rows };
   }),
+  matchmakingSettings: protectedProcedure.query(async () => {
+    const [row] = (await pool.query(
+      `select
+         match_quality_floor as "matchQualityFloor",
+         work_queue_threshold as "workQueueThreshold",
+         history_lookback_days as "historyLookbackDays",
+         repeat_threshold as "repeatThreshold",
+         gap_floor_qty as "gapFloorQty",
+         show_clients_column as "showClientsColumn",
+         show_vendors_column as "showVendorsColumn",
+         work_queue_enabled as "workQueueEnabled"
+       from matchmaking_settings
+       limit 1`
+    )).rows;
+    return row ?? {
+      matchQualityFloor: 35,
+      workQueueThreshold: 75,
+      historyLookbackDays: 90,
+      repeatThreshold: 3,
+      gapFloorQty: 0,
+      showClientsColumn: false,
+      showVendorsColumn: false,
+      workQueueEnabled: true,
+    };
+  }),
   drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input, ctx }) => {
     const sensitiveKeys = new Set(['cash', 'payables', 'receivables', 'inventory_value', 'debt_leader']);
     if (sensitiveKeys.has(input.metricKey) && !canRole(ctx.user.role, 'manager')) {
