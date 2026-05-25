@@ -1146,7 +1146,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
     { enabled: Boolean(selectedPayment?.id && selectedPayment?.customerId) }
   );
   const { runCommand, isRunning } = useCommandRunner();
-  const canAllocate = me.data ? me.data.role !== 'viewer' : false;
+  const canAllocate = me.data ? ['owner', 'manager'].includes(me.data.role) : false;
   const [allocationId, setAllocationId] = useState('');
   const [invoiceId, setInvoiceId] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
