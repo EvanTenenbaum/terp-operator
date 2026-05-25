@@ -4674,7 +4674,7 @@ async function documentCommandFailure(tx: Tx, payload: Payload, commandId: strin
   const targetId = String(payload['commandId'] ?? '');
   const reason = String(payload['reason'] ?? '').trim();
   if (!targetId || !reason) {
-    return { ok: false, toast: 'Command ID and reason are required.' };
+    return { ok: false, toast: 'Command ID and reason are required.', commandId, affectedIds: [] };
   }
   const result = await tx.execute(
     sql`UPDATE command_journal
@@ -4683,11 +4683,12 @@ async function documentCommandFailure(tx: Tx, payload: Payload, commandId: strin
           AND status = 'failed'`
   );
   if ((result.rowCount ?? 0) === 0) {
-    return { ok: false, toast: 'Command not found or not in failed state.' };
+    return { ok: false, toast: 'Command not found or not in failed state.', commandId, affectedIds: [targetId] };
   }
   return {
     ok: true,
     toast: 'Terminal reason documented.',
+    commandId,
     affectedIds: [targetId]
   };
 }
