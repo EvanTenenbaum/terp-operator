@@ -53,11 +53,12 @@ test.describe('roadmap final gate', () => {
 
     await nav.getByRole('button', { name: 'Reports' }).click();
     await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Revenue', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Aging inventory', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Revenue report \d+ row/ })).toBeVisible();
-    await page.getByRole('button', { name: 'Category analytics', exact: true }).click();
-    await expect(page.getByRole('button', { name: /Category analytics report \d+ row/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Revenue Summary', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Inventory Aging', exact: true })).toBeVisible();
+    // Phase 6 uses <table> with aria-label instead of AG Grid's row count indicator
+    await expect(page.locator('[aria-label="Revenue Summary data table"]')).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Category Performance', exact: true }).click();
+    await expect(page.locator('[aria-label="Category Performance data table"]')).toBeVisible({ timeout: 15_000 });
 
     await nav.getByRole('button', { name: 'Inventory' }).click();
     // "Inventory controls" section heading was removed; select a row first to activate

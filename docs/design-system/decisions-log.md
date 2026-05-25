@@ -15,6 +15,30 @@
 
 ---
 
+## 2026-05-25 — Phase 6 Reports live: client-side aggregation, EmptyState role, clickable report rows
+
+**Decision 1:** All 8 report aggregations in `ReportsRouteShell` are pure client-side JavaScript functions (`buildRows → build*Rows`) over live `trpc.queries.grid` data. No new server endpoints were added. Each report calls the narrowest existing grid view it needs (`vendors`, `payments`, `inventory`, `clients`, `sales`). Aggregation intentionally stays simple (group-reduce-sort) to keep it traceable and replaceable with server-side SQL projections later.
+**Decision 2:** `EmptyState` gained an optional `role` prop so callers can add `role="status"` for aria-live regions. The default is no role (preserving existing usages). All new report and dashboard EmptyState usages set `role="status"`.
+**Decision 3:** Report table rows are clickable and keyboard-navigable (`tabIndex=0`, `onKeyDown Enter/Space`) when a `REPORT_DRILLDOWN_VIEW` entry maps the active report to a source view. Each row carries `aria-label="Open source records in {view} view"`. The Closeout Period report has no drilldown.
+**Decision 4:** `TodayFocusTile` was wired with `value` and `onClick` props. The "Today's Top Decisions" section (top 3 from `rankedWorkRows`) lives inside an `aria-live="polite"` wrapper. The entire Today Focus panel is wrapped in a `div[aria-busy]` reflecting `workQueue.isLoading`.
+**Decision 5:** CSV export filename now appends ISO date: `terp-operator-{key}-YYYY-MM-DD.csv`. Values are quoted only when they contain commas, quotes, or newlines. Column order is deterministic from `REPORT_DEFS[n].columns`.
+**Example:** `src/client/components/ReportsRouteShell.tsx`, `src/client/views/DashboardView.tsx`, `src/client/components/EmptyState.tsx`.
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1572, TER-1573, TER-1574, TER-1575, TER-1576, TER-1577, TER-1578.
+
+---
+
+## 2026-05-25 — Phase 6 Reports scaffold: static stub pattern, TodayFocusTile, CSV prefix fix
+**Decision 1:** `ReportsRouteShell` was rewritten to remove live `trpc.queries.grid` calls and replace them with static stub data. All 7 report tabs now render an empty `report-table` with realistic column headers. A `never[]` rows array keeps the Export button disabled. Each report is defined in a `REPORT_DEFS` constant with `key`, `label`, `description`, `columns`, and optional `gated` flag. Gated reports (Closeout Period) show an `EmptyState` notice instead of a table.
+**Rationale:** Shipping the shell before math fixtures avoids blocking the nav entry and gives Phase 6 implementers clear scaffolding with exact query names in `TODO(phase6)` comments. Live queries against `queries.grid` were incorrect semantically (reporting needs aggregated projections, not raw grid rows).
+**Decision 2:** Added `TodayFocusTile` inline helper to `DashboardView.tsx` — a simplified read-only tile (label + "--" stub + View link) added to a new "Today Focus" `WorkspacePanel`. Does NOT extend `KpiCard` because `KpiCard` requires a `KpiMetric` shape and `onOpen` callback; the stub tiles have no interaction model yet.
+**Decision 3:** Fixed CSV export filename prefix in `ReportsRouteShell` from `terp-agro-` (legacy) to `terp-operator-` (canonical). Consistent with the 2026-05-20 decision that aligned export filenames with the current product name.
+**Example:** `src/client/components/ReportsRouteShell.tsx`, `src/client/views/DashboardView.tsx`.
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1499, docs/roadmap/phase-readiness/6.md.
+
+---
+
 ## 2026-05-24 — Mobile views: CSS scoped under .mobile-shell with --m- prefix
 **Decision:** All mobile CSS custom properties declared in `styles-mobile.css` under `.mobile-shell { }`, using `--m-` prefix. NOT declared on `:root`.
 **Rationale:** `styles.css` already declares `--accent`, `--line`, and others globally. Scoping + prefix prevents silent cascade pollution of desktop AG Grid views, drawers, and the keel header.
