@@ -1583,7 +1583,7 @@ export function ClientLedgerView() {
   const navigate = useNavigate();
   const matchSettings = trpc.queries.matchmakingSettings.useQuery();
   const matchCounts = trpc.queries.matchmakingEntityCounts.useQuery(undefined, {
-    enabled: (matchSettings.data?.showClientsColumn ?? false) || (matchSettings.data?.showVendorsColumn ?? false),
+    enabled: matchSettings.data?.showClientsColumn ?? false,
   });
   const clientColumns = useMemo((): ColDef<GridRow>[] => {
     const base: ColDef<GridRow>[] = [
@@ -1645,7 +1645,7 @@ export function VendorPayablesView() {
   const navigate = useNavigate();
   const matchSettings = trpc.queries.matchmakingSettings.useQuery();
   const matchCounts = trpc.queries.matchmakingEntityCounts.useQuery(undefined, {
-    enabled: (matchSettings.data?.showClientsColumn ?? false) || (matchSettings.data?.showVendorsColumn ?? false),
+    enabled: matchSettings.data?.showVendorsColumn ?? false,
   });
 
   const vendorMatchColumns = useMemo((): ColDef<GridRow>[] => {
@@ -1667,7 +1667,7 @@ export function VendorPayablesView() {
         headerName: 'Matchmaking',
         width: 140,
         cellRenderer: (params: { data?: GridRow }) => {
-          const counts = matchCounts.data?.vendors[String(params.data?.id ?? '')];
+          const counts = matchCounts.data?.vendors[String(params.data?.vendorId ?? '')];
           if (!counts) return <span className="text-xs text-zinc-400">No activity</span>;
           return (
             <a
