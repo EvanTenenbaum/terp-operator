@@ -18,7 +18,7 @@ import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationsh
 import { ReceiptPanel } from '../components/ReceiptPanel';
 import { ReceiptPreviewOverlay } from '../components/ReceiptPreviewOverlay';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
-import { commandLabelFor } from '../../shared/commandCatalog';
+import { commandLabelFor, reversalPolicies } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import { parseTagInput } from '../../shared/tags';
 import { PAYMENT_TERMS_OPTIONS } from '../../shared/paymentTerms';
@@ -2478,7 +2478,46 @@ export function RecoveryView() {
           </>
         }
       />
-      {preview.data ? <div className="border border-line bg-white p-3 text-sm">{preview.data.plainLanguageImpact}</div> : null}
+      {/* CAP-009 / Phase 5 — reversal policy panel (CMD-RECOVERY TER-1521) */}
+      {selected ? (() => {
+        const commandName = String(selected.commandName ?? '') as CommandName;
+        const policy = reversalPolicies[commandName];
+        const dispositionColor: Record<string, string> = {
+          reversible: '#15803d',
+          offsettable: '#b06915',
+          terminal: '#b91c1c',
+        };
+        const dispositionLabel: Record<string, string> = {
+          reversible: 'Reversible',
+          offsettable: 'Offsettable',
+          terminal: 'Terminal',
+        };
+        return (
+          <div className="inline-panel text-sm">
+            <div className="flex items-center gap-3">
+              <strong>{commandLabelFor(commandName)}</strong>
+              {policy ? (
+                <span
+                  className="selection-pill"
+                  style={{ color: dispositionColor[policy.disposition] ?? '#52525b', borderColor: dispositionColor[policy.disposition] ?? '#52525b' }}
+                  title={policy.guidance}
+                >
+                  {dispositionLabel[policy.disposition] ?? policy.disposition}
+                </span>
+              ) : null}
+            </div>
+            {policy ? (
+              <p className="mt-2 text-xs text-zinc-600">{policy.guidance}</p>
+            ) : null}
+            {preview.data ? (
+              <p className="mt-2 text-zinc-700">{preview.data.plainLanguageImpact}</p>
+            ) : null}
+            {preview.data && !preview.data.reversible ? (
+              <p className="mt-1 text-xs text-amber-700">This action cannot be reversed. Use a correction journal entry if a ledger adjustment is needed.</p>
+            ) : null}
+          </div>
+        );
+      })() : null}
       {showAdminTools && diff.data ? (
         <section className="border border-line bg-white p-3">
           <h2 className="section-title">Snapshot diff</h2>
@@ -2520,6 +2559,7 @@ export function CloseoutView() {
   const [adjustmentAmount, setAdjustmentAmount] = useState('0');
   const [adjustmentMemo, setAdjustmentMemo] = useState('');
   const [showAdjustment, setShowAdjustment] = useState(false);
+  const [expandedBlocker, setExpandedBlocker] = useState<string | null>(null);
   const preview = trpc.queries.closeoutPreview.useQuery({ period });
   const { runCommand } = useCommandRunner();
   const setActiveView = useUiStore((state) => state.setActiveView);
@@ -2599,14 +2639,48 @@ export function CloseoutView() {
             </div>
           ))}
         </div>
+        {/* CAP-025 / Phase 5 — inline expandable blocker drilldown (TER-1504) */}
         {blockers.length ? (
           <div className="mt-3 grid gap-2 text-sm">
-            {blockers.map((blocker) => (
-              <button key={String(blocker.id)} type="button" className="closeout-blocker-row" onClick={() => openBlocker(String(blocker.id))}>
-                <span className="font-medium text-ink">{String(blocker.label)}</span>
-                <span className="selection-pill warning">{Number(blocker.count ?? 0).toLocaleString('en-US')}</span>
-              </button>
-            ))}
+            {blockers.map((blocker) => {
+              const isExpanded = expandedBlocker === String(blocker.id);
+              const descriptions: Record<string, string> = {
+                unsafeBatches: 'Intake lots still in draft or needs-fix state must be reviewed, posted, or deleted before the period can be archived.',
+                unsafePurchaseOrders: 'Purchase orders that have not been fully received are still open. Receive, cancel, or defer them before archiving.',
+                openConnectors: 'Inbound connector requests are awaiting review. Approve, reject, or route each one before archiving.',
+                openFulfillment: 'Fulfillment picks are in open or packed state. Complete or cancel them before archiving.',
+                failedCommands: 'Commands in the action log failed and have not been retried. Review each failure and retry or create a correction.',
+                unresolvedDrafts: 'Sales orders are still in draft state. Confirm or cancel them before archiving.',
+              };
+              return (
+                <div key={String(blocker.id)} className="border border-line rounded">
+                  <button
+                    type="button"
+                    className="closeout-blocker-row w-full"
+                    aria-expanded={isExpanded}
+                    onClick={() => setExpandedBlocker(isExpanded ? null : String(blocker.id))}
+                  >
+                    <span className="font-medium text-ink">{String(blocker.label)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="selection-pill warning">{Number(blocker.count ?? 0).toLocaleString('en-US')}</span>
+                      <span className="text-xs text-zinc-500" aria-hidden="true">{isExpanded ? '▲' : '▼'}</span>
+                    </div>
+                  </button>
+                  {isExpanded ? (
+                    <div className="border-t border-line bg-panel px-3 py-3">
+                      <p className="text-xs text-zinc-600">{descriptions[String(blocker.id)] ?? 'Review open work before archiving.'}</p>
+                      <button
+                        type="button"
+                        className="text-button mt-2 text-xs"
+                        onClick={() => { setExpandedBlocker(null); openBlocker(String(blocker.id)); }}
+                      >
+                        Go to {String(blocker.label).toLowerCase()} →
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         ) : null}
       </section>
