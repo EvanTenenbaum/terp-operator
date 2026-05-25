@@ -33,6 +33,7 @@ export function MatchmakingView() {
   const reference = trpc.queries.reference.useQuery();
   const board = trpc.queries.matchmakingBoard.useQuery();
   const settings = trpc.queries.matchmakingSettings.useQuery();
+  const opportunities = trpc.queries.matchmakingOpportunities.useQuery();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const canManageSettings = me.data?.role === 'manager' || me.data?.role === 'owner';
@@ -270,6 +271,119 @@ export function MatchmakingView() {
     [isRunning, runCommand, canWrite]
   );
 
+  const toMoveColumns = useMemo<ColDef<GridRow>[]>(() => [
+    { field: 'product', minWidth: 180, pinned: 'left' },
+    { field: 'category', width: 120 },
+    { field: 'onHand', headerName: 'On hand', type: 'numericColumn', width: 110 },
+    { field: 'customer', minWidth: 160 },
+    {
+      field: 'signal',
+      headerName: 'Signal',
+      width: 130,
+      cellRenderer: (params: { value: string }) => {
+        const label = params.value === 'both' ? 'Both' : params.value === 'need' ? 'Posted need' : 'History';
+        const cls = params.value === 'both'
+          ? 'bg-emerald-100 text-emerald-800'
+          : params.value === 'need'
+          ? 'bg-blue-100 text-blue-800'
+          : 'bg-zinc-100 text-zinc-600';
+        return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
+      },
+    },
+    {
+      field: 'lastActivity',
+      headerName: 'Last activity',
+      width: 140,
+      valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString() : '—',
+    },
+    {
+      headerName: 'Action',
+      width: 130,
+      cellRenderer: (params: { data?: GridRow }) => (
+        <button
+          className="secondary-button compact-action"
+          disabled={isRunning || !canWrite}
+          onClick={() => {
+            if (!params.data?.customerId || !params.data?.category) return;
+            runCommand('noteMatchmakingOutreach', {
+              entityType: 'customer',
+              entityId: params.data.customerId,
+              context: params.data.category,
+              leg: 2,
+            }, 'Note customer outreach').then(() => opportunities.refetch());
+          }}
+          type="button"
+        >
+          Note contact
+        </button>
+      ),
+    },
+  ], [isRunning, canWrite, runCommand, opportunities]);
+
+  const toSourceColumns = useMemo<ColDef<GridRow>[]>(() => [
+    { field: 'category', minWidth: 150, pinned: 'left' },
+    { field: 'onHand', headerName: 'On hand', type: 'numericColumn', width: 110 },
+    {
+      field: 'gapLevel',
+      headerName: 'Gap',
+      width: 100,
+      cellRenderer: (params: { value: string }) => {
+        const isEmpty = params.value === 'empty';
+        return (
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+            isEmpty ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+          }`}>
+            {isEmpty ? 'Empty' : 'Low'}
+          </span>
+        );
+      },
+    },
+    { field: 'vendor', minWidth: 160 },
+    {
+      field: 'signal',
+      headerName: 'Signal',
+      width: 130,
+      cellRenderer: (params: { value: string }) => {
+        const label = params.value === 'both' ? 'Both' : params.value === 'supply' ? 'Posted supply' : 'History';
+        const cls = params.value === 'both'
+          ? 'bg-emerald-100 text-emerald-800'
+          : params.value === 'supply'
+          ? 'bg-blue-100 text-blue-800'
+          : 'bg-zinc-100 text-zinc-600';
+        return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
+      },
+    },
+    {
+      field: 'lastActivity',
+      headerName: 'Last activity',
+      width: 140,
+      valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString() : '—',
+    },
+    { field: 'postedQty', headerName: 'Posted qty', type: 'numericColumn', width: 110 },
+    {
+      headerName: 'Action',
+      width: 130,
+      cellRenderer: (params: { data?: GridRow }) => (
+        <button
+          className="secondary-button compact-action"
+          disabled={isRunning || !canWrite}
+          onClick={() => {
+            if (!params.data?.vendorId || !params.data?.category) return;
+            runCommand('noteMatchmakingOutreach', {
+              entityType: 'vendor',
+              entityId: params.data.vendorId,
+              context: params.data.category,
+              leg: 3,
+            }, 'Note vendor outreach').then(() => opportunities.refetch());
+          }}
+          type="button"
+        >
+          Note contact
+        </button>
+      ),
+    },
+  ], [isRunning, canWrite, runCommand, opportunities]);
+
   return (
     <div className="view-stack">
       <WorkspacePanel
@@ -489,6 +603,28 @@ Maximum score:                     100`}
         emptyTitle="No matches yet"
         emptyChildren="Add a customer need and vendor stock with matching category or tags."
         expansionConfig={matchExpansionConfig}
+      />
+
+      <OperatorGrid
+        view="matchmaking"
+        title="Inventory to Move"
+        subtitle={`Based on purchase history (last ${s.historyLookbackDays} days)`}
+        rows={(opportunities.data?.toMove ?? []) as GridRow[]}
+        columns={toMoveColumns}
+        loading={opportunities.isLoading}
+        emptyTitle="No opportunities yet"
+        emptyChildren="Inventory opportunities appear once customers have purchase history or posted needs."
+      />
+
+      <OperatorGrid
+        view="matchmaking"
+        title="Gaps to Fill"
+        subtitle={`Based on purchase history (last ${s.historyLookbackDays} days)`}
+        rows={(opportunities.data?.toSource ?? []) as GridRow[]}
+        columns={toSourceColumns}
+        loading={opportunities.isLoading}
+        emptyTitle="No gaps detected"
+        emptyChildren="Sourcing suggestions appear when inventory in a category drops to or below the gap threshold."
       />
 
       <div className="grid gap-3 xl:grid-cols-2">
