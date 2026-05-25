@@ -58,8 +58,19 @@ const matchColumns: ColDef<GridRow>[] = [
 export function MatchmakingView() {
   const reference = trpc.queries.reference.useQuery();
   const board = trpc.queries.matchmakingBoard.useQuery();
+  const settings = trpc.queries.matchmakingSettings.useQuery();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+  const s = settings.data ?? {
+    matchQualityFloor: 35,
+    workQueueThreshold: 75,
+    historyLookbackDays: 90,
+    repeatThreshold: 3,
+    gapFloorQty: 0,
+    showClientsColumn: false,
+    showVendorsColumn: false,
+    workQueueEnabled: true,
+  };
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const { runCommand, isRunning } = useCommandRunner();
   const needProductRef = useRef<HTMLInputElement | null>(null);
@@ -97,6 +108,11 @@ export function MatchmakingView() {
     if (activeQuickLaunch === 'customerNeed') needProductRef.current?.focus();
     if (activeQuickLaunch === 'vendorSupply') supplyProductRef.current?.focus();
   }, [activeQuickLaunch]);
+
+  async function updateSettings(patch: Record<string, unknown>) {
+    await runCommand('updateMatchmakingSettings', patch, 'Update matchmaking settings');
+    settings.refetch();
+  }
 
   async function createNeed() {
     await runCommand(
@@ -223,6 +239,93 @@ export function MatchmakingView() {
 
   return (
     <div className="view-stack">
+      <WorkspacePanel
+        panelId="matchmaking:settings"
+        title="⚙ Matchmaking Settings"
+        collapsedSummary={`Showing matches ≥ ${s.matchQualityFloor} · Work queue alerts ≥ ${s.workQueueThreshold} · ${s.historyLookbackDays}-day history`}
+        contentClassName="p-3"
+      >
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="field-inline">
+              Show matches scoring at least
+              <input className="input compact" type="number" min={0} max={100}
+                disabled={!canWrite || isRunning} defaultValue={s.matchQualityFloor}
+                onBlur={(e) => updateSettings({ matchQualityFloor: Number(e.target.value) })} />
+              pts
+            </label>
+            <label className="field-inline">
+              Add to work queue at
+              <input className="input compact" type="number" min={0} max={100}
+                disabled={!canWrite || isRunning} defaultValue={s.workQueueThreshold}
+                onBlur={(e) => updateSettings({ workQueueThreshold: Number(e.target.value) })} />
+              pts
+            </label>
+            <label className="field-inline">
+              Look back
+              <select className="select compact" disabled={!canWrite || isRunning}
+                value={s.historyLookbackDays}
+                onChange={(e) => updateSettings({ historyLookbackDays: Number(e.target.value) })}>
+                <option value={30}>30 days</option>
+                <option value={60}>60 days</option>
+                <option value={90}>90 days</option>
+                <option value={180}>180 days</option>
+              </select>
+            </label>
+            <label className="field-inline">
+              Flag as repeat after
+              <select className="select compact" disabled={!canWrite || isRunning}
+                value={s.repeatThreshold}
+                onChange={(e) => updateSettings({ repeatThreshold: Number(e.target.value) })}>
+                <option value={2}>2 purchases</option>
+                <option value={3}>3 purchases</option>
+                <option value={5}>5 purchases</option>
+              </select>
+            </label>
+            <label className="field-inline">
+              Flag gaps when on hand drops to
+              <input className="input compact" type="number" min={0}
+                disabled={!canWrite || isRunning} defaultValue={s.gapFloorQty}
+                onBlur={(e) => updateSettings({ gapFloorQty: Number(e.target.value) })} />
+              units
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="h-4 w-4" disabled={!canWrite || isRunning}
+                checked={s.showClientsColumn}
+                onChange={(e) => updateSettings({ showClientsColumn: e.target.checked })} />
+              Show matchmaking signals in Clients grid
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="h-4 w-4" disabled={!canWrite || isRunning}
+                checked={s.showVendorsColumn}
+                onChange={(e) => updateSettings({ showVendorsColumn: e.target.checked })} />
+              Show matchmaking signals in Vendors grid
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="h-4 w-4" disabled={!canWrite || isRunning}
+                checked={s.workQueueEnabled}
+                onChange={(e) => updateSettings({ workQueueEnabled: e.target.checked })} />
+              Show matchmaking opportunities in work queue
+            </label>
+          </div>
+          <details className="text-sm text-zinc-500">
+            <summary className="cursor-pointer select-none hover:text-zinc-700">How scores are calculated</summary>
+            <pre className="mt-2 font-mono text-xs leading-relaxed">
+{`Category match:                    +35
+Tag overlap (per shared tag):       +8  (capped at +24)
+Product name token overlap:        +10
+Vendor qty covers need minimum:    +12
+Asking price ≤ target price:       +12
+Supply available by needed-by:      +7
+────────────────────────────────────
+Maximum score:                     100`}
+            </pre>
+          </details>
+        </div>
+      </WorkspacePanel>
+
       {canWrite ? (
         <WorkspacePanel panelId="matchmaking:entry" title="Matchmaking Entry" contentClassName="p-3">
           <div className="grid gap-3 xl:grid-cols-2">

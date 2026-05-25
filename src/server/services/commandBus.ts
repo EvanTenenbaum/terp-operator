@@ -4784,6 +4784,32 @@ async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promi
   return { ok: true, commandId, affectedIds: [archive.id], toast: `${period} archived with matching control totals.`, delta: { controlTotals, csvPath, jsonlPath, pdfPath } };
 }
 
+/** DYN-H4: Valid status transitions for customer needs. */
+export function assertValidNeedStatusTransition(currentStatus: string, newStatus: string): void {
+  const validTransitions: Record<string, string[]> = {
+    open: ['matched', 'closed'],
+    matched: ['open', 'closed'],
+    closed: [],
+  };
+  const allowed = validTransitions[currentStatus] ?? [];
+  if (!allowed.includes(newStatus)) {
+    throw new Error(`Invalid status transition for customer need: ${currentStatus} → ${newStatus}`);
+  }
+}
+
+/** DYN-H4: Valid status transitions for vendor supply rows. */
+export function assertValidSupplyStatusTransition(currentStatus: string, newStatus: string): void {
+  const validTransitions: Record<string, string[]> = {
+    open: ['held_for_match', 'closed'],
+    held_for_match: ['open', 'closed'],
+    closed: [],
+  };
+  const allowed = validTransitions[currentStatus] ?? [];
+  if (!allowed.includes(newStatus)) {
+    throw new Error(`Invalid status transition for vendor supply: ${currentStatus} → ${newStatus}`);
+  }
+}
+
 async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const customerId = requiredId(payload.customerId, 'customerId');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
@@ -4844,6 +4870,9 @@ async function updateCustomerNeed(tx: Tx, payload: Payload, commandId: string): 
   const nextQtyMin = Number(values.qtyMin ?? current.qtyMin);
   const nextQtyMax = values.qtyMax == null ? null : Number(values.qtyMax);
   if (nextQtyMax != null && nextQtyMax < nextQtyMin) throw new Error('Need max quantity cannot be below min quantity.');
+  if (payload.status != null && String(payload.status) !== current.status) {
+    assertValidNeedStatusTransition(current.status, String(values.status ?? payload.status));
+  }
   await tx.update(customerNeeds).set(values).where(eq(customerNeeds.id, needId));
   const matchIds = await rebuildMatchesForNeed(tx, needId);
   return { ok: true, commandId, affectedIds: [needId, ...matchIds], toast: 'Customer need updated.', delta: { matchCount: matchIds.length } };
@@ -4905,6 +4934,9 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
   if (payload.terms !== undefined) values.terms = stringValue(payload.terms) || null;
   if (payload.notes !== undefined) values.notes = stringValue(payload.notes) || null;
   if (payload.status !== undefined) values.status = statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open');
+  if (payload.status != null && String(payload.status) !== current.status) {
+    assertValidSupplyStatusTransition(current.status, String(values.status ?? payload.status));
+  }
   await tx.update(vendorSupply).set(values).where(eq(vendorSupply.id, supplyId));
   const matchIds = await rebuildMatchesForSupply(tx, supplyId);
   return { ok: true, commandId, affectedIds: [supplyId, ...matchIds], toast: 'Vendor stock updated.', delta: { matchCount: matchIds.length } };
@@ -5033,6 +5065,43 @@ export async function reopenMatchmakingMatch(tx: Tx, payload: Payload, userId: s
     throw new Error(`Match ${matchId} is already open; nothing to reopen.`);
   }
   await tx.update(matchmakingMatches).set({ status: 'open', reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
+
+  // Revert need to open if no other accepted match exists for this need
+  const [otherAcceptedForNeed] = await tx
+    .select({ id: matchmakingMatches.id })
+    .from(matchmakingMatches)
+    .where(
+      and(
+        eq(matchmakingMatches.customerNeedId, match.customerNeedId),
+        eq(matchmakingMatches.status, 'accepted'),
+        sql`${matchmakingMatches.id} <> ${matchId}`
+      )
+    )
+    .limit(1);
+  if (!otherAcceptedForNeed) {
+    await tx.update(customerNeeds)
+      .set({ status: 'open', updatedAt: new Date() })
+      .where(eq(customerNeeds.id, match.customerNeedId));
+  }
+
+  // Revert supply to open if no other accepted match exists for this supply
+  const [otherAcceptedForSupply] = await tx
+    .select({ id: matchmakingMatches.id })
+    .from(matchmakingMatches)
+    .where(
+      and(
+        eq(matchmakingMatches.vendorSupplyId, match.vendorSupplyId),
+        eq(matchmakingMatches.status, 'accepted'),
+        sql`${matchmakingMatches.id} <> ${matchId}`
+      )
+    )
+    .limit(1);
+  if (!otherAcceptedForSupply) {
+    await tx.update(vendorSupply)
+      .set({ status: 'open', updatedAt: new Date() })
+      .where(eq(vendorSupply.id, match.vendorSupplyId));
+  }
+
   return { ok: true, commandId, affectedIds: [matchId, match.customerNeedId, match.vendorSupplyId], toast: 'Match reopened.' };
 }
 

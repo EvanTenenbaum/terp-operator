@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { reviewMatchmakingMatch, reopenMatchmakingMatch, updateMatchmakingSettings, noteMatchmakingOutreach, dismissMatchmakingWorkQueueItem } from './commandBus';
+import { reviewMatchmakingMatch, reopenMatchmakingMatch, updateMatchmakingSettings, noteMatchmakingOutreach, dismissMatchmakingWorkQueueItem, assertValidNeedStatusTransition, assertValidSupplyStatusTransition } from './commandBus';
 import type { Tx } from './commandBus';
 
 function makeTxWithMatchStatus(status: string | null): Tx {
@@ -149,12 +149,14 @@ describe('reopenMatchmakingMatch — reverse path (#81)', () => {
     ).rejects.toThrow(/not found/i);
   });
 
-  it('does NOT issue updates against sibling matches when reopening an accept', async () => {
+  it('does NOT issue updates against sibling matches when reopening an accept (mock returns match for "other accepted" check → cascade skipped)', async () => {
     // Sibling auto-dismissed matches stay dismissed — those were independent decisions.
-    // Only the targeted match is updated.
+    // NOTE: This mock always returns [matchRow] for every select query, including the
+    // DYN-H4 revert checks for "other accepted match for this need/supply". Because the
+    // mock finds a match for those queries, the need/supply revert is correctly skipped.
+    // setCalls stays at 1 (only the targeted match is flipped).
     const { tx, setCalls } = makeCapturingTxWithMatchStatus('accepted');
     await reopenMatchmakingMatch(tx, payload, userId, commandId);
-    // Exactly one set call — for the targeted match — no sibling sweep, no need/supply parent flip.
     expect(setCalls).toHaveLength(1);
     expect(setCalls[0].status).toBe('open');
   });
@@ -355,5 +357,121 @@ describe('dismissMatchmakingWorkQueueItem', () => {
         commandId
       )
     ).rejects.toThrow('itemType must be match or opportunity');
+  });
+});
+
+// DYN-H4: State machine guard — pure unit tests (no tx mock needed)
+describe('assertValidNeedStatusTransition — DYN-H4 state machine', () => {
+  it('rejects closed → open (terminal state)', () => {
+    expect(() => assertValidNeedStatusTransition('closed', 'open')).toThrow('Invalid status transition for customer need: closed → open');
+  });
+
+  it('rejects closed → matched (terminal state)', () => {
+    expect(() => assertValidNeedStatusTransition('closed', 'matched')).toThrow(/Invalid status transition/);
+  });
+
+  it('allows open → closed', () => {
+    expect(() => assertValidNeedStatusTransition('open', 'closed')).not.toThrow();
+  });
+
+  it('allows open → matched', () => {
+    expect(() => assertValidNeedStatusTransition('open', 'matched')).not.toThrow();
+  });
+
+  it('allows matched → open', () => {
+    expect(() => assertValidNeedStatusTransition('matched', 'open')).not.toThrow();
+  });
+
+  it('allows matched → closed', () => {
+    expect(() => assertValidNeedStatusTransition('matched', 'closed')).not.toThrow();
+  });
+});
+
+describe('assertValidSupplyStatusTransition — DYN-H4 state machine', () => {
+  it('rejects closed → open (terminal state)', () => {
+    expect(() => assertValidSupplyStatusTransition('closed', 'open')).toThrow('Invalid status transition for vendor supply: closed → open');
+  });
+
+  it('rejects closed → held_for_match (terminal state)', () => {
+    expect(() => assertValidSupplyStatusTransition('closed', 'held_for_match')).toThrow(/Invalid status transition/);
+  });
+
+  it('allows open → held_for_match', () => {
+    expect(() => assertValidSupplyStatusTransition('open', 'held_for_match')).not.toThrow();
+  });
+
+  it('allows open → closed', () => {
+    expect(() => assertValidSupplyStatusTransition('open', 'closed')).not.toThrow();
+  });
+
+  it('allows held_for_match → open', () => {
+    expect(() => assertValidSupplyStatusTransition('held_for_match', 'open')).not.toThrow();
+  });
+
+  it('allows held_for_match → closed', () => {
+    expect(() => assertValidSupplyStatusTransition('held_for_match', 'closed')).not.toThrow();
+  });
+});
+
+// DYN-H4: Reopen cascade — need/supply revert when no other accepted match exists
+function makeCapturingTxForReopenCascade(matchStatus: string): { tx: Tx; setCalls: Array<Record<string, unknown>> } {
+  const matchRow = {
+    id: '11111111-1111-1111-1111-111111111111',
+    customerNeedId: '22222222-2222-2222-2222-222222222222',
+    vendorSupplyId: '33333333-3333-3333-3333-333333333333',
+    status: matchStatus,
+    reviewedBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  let selectCount = 0;
+  const chain = {
+    limit: vi.fn().mockImplementation(() => {
+      selectCount++;
+      // First select: fetch the match by matchId → return the match
+      // Subsequent selects: "other accepted for need/supply" checks → return []
+      return Promise.resolve(selectCount === 1 ? [matchRow] : []);
+    })
+  };
+  const where = vi.fn().mockReturnValue(chain);
+  const from = vi.fn().mockReturnValue({ where });
+  const select = vi.fn().mockReturnValue({ from });
+
+  const setCalls: Array<Record<string, unknown>> = [];
+  const update = vi.fn().mockReturnValue({
+    set: vi.fn().mockImplementation((values: Record<string, unknown>) => {
+      setCalls.push(values);
+      return {
+        where: vi.fn().mockResolvedValue(undefined),
+        returning: vi.fn().mockResolvedValue([])
+      };
+    })
+  });
+
+  return { tx: { select, update } as unknown as Tx, setCalls };
+}
+
+describe('reopenMatchmakingMatch — DYN-H4 revert cascade', () => {
+  const matchId = '11111111-1111-1111-1111-111111111111';
+  const payload = { matchId };
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const commandId = 'cmd-cascade-1';
+
+  it('reverts need and supply to open when no other accepted match exists', async () => {
+    const { tx, setCalls } = makeCapturingTxForReopenCascade('accepted');
+    const result = await reopenMatchmakingMatch(tx, payload, userId, commandId);
+    expect(result.ok).toBe(true);
+    // Three set calls: (1) match → open, (2) need → open, (3) supply → open
+    expect(setCalls).toHaveLength(3);
+    expect(setCalls[0].status).toBe('open'); // match
+    expect(setCalls[1].status).toBe('open'); // need revert
+    expect(setCalls[2].status).toBe('open'); // supply revert
+  });
+
+  it('also reverts need/supply when reopening a dismissed match with no other accepted sibling', async () => {
+    const { tx, setCalls } = makeCapturingTxForReopenCascade('dismissed');
+    const result = await reopenMatchmakingMatch(tx, payload, userId, commandId);
+    expect(result.ok).toBe(true);
+    expect(setCalls[0].status).toBe('open');
   });
 });

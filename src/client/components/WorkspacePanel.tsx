@@ -7,6 +7,8 @@ interface WorkspacePanelProps {
   panelId: string;
   title: string;
   subtitle?: string;
+  /** Short summary shown inline next to the title when the panel is collapsed. */
+  collapsedSummary?: string;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -20,7 +22,7 @@ interface WorkspacePanelProps {
   headingLevel?: 2 | 3 | 4;
 }
 
-export function WorkspacePanel({ panelId, title, subtitle, actions, children, className, contentClassName, testId, headingLevel }: WorkspacePanelProps) {
+export function WorkspacePanel({ panelId, title, subtitle, collapsedSummary, actions, children, className, contentClassName, testId, headingLevel }: WorkspacePanelProps) {
   const collapsed = useUiStore((state) => Boolean(state.collapsedPanels[panelId]));
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
   const togglePanelCollapsed = useUiStore((state) => state.togglePanelCollapsed);
@@ -67,6 +69,7 @@ export function WorkspacePanel({ panelId, title, subtitle, actions, children, cl
                 )
               : <span className="block text-base font-semibold text-ink">{title}</span>}
             {subtitle ? <span className="block text-xs font-normal text-zinc-600">{subtitle}</span> : null}
+            {collapsed && collapsedSummary ? <span className="ml-2 text-xs text-zinc-400 font-normal">{collapsedSummary}</span> : null}
           </span>
         </button>
         <div className="workspace-panel-actions">
