@@ -118,26 +118,10 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Full Vitest suite
-        # M4 FIX: Exclusion list keeps explicit names for current files AND adds
-        # forward-safe glob patterns. New DB-dependent tests should be named
-        # *.integration.test.ts or *.db.test.ts — those are excluded by pattern.
-        # The explicit list below handles existing files that predate the convention.
-        # Convention documented in docs/design-system/decisions-log.md.
-        run: |
-          pnpm exec vitest run \
-            --exclude 'tests/**' \
-            --exclude 'src/**/*.integration.test.ts' \
-            --exclude 'src/**/*.db.test.ts' \
-            --exclude 'src/server/services/creditEngine/**/*integration*' \
-            --exclude 'src/server/services/creditEngine/worker.test.ts' \
-            --exclude 'src/server/services/creditEngine/orchestrator.test.ts' \
-            --exclude 'src/server/services/creditEngine/reaper.test.ts' \
-            --exclude 'src/server/services/creditEngine/enqueue.test.ts' \
-            --exclude 'src/server/services/creditEngine/reconciliation.test.ts' \
-            --exclude 'src/server/services/creditEngine/smoke.test.ts' \
-            --exclude 'src/server/services/creditEngine/reversalCorrectness.test.ts' \
-            --exclude 'src/server/services/creditEngine/divergenceReport.test.ts' \
-            --exclude 'src/server/services/commandBus.idempotency.test.ts'
+        # All DB-dependent and Playwright exclusions live in vitest.config.ts.
+        # CLI --exclude globs are unreliable (shell expansion strips quotes on
+        # some runners). Config-driven exclusions are always reliable.
+        run: pnpm exec vitest run
 
   report_failures:
     needs: [smoke, core_e2e, unit]
