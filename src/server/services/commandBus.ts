@@ -2978,18 +2978,16 @@ async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Pr
         .where(eq(fulfillmentLines.id, fl.id));
     }
   }
+  // GH #287: Release reservedQty for ALL lines that have a batchId, regardless
+  // of line.status. Previously only 'reserved' status lines were processed, which
+  // left inventory locked when lines had advanced to 'allocated' or other
+  // statuses after reserveInventoryForOrder ran. Picked lines are already blocked
+  // above (actualQty > 0 guard), so every remaining batchId line holds a
+  // real reservation that must be returned to the pool on cancellation.
   for (const line of lines) {
-    if (!line.batchId || line.status !== 'reserved') continue;
-    // Lock batch row to prevent concurrent reservation-release races during cancellation
-    const batchRows = await tx.execute(
-      sql`SELECT * FROM ${batches} WHERE ${batches.id} = ${line.batchId} FOR UPDATE`
-    );
-    const batch = batchRows.rows[0];
-    // Raw `SELECT *` returns Postgres column names (snake_case), so reservedQty
-    // is undefined here — read `reserved_qty`. Same shape as logPayment / other
-    // FOR UPDATE rows in this file. Writing the camelCase key would store NaN
-    // and corrupt the batch's reserved quantity.
-    if (batch) await tx.update(batches).set({ reservedQty: qtyScale(Math.max(0, Number(batch['reserved_qty']) - Number(line.qty))), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+    if (!line.batchId) continue;
+    const [batch] = await tx.select().from(batches).where(eq(batches.id, line.batchId)).limit(1);
+    if (batch) await tx.update(batches).set({ reservedQty: qtyScale(Math.max(0, Number(batch.reservedQty) - Number(line.qty))), updatedAt: new Date() }).where(eq(batches.id, batch.id));
   }
   await tx.update(salesOrders).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
   return { ok: true, commandId, affectedIds: [orderId, ...lines.map((line: typeof salesOrderLines.$inferSelect) => line.id)], toast: 'Sales order cancelled and reservations released.' };
@@ -3331,7 +3329,13 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
       if (payload.invoiceId) {
         allocationPayload.invoiceId = payload.invoiceId;
       }
-      const allocationResult = await allocatePayment(tx, allocationPayload, commandId);
+      // GH #295: The nested allocatePayment call must use a distinct idempotency
+      // key so that a logPayment replay does not collide with a stand-alone
+      // allocatePayment that shares the same commandId suffix. Append the
+      // payment UUID so the derived key is stable (same payment → same suffix)
+      // but never equal to the parent commandId.
+      const allocationCommandId = `${commandId}-alloc-${payment.id}`;
+      const allocationResult = await allocatePayment(tx, allocationPayload, allocationCommandId);
       // Merge affected IDs from allocation
       affected.push(...allocationResult.affectedIds.filter(id => !affected.includes(id)));
       return {

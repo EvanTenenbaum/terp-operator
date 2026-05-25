@@ -124,7 +124,9 @@ export async function createPaymentProcessor(
   if (Number(payload.defaultUserSplit) < 0 || Number(payload.defaultProcessorSplit) < 0) {
     throw new Error('Split percentages cannot be negative');
   }
-  if (Number(payload.defaultUserSplit) + Number(payload.defaultProcessorSplit) !== 100) {
+  // GH #289: Use tolerance-based comparison instead of exact float equality.
+  // 99.9 + 0.1 can produce 99.99999... in IEEE 754, causing false rejections.
+  if (Math.abs(Number(payload.defaultUserSplit) + Number(payload.defaultProcessorSplit) - 100) >= 0.01) {
     throw new Error('User split and processor split must add up to 100%');
   }
 

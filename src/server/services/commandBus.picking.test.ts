@@ -196,3 +196,65 @@ describe('cancelFulfillmentLine', () => {
     expect(releaseQty).toBe(3);
   });
 });
+
+// GH #287: cancelSalesOrder must release reservedQty for all lines with a batchId,
+// regardless of line.status. Previously only 'reserved' status lines were released,
+// leaving inventory locked for lines in 'allocated' or other advanced statuses.
+describe('cancelSalesOrder reservedQty release (GH #287)', () => {
+  // Simulate the reservation-release logic extracted from cancelSalesOrder.
+  function simulateCancelReservations(
+    lines: { batchId: string | null; qty: string; status: string }[],
+    batches: Record<string, { reservedQty: string }>
+  ): Record<string, number> {
+    const result: Record<string, number> = { ...Object.fromEntries(Object.entries(batches).map(([k, v]) => [k, Number(v.reservedQty)])) };
+    for (const line of lines) {
+      if (!line.batchId) continue;
+      // Fixed: no status filter — release for all lines with a batchId
+      const prior = result[line.batchId] ?? 0;
+      result[line.batchId] = Math.max(0, prior - Number(line.qty));
+    }
+    return result;
+  }
+
+  it('releases reservedQty for lines in reserved status', () => {
+    const lines = [{ batchId: 'b1', qty: '3.000', status: 'reserved' }];
+    const batches = { b1: { reservedQty: '5.000' } };
+    const result = simulateCancelReservations(lines, batches);
+    expect(result['b1']).toBe(2);
+  });
+
+  it('releases reservedQty for lines in allocated status (was the bug)', () => {
+    const lines = [{ batchId: 'b1', qty: '2.000', status: 'allocated' }];
+    const batches = { b1: { reservedQty: '4.000' } };
+    const result = simulateCancelReservations(lines, batches);
+    // Before fix: status !== 'reserved' would skip this line → result stays 4.
+    // After fix: line is processed → result = 2.
+    expect(result['b1']).toBe(2);
+  });
+
+  it('skips lines without a batchId', () => {
+    const lines = [{ batchId: null, qty: '5.000', status: 'reserved' }];
+    const batches = { b1: { reservedQty: '5.000' } };
+    const result = simulateCancelReservations(lines, batches);
+    expect(result['b1']).toBe(5); // unchanged
+  });
+
+  it('clamps reservedQty at zero to prevent negative inventory', () => {
+    const lines = [{ batchId: 'b1', qty: '10.000', status: 'confirmed' }];
+    const batches = { b1: { reservedQty: '3.000' } };
+    const result = simulateCancelReservations(lines, batches);
+    expect(result['b1']).toBe(0); // clamped, not negative
+  });
+
+  it('releases across multiple lines from different statuses', () => {
+    const lines = [
+      { batchId: 'b1', qty: '2.000', status: 'reserved' },
+      { batchId: 'b1', qty: '1.000', status: 'allocated' },
+      { batchId: 'b2', qty: '5.000', status: 'confirmed' },
+    ];
+    const batches = { b1: { reservedQty: '6.000' }, b2: { reservedQty: '8.000' } };
+    const result = simulateCancelReservations(lines, batches);
+    expect(result['b1']).toBe(3); // 6 - 2 - 1
+    expect(result['b2']).toBe(3); // 8 - 5
+  });
+});

@@ -1023,22 +1023,20 @@ export function OrdersView() {
   }
 
   function onCellCommit(event: CellValueChangedEvent<GridRow>) {
-    if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
+    // GH #291: In the orders grid, each row represents a sales_order and row.id
+    // is the sales order UUID. Explicitly bind it as `orderId` so the field
+    // mapping to the command handlers is unambiguous.
+    const orderId: string | undefined = event.data?.id;
+    if (!orderId || event.colDef.field == null || event.oldValue === event.newValue) return;
     if (event.colDef.field === 'deliveryWindow') {
-      runCommand('setDeliveryWindow', { orderId: event.data.id, deliveryWindow: event.newValue }, 'Inline delivery window edit');
+      // setDeliveryWindow expects { orderId } — matches sales order UUID.
+      runCommand('setDeliveryWindow', { orderId, deliveryWindow: event.newValue }, 'Inline delivery window edit');
       return;
     }
-    if (['packed', 'inventoryPosted', 'paymentFollowup'].includes(String(event.colDef.field))) {
-      // TODO: These fields belong to sales order lines, not the order header.
-      // This call passes orderId but the command expects lineId. The OrdersView
-      // grid rows represent orders, not individual lines, so the correct lineId
-      // is ambiguous here. This needs a data-model review before fixing.
-      // See audit finding: packed/inventoryPosted/paymentFollowup need lineId not orderId.
-      console.error('[OrdersView] WARNING: packed/inventoryPosted/paymentFollowup fields need lineId not orderId — see audit finding');
-      runCommand('updateSalesOrderLine', { orderId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline order closeout edit: ${event.colDef.field}`);
-    }
-    if (event.colDef.field === 'notes') {
-      runCommand('updateSalesOrderLine', { orderId: event.data.id, notes: event.newValue }, 'Inline order notes edit');
+    if (['notes', 'packed', 'inventoryPosted', 'paymentFollowup'].includes(String(event.colDef.field))) {
+      // updateSalesOrderLine with orderId (no lineId) updates the order header +
+      // propagates to all of its lines via the handler's orderId branch.
+      runCommand('updateSalesOrderLine', { orderId, [String(event.colDef.field)]: event.newValue }, `Inline order closeout edit: ${event.colDef.field}`);
     }
   }
 
