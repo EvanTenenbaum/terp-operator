@@ -472,6 +472,10 @@ describe('reopenMatchmakingMatch — DYN-H4 revert cascade', () => {
     const { tx, setCalls } = makeCapturingTxForReopenCascade('dismissed');
     const result = await reopenMatchmakingMatch(tx, payload, userId, commandId);
     expect(result.ok).toBe(true);
-    expect(setCalls[0].status).toBe('open');
+    // Three set calls: (1) match → open, (2) need → open, (3) supply → open
+    expect(setCalls).toHaveLength(3);
+    expect(setCalls[0].status).toBe('open'); // match
+    expect(setCalls[1].status).toBe('open'); // need revert
+    expect(setCalls[2].status).toBe('open'); // supply revert
   });
 });
