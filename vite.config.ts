@@ -18,6 +18,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Allow the fast runner (DigitalOcean Tailscale) to reach the dev server.
+    // Vite 6 DNS rebinding protection blocks cross-host requests by default.
+    allowedHosts: true,
     proxy: {
       '/trpc': 'http://localhost:8787',
       '/api': 'http://localhost:8787',
