@@ -1,4 +1,4 @@
-import { CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
+import { Ban, CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type React from 'react';
@@ -1616,52 +1616,100 @@ export function VendorPayablesView() {
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+  const canVoid = me.data?.role === 'manager' || me.data?.role === 'owner';
 
   const vendorBillExpansionConfig = useMemo(
     () => ({
       enabled: true,
-      actionsRenderer: (row: GridRow) => (
-        <>
-          <button
-            className="primary-button compact-action"
-            disabled={isRunning || !canWrite}
-            onClick={() => {
-              if (!row.id || row.id.trim() === '') return;
-              runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill');
-            }}
-            type="button"
-          >
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            Approve
-          </button>
-          <button
-            className="primary-button compact-action"
-            disabled={isRunning || !canWrite}
-            onClick={() => {
-              if (!row.id || row.id.trim() === '') return;
-              runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + MS_PER_DAY).toISOString() }, 'Schedule vendor payment');
-            }}
-            type="button"
-          >
-            <CalendarClock className="h-4 w-4" aria-hidden="true" />
-            Schedule
-          </button>
-          <button
-            className="secondary-button compact-action"
-            disabled={isRunning || !canWrite || String(row.status ?? '') !== 'scheduled'}
-            onClick={() => {
-              if (!row.id || row.id.trim() === '') return;
-              runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout');
-            }}
-            type="button"
-          >
-            <Landmark className="h-4 w-4" aria-hidden="true" />
-            Pay
-          </button>
-        </>
-      )
+      // CMD-VENDOR / TER-1517: status-aware inline actions — show only the
+      // action that is valid for the current bill status. Void is visible to
+      // manager+ for any non-terminal status. Viewer role sees a read-only note.
+      actionsRenderer: (row: GridRow) => {
+        const rowStatus = String(row.status ?? '');
+        const isTerminal = rowStatus === 'paid' || rowStatus === 'voided';
+        const showApprove = rowStatus === 'open' || rowStatus === 'pending';
+        const showSchedule = rowStatus === 'approved';
+        const showRecord = rowStatus === 'scheduled';
+
+        if (!canWrite) {
+          return (
+            <span className="text-xs text-zinc-400">
+              Manager or owner required to act on this bill.
+            </span>
+          );
+        }
+
+        return (
+          <>
+            {showApprove ? (
+              <button
+                className="primary-button compact-action"
+                disabled={isRunning}
+                onClick={() => {
+                  if (!row.id || String(row.id).trim() === '') return;
+                  runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill');
+                }}
+                type="button"
+              >
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                Approve
+              </button>
+            ) : null}
+
+            {showSchedule ? (
+              <button
+                className="primary-button compact-action"
+                disabled={isRunning}
+                onClick={() => {
+                  if (!row.id || String(row.id).trim() === '') return;
+                  runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + MS_PER_DAY).toISOString() }, 'Schedule vendor payment');
+                }}
+                type="button"
+              >
+                <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                Schedule
+              </button>
+            ) : null}
+
+            {showRecord ? (
+              <button
+                className="primary-button compact-action"
+                disabled={isRunning}
+                onClick={() => {
+                  if (!row.id || String(row.id).trim() === '') return;
+                  runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout');
+                }}
+                type="button"
+              >
+                <Landmark className="h-4 w-4" aria-hidden="true" />
+                Pay
+              </button>
+            ) : null}
+
+            {!isTerminal && canVoid ? (
+              // Void requires a vendorPaymentId — open the Payments drawer tab
+              // (Details tab also surfaces Void) to select the specific payment.
+              // This inline indicator is intentionally read-only; it confirms
+              // void access and directs the operator to the drawer for the action.
+              <span
+                className="text-xs text-zinc-500"
+                title="Open the Payments or Details drawer tab to void a specific payment"
+              >
+                <Ban className="inline h-3 w-3 mr-1 text-zinc-400" aria-hidden="true" />
+                Void via drawer
+              </span>
+            ) : null}
+
+            {isTerminal ? (
+              <span className="text-xs text-zinc-400">
+                {rowStatus === 'paid' ? 'Paid in full' : 'Voided'}
+              </span>
+            ) : null}
+          </>
+        );
+      }
     }),
-    [isRunning, runCommand, canWrite]
+    [isRunning, runCommand, canWrite, canVoid]
   );
 
   return (

@@ -18,6 +18,9 @@ import { LotMovementTab } from './drawerTabs/LotMovementTab';
 import { LotHistoryTab } from './drawerTabs/LotHistoryTab';
 import { LotPhotosTab } from './drawerTabs/LotPhotosTab';
 import { PoCommandsTab } from './drawerTabs/PoCommandsTab';
+import { VendorBillDetailsTab } from './drawerTabs/VendorBillDetailsTab';
+import { VendorBillTraceTab } from './drawerTabs/VendorBillTraceTab';
+import { VendorPaymentHistoryTab } from './drawerTabs/VendorPaymentHistoryTab';
 
 const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   queue: [
@@ -71,10 +74,10 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'commands', label: 'Commands' }
   ],
   vendorBill: [
+    { key: 'details', label: 'Details' },
+    { key: 'trace', label: 'Trace' },
+    { key: 'payments', label: 'Payments' },
     { key: 'relationship', label: 'Relationship' },
-    { key: 'due-reason', label: 'Due reason' },
-    { key: 'linked-po', label: 'Linked PO' },
-    { key: 'payouts', label: 'Payouts' },
     { key: 'history', label: 'History' }
   ],
   payment: [
@@ -222,6 +225,10 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   const isSalesOrderEntity = entityType === 'salesOrder';
   const salesOrderId = isSalesOrderEntity && entityId ? entityId : (row?.id ? String(row.id) : '');
 
+  // CMD-VENDOR / TER-1517 — vendor bill drawer tabs (Phase 3 PR B)
+  const isVendorBillEntity = entityType === 'vendorBill';
+  const vendorBillId = isVendorBillEntity ? (entityId ?? (row?.id ? String(row.id) : '')) : '';
+
   // TER-1569/TER-1570: live sales sheet state from SalesView via shared Zustand slice.
   // All hooks must be called unconditionally before any early returns.
   const salesSheetState = useUiStore((state) => state.salesSheetState);
@@ -309,6 +316,34 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
         customerId={customerId}
       />
     );
+  }
+
+  // CMD-VENDOR / TER-1517 — vendor bill tabs (Phase 3 PR B)
+  if (isVendorBillEntity && vendorBillId) {
+    if (activeTab === 'details') {
+      return (
+        <VendorBillDetailsTab
+          vendorBillId={vendorBillId}
+          row={row as Record<string, unknown> | undefined}
+        />
+      );
+    }
+    if (activeTab === 'trace') {
+      return (
+        <VendorBillTraceTab
+          vendorBillId={vendorBillId}
+          row={row as Record<string, unknown> | undefined}
+        />
+      );
+    }
+    if (activeTab === 'payments') {
+      return (
+        <VendorPaymentHistoryTab
+          vendorBillId={vendorBillId}
+          row={row as Record<string, unknown> | undefined}
+        />
+      );
+    }
   }
 
   if (activeTab === 'credit') {
