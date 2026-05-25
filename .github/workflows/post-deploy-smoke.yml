@@ -1,26 +1,31 @@
 name: post-deploy-smoke
 
 # Fires automatically after deploy-staging completes successfully.
-# IMPORTANT: The `workflows:` name below must exactly match the `name:` field in
-# .github/workflows/deploy-staging.yml. A mismatch causes this workflow to silently
-# never trigger — no error, no alert, just zero executions.
-# Verified: deploy-staging.yml `name: deploy-staging` ✓
+# IMPORTANT: `workflows:` name must exactly match `name:` in deploy-staging.yml.
+# A mismatch silently prevents this workflow from ever triggering.
+# Verified: deploy-staging.yml name: deploy-staging ✓
 on:
   workflow_run:
     workflows: ["deploy-staging"]
     types: [completed]
 
+# C1 FIX: explicit permissions so GITHUB_TOKEN has issues:write.
+# Default token permissions in many repos are read-only; gh issue create
+# would return 403 and the alert would silently disappear.
+permissions:
+  contents: read
+  issues: write
+  actions: read   # required to read workflow_run context
+
 jobs:
   smoke:
-    # Only run if the staging deploy actually succeeded
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # H2 FIX: prevent 6-hour hangs
     steps:
       - uses: actions/checkout@v4
         with:
-          # Check out the exact commit that was deployed, not the default branch.
-          # workflow_run checkouts default to the repo default branch without this,
-          # meaning we'd test main even if staging deployed from a feature branch.
+          # Test the exact commit that was deployed, not the default branch.
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - uses: pnpm/action-setup@v6
@@ -32,8 +37,6 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # AQA fix: --frozen-lockfile (not --frozen-lockfile=false) so CI uses
-      # the exact dependency tree recorded in pnpm-lock.yaml.
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm exec playwright install --with-deps chromium
@@ -46,9 +49,26 @@ jobs:
           PLAYWRIGHT_TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
           PLAYWRIGHT_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
 
+      # H4 FIX: upload trace on failure for post-mortem investigation
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-smoke-trace-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
       - name: Report failure
         if: failure()
         run: bash scripts/report-test-failure.sh "post-deploy-smoke" "${{ github.run_id }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+
+      # C3 FIX: backstop annotation if report script itself fails
+      - name: Backstop annotation on report failure
+        if: failure()
+        run: |
+          echo "::error title=Alert Delivery Failed::report-test-failure.sh failed for post-deploy-smoke run ${{ github.run_id }}. Check GH_TOKEN permissions. Manual triage required."

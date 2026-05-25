@@ -2,7 +2,13 @@ name: nightly
 
 on:
   schedule:
-    - cron: '0 10 * * *'   # 6am ET (UTC-4 summer / UTC-5 winter)
+    - cron: '0 10 * * *'   # 6am EDT (UTC-4 summer). 5am EST in winter — acceptable drift.
+
+# C1 FIX: explicit permissions so GITHUB_TOKEN has issues:write regardless of repo defaults.
+# Without this, gh issue create/comment returns 403 silently and no alerts fire.
+permissions:
+  contents: read
+  issues: write
 
 env:
   PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL }}
@@ -13,21 +19,34 @@ env:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # H2 FIX: prevent 6-hour hangs on stuck Playwright sessions
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v6
         with: { version: 10.25.0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
-      # AQA fix: --frozen-lockfile for reproducible installs
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test --project=smoke
 
-  core-e2e:
-    # Only runs if smoke passed — no point deep-testing a dead app
+      # H4 FIX: upload trace/screenshots on failure so post-mortem is possible
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-trace-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
+  # C2 FIX: renamed core-e2e → core_e2e. Hyphens in GHA job names inside
+  # needs.X.result expressions are parsed as subtraction, silently breaking detection.
+  core_e2e:
     needs: smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # H2 FIX
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v6
@@ -38,9 +57,19 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test --project=chromium
 
+      - name: Upload Playwright traces on failure  # H4 FIX
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-e2e-trace-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
   unit:
-    # Runs in parallel with smoke — no dependency
     runs-on: ubuntu-latest
+    timeout-minutes: 20  # H2 FIX
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v6
@@ -64,16 +93,18 @@ jobs:
             --exclude 'src/server/services/creditEngine/signals/**' \
             --exclude 'src/server/services/commandBus.idempotency.test.ts'
 
-  report-failures:
-    needs: [smoke, core-e2e, unit]
+  report_failures:
+    # C2 FIX: core_e2e (snake_case — no hyphen arithmetic bug)
+    needs: [smoke, core_e2e, unit]
     runs-on: ubuntu-latest
-    # CRITICAL: always() ensures this job runs even when smoke fails and
-    # core-e2e is therefore skipped. Without always(), GHA skips this job
-    # silently — the exact case where we most need the alert to fire.
+    timeout-minutes: 5  # H2 FIX
+    # C1 FIX: inherited from top-level permissions block
+    # CRITICAL: always() guard ensures this job runs even when smoke fails and
+    # core_e2e is skipped. Without always(), GHA skips this job silently.
     if: |
       always() && (
         needs.smoke.result == 'failure' ||
-        needs.core-e2e.result == 'failure' ||
+        needs.core_e2e.result == 'failure' ||
         needs.unit.result == 'failure'
       )
     steps:
@@ -83,3 +114,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+
+      # C3 FIX: backstop — if issue creation fails, surface the failure as a
+      # sticky GHA annotation so it can't go completely unnoticed.
+      - name: Backstop annotation on report failure
+        if: failure()
+        run: |
+          echo "::error title=Alert Delivery Failed::report-test-failure.sh failed for nightly run ${{ github.run_id }}. Check GH_TOKEN permissions and label existence. Manual triage required."
+          exit 1
