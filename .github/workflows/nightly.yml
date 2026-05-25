@@ -9,6 +9,7 @@ on:
   schedule:
     - cron: '0 10 * * *'   # 6am EDT (UTC-4, summer)
     - cron: '0 11 * * *'   # 6am EST (UTC-5, winter)
+  workflow_dispatch:        # allow manual trigger for QA and debugging
 
 # C1: explicit permissions — GITHUB_TOKEN needs issues:write to create/comment issues.
 permissions:
