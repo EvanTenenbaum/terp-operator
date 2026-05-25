@@ -1,0 +1,85 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 6am ET (UTC-4 summer / UTC-5 winter)
+
+env:
+  PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL }}
+  PLAYWRIGHT_SKIP_WEB_SERVER: "1"
+  PLAYWRIGHT_TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
+  PLAYWRIGHT_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { version: 10.25.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      # AQA fix: --frozen-lockfile for reproducible installs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test --project=smoke
+
+  core-e2e:
+    # Only runs if smoke passed — no point deep-testing a dead app
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { version: 10.25.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test --project=chromium
+
+  unit:
+    # Runs in parallel with smoke — no dependency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { version: 10.25.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Full Vitest suite
+        run: |
+          pnpm exec vitest run \
+            --exclude 'tests/**' \
+            --exclude 'src/server/services/creditEngine/**/*integration*' \
+            --exclude 'src/server/services/creditEngine/worker.test.ts' \
+            --exclude 'src/server/services/creditEngine/orchestrator.test.ts' \
+            --exclude 'src/server/services/creditEngine/reaper.test.ts' \
+            --exclude 'src/server/services/creditEngine/enqueue.test.ts' \
+            --exclude 'src/server/services/creditEngine/reconciliation.test.ts' \
+            --exclude 'src/server/services/creditEngine/smoke.test.ts' \
+            --exclude 'src/server/services/creditEngine/reversalCorrectness.test.ts' \
+            --exclude 'src/server/services/creditEngine/divergenceReport.test.ts' \
+            --exclude 'src/server/services/creditEngine/signals/**' \
+            --exclude 'src/server/services/commandBus.idempotency.test.ts'
+
+  report-failures:
+    needs: [smoke, core-e2e, unit]
+    runs-on: ubuntu-latest
+    # CRITICAL: always() ensures this job runs even when smoke fails and
+    # core-e2e is therefore skipped. Without always(), GHA skips this job
+    # silently — the exact case where we most need the alert to fire.
+    if: |
+      always() && (
+        needs.smoke.result == 'failure' ||
+        needs.core-e2e.result == 'failure' ||
+        needs.unit.result == 'failure'
+      )
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report failure
+        run: bash scripts/report-test-failure.sh "nightly" "${{ github.run_id }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}

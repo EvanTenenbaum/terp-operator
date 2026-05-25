@@ -1,7 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests/e2e',
   timeout: 30_000,
   expect: { timeout: 10_000 },
   workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 1,
@@ -19,7 +18,18 @@ export default defineConfig({
       },
   projects: [
     {
+      // Fast smoke tier — 5 specs against live staging URL.
+      // Lives at tests/smoke/ (top-level) so the chromium project
+      // cannot accidentally include it via recursive testDir glob.
+      name: 'smoke',
+      testDir: './tests/smoke',
+      use: { ...devices['Desktop Chrome'] }
+    },
+    {
+      // Full operator workflow e2e suite — 26 specs.
+      // Explicit testDir prevents ambiguity if global default changes.
       name: 'chromium',
+      testDir: './tests/e2e',
       use: { ...devices['Desktop Chrome'] }
     }
   ]

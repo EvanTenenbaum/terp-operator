@@ -38,3 +38,23 @@ jobs:
       # Chromium browser binary on the runner.
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test tests/e2e/a11y.spec.ts
+      # Full unit + component suite on every PR. The three pinned steps above
+      # are intentional fast-fail gates for specific high-risk modules; this
+      # step covers everything else. DB-dependent credit-engine integration
+      # tests are excluded — they require a live Postgres and run nightly
+      # against staging instead.
+      - name: Full Vitest suite
+        run: |
+          pnpm exec vitest run \
+            --exclude 'tests/**' \
+            --exclude 'src/server/services/creditEngine/**/*integration*' \
+            --exclude 'src/server/services/creditEngine/worker.test.ts' \
+            --exclude 'src/server/services/creditEngine/orchestrator.test.ts' \
+            --exclude 'src/server/services/creditEngine/reaper.test.ts' \
+            --exclude 'src/server/services/creditEngine/enqueue.test.ts' \
+            --exclude 'src/server/services/creditEngine/reconciliation.test.ts' \
+            --exclude 'src/server/services/creditEngine/smoke.test.ts' \
+            --exclude 'src/server/services/creditEngine/reversalCorrectness.test.ts' \
+            --exclude 'src/server/services/creditEngine/divergenceReport.test.ts' \
+            --exclude 'src/server/services/creditEngine/signals/**' \
+            --exclude 'src/server/services/commandBus.idempotency.test.ts'

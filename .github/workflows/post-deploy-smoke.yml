@@ -1,0 +1,54 @@
+name: post-deploy-smoke
+
+# Fires automatically after deploy-staging completes successfully.
+# IMPORTANT: The `workflows:` name below must exactly match the `name:` field in
+# .github/workflows/deploy-staging.yml. A mismatch causes this workflow to silently
+# never trigger — no error, no alert, just zero executions.
+# Verified: deploy-staging.yml `name: deploy-staging` ✓
+on:
+  workflow_run:
+    workflows: ["deploy-staging"]
+    types: [completed]
+
+jobs:
+  smoke:
+    # Only run if the staging deploy actually succeeded
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Check out the exact commit that was deployed, not the default branch.
+          # workflow_run checkouts default to the repo default branch without this,
+          # meaning we'd test main even if staging deployed from a feature branch.
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.25.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # AQA fix: --frozen-lockfile (not --frozen-lockfile=false) so CI uses
+      # the exact dependency tree recorded in pnpm-lock.yaml.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run smoke suite against staging
+        run: pnpm exec playwright test --project=smoke
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL }}
+          PLAYWRIGHT_SKIP_WEB_SERVER: "1"
+          PLAYWRIGHT_TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
+          PLAYWRIGHT_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+
+      - name: Report failure
+        if: failure()
+        run: bash scripts/report-test-failure.sh "post-deploy-smoke" "${{ github.run_id }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
