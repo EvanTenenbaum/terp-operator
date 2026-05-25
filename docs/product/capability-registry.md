@@ -52,6 +52,8 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | CAP-028 Legacy marker preservation | Legacy marker contract, MR-002 | All loops | context | Keep | R2 | Raw marker fields exist. | Preserve; add legends/review queue later without remapping prematurely. |
 | CAP-029 Matchmaking demand/supply board | User clarification 2026-05-13 | Sell, Buy, Decide | core_workflow, projection | Keep | R6, R8, R12 | Matchmaking route records customer needs, vendor stock, and deterministic match rows with reasons. | Keep as intent tracking only; purchase/sale/intake consequences stay in existing workflows. |
 | CAP-030 Pricing Rules Chain Manager | Operator request 2026-05-22 | Sell | control, context | Keep | R4, R12, R15 | Pricing rules are flat JSONB per-customer and in systemSettings; no consolidated view; no multi-condition rules. Spec at docs/superpowers/specs/2026-05-22-pricing-rules-chain-manager-design.md. | Implement: pricing_rule_entries table, savePricingRuleChain command, PricingRulesView consolidated Settings tab, PricingRuleChainEditor component, resolvePricingRuleClause resolver. Migration from legacy JSONB with parity check and feature flag rollback. |
+| CAP-031 Saved filter management | Backend-frontend gap audit 2026-05-22 | Sell, Receive, Decide | control | Keep | none | `filters.updateFilter` and `filters.deleteFilter` exist on server; `SavedFiltersManager` component ships in main with inline rename and confirm-delete UI wired into `InventoryFinderPanel`. Linear: TER-1561. | Done — `SavedFiltersManager` merged. |
+| CAP-032 Credit engine ops surfaces | Backend-frontend gap audit 2026-05-22 | Decide, Support | context, control | Keep | none | `credit.divergenceReport` (owner-only) and `credit.creditRecomputeQueueHealth` (manager+) exist on server; `CreditDivergencePanel` and `CreditQueueHealthWidget` ship in main wired into `CreditReviewView` with role gates. Linear: TER-1562. | Done — both panels merged. |
 
 ## Backend Command Families
 
@@ -95,6 +97,8 @@ Every backend command, frontend surface, conceptual requirement, and future road
 | BE-008 Explicit backup commands | Backup workflows | Recover/Close | control | Defer | Current preview/support packet is acceptable; typed backup commands later if owners use them daily. |
 | BE-009 Partial PO quantity receiving | PO edge cases | Buy, Receive | core_workflow | Keep | Add simple receive-quantity column/action without modal. |
 | BE-010 Reversal completeness matrix | Mistake recovery | Recover/Close | control | Already covered | `reversalPolicies` documents every command as reversible, offsettable, or terminal; `reverseCommandById` now refuses unsupported reversal instead of silently marking unknown commands reversed. |
+| BE-011 WebSocket transport for subscriptions | Backend-frontend gap audit 2026-05-22 | Infrastructure | infrastructure | Defer | Add `wsLink`/`httpSubscriptionLink` split to `src/client/api/trpc.ts` when real-time push is needed. Required before `subscriptions.heartbeat` can be consumed from the frontend. |
+| BE-012 Server-side batch filter path | Backend-frontend gap audit 2026-05-22 | Receive, Decide | projection | Defer | `filters.applyBatchFilters` is fully implemented on the server; current `InventoryFinderPanel` filters client-side from `queries.reference` data. Implement when inventory size makes client-side filtering impractical (>500 active batches). |
 
 ## Replication Playbook Requirement
 
