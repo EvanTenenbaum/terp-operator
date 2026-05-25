@@ -57,6 +57,7 @@ interface OperatorGridProps {
   emptyTitle?: string;
   emptyChildren?: ReactNode;
   tableKey?: string;
+  rowClassRules?: Record<string, (params: { data?: GridRow }) => boolean>;
   expansionConfig?: {
     enabled: boolean;
     actionsRenderer?: (row: GridRow) => ReactNode;
@@ -82,6 +83,7 @@ export function OperatorGrid({
   emptyTitle,
   emptyChildren,
   tableKey,
+  rowClassRules,
   expansionConfig
 }: OperatorGridProps) {
   const apiRef = useRef<GridApi<GridRow> | null>(null);
@@ -363,6 +365,7 @@ export function OperatorGrid({
             sideBar={sideBar}
             loading={loading}
             localeText={localeText}
+            rowClassRules={rowClassRules}
             getRowId={(params) => String(params.data.id)}
             masterDetail={expansionConfig?.enabled ?? false}
             detailRowAutoHeight={true}
