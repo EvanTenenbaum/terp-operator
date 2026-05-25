@@ -1,4 +1,5 @@
 import { Ban, CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
+import { CommandReversalTab } from '../components/drawerTabs/CommandReversalTab';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type React from 'react';
@@ -18,7 +19,7 @@ import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationsh
 import { ReceiptPanel } from '../components/ReceiptPanel';
 import { ReceiptPreviewOverlay } from '../components/ReceiptPreviewOverlay';
 import type { GridRow, SettingsTab, ViewKey } from '../../shared/types';
-import { commandLabelFor, reversalPolicies } from '../../shared/commandCatalog';
+import { commandLabelFor } from '../../shared/commandCatalog';
 import type { CommandName } from '../../shared/commandCatalog';
 import { parseTagInput } from '../../shared/tags';
 import { PAYMENT_TERMS_OPTIONS } from '../../shared/paymentTerms';
@@ -2356,7 +2357,6 @@ export function RecoveryView() {
   const reference = trpc.queries.reference.useQuery();
   const support = trpc.queries.supportPacket.useQuery(undefined, { enabled: false });
   const diff = trpc.queries.snapshotDiff.useQuery({ backupId: backupId || '00000000-0000-0000-0000-000000000000' }, { enabled: Boolean(backupId) });
-  const preview = trpc.queries.reversalPreview.useQuery({ commandId: String(rows[0]?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(rows[0]?.id) });
   const findReplace = trpc.queries.findReplacePreview.useQuery(
     { table: replaceTable, find: findText || '___', replacement: replaceText },
     { enabled: Boolean(findText) }
@@ -2466,58 +2466,18 @@ export function RecoveryView() {
         emptyTitle="No recent actions"
         emptyChildren="Recent commands will appear here automatically. Use search when you need a specific row, person, or action."
         actions={
-          <>
-            <button className="secondary-button" disabled={!selected || selected.status !== 'failed'} onClick={() => runCommand(String(selected?.commandName) as CommandName, payloadObject(selected?.inputPayload), 'Retry failed command')} type="button">
-              <Send className="h-4 w-4" aria-hidden="true" />
-              Retry
-            </button>
-            <button className="primary-button" disabled={!selected || !preview.data?.reversible} onClick={() => runCommand('reverseCommandById', { commandId: selected?.id }, 'Reverse selected command')} type="button">
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              Undo
-            </button>
-          </>
+          <button className="secondary-button" disabled={!selected || selected.status !== 'failed'} onClick={() => runCommand(String(selected?.commandName) as CommandName, payloadObject(selected?.inputPayload), 'Retry failed command')} type="button">
+            <Send className="h-4 w-4" aria-hidden="true" />
+            Retry
+          </button>
         }
       />
-      {/* CAP-009 / Phase 5 — reversal policy panel (CMD-RECOVERY TER-1521) */}
-      {selected ? (() => {
-        const commandName = String(selected.commandName ?? '') as CommandName;
-        const policy = reversalPolicies[commandName];
-        const dispositionColor: Record<string, string> = {
-          reversible: '#15803d',
-          offsettable: '#b06915',
-          terminal: '#b91c1c',
-        };
-        const dispositionLabel: Record<string, string> = {
-          reversible: 'Reversible',
-          offsettable: 'Offsettable',
-          terminal: 'Terminal',
-        };
-        return (
-          <div className="inline-panel text-sm">
-            <div className="flex items-center gap-3">
-              <strong>{commandLabelFor(commandName)}</strong>
-              {policy ? (
-                <span
-                  className="selection-pill"
-                  style={{ color: dispositionColor[policy.disposition] ?? '#52525b', borderColor: dispositionColor[policy.disposition] ?? '#52525b' }}
-                  title={policy.guidance}
-                >
-                  {dispositionLabel[policy.disposition] ?? policy.disposition}
-                </span>
-              ) : null}
-            </div>
-            {policy ? (
-              <p className="mt-2 text-xs text-zinc-600">{policy.guidance}</p>
-            ) : null}
-            {preview.data ? (
-              <p className="mt-2 text-zinc-700">{preview.data.plainLanguageImpact}</p>
-            ) : null}
-            {preview.data && !preview.data.reversible ? (
-              <p className="mt-1 text-xs text-amber-700">This action cannot be reversed. Use a correction journal entry if a ledger adjustment is needed.</p>
-            ) : null}
-          </div>
-        );
-      })() : null}
+      {/* CAP-009 / Phase 5 — reversal preview panel (CMD-RECOVERY TER-1521) */}
+      {selected ? (
+        <section className="inline-panel" data-testid="recovery-reversal-panel">
+          <CommandReversalTab commandId={String(selected.id)} />
+        </section>
+      ) : null}
       {showAdminTools && diff.data ? (
         <section className="border border-line bg-white p-3">
           <h2 className="section-title">Snapshot diff</h2>
@@ -2570,6 +2530,10 @@ export function CloseoutView() {
   const openWorkCount = preview.data?.openWorkCount ?? preview.data?.unsafeRows ?? 0;
   const readiness = closeoutReadiness(preview.data?.locked, openWorkCount);
   const lockDisabled = openWorkCount > 0 || Boolean(preview.data?.locked);
+  const blockerRows = trpc.queries.closeoutBlockerRows.useQuery(
+    { period, blockerId: expandedBlocker ?? '' },
+    { enabled: Boolean(expandedBlocker) }
+  );
 
   function openBlocker(blockerId?: string) {
     const target = blockerTarget(blockerId);
@@ -2667,14 +2631,34 @@ export function CloseoutView() {
                     </div>
                   </button>
                   {isExpanded ? (
-                    <div className="border-t border-line bg-panel px-3 py-3">
+                    <div className="border-t border-line bg-panel px-3 py-3" data-testid="blocker-drilldown">
                       <p className="text-xs text-zinc-600">{descriptions[String(blocker.id)] ?? 'Review open work before archiving.'}</p>
+                      <div className="ml-2 mt-2 grid gap-1 text-xs border-l-2 border-amber-200 pl-3">
+                        {blockerRows.isLoading ? (
+                          <span className="text-zinc-400">Loading…</span>
+                        ) : blockerRows.data?.rows.length ? (
+                          blockerRows.data.rows.map((row) => (
+                            <button
+                              key={String(row.id)}
+                              type="button"
+                              className="activity-row text-left hover:bg-zinc-50 cursor-pointer"
+                              onClick={() => { setExpandedBlocker(null); openBlocker(String(blocker.id)); }}
+                            >
+                              <span className="font-mono text-zinc-400">{String(row.id).slice(0, 8)}…</span>
+                              <span className="truncate">{String(row.label)}</span>
+                              <span className={String(row.status) === 'failed' ? 'text-red-600' : 'text-amber-700'}>{String(row.status)}</span>
+                            </button>
+                          ))
+                        ) : (
+                          <span className="text-zinc-400">No rows returned.</span>
+                        )}
+                      </div>
                       <button
                         type="button"
                         className="text-button mt-2 text-xs"
                         onClick={() => { setExpandedBlocker(null); openBlocker(String(blocker.id)); }}
                       >
-                        Go to {String(blocker.label).toLowerCase()} →
+                        View all in {String(blocker.label).toLowerCase()} →
                       </button>
                     </div>
                   ) : null}
