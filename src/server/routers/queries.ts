@@ -492,6 +492,62 @@ export const queriesRouter = router({
     }));
   }),
   workQueue: protectedProcedure.query(async () => {
+    const [settings] = (await pool.query(
+      'select work_queue_threshold as "workQueueThreshold", work_queue_enabled as "workQueueEnabled" from matchmaking_settings limit 1'
+    )).rows;
+    const wqEnabled = settings?.workQueueEnabled ?? true;
+    const wqThreshold = Number(settings?.workQueueThreshold ?? 75);
+
+    // Values come from DB integer columns, clamped before interpolation
+    const wqThresholdSafe = Math.max(0, Math.min(100, Math.floor(wqThreshold)));
+
+    const matchmakingUnion = wqEnabled ? `
+      union all
+      select mm.id, 'matchmaking' as route, 'Matchmaking' as lane,
+             concat(c.name, ' ↔ ', v.name) as title,
+             mm.status,
+             mm.updated_at as "createdAt",
+             concat('Score: ', mm.score, ' · ', cn.product_name, ' / ', vs.product_name) as detail
+      from matchmaking_matches mm
+      join customer_needs cn on cn.id = mm.customer_need_id
+      join customers c on c.id = cn.customer_id
+      join vendor_supply vs on vs.id = mm.vendor_supply_id
+      join vendors v on v.id = vs.vendor_id
+      where mm.status = 'open'
+        and mm.score >= ${wqThresholdSafe}
+        and not exists (
+          select 1 from command_journal cj
+          where cj.command_name = 'dismissMatchmakingWorkQueueItem'
+            and cj.input_payload->>'itemId' = mm.id::text
+            and cj.created_at > now() - interval '30 days'
+        )
+      union all
+      select gap.id, gap.route, gap.lane, gap.title, gap.status, gap."createdAt", gap.detail
+      from (
+        select gen_random_uuid() as id, 'matchmaking' as route, 'Matchmaking' as lane,
+               concat('Source ', g.category, ' from ', v.name) as title,
+               'open' as status,
+               now() as "createdAt",
+               concat('On hand: ', g.on_hand, ' units · ', case when vs.id is not null then 'Posted supply' else 'History' end) as detail
+        from (
+          select coalesce(b.category, 'Unknown') as category, sum(b.available_qty) as on_hand
+          from batches b where b.status in ('processed', 'available', 'ready')
+          group by b.category having sum(b.available_qty) = 0
+        ) g
+        left join vendor_supply vs on vs.category = g.category and vs.status = 'open'
+        left join vendors v on v.id = vs.vendor_id
+        where v.id is not null
+          and not exists (
+            select 1 from command_journal cj
+            where cj.command_name in ('noteMatchmakingOutreach', 'dismissMatchmakingWorkQueueItem')
+              and cj.input_payload->>'entityType' = 'vendor'
+              and cj.input_payload->>'context' = g.category
+              and cj.created_at > now() - interval '30 days'
+          )
+        limit 10
+      ) gap
+    ` : '';
+
     return (
       await pool.query(
         `select * from (
@@ -530,9 +586,10 @@ export const queriesRouter = router({
            from pick_lists pl join sales_orders so on so.id = pl.order_id left join fulfillment_lines fl on fl.pick_list_id = pl.id
            where pl.status in ('open','packed')
            group by pl.id, so.order_no
+           ${matchmakingUnion}
          ) q
          order by "createdAt" desc
-         limit 80`
+         limit 100`
       )
     ).rows;
   }),
