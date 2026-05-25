@@ -416,12 +416,28 @@ function RelationshipContext({
 }) {
   const customerOpen = (data?.invoices ?? []).reduce((sum, invoice) => sum + Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0), 0);
   const vendorOpen = (data?.bills ?? []).reduce((sum, bill) => sum + Number(bill.amount ?? 0) - Number(bill.amountPaid ?? 0), 0);
+  const isDualRole = Boolean(data?.customer && data?.vendor);
+  const netPosition = customerOpen - vendorOpen;
   return (
     <div className="context-drawer-card">
-      <h2 className="mt-1 truncate text-base font-semibold text-ink">{String(data?.customer?.name ?? data?.vendor?.name ?? row?.label ?? row?.customer ?? row?.vendor ?? 'Relationship')}</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="mt-1 truncate text-base font-semibold text-ink">{String(data?.customer?.name ?? data?.vendor?.name ?? row?.label ?? row?.customer ?? row?.vendor ?? 'Relationship')}</h2>
+        {/* CAP-022 / Phase 4 — dual-role badge */}
+        {isDualRole ? (
+          <span className="selection-pill" title="This entity is both a customer and a vendor">Dual-role</span>
+        ) : null}
+      </div>
       <div className="mt-3 grid gap-2">
         <div className="drawer-fact-row"><span>Owes us</span><strong>${moneyish(customerOpen)}</strong></div>
         <div className="drawer-fact-row"><span>We owe them</span><strong>${moneyish(vendorOpen)}</strong></div>
+        {isDualRole ? (
+          <div className="drawer-fact-row">
+            <span>Net position</span>
+            <strong style={{ color: netPosition >= 0 ? '#15803d' : '#b91c1c' }}>
+              {netPosition >= 0 ? '+' : '−'}${moneyish(Math.abs(netPosition))}
+            </strong>
+          </div>
+        ) : null}
         <div className="drawer-fact-row"><span>Orders</span><strong>{data?.orders?.length ?? 0}</strong></div>
         <div className="drawer-fact-row"><span>Recent actions</span><strong>{data?.commands?.length ?? 0}</strong></div>
       </div>

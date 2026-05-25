@@ -23,6 +23,8 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
   const data = summary.data;
   const customerOpen = (data?.invoices ?? []).reduce((sum, invoice) => sum + Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0), 0);
   const vendorOpen = (data?.bills ?? []).reduce((sum, bill) => sum + Number(bill.amount ?? 0) - Number(bill.amountPaid ?? 0), 0);
+  const isDualRole = Boolean(data?.customer && data?.vendor);
+  const netPosition = customerOpen - vendorOpen;
 
   function copySafeStatus() {
     const isVendorOnly = Boolean(data?.vendor) && !data?.customer;
@@ -48,7 +50,12 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
       <aside className="row-history-drawer" role="dialog" aria-modal="true" aria-label="Relationship summary">
         <div className="row-history-header">
           <div>
-            <h2 className="text-lg font-semibold text-ink">Relationship Summary</h2>
+            <h2 className="text-lg font-semibold text-ink">
+              Relationship Summary
+              {isDualRole ? (
+                <span className="ml-2 selection-pill" title="Both a customer and a vendor">Dual-role</span>
+              ) : null}
+            </h2>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close relationship summary">
             <X className="h-4 w-4" aria-hidden="true" />
@@ -64,6 +71,14 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
               <strong>We owe them</strong>
               <div>${money(vendorOpen)}</div>
             </div>
+            {isDualRole ? (
+              <div className="definition-item">
+                <strong>Net position</strong>
+                <div style={{ color: netPosition >= 0 ? '#15803d' : '#b91c1c' }}>
+                  {netPosition >= 0 ? '+' : '−'}${money(Math.abs(netPosition))}
+                </div>
+              </div>
+            ) : null}
             <div className="definition-item">
               <strong>Scheduled payables</strong>
               <div>{(data?.bills ?? []).filter((bill) => bill.status === 'scheduled').length}</div>
