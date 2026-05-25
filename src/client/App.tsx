@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import clsx from 'clsx';
 import { trpc } from './api/trpc';
@@ -75,6 +75,20 @@ function AppContent() {
   const focusMode = useUiStore((state) => state.focusMode);
   const pushToast = useUiStore((state) => state.pushToast);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  // Auto-redirect mobile viewports to the mobile shell
+  // Skipped if user has explicitly chosen desktop (localStorage flag)
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.innerWidth < 768 &&
+      !localStorage.getItem('terp-prefer-desktop')
+    ) {
+      navigate('/mobile/dashboard');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!me.data) return;
