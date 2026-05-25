@@ -29,8 +29,7 @@ import {
   inventoryUnitCostSortValue
 } from '../../shared/inventoryPricing';
 
-// --- CAP-030 stub types (TER-1510) ---
-// TODO: depends on CAP-030 backend merge (TER-1498)
+// CAP-030 / TER-1510 — WarehouseAlert interface matches warehouseAlerts JSONB shape in fulfillment_lines
 interface WarehouseAlert {
   id: string;
   pickListId: string;
@@ -53,7 +52,6 @@ interface PickQueueRow {
   lineCount: number;
   linesPicked: number;
 }
-// --- end CAP-030 stub types ---
 
 const MS_PER_DAY = 86400000;
 
@@ -167,7 +165,6 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
       headerName: 'Alerts',
       width: 90,
       pinned: 'left',
-      // TODO: depends on CAP-030 backend merge (TER-1498)
       cellRenderer: (params: { value: unknown }) => {
         const count = Number(params.value ?? 0);
         if (!count) return <span className="text-xs text-zinc-400">—</span>;
@@ -1972,8 +1969,21 @@ export function FulfillmentView() {
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
   const [alertsPickListId, setAlertsPickListId] = useState<string | null>(null);
   const [alertReturnQty, setAlertReturnQty] = useState('');
-  // TODO: depends on CAP-030 backend merge (TER-1498) — stub alerts query
-  const stubAlerts: WarehouseAlert[] = []; // replace with trpc.queries.pickListAlerts.useQuery({ pickListId: alertsPickListId ?? '' }, { enabled: Boolean(alertsPickListId) }).data ?? []
+  // CAP-030 / TER-1510 — derive live alerts from fulfillmentLines.warehouseAlerts JSONB (backend now merged)
+  const liveAlerts: Array<WarehouseAlert & { alertIndex: number }> = alertsPickListId && lines.data
+    ? (lines.data as GridRow[]).flatMap((l) => {
+        const rawAlerts = Array.isArray(l.warehouseAlerts) ? (l.warehouseAlerts as WarehouseAlert[]) : [];
+        return rawAlerts
+          .filter((a) => a.status !== 'acknowledged')
+          .map((a, idx) => ({
+            ...a,
+            lineId: String(l.id ?? ''),
+            itemName: a.itemName ?? String(l.itemName ?? ''),
+            batchCode: a.batchCode ?? String(l.batchCode ?? ''),
+            alertIndex: idx,
+          }));
+      })
+    : [];
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
@@ -1985,7 +1995,6 @@ export function FulfillmentView() {
   );
 
   // CAP-030 / TER-1510 — apply chip filters to pick rows
-  // TODO: depends on CAP-030 backend merge (TER-1498)
   const filteredPickRows = pickQueueFilters.size === 0 ? pickRows : pickRows.filter((row) => {
     const status = String(row.status ?? '');
     const alertCount = Number(row.alertCount ?? 0);
@@ -2036,7 +2045,6 @@ export function FulfillmentView() {
               Clear all
             </button>
           ) : null}
-          {/* TODO: depends on CAP-030 backend merge (TER-1498) — filter chips pre-filter pickRows feed */}
         </div>
       ) : null}
       <OperatorGrid
@@ -2142,20 +2150,19 @@ export function FulfillmentView() {
           <div className="flex items-center justify-between">
             <h2 className="section-title">
               Warehouse Alerts
-              {stubAlerts.length > 0 ? (
+              {liveAlerts.length > 0 ? (
                 <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                  {stubAlerts.length}
+                  {liveAlerts.length}
                 </span>
               ) : null}
             </h2>
             <button type="button" className="icon-button" onClick={() => setAlertsDrawerOpen(false)} aria-label="Close alerts panel">×</button>
           </div>
-          {/* TODO: depends on CAP-030 backend merge (TER-1498) — replace stubAlerts with live query */}
-          {stubAlerts.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500">No alerts for this pick list. (Live data requires CAP-030 backend merge.)</p>
+          {liveAlerts.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500">No alerts for this pick list.</p>
           ) : (
             <div className="mt-2 divide-y divide-line">
-              {stubAlerts.map((alert) => (
+              {liveAlerts.map((alert) => (
                 <div key={alert.id} className="py-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -2169,8 +2176,7 @@ export function FulfillmentView() {
                         className="secondary-button compact-action text-xs"
                         disabled={isRunning}
                         onClick={() => {
-                          // TODO: depends on CAP-030 backend merge (TER-1488)
-                          runCommand('acknowledgeWarehouseAlert', { alertId: alert.id }, 'Acknowledge warehouse alert');
+                          runCommand('acknowledgeWarehouseAlert', { fulfillmentLineId: alert.lineId, alertIndex: alert.alertIndex }, 'Acknowledge warehouse alert');
                         }}
                       >
                         Acknowledge
@@ -2191,8 +2197,7 @@ export function FulfillmentView() {
                           className="secondary-button compact-action text-xs"
                           disabled={isRunning || !alertReturnQty || Number(alertReturnQty) <= 0}
                           onClick={() => {
-                            // TODO: depends on CAP-030 backend merge (TER-1488)
-                            runCommand('returnPickedUnits', { alertId: alert.id, lineId: alert.lineId, qty: Number(alertReturnQty) }, 'Return picked units');
+                            runCommand('returnPickedUnits', { fulfillmentLineId: alert.lineId, qty: Number(alertReturnQty) }, 'Return picked units');
                             setAlertReturnQty('');
                           }}
                         >
@@ -2204,8 +2209,7 @@ export function FulfillmentView() {
                         className="secondary-button compact-action text-xs"
                         disabled={isRunning}
                         onClick={() => {
-                          // TODO: depends on CAP-030 backend merge (TER-1488)
-                          runCommand('cancelFulfillmentLine', { lineId: alert.lineId }, 'Cancel fulfillment line from alert');
+                          runCommand('cancelFulfillmentLine', { fulfillmentLineId: alert.lineId }, 'Cancel fulfillment line from alert');
                         }}
                       >
                         Mark cancelled
@@ -2240,18 +2244,32 @@ export function FulfillmentView() {
 
 export function ConnectorsView() {
   const [operatorNotes, setOperatorNotes] = useState('');
+  const [routedTo, setRoutedTo] = useState('');
   const selectedRows = useUiStore((state) => state.selectedRows.connectors);
   const selected = selectedRows?.[0];
+  const isExternalSource = selected && !['internal', 'web', 'phone'].includes(String(selected.source ?? ''));
   return (
     <GridJourney
       view="connectors"
       title="Inbound Requests"
       prelude={() => (
         <>
+          {/* CAP-017 / Phase 4 — persistent safety banner for external connector sources */}
+          {isExternalSource ? (
+            <div className="control-band subtle-band" role="alert">
+              <span className="text-xs text-amber-700">
+                ⚠ External connector request — verify source identity before routing or approving.
+              </span>
+            </div>
+          ) : null}
           <div className="control-band">
             <label className="field-inline">
               Notes
               <input className="input compact" value={operatorNotes} onChange={(event) => setOperatorNotes(event.target.value)} />
+            </label>
+            <label className="field-inline">
+              Route to
+              <input className="input compact" placeholder="team or person" value={routedTo} onChange={(event) => setRoutedTo(event.target.value)} />
             </label>
             <span className="selection-pill">{selected ? `${formatRequestSource(selected.source)} / ${formatRequestType(selected.requestType)}` : 'Select request'}</span>
           </div>
@@ -2270,7 +2288,18 @@ export function ConnectorsView() {
       )}
       actions={(rows, runCommand) => (
         <>
-          <button className="primary-button" disabled={!rows.length} onClick={() => runCommand('approveConnectorRequest', { requestId: rows[0].id, operatorNotes }, 'Approve inbound request')} type="button">
+          {/* CAP-017 / Phase 4 — Route is the primary action; Approve/Reject are secondary */}
+          <button
+            className="primary-button"
+            disabled={!rows.length || !routedTo.trim()}
+            title={!routedTo.trim() ? 'Enter a destination in "Route to" before routing' : 'Reassign this request to another team or person'}
+            onClick={() => runCommand('routeConnectorRequest', { requestId: rows[0].id, routedTo: routedTo.trim(), operatorNotes }, 'Reassign inbound request')}
+            type="button"
+          >
+            <Truck className="h-4 w-4" aria-hidden="true" />
+            Route
+          </button>
+          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('approveConnectorRequest', { requestId: rows[0].id, operatorNotes }, 'Approve inbound request')} type="button">
             <Check className="h-4 w-4" aria-hidden="true" />
             Approve
           </button>
