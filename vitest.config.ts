@@ -32,7 +32,6 @@ export default defineConfig({
       '**/creditEngine/smoke.test.ts',
       '**/creditEngine/reversalCorrectness.test.ts',
       '**/creditEngine/divergenceReport.test.ts',
-      '**/services/commandBus.idempotency.test.ts',
     ],
     globals: true,
     // Default to node for server tests. Component tests opt in to jsdom via
