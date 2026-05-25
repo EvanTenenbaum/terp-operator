@@ -405,6 +405,50 @@ export const queriesRouter = router({
 
     return { toMove: toMoveResult.rows, toSource: toSourceResult.rows };
   }),
+  matchmakingEntityCounts: protectedProcedure.query(async () => {
+    const [settings] = (await pool.query(
+      'select show_clients_column as "showClientsColumn", show_vendors_column as "showVendorsColumn" from matchmaking_settings limit 1'
+    )).rows;
+
+    if (!settings?.showClientsColumn && !settings?.showVendorsColumn) {
+      return { customers: {}, vendors: {} };
+    }
+
+    const [customerCounts, vendorCounts] = await Promise.all([
+      settings.showClientsColumn
+        ? pool.query(`
+            select cn.customer_id as id,
+                   count(distinct cn.id) filter (where cn.status = 'open') as needs,
+                   count(distinct mm.id) filter (where mm.status = 'accepted') as matches
+            from customer_needs cn
+            left join matchmaking_matches mm on mm.customer_need_id = cn.id
+            group by cn.customer_id
+          `)
+        : Promise.resolve({ rows: [] }),
+      settings.showVendorsColumn
+        ? pool.query(`
+            select vendor_id as id,
+                   count(*) filter (where status = 'open') as supply
+            from vendor_supply
+            group by vendor_id
+          `)
+        : Promise.resolve({ rows: [] }),
+    ]);
+
+    const customers: Record<string, { needs: number; matches: number }> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const row of customerCounts.rows as any[]) {
+      customers[row.id] = { needs: Number(row.needs), matches: Number(row.matches) };
+    }
+
+    const vendors: Record<string, { supply: number }> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const row of vendorCounts.rows as any[]) {
+      vendors[row.id] = { supply: Number(row.supply) };
+    }
+
+    return { customers, vendors };
+  }),
   drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input, ctx }) => {
     const sensitiveKeys = new Set(['cash', 'payables', 'receivables', 'inventory_value', 'debt_leader']);
     if (sensitiveKeys.has(input.metricKey) && !canRole(ctx.user.role, 'manager')) {
