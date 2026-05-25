@@ -236,15 +236,15 @@ Valid statuses: `open`, `matched`, `closed`
 ### Vendor supply
 
 ```
-open ──── (first match accepted) ──── held
-  │                                      │
-  │                                      └── (accepted match reopened, no other accepted match) → open
+open ──── (first match accepted) ──── held_for_match
+  │                                            │
+  │                                            └── (accepted match reopened, no other accepted match) → open
   │
   └── (manual close) → closed
-held ── (manual close) → closed
+held_for_match ── (manual close) → closed
 ```
 
-Valid statuses: `open`, `held`, `closed`
+Valid statuses: `open`, `held_for_match`, `closed`
 
 ### Match
 
