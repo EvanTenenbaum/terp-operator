@@ -7,52 +7,26 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
-import { parseTagInput } from '../../shared/tags';
-
 const needColumns: ColDef<GridRow>[] = [
-  { field: 'needCode', headerName: 'Need', pinned: 'left', width: 150 },
-  { field: 'customer', width: 180 },
-  { field: 'productName', headerName: 'Request', editable: true, minWidth: 190 },
+  { field: 'needCode', headerName: 'Need', pinned: 'left', width: 120 },
+  { field: 'customer', width: 170 },
+  { field: 'productName', headerName: 'Request', editable: true, minWidth: 180 },
   { field: 'category', editable: true, width: 120 },
-  { field: 'tags', editable: true, minWidth: 170 },
-  { field: 'qtyMin', headerName: 'Min qty', editable: true, type: 'numericColumn', width: 115 },
-  { field: 'qtyMax', headerName: 'Max qty', editable: true, type: 'numericColumn', width: 115 },
-  { field: 'targetPrice', headerName: 'Target', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'neededBy', headerName: 'Needed by', editable: true, width: 150 },
-  { field: 'urgency', editable: true, width: 110 },
-  { field: 'notes', editable: true, minWidth: 220 },
-  { field: 'status', width: 125 }
+  { field: 'qtyMin', headerName: 'Qty', editable: true, type: 'numericColumn', width: 100 },
+  { field: 'targetPrice', headerName: 'Target $', editable: true, type: 'numericColumn', width: 110 },
+  { field: 'neededBy', headerName: 'By', editable: true, width: 130 },
+  { field: 'status', width: 115 },
 ];
 
 const supplyColumns: ColDef<GridRow>[] = [
-  { field: 'supplyCode', headerName: 'Stock', pinned: 'left', width: 150 },
-  { field: 'vendor', width: 180 },
-  { field: 'productName', headerName: 'Product', editable: true, minWidth: 190 },
-  { field: 'category', editable: true, width: 120 },
-  { field: 'tags', editable: true, minWidth: 170 },
-  { field: 'availableQty', headerName: 'Avail', editable: true, type: 'numericColumn', width: 115 },
-  { field: 'askingPrice', headerName: 'Ask', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'availableDate', headerName: 'Available', editable: true, width: 150 },
-  { field: 'location', editable: true, width: 140 },
-  { field: 'grade', editable: true, width: 105 },
-  { field: 'terms', editable: true, minWidth: 150 },
-  { field: 'notes', editable: true, minWidth: 220 },
-  { field: 'status', width: 135 }
-];
-
-const matchColumns: ColDef<GridRow>[] = [
-  { field: 'score', pinned: 'left', type: 'numericColumn', width: 90 },
-  { field: 'customer', width: 170 },
-  { field: 'needProduct', headerName: 'Need', minWidth: 190 },
-  { field: 'category', width: 120 },
+  { field: 'supplyCode', headerName: 'Stock', pinned: 'left', width: 120 },
   { field: 'vendor', width: 170 },
-  { field: 'vendorProduct', headerName: 'Vendor stock', minWidth: 190 },
-  { field: 'qtyMin', headerName: 'Need qty', type: 'numericColumn', width: 115 },
-  { field: 'availableQty', headerName: 'Avail', type: 'numericColumn', width: 110 },
-  { field: 'targetPrice', headerName: 'Target', type: 'numericColumn', width: 110 },
-  { field: 'askingPrice', headerName: 'Ask', type: 'numericColumn', width: 110 },
-  { field: 'reasons', minWidth: 260 },
-  { field: 'status', width: 125 }
+  { field: 'productName', headerName: 'Product', editable: true, minWidth: 180 },
+  { field: 'category', editable: true, width: 120 },
+  { field: 'availableQty', headerName: 'Qty', editable: true, type: 'numericColumn', width: 100 },
+  { field: 'askingPrice', headerName: 'Ask $', editable: true, type: 'numericColumn', width: 110 },
+  { field: 'availableDate', headerName: 'Available', editable: true, width: 130 },
+  { field: 'status', width: 115 },
 ];
 
 export function MatchmakingView() {
@@ -81,29 +55,16 @@ export function MatchmakingView() {
   const [customerId, setCustomerId] = useState('');
   const [needProduct, setNeedProduct] = useState('');
   const [needCategory, setNeedCategory] = useState('');
-  const [needTags, setNeedTags] = useState('');
   const [qtyMin, setQtyMin] = useState('0');
-  const [qtyMax, setQtyMax] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [neededBy, setNeededBy] = useState('');
-  const [urgency, setUrgency] = useState('normal');
-  const [needNotes, setNeedNotes] = useState('');
 
   const [vendorId, setVendorId] = useState('');
   const [supplyProduct, setSupplyProduct] = useState('');
   const [supplyCategory, setSupplyCategory] = useState('');
-  const [supplyTags, setSupplyTags] = useState('');
   const [availableQty, setAvailableQty] = useState('0');
   const [askingPrice, setAskingPrice] = useState('');
   const [availableDate, setAvailableDate] = useState('');
-  const [location, setLocation] = useState('');
-  const [grade, setGrade] = useState('');
-  const [terms, setTerms] = useState('');
-  const [supplyNotes, setSupplyNotes] = useState('');
-
-  // Operator must explicitly select a customer/vendor — no auto-defaulting to first record
-  const defaultCustomerId = customerId;
-  const defaultVendorId = vendorId;
 
   // C1: controlled state for number inputs — synced from server on load
   const [localFloor, setLocalFloor] = useState(s.matchQualityFloor);
@@ -134,41 +95,40 @@ export function MatchmakingView() {
     await runCommand(
       'createCustomerNeed',
       {
-        customerId: defaultCustomerId,
+        customerId,
         productName: needProduct,
         category: needCategory,
-        tags: parseTagInput(needTags),
         qtyMin: Number(qtyMin),
-        qtyMax: qtyMax ? Number(qtyMax) : undefined,
         targetPrice: targetPrice ? Number(targetPrice) : undefined,
         neededBy: neededBy || undefined,
-        urgency,
-        notes: needNotes
       },
-      'Add customer need from matchmaking'
+      'Add customer need'
     );
-    setNeedNotes('');
+    setNeedProduct('');
+    setQtyMin('0');
+    setTargetPrice('');
+    setNeededBy('');
+    needProductRef.current?.focus();
   }
 
   async function createSupply() {
     await runCommand(
       'createVendorSupply',
       {
-        vendorId: defaultVendorId,
+        vendorId,
         productName: supplyProduct,
         category: supplyCategory,
-        tags: parseTagInput(supplyTags),
         availableQty: Number(availableQty),
         askingPrice: askingPrice ? Number(askingPrice) : undefined,
         availableDate: availableDate || undefined,
-        location,
-        grade,
-        terms,
-        notes: supplyNotes
       },
-      'Add vendor stock from matchmaking'
+      'Add vendor stock'
     );
-    setSupplyNotes('');
+    setSupplyProduct('');
+    setAvailableQty('0');
+    setAskingPrice('');
+    setAvailableDate('');
+    supplyProductRef.current?.focus();
   }
 
   async function updateNeedCell(event: CellValueChangedEvent<GridRow>) {
@@ -188,6 +148,63 @@ export function MatchmakingView() {
   async function dismissSelected() {
     for (const row of selectedMatches) await runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss matchmaking row');
   }
+
+  const matchColumns = useMemo<ColDef<GridRow>[]>(() => [
+    {
+      field: 'score',
+      pinned: 'left',
+      type: 'numericColumn',
+      width: 100,
+      cellRenderer: (params: { value: number; data?: GridRow }) => {
+        const score = Number(params.value ?? 0);
+        const isLowConfidence = score < 35;
+        return (
+          <span className="flex items-center gap-1">
+            <span>{score}</span>
+            {isLowConfidence && (
+              <span className="inline-flex rounded-full bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-500">
+                Low
+              </span>
+            )}
+          </span>
+        );
+      },
+    },
+    { field: 'customer', width: 160 },
+    { field: 'needProduct', headerName: 'Request', minWidth: 170 },
+    { field: 'vendor', width: 160 },
+    { field: 'vendorProduct', headerName: 'Stock', minWidth: 170 },
+    {
+      headerName: 'Price fit',
+      width: 150,
+      valueGetter: (params: { data?: GridRow }) => {
+        const ask = Number(params.data?.askingPrice ?? 0);
+        const target = Number(params.data?.targetPrice ?? 0);
+        if (!ask || !target) return '';
+        const fit = ask <= target;
+        return `$${ask} ask / $${target} target ${fit ? '✓' : '✗'}`;
+      },
+    },
+    {
+      headerName: 'Qty fit',
+      width: 140,
+      valueGetter: (params: { data?: GridRow }) => {
+        const avail = Number(params.data?.availableQty ?? 0);
+        const need = Number(params.data?.qtyMin ?? 0);
+        if (!avail || !need) return '';
+        const fit = avail >= need;
+        return `${avail} avail / ${need} need ${fit ? '✓' : '✗'}`;
+      },
+    },
+    { field: 'status', width: 115 },
+  ], []);
+
+  const matchRowClassRules = useMemo(() => ({
+    'opacity-40': (params: { data?: GridRow }) => {
+      const score = Number(params.data?.score ?? 0);
+      return score < s.matchQualityFloor && score >= 35;
+    },
+  }), [s.matchQualityFloor]);
 
   const matchExpansionConfig = useMemo(
     () => ({
@@ -354,58 +371,46 @@ Maximum score:                     100`}
             <div className="control-band subtle-band">
               <label className="field-inline">
                 Customer
-                <select className="select" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
-                  <option value="">Default customer</option>
-                  {reference.data?.customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
+                <select className="select" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                  <option value="">Select customer</option>
+                  {reference.data?.customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </label>
               <label className="field-inline grow">
                 Need
-                <input ref={needProductRef} className="input" value={needProduct} onChange={(event) => setNeedProduct(event.target.value)} />
+                <input ref={needProductRef} className="input" value={needProduct}
+                  onChange={(e) => setNeedProduct(e.target.value)} placeholder="e.g. Indica flower" />
               </label>
               <label className="field-inline">
                 Category
-                <select className="select compact" value={needCategory} onChange={(event) => setNeedCategory(event.target.value)}>
-                  {reference.data?.categories.map((category) => <option key={category}>{category}</option>)}
+                <select className="select compact" value={needCategory} onChange={(e) => setNeedCategory(e.target.value)}>
+                  <option value="">Category</option>
+                  {reference.data?.categories.map((cat) => <option key={cat}>{cat}</option>)}
                 </select>
               </label>
-              <label className="field-inline grow">
-                Tags
-                <input className="input" value={needTags} onChange={(event) => setNeedTags(event.target.value)} />
+              <label className="field-inline">
+                Qty
+                <input className="input compact" value={qtyMin} inputMode="decimal"
+                  onChange={(e) => setQtyMin(e.target.value)} />
               </label>
               <label className="field-inline">
-                Min
-                <input className="input compact" value={qtyMin} inputMode="decimal" onChange={(event) => setQtyMin(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Max
-                <input className="input compact" value={qtyMax} inputMode="decimal" onChange={(event) => setQtyMax(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Target
-                <input className="input compact" value={targetPrice} inputMode="decimal" onChange={(event) => setTargetPrice(event.target.value)} />
+                Target $
+                <input className="input compact" value={targetPrice} inputMode="decimal"
+                  onChange={(e) => setTargetPrice(e.target.value)} />
               </label>
               <label className="field-inline">
                 By
-                <input className="input compact" type="date" value={neededBy} onChange={(event) => setNeededBy(event.target.value)} />
+                <input className="input compact" type="date" value={neededBy}
+                  onChange={(e) => setNeededBy(e.target.value)} />
               </label>
-              <label className="field-inline">
-                Urgency
-                <select className="select compact" value={urgency} onChange={(event) => setUrgency(event.target.value)}>
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                  <option value="watch">Watch</option>
-                </select>
-              </label>
-              <label className="field-inline grow">
-                Notes
-                <input className="input" value={needNotes} onChange={(event) => setNeedNotes(event.target.value)} />
-              </label>
-              <button className="primary-button" type="button" disabled={!defaultCustomerId || !needProduct.trim() || Number(qtyMin) <= 0 || isRunning} onClick={createNeed}>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={!customerId || !needProduct.trim() || !needCategory || Number(qtyMin) <= 0 || isRunning}
+                onClick={createNeed}
+              >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 Add Need
               </button>
@@ -413,60 +418,48 @@ Maximum score:                     100`}
             <div className="control-band subtle-band">
               <label className="field-inline">
                 Vendor
-                <select className="select" value={vendorId} onChange={(event) => setVendorId(event.target.value)}>
-                  <option value="">Default vendor</option>
-                  {reference.data?.vendors.map((vendor) => (
-                    <option key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </option>
+                <select className="select" value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+                  <option value="">Select vendor</option>
+                  {reference.data?.vendors.map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
               </label>
               <label className="field-inline grow">
                 Stock
-                <input ref={supplyProductRef} className="input" value={supplyProduct} onChange={(event) => setSupplyProduct(event.target.value)} />
+                <input ref={supplyProductRef} className="input" value={supplyProduct}
+                  onChange={(e) => setSupplyProduct(e.target.value)} placeholder="e.g. Blue Dream 28g" />
               </label>
               <label className="field-inline">
                 Category
-                <select className="select compact" value={supplyCategory} onChange={(event) => setSupplyCategory(event.target.value)}>
-                  {reference.data?.categories.map((category) => <option key={category}>{category}</option>)}
+                <select className="select compact" value={supplyCategory} onChange={(e) => setSupplyCategory(e.target.value)}>
+                  <option value="">Category</option>
+                  {reference.data?.categories.map((cat) => <option key={cat}>{cat}</option>)}
                 </select>
-              </label>
-              <label className="field-inline grow">
-                Tags
-                <input className="input" value={supplyTags} onChange={(event) => setSupplyTags(event.target.value)} />
               </label>
               <label className="field-inline">
                 Qty
-                <input className="input compact" value={availableQty} inputMode="decimal" onChange={(event) => setAvailableQty(event.target.value)} />
+                <input className="input compact" value={availableQty} inputMode="decimal"
+                  onChange={(e) => setAvailableQty(e.target.value)} />
               </label>
               <label className="field-inline">
-                Ask
-                <input className="input compact" value={askingPrice} inputMode="decimal" onChange={(event) => setAskingPrice(event.target.value)} />
+                Ask $
+                <input className="input compact" value={askingPrice} inputMode="decimal"
+                  onChange={(e) => setAskingPrice(e.target.value)} />
               </label>
               <label className="field-inline">
                 Date
-                <input className="input compact" type="date" value={availableDate} onChange={(event) => setAvailableDate(event.target.value)} />
+                <input className="input compact" type="date" value={availableDate}
+                  onChange={(e) => setAvailableDate(e.target.value)} />
               </label>
-              <label className="field-inline">
-                Location
-                <input className="input compact" value={location} onChange={(event) => setLocation(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Grade
-                <input className="input compact" value={grade} onChange={(event) => setGrade(event.target.value)} />
-              </label>
-              <label className="field-inline grow">
-                Terms
-                <input className="input" value={terms} onChange={(event) => setTerms(event.target.value)} />
-              </label>
-              <label className="field-inline grow">
-                Notes
-                <input className="input" value={supplyNotes} onChange={(event) => setSupplyNotes(event.target.value)} />
-              </label>
-              <button className="primary-button" type="button" disabled={!defaultVendorId || !supplyProduct.trim() || Number(availableQty) <= 0 || isRunning} onClick={createSupply}>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={!vendorId || !supplyProduct.trim() || !supplyCategory || Number(availableQty) <= 0 || isRunning}
+                onClick={createSupply}
+              >
                 <Plus className="h-4 w-4" aria-hidden="true" />
-                Add Vendor Stock
+                Add Stock
               </button>
             </div>
           </div>
@@ -478,6 +471,7 @@ Maximum score:                     100`}
         title="Deterministic Matches"
         rows={(board.data?.matches ?? []) as GridRow[]}
         columns={matchColumns}
+        rowClassRules={matchRowClassRules}
         loading={board.isLoading || isRunning}
         onSelectionChange={setSelectedMatches}
         actions={
