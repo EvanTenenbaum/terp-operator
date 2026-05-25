@@ -1,14 +1,24 @@
 name: nightly
 
+# M1 FIX: Two cron entries so 6am ET is correct in both EDT (UTC-4) and EST (UTC-5).
+# Single entry at '0 10 * * *' fires at 5am EST in winter.
+# Running both entries causes one to be a duplicate ~2 runs/day during DST transitions
+# (harmless); the alternative is permanent drift for 5 months/year.
+# M3 FIX: concurrency block prevents stacking if a prior nightly is still running.
 on:
   schedule:
-    - cron: '0 10 * * *'   # 6am EDT (UTC-4 summer). 5am EST in winter — acceptable drift.
+    - cron: '0 10 * * *'   # 6am EDT (UTC-4, summer)
+    - cron: '0 11 * * *'   # 6am EST (UTC-5, winter)
 
-# C1 FIX: explicit permissions so GITHUB_TOKEN has issues:write regardless of repo defaults.
-# Without this, gh issue create/comment returns 403 silently and no alerts fire.
+# C1: explicit permissions — GITHUB_TOKEN needs issues:write to create/comment issues.
 permissions:
   contents: read
   issues: write
+
+# M3 FIX: queue rather than cancel so a slow nightly doesn't skip the next one.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
 
 env:
   PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL }}
@@ -19,7 +29,7 @@ env:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # H2 FIX: prevent 6-hour hangs on stuck Playwright sessions
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v6
@@ -27,10 +37,26 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+
+      # M2 FIX: cache Playwright browsers to cut ~60s off cold path.
+      # System deps (libssl etc.) are always installed; browser binary is cached.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package.json') }}
+
+      - name: Install Playwright (browsers + system deps)
+        run: pnpm exec playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright system deps only (browsers cached)
+        run: pnpm exec playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
       - run: pnpm exec playwright test --project=smoke
 
-      # H4 FIX: upload trace/screenshots on failure so post-mortem is possible
       - name: Upload Playwright traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -41,12 +67,10 @@ jobs:
             playwright-report/
           retention-days: 14
 
-  # C2 FIX: renamed core-e2e → core_e2e. Hyphens in GHA job names inside
-  # needs.X.result expressions are parsed as subtraction, silently breaking detection.
   core_e2e:
     needs: smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # H2 FIX
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v6
@@ -54,10 +78,25 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package.json') }}
+
+      - name: Install Playwright (browsers + system deps)
+        run: pnpm exec playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright system deps only (browsers cached)
+        run: pnpm exec playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
       - run: pnpm exec playwright test --project=chromium
 
-      - name: Upload Playwright traces on failure  # H4 FIX
+      - name: Upload Playwright traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -69,7 +108,7 @@ jobs:
 
   unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # H2 FIX
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v6
@@ -78,9 +117,16 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Full Vitest suite
+        # M4 FIX: Exclusion list keeps explicit names for current files AND adds
+        # forward-safe glob patterns. New DB-dependent tests should be named
+        # *.integration.test.ts or *.db.test.ts — those are excluded by pattern.
+        # The explicit list below handles existing files that predate the convention.
+        # Convention documented in docs/design-system/decisions-log.md.
         run: |
           pnpm exec vitest run \
             --exclude 'tests/**' \
+            --exclude 'src/**/*.integration.test.ts' \
+            --exclude 'src/**/*.db.test.ts' \
             --exclude 'src/server/services/creditEngine/**/*integration*' \
             --exclude 'src/server/services/creditEngine/worker.test.ts' \
             --exclude 'src/server/services/creditEngine/orchestrator.test.ts' \
@@ -90,17 +136,12 @@ jobs:
             --exclude 'src/server/services/creditEngine/smoke.test.ts' \
             --exclude 'src/server/services/creditEngine/reversalCorrectness.test.ts' \
             --exclude 'src/server/services/creditEngine/divergenceReport.test.ts' \
-            --exclude 'src/server/services/creditEngine/signals/**' \
             --exclude 'src/server/services/commandBus.idempotency.test.ts'
 
   report_failures:
-    # C2 FIX: core_e2e (snake_case — no hyphen arithmetic bug)
     needs: [smoke, core_e2e, unit]
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # H2 FIX
-    # C1 FIX: inherited from top-level permissions block
-    # CRITICAL: always() guard ensures this job runs even when smoke fails and
-    # core_e2e is skipped. Without always(), GHA skips this job silently.
+    timeout-minutes: 5
     if: |
       always() && (
         needs.smoke.result == 'failure' ||
@@ -114,9 +155,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-
-      # C3 FIX: backstop — if issue creation fails, surface the failure as a
-      # sticky GHA annotation so it can't go completely unnoticed.
       - name: Backstop annotation on report failure
         if: failure()
         run: |
