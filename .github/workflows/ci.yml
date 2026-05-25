@@ -38,3 +38,8 @@ jobs:
       # Chromium browser binary on the runner.
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test tests/e2e/a11y.spec.ts
+      # Full unit + component suite on every PR. Exclusions are managed in
+      # vitest.config.ts — CLI --exclude globs are unreliable across runners
+      # due to shell expansion. Config-driven exclusions are always reliable.
+      - name: Full Vitest suite
+        run: pnpm exec vitest run

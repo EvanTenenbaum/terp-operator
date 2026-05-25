@@ -1,0 +1,147 @@
+name: nightly
+
+# M1 FIX: Two cron entries so 6am ET is correct in both EDT (UTC-4) and EST (UTC-5).
+# Single entry at '0 10 * * *' fires at 5am EST in winter.
+# Running both entries causes one to be a duplicate ~2 runs/day during DST transitions
+# (harmless); the alternative is permanent drift for 5 months/year.
+# M3 FIX: concurrency block prevents stacking if a prior nightly is still running.
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 6am EDT (UTC-4, summer)
+    - cron: '0 11 * * *'   # 6am EST (UTC-5, winter)
+  workflow_dispatch:        # allow manual trigger for QA and debugging
+
+# C1: explicit permissions — GITHUB_TOKEN needs issues:write to create/comment issues.
+permissions:
+  contents: read
+  issues: write
+
+# M3 FIX: queue rather than cancel so a slow nightly doesn't skip the next one.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL }}
+  PLAYWRIGHT_SKIP_WEB_SERVER: "1"
+  PLAYWRIGHT_TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
+  PLAYWRIGHT_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { version: 10.25.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      # M2 FIX: cache Playwright browsers to cut ~60s off cold path.
+      # System deps (libssl etc.) are always installed; browser binary is cached.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package.json') }}
+
+      - name: Install Playwright (browsers + system deps)
+        run: pnpm exec playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright system deps only (browsers cached)
+        run: pnpm exec playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - run: pnpm exec playwright test --project=smoke
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-trace-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
+  core_e2e:
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { version: 10.25.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package.json') }}
+
+      - name: Install Playwright (browsers + system deps)
+        run: pnpm exec playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright system deps only (browsers cached)
+        run: pnpm exec playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - run: pnpm exec playwright test --project=chromium
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-e2e-trace-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with: { version: 10.25.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Full Vitest suite
+        # All DB-dependent and Playwright exclusions live in vitest.config.ts.
+        # CLI --exclude globs are unreliable (shell expansion strips quotes on
+        # some runners). Config-driven exclusions are always reliable.
+        run: pnpm exec vitest run
+
+  report_failures:
+    needs: [smoke, core_e2e, unit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      always() && (
+        needs.smoke.result == 'failure' ||
+        needs.core_e2e.result == 'failure' ||
+        needs.unit.result == 'failure'
+      )
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report failure
+        run: bash scripts/report-test-failure.sh "nightly" "${{ github.run_id }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+      - name: Backstop annotation on report failure
+        if: failure()
+        run: |
+          echo "::error title=Alert Delivery Failed::report-test-failure.sh failed for nightly run ${{ github.run_id }}. Check GH_TOKEN permissions and label existence. Manual triage required."
+          exit 1

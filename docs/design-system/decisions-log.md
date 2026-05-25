@@ -2,6 +2,31 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-05-25 — Testing convention: 3-tier pyramid
+
+**Decision**: All ongoing testing follows a 3-tier pyramid enforced by GitHub Actions.
+
+| Tier | Location | Trigger | Purpose |
+|------|----------|---------|---------|
+| Smoke | `tests/smoke/` | Post-deploy + nightly | Is the app alive and usable? |
+| Core e2e | `tests/e2e/` | Nightly | Do all operator workflows still work? |
+| Unit | `src/**/*.test.*` | Every PR | Does business logic hold? |
+
+**Convention for new work**:
+- New top-level view or workflow → add a smoke spec to `tests/smoke/` (login + grid/heading visible, < 15s/step)
+- New operator command or e2e flow → add a full spec to `tests/e2e/`
+- New server service or business logic → unit test in `src/server/services/`
+
+Nightly picks up new specs automatically in both `tests/smoke/` and `tests/e2e/`.
+Smoke tests must be independent (no shared state between tests), fast, and assertion-minimal.
+Failures create or update a GitHub Issue automatically via `scripts/report-test-failure.sh`.
+
+**Rationale**: Catches live regressions during user testing rollout without requiring manual QA runs.
+**Spec**: `docs/superpowers/specs/2026-05-25-ongoing-testing-strategy-design.md`
+
+---
+
+
 ## Format
 
 ```markdown

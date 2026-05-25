@@ -1,0 +1,87 @@
+name: post-deploy-smoke
+
+on:
+  workflow_run:
+    workflows: ["deploy-staging"]
+    types: [completed]
+
+# C1: explicit permissions — GITHUB_TOKEN needs issues:write.
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+# M3 FIX: cancel-in-progress so rapid successive deploys don't stack tests.
+# Each new deploy cancels the in-flight smoke from the prior deploy, since the
+# prior deploy's image is superseded anyway.
+concurrency:
+  group: post-deploy-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Test the exact commit deployed, not the default branch.
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.25.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # M2 FIX: cache Playwright browser binary; system deps still installed each run.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('package.json') }}
+
+      - name: Install Playwright (browsers + system deps)
+        run: pnpm exec playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright system deps only (browsers cached)
+        run: pnpm exec playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - name: Run smoke suite against staging
+        run: pnpm exec playwright test --project=smoke
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ vars.STAGING_URL }}
+          PLAYWRIGHT_SKIP_WEB_SERVER: "1"
+          PLAYWRIGHT_TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
+          PLAYWRIGHT_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-smoke-trace-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
+      - name: Report failure
+        if: failure()
+        run: bash scripts/report-test-failure.sh "post-deploy-smoke" "${{ github.run_id }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Backstop annotation on report failure
+        if: failure()
+        run: |
+          echo "::error title=Alert Delivery Failed::report-test-failure.sh failed for post-deploy-smoke run ${{ github.run_id }}. Check GH_TOKEN permissions. Manual triage required."

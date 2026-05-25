@@ -18,6 +18,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Allow the fast runner (DigitalOcean Tailscale) to reach the dev server.
+    // Vite 6 DNS rebinding protection blocks cross-host requests by default.
+    // M5 FIX: scoped to non-production so vite preview in prod-like contexts
+    // still enforces host validation.
+    allowedHosts: process.env.NODE_ENV !== 'production' ? true : undefined,
     proxy: {
       '/trpc': 'http://localhost:8787',
       '/api': 'http://localhost:8787',

@@ -1,0 +1,632 @@
+# TERP Operator — Audit Triage Document
+
+**Date:** 2026-05-25  
+**Author:** Synthesized from 15 specialist agents across 3 audit passes (technical infrastructure, frontend/usability, and unlock analysis)  
+**Status:** Active reference — update when dispositions change
+
+---
+
+## Section 1: Overview & How To Use
+
+This document is the single-source triage map for every finding surfaced during the multi-day TERP Operator audit completed in the week of 2026-05-19–25. It exists to prevent duplicate work, ensure nothing falls through the cracks, and give future agents a fast orientation point before touching issues or filing new work.
+
+**Source:** Three coordinated audit passes:
+1. **Technical infrastructure audit** — DB schema, migrations, backend contracts, performance, security, observability
+2. **Frontend/usability audit** — AG Grid patterns, component architecture, UX gaps, a11y, mobile
+3. **Unlock analysis** — "What can we surface cheaply from what's already built?" — backend features with no UI, near-complete workflows
+
+**How to use this document:**
+1. Before filing a new GH issue or Linear issue, search this document for the finding.
+2. Check the **Disposition** column in Section 3 — if it says IN-FLIGHT, TRACKED, or already-NEW-FILED, do not create new work.
+3. If a finding is marked NEEDS-CAPTURE, create the appropriate GH or Linear issue and update this document.
+4. If a finding is marked BACKLOG, add a CAP registry row first, then create a Linear issue. Never start backlog work without a registry ID.
+5. If a finding is marked PHASE-7, add it to the Phase 7 pre-work list (Section 9) and let it ride.
+
+**Registry rule:** Every new product capability needs a CAP row in `docs/product/capability-registry.md` before implementation. The next available ID is **CAP-036**.
+
+---
+
+## Section 2: In-Flight Blast Radius Map
+
+This table maps every active branch/PR to the audit findings it overlaps. Use this before touching anything in those areas — coordinate rather than clobber.
+
+| Finding | Type | Overlaps With | Notes |
+|---|---|---|---|
+| Dashboard cash KPI (all-time gross vs. position) | UX/data | **PR #343** feat/phase6-reports (TER-1572) | Phase 6 Dashboard Today Focus directly addresses cash KPI. Hold. |
+| Aging inventory report | Feature | **PR #343** feat/phase6-reports (TER-1573) | Covered by Phase 6. Do not add new aging work until #343 lands. |
+| Revenue report | Feature | **PR #343** feat/phase6-reports (TER-1573) | Covered by Phase 6. |
+| Payables / Cash Movement / Vendor Performance reports | Feature | **PR #343** feat/phase6-reports (TER-1574) | Covered by Phase 6. |
+| Category Analytics + Client Sales History | Feature | **PR #343** feat/phase6-reports (TER-1575) | Covered by Phase 6. |
+| Source-row drilldown linkage | Feature | **PR #343** feat/phase6-reports (TER-1576) | Covered by Phase 6. |
+| CSV export deterministic headers | Feature | **PR #343** feat/phase6-reports (TER-1577, TER-1578) | Covered by Phase 6. |
+| Role-gating financial metrics | Security/access | **feat/ter-1584-role-gate-financial-metrics** | Do not add any financial metric visibility changes until this branch lands. |
+| `applyClientCredit` UI exposure | Feature/access | **feat/ter-1584-role-gate-financial-metrics** | Credit commands are manager-gated; role gate branch must land first. |
+| Mobile nav (Pick tab, mobile contacts stub) | Mobile | **feat/mobile-entry-points** | Any mobile nav changes must coordinate with this branch. |
+| Wire mobile inventory stub buttons | Mobile | **feat/mobile-entry-points** | Adjust qty / Mark needs review commands exist; wiring belongs in mobile-entry-points scope. |
+| Mobile receiving view | Mobile | **feat/mobile-entry-points** | Basic mobile receiving is in-scope for this branch. |
+| Phase 5 recovery / closeout repair | Recovery/Closeout | **fix/phase5-repair-pass** | TER-1522, TER-1520 In Review. Do not touch Recovery/Closeout drawer logic outside this branch. |
+| `reverseCommandById` surface | Recovery | **fix/phase5-repair-pass** | Reversal matrix hardening is part of Phase 5 repair. |
+| Unsafe row drilldown (CAP-025) | Recovery | **fix/phase5-repair-pass** | Phase 5 makes unsafe rows inline-expand and drawer-backed. |
+| Pricing Rules Chain Manager | Pricing/control | **feat/cap-030-live-wire** | CAP-030 covers consolidated pricing view, savePricingRuleChain command, PricingRulesView. Do not add pricing UI outside this branch. |
+| Pricing strategy selector in Sale Builder | Pricing | **feat/cap-030-live-wire** | Customer-rule / premium / clearance unreachable today; CAP-030 will fix. Coordinate. |
+| Focus traps (#323) | A11y | **Phase 7 scope** | Phase 7 accessibility pass. Do not pre-empt with a one-off fix unless blocking. |
+| WorkspacePanel span headings (#325) | A11y | **Phase 7 scope** | Phase 7 accessibility pass. |
+| ColumnsMenu mouseLeave close (#326) | Keyboard/UX | **Phase 7 scope** | Phase 7 keyboard sweep. |
+| Keyboard shortcut help overlay | Keyboard | **Phase 7 scope** | Phase 7 keyboard sweep; hotkey/focus infrastructure. |
+| Vocabulary pass (ERP wording) | UX | **Phase 7 scope** | Phase 7 vocabulary pass. |
+| Column discipline / column groups | Performance/UX | **Phase 7 scope** | Phase 7 performance/polish pass. |
+| EmptyState copy improvement | UX/vocabulary | **Phase 7 scope** | Phase 7 vocabulary pass. |
+| Performance pass (seeded volume) | Performance | **Phase 7 scope** | Phase 7 performance pass. |
+| AG Grid test fragility (#320) | Testing | **Phase 7 scope** | Part of release confidence pass. |
+| Chrome-only Playwright (#319) | Testing | **Phase 7 scope** | Browser matrix is a Phase 7 drift-lock concern. |
+
+---
+
+## Section 3: Disposition Matrix
+
+Every audit finding gets exactly one disposition. **Do not create new issues for IN-FLIGHT, TRACKED, or NEW-FILED rows.**
+
+Dispositions:
+- ✅ **IN-FLIGHT** — Active branch or PR handles it
+- 📋 **TRACKED** — Existing GH issue covers it
+- 🆕 **NEW-FILED** — We filed GH #286–#329 in this audit
+- 🔁 **DUPLICATE** — We filed a duplicate; reference the original
+- 🎯 **NEEDS-CAPTURE** — Not yet tracked, needs a GH or Linear issue
+- 🏛️ **INTENTIONAL** — Design decision, don't change
+- 🗂️ **BACKLOG** — Needs CAP registry row + Linear issue before any work starts
+- ⚠️ **PHASE-7** — Will be addressed in Phase 7 sweep
+
+### 3.1 Technical Infrastructure / Backend
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| `btn-secondary` missing style | #286 | 🆕 **NEW-FILED** | Visual regression |
+| `cancelSalesOrder` doesn't clear `reservedQty` | #287 | 🆕 **NEW-FILED** | Runtime data integrity bug; see #257 cross-ref |
+| WebSocket health probe missing | #288 | 🆕 **NEW-FILED** | No heartbeat endpoint; see #139 cross-ref |
+| Float equality in `processorCommands` | #289 | 🆕 **NEW-FILED** | Precision bug in payment processing |
+| Migration 0052 collision risk | #290 | 🆕 **NEW-FILED** | Non-atomic migration; see #17 cross-ref |
+| `NOT VALID` constraints in migrations | #292 | 🆕 **NEW-FILED** | Constraints added without validation scan; see #17 |
+| `customers` bare UUID foreign keys | #293 | 🆕 **NEW-FILED** | Missing FK indexes; see #17 |
+| `commandJournal.reversedByCommandId` bare UUID | #294 | 🆕 **NEW-FILED** | No FK constraint; see #17 |
+| `logPayment` shares `commandId` | #295 | 🆕 **NEW-FILED** | Idempotency gap; see #12 |
+| `contacts.email` missing index | #296 | 🆕 **NEW-FILED** | Lookup performance; see #17 |
+| `ON DELETE SET NULL` on vendor/customer FKs | #297 | 🆕 **NEW-FILED** | Silent data corruption risk |
+| `payment_allocations` no `amount > 0` check | #298 | 🆕 **NEW-FILED** | Data integrity: zero/negative allocations possible |
+| Migration 0054 row-by-row loop (N+1) | #299 | 🆕 **NEW-FILED** | Performance: should be single UPDATE |
+| `contactLedger` pagination stubbed | #300 | 🆕 **NEW-FILED** | Returns unlimited rows; OOM risk on large datasets |
+| `Tx = any` throughout server | #301 | 🆕 **NEW-FILED** | Type safety gap; masking real errors |
+| Per-command Zod validation missing | #302 | 🆕 **NEW-FILED** | No input validation at command boundary |
+| Dockerfile `--frozen-lockfile=false` | #308 | 🆕 **NEW-FILED** | CI reproducibility gap |
+| `queries.reference` — 15 queries on every mount | #309 | 🆕 **NEW-FILED** | Performance; see #274 cross-ref |
+| `snapshotByAffectedIds` — 22 sequential queries | #310 | 🆕 **NEW-FILED** | Should be single `IN (...)` query |
+| Media volume not mounted in Dockerfile | #311 | 🆕 **NEW-FILED** | Data loss on restart |
+| Command journal on `/tmp` (staging) | #312 | 🆕 **NEW-FILED** | Data loss on restart; see #19 cross-ref |
+| In-memory rate limiter (not multi-process safe) | #313 | 🆕 **NEW-FILED** | Bypassed in multi-worker/multi-container; see #12 |
+| `unsafe-inline` CSP | #314 | 🆕 **NEW-FILED** | Security: XSS amplification |
+| `SELECT *` in `contactProfile` | #315 | 🆕 **NEW-FILED** | Over-fetches; leaks new columns automatically |
+| No structured logging | #316 | 🆕 **NEW-FILED** | Observability gap; see #19 cross-ref |
+| No error tracking (Sentry / equivalent) | #317 | 🆕 **NEW-FILED** | Observability gap; see #19 cross-ref |
+| 60% coverage floor is too low | #318 | 🆕 **NEW-FILED** | Test quality debt |
+| Socket.io no rooms (broadcasts to all clients) | #329 | 🆕 **NEW-FILED** | Privacy and performance: every mutation pushes to every session |
+| Migrations non-atomic + schema/index drift | #17 | 📋 **TRACKED** | Root GH issue; #290, #292, #293, #294, #296 all cross-ref here |
+| Journal on /tmp, no HEALTHCHECK | #19 | 📋 **TRACKED** | Root GH issue; #312, #316, #317 cross-ref here |
+| Command journal & idempotency integrity | #12 | 📋 **TRACKED** | Root GH issue; #295, #313 cross-ref here |
+| `postSalesOrder` reversal data gaps | #257 | 📋 **TRACKED** | Confirmed; #287 is a related specific case |
+| 23 reversible commands throw at runtime | #258 | 📋 **TRACKED** | Audit identified 5 specific — subset of this root issue |
+| `archivePeriod` needs architectural redesign | #109 | 📋 **TRACKED** | Confirmed still relevant |
+| `globalSearch` trigram GIN follow-up | #99 | 📋 **TRACKED** | BE-007 search freshness deferred; index work belongs here |
+| `--frozen-lockfile=false` in CI (older filing) | #332 | 🔁 **DUPLICATE** | Duplicate of #308; #307 was closed. Reference #308. |
+| CI `--frozen-lockfile` issue (our filing, closed) | #307 | 🔁 **DUPLICATE** | Closed — superseded by #308 |
+| `GridRow = Record<string, unknown>` broad type | — | 🏛️ **INTENTIONAL** | Documented trade-off; AG Grid Enterprise typing requires it |
+| `session.expire` without timezone | — | 🏛️ **INTENTIONAL** | Intentional; Postgres `timestamp` vs `timestamptz` decision recorded |
+| `fileParallelism: false` in vitest | — | 🏛️ **INTENTIONAL** | Known workaround for test isolation |
+| `skipLibCheck: true` in tsconfig | — | 🏛️ **INTENTIONAL** | Intentional trade-off for AG Grid types |
+| `internalOnlyCommandNames` list | — | 🏛️ **INTENTIONAL** | Intentional gating — not a bug |
+| Consignment trigger being manual | — | 🏛️ **INTENTIONAL** | Design decision |
+| BE-006 (persisted suggestions) deferred | — | 🏛️ **INTENTIONAL** | Registry-recorded deferral |
+| BE-007 (search freshness) deferred | — | 🏛️ **INTENTIONAL** | Registry-recorded deferral |
+| BE-011 (WebSocket transport for subscriptions) deferred | — | 🏛️ **INTENTIONAL** | Registry-recorded deferral; #288 is health probe, not transport |
+| `banners.getDismissedBanners` / `dismissBanner` unwired | CAP-033 / TER-1587 | 📋 **TRACKED** | CAP-033 in registry; Linear TER-1587 created |
+| `brands` ↔ `vendors` identity model broken | CAP-034 / TER-1585 | 📋 **TRACKED** | CAP-034 in registry; Linear TER-1585 created |
+| Secondary brands per vendor — no commands/UI | CAP-035 / TER-1589 | 📋 **TRACKED** | CAP-035 in registry; Linear TER-1589 created; blocked by CAP-034 |
+| Media retention lifecycle (BE-013) | TER-1590 | 📋 **TRACKED** | Registry-recorded; Linear TER-1590 created |
+| Contact merge-candidate detection (BE-014) | TER-1591 | 📋 **TRACKED** | Registry-recorded; Linear TER-1591 created |
+
+### 3.2 Frontend / UI / UX
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| `OrdersView` `onCellCommit` bug | #291 | 🆕 **NEW-FILED** | Cell edit commits broken in orders grid |
+| `OperationsViews` 3058-line monolith | #303 | 🆕 **NEW-FILED** | Structural debt; no immediate user impact |
+| `queries.ts` 1680-line monolith | #304 | 🆕 **NEW-FILED** | Structural debt; tightly coupled |
+| No ESLint | #305 | 🆕 **NEW-FILED** | Code quality; see #22 audit tracker |
+| No Prettier | #306 | 🆕 **NEW-FILED** | Code style consistency |
+| Design system fork (components diverging) | #321 | 🆕 **NEW-FILED** | Components diverging from design-system patterns |
+| `SalesView` focus trap (#323) | #323 | 🆕 **NEW-FILED** | A11y: keyboard users can get trapped |
+| Mobile contacts stub (no actions) | #324 | 🆕 **NEW-FILED** | Mobile surface gap |
+| `WorkspacePanel` span titles (a11y) | #325 | 🆕 **NEW-FILED** | Screen reader: panels need proper heading roles |
+| `ColumnsMenu` mouseLeave closes too early | #326 | 🆕 **NEW-FILED** | UX regression: column menu flickers closed |
+| Expansion panel blue highlighting | #327 | 🆕 **NEW-FILED** | Visual: incorrect color token on expansion |
+| Stale repo-root artifacts | #328 | 🆕 **NEW-FILED** | Cleanup: old files at repo root confuse agents |
+| Chrome-only Playwright tests | #319 | 🆕 **NEW-FILED** | Test coverage gap; Phase 7 browser matrix |
+| AG Grid test fragility | #320 | 🆕 **NEW-FILED** | Tests coupled to DOM internals |
+| System-wide inline table editing | #57 | 📋 **TRACKED** | Related to column system work |
+| 7 grids exceed 8-column rule (older filing) | #31 | 📋 **TRACKED** | Root issue; #322 was closed as duplicate |
+| Grid 8-column audit (our filing, closed) | #322 | 🔁 **DUPLICATE** | Closed — superseded by #31 |
+| UX/A11y: focus traps, hidden views | #21 | 📋 **TRACKED** | Root a11y issue; #323 is a specific instance |
+| Credit Engine missing operator surfaces | #114 | 📋 **TRACKED** | 7 admin commands need UI; audit confirmed |
+| Focus traps → Phase 7 a11y | #323 | ⚠️ **PHASE-7** | Also filed as #323; Phase 7 accessibility pass is the sweep |
+| WorkspacePanel headings → Phase 7 a11y | #325 | ⚠️ **PHASE-7** | Also filed as #325; Phase 7 accessibility pass |
+| ColumnsMenu keyboard close → Phase 7 | #326 | ⚠️ **PHASE-7** | Also filed as #326; Phase 7 keyboard sweep |
+| Keyboard shortcut help overlay | — | ⚠️ **PHASE-7** | Not yet filed; Phase 7 keyboard sweep will cover |
+| Vocabulary / domain wording pass | — | ⚠️ **PHASE-7** | Phase 7 vocabulary pass (CAP-028) |
+| EmptyState copy improvement | — | ⚠️ **PHASE-7** | Phase 7 vocabulary pass |
+| Column discipline with column groups | — | ⚠️ **PHASE-7** | Phase 7 performance/polish pass |
+| Chrome/Firefox/Safari browser matrix | #319 | ⚠️ **PHASE-7** | Phase 7 browser matrix for Playwright |
+
+### 3.3 Dashboard & Reports
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| Dashboard cash KPI (all-time gross vs. position) | TER-1572 / PR #343 | ✅ **IN-FLIGHT** | Phase 6 Dashboard Today Focus. Hold until #343 lands. |
+| Revenue report missing | TER-1573 / PR #343 | ✅ **IN-FLIGHT** | Phase 6. |
+| Aging inventory report missing | TER-1573 / PR #343 | ✅ **IN-FLIGHT** | Phase 6. |
+| Payables / Cash Movement / Vendor Performance | TER-1574 / PR #343 | ✅ **IN-FLIGHT** | Phase 6. |
+| Category Analytics + Client Sales History | TER-1575 / PR #343 | ✅ **IN-FLIGHT** | Phase 6. |
+| Source-row drilldown linkage | TER-1576 / PR #343 | ✅ **IN-FLIGHT** | Phase 6. |
+| CSV export headers | TER-1577 / PR #343 | ✅ **IN-FLIGHT** | Phase 6. |
+| Bucket summary widget (payments by location_bucket) | — | 🎯 **NEEDS-CAPTURE** | Backend has location_bucket data; no aggregation widget. File as Linear issue under CAP-021 after Phase 6 lands. |
+| Credit watch mini-grid on dashboard | — | 🎯 **NEEDS-CAPTURE** | `customerCreditAssessments` already computed. Wire after Phase 6 lands. File Linear issue. |
+| Invoice aging / days-past-due column on Clients grid | — | 🎯 **NEEDS-CAPTURE** | Data available; no column. Can add without new CAP — extends CAP-021. File GH issue. |
+| Days-to-pay column on Clients grid | — | 🎯 **NEEDS-CAPTURE** | Derived from payment history; no column. File GH issue. |
+| Sales Manager Dashboard (pipeline + performance) | — | 🗂️ **BACKLOG** | Differentiating; needs new CAP row (CAP-036 proposed). Linear issue after registry. |
+
+### 3.4 Mobile
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| Pick tab missing from mobile nav | — | ✅ **IN-FLIGHT** | `feat/mobile-entry-points` — PickView exists at /pick; just needs nav entry |
+| Wire mobile inventory stub buttons (Adjust qty, Mark needs review) | — | ✅ **IN-FLIGHT** | Commands exist; wiring in `feat/mobile-entry-points` scope |
+| Mobile receiving view | — | ✅ **IN-FLIGHT** | Basic version in `feat/mobile-entry-points` scope |
+| Mobile contacts stub (no actions) | #324 | 🆕 **NEW-FILED** | Coordinate with `feat/mobile-entry-points` before fixing |
+| "Mark Fulfilled" CTA in PickListScreen | — | 🎯 **NEEDS-CAPTURE** | After all lines packed, no CTA to mark fulfilled. File GH issue. No conflict with in-flight. |
+| Auto-advance pick line after recordWeighAndPack | — | 🎯 **NEEDS-CAPTURE** | UX gap in pick flow. File GH issue. |
+| Fix pick line weight guard (server requires >0, UI sends optional) | — | 🎯 **NEEDS-CAPTURE** | Bug: server rejects, UI allows empty. File GH issue. |
+| Wire alert interrupt in PickView (activeInterrupt never set) | — | 🎯 **NEEDS-CAPTURE** | Feature gap. File GH issue. |
+| Offline pick mode | — | 🗂️ **BACKLOG** | Major capability; needs CAP row before any work |
+| Driver manifest | — | 🗂️ **BACKLOG** | Differentiating; needs CAP row |
+| Barcode scanning continuous loop | — | 🗂️ **BACKLOG** | Differentiating; needs CAP row |
+
+### 3.5 Sale Builder / Suggestion / Pricing UX
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| Pricing strategy selector in Sale Builder | — | ✅ **IN-FLIGHT** | CAP-030 (feat/cap-030-live-wire) will make customer-rule/premium/clearance reachable |
+| `applyEarlyPayDiscount` UI button (backend complete) | — | 🎯 **NEEDS-CAPTURE** | Command done; palette-only. Wire to UI. No new CAP needed (CMD-PAYMENTS). File GH issue. |
+| `applyClientCredit` UI button (backend complete, manager-role) | TER-1584 | ✅ **IN-FLIGHT** | feat/ter-1584-role-gate-financial-metrics handles role gate; UI wiring after that lands |
+| Customer intel card in Sale Builder | — | 🎯 **NEEDS-CAPTURE** | workspace.data.invoices/payments already fetched. Wire intel card. No new CAP needed (CAP-001). File GH issue. |
+| Replace customer `<select>` with typeahead combobox | — | 🎯 **NEEDS-CAPTURE** | UX improvement; uses existing data. No new CAP. File GH issue. |
+| Expose suggestion filters (agingOnly, category, priceBracket) | — | 🎯 **NEEDS-CAPTURE** | Already in query schema. No new CAP needed (CAP-016). File GH issue. |
+| "Repeat last order" button promotion | — | 🎯 **NEEDS-CAPTURE** | recentCustomerSheets[0] already loaded. No new CAP needed (CAP-001). File GH issue. |
+| `applyEarlyPayDiscount` guard for nextTotal < amountPaid | #248 (referenced) | 📋 **TRACKED** | Already in #248 |
+| Release-for-picking from Sales View | — | 🎯 **NEEDS-CAPTURE** | releaseLineForPicking / releaseLinesForPicking in pendingFrontendCommandNames. File GH issue. |
+| Customer Intelligence Platform (purchase affinity, cadence, profile) | — | 🗂️ **BACKLOG** | Major differentiating capability; needs new CAP row (CAP-037 proposed) |
+| Real Suggestion Scoring (weighted relevance model) | — | 🗂️ **BACKLOG** | Major backend change to CAP-016; needs registry update + Linear issue |
+| Quick Order Mode for repeat customers | — | 🗂️ **BACKLOG** | Needs new CAP row (CAP-038 proposed) |
+
+### 3.6 Grid / Filter / Column UX
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| Filter presets for Orders, Inventory, Payments, Fulfillment grids | — | 🎯 **NEEDS-CAPTURE** | CAP-031 covers saved filters for InventoryFinderPanel; other grids need equivalent. File GH issue per grid or one omnibus. |
+| ClipboardModule for paste-from-Excel into grids | — | 🎯 **NEEDS-CAPTURE** | AG Grid Enterprise ClipboardModule unused. No new CAP — extends core_workflow. File GH issue. |
+| Right-click context menus (getContextMenuItems) | — | 🎯 **NEEDS-CAPTURE** | AG Grid Enterprise feature unused. No new CAP. File GH issue. |
+| Unapplied amount column in Transaction Ledger | — | 🎯 **NEEDS-CAPTURE** | Derived from existing data. No new CAP. File GH issue. |
+| Column discipline with column groups | — | ⚠️ **PHASE-7** | AG Grid Enterprise columnGroupShow. Phase 7 polish pass. |
+| 7 grids exceed 8-column rule | #31 | 📋 **TRACKED** | Root issue; Phase 7 scope. |
+
+### 3.7 Payments / Ledger
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| `logPayment` shares `commandId` (idempotency gap) | #295 | 🆕 **NEW-FILED** | Cross-ref #12 |
+| `payment_allocations` no `amount > 0` constraint | #298 | 🆕 **NEW-FILED** | Data integrity |
+| `applyEarlyPayDiscount` guard (nextTotal < amountPaid) | #248 (referenced) | 📋 **TRACKED** | Already in #248 |
+| Unapplied amount column in Transaction Ledger | — | 🎯 **NEEDS-CAPTURE** | See 3.6 above |
+
+### 3.8 Fulfillment
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| Release-for-picking from Sales View | — | 🎯 **NEEDS-CAPTURE** | pendingFrontendCommandNames includes releaseLineForPicking |
+| "Mark Fulfilled" CTA after all lines packed | — | 🎯 **NEEDS-CAPTURE** | Mobile PickListScreen gap |
+| Auto-advance pick line after pack | — | 🎯 **NEEDS-CAPTURE** | Mobile pick UX gap |
+| Pick line weight guard bug | — | 🎯 **NEEDS-CAPTURE** | Server/UI contract mismatch |
+| Wire alert interrupt in PickView | — | 🎯 **NEEDS-CAPTURE** | activeInterrupt never set |
+
+### 3.9 Observability / Security / Ops
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| No structured logging | #316 | 🆕 **NEW-FILED** | See #19 |
+| No error tracking (Sentry) | #317 | 🆕 **NEW-FILED** | See #19 |
+| `unsafe-inline` CSP | #314 | 🆕 **NEW-FILED** | Security |
+| In-memory rate limiter | #313 | 🆕 **NEW-FILED** | See #12 |
+| No HEALTHCHECK in Dockerfile | — | 📋 **TRACKED** | Covered by #19 |
+| Journal on /tmp, no volume | #312, #311 | 🆕 **NEW-FILED** | #311 media volume; #312 journal path; both cross-ref #19 |
+
+### 3.10 Matchmaking / Broker
+
+| Finding | GH/Linear # | Disposition | Notes |
+|---|---|---|---|
+| Broker/Referee Management Module | — | 🗂️ **BACKLOG** | Major differentiating capability; needs new CAP row (CAP-039 proposed) |
+
+---
+
+## Section 4: Cross-References Needed
+
+For each of our new GH issues that relates to an older existing issue, add a cross-reference comment. These are the `gh issue comment` commands to run:
+
+```bash
+# #309 (queries.reference 15 queries on every mount) ↔ #274 (PoLinkedIntakeTab fetch perf)
+gh issue comment 309 --body "Related to #274 (PoLinkedIntakeTab excessive fetch). Both stem from the same root: queries.reference fires on every mount regardless of consumer. Fix both together or note the dependency."
+
+# #288 (websocket health probe) ↔ #139 (audit/socket failures)
+gh issue comment 288 --body "Related to #139 (audit/socket failures). The missing heartbeat endpoint means socket failures are silent — health probe is a prerequisite for detecting the failures tracked in #139."
+
+# #287 (cancelSalesOrder reservedQty) ↔ #257 (postSalesOrder reversal data gaps)
+gh issue comment 287 --body "Related to #257 (postSalesOrder reversal data gaps). Both are command-side cleanup gaps: #257 covers post-reversal, this issue covers cancel path. Fix the same reservation-clearing pattern."
+gh issue comment 257 --body "See also #287 (cancelSalesOrder doesn't clear reservedQty). Same class of problem: command doesn't fully clean up inventory reservation state. Consider fixing together."
+
+# #292 (NOT VALID constraints) ↔ #17 (migrations non-atomic)
+gh issue comment 292 --body "Subset of #17 (migrations non-atomic + schema drift). NOT VALID constraints that were never validated are a direct symptom of the non-atomic migration pattern. Track remediation in #17."
+
+# #293 (bare UUID FKs in customers) ↔ #17
+gh issue comment 293 --body "Subset of #17 (migrations non-atomic + schema/index drift). Bare UUID foreign keys without indexes/constraints are part of the schema drift documented in #17."
+
+# #294 (commandJournal.reversedByCommandId bare UUID) ↔ #17
+gh issue comment 294 --body "Subset of #17 (migrations non-atomic + schema drift). Missing FK constraint on commandJournal.reversedByCommandId is schema drift; remediation belongs in #17's migration clean-up track."
+
+# #296 (contacts.email missing index) ↔ #17
+gh issue comment 296 --body "Subset of #17 (migrations/index drift). contacts.email is a frequent lookup field with no index — classic index drift. Track with #17's index remediation."
+
+# #313 (in-memory rate limiter) ↔ #12 (command journal & idempotency)
+gh issue comment 313 --body "Related to #12 (command journal & idempotency integrity). An in-memory rate limiter that doesn't survive process restarts or scale horizontally undermines the same idempotency guarantees #12 tracks."
+
+# #316 (no structured logging) ↔ #19 (journal on /tmp, no HEALTHCHECK)
+gh issue comment 316 --body "Related to #19 (journal on /tmp, no HEALTHCHECK). Structured logging is a prerequisite for operationalizing the observability gaps documented in #19."
+
+# #317 (no error tracking) ↔ #19
+gh issue comment 317 --body "Related to #19 (journal on /tmp, no HEALTHCHECK). Error tracking (Sentry or equivalent) is the other half of the observability gap alongside structured logging. Both belong to the #19 remediation track."
+
+# #305 (no ESLint) ↔ #22 (audit tracker)
+gh issue comment 305 --body "Related to #22 (audit tracker). ESLint is listed as a tooling gap in the broader audit. Adding ESLint is a prerequisite for several lint-gated quality gates."
+
+# #290 (migration 0052 collision) ↔ #17 (migrations non-atomic)
+gh issue comment 290 --body "Direct instance of #17 (migrations non-atomic + schema drift). Migration 0052 collision is exactly the class of problem #17 tracks. Remediation should follow the non-atomic migration fix plan."
+
+# #295 (logPayment shares commandId) ↔ #12
+gh issue comment 295 --body "Related to #12 (command journal & idempotency integrity). logPayment sharing commandId across allocations breaks idempotency guarantees. Fix in the #12 remediation track."
+
+# #311 + #312 (volume / journal path) ↔ #19
+gh issue comment 311 --body "Subset of #19 (journal on /tmp, no HEALTHCHECK). Media volume not mounted in Dockerfile means media is lost on container restart — same class as the /tmp journal issue."
+gh issue comment 312 --body "Direct instance of #19 (journal on /tmp). Staging command journal in /tmp loses data on restart. Fix in the #19 remediation track."
+```
+
+---
+
+## Section 5: New Capabilities Needing CAP Registry Row
+
+These features from the audit are differentiating enough to warrant a formal CAP row. None are currently in the registry and none are covered by Phase 6/7 scope. **Work cannot start until a registry row exists.**
+
+| Feature | Proposed CAP-ID | Work Loop | Exposure | Decision Status | Why Not an Existing CAP |
+|---|---|---|---|---|---|
+| Sales Manager Dashboard (pipeline + performance view, rep metrics, commission visibility) | CAP-036 | Decide | projection | Needs Assessment | CAP-021 covers Reports lane (owner-facing), not a sales-manager pipeline view. Distinct persona, distinct data model. |
+| Customer Intelligence Platform (purchase affinity, cadence, churn risk, profile enrichment) | CAP-037 | Sell, Decide | context, projection | Needs Assessment | CAP-016 is smart suggestions (point-of-sale); this is a persistent customer intelligence layer across time. Different scope and data lifecycle. |
+| Quick Order Mode (repeat-customer fast path with history-prefilled order) | CAP-038 | Sell | core_workflow | Needs Assessment | CAP-001 covers New Sale start; Quick Order Mode is a distinct UX path with auto-fill from history. Not a refine of CAP-001 — a parallel entry point with different affordances. |
+| Broker/Referee Management Module (counterparty intermediary tracking, split commissions, referee-of-record) | CAP-039 | Sell, Buy, Collect/Pay | core_workflow, control | Needs Assessment | CMD-CONNECTOR covers connector review; referees/brokers are a distinct relationship model not reducible to connector workflow. |
+| Offline Pick Mode (local-first pick list with sync-on-reconnect) | CAP-040 | Fulfill | core_workflow | Needs Assessment | CMD-FULFILLMENT covers online fulfillment; offline mode requires a local-first architecture and conflict-resolution strategy that is a separate capability class. |
+| Driver Manifest (delivery route + proof-of-delivery tracking) | CAP-041 | Fulfill | projection, control | Needs Assessment | CMD-FULFILLMENT covers packing; delivery tracking and manifest generation are post-pack, driver-facing, and require a new data surface. |
+| Barcode Scanning Continuous Loop (scan-to-pack, scan-to-receive, hardware peripheral integration) | CAP-042 | Receive, Fulfill | core_workflow | Needs Assessment | CMD-INTAKE covers receive; CMD-FULFILLMENT covers pack. Hardware peripheral integration and continuous-scan UX is a new capability layer across multiple loops — not an extension of existing commands. |
+
+**Protocol for each:**
+1. Add a registry row to `docs/product/capability-registry.md` with the proposed CAP-ID.
+2. Set Product decision to "Needs Assessment" until Evan approves Keep/Defer/Reject.
+3. Create a Linear issue under project TERP Operator with the CAP-ID in the title.
+4. Only then begin any design or implementation work.
+
+---
+
+## Section 6: Quick Wins Ready To Build
+
+These features have existing CAP/CMD coverage (or are obvious UX fixes), have no in-flight conflict, can be built without new registry rows, and are actionable immediately. Sorted by estimated effort (S = <1 day, M = 1-3 days, L = 3-5 days).
+
+| Quick Win | CAP/CMD Coverage | Effort | Status |
+|---|---|---|---|
+| Fix pick line weight guard (server requires >0, UI sends optional) | CMD-FULFILLMENT | S | NEEDS-GH-ISSUE |
+| Wire alert interrupt in PickView (activeInterrupt never set) | CMD-FULFILLMENT | S | NEEDS-GH-ISSUE |
+| Auto-advance pick line after recordWeighAndPack | CMD-FULFILLMENT | S | NEEDS-GH-ISSUE |
+| `applyEarlyPayDiscount` UI button (backend complete, palette-only) | CMD-PAYMENTS | S | NEEDS-GH-ISSUE |
+| "Mark Fulfilled" CTA in PickListScreen after all lines packed | CMD-FULFILLMENT | S | NEEDS-GH-ISSUE |
+| Customer intel card in Sale Builder (invoices/payments already fetched) | CAP-001 | S | NEEDS-GH-ISSUE |
+| Unapplied amount column in Transaction Ledger | CAP-004 / CMD-PAYMENTS | S | NEEDS-GH-ISSUE |
+| Invoice aging / days-past-due column on Clients grid | CAP-021 | S | NEEDS-GH-ISSUE — after Phase 6 lands |
+| Days-to-pay column on Clients grid | CAP-021 | S | NEEDS-GH-ISSUE — after Phase 6 lands |
+| "Repeat last order" button promotion (recentCustomerSheets[0] loaded) | CAP-001 | S | NEEDS-GH-ISSUE |
+| Release-for-picking from Sales View (releaseLineForPicking exists in pendingFrontendCommandNames) | CMD-FULFILLMENT | S | NEEDS-GH-ISSUE |
+| Expose suggestion filters (agingOnly, category, priceBracket already in query schema) | CAP-016 | S | NEEDS-GH-ISSUE |
+| Replace customer `<select>` with typeahead combobox | CAP-001 | M | NEEDS-GH-ISSUE |
+| Filter presets for Orders, Payments, Fulfillment grids (CAP-031 model) | CAP-031 | M | NEEDS-GH-ISSUE |
+| Right-click context menus in AG Grid (getContextMenuItems, Enterprise) | CAP-001 / CAP-005 | M | NEEDS-GH-ISSUE |
+| ClipboardModule for paste-from-Excel into grids | CAP-001 / CMD-INTAKE | M | NEEDS-GH-ISSUE |
+| Bucket summary widget (aggregate payments by location_bucket) | CAP-021 | M | NEEDS-GH-ISSUE — after Phase 6 lands |
+| Credit watch mini-grid on dashboard (customerCreditAssessments computed) | CAP-032 | M | NEEDS-GH-ISSUE — after Phase 6 lands |
+| `applyClientCredit` UI button (backend complete, manager-role) | CMD-POSTING | M | IN-FLIGHT — after TER-1584 role gate lands |
+
+**Filing priority for the NEEDS-GH-ISSUE items:** File the S-effort picks first (highest ROI per hour). Do not file dashboard items (bucket summary, credit watch, aging columns) until PR #343 Phase 6 has landed.
+
+---
+
+## Section 7: GH Issues Needing Sprint Triage
+
+All newly-filed issues #286–#329 (excluding closed #307, #322), organized by urgency.
+
+### P0 — Breaking users now, fix this week
+
+| Issue | Title | Why P0 |
+|---|---|---|
+| #286 | `btn-secondary` missing style | Visual regression — affects all secondary actions throughout the UI |
+| #287 | `cancelSalesOrder` doesn't clear `reservedQty` | Data integrity: inventory stays locked after cancel, causing fulfillment conflicts |
+| #291 | `OrdersView` `onCellCommit` bug | Cell editing broken — core workflow impact |
+| #289 | Float equality in `processorCommands` | Precision bug in payment processing — financial data integrity |
+| #295 | `logPayment` shares `commandId` | Idempotency: duplicate payment risk |
+| #298 | `payment_allocations` no `amount > 0` check | Data integrity: zero/negative allocations can be inserted |
+
+### P1 — High impact, do in current or next sprint
+
+| Issue | Title | Why P1 |
+|---|---|---|
+| #288 | WebSocket health probe missing | Silent socket failures; operators see stale data with no indication |
+| #290 | Migration 0052 collision risk | Schema risk: non-atomic migration can leave DB in inconsistent state |
+| #292 | `NOT VALID` constraints | Schema integrity: constraints never validated — data violations possible |
+| #293 | `customers` bare UUID FKs | Missing indexes: customer lookups can table-scan at scale |
+| #294 | `commandJournal.reversedByCommandId` bare UUID | Data integrity: no FK means orphan references possible |
+| #296 | `contacts.email` missing index | Performance: email lookup is frequent (login, search) |
+| #297 | `ON DELETE SET NULL` on vendor/customer FKs | Silent data corruption: deleting a vendor silently nulls all related rows |
+| #299 | Migration 0054 row-by-row loop | Performance: N+1 in migration; can be very slow on real data volume |
+| #300 | `contactLedger` pagination stubbed | OOM risk: returns unlimited rows; large customers will crash the server |
+| #301 | `Tx = any` throughout server | Type safety gap hiding real bugs; high blast radius |
+| #302 | Per-command Zod validation missing | Security/integrity: commands accept malformed input silently |
+| #308 | Dockerfile `--frozen-lockfile=false` | CI reproducibility: builds can silently upgrade deps |
+| #314 | `unsafe-inline` CSP | Security: XSS amplification vector |
+| #315 | `SELECT *` in `contactProfile` | Security + performance: leaks new columns, over-fetches |
+| #329 | Socket.io no rooms | Privacy: all mutations broadcast to all sessions |
+
+### P2 — Structural debt, schedule within 3 sprints
+
+| Issue | Title | Why P2 |
+|---|---|---|
+| #303 | `OperationsViews` 3058-line monolith | Maintainability: high merge-conflict surface, hard to test |
+| #304 | `queries.ts` 1680-line monolith | Maintainability: any query change requires reading entire file |
+| #305 | No ESLint | Code quality: bugs and style drift go undetected |
+| #306 | No Prettier | Style consistency: diff noise and review friction |
+| #309 | `queries.reference` 15 queries on every mount | Performance: every view change fires 15 queries |
+| #310 | `snapshotByAffectedIds` 22 sequential queries | Performance: should be single `IN (...)` query |
+| #311 | Media volume not mounted in Dockerfile | Data loss: media lost on container restart |
+| #312 | Command journal on `/tmp` (staging) | Data loss: journal lost on staging restart |
+| #313 | In-memory rate limiter | Security/correctness: bypassed in multi-worker deployments |
+| #316 | No structured logging | Observability: unstructured logs unusable at scale |
+| #317 | No error tracking | Observability: runtime errors invisible |
+| #318 | 60% coverage floor | Test quality: too low to catch regressions |
+| #321 | Design system fork | Maintainability: components diverging from patterns |
+
+### P3 — Low urgency, schedule in Phase 7 or as available
+
+| Issue | Title | Why P3 |
+|---|---|---|
+| #319 | Chrome-only Playwright tests | Browser matrix: important for release but not blocking today |
+| #320 | AG Grid test fragility | Test quality: improves over time, not urgent |
+| #323 | `SalesView` focus trap | A11y: important for Phase 7 accessibility pass |
+| #324 | Mobile contacts stub | Mobile gap: coordinate with feat/mobile-entry-points |
+| #325 | `WorkspacePanel` span titles | A11y: Phase 7 accessibility pass |
+| #326 | `ColumnsMenu` mouseLeave | UX polish: Phase 7 keyboard sweep |
+| #327 | Expansion panel blue highlight | Visual polish: Phase 7 |
+| #328 | Stale repo-root artifacts | Cleanup: low urgency, no user impact |
+
+---
+
+## Section 8: Recommended Immediate Actions
+
+Execute these in order. Do not start on backlog or quick-win items before the P0 housekeeping is done.
+
+**1. Verify closed duplicates**
+Confirm that #307 and #322 are closed and that #308 and #31 are the canonical open issues.
+```bash
+gh issue view 307 --json state,title
+gh issue view 322 --json state,title
+gh issue view 308 --json state,title
+gh issue view 31 --json state,title
+```
+
+**2. Add cross-reference comments to related issues**
+Run all the `gh issue comment` commands from Section 4. This links the new issues to their root issues so future triagers see the full picture.
+
+**3. Triage P0 bugs into the current sprint**
+Pull #286, #287, #289, #291, #295, #298 into the current sprint in Linear (TER project). These are breaking users or financial data integrity issues.
+
+**4. Hold on all dashboard improvements until Phase 6 PR #343 lands**
+Do not file or start work on: bucket summary widget, credit watch mini-grid, invoice aging column, days-to-pay column. Phase 6 may resolve or alter the data contracts these depend on.
+
+**5. Hold on `applyClientCredit` UI wiring until TER-1584 role gate lands**
+The manager-role gate must be in place before the UI button is exposed.
+
+**6. Hold on any pricing/Sale Builder changes until CAP-030 (feat/cap-030-live-wire) lands**
+Pricing strategy selector, customer-rule resolution, and premium/clearance paths are all in-flight.
+
+**7. File the S-effort quick-win GH issues**
+Once P0 housekeeping is done, file GH issues for:
+- Fix pick line weight guard
+- Wire alert interrupt in PickView
+- Auto-advance pick line after recordWeighAndPack
+- `applyEarlyPayDiscount` UI button
+- "Mark Fulfilled" CTA in PickListScreen
+- Customer intel card in Sale Builder
+- "Repeat last order" button
+- Release-for-picking from Sales View
+- Expose suggestion filters
+- Unapplied amount column in Transaction Ledger
+
+**8. Add CAP registry rows for backlog items requiring assessment**
+For each item in Section 5, add a registry row with "Needs Assessment" decision and create a corresponding Linear issue. Do this before any design or implementation work begins.
+
+**9. Brief Phase 7 pre-work capture**
+Add the Phase 7 pre-work items from Section 9 to the Phase 7 Linear milestone so they are not forgotten when Phase 6 completes.
+
+**10. Schedule P2 structural debt items**
+After P0 is resolved, schedule #303, #304, #305, #306, #309, #310, #313, #316, #317, #318 across the next 2-3 sprints. These are foundational for long-term velocity.
+
+---
+
+## Section 9: Phase 7 Pre-Work
+
+These audit findings should be formally added as Phase 7 input items. Without explicit capture, they risk being dropped between Phase 6 completion and Phase 7 kickoff.
+
+| Pre-Work Item | Source | Phase 7 Sweep | GH/Linear |
+|---|---|---|---|
+| Keyboard shortcut help overlay | Audit unlock analysis | Keyboard sweep | Not yet filed — file before Phase 7 kickoff |
+| Focus trap in `SalesView` (#323) | A11y audit | Accessibility pass | #323 filed |
+| `WorkspacePanel` span/heading roles (#325) | A11y audit | Accessibility pass | #325 filed |
+| `ColumnsMenu` mouseLeave close regression (#326) | UX audit | Keyboard sweep | #326 filed |
+| Domain vocabulary pass (ERP wording audit) | Usability audit | Vocabulary pass (CAP-028) | Not yet filed — brief the Phase 7 vocabulary pass owner |
+| EmptyState copy improvement | Usability audit | Vocabulary pass | Not yet filed — add to Phase 7 vocabulary pass scope |
+| Column discipline with AG Grid column groups | Performance/polish audit | Performance/polish pass | Not yet filed — add to Phase 7 polish scope |
+| Chrome/Firefox/Safari browser matrix (#319) | Testing audit | Phase 7 drift-lock | #319 filed |
+| AG Grid test fragility (#320) | Testing audit | Phase 7 drift-lock | #320 filed |
+| Status must use shape + color (a11y) | A11y audit | Accessibility pass (CAP-006 R3, R11) | Not yet filed — add to Phase 7 a11y scope |
+| Seeded performance targets measurement | Performance audit | Performance pass | Not yet filed — add to Phase 7 perf pass scope |
+| Focus/drawer persistence (expand/minimize without losing place) | UX audit | Focus/drawer persistence sweep (CAP-007) | Partially tracked in #21 |
+
+**Before Phase 7 kickoff, create a Phase 7 Linear milestone and add all of the above as scoped issues.** Reference `docs/roadmap/phase-readiness/7.md` for the acceptance criteria each must satisfy.
+
+---
+
+## Appendix: Issue Number Reference
+
+For fast lookup — all issues referenced in this document:
+
+| # | Title | Status |
+|---|---|---|
+| #12 | Command journal & idempotency integrity | Open (root) |
+| #17 | Migrations non-atomic + schema/index drift | Open (root) |
+| #19 | Journal on /tmp, no HEALTHCHECK | Open (root) |
+| #21 | UX/A11y: focus traps, hidden views | Open (root) |
+| #22 | Audit tracker | Open |
+| #31 | 7 grids exceed 8-column rule | Open (root) |
+| #57 | System-wide inline table editing | Open |
+| #99 | globalSearch trigram GIN follow-up | Open |
+| #109 | archivePeriod architectural redesign | Open |
+| #114 | Credit Engine missing operator surfaces | Open |
+| #139 | Audit/socket failures | Open |
+| #248 | applyEarlyPayDiscount guard | Open |
+| #257 | postSalesOrder reversal data gaps | Open |
+| #258 | 23 reversible commands throw at runtime | Open |
+| #274 | PoLinkedIntakeTab fetch performance | Open |
+| #286 | btn-secondary missing style | Open (new) |
+| #287 | cancelSalesOrder reservedQty | Open (new) |
+| #288 | WebSocket health probe | Open (new) |
+| #289 | Float equality processorCommands | Open (new) |
+| #290 | Migration 0052 collision | Open (new) |
+| #291 | OrdersView onCellCommit bug | Open (new) |
+| #292 | NOT VALID constraints | Open (new) |
+| #293 | customers bare UUID FKs | Open (new) |
+| #294 | commandJournal reversedByCommandId bare UUID | Open (new) |
+| #295 | logPayment shares commandId | Open (new) |
+| #296 | contacts.email missing index | Open (new) |
+| #297 | ON DELETE SET NULL vendor/customer | Open (new) |
+| #298 | payment_allocations no amount>0 | Open (new) |
+| #299 | Migration 0054 row-by-row loop | Open (new) |
+| #300 | contactLedger pagination stubbed | Open (new) |
+| #301 | Tx=any | Open (new) |
+| #302 | Per-command Zod validation | Open (new) |
+| #303 | OperationsViews 3058 lines | Open (new) |
+| #304 | queries.ts 1680 lines | Open (new) |
+| #305 | No ESLint | Open (new) |
+| #306 | No Prettier | Open (new) |
+| #307 | Dockerfile frozen-lockfile (duplicate) | **Closed** |
+| #308 | Dockerfile frozen-lockfile (canonical) | Open (new) |
+| #309 | queries.reference 15 queries | Open (new) |
+| #310 | snapshotByAffectedIds 22 sequential | Open (new) |
+| #311 | Media volume not mounted | Open (new) |
+| #312 | Staging journal in /tmp | Open (new) |
+| #313 | In-memory rate limiter | Open (new) |
+| #314 | unsafe-inline CSP | Open (new) |
+| #315 | SELECT * contactProfile | Open (new) |
+| #316 | No structured logging | Open (new) |
+| #317 | No error tracking | Open (new) |
+| #318 | 60% coverage floor | Open (new) |
+| #319 | Chrome-only Playwright | Open (new) |
+| #320 | AG Grid test fragility | Open (new) |
+| #321 | Design system fork | Open (new) |
+| #322 | Grid 8-column audit (duplicate) | **Closed** |
+| #323 | SalesView focus trap | Open (new) |
+| #324 | Mobile contacts stub | Open (new) |
+| #325 | WorkspacePanel span titles | Open (new) |
+| #326 | ColumnsMenu mouseLeave | Open (new) |
+| #327 | Expansion panel blue | Open (new) |
+| #328 | Stale repo root artifacts | Open (new) |
+| #329 | Socket.io no rooms | Open (new) |
+| #332 | --frozen-lockfile=false in CI (older) | Open (superseded by #308) |
+
+---
+
+## Appendix B: Issues Filed After Initial Triage (2026-05-25 follow-up)
+
+### GH Issues #344–#361 — NEEDS-CAPTURE quick wins
+
+| GH # | Title | Priority | Category |
+|---|---|---|---|
+| #344 | PickLineScreen doesn't validate actualWeight before submit — server silently rejects | P1 | Pick flow bug |
+| #345 | Pick flow doesn't auto-advance to next line after recordWeighAndPack | P2 | Pick flow UX |
+| #346 | PickView warehouse alert interrupt (activeInterrupt) never activated | P1 | Pick flow bug |
+| #347 | PickListScreen has no "Complete Order" action after all lines packed | P1 | Pick flow UX |
+| #348 | applyEarlyPayDiscount has no UI button — palette-only daily accounting operation | P2 | Sale Builder UX |
+| #349 | Sale Builder customer panel discards open invoices and payment balance data | P2 | Sale Builder UX |
+| #350 | Customer selector is a flat dropdown — unusable with 200+ customers | P2 | Sale Builder UX |
+| #351 | Sales suggestion grid has no filter controls — filters exist in query schema | P2 | Sale Builder UX |
+| #352 | "Repeat last order" shortcut not surfaced — recentCustomerSheets[0] loaded but buried | P2 | Sale Builder UX |
+| #353 | releaseLineForPicking / releaseLinesForPicking have no UI button in SalesView | P1 | Fulfillment UX |
+| #354 | No filter presets on Orders, Payments, Inventory, Fulfillment grids | P2 | Grid UX |
+| #355 | AG Grid Enterprise ClipboardModule not enabled — no paste from Excel | P2 | Grid UX |
+| #356 | No right-click context menus on grid rows | P3 | Grid UX |
+| #357 | Transaction Ledger doesn't show unapplied_amount on posted rows | P2 | Payments UX |
+| #358 | No bucket summary panel — payments.location_bucket data never aggregated (HOLD: Phase 6) | P2 | Dashboard UX |
+| #359 | Credit watch watchlist missing from dashboard (HOLD: Phase 6) | P2 | Dashboard UX |
+| #360 | Clients grid missing invoice aging (days past due) column (HOLD: Phase 6) | P2 | Clients grid |
+| #361 | Clients grid missing average days-to-pay column (HOLD: Phase 6) | P2 | Clients grid |
+
+### Linear Issues TER-1592–TER-1598 — CAP-036 through CAP-042 Backlog
+
+| Linear # | Title | CAP ID | Decision |
+|---|---|---|---|
+| TER-1592 | CAP-036 Sales Manager Dashboard | CAP-036 | Needs Assessment |
+| TER-1593 | CAP-037 Customer Intelligence Platform | CAP-037 | Needs Assessment |
+| TER-1594 | CAP-038 Quick Order Mode | CAP-038 | Needs Assessment |
+| TER-1595 | CAP-039 Broker/Referee Management Module | CAP-039 | Needs Assessment |
+| TER-1596 | CAP-040 Offline Pick Mode | CAP-040 | Needs Assessment |
+| TER-1597 | CAP-041 Driver Manifest and Proof-of-Delivery | CAP-041 | Needs Assessment |
+| TER-1598 | CAP-042 Barcode Scanning Continuous Loop | CAP-042 | Needs Assessment |
+
+### Linear Issues TER-1579–TER-1583 — Phase 7 (already existed)
+
+| Linear # | Title | Phase 7 Sweep |
+|---|---|---|
+| TER-1579 | [Phase 7] CAP-028 Vocabulary sweep | Vocabulary pass |
+| TER-1580 | [Phase 7] CAP-006 Keyboard: focus traps ContextDrawer + RowCommandHistoryDrawer | Keyboard sweep |
+| TER-1581 | [Phase 7] CAP-006 Keyboard: focus traps 5 secondary drawers | Keyboard sweep |
+| TER-1582 | [Phase 7] CAP-006 Accessibility: ARIA roles, live regions, table scope | Accessibility pass |
+| TER-1583 | [Phase 7] CAP-006 Accessibility: KpiCard severity + StatusPill shape | Accessibility pass |
+
+### Capability Registry Update (committed 8be0e06)
+CAP-036 through CAP-042 added to docs/product/capability-registry.md.
+BE-012 through BE-014 already existed in registry with richer content than the audit draft.
+
