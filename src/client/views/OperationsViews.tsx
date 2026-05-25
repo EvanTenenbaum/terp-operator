@@ -1136,13 +1136,27 @@ export function PaymentsView() {
 function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow }) {
   const reference = trpc.queries.reference.useQuery();
   const allocations = trpc.queries.paymentAllocations.useQuery({ paymentId: selectedPayment?.id }, { enabled: Boolean(selectedPayment?.id) });
+  const me = trpc.auth.me.useQuery();
+  // CAP-004: preview impact for selected payment using existing paymentAllocationPreview query.
+  const blankCustomerId = '00000000-0000-0000-0000-000000000000';
+  const paymentAmount = Number(selectedPayment?.amount ?? 0);
+  const paymentCustomerId = selectedPayment?.customerId ? String(selectedPayment.customerId) : blankCustomerId;
+  const allocationPreview = trpc.queries.paymentAllocationPreview.useQuery(
+    { customerId: paymentCustomerId, amount: paymentAmount, allocationIntent: String(selectedPayment?.allocationIntent ?? 'fifo') },
+    { enabled: Boolean(selectedPayment?.id && selectedPayment?.customerId) }
+  );
   const { runCommand, isRunning } = useCommandRunner();
+  const canAllocate = me.data ? ['owner', 'manager'].includes(me.data.role) : false;
   const [allocationId, setAllocationId] = useState('');
   const [invoiceId, setInvoiceId] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
   const firstAllocation = allocations.data?.[0];
   const chosenAllocationId = allocationId || String(firstAllocation?.id ?? '');
   const invoices = (reference.data?.openInvoices ?? []).filter((invoice) => !selectedPayment?.customerId || invoice.customerId === selectedPayment.customerId);
+
+  // CAP-004: detect buyer credit (negative amount or explicit direction flag)
+  const isBuyerCredit = paymentAmount < 0 || selectedPayment?.direction === 'buyer_credit';
+  const preview = allocationPreview.data;
 
   return (
     <section className="inline-panel">
@@ -1152,11 +1166,29 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
           <p className="mt-1 text-xs text-zinc-600">Uses the selected payment row below.</p>
         </div>
         <span className="selection-pill">{allocations.data?.length ?? 0} allocation(s)</span>
+        {/* CAP-004: buyer credit badge */}
+        {isBuyerCredit ? (
+          <span className="selection-pill">Buyer Credit / Down Payment</span>
+        ) : null}
       </div>
+      {/* CAP-004: allocation impact preview */}
+      {preview && selectedPayment?.id ? (
+        <div className="mt-2 text-xs text-zinc-500">
+          {preview.kind === 'buyer_credit' ? (
+            <span>Buyer credit of ${moneyish(preview.unapplied)} recorded as unapplied credit available for future invoices.</span>
+          ) : preview.rows && preview.rows.length > 0 ? (
+            <span>Will apply ${moneyish(preview.rows[0]?.applied)} to invoice {String(preview.rows[0]?.invoiceNo ?? preview.rows[0]?.invoiceId ?? '—')}
+              {Number(preview.unapplied) > 0 ? ` · $${moneyish(preview.unapplied)} remains unapplied` : ''}.
+            </span>
+          ) : Number(preview.unapplied) > 0 ? (
+            <span>Overpayment of ${moneyish(preview.unapplied)} will be recorded as unapplied credit available for future invoices.</span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <label className="field-inline">
           Allocation
-          <select className="select" value={chosenAllocationId} onChange={(event) => setAllocationId(event.target.value)} disabled={!allocations.data?.length}>
+          <select className="select" value={chosenAllocationId} onChange={(event) => setAllocationId(event.target.value)} disabled={!allocations.data?.length || !canAllocate}>
             <option value="">Choose</option>
             {allocations.data?.map((row) => (
               <option key={String(row.id)} value={String(row.id)}>
@@ -1165,12 +1197,12 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
             ))}
           </select>
         </label>
-        <button className="secondary-button" type="button" disabled={!chosenAllocationId || isRunning} onClick={() => runCommand('unallocatePayment', { allocationId: chosenAllocationId }, 'Unallocate selected payment allocation')}>
+        <button className="secondary-button" type="button" disabled={!chosenAllocationId || isRunning || !canAllocate} onClick={() => runCommand('unallocatePayment', { allocationId: chosenAllocationId }, 'Unallocate selected payment allocation')}>
           Unallocate
         </button>
         <label className="field-inline">
           Invoice
-          <select className="select" value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)}>
+          <select className="select" value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)} disabled={!canAllocate}>
             <option value="">Choose invoice</option>
             {invoices.map((invoice) => (
               <option key={invoice.id} value={invoice.id}>
@@ -1181,12 +1213,16 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
         </label>
         <label className="field-inline">
           Discount
-          <input className="input compact" value={discountAmount} inputMode="decimal" onChange={(event) => setDiscountAmount(event.target.value)} />
+          <input className="input compact" value={discountAmount} inputMode="decimal" disabled={!canAllocate} onChange={(event) => setDiscountAmount(event.target.value)} />
         </label>
-        <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning} onClick={() => runCommand('applyEarlyPayDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply early-pay discount from payments surface')}>
+        <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning || !canAllocate} onClick={() => runCommand('applyEarlyPayDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply early-pay discount from payments surface')}>
           Early discount
         </button>
       </div>
+      {/* CAP-004: role-gate note for viewers */}
+      {!canAllocate ? (
+        <p className="text-xs text-zinc-400 mt-1">Manager or owner required to allocate payments.</p>
+      ) : null}
       <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
         <span className="selection-pill">Selected {selectedPayment ? String(selectedPayment.reference ?? selectedPayment.id) : 'none'}</span>
         <span className="selection-pill">Unapplied ${moneyish(selectedPayment?.unappliedAmount)}</span>

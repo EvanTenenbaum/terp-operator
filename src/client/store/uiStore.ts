@@ -3,6 +3,61 @@ import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
 import type { DrawerEntityRef, DrawerState, DrawerStateName, GridRow, QuickLaunchMode, RouteHistoryEntry, SettingsTab, ViewKey } from '../../shared/types';
 
+// CAP-024: Ledger draft shape — kept here so uiStore and QuickLedgerGrid share one definition.
+export type LedgerDirection = 'receiving' | 'paying';
+export type LedgerEntityType = 'customer' | 'vendor' | 'referee' | 'staff' | 'processor' | 'other';
+export type LedgerStatus = 'draft' | 'posted' | 'needs_fix';
+
+export interface LedgerDraft {
+  id: string;
+  date: string;
+  direction: LedgerDirection;
+  entityType: LedgerEntityType;
+  entityId: string;
+  entityName: string;
+  transactionType: string;
+  allocationTargetType: string;
+  allocationTargetId: string;
+  amount: string;
+  method: string;
+  bucket: string;
+  reference: string;
+  notes: string;
+  status: LedgerStatus;
+  issue?: string;
+  processorId?: string;
+  grossAmount?: string;
+  processingFeeTotal?: string;
+  userSplitPercent?: string;
+}
+
+function makeLedgerRow(direction: LedgerDirection): LedgerDraft {
+  const entityType: LedgerEntityType = direction === 'paying' ? 'vendor' : 'customer';
+  const transactionType = direction === 'paying' && entityType === 'vendor' ? 'vendor_product_payment' : direction === 'paying' ? 'other_payment' : entityType === 'customer' ? 'client_payment' : 'other_receipt';
+  const allocationTargetType = direction === 'paying' && entityType === 'vendor' ? 'po_fifo' : direction === 'receiving' && entityType === 'customer' ? 'fifo' : 'unapplied';
+  return {
+    id: crypto.randomUUID(),
+    date: new Date().toISOString().slice(0, 10),
+    direction,
+    entityType,
+    entityId: '',
+    entityName: '',
+    transactionType,
+    allocationTargetType,
+    allocationTargetId: '',
+    amount: '',
+    method: 'cash',
+    bucket: direction === 'paying' ? 'accounting' : 'cash-file-a',
+    reference: '',
+    notes: '',
+    status: 'draft',
+    processorId: '',
+    grossAmount: '',
+    processingFeeTotal: '',
+    userSplitPercent: ''
+  };
+}
+
 interface Toast {
   id: string;
   message: string;
@@ -103,6 +158,12 @@ interface UiState {
   pickQueueFilters: Set<string>;
   setPickQueueFilter: (chip: string, active: boolean) => void;
   clearPickQueueFilters: () => void;
+  // CAP-024: Ledger drafts lifted from QuickLedgerGrid local state so they
+  // survive route changes. NOT persisted (ephemeral session state).
+  ledgerDrafts: LedgerDraft[];
+  setLedgerDrafts: (drafts: LedgerDraft[]) => void;
+  upsertLedgerDraft: (draft: LedgerDraft) => void;
+  removeLedgerDraft: (id: string) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -134,6 +195,7 @@ export const useUiStore = create<UiState>()(
     salesSheetState: { orderId: null, sheetRows: [], sheetMode: 'internal', exportError: null },
     finderOpen: false,
     pickQueueFilters: new Set<string>(),
+    ledgerDrafts: [makeLedgerRow('receiving')],
     setActiveView: (view) =>
       set((state) => {
         if (state.activeView !== view) {
@@ -337,6 +399,7 @@ export const useUiStore = create<UiState>()(
         state.commandPaletteOpen = false;
         state.commandPaletteAdvancedOpen = false;
         state.pickQueueFilters = new Set();
+        state.ledgerDrafts = [makeLedgerRow('receiving')];
         state.announcement = 'Signed out.';
       }),
     setSalesSheetState: (patch) =>
@@ -355,7 +418,17 @@ export const useUiStore = create<UiState>()(
         state.pickQueueFilters = next;
       }),
     clearPickQueueFilters: () =>
-      set((state) => { state.pickQueueFilters = new Set(); })
+      set((state) => { state.pickQueueFilters = new Set(); }),
+    setLedgerDrafts: (drafts) =>
+      set((state) => { state.ledgerDrafts = drafts; }),
+    upsertLedgerDraft: (draft) =>
+      set((state) => {
+        const index = state.ledgerDrafts.findIndex((d) => d.id === draft.id);
+        if (index >= 0) state.ledgerDrafts[index] = draft;
+        else state.ledgerDrafts.unshift(draft);
+      }),
+    removeLedgerDraft: (id) =>
+      set((state) => { state.ledgerDrafts = state.ledgerDrafts.filter((d) => d.id !== id); })
   })),
   {
     // Persist key intentionally retains legacy 'terp-agro-ui' name (see PR #66)
