@@ -1,6 +1,8 @@
 import { RefreshCcw } from 'lucide-react';
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
+import { EmptyState } from '../components/EmptyState';
 import { KpiCard } from '../components/KpiCard';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { StatusPill } from '../components/StatusPill';
@@ -12,7 +14,7 @@ import type { GridRow, ViewKey } from '../../shared/types';
 
 export function DashboardView() {
   const setDrilldownMetric = useUiStore((state) => state.setDrilldownMetric);
-  const setActiveView = useUiStore((state) => state.setActiveView);
+  const navigate = useNavigate();
   const drilldownMetric = useUiStore((state) => state.drilldownMetric);
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 15_000 });
   const workQueue = trpc.queries.workQueue.useQuery(undefined, { refetchInterval: 15_000 });
@@ -70,6 +72,74 @@ export function DashboardView() {
           <KpiCard key={metric.key} metric={metric} onOpen={setDrilldownMetric} />
         ))}
       </div>
+
+      {/* ── Today Focus ─────────────────────────────────────────────────────── */}
+      <div aria-busy={workQueue.isLoading}>
+        <WorkspacePanel
+          panelId="dashboard:today-focus"
+          title="Today Focus"
+          subtitle="What needs your attention today"
+          headingLevel={2}
+          contentClassName="p-3"
+        >
+          <div aria-live="polite">
+            {/* Today's Top Decisions */}
+            <div className="mb-4">
+              <h3 className="mb-2 text-sm font-semibold text-ink">Today's Top Decisions</h3>
+              {rankedWorkRows.length === 0 && !workQueue.isLoading ? (
+                <EmptyState title="Nothing needs your attention right now." role="status" />
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {rankedWorkRows.slice(0, 3).map((item) => (
+                    <button
+                      key={String(item.id)}
+                      type="button"
+                      className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-50 focus:outline-none focus-visible:shadow-focus"
+                      onClick={() => item.route ? navigate('/' + item.route) : undefined}
+                    >
+                      <StatusPill status={String(item.lane ?? '')} />
+                      <span className="font-medium text-ink">{String(item.title ?? '')}</span>
+                      {item.detail ? (
+                        <span className="text-xs text-zinc-500">— {String(item.detail)}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* 5 KPI Tiles */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <TodayFocusTile
+                label="Cash Position"
+                value={dashboard.data?.metrics.find((m) => m.key === 'cash')?.value}
+                onClick={() => setDrilldownMetric('cash')}
+              />
+              <TodayFocusTile
+                label="What we owe vendors"
+                value={dashboard.data?.metrics.find((m) => m.key === 'payables')?.value}
+                onClick={() => setDrilldownMetric('payables')}
+              />
+              <TodayFocusTile
+                label="What clients owe"
+                value={dashboard.data?.metrics.find((m) => m.key === 'receivables')?.value}
+                onClick={() => setDrilldownMetric('receivables')}
+              />
+              <TodayFocusTile
+                label="Open Orders"
+                value={dashboard.data?.pendingQueues.find((q) => q.key === 'sales')?.count}
+                onClick={() => navigate('/sales')}
+              />
+              <TodayFocusTile
+                label="Intake ready"
+                value={dashboard.data?.pendingQueues.find((q) => q.key === 'intake')?.count}
+                onClick={() => navigate('/intake')}
+              />
+            </div>
+          </div>
+        </WorkspacePanel>
+      </div>
+      {/* ── End Today Focus ──────────────────────────────────────────────────── */}
+
       <WorkspacePanel panelId="dashboard:money-buckets" title="Money Buckets" headingLevel={2} contentClassName="p-3">
         <div className="definition-list">
           {(dashboard.data?.moneyBuckets ?? []).map((bucket) => (
@@ -92,7 +162,7 @@ export function DashboardView() {
         <WorkspacePanel panelId="dashboard:pending-work-queues" title="Pending work queues" headingLevel={2} contentClassName="p-3">
           <div className="grid gap-2">
             {(dashboard.data?.pendingQueues ?? []).map((queue) => (
-              <button key={queue.key} className="queue-row" type="button" onClick={() => setActiveView(queue.key as ViewKey)}>
+                <button key={queue.key} className="queue-row" type="button" onClick={() => navigate('/' + queue.key)}>
                 <span>{queue.label}</span>
                 <strong>{queue.count}</strong>
               </button>
@@ -128,7 +198,7 @@ export function DashboardView() {
             className="text-button"
             onClick={() => {
               const first = rankedWorkRows[0] as GridRow | undefined;
-              if (first?.route) setActiveView(first.route as ViewKey);
+              if (first?.route) navigate('/' + first.route);
             }}
           >
             Open top item
@@ -152,6 +222,34 @@ export function DashboardView() {
     </div>
   );
 }
+
+// ── Today Focus tile (TER-1572) ───────────────────────────────────────────
+// Wired tile showing live metric value from dashboard tRPC queries.
+// Shows "--" while loading or when data is unavailable.
+function TodayFocusTile({
+  label,
+  value,
+  onClick,
+}: {
+  label: string;
+  value?: string | number;
+  onClick?: () => void;
+}) {
+  return (
+    <div className="border border-line bg-white p-3">
+      <span className="text-xs font-semibold uppercase text-zinc-600">{label}</span>
+      <div className="mt-2 text-xl font-bold text-ink">{value ?? '--'}</div>
+      <button
+        type="button"
+        onClick={onClick}
+        className="mt-2 inline-flex items-center text-xs text-accent hover:underline focus:outline-none focus-visible:shadow-focus"
+      >
+        View
+      </button>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function workUrgencySort(a: GridRow, b: GridRow) {
   const score = urgencyScore(b) - urgencyScore(a);

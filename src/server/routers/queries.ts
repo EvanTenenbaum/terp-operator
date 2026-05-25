@@ -46,7 +46,7 @@ export const queriesRouter = router({
                          b.ownership_status as "ownershipStatus", b.price_range as "priceRange", b.tags, b.status,
                          b.legacy_marker as "legacyMarker", b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus",
                          b.created_at as "createdAt",
-                         floor(extract(epoch from (now() - b.created_at)) / 86400)::int as "ageDays"
+                         floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays"
                   from batches b
                   left join vendors v on v.id = b.vendor_id
                   left join items i on i.id = b.item_id
@@ -1005,7 +1005,7 @@ export const queriesRouter = router({
     if (input.priceBracket === 'under-25') where.push('b.unit_price < 25');
     if (input.priceBracket === '25-100') where.push('b.unit_price >= 25 and b.unit_price <= 100');
     if (input.priceBracket === '100-plus') where.push('b.unit_price > 100');
-    if (input.agingOnly) where.push("b.created_at < now() - interval '30 days'");
+    if (input.agingOnly) where.push("(b.intake_date < now() - interval '30 days' OR (b.intake_date IS NULL AND b.created_at < now() - interval '30 days'))");
     return (
       await pool.query(
         `select b.id, b.batch_code as "batchCode", b.name, b.category, v.name as vendor,
@@ -1841,7 +1841,7 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                      b.price_range as "priceRange",
                      b.tags, b.location, b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
                      b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus", b.status, b.lot_code as "lotCode", b.expiration_date as "expirationDate",
-                     floor(extract(epoch from (now() - b.created_at)) / 86400)::int as "ageDays"
+                     floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays"
               from batches b
               left join vendors v on v.id = b.vendor_id
               left join items i on i.id = b.item_id
@@ -1850,7 +1850,9 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
     case 'clients':
       return `select c.id, c.name, c.credit_limit as "creditLimit", c.balance, c.tags, c.notes,
                      c.contact_id AS "contactId",
-                     count(i.id)::int as "invoiceCount"
+                     c.credit_limit - c.balance as "headroom",
+                     count(i.id)::int as "invoiceCount",
+                     count(case when i.status in ('open','partial') then 1 end)::int as "openInvoiceCount"
               from customers c left join invoices i on i.customer_id = c.id
               group by c.id
               order by c.balance desc, c.name`;
@@ -1964,7 +1966,7 @@ export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     orders: ['id', 'orderNo', 'customer', 'status', 'total', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes', 'invoiceNo', 'invoiceStatus'],
     payments: ['id', 'customer', 'direction', 'category', 'method', 'amount', 'unappliedAmount', 'allocationIntent', 'impactPreview', 'reference', 'locationBucket', 'notes', 'status', 'createdAt'],
     inventory: ['id', 'batchCode', 'name', 'category', 'tags', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'priceRange', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
-    clients: ['id', 'name', 'creditLimit', 'balance', 'tags', 'notes', 'invoiceCount'],
+    clients: ['id', 'name', 'creditLimit', 'balance', 'headroom', 'tags', 'notes', 'invoiceCount', 'openInvoiceCount'],
     vendors: ['id', 'vendor', 'billNo', 'poNo', 'purchaseOrderId', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],
     connectors: ['id', 'source', 'requestType', 'customer', 'status', 'operatorNotes', 'createdAt'],
