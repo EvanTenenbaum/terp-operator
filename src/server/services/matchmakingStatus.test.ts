@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { reviewMatchmakingMatch, reopenMatchmakingMatch } from './commandBus';
+import { reviewMatchmakingMatch, reopenMatchmakingMatch, updateMatchmakingSettings, noteMatchmakingOutreach, dismissMatchmakingWorkQueueItem } from './commandBus';
 import type { Tx } from './commandBus';
 
 function makeTxWithMatchStatus(status: string | null): Tx {
@@ -157,5 +157,203 @@ describe('reopenMatchmakingMatch — reverse path (#81)', () => {
     // Exactly one set call — for the targeted match — no sibling sweep, no need/supply parent flip.
     expect(setCalls).toHaveLength(1);
     expect(setCalls[0].status).toBe('open');
+  });
+});
+
+// --- Helpers for matchmakingSettings tests ---
+
+function makeSettingsTx(existingRow?: Record<string, unknown>): Tx {
+  const setCalls: Array<Record<string, unknown>> = [];
+  const whereUpdate = vi.fn().mockResolvedValue(undefined);
+  const setFn = vi.fn().mockReturnValue({ where: whereUpdate });
+  const update = vi.fn().mockReturnValue({ set: setFn });
+
+  const insert = vi.fn().mockReturnValue({
+    values: vi.fn().mockResolvedValue(undefined),
+  });
+
+  const limitFn = vi.fn().mockResolvedValue(existingRow ? [existingRow] : []);
+  const fromFn = vi.fn().mockReturnValue({ limit: limitFn });
+  const select = vi.fn().mockReturnValue({ from: fromFn });
+
+  return { select, update, insert } as unknown as Tx;
+}
+
+describe('updateMatchmakingSettings', () => {
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const commandId = 'cmd-settings-1';
+
+  const existingSettings = {
+    id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    matchQualityFloor: 35,
+    workQueueThreshold: 75,
+    historyLookbackDays: 90,
+    repeatThreshold: 3,
+    gapFloorQty: 0,
+    showClientsColumn: false,
+    showVendorsColumn: false,
+    workQueueEnabled: true,
+  };
+
+  it('updates threshold settings when both are valid', async () => {
+    const tx = makeSettingsTx(existingSettings);
+    const result = await updateMatchmakingSettings(
+      tx,
+      { matchQualityFloor: 40, workQueueThreshold: 80 },
+      userId,
+      commandId
+    );
+    expect(result.ok).toBe(true);
+    expect(result.commandId).toBe(commandId);
+    expect(result.toast).toMatch(/updated/i);
+  });
+
+  it('rejects workQueueThreshold < matchQualityFloor', async () => {
+    const tx = makeSettingsTx(existingSettings);
+    await expect(
+      updateMatchmakingSettings(
+        tx,
+        { matchQualityFloor: 80, workQueueThreshold: 40 },
+        userId,
+        commandId
+      )
+    ).rejects.toThrow('Work queue threshold must be ≥ match quality floor');
+  });
+
+  it('inserts a new row when no existing settings row', async () => {
+    const tx = makeSettingsTx(undefined); // empty table
+    const result = await updateMatchmakingSettings(
+      tx,
+      { matchQualityFloor: 35, workQueueThreshold: 75 },
+      userId,
+      commandId
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('returns ok:true when only matchQualityFloor is updated', async () => {
+    const tx = makeSettingsTx(existingSettings);
+    const result = await updateMatchmakingSettings(
+      tx,
+      { matchQualityFloor: 40 },
+      userId,
+      commandId
+    );
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe('noteMatchmakingOutreach', () => {
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const commandId = 'cmd-outreach-1';
+  const entityId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+
+  it('returns ok:true for a valid customer outreach note', async () => {
+    const tx = {} as unknown as Tx;
+    const result = await noteMatchmakingOutreach(
+      tx,
+      { entityType: 'customer', entityId, context: 'cannabis-flowers', leg: 2 },
+      userId,
+      commandId
+    );
+    expect(result.ok).toBe(true);
+    expect(result.affectedIds).toContain(entityId);
+    expect(result.toast).toMatch(/outreach noted/i);
+  });
+
+  it('returns ok:true for a valid vendor outreach note', async () => {
+    const tx = {} as unknown as Tx;
+    const result = await noteMatchmakingOutreach(
+      tx,
+      { entityType: 'vendor', entityId, context: 'batch-abc123', leg: 3 },
+      userId,
+      commandId
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects invalid entityType', async () => {
+    const tx = {} as unknown as Tx;
+    await expect(
+      noteMatchmakingOutreach(
+        tx,
+        { entityType: 'other', entityId, context: 'cat', leg: 2 },
+        userId,
+        commandId
+      )
+    ).rejects.toThrow('entityType must be customer or vendor');
+  });
+
+  it('rejects invalid leg', async () => {
+    const tx = {} as unknown as Tx;
+    await expect(
+      noteMatchmakingOutreach(
+        tx,
+        { entityType: 'customer', entityId, context: 'cat', leg: 1 },
+        userId,
+        commandId
+      )
+    ).rejects.toThrow('leg must be 2 or 3');
+  });
+
+  it('rejects missing context', async () => {
+    const tx = {} as unknown as Tx;
+    await expect(
+      noteMatchmakingOutreach(
+        tx,
+        { entityType: 'customer', entityId, context: '', leg: 2 },
+        userId,
+        commandId
+      )
+    ).rejects.toThrow('context');
+  });
+});
+
+describe('dismissMatchmakingWorkQueueItem', () => {
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const commandId = 'cmd-dismiss-1';
+
+  it('dismisses a match item', async () => {
+    const tx = {} as unknown as Tx;
+    const result = await dismissMatchmakingWorkQueueItem(
+      tx,
+      { itemType: 'match', itemId: 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm' },
+      userId,
+      commandId
+    );
+    expect(result.ok).toBe(true);
+    expect(result.toast).toMatch(/30 days/i);
+  });
+
+  it('dismisses an opportunity item by delegating to outreach note logic', async () => {
+    const entityId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+    const tx = {} as unknown as Tx;
+    const result = await dismissMatchmakingWorkQueueItem(
+      tx,
+      {
+        itemType: 'opportunity',
+        itemId: 'opp-123',
+        entityType: 'customer',
+        entityId,
+        context: 'cannabis-flowers',
+        leg: 2,
+      },
+      userId,
+      commandId
+    );
+    expect(result.ok).toBe(true);
+    expect(result.affectedIds).toContain(entityId);
+  });
+
+  it('rejects invalid itemType', async () => {
+    const tx = {} as unknown as Tx;
+    await expect(
+      dismissMatchmakingWorkQueueItem(
+        tx,
+        { itemType: 'other', itemId: 'abc' },
+        userId,
+        commandId
+      )
+    ).rejects.toThrow('itemType must be match or opportunity');
   });
 });
