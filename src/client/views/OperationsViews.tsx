@@ -1146,7 +1146,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
     { enabled: Boolean(selectedPayment?.id && selectedPayment?.customerId) }
   );
   const { runCommand, isRunning } = useCommandRunner();
-  const canAllocate = me.data?.role !== 'viewer';
+  const canAllocate = me.data ? me.data.role !== 'viewer' : false;
   const [allocationId, setAllocationId] = useState('');
   const [invoiceId, setInvoiceId] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
@@ -1221,7 +1221,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
       </div>
       {/* CAP-004: role-gate note for viewers */}
       {!canAllocate ? (
-        <p className="text-xs text-zinc-400 mt-1">Manager or owner required to post ledger rows.</p>
+        <p className="text-xs text-zinc-400 mt-1">Manager or owner required to allocate payments.</p>
       ) : null}
       <div className="mt-3 grid gap-2 text-xs md:grid-cols-3">
         <span className="selection-pill">Selected {selectedPayment ? String(selectedPayment.reference ?? selectedPayment.id) : 'none'}</span>

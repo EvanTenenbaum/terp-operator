@@ -1,5 +1,5 @@
 import { Check, ChevronDown, ChevronRight, Plus, RotateCcw, SlidersHorizontal } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import type { LedgerDraft, LedgerDirection, LedgerEntityType } from '../store/uiStore';
@@ -104,10 +104,30 @@ export function QuickLedgerGrid() {
   const { runCommand, isRunning } = useCommandRunner();
   const [collapsed, setCollapsed] = useState<Record<LedgerDirection, boolean>>({ receiving: false, paying: false });
   // CAP-024: Drafts lifted to uiStore so they survive route changes.
-  const drafts = useUiStore((state) => state.ledgerDrafts);
+  const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
+  const ledgerDrafts = useUiStore((state) => state.ledgerDrafts);
   const setLedgerDrafts = useUiStore((state) => state.setLedgerDrafts);
+  const upsertLedgerDraft = useUiStore((state) => state.upsertLedgerDraft);
+  const removeLedgerDraft = useUiStore((state) => state.removeLedgerDraft);
+  // Alias for ergonomics inside this file — same reference.
+  const drafts = ledgerDrafts;
   // activeRowId remains local — it's ephemeral focus state, not worth persisting.
   const [activeRowId, setActiveRowId] = useState(drafts[0]?.id ?? '');
+
+  // Issue 2: when activeQuickLaunch switches to/from moneyOut, reset the sole
+  // pristine draft to the matching direction so the grid opens on the right side.
+  useEffect(() => {
+    const expectedDirection = activeQuickLaunch === 'moneyOut' ? 'paying' : 'receiving';
+    if (
+      ledgerDrafts.length === 1 &&
+      ledgerDrafts[0].direction !== expectedDirection &&
+      ledgerDrafts[0].amount === '' &&
+      ledgerDrafts[0].status === 'draft'
+    ) {
+      setLedgerDrafts([makeRow(expectedDirection)]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeQuickLaunch]);
   const [typeDrawerOpen, setTypeDrawerOpen] = useState(false);
   const [typeDraft, setTypeDraft] = useState<TypeDraft>(() => makeTypeDraft('paying'));
 
@@ -191,7 +211,10 @@ export function QuickLedgerGrid() {
     );
     if (result.ok) {
       const replacement = makeRow(row.direction);
-      setLedgerDrafts([replacement, ...drafts.filter((draft) => draft.id !== row.id)]);
+      // Issue 1: use atomic store actions so concurrent drafts added while the
+      // command was in-flight are not silently dropped by a stale `drafts` snapshot.
+      removeLedgerDraft(row.id);
+      upsertLedgerDraft(replacement);
       setActiveRowId(replacement.id);
       setCollapsed((current) => ({ ...current, [row.direction]: false }));
       return;
