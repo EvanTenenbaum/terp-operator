@@ -268,7 +268,7 @@ Find the `matchmakingBoard` query procedure (around line 50 in the queries route
 
 ```typescript
 matchmakingSettings: protectedProcedure.query(async () => {
-  const [row] = await pool.query(
+  const [row] = (await pool.query(
     `select
        match_quality_floor as "matchQualityFloor",
        work_queue_threshold as "workQueueThreshold",
@@ -280,7 +280,7 @@ matchmakingSettings: protectedProcedure.query(async () => {
        work_queue_enabled as "workQueueEnabled"
      from matchmaking_settings
      limit 1`
-  );
+  )).rows;
   // Safe fallback: return defaults if no row exists yet
   return row ?? {
     matchQualityFloor: 35,
@@ -1072,7 +1072,10 @@ export async function dismissMatchmakingWorkQueueItem(
   }
 
   if (itemType === 'opportunity' && payload.entityType && payload.entityId && payload.context) {
-    // Re-route to noteMatchmakingOutreach logic for opportunity items
+    // Re-route to noteMatchmakingOutreach logic for opportunity items.
+    // IMPORTANT: the command journal entry is written by the command bus with
+    // command_name = 'dismissMatchmakingWorkQueueItem'. The Leg 2/3 snooze queries
+    // in matchmakingOpportunities check BOTH command names, so this is safe.
     return noteMatchmakingOutreach(tx, {
       entityType: payload.entityType,
       entityId: payload.entityId,
@@ -1197,6 +1200,14 @@ matchmakingOpportunities: protectedProcedure.query(async () => {
          select 1 from already_matched am
          where am.customer_id = coalesce(pn.customer_id, ch.customer_id)
            and am.category = s.category
+       )
+       and not exists (
+         select 1 from command_journal cj
+         where cj.command_name in ('noteMatchmakingOutreach', 'dismissMatchmakingWorkQueueItem')
+           and cj.input_payload->>'entityType' = 'customer'
+           and (cj.input_payload->>'entityId')::uuid = coalesce(pn.customer_id, ch.customer_id)
+           and cj.input_payload->>'context' = s.category
+           and cj.created_at > now() - interval '30 days'
        )
      order by
        case when pn.customer_id is not null and ch.purchase_count >= $2 then 0
@@ -1800,6 +1811,11 @@ workQueue: protectedProcedure.query(async () => {
   const lookback = Number(settings?.historyLookbackDays ?? 90);
   const repeatThreshold = Number(settings?.repeatThreshold ?? 3);
 
+  // All values below come from the DB settings row (integer columns) and are cast+clamped
+  // before interpolation. Never interpolate user-supplied strings into SQL.
+  const wqThresholdSafe = Math.max(0, Math.min(100, Math.floor(wqThreshold)));
+  const lookbackSafe = Math.max(1, Math.floor(lookback));
+  const repeatThresholdSafe = Math.max(1, Math.floor(repeatThreshold));
   // Build the matchmaking UNION branches only when enabled
   const matchmakingUnion = wqEnabled ? `
     union all
@@ -1837,7 +1853,7 @@ workQueue: protectedProcedure.query(async () => {
     where v.id is not null
       and not exists (
         select 1 from command_journal cj
-        where cj.command_name = 'noteMatchmakingOutreach'
+        where cj.command_name in ('noteMatchmakingOutreach', 'dismissMatchmakingWorkQueueItem')
           and cj.input_payload->>'entityType' = 'vendor'
           and cj.input_payload->>'context' = g.category
           and cj.created_at > now() - interval '30 days'
