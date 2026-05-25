@@ -42,6 +42,7 @@ import {
   invoices,
   items,
   matchmakingMatches,
+  matchmakingSettings,
   paymentAllocations,
   paymentProcessors,
   payments,
