@@ -61,6 +61,7 @@ export function MatchmakingView() {
   const settings = trpc.queries.matchmakingSettings.useQuery();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+  const canManageSettings = me.data?.role === 'manager' || me.data?.role === 'owner';
   const s = settings.data ?? {
     matchQualityFloor: 35,
     workQueueThreshold: 75,
@@ -104,14 +105,29 @@ export function MatchmakingView() {
   const defaultCustomerId = customerId;
   const defaultVendorId = vendorId;
 
+  // C1: controlled state for number inputs — synced from server on load
+  const [localFloor, setLocalFloor] = useState(s.matchQualityFloor);
+  const [localThreshold, setLocalThreshold] = useState(s.workQueueThreshold);
+  const [localGapFloor, setLocalGapFloor] = useState(s.gapFloorQty);
+
+  useEffect(() => {
+    setLocalFloor(s.matchQualityFloor);
+    setLocalThreshold(s.workQueueThreshold);
+    setLocalGapFloor(s.gapFloorQty);
+  }, [s.matchQualityFloor, s.workQueueThreshold, s.gapFloorQty]);
+
   useEffect(() => {
     if (activeQuickLaunch === 'customerNeed') needProductRef.current?.focus();
     if (activeQuickLaunch === 'vendorSupply') supplyProductRef.current?.focus();
   }, [activeQuickLaunch]);
 
   async function updateSettings(patch: Record<string, unknown>) {
-    await runCommand('updateMatchmakingSettings', patch, 'Update matchmaking settings');
-    settings.refetch();
+    try {
+      await runCommand('updateMatchmakingSettings', patch, 'Update matchmaking settings');
+      settings.refetch();
+    } catch {
+      // error toast already handled by useCommandRunner
+    }
   }
 
   async function createNeed() {
@@ -250,20 +266,24 @@ export function MatchmakingView() {
             <label className="field-inline">
               Show matches scoring at least
               <input className="input compact" type="number" min={0} max={100}
-                disabled={!canWrite || isRunning} defaultValue={s.matchQualityFloor}
-                onBlur={(e) => updateSettings({ matchQualityFloor: Number(e.target.value) })} />
+                disabled={!canManageSettings || isRunning}
+                value={localFloor}
+                onChange={(e) => setLocalFloor(Number(e.target.value))}
+                onBlur={() => updateSettings({ matchQualityFloor: localFloor })} />
               pts
             </label>
             <label className="field-inline">
               Add to work queue at
               <input className="input compact" type="number" min={0} max={100}
-                disabled={!canWrite || isRunning} defaultValue={s.workQueueThreshold}
-                onBlur={(e) => updateSettings({ workQueueThreshold: Number(e.target.value) })} />
+                disabled={!canManageSettings || isRunning}
+                value={localThreshold}
+                onChange={(e) => setLocalThreshold(Number(e.target.value))}
+                onBlur={() => updateSettings({ workQueueThreshold: localThreshold })} />
               pts
             </label>
             <label className="field-inline">
               Look back
-              <select className="select compact" disabled={!canWrite || isRunning}
+              <select className="select compact" disabled={!canManageSettings || isRunning}
                 value={s.historyLookbackDays}
                 onChange={(e) => updateSettings({ historyLookbackDays: Number(e.target.value) })}>
                 <option value={30}>30 days</option>
@@ -274,7 +294,7 @@ export function MatchmakingView() {
             </label>
             <label className="field-inline">
               Flag as repeat after
-              <select className="select compact" disabled={!canWrite || isRunning}
+              <select className="select compact" disabled={!canManageSettings || isRunning}
                 value={s.repeatThreshold}
                 onChange={(e) => updateSettings({ repeatThreshold: Number(e.target.value) })}>
                 <option value={2}>2 purchases</option>
@@ -285,26 +305,28 @@ export function MatchmakingView() {
             <label className="field-inline">
               Flag gaps when on hand drops to
               <input className="input compact" type="number" min={0}
-                disabled={!canWrite || isRunning} defaultValue={s.gapFloorQty}
-                onBlur={(e) => updateSettings({ gapFloorQty: Number(e.target.value) })} />
+                disabled={!canManageSettings || isRunning}
+                value={localGapFloor}
+                onChange={(e) => setLocalGapFloor(Number(e.target.value))}
+                onBlur={() => updateSettings({ gapFloorQty: localGapFloor })} />
               units
             </label>
           </div>
           <div className="flex flex-wrap gap-4 text-sm">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="h-4 w-4" disabled={!canWrite || isRunning}
+              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
                 checked={s.showClientsColumn}
                 onChange={(e) => updateSettings({ showClientsColumn: e.target.checked })} />
               Show matchmaking signals in Clients grid
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="h-4 w-4" disabled={!canWrite || isRunning}
+              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
                 checked={s.showVendorsColumn}
                 onChange={(e) => updateSettings({ showVendorsColumn: e.target.checked })} />
               Show matchmaking signals in Vendors grid
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="h-4 w-4" disabled={!canWrite || isRunning}
+              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
                 checked={s.workQueueEnabled}
                 onChange={(e) => updateSettings({ workQueueEnabled: e.target.checked })} />
               Show matchmaking opportunities in work queue

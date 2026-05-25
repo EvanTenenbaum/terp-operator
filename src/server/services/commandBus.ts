@@ -4803,6 +4803,10 @@ export function assertValidSupplyStatusTransition(currentStatus: string, newStat
     open: ['held_for_match', 'closed'],
     held_for_match: ['open', 'closed'],
     closed: [],
+    // These states are set by the matchmaking match workflow, not by updateVendorSupply directly.
+    // Treat them as effectively terminal from this command's perspective.
+    accepted: [],
+    dismissed: [],
   };
   const allowed = validTransitions[currentStatus] ?? [];
   if (!allowed.includes(newStatus)) {
@@ -4870,8 +4874,9 @@ async function updateCustomerNeed(tx: Tx, payload: Payload, commandId: string): 
   const nextQtyMin = Number(values.qtyMin ?? current.qtyMin);
   const nextQtyMax = values.qtyMax == null ? null : Number(values.qtyMax);
   if (nextQtyMax != null && nextQtyMax < nextQtyMin) throw new Error('Need max quantity cannot be below min quantity.');
-  if (payload.status != null && String(payload.status) !== current.status) {
-    assertValidNeedStatusTransition(current.status, String(values.status ?? payload.status));
+  const normalizedNextNeed = values.status != null ? String(values.status) : null;
+  if (normalizedNextNeed != null && normalizedNextNeed !== current.status) {
+    assertValidNeedStatusTransition(current.status, normalizedNextNeed);
   }
   await tx.update(customerNeeds).set(values).where(eq(customerNeeds.id, needId));
   const matchIds = await rebuildMatchesForNeed(tx, needId);
@@ -4934,8 +4939,9 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
   if (payload.terms !== undefined) values.terms = stringValue(payload.terms) || null;
   if (payload.notes !== undefined) values.notes = stringValue(payload.notes) || null;
   if (payload.status !== undefined) values.status = statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open');
-  if (payload.status != null && String(payload.status) !== current.status) {
-    assertValidSupplyStatusTransition(current.status, String(values.status ?? payload.status));
+  const normalizedNextSupply = values.status != null ? String(values.status) : null;
+  if (normalizedNextSupply != null && normalizedNextSupply !== current.status) {
+    assertValidSupplyStatusTransition(current.status, normalizedNextSupply);
   }
   await tx.update(vendorSupply).set(values).where(eq(vendorSupply.id, supplyId));
   const matchIds = await rebuildMatchesForSupply(tx, supplyId);
@@ -4954,9 +4960,10 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
  * specific sibling re-evaluated must reopen it explicitly with another
  * `reopenMatchmakingMatch` call.
  *
- * The accepted-side parent flips on `customerNeeds.status = 'matched'` and
- * `vendorSupply.status = 'held_for_match'` are likewise NOT reverted here; those
- * are owned by the wider matchmaking workflow and not part of the reverse path.
+ * When reopened: if no other accepted match exists for the same customer need,
+ * the need's status reverts to 'open'. If no other accepted match exists for
+ * the same vendor supply, the supply's status reverts to 'open'. This cascade
+ * revert is intentional — the need/supply return to the pool for re-matching.
  */
 export async function updateMatchmakingSettings(
   tx: Tx,
