@@ -187,6 +187,8 @@ export const pendingFrontendCommandNames = [
   'completeAppointment',
   'updateVendor',
   'updateProcessor',
+  // Frontend dismiss button for work queue matchmaking items — wired in follow-up
+  'dismissMatchmakingWorkQueueItem',
 ] as const;
 
 
