@@ -89,14 +89,19 @@ export function MobileShell() {
           >
             {viewTitle}
           </span>
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-xl"
+          <a
+            href="/dashboard"
+            onClick={() => localStorage.setItem('terp-prefer-desktop', 'true')}
+            className="flex h-10 items-center gap-1 rounded-xl px-2 text-xs font-medium no-underline"
             style={{ color: 'var(--m-muted-2)' }}
-            aria-label="More options"
+            aria-label="Switch to desktop view"
           >
-            <span aria-hidden="true" className="text-lg leading-none">···</span>
-          </button>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+              <rect x="2" y="3" width="16" height="11" rx="1.5" />
+              <path d="M7 17h6M10 14v3" />
+            </svg>
+            <span>Desktop</span>
+          </a>
         </header>
 
         {/* Scrollable child route content */}

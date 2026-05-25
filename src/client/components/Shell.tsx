@@ -24,6 +24,7 @@ import {
   ScanSearch,
   ShoppingCart,
   Settings,
+  Smartphone,
   Users
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -162,6 +163,20 @@ export function SideNav({ user }: { user: SessionUser }) {
             </div>
           );
         })}
+      </div>
+      {/* Mobile view link */}
+      <div className="mt-auto border-t border-line pt-2">
+        <a
+          href="/mobile/dashboard"
+          className={clsx('nav-button', 'text-zinc-500 hover:text-accent')}
+          aria-label="Switch to mobile view"
+          title="Mobile view"
+        >
+          <Smartphone className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className={clsx('min-w-0 flex-1 truncate text-left text-xs', sideNavCollapsed && 'sr-only')}>
+            Mobile view
+          </span>
+        </a>
       </div>
     </nav>
   );
