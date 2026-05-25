@@ -760,6 +760,8 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return upsertTransactionType(tx, payload, commandId);
     case 'reverseCommandById':
       return reverseCommandById(tx, payload, commandId);
+    case 'documentCommandFailure':
+      return documentCommandFailure(tx, payload, commandId);
     case 'restoreFromBackupPoint':
       return restoreFromBackupPoint(tx, payload, commandId);
     case 'repriceOrder':
@@ -4666,6 +4668,29 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
     await enqueueCustomerRecompute(tx, cid, 'event:reverseSalesOrder', commandId);
   }
   return { ok: true, commandId, affectedIds: affected, toast: `Reversed ${original.commandName}.` };
+}
+
+async function documentCommandFailure(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const targetId = String(payload['commandId'] ?? '');
+  const reason = String(payload['reason'] ?? '').trim();
+  if (!targetId || !reason) {
+    return { ok: false, toast: 'Command ID and reason are required.', commandId, affectedIds: [] };
+  }
+  const result = await tx.execute(
+    sql`UPDATE command_journal
+        SET reason = ${reason}
+        WHERE id = ${targetId}::uuid
+          AND status = 'failed'`
+  );
+  if ((result.rowCount ?? 0) === 0) {
+    return { ok: false, toast: 'Command not found or not in failed state.', commandId, affectedIds: [targetId] };
+  }
+  return {
+    ok: true,
+    toast: 'Terminal reason documented.',
+    commandId,
+    affectedIds: [targetId]
+  };
 }
 
 async function restoreFromBackupPoint(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
