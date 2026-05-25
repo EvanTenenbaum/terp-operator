@@ -14,14 +14,23 @@ export function createApp(getIo: () => SocketServer) {
   const app = express();
 
   app.set('trust proxy', 1);
+  // GH #314: 'unsafe-inline' in scriptSrc is removed in production.
+  // In development, Vite HMR injects inline <script> tags, so 'unsafe-inline'
+  // is required for the local dev workflow to work. In production, all scripts
+  // are bundled and served as external files — 'unsafe-inline' is a genuine XSS
+  // risk there and must be omitted. A nonce-based approach could tighten this
+  // further for any runtime-injected scripts, but since TERP Operator serves a
+  // fully-bundled SPA with no server-side script injection, removing the
+  // directive in production is the correct first hardening step.
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for Vite HMR in dev
-          styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles
-          imgSrc: ["'self'", "data:", "blob:"], // Allow data URIs and blob URLs
+          // 'unsafe-inline' is dev-only: Vite HMR requires it; production bundles do not.
+          scriptSrc: isProd ? ["'self'"] : ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles (CSS-in-JS / Tailwind)
+          imgSrc: ["'self'", "data:", "blob:"], // Allow data URIs and blob URLs for images
           connectSrc: ["'self'", "ws:", "wss:"], // Allow WebSocket for Socket.io and Vite HMR
           fontSrc: ["'self'", "data:"],
           objectSrc: ["'none'"],
