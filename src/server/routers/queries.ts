@@ -99,12 +99,11 @@ export const queriesRouter = router({
   }),
   grid: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input, ctx }) => {
     const rows = (await pool.query(gridSql(input.view))).rows;
-    const canViewMargin = canRole(ctx.user.role, 'manager');
-    const canViewCost = canRole(ctx.user.role, 'manager');
-    if (input.view === 'sales' && !canViewMargin) {
+    const canViewSensitive = canRole(ctx.user.role, 'manager');
+    if (input.view === 'sales' && !canViewSensitive) {
       return rows.map((row) => ({ ...row, internalMargin: null, marginWaivedTotal: null }));
     }
-    if (input.view === 'inventory' && !canViewCost) {
+    if (input.view === 'inventory' && !canViewSensitive) {
       return rows.map((row) => ({ ...row, unitCost: null }));
     }
     return rows;
@@ -205,7 +204,11 @@ export const queriesRouter = router({
     ]);
     return { needs: needs.rows, supplies: supplies.rows, matches: matches.rows };
   }),
-  drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input }) => {
+  drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input, ctx }) => {
+    const sensitiveKeys = new Set(['cash', 'payables', 'receivables', 'inventory_value', 'debt_leader']);
+    if (sensitiveKeys.has(input.metricKey) && !canRole(ctx.user.role, 'manager')) {
+      return [];
+    }
     return (await pool.query(drilldownSql(input.metricKey))).rows;
   }),
   recoverySearch: protectedProcedure.input(z.object({ q: z.string().trim().max(200).default('') })).query(async ({ input, ctx }) => {

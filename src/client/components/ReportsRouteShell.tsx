@@ -36,9 +36,9 @@ export function ReportsRouteShell() {
   const setDrawerState = useUiStore((state) => state.setDrawerState);
   const sales = trpc.queries.grid.useQuery({ view: 'sales' });
   const inventory = trpc.queries.grid.useQuery({ view: 'inventory' });
-  const vendors = trpc.queries.grid.useQuery({ view: 'vendors' });
-  const payments = trpc.queries.grid.useQuery({ view: 'payments' });
-  const clients = trpc.queries.grid.useQuery({ view: 'clients' });
+  const vendors = trpc.queries.grid.useQuery({ view: 'vendors' }, { enabled: isManagerPlus });
+  const payments = trpc.queries.grid.useQuery({ view: 'payments' }, { enabled: isManagerPlus });
+  const clients = trpc.queries.grid.useQuery({ view: 'clients' }, { enabled: isManagerPlus });
   const title = `${activeReport} report`;
 
   const rows = useMemo(
