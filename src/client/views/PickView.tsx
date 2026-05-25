@@ -1,5 +1,4 @@
 // CAP-030 / TER-1513 — Mobile pick route (/pick)
-// Work-loop RBAC guard wired from TER-1503.
 import { useState } from 'react';
 import { trpc } from '../api/trpc';
 import { usePickWorkLoopGuard } from '../hooks/usePickWorkLoopGuard';
@@ -10,29 +9,50 @@ import type { PickQueueItem, PickLine, PickListWithLines, WarehouseAlertInterrup
 
 type Screen = 'queue' | 'list' | 'line';
 
-// Stub empty data — replace with trpc.queries.pickQueue.useQuery() when backend merges
-const STUB_QUEUE: PickQueueItem[] = [];
-const STUB_LIST: PickListWithLines | null = null;
-
 export function PickView() {
-  const me = trpc.auth.me.useQuery();
-  usePickWorkLoopGuard(me.data ?? null);
-
   const [screen, setScreen] = useState<Screen>('queue');
   const [selectedPickList, setSelectedPickList] = useState<PickQueueItem | null>(null);
   const [selectedLine, setSelectedLine] = useState<PickLine | null>(null);
   const [activeInterrupt, setActiveInterrupt] = useState<WarehouseAlertInterrupt | null>(null);
 
-  // TODO: replace with trpc.queries.pickQueue.useQuery() when CAP-030 backend merges (TER-1498)
-  const queueItems: PickQueueItem[] = STUB_QUEUE;
-  const queueLoading = false;
+  const me = trpc.auth.me.useQuery();
+  usePickWorkLoopGuard(me.data ?? null);
 
-  // TODO: replace with trpc.queries.pickListWithLines.useQuery({ pickListId: selectedPickList?.id }, { enabled: ... }) when backend merges
-  const pickList: PickListWithLines | null = STUB_LIST;
-  const pickListLoading = false;
+  const utils = trpc.useUtils();
+
+  const queueQuery = trpc.queries.pickQueue.useQuery(undefined, { refetchInterval: 30000 });
+  const queueItems = (queueQuery.data ?? []) as PickQueueItem[];
+  const queueLoading = queueQuery.isLoading;
+
+  const blankId = '00000000-0000-0000-0000-000000000000';
+  const pickListQuery = trpc.queries.pickListWithLines.useQuery(
+    { pickListId: selectedPickList?.id ?? blankId },
+    { enabled: Boolean(selectedPickList?.id), refetchInterval: 10000 }
+  );
+  const pickList: PickListWithLines | null = pickListQuery.data
+    ? {
+        pickListId: pickListQuery.data.header.id,
+        pickNo: pickListQuery.data.header.pickNo,
+        customer: pickListQuery.data.header.customer,
+        lines: pickListQuery.data.lines.map((l) => ({
+          id: l.id,
+          pickListId: selectedPickList?.id ?? '',
+          orderId: pickListQuery.data!.header.orderId,
+          itemName: l.displayName ?? l.itemName,
+          batchCode: l.batchCode,
+          expectedQty: l.expectedQty,
+          actualQty: l.actualQty ?? undefined,
+          actualWeight: undefined,
+          bagCode: l.bagCode ?? undefined,
+          status: (l.pickStatus ?? l.status) as PickLine['status'],
+          alertCount: Array.isArray(l.warehouseAlerts) ? l.warehouseAlerts.length : 0,
+        }))
+      }
+    : null;
+  const pickListLoading = pickListQuery.isLoading;
 
   function handleRefreshQueue() {
-    // TODO: call queryClient.invalidateQueries() or trpc.useUtils().queries.pickQueue.invalidate() when backend merges
+    void utils.queries.pickQueue.invalidate();
   }
 
   function handleSelectPickList(item: PickQueueItem) {
@@ -48,7 +68,7 @@ export function PickView() {
   function handleLinePicked() {
     setSelectedLine(null);
     setScreen('list');
-    // TODO: invalidate pickListWithLines query when backend merges
+    void utils.queries.pickListWithLines.invalidate({ pickListId: selectedPickList?.id ?? '' });
   }
 
   if (screen === 'line') {
