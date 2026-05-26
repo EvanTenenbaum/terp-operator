@@ -334,28 +334,28 @@ export function SalesView() {
             showMargin={showMargin}
             runCommand={runCommand}
           />
-          {/* CAP-030 / TER-1508 — release for picking, gated by live releaseEligibility */}
-          <button
-            className="primary-button compact-action"
-            disabled={isRunning || !canWrite || (() => {
-              const elig = releaseEligibility.data?.find((e) => e.lineId === row.id);
-              return elig ? (!elig.eligible && !elig.alreadyReleased) : false;
-            })()}
-            title={(() => {
-              const elig = releaseEligibility.data?.find((e) => e.lineId === row.id);
-              if (!elig) return 'Release for warehouse picking';
-              if (elig.alreadyReleased) return 'Already released';
-              if (!elig.eligible) return elig.reasons.join('; ') || 'Not eligible';
-              return 'Release for warehouse picking';
-            })()}
-            onClick={() => {
-              if (!row.id || row.id.trim() === '') return;
-              runCommand('releaseLineForPicking', { lineId: row.id }, 'Release sales line for picking');
-            }}
-            type="button"
-          >
-            Release for picking
-          </button>
+          {/* GH #353 / CAP-030 / TER-1508 — release for picking, gated by live releaseEligibility.
+              Hidden when already released (Recall from pick appears instead).
+              Disabled when explicitly ineligible; enabled optimistically while eligibility loads. */}
+          {(() => {
+            const elig = releaseEligibility.data?.find((e) => e.lineId === row.id);
+            // Hide entirely once released — Recall button takes over
+            if (elig?.alreadyReleased) return null;
+            return (
+              <button
+                className="primary-button compact-action"
+                disabled={isRunning || !canWrite || (elig != null && !elig.eligible)}
+                title={elig?.eligible === false ? (elig.reasons.join('; ') || 'Not eligible for pick release') : 'Release for warehouse picking'}
+                onClick={() => {
+                  if (!row.id || row.id.trim() === '') return;
+                  runCommand('releaseLineForPicking', { lineId: row.id }, 'Release sales line for picking');
+                }}
+                type="button"
+              >
+                Release for picking
+              </button>
+            );
+          })()}
           {String(row.pickStatus ?? 'unreleased') === 'released' || String(row.pickStatus ?? '') === 'picking' ? (
             <button
               className="secondary-button compact-action"

@@ -33,6 +33,8 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
   const [showHold, setShowHold] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [barcodeSupported, setBarcodeSupported] = useState(false);
+  // GH #344: inline weight validation error
+  const [weightError, setWeightError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -75,13 +77,20 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
 
   async function handleMarkPicked() {
     if (!line) return;
+    // GH #344: validate actualWeight before submitting — server requires weight > 0
+    const parsedWeight = Number(actualWeight);
+    if (!actualWeight || !parsedWeight || parsedWeight <= 0) {
+      setWeightError('Weight is required and must be greater than 0');
+      return;
+    }
+    setWeightError(null);
     // TODO: depends on CAP-030 backend merge (TER-1488)
     await runCommand(
       'recordWeighAndPack',
       {
         fulfillmentLineId: line.id,
         actualQty: Number(actualQty) || line.expectedQty,
-        actualWeight: actualWeight ? Number(actualWeight) : undefined,
+        actualWeight: parsedWeight,
         bagCode: bagCode || undefined,
       },
       'Mark line picked from PickView'
@@ -104,8 +113,13 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
 
   async function handleAcknowledgeInterrupt() {
     if (!interrupt) return;
-    // TODO: depends on CAP-030 backend merge (TER-1488)
-    await runCommand('acknowledgeWarehouseAlert', { alertId: interrupt.id }, 'Acknowledge alert interrupt from picker');
+    // GH #346: use fulfillmentLineId + alertIndex (server contract for acknowledgeWarehouseAlert)
+    await runCommand(
+      'acknowledgeWarehouseAlert',
+      { fulfillmentLineId: interrupt.fulfillmentLineId, alertIndex: interrupt.alertIndex },
+      'Acknowledge alert interrupt from picker'
+    );
+    // activeInterrupt will clear automatically when pickListQuery refetches and alerts are empty
   }
 
   if (!line) {
@@ -194,20 +208,27 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
           />
         </div>
 
-        {/* Actual weight */}
+        {/* Actual weight — GH #344: required field with inline validation */}
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="pick-actual-weight">
-            Actual weight (oz)
+            Actual weight (oz) <span className="text-red-500">*</span>
           </label>
           <input
             id="pick-actual-weight"
-            className="input w-full text-xl"
+            className={`input w-full text-xl${weightError ? ' border-red-500 ring-1 ring-red-500' : ''}`}
             style={{ minHeight: 48, fontSize: 20 }}
             value={actualWeight}
             inputMode="decimal"
             placeholder="0.0"
-            onChange={(e) => setActualWeight(e.target.value)}
+            aria-describedby={weightError ? 'pick-weight-error' : undefined}
+            aria-invalid={!!weightError}
+            onChange={(e) => { setActualWeight(e.target.value); setWeightError(null); }}
           />
+          {weightError ? (
+            <p id="pick-weight-error" className="mt-1 text-sm font-medium text-red-600" role="alert">
+              {weightError}
+            </p>
+          ) : null}
         </div>
 
         {/* Bag barcode — manual entry always visible */}
