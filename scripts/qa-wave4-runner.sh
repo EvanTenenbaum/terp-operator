@@ -42,13 +42,32 @@ if grep -q "QA_ERROR=" /tmp/qa-env.log; then
   exit 1
 fi
 
+# Extract the actual app URL from the log (avoids fast-runner guard rewriting localhost)
+QA_APP_URL=$(grep "^QA_APP_URL=" /tmp/qa-env.log | head -1 | cut -d= -f2-)
+if [ -z "$QA_APP_URL" ]; then
+  # Fallback: use Tailscale-routed address from runner identity
+  QA_APP_URL="http://$(hostname -I | awk '{print $1}'):5173"
+fi
+
 # Display key vars (excluding large JSON blob and READY=true)
 grep "^QA_" /tmp/qa-env.log | grep -v "QA_SEED_STATE" | grep -v "QA_READY" || true
+echo "[wave4-qa] Using PLAYWRIGHT_BASE_URL: $QA_APP_URL"
+
+# Verify the app is actually responding before running tests
+for i in 1 2 3 4 5; do
+  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$QA_APP_URL/api/health" --connect-timeout 5 || echo "000")
+  if [ "$HTTP_STATUS" = "200" ]; then
+    echo "[wave4-qa] App health check passed (HTTP $HTTP_STATUS)"
+    break
+  fi
+  echo "[wave4-qa] App health check attempt $i: HTTP $HTTP_STATUS — waiting 3s..."
+  sleep 3
+done
 
 echo "[wave4-qa] Running all 26 persona flow tests..."
 mkdir -p artifacts docs/qa/runs/screenshots
 
-PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:5173 \
+PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL="$QA_APP_URL" \
   pnpm exec playwright test tests/e2e/persona-flow-qa.spec.ts \
   --project=chromium --workers=1 --reporter=line \
   --timeout=120000
