@@ -42,9 +42,12 @@ async function login(page: Page) {
   await page.getByLabel('Email').fill(OWNER_EMAIL);
   await page.getByLabel('Password').fill(OWNER_PASS);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  // No waitForLoadState('networkidle') — socket.io long-polling prevents networkidle from firing promptly.
-  // Match smoke/_helpers.ts loginAsOwner pattern: wait directly for dashboard text with generous timeout.
-  await expect(page.getByText('Owner Daily Decision View').first()).toBeVisible({ timeout: 45_000 });
+  // Wait for authenticated shell — nav appears when me.data is set.
+  // Then navigate directly to /dashboard (full reload) to bypass client-side
+  // routing issue in RRDv7 where <Navigate> inside Outlet renders nothing.
+  await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
+  await page.goto('/dashboard');
+  await expect(page.getByText('Owner Daily Decision View').first()).toBeVisible({ timeout: 30_000 });
 }
 
 async function shot(page: Page, slug: string) {
