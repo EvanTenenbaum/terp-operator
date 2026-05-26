@@ -42,8 +42,9 @@ async function login(page: Page) {
   await page.getByLabel('Email').fill(OWNER_EMAIL);
   await page.getByLabel('Password').fill(OWNER_PASS);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.waitForLoadState('networkidle');
-  await expect(page.getByText('Owner Daily Decision View').first()).toBeVisible({ timeout: 30_000 });
+  // No waitForLoadState('networkidle') — socket.io long-polling prevents networkidle from firing promptly.
+  // Match smoke/_helpers.ts loginAsOwner pattern: wait directly for dashboard text with generous timeout.
+  await expect(page.getByText('Owner Daily Decision View').first()).toBeVisible({ timeout: 45_000 });
 }
 
 async function shot(page: Page, slug: string) {
