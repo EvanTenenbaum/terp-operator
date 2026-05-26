@@ -144,7 +144,6 @@ function AppContent() {
           Connection lost — changes may not save.{' '}
           <button className="underline ml-2" onClick={() => me.refetch()}>Reconnect</button>
         </div>
-      )}
       <LocationSync />
       <SideNav user={me.data} />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -161,8 +160,7 @@ function AppContent() {
       <CommandPalette />
       <GlobalFinderPanel />
       <ToastCenter />
-      {import.meta.env.DEV && (
-        <Agentation
+      <Agentation
           onCopy={(markdown) => {
             if (navigator.clipboard && navigator.clipboard.writeText) {
               navigator.clipboard.writeText(markdown).catch(() => {
