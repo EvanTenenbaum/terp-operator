@@ -23,20 +23,12 @@ const id = () => uuid('id').primaryKey().defaultRandom();
 const now = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const updated = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow();
 
-export const organizations = pgTable('organizations', {
-  id: id(),
-  name: varchar('name', { length: 180 }).notNull(),
-  createdAt: now(),
-  updatedAt: updated()
-});
-
 export const users = pgTable('users', {
   id: id(),
   name: varchar('name', { length: 160 }).notNull(),
   email: varchar('email', { length: 240 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: varchar('role', { length: 32 }).notNull(),
-  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }),
   active: boolean('active').notNull().default(true),
   // Explicit work-loop assignment — see migrations/0044_users_work_loop.sql.
   // Null means "fall back to the legacy substring heuristic on email/name"
@@ -116,7 +108,6 @@ export const customers = pgTable('customers', {
 export const savedFilters = pgTable('saved_filters', {
   id: id(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 120 }).notNull(),
   description: text('description'),
   targetView: varchar('target_view', { length: 32 }).notNull(),
@@ -1022,7 +1013,6 @@ export const customerSheetSnapshots = pgTable(
   })
 );
 
-export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Brand = typeof brands.$inferSelect;
 export type SavedFilter = typeof savedFilters.$inferSelect;
