@@ -446,8 +446,21 @@ function ColumnsMenu({
   onReset: () => void;
   onClose: () => void;
 }) {
+  // GH #326: close on click-outside instead of onMouseLeave
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown, { capture: true });
+    return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true });
+  }, [onClose]);
+
   return (
     <div
+      ref={menuRef}
       role="menu"
       className="inline-panel"
       style={{
@@ -462,7 +475,6 @@ function ColumnsMenu({
         border: '1px solid var(--line, #e4e4e7)',
         padding: '0.5rem'
       }}
-      onMouseLeave={onClose}
     >
       <div className="flex items-center justify-between mb-1">
         <strong className="text-xs uppercase tracking-wide">Columns</strong>

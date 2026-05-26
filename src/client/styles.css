@@ -911,13 +911,13 @@ kbd {
   }
 }
 
-/* Inline Expansion Design Tokens */
+/* Inline Expansion Design Tokens — GH #327: use project green (accent) palette */
 :root {
-  --expansion-bg-l1: #eff6ff;
-  --expansion-bg-l2: #f0f9ff;
-  --expansion-border: #3b82f6;
-  --expansion-border-light: #60a5fa;
-  --expansion-selected-bg: #dbeafe;
+  --expansion-bg-l1: #f0f7f4;
+  --expansion-bg-l2: #e8f5ef;
+  --expansion-border: #216e4e;
+  --expansion-border-light: #52a87e;
+  --expansion-selected-bg: #d1ede0;
   --expansion-indent: 52px;
 }
 
@@ -932,13 +932,13 @@ kbd {
 .expansion-panel-header {
   font-weight: 500;
   margin-bottom: 8px;
-  color: #1e40af;
+  color: #154d36;
 }
 
 .expansion-section {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #bfdbfe;
+  border-top: 1px solid #9dd3b4;
 }
 
 .expansion-section-header {
@@ -947,13 +947,13 @@ kbd {
   gap: 6px;
   margin-bottom: 8px;
   cursor: pointer;
-  color: #1e40af;
+  color: #154d36;
   font-weight: 500;
   user-select: none;
 }
 
 .expansion-section-header:hover {
-  color: #1e3a8a;
+  color: #0f3825;
 }
 
 .expansion-section-content {
@@ -986,7 +986,7 @@ kbd {
 }
 
 .expansion-chevron-cell.expanded svg {
-  color: #3b82f6;
+  color: #216e4e;
 }
 
 /* Selected Row with Expansion */

@@ -12,6 +12,7 @@ import { ReceiptPanel } from '../components/ReceiptPanel';
 import { LandedCostExceptionCellRenderer } from '../components/LandedCostExceptionChip';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { buildSheetCsv } from '../utils/salesExport';
 import { buildCustomerSheetSnapshotRows } from '../../shared/customerSheetSnapshot';
 import type { GridRow } from '../../shared/types';
@@ -203,6 +204,8 @@ export function SalesView() {
     lineStatus?: string;
     onConfirm: () => Promise<void>;
   } | null>(null);
+  // GH #323: focus trap for warehouse alert dialog
+  const warehouseAlertRef = useFocusTrap<HTMLDivElement>(Boolean(pendingLineEdit), () => setPendingLineEdit(null));
   const customerSelectRef = useRef<HTMLSelectElement | null>(null);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
@@ -888,7 +891,8 @@ export function SalesView() {
           aria-modal="true"
           aria-labelledby="pick-edit-confirm-title"
         >
-          <div className="mx-4 max-w-md rounded-lg border border-line bg-white p-6 shadow-xl">
+          {/* GH #323: focus trap ref — Tab/Shift-Tab stay within dialog, Escape dismisses */}
+          <div ref={warehouseAlertRef} className="mx-4 max-w-md rounded-lg border border-line bg-white p-6 shadow-xl">
             <h2 id="pick-edit-confirm-title" className="text-base font-semibold text-ink">
               Warehouse alert required
             </h2>

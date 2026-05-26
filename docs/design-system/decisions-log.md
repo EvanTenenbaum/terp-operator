@@ -2,6 +2,37 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-05-25 — Wave 3A: Expansion panel color consistency — green replaces blue (GH #327)
+
+**Decision:** Expansion panel CSS design tokens (`--expansion-border`, `--expansion-border-light`, `--expansion-bg-l1`, `--expansion-bg-l2`, `--expansion-selected-bg`) changed from Tailwind blue palette (`#3b82f6`, `#eff6ff`) to project green palette (`#216e4e`, `#f0f7f4`). Direct color literals in `.expansion-panel-header`, `.expansion-section-header`, `.expansion-section`, and `.expansion-chevron-cell.expanded svg` updated to green equivalents.
+**Rationale:** The expansion panel was using raw blue values (`#3b82f6`, `#1e40af`) inconsistent with the project's green `accent` primary color (`#216e4e`). All interactive UI chrome should use the green system. Blue is reserved for status-semantic uses (matched/confirmed state badges).
+**Mapping:**
+- `--expansion-border: #3b82f6` → `#216e4e` (accent green)
+- `--expansion-border-light: #60a5fa` → `#52a87e` (lighter green)
+- `--expansion-bg-l1: #eff6ff` → `#f0f7f4` (light green tint)
+- `--expansion-bg-l2: #f0f9ff` → `#e8f5ef` (medium green tint)
+- `--expansion-selected-bg: #dbeafe` → `#d1ede0` (selected green)
+- Header text `#1e40af` → `#154d36` (dark green)
+- Hover text `#1e3a8a` → `#0f3825` (deeper green)
+- Section divider `#bfdbfe` → `#9dd3b4` (light green border)
+**Files:** `src/client/styles.css`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** GH #327, Wave 3A UX Polish.
+
+---
+
+## 2026-05-25 — Wave 3A: Design system fork — raw Tailwind `primary` utilities → semantic classes (GH #321)
+
+**Decision:** Replace all raw Tailwind `bg-primary`, `text-primary`, `ring-primary`, `border-primary` utility classes in `src/client/views/` with the project's semantic CSS classes and design tokens.
+**Rationale:** `primary` is not a color in `tailwind.config.ts`. These classes were silently ineffective (Tailwind generates no CSS for undefined color names). The correct semantic classes and tokens are: `btn-primary` / `primary-button` for filled green CTA buttons; `border-accent` / `ring-accent` for focus/active ring states on input elements and filter buttons.
+**Resolved mappings:**
+- `className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary/90"` → `className="btn-primary"` (RefereesView, ProcessorsView, ContactsView)
+- `focus:border-primary` on `<input>` → `focus:border-accent` (ContactsView search input)
+- `ring-1 ring-primary` on active filter button → `ring-1 ring-accent` (ContactsView role filter buttons)
+**Files:** `src/client/views/RefereesView.tsx`, `src/client/views/ProcessorsView.tsx`, `src/client/views/ContactsView.tsx`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** GH #321, Wave 3A UX Polish.
+
 ## 2026-05-25 — Testing convention: 3-tier pyramid
 
 **Decision**: All ongoing testing follows a 3-tier pyramid enforced by GitHub Actions.

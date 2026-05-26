@@ -1004,6 +1004,12 @@ export function OrdersView() {
   const selectedRows = useUiStore((state) => state.selectedRows.orders);
   const selected = selectedRows ?? EMPTY_ROWS;
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+  // GH #354: filter presets
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const storedGridFilter = useUiStore((state) => state.gridFilters?.orders ?? '');
+  function toggleOrdersPreset(preset: string) {
+    setGridFilter('orders', storedGridFilter === preset ? '' : preset);
+  }
   const { runCommand } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
@@ -1072,6 +1078,24 @@ export function OrdersView() {
         onCellCommit={canWrite ? onCellCommit : undefined}
         actions={canWrite ? (
           <>
+            {/* GH #354: filter presets */}
+            <div role="group" aria-label="Filter by status">
+              <button type="button" className="secondary-button compact-action"
+                onClick={() => toggleOrdersPreset('status:draft,confirmed')}
+                aria-pressed={storedGridFilter === 'status:draft,confirmed'}>
+                Open
+              </button>
+              <button type="button" className="secondary-button compact-action"
+                onClick={() => toggleOrdersPreset('status:confirmed')}
+                aria-pressed={storedGridFilter === 'status:confirmed'}>
+                Awaiting Pick
+              </button>
+              <button type="button" className="secondary-button compact-action"
+                onClick={() => toggleOrdersPreset(`createdAt:${new Date().toISOString().slice(0, 10)}`)}
+                aria-pressed={storedGridFilter === `createdAt:${new Date().toISOString().slice(0, 10)}`}>
+                Today
+              </button>
+            </div>
             <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('confirmSalesOrder', { orderId: selected[0].id }, 'Mark selected order Ready/Confirmed')} type="button">
               <Check className="h-4 w-4" aria-hidden="true" />
               Ready
@@ -1106,6 +1130,12 @@ export function OrdersView() {
 export function PaymentsView() {
   const selectedRows = useUiStore((state) => state.selectedRows.payments);
   const selectedPayment = selectedRows?.[0];
+  // GH #354: filter presets
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const storedGridFilter = useUiStore((state) => state.gridFilters?.payments ?? '');
+  function togglePaymentsPreset(preset: string) {
+    setGridFilter('payments', storedGridFilter === preset ? '' : preset);
+  }
   return (
     <GridJourney
       view="payments"
@@ -1120,10 +1150,25 @@ export function PaymentsView() {
         </>
       )}
       actions={(rows, runCommand) => (
-        <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('allocatePayment', { paymentId: rows[0].id }, 'Auto-apply payment to oldest open invoices')} type="button">
-          <Check className="h-4 w-4" aria-hidden="true" />
-          Auto-apply oldest
-        </button>
+        <>
+          {/* GH #354: filter presets */}
+          <div role="group" aria-label="Filter payments">
+            <button type="button" className="secondary-button compact-action"
+              onClick={() => togglePaymentsPreset('status:active')}
+              aria-pressed={storedGridFilter === 'status:active'}>
+              Unpaid
+            </button>
+            <button type="button" className="secondary-button compact-action"
+              onClick={() => togglePaymentsPreset('category:overdue')}
+              aria-pressed={storedGridFilter === 'category:overdue'}>
+              Overdue
+            </button>
+          </div>
+          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('allocatePayment', { paymentId: rows[0].id }, 'Auto-apply payment to oldest open invoices')} type="button">
+            <Check className="h-4 w-4" aria-hidden="true" />
+            Auto-apply oldest
+          </button>
+        </>
       )}
     />
   );
@@ -1212,7 +1257,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
           <input className="input compact" value={discountAmount} inputMode="decimal" disabled={!canAllocate} onChange={(event) => setDiscountAmount(event.target.value)} />
         </label>
         <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning || !canAllocate} onClick={() => runCommand('applyEarlyPayDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply early-pay discount from payments surface')}>
-          Early discount
+          Apply Early Pay Discount
         </button>
       </div>
       {/* CAP-004: role-gate note for viewers */}
@@ -1265,6 +1310,12 @@ export function InventoryView() {
     [reference.data?.defaultPricingRule]
   );
   const vendors = reference.data?.vendors ?? [];
+  // GH #354: filter presets
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const storedGridFilter = useUiStore((state) => state.gridFilters?.inventory ?? '');
+  function toggleInventoryPreset(preset: string) {
+    setGridFilter('inventory', storedGridFilter === preset ? '' : preset);
+  }
 
   const inventoryColumns = useMemo<ColDef<GridRow>[]>(
     () => buildInventoryColumns(defaultsRule),
@@ -1277,6 +1328,21 @@ export function InventoryView() {
       title="Inventory Batches"
       columns={inventoryColumns}
       prelude={() => <PhotographyQueuePanel />}
+      actions={() => (
+        /* GH #354: filter presets */
+        <div role="group" aria-label="Filter inventory">
+          <button type="button" className="secondary-button compact-action"
+            onClick={() => toggleInventoryPreset('arrivalStatus:arrived')}
+            aria-pressed={storedGridFilter === 'arrivalStatus:arrived'}>
+            Available
+          </button>
+          <button type="button" className="secondary-button compact-action"
+            onClick={() => toggleInventoryPreset('ownershipStatus:OFC')}
+            aria-pressed={storedGridFilter === 'ownershipStatus:OFC'}>
+            Low Stock
+          </button>
+        </div>
+      )}
       selectionActions={(rows, runCommand) => (
         <InventoryRowActions rows={rows} vendors={vendors} runCommand={runCommand} />
       )}
@@ -2033,6 +2099,12 @@ export function FulfillmentView() {
   const pickQueueFilters = useUiStore((state) => state.pickQueueFilters);
   const setPickQueueFilter = useUiStore((state) => state.setPickQueueFilter);
   const clearPickQueueFilters = useUiStore((state) => state.clearPickQueueFilters);
+  // GH #354: grid-filter presets for fulfillment ('Active', 'Pending')
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const storedFulfillmentFilter = useUiStore((state) => state.gridFilters?.fulfillment ?? '');
+  function toggleFulfillmentPreset(preset: string) {
+    setGridFilter('fulfillment', storedFulfillmentFilter === preset ? '' : preset);
+  }
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
   const [alertsPickListId, setAlertsPickListId] = useState<string | null>(null);
   const [alertReturnQty, setAlertReturnQty] = useState('');
@@ -2129,6 +2201,19 @@ export function FulfillmentView() {
         }}
         actions={canWrite ?
           <>
+            {/* GH #354: filter presets */}
+            <div role="group" aria-label="Filter fulfillment">
+              <button type="button" className="secondary-button compact-action"
+                onClick={() => toggleFulfillmentPreset('status:in_progress')}
+                aria-pressed={storedFulfillmentFilter === 'status:in_progress'}>
+                Active
+              </button>
+              <button type="button" className="secondary-button compact-action"
+                onClick={() => toggleFulfillmentPreset('status:needs_picking')}
+                aria-pressed={storedFulfillmentFilter === 'status:needs_picking'}>
+                Pending
+              </button>
+            </div>
             <span className={selectedPick ? 'selection-pill' : 'selection-pill warning'}>{selectedPick ? `Showing ${String(selectedPick.pickNo ?? 'pick')}` : 'Select a pick row'}</span>
             {fulfillmentComplete ? <button className="primary-button" disabled={!selectedPick?.id} onClick={() => runCommand('markOrderFulfilled', { orderId: selectedPick?.orderId, tracking }, 'Mark order fulfilled')} type="button">
               <PackageCheck className="h-4 w-4" aria-hidden="true" />
