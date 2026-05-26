@@ -11,6 +11,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -85,15 +86,18 @@ export const customers = pgTable('customers', {
   pricingRule: jsonb('pricing_rule').$type<Record<string, unknown>>().notNull().default({}),
   notes: text('notes'),
   engineMax: numeric('engine_max', { precision: 12, scale: 2 }),
-  stanceId: uuid('stance_id'),
+  // GH #293: These credit engine UUID columns reference other tables.
+  // FK constraints exist in DB (from migration 0033; named in 0060).
+  // .references() calls added here so Drizzle reflects the FK graph.
+  stanceId: uuid('stance_id').references(() => creditEngineStances.id, { onDelete: 'set null' }),
   creditLimitSource: varchar('credit_limit_source', { length: 16 }).notNull().default('manual'),
   engineEnabled: boolean('engine_enabled').notNull().default(false),
   engineDisabledAt: timestamp('engine_disabled_at', { withTimezone: true }),
-  engineDisabledBy: uuid('engine_disabled_by'),
+  engineDisabledBy: uuid('engine_disabled_by').references(() => users.id, { onDelete: 'set null' }),
   engineDisabledReason: text('engine_disabled_reason'),
-  lastAssessmentId: uuid('last_assessment_id'),
+  lastAssessmentId: uuid('last_assessment_id').references((): AnyPgColumn => customerCreditAssessments.id, { onDelete: 'set null' }),
   creditLimitManualSetAt: timestamp('credit_limit_manual_set_at', { withTimezone: true }),
-  creditLimitManualSetBy: uuid('credit_limit_manual_set_by'),
+  creditLimitManualSetBy: uuid('credit_limit_manual_set_by').references(() => users.id, { onDelete: 'set null' }),
   creditLimitManualReason: text('credit_limit_manual_reason'),
   creditLimitReminderDays: integer('credit_limit_reminder_days'),
   creditLimitLastReviewedAt: timestamp('credit_limit_last_reviewed_at', { withTimezone: true }),
@@ -157,7 +161,10 @@ export const purchaseOrders = pgTable(
   {
     id: id(),
     poNo: varchar('po_no', { length: 80 }).notNull().unique(),
-    vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+    // GH #297: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0059).
+    // Deleting a vendor that has purchase orders is now rejected; callers must
+    // archive or reassign orders before removing the vendor.
+    vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'restrict' }),
     status: varchar('status', { length: 32 }).notNull().default('draft'),
     expectedDate: timestamp('expected_date', { withTimezone: true }),
     orderedAt: timestamp('ordered_at', { withTimezone: true }),
@@ -301,7 +308,9 @@ export const purchaseReceiptLines = pgTable('purchase_receipt_lines', {
 export const salesOrders = pgTable('sales_orders', {
   id: id(),
   orderNo: varchar('order_no', { length: 80 }).notNull().unique(),
-  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  // GH #297: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0059).
+  // Deleting a customer that has sales orders is now rejected.
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'restrict' }),
   status: varchar('status', { length: 32 }).notNull().default('draft'),
   pricingStrategy: varchar('pricing_strategy', { length: 80 }).notNull().default('standard'),
   internalMargin: numeric('internal_margin', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -677,7 +686,8 @@ export const commandJournal = pgTable(
     afterSnapshot: jsonb('after_snapshot').$type<Record<string, unknown>>().notNull().default({}),
     result: jsonb('result').$type<Record<string, unknown>>().notNull().default({}),
     error: text('error'),
-    reversedByCommandId: uuid('reversed_by_command_id'),
+    // GH #294: Self-referential FK added in migration 0061 (ON DELETE SET NULL).
+    reversedByCommandId: uuid('reversed_by_command_id').references((): AnyPgColumn => commandJournal.id, { onDelete: 'set null' }),
     createdAt: now()
   },
   (table) => ({
@@ -1128,11 +1138,15 @@ export const creditEngineStanceHistory = pgTable('credit_engine_stance_history',
   affectedCustomerCount: integer('affected_customer_count')
 });
 
+// GH #342: Added composite primaryKey constraint matching migration 0033 definition
+// PRIMARY KEY (user_id, banner_key).
 export const userDismissedBanners = pgTable('user_dismissed_banners', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   bannerKey: varchar('banner_key', { length: 64 }).notNull(),
   dismissedAt: timestamp('dismissed_at', { withTimezone: true }).notNull().defaultNow()
-});
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.bannerKey] })
+}));
 
 // Phase 9 — nightly safety-net audit row. One row per UTC day, UPSERTed by
 // `runNightlyCreditEngineAudit`. See migrations/0040_credit_engine_daily_audit.sql.
@@ -1197,7 +1211,9 @@ export const contacts = pgTable('contacts', {
   updatedAt: updated()
 }, (table) => ({
   nameIdx: index('contacts_name_idx').on(table.name),
-  updatedAtIdx: index('contacts_updated_at_idx').on(table.updatedAt)
+  updatedAtIdx: index('contacts_updated_at_idx').on(table.updatedAt),
+  // GH #341: partial index on active contacts (matches migration 0054 definition).
+  activeIdx: index('contacts_active_idx').on(table.active).where(sql`${table.active} = true`)
 }));
 
 export const appointments = pgTable('appointments', {

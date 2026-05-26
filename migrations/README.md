@@ -43,3 +43,24 @@ If you intend to ship a schema change, write the SQL by hand into this `migratio
 - [ ] Tested locally with `pnpm db:migrate` against a scratch database.
 - [ ] If it uses `CONCURRENTLY`, the file contains only concurrent statements.
 - [ ] If risky, add a companion rollback under `migrations/rollback/`.
+
+## Known issues and edge cases
+
+### Prefix collision: 0052 (GH #290)
+
+Two files share the `0052` prefix:
+
+- `0052_document_snapshots.sql`
+- `0052_pick_released_warehouse_alerts.sql`
+
+**How they got here:** `0052_document_snapshots.sql` was committed first as a squash/re-issue of an earlier document-snapshot migration. `0052_pick_released_warehouse_alerts.sql` was added in the same or an adjacent PR before the conflict was caught. Both files are now in git history and cannot be renamed without breaking deployed databases that have already applied one or both under their original names.
+
+**Correct run order (lexical, which is Postgres-safe):** The migration runner applies files in lexical (`ls`-sorted) order. Lexically, `0052_document_snapshots.sql` sorts before `0052_pick_released_warehouse_alerts.sql`, so the runner will always apply them in that order on a fresh database.
+
+**Drizzle-kit / schema_migrations:** The runner inserts the filename (not the numeric prefix) as the bookkeeping key in `schema_migrations`. Both files get distinct rows, so idempotency is maintained even with the shared prefix.
+
+**Action required:** None — the runner handles this correctly. This note exists so that future maintainers understand the history and do not attempt to renumber either file.
+
+### Reserved prefix: 0056
+
+Migration prefix `0056` is reserved for the in-flight matchmaking-settings PR (#368, branch `feat/matchmaking-settings`). Do not use `0056` for any other migration. The next available prefix after that PR merges will be determined by what is already in git; as of the Wave 2B hardening pass the Wave 2B migrations start at `0058`.
