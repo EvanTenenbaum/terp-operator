@@ -169,6 +169,182 @@ export function redactSensitiveDeltaFields(commandName: string, result: CommandR
 }
 type Payload = Record<string, unknown>;
 
+// ─── Per-command payload validation schemas (GH #302) ────────────────────────
+// These schemas gate the 20 highest-traffic commands at the handler boundary so
+// bad input types produce a structured ZodError instead of a generic thrown
+// string. Fields are marked .optional() generously so callers that omit
+// optional fields continue to work; the handlers' own requiredId /
+// requiredString / requiredNumber guards remain in place for semantic checks.
+
+const createBatchPayloadSchema = z.object({
+  name: z.string().optional(),
+  category: z.string().optional(),
+  vendorId: z.string().uuid().optional(),
+  shorthand: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  status: z.string().optional(),
+  brandId: z.string().uuid().optional(),
+  purchaseOrderId: z.string().uuid().optional(),
+  purchaseOrderLineId: z.string().uuid().optional(),
+  sourceCode: z.string().optional(),
+  subcategory: z.string().optional(),
+  intakeQty: z.coerce.number().optional(),
+  availableQty: z.coerce.number().optional(),
+  uom: z.string().optional(),
+  unitCost: z.coerce.number().optional(),
+  unitPrice: z.coerce.number().optional(),
+  location: z.string().optional(),
+  lotCode: z.string().optional(),
+  intakeDate: z.string().optional(),
+  ticketCost: z.coerce.number().optional(),
+  priceRange: z.string().optional(),
+  notes: z.string().optional(),
+  legacyMarker: z.string().optional(),
+  ownershipStatus: z.string().optional(),
+  expirationDate: z.string().optional(),
+  arrivalConfirmed: z.boolean().optional(),
+  arrivalStatus: z.string().optional(),
+  mediaStatus: z.string().optional(),
+}).passthrough();
+
+const createPurchaseOrderPayloadSchema = z.object({
+  vendorId: z.string().uuid(),
+  expectedDate: z.string().optional(),
+  paymentTerms: z.string().optional(),
+  prepaymentAmount: z.coerce.number().optional(),
+  buyerNotes: z.string().optional(),
+  internalNotes: z.string().optional(),
+  externalNotes: z.string().optional(),
+});
+
+const createVendorPayloadSchema = z.object({
+  name: z.string().min(1),
+  termsDays: z.coerce.number().optional(),
+  contact: z.string().optional(),
+  notes: z.string().optional(),
+  consignmentDefault: z.boolean().optional(),
+});
+
+const finalizePurchaseOrderPayloadSchema = z.object({
+  purchaseOrderId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+});
+
+const rejectBatchPayloadSchema = z.object({
+  batchId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  reason: z.string().min(1),
+});
+
+const createSalesOrderPayloadSchema = z.object({
+  customerId: z.string().uuid(),
+  notes: z.string().optional(),
+});
+
+const updateSalesOrderLinePayloadSchema = z.object({
+  lineId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  orderId: z.string().uuid().optional(),
+  batchId: z.string().uuid().nullable().optional(),
+  itemName: z.string().optional(),
+  qty: z.coerce.number().optional(),
+  unitPrice: z.coerce.number().optional(),
+  status: z.string().optional(),
+  sourceRowKey: z.string().optional(),
+  unresolvedSourceText: z.string().optional(),
+  legacyStatusMarker: z.string().optional(),
+  legacyStatusMarkers: z.string().optional(),
+  packed: z.boolean().optional(),
+  inventoryPosted: z.boolean().optional(),
+  paymentFollowup: z.boolean().optional(),
+  deliveryWindow: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const cancelSalesOrderPayloadSchema = z.object({
+  orderId: z.string().uuid(),
+});
+
+const postSalesOrderPayloadSchema = z.object({
+  orderId: z.string().uuid(),
+});
+
+const setDeliveryWindowPayloadSchema = z.object({
+  orderId: z.string().uuid(),
+  deliveryWindow: z.string().min(1),
+});
+
+const logPaymentPayloadSchema = z.object({
+  customerId: z.string().uuid(),
+  amount: z.coerce.number(),
+  method: z.string().optional(),
+  date: z.string().optional(),
+  createdAt: z.string().optional(),
+  reference: z.string().optional(),
+  locationBucket: z.string().optional(),
+  notes: z.string().optional(),
+  direction: z.string().optional(),
+  category: z.string().optional(),
+  allocationIntent: z.string().optional(),
+  invoiceId: z.string().uuid().optional(),
+});
+
+const allocatePaymentPayloadSchema = z.object({
+  paymentId: z.string().uuid(),
+  invoiceId: z.string().uuid().optional(),
+  amount: z.coerce.number().optional(),
+});
+
+const applyEarlyPayDiscountPayloadSchema = z.object({
+  invoiceId: z.string().uuid(),
+  amount: z.coerce.number(),
+});
+
+const recordWeighAndPackPayloadSchema = z.object({
+  fulfillmentLineId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  actualQty: z.coerce.number().optional(),
+  actualWeight: z.coerce.number().optional(),
+  bagCode: z.string().optional(),
+});
+
+const markOrderFulfilledPayloadSchema = z.object({
+  orderId: z.string().uuid(),
+  tracking: z.string().optional(),
+});
+
+const releaseLineForPickingPayloadSchema = z.object({
+  lineId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+});
+
+const archivePeriodPayloadSchema = z.object({
+  period: z.string().min(1),
+});
+
+const reverseCommandByIdPayloadSchema = z.object({
+  commandId: z.string().uuid(),
+});
+
+const setCustomerCreditLimitPayloadSchema = z.object({
+  customerId: z.string().uuid(),
+  amount: z.coerce.number().min(0),
+  reason: z.string().min(4),
+});
+
+const createCustomerNeedPayloadSchema = z.object({
+  customerId: z.string().uuid(),
+  productName: z.string().optional(),
+  name: z.string().optional(),
+  category: z.string().min(1),
+  qtyMin: z.coerce.number().optional(),
+  qty: z.coerce.number().optional(),
+  qtyMax: z.coerce.number().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const moneyScale = (value: unknown): string => {
   try {
     return new Decimal(String(value ?? 0)).toDecimalPlaces(2).toFixed(2);
@@ -887,6 +1063,7 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
 }
 
 async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  createBatchPayloadSchema.parse(payload);
   const decoded = decodeShorthand(stringValue(payload.shorthand));
   const name = stringValue(payload.name) || decoded.name;
   const category = stringValue(payload.category) || decoded.category;
@@ -1172,6 +1349,7 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
 }
 
 async function createPurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  createPurchaseOrderPayloadSchema.parse(payload);
   const vendorId = requiredId(payload.vendorId, 'vendorId');
   const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
   if (!vendor) throw new Error('Vendor not found.');
@@ -1194,6 +1372,7 @@ async function createPurchaseOrder(tx: Tx, payload: Payload, userId: string, com
 }
 
 async function createVendor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  createVendorPayloadSchema.parse(payload);
   const name = requiredString(payload.name, 'name');
   if (name.trim().length < 2) throw new Error('Vendor name must be at least 2 characters.');
   const termsDays = Number(payload.termsDays ?? 14);
@@ -1477,6 +1656,7 @@ async function removePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
  * See: migrations/0013_po_finalization.sql
  */
 async function finalizePurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  finalizePurchaseOrderPayloadSchema.parse(payload);
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
   if (!order) throw new Error('Purchase order not found.');
@@ -1727,6 +1907,7 @@ async function cancelPurchaseOrder(tx: Tx, payload: Payload, commandId: string):
 }
 
 async function rejectBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  rejectBatchPayloadSchema.parse(payload);
   const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
   const rejectionReason = requiredString(payload.reason, 'reason');
   const [row] = await tx.select().from(batches).where(eq(batches.id, batchId)).limit(1);
@@ -2212,6 +2393,7 @@ async function assertSalesOrderEditableById(tx: Tx, orderId: string): Promise<vo
 }
 
 async function createSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  createSalesOrderPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
@@ -2280,6 +2462,7 @@ async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): P
 }
 
 async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  updateSalesOrderLinePayloadSchema.parse(payload);
   if (!payload.lineId && !payload.id && payload.orderId) {
     const orderId = requiredId(payload.orderId, 'orderId');
     await assertSalesOrderEditableById(tx, orderId);
@@ -3011,6 +3194,7 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
 }
 
 async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  cancelSalesOrderPayloadSchema.parse(payload);
   const orderId = requiredId(payload.orderId, 'orderId');
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
   // CAP-030 (TER-1494): Block cancellation if any released line has been picked
@@ -3054,6 +3238,7 @@ async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Pr
 }
 
 export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  postSalesOrderPayloadSchema.parse(payload);
   const orderId = requiredId(payload.orderId, 'orderId');
   const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
   if (!order) throw new Error('Sales order not found.');
@@ -3327,6 +3512,7 @@ async function applyClientCredit(tx: Tx, payload: Payload, commandId: string): P
 }
 
 async function setDeliveryWindow(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  setDeliveryWindowPayloadSchema.parse(payload);
   const orderId = requiredId(payload.orderId, 'orderId');
   const deliveryWindow = requiredString(payload.deliveryWindow, 'deliveryWindow');
   await tx.update(salesOrders).set({ deliveryWindow, updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
@@ -3334,6 +3520,7 @@ async function setDeliveryWindow(tx: Tx, payload: Payload, commandId: string): P
 }
 
 async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  logPaymentPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
   const amount = requiredNumber(payload.amount, 'amount');
   if (amount === 0) throw new Error('Payment amount cannot be zero.');
@@ -3421,6 +3608,7 @@ async function logPayment(tx: Tx, payload: Payload, commandId: string): Promise<
 }
 
 async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  allocatePaymentPayloadSchema.parse(payload);
   const paymentId = requiredId(payload.paymentId, 'paymentId');
 
   // Lock payment row to prevent concurrent allocation races.
@@ -3596,6 +3784,7 @@ async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promi
 }
 
 async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  applyEarlyPayDiscountPayloadSchema.parse(payload);
   const invoiceId = requiredId(payload.invoiceId, 'invoiceId');
   const amount = requiredNumber(payload.amount, 'amount');
 
@@ -3699,6 +3888,7 @@ async function voidVendorPayment(tx: Tx, payload: Payload, commandId: string): P
 }
 
 async function recordWeighAndPack(tx: Tx, payload: Payload, commandId: string, toast = 'Weigh and pack recorded.'): Promise<CommandResult> {
+  recordWeighAndPackPayloadSchema.parse(payload);
   const lineId = requiredId(payload.fulfillmentLineId ?? payload.id, 'fulfillmentLineId');
   const [line] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.id, lineId)).limit(1);
   if (!line) throw new Error('Fulfillment line not found.');
@@ -3719,6 +3909,7 @@ async function recordWeighAndPack(tx: Tx, payload: Payload, commandId: string, t
 }
 
 async function markOrderFulfilled(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  markOrderFulfilledPayloadSchema.parse(payload);
   const orderId = requiredId(payload.orderId, 'orderId');
   const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
   if (!order) throw new Error('Sales order not found.');
@@ -3740,6 +3931,7 @@ async function markOrderFulfilled(tx: Tx, payload: Payload, commandId: string): 
 // for the order if needed, and ensures a fulfillment line exists for the order line.
 // Idempotent: if the line is already released, returns ok without mutating.
 async function releaseLineForPicking(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  releaseLineForPickingPayloadSchema.parse(payload);
   const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Sales order line not found.');
@@ -4313,6 +4505,7 @@ async function applyFindReplace(tx: Tx, payload: Payload) {
 }
 
 export async function reverseCommandById(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  reverseCommandByIdPayloadSchema.parse(payload);
   const originalId = requiredId(payload.commandId, 'commandId');
   const [original] = await tx.select().from(commandJournal).where(eq(commandJournal.id, originalId)).limit(1);
   if (!original) throw new Error('Original command not found.');
@@ -4807,6 +5000,7 @@ async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: s
 }
 
 async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  archivePeriodPayloadSchema.parse(payload);
   const period = periodValue(payload.period);
   await acquirePeriodCloseoutLock(tx, period);
   // Guard: prevent double-archiving the same period (idempotent protection under the advisory lock).
@@ -4872,6 +5066,7 @@ export function assertValidSupplyStatusTransition(currentStatus: string, newStat
 }
 
 async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  createCustomerNeedPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
@@ -5648,6 +5843,7 @@ export async function setCustomerCreditLimit(
   user: SessionUser,
   commandId: string
 ): Promise<CommandResult> {
+  setCustomerCreditLimitPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
   const amount = requiredNumber(payload.amount, 'amount');
   if (amount < 0) throw new Error('amount must be greater than or equal to zero.');
