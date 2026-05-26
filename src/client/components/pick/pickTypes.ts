@@ -40,4 +40,7 @@ export interface WarehouseAlertInterrupt {
   lineId: string;
   message: string;
   type: string;
+  // GH #346: fields required by acknowledgeWarehouseAlert command (fulfillmentLineId + alertIndex)
+  fulfillmentLineId: string;
+  alertIndex: number;
 }
