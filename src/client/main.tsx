@@ -9,7 +9,10 @@ import './styles-mobile.css';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 import 'ag-grid-enterprise';
-import { LicenseManager } from 'ag-grid-enterprise';
+import { ClipboardModule, LicenseManager, ModuleRegistry } from 'ag-grid-enterprise';
+
+// GH #355: explicitly register ClipboardModule so copy/paste works in all grids
+ModuleRegistry.registerModules([ClipboardModule]);
 
 type ClientConfig = {
   agGridLicenseKey?: string;

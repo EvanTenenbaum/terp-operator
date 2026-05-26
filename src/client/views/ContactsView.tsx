@@ -81,7 +81,7 @@ export function ContactsView() {
           ) : null}
         </h1>
         <input
-          className="h-8 rounded border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-primary w-48"
+          className="h-8 rounded border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-accent w-48"
           placeholder="Search by name or email…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -91,7 +91,7 @@ export function ContactsView() {
           <button
             key={role}
             type="button"
-            className={`secondary-button compact-action ${roleFilter.includes(role) ? 'font-semibold ring-1 ring-primary' : ''}`}
+            className={`secondary-button compact-action ${roleFilter.includes(role) ? 'font-semibold ring-1 ring-accent' : ''}`}
             onClick={() =>
               setRoleFilter((prev) =>
                 prev.includes(role)
@@ -107,7 +107,7 @@ export function ContactsView() {
         <div className="ml-auto">
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary/90"
+            className="btn-primary"
             onClick={() => setShowCreate(true)}
           >
             New Contact

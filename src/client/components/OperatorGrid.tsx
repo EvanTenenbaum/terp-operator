@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
   CellPosition,
@@ -105,6 +105,8 @@ export function OperatorGrid({
   const panelId = useMemo(() => `grid:${view}:${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [title, view]);
 
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
+  // GH #326: triggerRef excluded from click-outside handler to prevent re-open on toggle click
+  const columnsMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
   const defaultColDef = useMemo<ColDef<GridRow>>(
     () => ({
@@ -285,6 +287,7 @@ export function OperatorGrid({
           {canWrite ? actions : null}
           <div className="relative">
             <button
+              ref={columnsMenuTriggerRef}
               type="button"
               className="icon-button"
               title="Columns"
@@ -305,6 +308,7 @@ export function OperatorGrid({
                   apiRef.current?.resetColumnState();
                 }}
                 onClose={() => setColumnsMenuOpen(false)}
+                triggerRef={columnsMenuTriggerRef}
               />
             ) : null}
           </div>
@@ -438,16 +442,34 @@ function ColumnsMenu({
   hiddenById,
   onToggle,
   onReset,
-  onClose
+  onClose,
+  triggerRef
 }: {
   identities: Array<{ id: string; label: string }>;
   hiddenById: Set<string>;
   onToggle: (id: string, hide: boolean) => void;
   onReset: () => void;
   onClose: () => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
+  // GH #326: close on click-outside; exclude trigger button so toggle-click doesn't re-open
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (
+        menuRef.current && !menuRef.current.contains(event.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(event.target as Node)
+      ) {
+        onClose();
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown, { capture: true });
+    return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true });
+  }, [onClose, triggerRef]);
+
   return (
     <div
+      ref={menuRef}
       role="menu"
       className="inline-panel"
       style={{
@@ -462,7 +484,6 @@ function ColumnsMenu({
         border: '1px solid var(--line, #e4e4e7)',
         padding: '0.5rem'
       }}
-      onMouseLeave={onClose}
     >
       <div className="flex items-center justify-between mb-1">
         <strong className="text-xs uppercase tracking-wide">Columns</strong>

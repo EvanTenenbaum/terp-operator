@@ -61,13 +61,12 @@ export function WorkspacePanel({ panelId, title, subtitle, collapsedSummary, act
         <button type="button" className="workspace-panel-title-button" onClick={() => togglePanelCollapsed(panelId)} aria-expanded={!collapsed}>
           {collapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
           <span>
-            {headingLevel
-              ? createElement(
-                  `h${headingLevel}`,
-                  { className: 'block text-base font-semibold text-ink m-0' },
-                  title
-                )
-              : <span className="block text-base font-semibold text-ink">{title}</span>}
+          {/* GH #325: default heading level is h2 — avoids h1→h3 skip-level a11y issue; headingLevel prop overrides */}
+          {createElement(
+              `h${headingLevel ?? 2}` as 'h2' | 'h3' | 'h4',
+              { className: 'block text-base font-semibold text-ink m-0' },
+              title
+            )}
             {subtitle ? <span className="block text-xs font-normal text-zinc-600">{subtitle}</span> : null}
             {collapsed && collapsedSummary ? <span className="ml-2 text-xs text-zinc-400 font-normal">{collapsedSummary}</span> : null}
           </span>

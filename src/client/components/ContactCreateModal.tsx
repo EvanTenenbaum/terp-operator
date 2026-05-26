@@ -87,7 +87,7 @@ export function ContactCreateModal({ onClose }: Props) {
             <input
               id="cc-name"
               required
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -100,7 +100,7 @@ export function ContactCreateModal({ onClose }: Props) {
             <input
               id="cc-email"
               type="email"
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -113,7 +113,7 @@ export function ContactCreateModal({ onClose }: Props) {
             <input
               id="cc-phone"
               type="tel"
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
@@ -147,7 +147,7 @@ export function ContactCreateModal({ onClose }: Props) {
                 type="number"
                 min="0"
                 step="0.01"
-                className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+                className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
                 value={creditLimit}
                 onChange={(e) => setCreditLimit(e.target.value)}
                 placeholder="0"
@@ -165,7 +165,7 @@ export function ContactCreateModal({ onClose }: Props) {
                 type="number"
                 min="0"
                 step="1"
-                className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-primary"
+                className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
                 value={termsDays}
                 onChange={(e) => setTermsDays(e.target.value)}
               />
@@ -183,7 +183,7 @@ export function ContactCreateModal({ onClose }: Props) {
             <button
               type="submit"
               disabled={isRunning || !name.trim() || roles.length === 0}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+              className="btn-primary"
             >
               {isRunning ? 'Creating…' : 'Create Contact'}
             </button>
