@@ -6,6 +6,8 @@ import { activeEntityForState, defaultDrawerState, defaultTabForEntity, drawerSt
 import { buildSheetCsv } from '../utils/salesExport';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { DrawerStateName, GridRow, ViewKey } from '../../shared/types';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useDrawerUrlSync } from '../hooks/useDrawerUrlSync';
 import { CustomerCreditPanel } from './credit/CustomerCreditPanel';
 import { SalesOutputTab } from './drawerTabs/SalesOutputTab';
 import { SalesPricingTab } from './drawerTabs/SalesPricingTab';
@@ -145,6 +147,15 @@ export function ContextDrawer() {
   const activeTab = tabs.some((tab) => tab.key === drawer.activeTab) ? drawer.activeTab : defaultTabForEntity(activeEntity.entityType);
   const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? 'Context';
 
+  // TER-1601: Sync drawer open state + entity to URL query params for navigation persistence.
+  useDrawerUrlSync(activeView);
+
+  // K1 / A4 (phase7-keyboard-a11y-audit): Trap focus inside the open drawer so Tab
+  // cannot bleed into the background AG Grid. Escape is already handled globally in
+  // Hotkeys.tsx; the trap here prevents Tab leakage only.
+  const drawerOpen = drawer.state !== 'closed';
+  const drawerRef = useFocusTrap<HTMLElement>(drawerOpen, () => setDrawerState(activeView, 'closed'));
+
   if (drawer.state === 'closed') {
     if (activeEntity.entityType === 'queue' && !row) return null;
     return (
@@ -158,7 +169,15 @@ export function ContextDrawer() {
   }
 
   return (
-    <aside className={clsx('context-drawer', `context-drawer-${drawer.state}`)} aria-label="Context drawer">
+    // A4: Add role="dialog" and aria-modal="true" when open so screen readers
+    // know a modal-like context panel is active (matches VendorContextDrawer pattern).
+    <aside
+      ref={drawerRef}
+      className={clsx('context-drawer', `context-drawer-${drawer.state}`)}
+      aria-label="Context drawer"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="context-drawer-header">
         <button type="button" className="icon-button" onClick={() => setDrawerState(activeView, 'closed')} aria-label="Close context drawer">
           <X className="h-4 w-4" aria-hidden="true" />

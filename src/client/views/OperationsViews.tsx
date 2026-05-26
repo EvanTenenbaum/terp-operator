@@ -2459,17 +2459,18 @@ export function RecoveryView() {
             </button>
           </div>
           <div className="control-band subtle-band">
-            <label className="field-inline">
+            {/* K3/A9: explicit id+htmlFor so keyboard users know which input they are in */}
+            <label className="field-inline" htmlFor="recovery-period">
               Period
-              <input className="input compact" value={period} onChange={(event) => setPeriod(event.target.value)} />
+              <input id="recovery-period" className="input compact" value={period} onChange={(event) => setPeriod(event.target.value)} />
             </label>
-            <label className="field-inline">
+            <label className="field-inline" htmlFor="recovery-amount">
               Amount
-              <input className="input compact" value={amount} onChange={(event) => setAmount(event.target.value)} />
+              <input id="recovery-amount" className="input compact" value={amount} onChange={(event) => setAmount(event.target.value)} />
             </label>
-            <label className="field-inline">
+            <label className="field-inline" htmlFor="recovery-memo">
               Memo
-              <input className="input" value={memo} onChange={(event) => setMemo(event.target.value)} />
+              <input id="recovery-memo" className="input" value={memo} onChange={(event) => setMemo(event.target.value)} />
             </label>
             <button className="secondary-button" type="button" disabled={!memo} onClick={() => runCommand('createCorrectionJournalEntry', { period, amount: Number(amount), memo }, 'Create correction journal entry')}>
               <Check className="h-4 w-4" aria-hidden="true" />
