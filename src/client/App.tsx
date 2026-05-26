@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import clsx from 'clsx';
 import { trpc } from './api/trpc';
@@ -152,35 +152,7 @@ function AppContent() {
         {CANVAS_GRAMMAR_ENABLED && <IdentityRibbon />}
         <div className={clsx(CANVAS_GRAMMAR_ENABLED && 'canvas-shell', CANVAS_GRAMMAR_ENABLED && (focusedPanelId || focusMode) && 'canvas-shell-focus')}>
           <main className={clsx('min-h-0 flex-1 overflow-auto', CANVAS_GRAMMAR_ENABLED && (focusedPanelId || focusMode) ? 'p-2' : 'p-4')}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<DashboardView />} />
-              <Route path="/reports" element={<ReportsRouteShell />} />
-              <Route path="/purchaseOrders" element={<PurchaseOrdersView />} />
-              <Route path="/intake" element={<IntakeView />} />
-              <Route path="/sales" element={<SalesView />} />
-              <Route path="/matchmaking" element={<MatchmakingView />} />
-              <Route path="/orders" element={<OrdersView />} />
-              <Route path="/payments" element={<PaymentsView />} />
-              <Route path="/inventory" element={<InventoryView />} />
-              <Route path="/clients" element={<ClientLedgerView />} />
-              <Route path="/vendors" element={<VendorPayablesView />} />
-              <Route path="/fulfillment" element={<FulfillmentView />} />
-              <Route path="/connectors" element={<ConnectorsView />} />
-              <Route path="/recovery" element={<RecoveryView />} />
-              <Route path="/closeout" element={<CloseoutView />} />
-              <Route path="/referees" element={<RefereesView />} />
-              <Route path="/processors" element={<ProcessorsView />} />
-              <Route path="/credit-review" element={<CreditReviewView />} />
-              <Route path="/photography" element={<MediaView />} />
-              <Route path="/photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
-              {/* CAP-030 / TER-1503: warehouse pick queue (work-loop gated inside the view) */}
-              <Route path="/pick" element={<PickView />} />
-              <Route path="/contacts" element={<ContactsView />} />
-              <Route path="/contacts/:id" element={<ContactProfileView />} />
-              <Route path="/settings" element={<SettingsView />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
+            <Outlet />
           </main>
           {CANVAS_GRAMMAR_ENABLED && <ContextDrawer />}
         </div>
@@ -231,8 +203,35 @@ export function App() {
             <Route path="contacts/:id" element={<MobileContactProfileView />} />
             <Route index element={<Navigate to="dashboard" replace />} />
           </Route>
-          {/* Desktop shell — all other routes */}
-          <Route path="*" element={<AppContent />} />
+          {/* Desktop layout route — AppContent wraps all desktop views via Outlet */}
+          <Route element={<AppContent />}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardView />} />
+            <Route path="/reports" element={<ReportsRouteShell />} />
+            <Route path="/purchaseOrders" element={<PurchaseOrdersView />} />
+            <Route path="/intake" element={<IntakeView />} />
+            <Route path="/sales" element={<SalesView />} />
+            <Route path="/matchmaking" element={<MatchmakingView />} />
+            <Route path="/orders" element={<OrdersView />} />
+            <Route path="/payments" element={<PaymentsView />} />
+            <Route path="/inventory" element={<InventoryView />} />
+            <Route path="/clients" element={<ClientLedgerView />} />
+            <Route path="/vendors" element={<VendorPayablesView />} />
+            <Route path="/fulfillment" element={<FulfillmentView />} />
+            <Route path="/connectors" element={<ConnectorsView />} />
+            <Route path="/recovery" element={<RecoveryView />} />
+            <Route path="/closeout" element={<CloseoutView />} />
+            <Route path="/referees" element={<RefereesView />} />
+            <Route path="/processors" element={<ProcessorsView />} />
+            <Route path="/credit-review" element={<CreditReviewView />} />
+            <Route path="/photography" element={<MediaView />} />
+            <Route path="/photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
+            <Route path="/pick" element={<PickView />} />
+            <Route path="/contacts" element={<ContactsView />} />
+            <Route path="/contacts/:id" element={<ContactProfileView />} />
+            <Route path="/settings" element={<SettingsView />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
