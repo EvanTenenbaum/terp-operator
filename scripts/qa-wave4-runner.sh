@@ -64,6 +64,23 @@ for i in 1 2 3 4 5; do
   sleep 3
 done
 
+# Diagnostic: check what the root URL serves (first 400 chars)
+echo "[wave4-qa] Diagnosing root URL content..."
+ROOT_HTML=$(curl -s "$QA_APP_URL/" --connect-timeout 10 --max-time 30 | head -c 400 || echo "CURL_FAILED")
+echo "[wave4-qa] Root URL response: $ROOT_HTML"
+
+# Warmup: Vite compiles JS modules on first browser request — wait for Vite to be stable
+# The health check only confirms Express is up, not Vite's module graph compilation
+echo "[wave4-qa] Waiting 90s for Vite dev server initial compilation..."
+sleep 90
+
+# Post-warmup: verify root URL still serves
+echo "[wave4-qa] Post-warmup health check..."
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$QA_APP_URL/" --connect-timeout 10 || echo "000")
+echo "[wave4-qa] Root URL status post-warmup: HTTP $HTTP_STATUS"
+ROOT_HTML2=$(curl -s "$QA_APP_URL/" --connect-timeout 10 --max-time 15 | head -c 200 || echo "CURL_FAILED")
+echo "[wave4-qa] Root content: $ROOT_HTML2"
+
 echo "[wave4-qa] Running all 26 persona flow tests..."
 mkdir -p artifacts docs/qa/runs/screenshots
 
