@@ -507,7 +507,8 @@ export const queriesRouter = router({
              concat(c.name, ' ↔ ', v.name) as title,
              mm.status,
              mm.updated_at as "createdAt",
-             concat('Score: ', mm.score, ' · ', cn.product_name, ' / ', vs.product_name) as detail
+             concat('Score: ', mm.score, ' · ', cn.product_name, ' / ', vs.product_name) as detail,
+             'match'::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
       from matchmaking_matches mm
       join customer_needs cn on cn.id = mm.customer_need_id
       join customers c on c.id = cn.customer_id
@@ -522,13 +523,15 @@ export const queriesRouter = router({
             and cj.created_at > now() - interval '30 days'
         )
       union all
-      select gap.id, gap.route, gap.lane, gap.title, gap.status, gap."createdAt", gap.detail
+      select gap.id, gap.route, gap.lane, gap.title, gap.status, gap."createdAt", gap.detail,
+             gap."matchItemType", gap."matchVendorId", gap."matchCategory"
       from (
         select gen_random_uuid() as id, 'matchmaking' as route, 'Matchmaking' as lane,
                concat('Source ', g.category, ' from ', v.name) as title,
                'open' as status,
                now() as "createdAt",
-               concat('On hand: ', g.on_hand, ' units · ', case when vs.id is not null then 'Posted supply' else 'History' end) as detail
+               concat('On hand: ', g.on_hand, ' units · ', case when vs.id is not null then 'Posted supply' else 'History' end) as detail,
+               'opportunity'::text as "matchItemType", v.id as "matchVendorId", g.category as "matchCategory"
         from (
           select coalesce(b.category, 'Unknown') as category, sum(b.available_qty) as on_hand
           from batches b where b.status in ('processed', 'available', 'ready')
@@ -552,37 +555,44 @@ export const queriesRouter = router({
       await pool.query(
         `select * from (
            select b.id, 'intake' as route, 'Intake' as lane, b.name as title, b.status, b.created_at as "createdAt",
-                  concat(coalesce(v.name, 'No vendor'), ' / ', b.intake_qty, ' ', b.uom) as detail
+                  concat(coalesce(v.name, 'No vendor'), ' / ', b.intake_qty, ' ', b.uom) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from batches b left join vendors v on v.id = b.vendor_id
            where b.status in ('ready','needs_fix')
            union all
            select po.id, 'purchaseOrders' as route, 'Purchase' as lane, po.po_no as title, po.status, po.created_at as "createdAt",
-                  concat(coalesce(v.name, 'No vendor'), ' / ', po.total) as detail
+                  concat(coalesce(v.name, 'No vendor'), ' / ', po.total) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from purchase_orders po left join vendors v on v.id = po.vendor_id
            where po.status in ('draft','approved','ordered','partially_received')
            union all
            select so.id, 'orders' as route, 'Sales' as lane, so.order_no as title, so.status, so.created_at as "createdAt",
-                  concat(c.name, ' / ', so.total) as detail
+                  concat(c.name, ' / ', so.total) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from sales_orders so left join customers c on c.id = so.customer_id
            where so.status in ('draft','confirmed')
            union all
            select i.id, 'payments' as route, 'Payments' as lane, i.invoice_no as title, i.status, i.created_at as "createdAt",
-                  concat(c.name, ' / due ', i.total - i.amount_paid) as detail
+                  concat(c.name, ' / due ', i.total - i.amount_paid) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from invoices i left join customers c on c.id = i.customer_id
            where i.status in ('open','partial')
            union all
            select vb.id, 'vendors' as route, 'Vendor' as lane, vb.bill_no as title, vb.status, vb.created_at as "createdAt",
-                  concat(v.name, ' / due ', vb.amount - vb.amount_paid) as detail
+                  concat(v.name, ' / due ', vb.amount - vb.amount_paid) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from vendor_bills vb left join vendors v on v.id = vb.vendor_id
            where vb.status in ('open','approved','scheduled','partial')
            union all
            select cr.id, 'connectors' as route, 'Connector' as lane, cr.source as title, cr.status, cr.created_at as "createdAt",
-                  concat(cr.request_type, ' / ', coalesce(c.name, 'unassigned')) as detail
+                  concat(cr.request_type, ' / ', coalesce(c.name, 'unassigned')) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from connector_requests cr left join customers c on c.id = cr.customer_id
            where cr.status = 'open'
            union all
            select pl.id, 'fulfillment' as route, 'Fulfillment' as lane, pl.pick_no as title, pl.status, pl.created_at as "createdAt",
-                  concat(so.order_no, ' / ', count(fl.id), ' line(s)') as detail
+                  concat(so.order_no, ' / ', count(fl.id), ' line(s)') as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from pick_lists pl join sales_orders so on so.id = pl.order_id left join fulfillment_lines fl on fl.pick_list_id = pl.id
            where pl.status in ('open','packed')
            group by pl.id, so.order_no

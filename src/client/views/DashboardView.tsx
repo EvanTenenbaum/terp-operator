@@ -7,6 +7,7 @@ import { KpiCard } from '../components/KpiCard';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { StatusPill } from '../components/StatusPill';
 import { WorkspacePanel } from '../components/WorkspacePanel';
+import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { ColDef } from 'ag-grid-community';
@@ -20,6 +21,56 @@ export function DashboardView() {
   const workQueue = trpc.queries.workQueue.useQuery(undefined, { refetchInterval: 15_000 });
   const drilldown = trpc.queries.drilldown.useQuery({ metricKey: drilldownMetric ?? 'cash' }, { enabled: Boolean(drilldownMetric) });
   const rankedWorkRows = useMemo(() => [...((workQueue.data ?? []) as GridRow[])].sort(workUrgencySort), [workQueue.data]);
+  const { runCommand, isRunning } = useCommandRunner();
+
+  const workQueueExpansionConfig = useMemo(() => ({
+    enabled: true,
+    isRowMaster: (row: GridRow) => String(row.lane ?? '') === 'Matchmaking',
+    actionsRenderer: (row: GridRow) => {
+      if (String(row.lane ?? '') !== 'Matchmaking') return null;
+      const itemType = String(row.matchItemType ?? 'match');
+      return (
+        <button
+          className="secondary-button compact-action"
+          type="button"
+          disabled={isRunning}
+          onClick={() => {
+            if (itemType === 'opportunity' && row.matchVendorId && row.matchCategory) {
+              void runCommand('dismissMatchmakingWorkQueueItem', {
+                itemType: 'opportunity',
+                itemId: String(row.id),
+                entityType: 'vendor',
+                entityId: String(row.matchVendorId),
+                context: String(row.matchCategory),
+                leg: 3,
+              }, 'Dismiss from work queue').then(() => workQueue.refetch());
+            } else {
+              void runCommand('dismissMatchmakingWorkQueueItem', {
+                itemType: 'match',
+                itemId: String(row.id),
+              }, 'Dismiss from work queue').then(() => workQueue.refetch());
+            }
+          }}
+        >
+          Dismiss for 30 days
+        </button>
+      );
+    },
+    childrenRenderer: (row: GridRow) => {
+      if (String(row.lane ?? '') !== 'Matchmaking') return null;
+      return (
+        <div className="text-sm text-zinc-500">
+          <button
+            className="text-xs text-blue-600 hover:underline"
+            type="button"
+            onClick={() => navigate('/' + String(row.route ?? 'matchmaking'))}
+          >
+            View in Matchmaking →
+          </button>
+        </div>
+      );
+    },
+  }), [isRunning, runCommand, workQueue, navigate]);
 
   const columns: ColDef<GridRow>[] = [
     { field: 'id', pinned: 'left', width: 120 },
@@ -192,6 +243,7 @@ export function DashboardView() {
         rows={rankedWorkRows}
         columns={queueColumns}
         loading={workQueue.isLoading}
+        expansionConfig={workQueueExpansionConfig}
         actions={
           <button
             type="button"
