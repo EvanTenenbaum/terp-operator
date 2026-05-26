@@ -19,83 +19,105 @@ import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCos
 // in-app tRPC export, keeping the two surfaces in lockstep.
 export const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors', 'photography']);
 
+// GH #309: server-side TTL cache for reference data (lookup tables that rarely change).
+// Avoids firing 15 parallel DB queries on every page load/refetch.
+const REFERENCE_TTL_MS = 60_000; // 1 minute
+let _referenceCache: Awaited<ReturnType<typeof _fetchReferenceData>> | null = null;
+let _referenceCacheAt = 0;
+
+async function _fetchReferenceData() {
+  const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors, pricingDefaults] = await Promise.all([
+    pool.query('select id, name, credit_limit as "creditLimit", balance, tags, pricing_rule as "pricingRule" from customers order by name'),
+    pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
+    pool.query("select id, name, role from users where role in ('owner','manager','operator') and active order by name"),
+    pool.query(`select id, slug, label, direction, allowed_entity_types as "allowedEntityTypes",
+                       default_method as "defaultMethod", default_bucket as "defaultBucket",
+                       default_allocation_intent as "defaultAllocationIntent",
+                       requires_approval as "requiresApproval", is_system as "isSystem", is_active as "isActive"
+                from transaction_types
+                where is_active
+                order by is_system desc, direction, label`),
+    pool.query('select id, sku, name, alias, category, tags from items order by name'),
+    pool.query('select id, slug, label, color, description, is_active as "isActive" from tag_catalog where is_active order by label'),
+    pool.query("select id, invoice_no as \"invoiceNo\", customer_id as \"customerId\", total, amount_paid as \"amountPaid\", status from invoices where status in ('open', 'partial') order by created_at"),
+    pool.query(`select b.id, b.batch_code as "batchCode", b.name, b.category, b.vendor_id as "vendorId", v.name as vendor,
+                       b.item_id as "itemId", i.alias as "itemAlias",
+                       coalesce(i.alias, b.name) as "displayName",
+                       b.available_qty as "availableQty", b.reserved_qty as "reservedQty", b.unit_price as "unitPrice",
+                       b.unit_cost as "unitCost", b.uom, b.location, b.lot_code as "lotCode", b.source_code as "sourceCode",
+                       b.shorthand, b.notes, b.intake_date as "intakeDate", b.ticket_cost as "ticketCost",
+                       b.ownership_status as "ownershipStatus", b.price_range as "priceRange", b.tags, b.status,
+                       b.legacy_marker as "legacyMarker", b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus",
+                       b.created_at as "createdAt",
+                       floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays"
+                from batches b
+                left join vendors v on v.id = b.vendor_id
+                left join items i on i.id = b.item_id
+                where b.status = 'posted' and b.available_qty > 0
+                order by b.created_at desc`),
+    pool.query("select id, order_no as \"orderNo\", customer_id as \"customerId\", status, total from sales_orders where status in ('draft','confirmed','posted') order by created_at desc"),
+    pool.query("select id, po_no as \"poNo\", vendor_id as \"vendorId\", status, total from purchase_orders where status in ('draft','approved','ordered','partially_received') order by created_at desc"),
+    pool.query('select id, label, snapshot, created_at as "createdAt" from backup_snapshots order by created_at desc'),
+    pool.query('select id, name, email, balance, lifetime_earned as "lifetimeEarned", active from referees where active order by name'),
+    pool.query(`select rr.id, rr.referee_id as "refereeId", r.name as "refereeName",
+                       rr.entity_type as "entityType", rr.entity_id as "entityId",
+                       case
+                         when rr.entity_type = 'customer' then c.name
+                         when rr.entity_type = 'vendor' then v.name
+                       end as "entityName",
+                       rr.fee_type as "feeType", rr.fee_percentage as "feePercentage",
+                       rr.fee_fixed_amount as "feeFixedAmount", rr.apply_by_default as "applyByDefault",
+                       rr.active
+                from referee_relationships rr
+                join referees r on r.id = rr.referee_id
+                left join customers c on c.id = rr.entity_id and rr.entity_type = 'customer'
+                left join vendors v on v.id = rr.entity_id and rr.entity_type = 'vendor'
+                where rr.active
+                order by r.name, rr.entity_type, "entityName"`),
+    pool.query('select id, name, processor_type as "processorType", fee_type as "feeType", fee_percentage as "feePercentage", fee_fixed_amount as "feeFixedAmount", default_user_split as "defaultUserSplit", default_processor_split as "defaultProcessorSplit", active from payment_processors where active order by name'),
+    pool.query("select value from system_settings where key = 'pricing.defaults' limit 1")
+  ]);
+  return {
+    customers: customers.rows,
+    vendors: vendors.rows,
+    staff: staff.rows,
+    transactionTypes: transactionTypes.rows,
+    items: items.rows,
+    tags: tags.rows,
+    openInvoices: invoices.rows,
+    availableBatches: batches.rows,
+    activeOrders: orders.rows,
+    activePurchaseOrders: purchaseOrders.rows,
+    backupSnapshots: backups.rows,
+    referees: referees.rows,
+    refereeRelationships: refereeRelationships.rows,
+    processors: processors.rows,
+    defaultPricingRule: pricingDefaults.rows[0]?.value ?? {},
+    categories: ['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape'],
+    priceBrackets: ['under-25', '25-100', '100-plus'],
+    commands: commandNames
+      .filter((name) => !(internalOnlyCommandNames as readonly string[]).includes(name))
+      .map((name) => ({ name, label: commandLabels[name], minRole: commandMinRole[name] }))
+  };
+}
+
+/** Invalidate the reference cache (call after mutations that affect lookup tables). */
+export function invalidateReferenceCache() {
+  _referenceCache = null;
+  _referenceCacheAt = 0;
+}
+
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(({ ctx }) => getDashboardData(ctx.user.role)),
   health: protectedProcedure.query(() => getHealth()),
   reference: protectedProcedure.query(async () => {
-    const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors, pricingDefaults] = await Promise.all([
-      pool.query('select id, name, credit_limit as "creditLimit", balance, tags, pricing_rule as "pricingRule" from customers order by name'),
-      pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
-      pool.query("select id, name, role from users where role in ('owner','manager','operator') and active order by name"),
-      pool.query(`select id, slug, label, direction, allowed_entity_types as "allowedEntityTypes",
-                         default_method as "defaultMethod", default_bucket as "defaultBucket",
-                         default_allocation_intent as "defaultAllocationIntent",
-                         requires_approval as "requiresApproval", is_system as "isSystem", is_active as "isActive"
-                  from transaction_types
-                  where is_active
-                  order by is_system desc, direction, label`),
-      pool.query('select id, sku, name, alias, category, tags from items order by name'),
-      pool.query('select id, slug, label, color, description, is_active as "isActive" from tag_catalog where is_active order by label'),
-      pool.query("select id, invoice_no as \"invoiceNo\", customer_id as \"customerId\", total, amount_paid as \"amountPaid\", status from invoices where status in ('open', 'partial') order by created_at"),
-      pool.query(`select b.id, b.batch_code as "batchCode", b.name, b.category, b.vendor_id as "vendorId", v.name as vendor,
-                         b.item_id as "itemId", i.alias as "itemAlias",
-                         coalesce(i.alias, b.name) as "displayName",
-                         b.available_qty as "availableQty", b.reserved_qty as "reservedQty", b.unit_price as "unitPrice",
-                         b.unit_cost as "unitCost", b.uom, b.location, b.lot_code as "lotCode", b.source_code as "sourceCode",
-                         b.shorthand, b.notes, b.intake_date as "intakeDate", b.ticket_cost as "ticketCost",
-                         b.ownership_status as "ownershipStatus", b.price_range as "priceRange", b.tags, b.status,
-                         b.legacy_marker as "legacyMarker", b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus",
-                         b.created_at as "createdAt",
-                         floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays"
-                  from batches b
-                  left join vendors v on v.id = b.vendor_id
-                  left join items i on i.id = b.item_id
-                  where b.status = 'posted' and b.available_qty > 0
-                  order by b.created_at desc`),
-      pool.query("select id, order_no as \"orderNo\", customer_id as \"customerId\", status, total from sales_orders where status in ('draft','confirmed','posted') order by created_at desc"),
-      pool.query("select id, po_no as \"poNo\", vendor_id as \"vendorId\", status, total from purchase_orders where status in ('draft','approved','ordered','partially_received') order by created_at desc"),
-      pool.query('select id, label, snapshot, created_at as "createdAt" from backup_snapshots order by created_at desc'),
-      pool.query('select id, name, email, balance, lifetime_earned as "lifetimeEarned", active from referees where active order by name'),
-      pool.query(`select rr.id, rr.referee_id as "refereeId", r.name as "refereeName",
-                         rr.entity_type as "entityType", rr.entity_id as "entityId",
-                         case
-                           when rr.entity_type = 'customer' then c.name
-                           when rr.entity_type = 'vendor' then v.name
-                         end as "entityName",
-                         rr.fee_type as "feeType", rr.fee_percentage as "feePercentage",
-                         rr.fee_fixed_amount as "feeFixedAmount", rr.apply_by_default as "applyByDefault",
-                         rr.active
-                  from referee_relationships rr
-                  join referees r on r.id = rr.referee_id
-                  left join customers c on c.id = rr.entity_id and rr.entity_type = 'customer'
-                  left join vendors v on v.id = rr.entity_id and rr.entity_type = 'vendor'
-                  where rr.active
-                  order by r.name, rr.entity_type, "entityName"`),
-      pool.query('select id, name, processor_type as "processorType", fee_type as "feeType", fee_percentage as "feePercentage", fee_fixed_amount as "feeFixedAmount", default_user_split as "defaultUserSplit", default_processor_split as "defaultProcessorSplit", active from payment_processors where active order by name'),
-      pool.query("select value from system_settings where key = 'pricing.defaults' limit 1")
-    ]);
-    return {
-      customers: customers.rows,
-      vendors: vendors.rows,
-      staff: staff.rows,
-      transactionTypes: transactionTypes.rows,
-      items: items.rows,
-      tags: tags.rows,
-      openInvoices: invoices.rows,
-      availableBatches: batches.rows,
-      activeOrders: orders.rows,
-      activePurchaseOrders: purchaseOrders.rows,
-      backupSnapshots: backups.rows,
-      referees: referees.rows,
-      refereeRelationships: refereeRelationships.rows,
-      processors: processors.rows,
-      defaultPricingRule: pricingDefaults.rows[0]?.value ?? {},
-      categories: ['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape'],
-      priceBrackets: ['under-25', '25-100', '100-plus'],
-      commands: commandNames
-        .filter((name) => !(internalOnlyCommandNames as readonly string[]).includes(name))
-        .map((name) => ({ name, label: commandLabels[name], minRole: commandMinRole[name] }))
-    };
+    // GH #309: return cached result if within TTL; otherwise re-fetch and repopulate.
+    if (_referenceCache !== null && Date.now() - _referenceCacheAt < REFERENCE_TTL_MS) {
+      return _referenceCache;
+    }
+    _referenceCache = await _fetchReferenceData();
+    _referenceCacheAt = Date.now();
+    return _referenceCache;
   }),
   grid: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input, ctx }) => {
     const rows = (await pool.query(gridSql(input.view))).rows;

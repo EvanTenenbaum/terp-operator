@@ -1223,7 +1223,9 @@ export const contacts = pgTable('contacts', {
   nameIdx: index('contacts_name_idx').on(table.name),
   updatedAtIdx: index('contacts_updated_at_idx').on(table.updatedAt),
   // GH #341: partial index on active contacts (matches migration 0054 definition).
-  activeIdx: index('contacts_active_idx').on(table.active).where(sql`${table.active} = true`)
+  activeIdx: index('contacts_active_idx').on(table.active).where(sql`${table.active} = true`),
+  // GH #296: index on email for lookup and dedup queries.
+  emailIdx: index('contacts_email_idx').on(table.email)
 }));
 
 export const appointments = pgTable('appointments', {
