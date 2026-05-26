@@ -898,11 +898,18 @@ async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise
   });
   const requestedStatus = stringValue(payload.status) || 'draft';
   const status = requestedStatus === 'ready' && validationIssues.length ? 'needs_fix' : requestedStatus;
+  // GH #338: Resolve brand_id. Priority: explicit payload.brandId → null.
+  // There is no vendor→brand mapping in the schema (brands are producer-side
+  // entities, not distributor-side), so we cannot infer a brand from the
+  // vendor. Callers that know the brand should pass payload.brandId.
+  const brandId = stringValue(payload.brandId) || null;
+
   const [row] = await tx
     .insert(batches)
     .values({
       itemId,
       vendorId: vendorId || null,
+      brandId,
       purchaseOrderId: stringValue(payload.purchaseOrderId) || null,
       purchaseOrderLineId: stringValue(payload.purchaseOrderLineId) || null,
       batchCode: code('BATCH'),
