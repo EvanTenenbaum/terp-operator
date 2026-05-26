@@ -108,7 +108,7 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
             <button
               type="submit"
               disabled={isRunning}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+              className="btn-primary"
             >
               {isRunning ? 'Recording...' : 'Record Prepayment'}
             </button>

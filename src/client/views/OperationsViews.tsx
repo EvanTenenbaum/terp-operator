@@ -1083,12 +1083,12 @@ export function OrdersView() {
               <button type="button" className="secondary-button compact-action"
                 onClick={() => toggleOrdersPreset('status:draft,confirmed')}
                 aria-pressed={storedGridFilter === 'status:draft,confirmed'}>
-                Open
+                All Open
               </button>
               <button type="button" className="secondary-button compact-action"
                 onClick={() => toggleOrdersPreset('status:confirmed')}
                 aria-pressed={storedGridFilter === 'status:confirmed'}>
-                Awaiting Pick
+                Confirmed
               </button>
               <button type="button" className="secondary-button compact-action"
                 onClick={() => toggleOrdersPreset(`createdAt:${new Date().toISOString().slice(0, 10)}`)}
@@ -1339,7 +1339,7 @@ export function InventoryView() {
           <button type="button" className="secondary-button compact-action"
             onClick={() => toggleInventoryPreset('ownershipStatus:OFC')}
             aria-pressed={storedGridFilter === 'ownershipStatus:OFC'}>
-            Low Stock
+            Office Stock
           </button>
         </div>
       )}
