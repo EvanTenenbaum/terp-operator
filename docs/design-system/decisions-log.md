@@ -440,6 +440,83 @@ Without `:not(.hidden)`, `!important` overrides the `hidden` class and the water
 **Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
 **Related:** TER-1535, PRs #179, #183, #184.
 
+## 2026-05-26: Phase 7 Wave 3D — Feature Flag Audit (TER-1604)
+
+**Decision:** Feature flag audit completed. One product feature flag and three infrastructure env vars found.
+
+| Flag / Var | Location | Classification | Disposition |
+|------------|----------|----------------|-------------|
+| `VITE_CANVAS_GRAMMAR_ENABLED` | `src/client/App.tsx:55` | **Product feature flag** — Default-on. Controls whether the canvas grammar shell is active. | **Keep as documented escape hatch.** The canvas grammar (CAP-007/CAP-008) is stable and shipped in all views. The flag exists to allow operators to revert to the pre-canvas shell if a regression surfaces. Removing it would require a full shell revert, which is low-risk but unnecessary. Document: set `VITE_CANVAS_GRAMMAR_ENABLED=false` in `.env` to disable. |
+| `VITE_TRPC_URL` | `src/client/api/trpc.ts:13` | Infrastructure config — tRPC endpoint URL | Not a feature flag. Default `/trpc` is correct for all deployments. Override only for custom reverse proxy path prefix. |
+| `VITE_SOCKET_URL` | `src/client/App.tsx:96` | Infrastructure config — Socket.IO server URL | Not a feature flag. Default `/` is correct. Override only for separate WebSocket host. |
+| `VITE_AG_GRID_LICENSE_KEY` | `src/client/main.tsx:19,56` | Infrastructure config — AG Grid Enterprise license | Not a feature flag. Required for production; missing key shows AG Grid watermark. |
+
+**No dead-code feature flags found.** The codebase does not use `process.env.REACT_APP_*` or `FEATURE_*` patterns.
+
+**Files:** `src/client/App.tsx`, `src/client/api/trpc.ts`, `src/client/main.tsx` (audit only, no code changes)
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1604, Wave 3D Phase 7 hardening.
+
+---
+
+## 2026-05-26: Phase 7 Wave 3D — Keyboard accessibility fixes (TER-1600)
+
+Fixes applied from `docs/roadmap/phase7-keyboard-a11y-audit.md` blocking gaps K1–K3 and accessibility gap A4/A9.
+
+**K1 + A4 — ContextDrawer focus trap and dialog role:**
+- Added `useFocusTrap(drawerOpen, closeDrawer)` to `ContextDrawer`. The `drawerRef` is attached to the `<aside>` element when the drawer is open.
+- Added `role="dialog"` and `aria-modal="true"` to the open drawer `<aside>` so screen readers know a modal-like context panel is active. Matches the `VendorContextDrawer` gold standard.
+- The global Escape handler in `Hotkeys.tsx` already closes the drawer; `useFocusTrap` adds Tab trapping to prevent keyboard bleed into the background AG Grid.
+
+**K2 — RowCommandHistoryDrawer focus trap:**
+- Added `useFocusTrap(Boolean(row), onClose)` to `RowCommandHistoryDrawer`. The `drawerRef` is attached to the `<aside className="row-history-drawer">` element.
+- Pattern is identical to `AddRefereeRelationshipDrawer`. Escape closes the drawer.
+
+**K3 + A9 — RecoveryView admin tools label association:**
+- Added explicit `id` attributes (`recovery-period`, `recovery-amount`, `recovery-memo`) to the three inputs in the correction journal entry band.
+- Added matching `htmlFor` on each `<label>` element. Previously, the `field-inline` CSS class provided visual containment but no programmatic label association.
+
+**Major/minor gaps not addressed in this wave (tracked, not silently ignored):**
+- K4: VendorContextDrawer focus trap — deferred; VendorContextDrawer has `role="dialog"` but no trap. Filed as known gap for next keyboard wave.
+- K5: ReceiptPreviewDrawer focus trap — deferred.
+- K6: QuickLedgerGrid transaction type drawer — deferred.
+- K7: PaymentsView allocation workflow label association — deferred.
+- K8: FulfillmentView alerts drawer — deferred.
+- K9–K12: Minor gaps — deferred.
+- A1–A11 (except A4, A9 fixed above): Accessibility gaps — deferred for dedicated a11y pass.
+
+**Files:** `src/client/components/ContextDrawer.tsx`, `src/client/components/RowCommandHistoryDrawer.tsx`, `src/client/views/OperationsViews.tsx`
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1600, `docs/roadmap/phase7-keyboard-a11y-audit.md`, Wave 3D Phase 7 hardening.
+
+---
+
+## 2026-05-26: Phase 7 Wave 3D — Drawer/focus state persistence per route (TER-1601)
+
+**Decision:** URL query param approach for drawer state persistence.
+
+**Approach:** Added `src/client/hooks/useDrawerUrlSync.ts`. The hook is called inside `ContextDrawer` (which already has access to `activeView`, drawer state, and active entity). It:
+1. On mount: reads `?drawer=<state>&entityType=<type>&entityId=<id>` URL params and restores drawer state + entity if valid params are present.
+2. On drawer state change: writes current params to URL with `replace: true` (no history spam).
+
+This means:
+- Navigating Back in the browser restores the drawer state for the previous view (URL params survive history navigation).
+- Refreshing the page restores drawer state (URL params survive reload).
+- Opening a shared URL with `?drawer=standard&entityType=salesOrder&entityId=xxx` opens the correct drawer context.
+
+**Why URL params over Zustand persist:**
+- `drawerByView` is already persisted via Zustand (drawer open/closed state per entity). What was missing was `activeDrawerEntityByView` (which entity is active per view), which is intentionally NOT persisted for security (entity UUIDs would leak between operators on shared workstations before auth resolves).
+- URL params are visible only in the current browser tab session and are cleared when the user closes the tab. They do not persist to localStorage.
+- URL params are explicit — the state is observable and debuggable.
+
+**Security note:** Entity IDs in URL params are auth-gated at the data layer. Viewing the URL gives you the UUID, not the data. The existing `resetSession()` on logout clears in-memory state; the URL will show stale params until the next navigation, at which point the server auth check gates data access.
+
+**Files:** `src/client/hooks/useDrawerUrlSync.ts` (new), `src/client/components/ContextDrawer.tsx`
+**Author:** Claude Sonnet 4.6 / Sonnet 4.6 build agent via Evan
+**Related:** TER-1601, Wave 3D Phase 7 hardening.
+
+---
+
 [Future decisions append above this line, in reverse chronological order.]
 
 ---

@@ -3,6 +3,7 @@ import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { GridRow } from '../../shared/types';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface RowCommandHistoryDrawerProps {
   row: GridRow | null;
@@ -14,13 +15,19 @@ export function RowCommandHistoryDrawer({ row, onClose }: RowCommandHistoryDrawe
   const movements = trpc.queries.inventoryMovements.useQuery({ batchId: String(row?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(row?.id) });
   const me = trpc.auth.me.useQuery();
   const { runCommand, isRunning } = useCommandRunner();
+
+  // K2 (phase7-keyboard-a11y-audit): Trap focus inside the row history drawer so
+  // Tab cannot bleed into the background AG Grid. Escape closes the drawer.
+  // Pattern matches AddRefereeRelationshipDrawer.
+  const drawerRef = useFocusTrap<HTMLElement>(Boolean(row), onClose);
+
   if (!row) return null;
   const canReverse = me.data?.role === 'manager' || me.data?.role === 'owner';
 
   return (
     <>
     <button className="row-history-backdrop" type="button" aria-label="Close row history" onClick={onClose} />
-    <aside className="row-history-drawer" aria-label="Row command history">
+    <aside ref={drawerRef} className="row-history-drawer" aria-label="Row command history">
       <div className="row-history-header">
         <div>
           <div className="text-sm font-semibold text-ink">Row History</div>
