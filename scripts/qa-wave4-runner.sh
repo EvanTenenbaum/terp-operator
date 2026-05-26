@@ -4,8 +4,19 @@
 # Usage: bash scripts/qa-wave4-runner.sh
 set -e
 
-echo "[wave4-qa] Cleaning up any orphaned QA postgres containers..."
+echo "[wave4-qa] Cleaning up orphaned QA processes and containers..."
+# Kill orphaned Express server processes (port 8787)
+pkill -f "tsx src/server/index.ts" 2>/dev/null || true
+pkill -f "node.*server/index" 2>/dev/null || true
+# Kill orphaned Vite dev server processes (port 5173)
+pkill -f "vite --host 0.0.0.0" 2>/dev/null || true
+pkill -f "vite --host" 2>/dev/null || true
+# Kill orphaned postgres containers
 docker ps -a --filter "name=qa-postgres" --format "{{.Names}}" | xargs -r docker rm -f || true
+# Extra: force-kill anything on ports 8787 and 5173
+fuser -k 8787/tcp 2>/dev/null || true
+fuser -k 5173/tcp 2>/dev/null || true
+sleep 3
 echo "[wave4-qa] Port cleanup done."
 
 echo "[wave4-qa] Starting QA environment in background..."
