@@ -69,6 +69,11 @@ export const brands = pgTable('brands', {
   alias: varchar('alias', { length: 80 }).notNull().default('Brand TBD'),
   notes: text('notes'),
   active: boolean('active').notNull().default(true),
+  // TER-1585 (CMD-VENDOR auto-brand wiring): nullable FK to the vendor that
+  // "owns" this brand. When a vendor is created without an explicit brand, the
+  // command bus auto-creates a default brand and sets this FK. Intake commands
+  // use this column to resolve the correct brand for a given vendor.
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
   createdBy: uuid('created_by').references(() => users.id),
   updatedBy: uuid('updated_by').references(() => users.id),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -1138,8 +1143,9 @@ export const creditEngineStanceHistory = pgTable('credit_engine_stance_history',
   affectedCustomerCount: integer('affected_customer_count')
 });
 
-// GH #342: Added composite primaryKey constraint matching migration 0033 definition
-// PRIMARY KEY (user_id, banner_key).
+// TER-1587 (CAP-033 schema drift fix): declare composite PK so Drizzle types
+// match the actual DB schema (migration 0033 defines PRIMARY KEY (user_id, banner_key)).
+// GH #342: Added composite primaryKey constraint matching migration 0033 definition.
 export const userDismissedBanners = pgTable('user_dismissed_banners', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   bannerKey: varchar('banner_key', { length: 64 }).notNull(),

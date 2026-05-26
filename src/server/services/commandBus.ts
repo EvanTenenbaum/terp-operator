@@ -22,6 +22,7 @@ import {
   backupSnapshots,
   batches,
   batchMedia,
+  brands,
   clientLedgerEntries,
   commandJournal,
   connectorRequests,
@@ -898,18 +899,28 @@ async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise
   });
   const requestedStatus = stringValue(payload.status) || 'draft';
   const status = requestedStatus === 'ready' && validationIssues.length ? 'needs_fix' : requestedStatus;
-  // GH #338: Resolve brand_id. Priority: explicit payload.brandId → null.
-  // There is no vendor→brand mapping in the schema (brands are producer-side
-  // entities, not distributor-side), so we cannot infer a brand from the
-  // vendor. Callers that know the brand should pass payload.brandId.
-  const brandId = stringValue(payload.brandId) || null;
+
+  // TER-1585 (CMD-INTAKE auto-brand wiring): resolve brandId from payload or,
+  // when a vendor is present, auto-ensure a default brand for that vendor.
+  // An explicitly supplied brandId always takes precedence.
+  let resolvedBrandId: string | null = stringValue(payload.brandId) || null;
+  if (!resolvedBrandId && vendorId) {
+    const [vendor] = await tx
+      .select({ id: vendors.id, name: vendors.name })
+      .from(vendors)
+      .where(eq(vendors.id, vendorId))
+      .limit(1);
+    if (vendor) {
+      resolvedBrandId = await ensureVendorBrand(tx, vendor.id, vendor.name);
+    }
+  }
 
   const [row] = await tx
     .insert(batches)
     .values({
       itemId,
       vendorId: vendorId || null,
-      brandId,
+      brandId: resolvedBrandId,
       purchaseOrderId: stringValue(payload.purchaseOrderId) || null,
       purchaseOrderLineId: stringValue(payload.purchaseOrderLineId) || null,
       batchCode: code('BATCH'),
@@ -1192,7 +1203,42 @@ async function createVendor(tx: Tx, payload: Payload, commandId: string): Promis
       consignmentDefault: Boolean(payload.consignmentDefault)
     })
     .returning();
+
+  // TER-1585 (CMD-VENDOR auto-brand wiring): auto-create a default brand for
+  // this vendor if one doesn't already exist. This ensures every vendor has at
+  // least one associated brand so intake commands (createBatch) can resolve the
+  // correct brand automatically when no explicit brandId is supplied.
+  await ensureVendorBrand(tx, vendor.id, vendor.name);
+
   return { ok: true, commandId, affectedIds: [vendor.id], toast: `${vendor.name} added to vendors.` };
+}
+
+/**
+ * TER-1585: Ensure a default brand exists for the given vendor.
+ *
+ * Looks up a brand by vendorId. If none is found, creates one using the
+ * vendor's name. Safe to call inside an existing transaction — all writes
+ * happen within `tx`.
+ *
+ * Returns the id of the existing or newly created brand.
+ */
+async function ensureVendorBrand(tx: Tx, vendorId: string, vendorName: string): Promise<string> {
+  const [existingBrand] = await tx
+    .select({ id: brands.id })
+    .from(brands)
+    .where(eq(brands.vendorId, vendorId))
+    .limit(1);
+  if (existingBrand) return existingBrand.id;
+
+  const [newBrand] = await tx
+    .insert(brands)
+    .values({
+      name: vendorName.trim(),
+      alias: vendorName.trim(),
+      vendorId
+    })
+    .returning({ id: brands.id });
+  return newBrand.id;
 }
 
 async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
