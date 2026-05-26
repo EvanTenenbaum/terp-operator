@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { trpc } from '../../api/trpc';
 import { useUiStore } from '../../store/uiStore';
+import { BANNER_KEYS } from '../../../shared/bannerKeys';
 
 /**
  * Credit Engine Phase 6f — shadow-mode orientation banner.
@@ -21,7 +22,7 @@ import { useUiStore } from '../../store/uiStore';
  *   the warning when the mode flips on.
  */
 
-const SHADOW_BANNER_KEY = 'shadow-mode' as const;
+const SHADOW_BANNER_KEY = BANNER_KEYS.SHADOW_MODE;
 
 export function ShadowModeBanner() {
   const { data, isLoading } = trpc.credit.creditEngineStances.useQuery(undefined, {

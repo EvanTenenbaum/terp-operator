@@ -1143,8 +1143,9 @@ export const creditEngineStanceHistory = pgTable('credit_engine_stance_history',
   affectedCustomerCount: integer('affected_customer_count')
 });
 
-// GH #342: Added composite primaryKey constraint matching migration 0033 definition
-// PRIMARY KEY (user_id, banner_key).
+// TER-1587 (CAP-033 schema drift fix): declare composite PK so Drizzle types
+// match the actual DB schema (migration 0033 defines PRIMARY KEY (user_id, banner_key)).
+// GH #342: Added composite primaryKey constraint matching migration 0033 definition.
 export const userDismissedBanners = pgTable('user_dismissed_banners', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   bannerKey: varchar('banner_key', { length: 64 }).notNull(),
