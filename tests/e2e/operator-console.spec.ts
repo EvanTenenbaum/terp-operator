@@ -251,7 +251,7 @@ test('backend-wired operator abilities are visible in the frontend', { annotatio
   await expect(page.getByText('Product payment').first()).toBeVisible();
   await expect(page.getByText('Payment allocations')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Unallocate' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Early discount' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply Early Pay Discount' })).toBeVisible();
 
   await nav.getByRole('button', { name: /Vendor Payouts/ }).click();
   await expect(page.getByText('Vendor bill and payout tools')).toBeVisible();
