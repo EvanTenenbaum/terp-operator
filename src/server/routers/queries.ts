@@ -248,19 +248,19 @@ export const queriesRouter = router({
            and b.available_qty > 0
        ),
        customer_history as (
-         select sol.item_id,
-                i.category,
+         select b2.category,
                 so.customer_id,
                 c.name as customer_name,
                 count(*) as purchase_count,
                 max(so.created_at) as last_activity
          from sales_order_lines sol
-         join items i on i.id = sol.item_id
+         join batches b2 on b2.id = sol.batch_id
          join sales_orders so on so.id = sol.order_id
          join customers c on c.id = so.customer_id
          where so.created_at > now() - ($1 || ' days')::interval
            and so.status not in ('cancelled', 'void')
-         group by sol.item_id, i.category, so.customer_id, c.name
+           and sol.batch_id is not null
+         group by b2.category, so.customer_id, c.name
        ),
        posted_needs as (
          select cn.customer_id,
@@ -337,19 +337,17 @@ export const queriesRouter = router({
          where on_hand <= $1
        ),
        vendor_history as (
-         select pol.item_id,
-                i.category,
+         select pol.category,
                 po.vendor_id,
                 v.name as vendor_name,
                 count(*) as supply_count,
                 max(po.created_at) as last_activity
          from purchase_order_lines pol
-         join items i on i.id = pol.item_id
-         join purchase_orders po on po.id = pol.po_id
+         join purchase_orders po on po.id = pol.purchase_order_id
          join vendors v on v.id = po.vendor_id
          where po.created_at > now() - ($2 || ' days')::interval
            and po.status not in ('cancelled', 'void')
-         group by pol.item_id, i.category, po.vendor_id, v.name
+         group by pol.category, po.vendor_id, v.name
        ),
        posted_supply as (
          select vs.vendor_id,
