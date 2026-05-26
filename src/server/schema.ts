@@ -69,6 +69,11 @@ export const brands = pgTable('brands', {
   alias: varchar('alias', { length: 80 }).notNull().default('Brand TBD'),
   notes: text('notes'),
   active: boolean('active').notNull().default(true),
+  // TER-1585 (CMD-VENDOR auto-brand wiring): nullable FK to the vendor that
+  // "owns" this brand. When a vendor is created without an explicit brand, the
+  // command bus auto-creates a default brand and sets this FK. Intake commands
+  // use this column to resolve the correct brand for a given vendor.
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
   createdBy: uuid('created_by').references(() => users.id),
   updatedBy: uuid('updated_by').references(() => users.id),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),

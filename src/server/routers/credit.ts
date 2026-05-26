@@ -1,8 +1,10 @@
 import { TRPCError } from '@trpc/server';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { pool } from '../db';
+import { db, pool } from '../db';
 import { assertRole } from '../rbac';
 import { protectedProcedure, router } from '../trpc';
+import { userDismissedBanners } from '../schema';
 import { divergenceReport } from '../services/creditEngine/divergenceReport';
 import { isColdStartReady } from '../services/creditEngine/coldStart';
 import type { Role } from '../../shared/types';
@@ -914,6 +916,70 @@ export const creditRouter = router({
         engineRecommendationDelta,
         shadowMode: configRow.shadow_mode
       };
+    }),
+
+  // ---------------------------------------------------------------------------
+  // TER-1587 (CAP-033): userDismissedBanners persistence for ShadowModeBanner
+  //
+  // These three endpoints wire the ShadowModeBanner dismiss action to the
+  // `user_dismissed_banners` table so dismissals survive page refreshes while
+  // still being scoped to the active shadow-mode session (clearBannerDismissal
+  // is called when shadow mode turns off so the banner reappears if it flips
+  // back on).
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Check whether the current user has dismissed a specific banner.
+   * Returns `{ dismissed: boolean }`.
+   */
+  isBannerDismissed: protectedProcedure
+    .input(z.object({ bannerKey: z.string().min(1).max(64) }))
+    .query(async ({ ctx, input }) => {
+      const [row] = await db
+        .select({ bannerKey: userDismissedBanners.bannerKey })
+        .from(userDismissedBanners)
+        .where(
+          and(
+            eq(userDismissedBanners.userId, ctx.user.id),
+            eq(userDismissedBanners.bannerKey, input.bannerKey)
+          )
+        )
+        .limit(1);
+      return { dismissed: Boolean(row) };
+    }),
+
+  /**
+   * Persist a banner dismissal for the current user.
+   * Idempotent: if the record already exists the insert is a no-op.
+   */
+  dismissBanner: protectedProcedure
+    .input(z.object({ bannerKey: z.string().min(1).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      await db
+        .insert(userDismissedBanners)
+        .values({ userId: ctx.user.id, bannerKey: input.bannerKey })
+        .onConflictDoNothing();
+      return { ok: true };
+    }),
+
+  /**
+   * Clear a previously stored banner dismissal for the current user.
+   * Called when the shadow-mode banner should reappear (e.g. when the engine
+   * switches out of shadow mode so the next time it re-enters, the banner
+   * shows again).
+   */
+  clearBannerDismissal: protectedProcedure
+    .input(z.object({ bannerKey: z.string().min(1).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      await db
+        .delete(userDismissedBanners)
+        .where(
+          and(
+            eq(userDismissedBanners.userId, ctx.user.id),
+            eq(userDismissedBanners.bannerKey, input.bannerKey)
+          )
+        );
+      return { ok: true };
     })
 });
 

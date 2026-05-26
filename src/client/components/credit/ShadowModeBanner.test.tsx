@@ -4,6 +4,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const creditEngineStancesQueryMock = vi.fn();
+const isBannerDismissedQueryMock = vi.fn();
+const dismissBannerMutateMock = vi.fn();
+const clearBannerDismissalMutateMock = vi.fn();
 
 vi.mock('../../api/trpc', () => ({
   trpc: {
@@ -11,6 +14,17 @@ vi.mock('../../api/trpc', () => ({
       creditEngineStances: {
         useQuery: (input: unknown, options: unknown) =>
           creditEngineStancesQueryMock(input, options),
+      },
+      // TER-1587: DB-backed banner dismiss endpoints
+      isBannerDismissed: {
+        useQuery: (_input: unknown, _options: unknown) =>
+          isBannerDismissedQueryMock(_input, _options),
+      },
+      dismissBanner: {
+        useMutation: () => ({ mutate: dismissBannerMutateMock }),
+      },
+      clearBannerDismissal: {
+        useMutation: () => ({ mutate: clearBannerDismissalMutateMock }),
       },
     },
   },
@@ -42,9 +56,23 @@ function mockShadowMode(shadowMode: boolean) {
   });
 }
 
+/** Set up the isBannerDismissed query mock return value. */
+function mockDismissalState(dismissed: boolean) {
+  isBannerDismissedQueryMock.mockReturnValue({
+    data: { dismissed },
+    isLoading: false,
+    error: null,
+  });
+}
+
 describe('ShadowModeBanner', () => {
   beforeEach(() => {
     creditEngineStancesQueryMock.mockReset();
+    isBannerDismissedQueryMock.mockReset();
+    dismissBannerMutateMock.mockReset();
+    clearBannerDismissalMutateMock.mockReset();
+    // Default: not dismissed in DB
+    mockDismissalState(false);
     resetUiStore();
   });
 
@@ -71,7 +99,18 @@ describe('ShadowModeBanner', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('hides banner after user clicks Dismiss and persists the preference', async () => {
+  it('does not render banner while dismissal query is loading', () => {
+    mockShadowMode(true);
+    isBannerDismissedQueryMock.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: null,
+    });
+    const { container } = render(<ShadowModeBanner />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('hides banner after user clicks Dismiss, updates UiStore, and calls dismissBanner mutation', async () => {
     mockShadowMode(true);
     const user = userEvent.setup();
     const { rerender } = render(<ShadowModeBanner />);
@@ -81,6 +120,16 @@ describe('ShadowModeBanner', () => {
     rerender(<ShadowModeBanner />);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(useUiStore.getState().dismissedShadowBanner).toBe(true);
+    expect(dismissBannerMutateMock).toHaveBeenCalledWith({ bannerKey: 'shadow-mode' });
+  });
+
+  it('hides banner when DB says it was already dismissed (cross-session persistence)', () => {
+    mockShadowMode(true);
+    mockDismissalState(true);
+    render(<ShadowModeBanner />);
+    // DB says dismissed → UiStore synced → banner hidden
+    expect(useUiStore.getState().dismissedShadowBanner).toBe(true);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('shows banner again when shadow mode flips off → on (per-mode dismissal scope)', async () => {
@@ -93,7 +142,11 @@ describe('ShadowModeBanner', () => {
     mockShadowMode(false);
     rerender(<ShadowModeBanner />);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    // clearBannerDismissal should be called when shadow mode turns off
+    expect(clearBannerDismissalMutateMock).toHaveBeenCalledWith({ bannerKey: 'shadow-mode' });
 
+    // DB no longer dismissed (cleared), mode comes back on
+    mockDismissalState(false);
     mockShadowMode(true);
     rerender(<ShadowModeBanner />);
     expect(screen.getByRole('status')).toBeInTheDocument();
