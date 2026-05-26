@@ -349,6 +349,15 @@ Added `wrapHeaderText: true` + `autoHeaderHeight: true` to OperatorGrid defaultC
 
 ---
 
+## 2026-05-26: Crikket feedback capture mounts as a root utility
+**Decision:** Mount the Crikket capture widget from the TERP root shell after login, using a vendored browser bundle, Vite environment switches, and CSP allowances for the configured Crikket host plus direct upload storage instead of adding the unpublished workspace package as an app dependency.
+**Rationale:** User-testing feedback should be one click inside TERP without requiring the Chrome extension flow. The Crikket npm package currently depends on workspace packages from its monorepo, while the built global browser bundle is stable for local operator testing and can be pointed at the hosted Crikket server.
+**Example:** `src/client/components/FeedbackCapture.tsx`, `src/server/app.ts`, `public/vendor/crikket/capture.global.js`.
+**Author:** Codex via Evan
+**Related:** `docs/agent-orientation/feedback-capture.md`.
+
+---
+
 ## 2026-05-18: Documentation grounded in actual codebase, not aspirational spec
 **Decision:** When the original 2026-05-18 spec for the agent-orientation/design-system docs referenced files and structures that didn't exist (a `Button` component, `ui/`/`grids/`/`forms/`/`layout/` subfolders, `@/` path aliases, `cn()` helper, `IntakeToolbar` / `StatusCellRenderer` / `CurrencyCellRenderer` components, raw TanStack mutation patterns), the docs were rewritten from the actual codebase rather than transcribed from the spec.
 **Rationale:** Documentation that misrepresents the codebase is worse than no documentation — it teaches agents to write code that doesn't compile (`@/lib/utils`) or that bypasses the audit/journal contract (raw `useMutation` instead of `useCommandRunner`). The spec's value was its structural outline (which docs to write, what topics each should cover). The code is the source of truth for content.

@@ -64,3 +64,15 @@ services:
         scope: RUN_AND_BUILD_TIME
         type: SECRET
         value: "__AG_GRID_LICENSE_KEY__"
+      - key: VITE_CRIKKET_ENABLED
+        scope: RUN_AND_BUILD_TIME
+        value: "true"
+      - key: VITE_CRIKKET_HOST
+        scope: RUN_AND_BUILD_TIME
+        value: "https://terp-crikket-feedback.64.23.130.173.sslip.io"
+      - key: VITE_CRIKKET_KEY
+        scope: RUN_AND_BUILD_TIME
+        value: "crk_terp_operator_feedback_do"
+      - key: VITE_CRIKKET_SCRIPT_SRC
+        scope: RUN_AND_BUILD_TIME
+        value: /vendor/crikket/capture.global.js

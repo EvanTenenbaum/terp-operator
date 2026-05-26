@@ -10,6 +10,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { GlobalFinderPanel } from './components/GlobalFinderPanel';
 import { ContextDrawer } from './components/ContextDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { FeedbackCapture } from './components/FeedbackCapture';
 import { Hotkeys } from './components/Hotkeys';
 import { IdentityRibbon } from './components/IdentityRibbon';
 import { ReportsRouteShell } from './components/ReportsRouteShell';
@@ -144,6 +145,7 @@ function AppContent() {
           Connection lost — changes may not save.{' '}
           <button className="underline ml-2" onClick={() => me.refetch()}>Reconnect</button>
         </div>
+      )}
       <LocationSync />
       <SideNav user={me.data} />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -160,6 +162,7 @@ function AppContent() {
       <CommandPalette />
       <GlobalFinderPanel />
       <ToastCenter />
+      <FeedbackCapture />
       <Agentation
         onCopy={(markdown) => {
           if (navigator.clipboard && navigator.clipboard.writeText) {

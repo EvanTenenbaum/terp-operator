@@ -21,6 +21,8 @@ pnpm dev                       # opens http://localhost:5173
 
 **Seeded credentials** live in `src/server/seed.ts` — read it directly rather than copying default strings here, since they change.
 
+The optional Crikket feedback widget is configured with `VITE_CRIKKET_*` variables. See `feedback-capture.md` before changing the widget, capture key, or hosted Crikket URL.
+
 ## Daily Loop
 
 ```bash
