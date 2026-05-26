@@ -573,6 +573,20 @@ export const matchmakingMatches = pgTable(
   })
 );
 
+export const matchmakingSettings = pgTable('matchmaking_settings', {
+  id: id(),
+  matchQualityFloor: integer('match_quality_floor').notNull().default(35),
+  workQueueThreshold: integer('work_queue_threshold').notNull().default(75),
+  historyLookbackDays: integer('history_lookback_days').notNull().default(90),
+  repeatThreshold: integer('repeat_threshold').notNull().default(3),
+  gapFloorQty: integer('gap_floor_qty').notNull().default(0),
+  showClientsColumn: boolean('show_clients_column').notNull().default(false),
+  showVendorsColumn: boolean('show_vendors_column').notNull().default(false),
+  workQueueEnabled: boolean('work_queue_enabled').notNull().default(true),
+  updatedAt: updated(),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+});
+
 export const creditOverrides = pgTable('credit_overrides', {
   id: id(),
   customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'cascade' }).notNull(),

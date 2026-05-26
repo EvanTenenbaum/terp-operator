@@ -1579,30 +1579,57 @@ function InventoryRowActions({
 
 export function ClientLedgerView() {
   const navigate = useNavigate();
-  const clientColumns: ColDef<GridRow>[] = [
-    {
-      field: 'name',
-      pinned: 'left',
-      width: 190,
-      cellRenderer: (params: { data: GridRow; value: string }) =>
-        params.data?.contactId ? (
-          <button
-            className="text-button font-medium text-left"
-            onClick={() => navigate(`/contacts/${String(params.data.contactId)}`)}
-            type="button"
-          >
-            {params.value}
-          </button>
-        ) : (
-          <span>{params.value}</span>
-        )
-    },
-    { field: 'creditLimit', type: 'numericColumn', width: 140 },
-    { field: 'balance', type: 'numericColumn', width: 130 },
-    { field: 'tags', minWidth: 180 },
-    { field: 'notes', minWidth: 260 },
-    { field: 'invoiceCount', width: 120 }
-  ];
+  const matchSettings = trpc.queries.matchmakingSettings.useQuery();
+  const matchCounts = trpc.queries.matchmakingEntityCounts.useQuery(undefined, {
+    enabled: matchSettings.data?.showClientsColumn ?? false,
+  });
+  const clientColumns = useMemo((): ColDef<GridRow>[] => {
+    const base: ColDef<GridRow>[] = [
+      {
+        field: 'name',
+        pinned: 'left',
+        width: 190,
+        cellRenderer: (params: { data: GridRow; value: string }) =>
+          params.data?.contactId ? (
+            <button
+              className="text-button font-medium text-left"
+              onClick={() => navigate(`/contacts/${String(params.data.contactId)}`)}
+              type="button"
+            >
+              {params.value}
+            </button>
+          ) : (
+            <span>{params.value}</span>
+          )
+      },
+      { field: 'creditLimit', type: 'numericColumn', width: 140 },
+      { field: 'balance', type: 'numericColumn', width: 130 },
+      { field: 'tags', minWidth: 180 },
+      { field: 'notes', minWidth: 260 },
+      { field: 'invoiceCount', width: 120 },
+    ];
+    if (!matchSettings.data?.showClientsColumn) return base;
+    return [
+      ...base,
+      {
+        headerName: 'Matchmaking',
+        width: 160,
+        cellRenderer: (params: { data?: GridRow }) => {
+          const counts = matchCounts.data?.customers[String(params.data?.id ?? '')];
+          if (!counts) return <span className="text-xs text-zinc-400">No activity</span>;
+          return (
+            <a
+              href={`/matchmaking?customer=${params.data?.id}`}
+              className="text-xs text-blue-600 hover:underline"
+              onClick={(e) => { e.preventDefault(); navigate(`/matchmaking?customer=${params.data?.id}`); }}
+            >
+              {counts.needs} needs · {counts.matches} matches
+            </a>
+          );
+        },
+      },
+    ];
+  }, [matchSettings.data?.showClientsColumn, matchCounts.data, navigate]);
   return <GridJourney view="clients" title="Client Ledger and Credit" columns={clientColumns} />;
 }
 
@@ -1613,6 +1640,46 @@ export function VendorPayablesView() {
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const canVoid = me.data?.role === 'manager' || me.data?.role === 'owner';
+  const navigate = useNavigate();
+  const matchSettings = trpc.queries.matchmakingSettings.useQuery();
+  const matchCounts = trpc.queries.matchmakingEntityCounts.useQuery(undefined, {
+    enabled: matchSettings.data?.showVendorsColumn ?? false,
+  });
+
+  const vendorMatchColumns = useMemo((): ColDef<GridRow>[] => {
+    const base: ColDef<GridRow>[] = [
+      { field: 'vendor', pinned: 'left', width: 190 },
+      { field: 'billNo', width: 150 },
+      { field: 'amount', type: 'numericColumn', width: 120 },
+      { field: 'amountPaid', type: 'numericColumn', width: 130 },
+      { field: 'status', width: 125 },
+      { field: 'dueDate', width: 180 },
+      { field: 'scheduledFor', width: 180 },
+      { field: 'dueReason', minWidth: 240 },
+      { field: 'consignmentTriggered', width: 170 }
+    ];
+    if (!matchSettings.data?.showVendorsColumn) return base;
+    return [
+      ...base,
+      {
+        headerName: 'Matchmaking',
+        width: 140,
+        cellRenderer: (params: { data?: GridRow }) => {
+          const counts = matchCounts.data?.vendors[String(params.data?.vendorId ?? '')];
+          if (!counts) return <span className="text-xs text-zinc-400">No activity</span>;
+          return (
+            <a
+              href={`/matchmaking?vendor=${params.data?.id}`}
+              className="text-xs text-blue-600 hover:underline"
+              onClick={(e) => { e.preventDefault(); navigate(`/matchmaking?vendor=${params.data?.id}`); }}
+            >
+              {counts.supply} stock listed
+            </a>
+          );
+        },
+      },
+    ];
+  }, [matchSettings.data?.showVendorsColumn, matchCounts.data, navigate]);
 
   const vendorBillExpansionConfig = useMemo(
     () => ({
@@ -1712,6 +1779,7 @@ export function VendorPayablesView() {
     <GridJourney
       view="vendors"
       title="Vendor Payables"
+      columns={vendorMatchColumns}
       prelude={() => (
         <>
           <VendorMoneyOutStrip selectedBill={selectedBill} />

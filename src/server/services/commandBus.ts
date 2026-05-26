@@ -43,6 +43,7 @@ import {
   invoices,
   items,
   matchmakingMatches,
+  matchmakingSettings,
   paymentAllocations,
   paymentProcessors,
   payments,
@@ -789,6 +790,12 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return reviewMatchmakingMatch(tx, payload, 'dismissed', user.id, commandId);
     case 'reopenMatchmakingMatch':
       return reopenMatchmakingMatch(tx, payload, user.id, commandId);
+    case 'updateMatchmakingSettings':
+      return updateMatchmakingSettings(tx, payload, user.id, commandId);
+    case 'noteMatchmakingOutreach':
+      return noteMatchmakingOutreach(tx, payload, user.id, commandId);
+    case 'dismissMatchmakingWorkQueueItem':
+      return dismissMatchmakingWorkQueueItem(tx, payload, user.id, commandId);
     case 'setItemAlias':
       return setItemAlias(tx, payload, commandId);
     case 'createReferee':
@@ -4834,6 +4841,36 @@ async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promi
   return { ok: true, commandId, affectedIds: [archive.id], toast: `${period} archived with matching control totals.`, delta: { controlTotals, csvPath, jsonlPath, pdfPath } };
 }
 
+/** DYN-H4: Valid status transitions for customer needs. */
+export function assertValidNeedStatusTransition(currentStatus: string, newStatus: string): void {
+  const validTransitions: Record<string, string[]> = {
+    open: ['matched', 'closed'],
+    matched: ['open', 'closed'],
+    closed: [],
+  };
+  const allowed = validTransitions[currentStatus] ?? [];
+  if (!allowed.includes(newStatus)) {
+    throw new Error(`Invalid status transition for customer need: ${currentStatus} → ${newStatus}`);
+  }
+}
+
+/** DYN-H4: Valid status transitions for vendor supply rows. */
+export function assertValidSupplyStatusTransition(currentStatus: string, newStatus: string): void {
+  const validTransitions: Record<string, string[]> = {
+    open: ['held_for_match', 'closed'],
+    held_for_match: ['open', 'closed'],
+    closed: [],
+    // These states are set by the matchmaking match workflow, not by updateVendorSupply directly.
+    // Treat them as effectively terminal from this command's perspective.
+    accepted: [],
+    dismissed: [],
+  };
+  const allowed = validTransitions[currentStatus] ?? [];
+  if (!allowed.includes(newStatus)) {
+    throw new Error(`Invalid status transition for vendor supply: ${currentStatus} → ${newStatus}`);
+  }
+}
+
 async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const customerId = requiredId(payload.customerId, 'customerId');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
@@ -4894,6 +4931,10 @@ async function updateCustomerNeed(tx: Tx, payload: Payload, commandId: string): 
   const nextQtyMin = Number(values.qtyMin ?? current.qtyMin);
   const nextQtyMax = values.qtyMax == null ? null : Number(values.qtyMax);
   if (nextQtyMax != null && nextQtyMax < nextQtyMin) throw new Error('Need max quantity cannot be below min quantity.');
+  const normalizedNextNeed = values.status != null ? String(values.status) : null;
+  if (normalizedNextNeed != null && normalizedNextNeed !== current.status) {
+    assertValidNeedStatusTransition(current.status, normalizedNextNeed);
+  }
   await tx.update(customerNeeds).set(values).where(eq(customerNeeds.id, needId));
   const matchIds = await rebuildMatchesForNeed(tx, needId);
   return { ok: true, commandId, affectedIds: [needId, ...matchIds], toast: 'Customer need updated.', delta: { matchCount: matchIds.length } };
@@ -4955,6 +4996,10 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
   if (payload.terms !== undefined) values.terms = stringValue(payload.terms) || null;
   if (payload.notes !== undefined) values.notes = stringValue(payload.notes) || null;
   if (payload.status !== undefined) values.status = statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open');
+  const normalizedNextSupply = values.status != null ? String(values.status) : null;
+  if (normalizedNextSupply != null && normalizedNextSupply !== current.status) {
+    assertValidSupplyStatusTransition(current.status, normalizedNextSupply);
+  }
   await tx.update(vendorSupply).set(values).where(eq(vendorSupply.id, supplyId));
   const matchIds = await rebuildMatchesForSupply(tx, supplyId);
   return { ok: true, commandId, affectedIds: [supplyId, ...matchIds], toast: 'Vendor stock updated.', delta: { matchCount: matchIds.length } };
@@ -4972,10 +5017,110 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
  * specific sibling re-evaluated must reopen it explicitly with another
  * `reopenMatchmakingMatch` call.
  *
- * The accepted-side parent flips on `customerNeeds.status = 'matched'` and
- * `vendorSupply.status = 'held_for_match'` are likewise NOT reverted here; those
- * are owned by the wider matchmaking workflow and not part of the reverse path.
+ * When reopened: if no other accepted match exists for the same customer need,
+ * the need's status reverts to 'open'. If no other accepted match exists for
+ * the same vendor supply, the supply's status reverts to 'open'. This cascade
+ * revert is intentional — the need/supply return to the pool for re-matching.
  */
+export async function updateMatchmakingSettings(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const floor = payload.matchQualityFloor != null ? Number(payload.matchQualityFloor) : undefined;
+  const threshold = payload.workQueueThreshold != null ? Number(payload.workQueueThreshold) : undefined;
+
+  const [current] = await tx.select().from(matchmakingSettings).limit(1);
+  const effectiveFloor = floor ?? current?.matchQualityFloor ?? 35;
+  const effectiveThreshold = threshold ?? current?.workQueueThreshold ?? 75;
+
+  if (effectiveThreshold < effectiveFloor) {
+    throw new Error('Work queue threshold must be ≥ match quality floor.');
+  }
+
+  const values: Record<string, unknown> = { updatedAt: new Date(), updatedBy: userId };
+  if (floor != null) values.matchQualityFloor = floor;
+  if (threshold != null) values.workQueueThreshold = threshold;
+  if (payload.historyLookbackDays != null) values.historyLookbackDays = Number(payload.historyLookbackDays);
+  if (payload.repeatThreshold != null) values.repeatThreshold = Number(payload.repeatThreshold);
+  if (payload.gapFloorQty != null) values.gapFloorQty = Number(payload.gapFloorQty);
+  if (payload.showClientsColumn != null) values.showClientsColumn = Boolean(payload.showClientsColumn);
+  if (payload.showVendorsColumn != null) values.showVendorsColumn = Boolean(payload.showVendorsColumn);
+  if (payload.workQueueEnabled != null) values.workQueueEnabled = Boolean(payload.workQueueEnabled);
+
+  if (current) {
+    await tx.update(matchmakingSettings).set(values).where(eq(matchmakingSettings.id, current.id));
+  } else {
+    await tx.insert(matchmakingSettings).values({ ...values } as typeof matchmakingSettings.$inferInsert);
+  }
+
+  return { ok: true, commandId, affectedIds: [], toast: 'Matchmaking settings updated.' };
+}
+
+export async function noteMatchmakingOutreach(
+  tx: Tx,
+  payload: Payload,
+  _userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const entityType = String(payload.entityType ?? '');
+  const entityId = requiredId(payload.entityId, 'entityId');
+  const context = String(payload.context ?? '');
+  const leg = Number(payload.leg ?? 0);
+
+  if (!['customer', 'vendor'].includes(entityType)) {
+    throw new Error('entityType must be customer or vendor');
+  }
+  if (![2, 3].includes(leg)) {
+    throw new Error('leg must be 2 or 3');
+  }
+  if (!context) {
+    throw new Error('context (category slug or batch id) is required');
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [entityId],
+    toast: `Outreach noted. This suggestion will be hidden for 30 days.`,
+  };
+}
+
+export async function dismissMatchmakingWorkQueueItem(
+  tx: Tx,
+  payload: Payload,
+  userId: string,
+  commandId: string
+): Promise<CommandResult> {
+  const itemType = String(payload.itemType ?? '');
+  const itemId = String(payload.itemId ?? '');
+
+  if (!['match', 'opportunity'].includes(itemType)) {
+    throw new Error('itemType must be match or opportunity');
+  }
+
+  if (itemType === 'opportunity' && payload.entityType && payload.entityId && payload.context) {
+    // Re-route to noteMatchmakingOutreach logic for opportunity items.
+    // IMPORTANT: the command journal entry is written by the command bus with
+    // command_name = 'dismissMatchmakingWorkQueueItem'. The Leg 2/3 snooze queries
+    // in matchmakingOpportunities check BOTH command names, so this is safe.
+    return noteMatchmakingOutreach(tx, {
+      entityType: payload.entityType,
+      entityId: payload.entityId,
+      context: payload.context,
+      leg: payload.leg,
+    }, userId, commandId);
+  }
+
+  return {
+    ok: true,
+    commandId,
+    affectedIds: itemId ? [itemId] : [],
+    toast: 'Removed from work queue for 30 days.',
+  };
+}
+
 export async function reopenMatchmakingMatch(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const matchId = requiredId(payload.matchId ?? payload.id, 'matchId');
   const [match] = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.id, matchId)).limit(1);
@@ -4984,6 +5129,43 @@ export async function reopenMatchmakingMatch(tx: Tx, payload: Payload, userId: s
     throw new Error(`Match ${matchId} is already open; nothing to reopen.`);
   }
   await tx.update(matchmakingMatches).set({ status: 'open', reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
+
+  // Revert need to open if no other accepted match exists for this need
+  const [otherAcceptedForNeed] = await tx
+    .select({ id: matchmakingMatches.id })
+    .from(matchmakingMatches)
+    .where(
+      and(
+        eq(matchmakingMatches.customerNeedId, match.customerNeedId),
+        eq(matchmakingMatches.status, 'accepted'),
+        sql`${matchmakingMatches.id} <> ${matchId}`
+      )
+    )
+    .limit(1);
+  if (!otherAcceptedForNeed) {
+    await tx.update(customerNeeds)
+      .set({ status: 'open', updatedAt: new Date() })
+      .where(eq(customerNeeds.id, match.customerNeedId));
+  }
+
+  // Revert supply to open if no other accepted match exists for this supply
+  const [otherAcceptedForSupply] = await tx
+    .select({ id: matchmakingMatches.id })
+    .from(matchmakingMatches)
+    .where(
+      and(
+        eq(matchmakingMatches.vendorSupplyId, match.vendorSupplyId),
+        eq(matchmakingMatches.status, 'accepted'),
+        sql`${matchmakingMatches.id} <> ${matchId}`
+      )
+    )
+    .limit(1);
+  if (!otherAcceptedForSupply) {
+    await tx.update(vendorSupply)
+      .set({ status: 'open', updatedAt: new Date() })
+      .where(eq(vendorSupply.id, match.vendorSupplyId));
+  }
+
   return { ok: true, commandId, affectedIds: [matchId, match.customerNeedId, match.vendorSupplyId], toast: 'Match reopened.' };
 }
 

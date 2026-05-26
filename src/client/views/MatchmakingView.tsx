@@ -1,4 +1,5 @@
 import { Check, Plus, RotateCcw, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -7,59 +8,46 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
-import { parseTagInput } from '../../shared/tags';
-
 const needColumns: ColDef<GridRow>[] = [
-  { field: 'needCode', headerName: 'Need', pinned: 'left', width: 150 },
-  { field: 'customer', width: 180 },
-  { field: 'productName', headerName: 'Request', editable: true, minWidth: 190 },
+  { field: 'needCode', headerName: 'Need', pinned: 'left', width: 120 },
+  { field: 'customer', width: 170 },
+  { field: 'productName', headerName: 'Request', editable: true, minWidth: 180 },
   { field: 'category', editable: true, width: 120 },
-  { field: 'tags', editable: true, minWidth: 170 },
-  { field: 'qtyMin', headerName: 'Min qty', editable: true, type: 'numericColumn', width: 115 },
-  { field: 'qtyMax', headerName: 'Max qty', editable: true, type: 'numericColumn', width: 115 },
-  { field: 'targetPrice', headerName: 'Target', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'neededBy', headerName: 'Needed by', editable: true, width: 150 },
-  { field: 'urgency', editable: true, width: 110 },
-  { field: 'notes', editable: true, minWidth: 220 },
-  { field: 'status', width: 125 }
+  { field: 'qtyMin', headerName: 'Qty', editable: true, type: 'numericColumn', width: 100 },
+  { field: 'targetPrice', headerName: 'Target $', editable: true, type: 'numericColumn', width: 110 },
+  { field: 'neededBy', headerName: 'By', editable: true, width: 130 },
+  { field: 'status', width: 115 },
 ];
 
 const supplyColumns: ColDef<GridRow>[] = [
-  { field: 'supplyCode', headerName: 'Stock', pinned: 'left', width: 150 },
-  { field: 'vendor', width: 180 },
-  { field: 'productName', headerName: 'Product', editable: true, minWidth: 190 },
-  { field: 'category', editable: true, width: 120 },
-  { field: 'tags', editable: true, minWidth: 170 },
-  { field: 'availableQty', headerName: 'Avail', editable: true, type: 'numericColumn', width: 115 },
-  { field: 'askingPrice', headerName: 'Ask', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'availableDate', headerName: 'Available', editable: true, width: 150 },
-  { field: 'location', editable: true, width: 140 },
-  { field: 'grade', editable: true, width: 105 },
-  { field: 'terms', editable: true, minWidth: 150 },
-  { field: 'notes', editable: true, minWidth: 220 },
-  { field: 'status', width: 135 }
-];
-
-const matchColumns: ColDef<GridRow>[] = [
-  { field: 'score', pinned: 'left', type: 'numericColumn', width: 90 },
-  { field: 'customer', width: 170 },
-  { field: 'needProduct', headerName: 'Need', minWidth: 190 },
-  { field: 'category', width: 120 },
+  { field: 'supplyCode', headerName: 'Stock', pinned: 'left', width: 120 },
   { field: 'vendor', width: 170 },
-  { field: 'vendorProduct', headerName: 'Vendor stock', minWidth: 190 },
-  { field: 'qtyMin', headerName: 'Need qty', type: 'numericColumn', width: 115 },
-  { field: 'availableQty', headerName: 'Avail', type: 'numericColumn', width: 110 },
-  { field: 'targetPrice', headerName: 'Target', type: 'numericColumn', width: 110 },
-  { field: 'askingPrice', headerName: 'Ask', type: 'numericColumn', width: 110 },
-  { field: 'reasons', minWidth: 260 },
-  { field: 'status', width: 125 }
+  { field: 'productName', headerName: 'Product', editable: true, minWidth: 180 },
+  { field: 'category', editable: true, width: 120 },
+  { field: 'availableQty', headerName: 'Qty', editable: true, type: 'numericColumn', width: 100 },
+  { field: 'askingPrice', headerName: 'Ask $', editable: true, type: 'numericColumn', width: 110 },
+  { field: 'availableDate', headerName: 'Available', editable: true, width: 130 },
+  { field: 'status', width: 115 },
 ];
 
 export function MatchmakingView() {
   const reference = trpc.queries.reference.useQuery();
   const board = trpc.queries.matchmakingBoard.useQuery();
+  const settings = trpc.queries.matchmakingSettings.useQuery();
+  const opportunities = trpc.queries.matchmakingOpportunities.useQuery();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+  const canManageSettings = me.data?.role === 'manager' || me.data?.role === 'owner';
+  const s = settings.data ?? {
+    matchQualityFloor: 35,
+    workQueueThreshold: 75,
+    historyLookbackDays: 90,
+    repeatThreshold: 3,
+    gapFloorQty: 0,
+    showClientsColumn: false,
+    showVendorsColumn: false,
+    workQueueEnabled: true,
+  };
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const { runCommand, isRunning } = useCommandRunner();
   const needProductRef = useRef<HTMLInputElement | null>(null);
@@ -69,74 +57,89 @@ export function MatchmakingView() {
   const [customerId, setCustomerId] = useState('');
   const [needProduct, setNeedProduct] = useState('');
   const [needCategory, setNeedCategory] = useState('');
-  const [needTags, setNeedTags] = useState('');
   const [qtyMin, setQtyMin] = useState('0');
-  const [qtyMax, setQtyMax] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [neededBy, setNeededBy] = useState('');
-  const [urgency, setUrgency] = useState('normal');
-  const [needNotes, setNeedNotes] = useState('');
 
   const [vendorId, setVendorId] = useState('');
   const [supplyProduct, setSupplyProduct] = useState('');
   const [supplyCategory, setSupplyCategory] = useState('');
-  const [supplyTags, setSupplyTags] = useState('');
   const [availableQty, setAvailableQty] = useState('0');
   const [askingPrice, setAskingPrice] = useState('');
   const [availableDate, setAvailableDate] = useState('');
-  const [location, setLocation] = useState('');
-  const [grade, setGrade] = useState('');
-  const [terms, setTerms] = useState('');
-  const [supplyNotes, setSupplyNotes] = useState('');
 
-  // Operator must explicitly select a customer/vendor — no auto-defaulting to first record
-  const defaultCustomerId = customerId;
-  const defaultVendorId = vendorId;
+  // C1: controlled state for number inputs — synced from server on load
+  const [localFloor, setLocalFloor] = useState(s.matchQualityFloor);
+  const [localThreshold, setLocalThreshold] = useState(s.workQueueThreshold);
+  const [localGapFloor, setLocalGapFloor] = useState(s.gapFloorQty);
+
+  useEffect(() => {
+    setLocalFloor(s.matchQualityFloor);
+    setLocalThreshold(s.workQueueThreshold);
+    setLocalGapFloor(s.gapFloorQty);
+  }, [s.matchQualityFloor, s.workQueueThreshold, s.gapFloorQty]);
 
   useEffect(() => {
     if (activeQuickLaunch === 'customerNeed') needProductRef.current?.focus();
     if (activeQuickLaunch === 'vendorSupply') supplyProductRef.current?.focus();
   }, [activeQuickLaunch]);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterCustomerId = searchParams.get('customer') ?? '';
+  const filterVendorId = searchParams.get('vendor') ?? '';
+  const hasFilter = Boolean(filterCustomerId || filterVendorId);
+
+  function clearFilter() {
+    setSearchParams({});
+  }
+
+  async function updateSettings(patch: Record<string, unknown>) {
+    try {
+      await runCommand('updateMatchmakingSettings', patch, 'Update matchmaking settings');
+      settings.refetch();
+    } catch {
+      // error toast already handled by useCommandRunner
+    }
+  }
+
   async function createNeed() {
     await runCommand(
       'createCustomerNeed',
       {
-        customerId: defaultCustomerId,
+        customerId,
         productName: needProduct,
         category: needCategory,
-        tags: parseTagInput(needTags),
         qtyMin: Number(qtyMin),
-        qtyMax: qtyMax ? Number(qtyMax) : undefined,
         targetPrice: targetPrice ? Number(targetPrice) : undefined,
         neededBy: neededBy || undefined,
-        urgency,
-        notes: needNotes
       },
-      'Add customer need from matchmaking'
+      'Add customer need'
     );
-    setNeedNotes('');
+    setNeedProduct('');
+    setQtyMin('0');
+    setTargetPrice('');
+    setNeededBy('');
+    needProductRef.current?.focus();
   }
 
   async function createSupply() {
     await runCommand(
       'createVendorSupply',
       {
-        vendorId: defaultVendorId,
+        vendorId,
         productName: supplyProduct,
         category: supplyCategory,
-        tags: parseTagInput(supplyTags),
         availableQty: Number(availableQty),
         askingPrice: askingPrice ? Number(askingPrice) : undefined,
         availableDate: availableDate || undefined,
-        location,
-        grade,
-        terms,
-        notes: supplyNotes
       },
-      'Add vendor stock from matchmaking'
+      'Add vendor stock'
     );
-    setSupplyNotes('');
+    setSupplyProduct('');
+    setAvailableQty('0');
+    setAskingPrice('');
+    setAvailableDate('');
+    supplyProductRef.current?.focus();
   }
 
   async function updateNeedCell(event: CellValueChangedEvent<GridRow>) {
@@ -156,6 +159,63 @@ export function MatchmakingView() {
   async function dismissSelected() {
     for (const row of selectedMatches) await runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss matchmaking row');
   }
+
+  const matchColumns = useMemo<ColDef<GridRow>[]>(() => [
+    {
+      field: 'score',
+      pinned: 'left',
+      type: 'numericColumn',
+      width: 100,
+      cellRenderer: (params: { value: number; data?: GridRow }) => {
+        const score = Number(params.value ?? 0);
+        const isLowConfidence = score < 35;
+        return (
+          <span className="flex items-center gap-1">
+            <span>{score}</span>
+            {isLowConfidence && (
+              <span className="inline-flex rounded-full bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-500">
+                Low
+              </span>
+            )}
+          </span>
+        );
+      },
+    },
+    { field: 'customer', width: 160 },
+    { field: 'needProduct', headerName: 'Request', minWidth: 170 },
+    { field: 'vendor', width: 160 },
+    { field: 'vendorProduct', headerName: 'Stock', minWidth: 170 },
+    {
+      headerName: 'Price fit',
+      width: 150,
+      valueGetter: (params: { data?: GridRow }) => {
+        const ask = Number(params.data?.askingPrice ?? 0);
+        const target = Number(params.data?.targetPrice ?? 0);
+        if (!ask || !target) return '';
+        const fit = ask <= target;
+        return `$${ask} ask / $${target} target ${fit ? '✓' : '✗'}`;
+      },
+    },
+    {
+      headerName: 'Qty fit',
+      width: 140,
+      valueGetter: (params: { data?: GridRow }) => {
+        const avail = Number(params.data?.availableQty ?? 0);
+        const need = Number(params.data?.qtyMin ?? 0);
+        if (!avail || !need) return '';
+        const fit = avail >= need;
+        return `${avail} avail / ${need} need ${fit ? '✓' : '✗'}`;
+      },
+    },
+    { field: 'status', width: 115 },
+  ], []);
+
+  const matchRowClassRules = useMemo(() => ({
+    'opacity-40': (params: { data?: GridRow }) => {
+      const score = Number(params.data?.score ?? 0);
+      return score < s.matchQualityFloor && score >= 35;
+    },
+  }), [s.matchQualityFloor]);
 
   const matchExpansionConfig = useMemo(
     () => ({
@@ -221,66 +281,295 @@ export function MatchmakingView() {
     [isRunning, runCommand, canWrite]
   );
 
+  const toMoveColumns = useMemo<ColDef<GridRow>[]>(() => [
+    { field: 'product', minWidth: 180, pinned: 'left' },
+    { field: 'category', width: 120 },
+    { field: 'onHand', headerName: 'On hand', type: 'numericColumn', width: 110 },
+    { field: 'customer', minWidth: 160 },
+    {
+      field: 'signal',
+      headerName: 'Signal',
+      width: 130,
+      cellRenderer: (params: { value: string }) => {
+        const label = params.value === 'both' ? 'Both' : params.value === 'need' ? 'Posted need' : 'History';
+        const cls = params.value === 'both'
+          ? 'bg-emerald-100 text-emerald-800'
+          : params.value === 'need'
+          ? 'bg-blue-100 text-blue-800'
+          : 'bg-zinc-100 text-zinc-600';
+        return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
+      },
+    },
+    {
+      field: 'lastActivity',
+      headerName: 'Last activity',
+      width: 140,
+      valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString() : '—',
+    },
+    {
+      headerName: 'Action',
+      width: 130,
+      cellRenderer: (params: { data?: GridRow }) => (
+        <button
+          className="secondary-button compact-action"
+          disabled={isRunning || !canWrite}
+          onClick={() => {
+            if (!params.data?.customerId || !params.data?.category) return;
+            runCommand('noteMatchmakingOutreach', {
+              entityType: 'customer',
+              entityId: params.data.customerId,
+              context: params.data.category,
+              leg: 2,
+            }, 'Note customer outreach').then(() => opportunities.refetch());
+          }}
+          type="button"
+        >
+          Note contact
+        </button>
+      ),
+    },
+  ], [isRunning, canWrite, runCommand, opportunities]);
+
+  const toSourceColumns = useMemo<ColDef<GridRow>[]>(() => [
+    { field: 'category', minWidth: 150, pinned: 'left' },
+    { field: 'onHand', headerName: 'On hand', type: 'numericColumn', width: 110 },
+    {
+      field: 'gapLevel',
+      headerName: 'Gap',
+      width: 100,
+      cellRenderer: (params: { value: string }) => {
+        const isEmpty = params.value === 'empty';
+        return (
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+            isEmpty ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+          }`}>
+            {isEmpty ? 'Empty' : 'Low'}
+          </span>
+        );
+      },
+    },
+    { field: 'vendor', minWidth: 160 },
+    {
+      field: 'signal',
+      headerName: 'Signal',
+      width: 130,
+      cellRenderer: (params: { value: string }) => {
+        const label = params.value === 'both' ? 'Both' : params.value === 'supply' ? 'Posted supply' : 'History';
+        const cls = params.value === 'both'
+          ? 'bg-emerald-100 text-emerald-800'
+          : params.value === 'supply'
+          ? 'bg-blue-100 text-blue-800'
+          : 'bg-zinc-100 text-zinc-600';
+        return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
+      },
+    },
+    {
+      field: 'lastActivity',
+      headerName: 'Last activity',
+      width: 140,
+      valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString() : '—',
+    },
+    { field: 'postedQty', headerName: 'Posted qty', type: 'numericColumn', width: 110 },
+    {
+      headerName: 'Action',
+      width: 130,
+      cellRenderer: (params: { data?: GridRow }) => (
+        <button
+          className="secondary-button compact-action"
+          disabled={isRunning || !canWrite}
+          onClick={() => {
+            if (!params.data?.vendorId || !params.data?.category) return;
+            runCommand('noteMatchmakingOutreach', {
+              entityType: 'vendor',
+              entityId: params.data.vendorId,
+              context: params.data.category,
+              leg: 3,
+            }, 'Note vendor outreach').then(() => opportunities.refetch());
+          }}
+          type="button"
+        >
+          Note contact
+        </button>
+      ),
+    },
+  ], [isRunning, canWrite, runCommand, opportunities]);
+
+  const filteredNeeds = useMemo(() => {
+    const rows = (board.data?.needs ?? []) as GridRow[];
+    if (!filterCustomerId) return rows;
+    return rows.filter((r) => r.customerId === filterCustomerId || r.customer_id === filterCustomerId);
+  }, [board.data?.needs, filterCustomerId]);
+
+  const filteredSupplies = useMemo(() => {
+    const rows = (board.data?.supplies ?? []) as GridRow[];
+    if (!filterVendorId) return rows;
+    return rows.filter((r) => r.vendorId === filterVendorId || r.vendor_id === filterVendorId);
+  }, [board.data?.supplies, filterVendorId]);
+
+  const filteredMatches = useMemo(() => {
+    const rows = (board.data?.matches ?? []) as GridRow[];
+    if (!filterCustomerId && !filterVendorId) return rows;
+    return rows.filter((r) => {
+      if (filterCustomerId && r.customerId !== filterCustomerId) return false;
+      if (filterVendorId && r.vendorId !== filterVendorId) return false;
+      return true;
+    });
+  }, [board.data?.matches, filterCustomerId, filterVendorId]);
+
   return (
     <div className="view-stack">
+      <WorkspacePanel
+        panelId="matchmaking:settings"
+        title="⚙ Matchmaking Settings"
+        collapsedSummary={`Showing matches ≥ ${s.matchQualityFloor} · Work queue alerts ≥ ${s.workQueueThreshold} · ${s.historyLookbackDays}-day history`}
+        contentClassName="p-3"
+      >
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="field-inline">
+              Show matches scoring at least
+              <input className="input compact" type="number" min={0} max={100}
+                disabled={!canManageSettings || isRunning}
+                value={localFloor}
+                onChange={(e) => setLocalFloor(Number(e.target.value))}
+                onBlur={() => updateSettings({ matchQualityFloor: localFloor })} />
+              pts
+            </label>
+            <label className="field-inline">
+              Add to work queue at
+              <input className="input compact" type="number" min={0} max={100}
+                disabled={!canManageSettings || isRunning}
+                value={localThreshold}
+                onChange={(e) => setLocalThreshold(Number(e.target.value))}
+                onBlur={() => updateSettings({ workQueueThreshold: localThreshold })} />
+              pts
+            </label>
+            <label className="field-inline">
+              Look back
+              <select className="select compact" disabled={!canManageSettings || isRunning}
+                value={s.historyLookbackDays}
+                onChange={(e) => updateSettings({ historyLookbackDays: Number(e.target.value) })}>
+                <option value={30}>30 days</option>
+                <option value={60}>60 days</option>
+                <option value={90}>90 days</option>
+                <option value={180}>180 days</option>
+              </select>
+            </label>
+            <label className="field-inline">
+              Flag as repeat after
+              <select className="select compact" disabled={!canManageSettings || isRunning}
+                value={s.repeatThreshold}
+                onChange={(e) => updateSettings({ repeatThreshold: Number(e.target.value) })}>
+                <option value={2}>2 purchases</option>
+                <option value={3}>3 purchases</option>
+                <option value={5}>5 purchases</option>
+              </select>
+            </label>
+            <label className="field-inline">
+              Flag gaps when on hand drops to
+              <input className="input compact" type="number" min={0}
+                disabled={!canManageSettings || isRunning}
+                value={localGapFloor}
+                onChange={(e) => setLocalGapFloor(Number(e.target.value))}
+                onBlur={() => updateSettings({ gapFloorQty: localGapFloor })} />
+              units
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                checked={s.showClientsColumn}
+                onChange={(e) => updateSettings({ showClientsColumn: e.target.checked })} />
+              Show matchmaking signals in Clients grid
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                checked={s.showVendorsColumn}
+                onChange={(e) => updateSettings({ showVendorsColumn: e.target.checked })} />
+              Show matchmaking signals in Vendors grid
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                checked={s.workQueueEnabled}
+                onChange={(e) => updateSettings({ workQueueEnabled: e.target.checked })} />
+              Show matchmaking opportunities in work queue
+            </label>
+          </div>
+          <details className="text-sm text-zinc-500">
+            <summary className="cursor-pointer select-none hover:text-zinc-700">How scores are calculated</summary>
+            <pre className="mt-2 font-mono text-xs leading-relaxed">
+{`Category match:                    +35
+Tag overlap (per shared tag):       +8  (capped at +24)
+Product name token overlap:        +10
+Vendor qty covers need minimum:    +12
+Asking price ≤ target price:       +12
+Supply available by needed-by:      +7
+────────────────────────────────────
+Maximum score:                     100`}
+            </pre>
+          </details>
+        </div>
+      </WorkspacePanel>
+
+      {hasFilter && (
+        <div className="flex items-center gap-2 px-1 py-1">
+          <span className="text-sm text-zinc-500">
+            Filtered to:{' '}
+            {filterCustomerId && reference.data?.customers.find((c) => c.id === filterCustomerId)?.name}
+            {filterVendorId && reference.data?.vendors.find((v) => v.id === filterVendorId)?.name}
+          </span>
+          <button className="text-xs text-zinc-400 hover:text-zinc-700 underline" onClick={clearFilter} type="button">
+            Clear filter
+          </button>
+        </div>
+      )}
+
       {canWrite ? (
         <WorkspacePanel panelId="matchmaking:entry" title="Matchmaking Entry" contentClassName="p-3">
           <div className="grid gap-3 xl:grid-cols-2">
             <div className="control-band subtle-band">
               <label className="field-inline">
                 Customer
-                <select className="select" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
-                  <option value="">Default customer</option>
-                  {reference.data?.customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
+                <select className="select" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                  <option value="">Select customer</option>
+                  {reference.data?.customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </label>
               <label className="field-inline grow">
                 Need
-                <input ref={needProductRef} className="input" value={needProduct} onChange={(event) => setNeedProduct(event.target.value)} />
+                <input ref={needProductRef} className="input" value={needProduct}
+                  onChange={(e) => setNeedProduct(e.target.value)} placeholder="e.g. Indica flower" />
               </label>
               <label className="field-inline">
                 Category
-                <select className="select compact" value={needCategory} onChange={(event) => setNeedCategory(event.target.value)}>
-                  {reference.data?.categories.map((category) => <option key={category}>{category}</option>)}
+                <select className="select compact" value={needCategory} onChange={(e) => setNeedCategory(e.target.value)}>
+                  <option value="">Category</option>
+                  {reference.data?.categories.map((cat) => <option key={cat}>{cat}</option>)}
                 </select>
               </label>
-              <label className="field-inline grow">
-                Tags
-                <input className="input" value={needTags} onChange={(event) => setNeedTags(event.target.value)} />
+              <label className="field-inline">
+                Qty
+                <input className="input compact" value={qtyMin} inputMode="decimal"
+                  onChange={(e) => setQtyMin(e.target.value)} />
               </label>
               <label className="field-inline">
-                Min
-                <input className="input compact" value={qtyMin} inputMode="decimal" onChange={(event) => setQtyMin(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Max
-                <input className="input compact" value={qtyMax} inputMode="decimal" onChange={(event) => setQtyMax(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Target
-                <input className="input compact" value={targetPrice} inputMode="decimal" onChange={(event) => setTargetPrice(event.target.value)} />
+                Target $
+                <input className="input compact" value={targetPrice} inputMode="decimal"
+                  onChange={(e) => setTargetPrice(e.target.value)} />
               </label>
               <label className="field-inline">
                 By
-                <input className="input compact" type="date" value={neededBy} onChange={(event) => setNeededBy(event.target.value)} />
+                <input className="input compact" type="date" value={neededBy}
+                  onChange={(e) => setNeededBy(e.target.value)} />
               </label>
-              <label className="field-inline">
-                Urgency
-                <select className="select compact" value={urgency} onChange={(event) => setUrgency(event.target.value)}>
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                  <option value="watch">Watch</option>
-                </select>
-              </label>
-              <label className="field-inline grow">
-                Notes
-                <input className="input" value={needNotes} onChange={(event) => setNeedNotes(event.target.value)} />
-              </label>
-              <button className="primary-button" type="button" disabled={!defaultCustomerId || !needProduct.trim() || Number(qtyMin) <= 0 || isRunning} onClick={createNeed}>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={!customerId || !needProduct.trim() || !needCategory || Number(qtyMin) <= 0 || isRunning}
+                onClick={createNeed}
+              >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 Add Need
               </button>
@@ -288,60 +577,48 @@ export function MatchmakingView() {
             <div className="control-band subtle-band">
               <label className="field-inline">
                 Vendor
-                <select className="select" value={vendorId} onChange={(event) => setVendorId(event.target.value)}>
-                  <option value="">Default vendor</option>
-                  {reference.data?.vendors.map((vendor) => (
-                    <option key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </option>
+                <select className="select" value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+                  <option value="">Select vendor</option>
+                  {reference.data?.vendors.map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
               </label>
               <label className="field-inline grow">
                 Stock
-                <input ref={supplyProductRef} className="input" value={supplyProduct} onChange={(event) => setSupplyProduct(event.target.value)} />
+                <input ref={supplyProductRef} className="input" value={supplyProduct}
+                  onChange={(e) => setSupplyProduct(e.target.value)} placeholder="e.g. Blue Dream 28g" />
               </label>
               <label className="field-inline">
                 Category
-                <select className="select compact" value={supplyCategory} onChange={(event) => setSupplyCategory(event.target.value)}>
-                  {reference.data?.categories.map((category) => <option key={category}>{category}</option>)}
+                <select className="select compact" value={supplyCategory} onChange={(e) => setSupplyCategory(e.target.value)}>
+                  <option value="">Category</option>
+                  {reference.data?.categories.map((cat) => <option key={cat}>{cat}</option>)}
                 </select>
-              </label>
-              <label className="field-inline grow">
-                Tags
-                <input className="input" value={supplyTags} onChange={(event) => setSupplyTags(event.target.value)} />
               </label>
               <label className="field-inline">
                 Qty
-                <input className="input compact" value={availableQty} inputMode="decimal" onChange={(event) => setAvailableQty(event.target.value)} />
+                <input className="input compact" value={availableQty} inputMode="decimal"
+                  onChange={(e) => setAvailableQty(e.target.value)} />
               </label>
               <label className="field-inline">
-                Ask
-                <input className="input compact" value={askingPrice} inputMode="decimal" onChange={(event) => setAskingPrice(event.target.value)} />
+                Ask $
+                <input className="input compact" value={askingPrice} inputMode="decimal"
+                  onChange={(e) => setAskingPrice(e.target.value)} />
               </label>
               <label className="field-inline">
                 Date
-                <input className="input compact" type="date" value={availableDate} onChange={(event) => setAvailableDate(event.target.value)} />
+                <input className="input compact" type="date" value={availableDate}
+                  onChange={(e) => setAvailableDate(e.target.value)} />
               </label>
-              <label className="field-inline">
-                Location
-                <input className="input compact" value={location} onChange={(event) => setLocation(event.target.value)} />
-              </label>
-              <label className="field-inline">
-                Grade
-                <input className="input compact" value={grade} onChange={(event) => setGrade(event.target.value)} />
-              </label>
-              <label className="field-inline grow">
-                Terms
-                <input className="input" value={terms} onChange={(event) => setTerms(event.target.value)} />
-              </label>
-              <label className="field-inline grow">
-                Notes
-                <input className="input" value={supplyNotes} onChange={(event) => setSupplyNotes(event.target.value)} />
-              </label>
-              <button className="primary-button" type="button" disabled={!defaultVendorId || !supplyProduct.trim() || Number(availableQty) <= 0 || isRunning} onClick={createSupply}>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={!vendorId || !supplyProduct.trim() || !supplyCategory || Number(availableQty) <= 0 || isRunning}
+                onClick={createSupply}
+              >
                 <Plus className="h-4 w-4" aria-hidden="true" />
-                Add Vendor Stock
+                Add Stock
               </button>
             </div>
           </div>
@@ -351,8 +628,9 @@ export function MatchmakingView() {
       <OperatorGrid
         view="matchmaking"
         title="Deterministic Matches"
-        rows={(board.data?.matches ?? []) as GridRow[]}
+        rows={filteredMatches}
         columns={matchColumns}
+        rowClassRules={matchRowClassRules}
         loading={board.isLoading || isRunning}
         onSelectionChange={setSelectedMatches}
         actions={
@@ -372,11 +650,33 @@ export function MatchmakingView() {
         expansionConfig={matchExpansionConfig}
       />
 
+      <OperatorGrid
+        view="matchmaking"
+        title="Inventory to Move"
+        subtitle={`Based on purchase history (last ${s.historyLookbackDays} days)`}
+        rows={(opportunities.data?.toMove ?? []) as GridRow[]}
+        columns={toMoveColumns}
+        loading={opportunities.isLoading}
+        emptyTitle="No opportunities yet"
+        emptyChildren="Inventory opportunities appear once customers have purchase history or posted needs."
+      />
+
+      <OperatorGrid
+        view="matchmaking"
+        title="Gaps to Fill"
+        subtitle={`Based on purchase history (last ${s.historyLookbackDays} days)`}
+        rows={(opportunities.data?.toSource ?? []) as GridRow[]}
+        columns={toSourceColumns}
+        loading={opportunities.isLoading}
+        emptyTitle="No gaps detected"
+        emptyChildren="Sourcing suggestions appear when inventory in a category drops to or below the gap threshold."
+      />
+
       <div className="grid gap-3 xl:grid-cols-2">
         <OperatorGrid
           view="matchmaking"
           title="Customer Needs"
-          rows={(board.data?.needs ?? []) as GridRow[]}
+          rows={filteredNeeds}
           columns={needColumns}
           loading={board.isLoading || isRunning}
           onCellCommit={canWrite ? updateNeedCell : undefined}
@@ -384,7 +684,7 @@ export function MatchmakingView() {
         <OperatorGrid
           view="matchmaking"
           title="Vendor Stock"
-          rows={(board.data?.supplies ?? []) as GridRow[]}
+          rows={filteredSupplies}
           columns={supplyColumns}
           loading={board.isLoading || isRunning}
           onCellCommit={canWrite ? updateSupplyCell : undefined}

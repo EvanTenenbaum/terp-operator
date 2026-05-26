@@ -204,6 +204,251 @@ export const queriesRouter = router({
     ]);
     return { needs: needs.rows, supplies: supplies.rows, matches: matches.rows };
   }),
+  matchmakingSettings: protectedProcedure.query(async () => {
+    const [row] = (await pool.query(
+      `select
+         match_quality_floor as "matchQualityFloor",
+         work_queue_threshold as "workQueueThreshold",
+         history_lookback_days as "historyLookbackDays",
+         repeat_threshold as "repeatThreshold",
+         gap_floor_qty as "gapFloorQty",
+         show_clients_column as "showClientsColumn",
+         show_vendors_column as "showVendorsColumn",
+         work_queue_enabled as "workQueueEnabled"
+       from matchmaking_settings
+       limit 1`
+    )).rows;
+    return row ?? {
+      matchQualityFloor: 35,
+      workQueueThreshold: 75,
+      historyLookbackDays: 90,
+      repeatThreshold: 3,
+      gapFloorQty: 0,
+      showClientsColumn: false,
+      showVendorsColumn: false,
+      workQueueEnabled: true,
+    };
+  }),
+  matchmakingOpportunities: protectedProcedure.query(async () => {
+    const [settingsRow] = (await pool.query('select * from matchmaking_settings limit 1')).rows;
+    const settings = settingsRow ?? { history_lookback_days: 90, repeat_threshold: 3, gap_floor_qty: 0 };
+    const lookback = Number(settings.history_lookback_days);
+    const repeatThreshold = Number(settings.repeat_threshold);
+    const gapFloor = Number(settings.gap_floor_qty);
+
+    // Leg 2: Inventory to move
+    const toMoveResult = await pool.query(
+      `with in_stock as (
+         select b.id as batch_id,
+                b.name as product,
+                b.category,
+                b.available_qty as on_hand
+         from batches b
+         where b.status in ('processed', 'available', 'ready')
+           and b.available_qty > 0
+       ),
+       customer_history as (
+         select sol.item_id,
+                i.category,
+                so.customer_id,
+                c.name as customer_name,
+                count(*) as purchase_count,
+                max(so.created_at) as last_activity
+         from sales_order_lines sol
+         join items i on i.id = sol.item_id
+         join sales_orders so on so.id = sol.order_id
+         join customers c on c.id = so.customer_id
+         where so.created_at > now() - ($1 || ' days')::interval
+           and so.status not in ('cancelled', 'void')
+         group by sol.item_id, i.category, so.customer_id, c.name
+       ),
+       posted_needs as (
+         select cn.customer_id,
+                cu.name as customer_name,
+                cn.category,
+                cn.id as need_id,
+                cn.product_name as need_product,
+                cn.target_price
+         from customer_needs cn
+         join customers cu on cu.id = cn.customer_id
+         where cn.status = 'open'
+       ),
+       already_matched as (
+         select cn.customer_id, cn.category
+         from matchmaking_matches mm
+         join customer_needs cn on cn.id = mm.customer_need_id
+         where mm.status = 'accepted'
+       )
+       select
+         s.batch_id as "batchId",
+         s.product,
+         s.category,
+         s.on_hand as "onHand",
+         coalesce(pn.customer_id, ch.customer_id) as "customerId",
+         coalesce(pn.customer_name, ch.customer_name) as customer,
+         case
+           when pn.customer_id is not null and ch.purchase_count >= $2 then 'both'
+           when pn.customer_id is not null then 'need'
+           else 'history'
+         end as signal,
+         coalesce(ch.last_activity, now()) as "lastActivity",
+         coalesce(ch.purchase_count, 0) as "purchaseCount"
+       from in_stock s
+       left join posted_needs pn on pn.category = s.category
+       left join customer_history ch
+         on ch.category = s.category
+         and (pn.customer_id is null or ch.customer_id = pn.customer_id)
+         and ch.purchase_count >= $2
+       where (pn.customer_id is not null or ch.customer_id is not null)
+         and not exists (
+           select 1 from already_matched am
+           where am.customer_id = coalesce(pn.customer_id, ch.customer_id)
+             and am.category = s.category
+         )
+         and not exists (
+           select 1 from command_journal cj
+           where cj.command_name in ('noteMatchmakingOutreach', 'dismissMatchmakingWorkQueueItem')
+             and cj.input_payload->>'entityType' = 'customer'
+             and (cj.input_payload->>'entityId')::uuid = coalesce(pn.customer_id, ch.customer_id)
+             and cj.input_payload->>'context' = s.category
+             and cj.created_at > now() - interval '30 days'
+         )
+       order by
+         case when pn.customer_id is not null and ch.purchase_count >= $2 then 0
+              when pn.customer_id is not null then 1
+              else 2 end,
+         ch.last_activity desc nulls last
+       limit 25`,
+      [lookback, repeatThreshold]
+    );
+
+    // Leg 3: Gaps to fill
+    const toSourceResult = await pool.query(
+      `with inventory_by_category as (
+         select coalesce(b.category, 'Unknown') as category,
+                sum(b.available_qty) as on_hand
+         from batches b
+         where b.status in ('processed', 'available', 'ready')
+         group by b.category
+       ),
+       gaps as (
+         select category, on_hand
+         from inventory_by_category
+         where on_hand <= $1
+       ),
+       vendor_history as (
+         select pol.item_id,
+                i.category,
+                po.vendor_id,
+                v.name as vendor_name,
+                count(*) as supply_count,
+                max(po.created_at) as last_activity
+         from purchase_order_lines pol
+         join items i on i.id = pol.item_id
+         join purchase_orders po on po.id = pol.po_id
+         join vendors v on v.id = po.vendor_id
+         where po.created_at > now() - ($2 || ' days')::interval
+           and po.status not in ('cancelled', 'void')
+         group by pol.item_id, i.category, po.vendor_id, v.name
+       ),
+       posted_supply as (
+         select vs.vendor_id,
+                ve.name as vendor_name,
+                vs.category,
+                vs.available_qty as posted_qty,
+                vs.available_date
+         from vendor_supply vs
+         join vendors ve on ve.id = vs.vendor_id
+         where vs.status = 'open'
+       ),
+       snoozed_vendors as (
+         select (input_payload->>'entityId')::uuid as vendor_id,
+                input_payload->>'context' as category
+         from command_journal
+         where command_name in ('noteMatchmakingOutreach', 'dismissMatchmakingWorkQueueItem')
+           and input_payload->>'entityType' = 'vendor'
+           and created_at > now() - interval '30 days'
+       )
+       select
+         g.category,
+         g.on_hand as "onHand",
+         case when g.on_hand = 0 then 'empty' else 'low' end as "gapLevel",
+         coalesce(ps.vendor_id, vh.vendor_id) as "vendorId",
+         coalesce(ps.vendor_name, vh.vendor_name) as vendor,
+         case
+           when ps.vendor_id is not null and vh.supply_count >= $3 then 'both'
+           when ps.vendor_id is not null then 'supply'
+           else 'history'
+         end as signal,
+         coalesce(vh.last_activity, now()) as "lastActivity",
+         ps.posted_qty as "postedQty"
+       from gaps g
+       left join posted_supply ps on ps.category = g.category
+       left join vendor_history vh
+         on vh.category = g.category
+         and (ps.vendor_id is null or vh.vendor_id = ps.vendor_id)
+         and vh.supply_count >= $3
+       where (ps.vendor_id is not null or vh.vendor_id is not null)
+         and not exists (
+           select 1 from snoozed_vendors sv
+           where sv.vendor_id = coalesce(ps.vendor_id, vh.vendor_id)
+             and sv.category = g.category
+         )
+       order by
+         case when g.on_hand = 0 then 0 else 1 end,
+         case when ps.vendor_id is not null and vh.supply_count >= $3 then 0
+              when ps.vendor_id is not null then 1
+              else 2 end
+       limit 25`,
+      [gapFloor, lookback, repeatThreshold]
+    );
+
+    return { toMove: toMoveResult.rows, toSource: toSourceResult.rows };
+  }),
+  matchmakingEntityCounts: protectedProcedure.query(async () => {
+    const [settings] = (await pool.query(
+      'select show_clients_column as "showClientsColumn", show_vendors_column as "showVendorsColumn" from matchmaking_settings limit 1'
+    )).rows;
+
+    if (!settings?.showClientsColumn && !settings?.showVendorsColumn) {
+      return { customers: {}, vendors: {} };
+    }
+
+    const [customerCounts, vendorCounts] = await Promise.all([
+      settings.showClientsColumn
+        ? pool.query(`
+            select cn.customer_id as id,
+                   count(distinct cn.id) filter (where cn.status = 'open') as needs,
+                   count(distinct mm.id) filter (where mm.status = 'accepted') as matches
+            from customer_needs cn
+            left join matchmaking_matches mm on mm.customer_need_id = cn.id
+            group by cn.customer_id
+          `)
+        : Promise.resolve({ rows: [] }),
+      settings.showVendorsColumn
+        ? pool.query(`
+            select vendor_id as id,
+                   count(*) filter (where status = 'open') as supply
+            from vendor_supply
+            group by vendor_id
+          `)
+        : Promise.resolve({ rows: [] }),
+    ]);
+
+    const customers: Record<string, { needs: number; matches: number }> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const row of customerCounts.rows as any[]) {
+      customers[row.id] = { needs: Number(row.needs), matches: Number(row.matches) };
+    }
+
+    const vendors: Record<string, { supply: number }> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const row of vendorCounts.rows as any[]) {
+      vendors[row.id] = { supply: Number(row.supply) };
+    }
+
+    return { customers, vendors };
+  }),
   drilldown: protectedProcedure.input(z.object({ metricKey: z.string() })).query(async ({ input, ctx }) => {
     const sensitiveKeys = new Set(['cash', 'payables', 'receivables', 'inventory_value', 'debt_leader']);
     if (sensitiveKeys.has(input.metricKey) && !canRole(ctx.user.role, 'manager')) {
@@ -247,47 +492,114 @@ export const queriesRouter = router({
     }));
   }),
   workQueue: protectedProcedure.query(async () => {
+    const [settings] = (await pool.query(
+      'select work_queue_threshold as "workQueueThreshold", work_queue_enabled as "workQueueEnabled" from matchmaking_settings limit 1'
+    )).rows;
+    const wqEnabled = settings?.workQueueEnabled ?? true;
+    const wqThreshold = Number(settings?.workQueueThreshold ?? 75);
+
+    // Values come from DB integer columns, clamped before interpolation
+    const wqThresholdSafe = Math.max(0, Math.min(100, Math.floor(wqThreshold)));
+
+    const matchmakingUnion = wqEnabled ? `
+      union all
+      select mm.id, 'matchmaking' as route, 'Matchmaking' as lane,
+             concat(c.name, ' ↔ ', v.name) as title,
+             mm.status,
+             mm.updated_at as "createdAt",
+             concat('Score: ', mm.score, ' · ', cn.product_name, ' / ', vs.product_name) as detail,
+             'match'::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
+      from matchmaking_matches mm
+      join customer_needs cn on cn.id = mm.customer_need_id
+      join customers c on c.id = cn.customer_id
+      join vendor_supply vs on vs.id = mm.vendor_supply_id
+      join vendors v on v.id = vs.vendor_id
+      where mm.status = 'open'
+        and mm.score >= ${wqThresholdSafe}
+        and not exists (
+          select 1 from command_journal cj
+          where cj.command_name = 'dismissMatchmakingWorkQueueItem'
+            and cj.input_payload->>'itemId' = mm.id::text
+            and cj.created_at > now() - interval '30 days'
+        )
+      union all
+      select gap.id, gap.route, gap.lane, gap.title, gap.status, gap."createdAt", gap.detail,
+             gap."matchItemType", gap."matchVendorId", gap."matchCategory"
+      from (
+        select gen_random_uuid() as id, 'matchmaking' as route, 'Matchmaking' as lane,
+               concat('Source ', g.category, ' from ', v.name) as title,
+               'open' as status,
+               now() as "createdAt",
+               concat('On hand: ', g.on_hand, ' units · ', case when vs.id is not null then 'Posted supply' else 'History' end) as detail,
+               'opportunity'::text as "matchItemType", v.id as "matchVendorId", g.category as "matchCategory"
+        from (
+          select coalesce(b.category, 'Unknown') as category, sum(b.available_qty) as on_hand
+          from batches b where b.status in ('processed', 'available', 'ready')
+          group by b.category having sum(b.available_qty) = 0
+        ) g
+        left join vendor_supply vs on vs.category = g.category and vs.status = 'open'
+        left join vendors v on v.id = vs.vendor_id
+        where v.id is not null
+          and not exists (
+            select 1 from command_journal cj
+            where cj.command_name in ('noteMatchmakingOutreach', 'dismissMatchmakingWorkQueueItem')
+              and cj.input_payload->>'entityType' = 'vendor'
+              and cj.input_payload->>'context' = g.category
+              and cj.created_at > now() - interval '30 days'
+          )
+        limit 10
+      ) gap
+    ` : '';
+
     return (
       await pool.query(
         `select * from (
            select b.id, 'intake' as route, 'Intake' as lane, b.name as title, b.status, b.created_at as "createdAt",
-                  concat(coalesce(v.name, 'No vendor'), ' / ', b.intake_qty, ' ', b.uom) as detail
+                  concat(coalesce(v.name, 'No vendor'), ' / ', b.intake_qty, ' ', b.uom) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from batches b left join vendors v on v.id = b.vendor_id
            where b.status in ('ready','needs_fix')
            union all
            select po.id, 'purchaseOrders' as route, 'Purchase' as lane, po.po_no as title, po.status, po.created_at as "createdAt",
-                  concat(coalesce(v.name, 'No vendor'), ' / ', po.total) as detail
+                  concat(coalesce(v.name, 'No vendor'), ' / ', po.total) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from purchase_orders po left join vendors v on v.id = po.vendor_id
            where po.status in ('draft','approved','ordered','partially_received')
            union all
            select so.id, 'orders' as route, 'Sales' as lane, so.order_no as title, so.status, so.created_at as "createdAt",
-                  concat(c.name, ' / ', so.total) as detail
+                  concat(c.name, ' / ', so.total) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from sales_orders so left join customers c on c.id = so.customer_id
            where so.status in ('draft','confirmed')
            union all
            select i.id, 'payments' as route, 'Payments' as lane, i.invoice_no as title, i.status, i.created_at as "createdAt",
-                  concat(c.name, ' / due ', i.total - i.amount_paid) as detail
+                  concat(c.name, ' / due ', i.total - i.amount_paid) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from invoices i left join customers c on c.id = i.customer_id
            where i.status in ('open','partial')
            union all
            select vb.id, 'vendors' as route, 'Vendor' as lane, vb.bill_no as title, vb.status, vb.created_at as "createdAt",
-                  concat(v.name, ' / due ', vb.amount - vb.amount_paid) as detail
+                  concat(v.name, ' / due ', vb.amount - vb.amount_paid) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from vendor_bills vb left join vendors v on v.id = vb.vendor_id
            where vb.status in ('open','approved','scheduled','partial')
            union all
            select cr.id, 'connectors' as route, 'Connector' as lane, cr.source as title, cr.status, cr.created_at as "createdAt",
-                  concat(cr.request_type, ' / ', coalesce(c.name, 'unassigned')) as detail
+                  concat(cr.request_type, ' / ', coalesce(c.name, 'unassigned')) as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from connector_requests cr left join customers c on c.id = cr.customer_id
            where cr.status = 'open'
            union all
            select pl.id, 'fulfillment' as route, 'Fulfillment' as lane, pl.pick_no as title, pl.status, pl.created_at as "createdAt",
-                  concat(so.order_no, ' / ', count(fl.id), ' line(s)') as detail
+                  concat(so.order_no, ' / ', count(fl.id), ' line(s)') as detail,
+                  null::text as "matchItemType", null::uuid as "matchVendorId", null::text as "matchCategory"
            from pick_lists pl join sales_orders so on so.id = pl.order_id left join fulfillment_lines fl on fl.pick_list_id = pl.id
            where pl.status in ('open','packed')
            group by pl.id, so.order_no
+           ${matchmakingUnion}
          ) q
          order by "createdAt" desc
-         limit 80`
+         limit 100`
       )
     ).rows;
   }),
