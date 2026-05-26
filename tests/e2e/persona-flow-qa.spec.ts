@@ -32,12 +32,17 @@ const _dirname = (() => {
 const ARTIFACTS   = path.resolve(_dirname, '../../artifacts');
 if (!fs.existsSync(ARTIFACTS)) fs.mkdirSync(ARTIFACTS, { recursive: true });
 
+async function waitForBackend(page: Page) {
+  await expect.poll(async () => (await page.request.get('/api/health')).ok(), { timeout: 45_000 }).toBe(true);
+}
+
 async function login(page: Page) {
+  await waitForBackend(page);
   await page.goto('/');
   await page.getByLabel('Email').fill(OWNER_EMAIL);
   await page.getByLabel('Password').fill(OWNER_PASS);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByText('Owner Daily Decision View')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Owner Daily Decision View').first()).toBeVisible({ timeout: 30_000 });
 }
 
 async function shot(page: Page, slug: string) {

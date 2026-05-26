@@ -20,6 +20,8 @@ sleep 3
 echo "[wave4-qa] Port cleanup done."
 
 echo "[wave4-qa] Starting QA environment in background..."
+# Clear stale log from any previous QA run so polling does not reuse old QA_READY=true
+> /tmp/qa-env.log
 QA_BRANCH=main pnpm qa:env:setup > /tmp/qa-env.log 2>&1 &
 QA_PID=$!
 
