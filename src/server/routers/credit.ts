@@ -931,8 +931,10 @@ export const creditRouter = router({
   /**
    * Check whether the current user has dismissed a specific banner.
    * Returns `{ dismissed: boolean }`.
+   * Manager+ only — banner endpoints live in the credit module which is
+   * gated at manager role (see negativeRoles CI gate).
    */
-  isBannerDismissed: protectedProcedure
+  isBannerDismissed: managerOrOwnerProcedure
     .input(z.object({ bannerKey: z.string().min(1).max(64) }))
     .query(async ({ ctx, input }) => {
       const [row] = await db
@@ -951,8 +953,9 @@ export const creditRouter = router({
   /**
    * Persist a banner dismissal for the current user.
    * Idempotent: if the record already exists the insert is a no-op.
+   * Manager+ only — see isBannerDismissed.
    */
-  dismissBanner: protectedProcedure
+  dismissBanner: managerOrOwnerProcedure
     .input(z.object({ bannerKey: z.string().min(1).max(64) }))
     .mutation(async ({ ctx, input }) => {
       await db
@@ -967,8 +970,9 @@ export const creditRouter = router({
    * Called when the shadow-mode banner should reappear (e.g. when the engine
    * switches out of shadow mode so the next time it re-enters, the banner
    * shows again).
+   * Manager+ only — see isBannerDismissed.
    */
-  clearBannerDismissal: protectedProcedure
+  clearBannerDismissal: managerOrOwnerProcedure
     .input(z.object({ bannerKey: z.string().min(1).max(64) }))
     .mutation(async ({ ctx, input }) => {
       await db
