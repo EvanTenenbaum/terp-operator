@@ -204,7 +204,8 @@ export function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
           </Route>
           {/* Desktop layout route — AppContent wraps all desktop views via Outlet */}
-          <Route element={<AppContent />}>
+          {/* path="/*" gives children a splat context: splat="dashboard" matches child path="dashboard" */}
+          <Route path="/*" element={<AppContent />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardView />} />
             <Route path="reports" element={<ReportsRouteShell />} />
