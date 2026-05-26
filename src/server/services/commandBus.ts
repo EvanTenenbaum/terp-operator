@@ -14,6 +14,7 @@ Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 import type { Server as SocketServer } from 'socket.io';
 import { z } from 'zod';
 import { db, pool } from '../db';
+import type { Tx } from '../db';
 import { env } from '../env';
 import { scrubDatabaseError } from '../trpc';
 import {
@@ -143,7 +144,8 @@ import { createVendorPayoutReceipts } from './vendorPayoutReceipts';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
-export type Tx = any;
+// Re-export for other services that import Tx from commandBus (GH #301).
+export type { Tx } from '../db';
 
 /**
  * Per-command list of `result.delta.*` keys that must NOT be persisted in the

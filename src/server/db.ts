@@ -34,6 +34,13 @@ export const pool = new pg.Pool(poolConfig);
 
 export const db = drizzle(pool, { schema });
 
+/**
+ * Typed Drizzle transaction handle inferred from the db instance.
+ * Replaces the previous `export type Tx = any` (GH #301).
+ * Import from here to avoid circular dependencies across service files.
+ */
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export async function pingDatabase() {
   const client = await pool.connect();
   try {
