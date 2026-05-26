@@ -3,8 +3,9 @@ import Decimal from 'decimal.js';
 import { paymentProcessors, processorFees } from '../schema';
 import type { PaymentProcessor } from '../schema';
 import type { CommandResult } from '../../shared/types';
+import type { Tx } from '../db';
 
-type Tx = any;
+
 type Payload = Record<string, unknown>;
 
 /**

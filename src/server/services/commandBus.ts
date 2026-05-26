@@ -14,6 +14,7 @@ Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 import type { Server as SocketServer } from 'socket.io';
 import { z } from 'zod';
 import { db, pool } from '../db';
+import type { Tx } from '../db';
 import { env } from '../env';
 import { scrubDatabaseError } from '../trpc';
 import {
@@ -143,7 +144,8 @@ import { createVendorPayoutReceipts } from './vendorPayoutReceipts';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
-export type Tx = any;
+// Re-export for other services that import Tx from commandBus (GH #301).
+export type { Tx } from '../db';
 
 /**
  * Per-command list of `result.delta.*` keys that must NOT be persisted in the
@@ -1475,7 +1477,7 @@ async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string)
   );
   const order = orderRows.rows[0];
   if (!order) throw new Error('Purchase order not found.');
-  assertPurchaseOrderEditable(order.status);
+  assertPurchaseOrderEditable(order['status'] as string);
   const decoded = decodeShorthand(stringValue(payload.shorthand));
   const productName = stringValue(payload.productName ?? payload.name) || decoded.name;
   const category = stringValue(payload.category) || decoded.category;
@@ -1553,7 +1555,7 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   );
   const order = orderRows.rows[0];
   if (!order) throw new Error('Purchase order not found.');
-  assertPurchaseOrderEditable(order.status);
+  assertPurchaseOrderEditable(order['status'] as string);
 
   const values: Record<string, unknown> = { updatedAt: new Date() };
   if (payload.productName !== undefined || payload.name !== undefined) values.productName = stringValue(payload.productName ?? payload.name);
@@ -1635,7 +1637,7 @@ async function removePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
   );
   const order = orderRows.rows[0];
   if (!order) throw new Error('Purchase order not found.');
-  assertPurchaseOrderEditable(order.status);
+  assertPurchaseOrderEditable(order['status'] as string);
   if (Number(line.receivedQty) > 0) throw new Error('Received purchase order lines cannot be removed. Use intake correction/reversal.');
   await tx.delete(purchaseOrderLines).where(eq(purchaseOrderLines.id, lineId));
   await recalcPurchaseOrder(tx, line.purchaseOrderId);
@@ -1945,7 +1947,7 @@ async function rejectBatch(tx: Tx, payload: Payload, commandId: string): Promise
       if (bill.status === 'paid' || bill.status === 'void') continue;
       // TER-1566: Decimal-precise rejection adjustment — bill.amount minus qty*cost.
       const next = subMoneyMin0(bill.amount, mulMoney(row.intakeQty, row.unitCost));
-      await tx.update(vendorBills).set({ amount: next, updatedAt: new Date() }).where(eq(vendorBills.id, bill.id));
+      await tx.update(vendorBills).set({ amount: next, updatedAt: new Date() }).where(eq(vendorBills.id, bill.id as string));
       affected.push(bill.id as string);
     }
   }
@@ -2629,9 +2631,9 @@ async function reserveInventoryForOrder(tx: Tx, payload: Payload, commandId: str
     const batch = batchRows.rows[0];
     if (!batch) throw new Error(`${line.itemName} batch no longer exists.`);
     if (Number(batch['available_qty']) - Number(batch['reserved_qty']) < Number(line.qty)) throw new Error(`${line.itemName} is short on available quantity.`);
-    await tx.update(batches).set({ reservedQty: qtyScale(Number(batch['reserved_qty']) + Number(line.qty)), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+    await tx.update(batches).set({ reservedQty: qtyScale(Number(batch['reserved_qty']) + Number(line.qty)), updatedAt: new Date() }).where(eq(batches.id, batch.id as string));
     await tx.update(salesOrderLines).set({ status: 'reserved', updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
-    affected.push(batch.id, line.id);
+    affected.push(batch.id as string, line.id);
   }
   return { ok: true, commandId, affectedIds: affected, toast: 'Inventory reserved for order.' };
 }
@@ -3180,6 +3182,7 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
   if (unresolvedCogs) throw new Error(`${unresolvedCogs.itemName} has unresolved landed COGS. Resolve the COGS range before confirming the order.`);
   const exceptionBlocker = findExceptionBlockedLine(lines);
   if (exceptionBlocker) throw new Error(formatExceptionBlockerMessage(exceptionBlocker, 'confirming'));
+  if (!order.customerId) throw new Error('Customer not found.');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
   if (Number(customer.balance) + Number(order.total) > Number(customer.creditLimit)) {
@@ -3299,7 +3302,7 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
     const batchVendorId = batch['vendor_id'] as string | null | undefined;
     const nextAvailable = Number(batch['available_qty']) - Number(line.qty);
     const nextReserved = Math.max(0, Number(batch['reserved_qty']) - Number(line.qty));
-    await tx.update(batches).set({ availableQty: qtyScale(nextAvailable), reservedQty: qtyScale(nextReserved), updatedAt: new Date() }).where(eq(batches.id, batch.id));
+    await tx.update(batches).set({ availableQty: qtyScale(nextAvailable), reservedQty: qtyScale(nextReserved), updatedAt: new Date() }).where(eq(batches.id, batch.id as string));
     if (batch['ownership_status'] === 'C' && nextAvailable <= 0 && batchVendorId) {
       const [bill] = await tx
         .select()
@@ -3332,8 +3335,8 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
       }
     }
     await tx.update(salesOrderLines).set({ status: 'posted', inventoryPosted: true, validationIssues: [], updatedAt: new Date() }).where(eq(salesOrderLines.id, line.id));
-    await tx.insert(inventoryMovements).values({ batchId: batch.id, commandId, kind: 'sale_posted', qtyDelta: qtyScale(-Number(line.qty)), reason: order.orderNo });
-    affected.push(batch.id, line.id);
+    await tx.insert(inventoryMovements).values({ batchId: batch.id as string, commandId, kind: 'sale_posted', qtyDelta: qtyScale(-Number(line.qty)), reason: order.orderNo });
+    affected.push(batch.id as string, line.id);
   }
 
   const [invoice] = await tx
@@ -3344,8 +3347,8 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
   // Number()-rounded sums across many invoices drift the running balance
   // away from the per-invoice sum.
   const nextBalance = addMoney(customer.balance, freshOrder.total);
-  await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id));
-  await tx.insert(clientLedgerEntries).values({ customerId: customer.id, invoiceId: invoice.id, kind: 'invoice', amount: freshOrder.total, balanceAfter: nextBalance, note: freshOrder.orderNo });
+  await tx.update(customers).set({ balance: nextBalance, updatedAt: new Date() }).where(eq(customers.id, customer.id as string));
+  await tx.insert(clientLedgerEntries).values({ customerId: customer.id as string, invoiceId: invoice.id, kind: 'invoice', amount: freshOrder.total, balanceAfter: nextBalance, note: freshOrder.orderNo });
   const exceptionTotals = computeOrderExceptionTotals(
     lines.map((line: typeof salesOrderLines.$inferSelect) => ({
       qty: Number(line.qty),
@@ -3368,7 +3371,7 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
       updatedAt: new Date()
     })
     .where(eq(salesOrders.id, orderId));
-  affected.push(invoice.id, customer.id);
+  affected.push(invoice.id, customer.id as string);
 
   // #64 PR-3: per-line correction journal entries for below-floor COGS exceptions.
   //
@@ -3461,7 +3464,7 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
     }).where(eq(salesOrders.id, orderId));
   }
 
-  await enqueueCustomerRecompute(tx, customer.id, 'event:postSalesOrder', commandId);
+  await enqueueCustomerRecompute(tx, customer.id as string, 'event:postSalesOrder', commandId);
   return {
     ok: true,
     commandId,
@@ -4606,7 +4609,7 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
     }
   } else if (original.commandName === 'setItemAlias') {
     for (const item of beforeSnapshot.items ?? []) {
-      const priorAlias = (item as Record<string, unknown>).alias ?? null;
+      const priorAlias: string | null = ((item as Record<string, unknown>).alias as string | undefined) ?? null;
       await tx.update(items).set({ alias: priorAlias, updatedAt: new Date() }).where(eq(items.id, (item as { id: string }).id));
       affected.push((item as { id: string }).id);
     }
@@ -5676,7 +5679,7 @@ async function snapshotFromPayload(payload: Payload) {
 }
 
 /** @internal Exported for unit testing. Pass `tx` inside a transaction so same-tx inserts are visible to the after-snapshot read (GH #150). */
-export async function snapshotByAffectedIds(dbLike: Tx, ids: string[]) {
+export async function snapshotByAffectedIds(dbLike: typeof db | Tx, ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return {};
   const snapshot: Record<string, unknown> = {};

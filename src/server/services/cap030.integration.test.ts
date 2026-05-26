@@ -28,6 +28,7 @@ import {
   type InMemoryState,
 } from './__tests__/inMemoryDbMock';
 import type { SessionUser } from '../../shared/types';
+import type { Tx } from '../db';
 
 // ---------------------------------------------------------------------------
 // Shared in-memory state — must be vi.hoisted so the vi.mock factory can
@@ -115,7 +116,7 @@ const nextCmd = () => `cmd-cap030-${++cmdSeq}`;
  *     postSalesOrder's `SELECT ... FOR UPDATE` resolves correctly.
  *   - query()   → no-op for enqueueCustomerRecompute's pool.query() call.
  */
-function makeTx(state: InMemoryState): Record<string, unknown> {
+function makeTx(state: InMemoryState): Tx {
   const { tx: baseTx } = makeMockedDb(state);
   return {
     ...baseTx,
@@ -124,7 +125,7 @@ function makeTx(state: InMemoryState): Record<string, unknown> {
     },
     // enqueueCustomerRecompute calls client.query() when passed a tx object
     query: async () => ({ rows: [] }),
-  };
+  } as unknown as Tx;
 }
 
 // ---------------------------------------------------------------------------
