@@ -22,6 +22,10 @@ echo "[wave4-qa] Port cleanup done."
 echo "[wave4-qa] Starting QA environment in background..."
 # Clear stale log from any previous QA run so polling does not reuse old QA_READY=true
 > /tmp/qa-env.log
+# Force-unset DATABASE_URL so qa:env:setup always starts a fresh ephemeral postgres.
+# The repo .env has DATABASE_URL=...55432 (local Mac dev port) which would be sourced
+# by qa-env-setup.sh and cause it to skip docker startup on the fast runner.
+unset DATABASE_URL
 QA_BRANCH=main pnpm qa:env:setup > /tmp/qa-env.log 2>&1 &
 QA_PID=$!
 
@@ -31,6 +35,8 @@ for i in $(seq 1 80); do
   if grep -q "QA_READY=true" /tmp/qa-env.log 2>/dev/null; then
     READY=true
     echo "[wave4-qa] QA_READY detected (attempt $i)"
+    echo "[wave4-qa] qa-env.log tail:"
+    tail -20 /tmp/qa-env.log 2>/dev/null || true
     break
   fi
   if ! kill -0 $QA_PID 2>/dev/null; then
