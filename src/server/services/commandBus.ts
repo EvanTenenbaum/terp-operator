@@ -5511,9 +5511,13 @@ export async function snapshotByAffectedIds(dbLike: Tx, ids: string[]) {
     ['items', items]
   ] as const;
 
-  for (const [name, table] of tablePairs) {
-    const rows = await dbLike.select().from(table as any).where(inArray((table as any).id, unique));
-    if (rows.length) snapshot[name] = rows;
+  // GH #310: run all table lookups concurrently instead of 22 sequential round-trips.
+  const results = await Promise.all(
+    tablePairs.map(([, table]) => dbLike.select().from(table as any).where(inArray((table as any).id, unique)))
+  );
+  for (let i = 0; i < tablePairs.length; i++) {
+    const rows = results[i];
+    if (rows.length) snapshot[tablePairs[i][0]] = rows;
   }
   return snapshot;
 }
