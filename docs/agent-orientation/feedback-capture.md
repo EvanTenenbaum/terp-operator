@@ -36,6 +36,8 @@ Public capture key:
 crk_terp_operator_feedback_do
 ```
 
+As of 2026-05-26, DigitalOcean staging was pointed at branch `codex/crikket-feedback-20260526` for immediate user testing. After this branch merges, switch the App Platform branch back to `main` if it has not already been reset.
+
 Crikket is hosted on a small DigitalOcean droplet because App Platform repeatedly failed while deploying the upstream prebuilt Crikket images with a platform-level `InternalError`.
 
 Known DO resources:
