@@ -5,6 +5,17 @@ type CrikketCaptureApi = {
   isInitialized?: () => boolean;
 };
 
+type FeedbackCaptureConfig = {
+  enabled?: boolean;
+  host?: string;
+  key?: string;
+  scriptSrc?: string;
+};
+
+type ClientConfig = {
+  feedbackCapture?: FeedbackCaptureConfig;
+};
+
 declare global {
   interface Window {
     CrikketCapture?: CrikketCaptureApi;
@@ -21,6 +32,13 @@ let didInit = false;
 
 function isEnabled() {
   return import.meta.env.VITE_CRIKKET_ENABLED !== 'false';
+}
+
+async function loadRuntimeConfig() {
+  const response = await fetch('/api/client-config', { credentials: 'same-origin' });
+  if (!response.ok) return {};
+  const config = (await response.json()) as ClientConfig;
+  return config.feedbackCapture ?? {};
 }
 
 function loadCrikketScript(src: string) {
@@ -49,23 +67,29 @@ function loadCrikketScript(src: string) {
 
 export function FeedbackCapture() {
   useEffect(() => {
-    if (!isEnabled()) return;
-
-    const key = import.meta.env.VITE_CRIKKET_KEY || (import.meta.env.DEV ? DEFAULT_LOCAL_KEY : '');
-    if (!key) return;
-
-    const host = import.meta.env.VITE_CRIKKET_HOST || (import.meta.env.DEV ? DEFAULT_LOCAL_HOST : undefined);
-    const scriptSrc = import.meta.env.VITE_CRIKKET_SCRIPT_SRC || DEFAULT_SCRIPT_SRC;
-
     let cancelled = false;
-    loadCrikketScript(scriptSrc)
-      .then(() => {
-        if (cancelled || didInit) return;
-        const crikket = window.CrikketCapture;
-        if (!crikket || crikket.isInitialized?.()) return;
 
-        crikket.init({ key, host, zIndex: 2147483000 });
-        didInit = true;
+    loadRuntimeConfig()
+      .catch((): FeedbackCaptureConfig => ({}))
+      .then((runtimeConfig) => {
+        if (cancelled) return;
+        const enabled = runtimeConfig.enabled ?? isEnabled();
+        if (!enabled) return;
+
+        const key = runtimeConfig.key || import.meta.env.VITE_CRIKKET_KEY || (import.meta.env.DEV ? DEFAULT_LOCAL_KEY : '');
+        if (!key) return;
+
+        const host = runtimeConfig.host || import.meta.env.VITE_CRIKKET_HOST || (import.meta.env.DEV ? DEFAULT_LOCAL_HOST : undefined);
+        const scriptSrc = runtimeConfig.scriptSrc || import.meta.env.VITE_CRIKKET_SCRIPT_SRC || DEFAULT_SCRIPT_SRC;
+
+        return loadCrikketScript(scriptSrc).then(() => {
+          if (cancelled || didInit) return;
+          const crikket = window.CrikketCapture;
+          if (!crikket || crikket.isInitialized?.()) return;
+
+          crikket.init({ key, host, zIndex: 2147483000 });
+          didInit = true;
+        });
       })
       .catch((error) => {
         console.warn('[feedback] Crikket capture unavailable', error);

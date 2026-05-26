@@ -6,6 +6,7 @@ TERP Operator embeds the Crikket feedback widget as a root utility after login. 
 
 - TERP owns the widget mount: `src/client/components/FeedbackCapture.tsx`.
 - TERP vendors the Crikket browser SDK at `public/vendor/crikket/capture.global.js`.
+- TERP sends the active widget config through `/api/client-config`; do not rely only on Vite build-time envs for deployed Docker builds.
 - TERP allows the configured Crikket host and direct upload storage in server CSP `connect-src`; screen/video capture preview uses `blob:` media.
 - Crikket owns report storage, uploads, keys, and the dashboard.
 

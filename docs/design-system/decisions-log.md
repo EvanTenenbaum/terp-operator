@@ -350,8 +350,8 @@ Added `wrapHeaderText: true` + `autoHeaderHeight: true` to OperatorGrid defaultC
 ---
 
 ## 2026-05-26: Crikket feedback capture mounts as a root utility
-**Decision:** Mount the Crikket capture widget from the TERP root shell after login, using a vendored browser bundle, Vite environment switches, and CSP allowances for the configured Crikket host plus direct upload storage instead of adding the unpublished workspace package as an app dependency.
-**Rationale:** User-testing feedback should be one click inside TERP without requiring the Chrome extension flow. The Crikket npm package currently depends on workspace packages from its monorepo, while the built global browser bundle is stable for local operator testing and can be pointed at the hosted Crikket server.
+**Decision:** Mount the Crikket capture widget from the TERP root shell after login, using a vendored browser bundle, `/api/client-config` runtime settings, Vite local fallbacks, and CSP allowances for the configured Crikket host plus direct upload storage instead of adding the unpublished workspace package as an app dependency.
+**Rationale:** User-testing feedback should be one click inside TERP without requiring the Chrome extension flow. The Crikket npm package currently depends on workspace packages from its monorepo, while the built global browser bundle is stable for local operator testing and can be pointed at the hosted Crikket server. Runtime config avoids Docker/Vite build-time env drift in DigitalOcean.
 **Example:** `src/client/components/FeedbackCapture.tsx`, `src/server/app.ts`, `public/vendor/crikket/capture.global.js`.
 **Author:** Codex via Evan
 **Related:** `docs/agent-orientation/feedback-capture.md`.

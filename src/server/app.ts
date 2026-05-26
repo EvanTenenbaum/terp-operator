@@ -63,7 +63,13 @@ export function createApp(getIo: () => SocketServer) {
 
   app.get('/api/client-config', (_req, res) => {
     res.json({
-      agGridLicenseKey: env.VITE_AG_GRID_LICENSE_KEY
+      agGridLicenseKey: env.VITE_AG_GRID_LICENSE_KEY,
+      feedbackCapture: {
+        enabled: env.VITE_CRIKKET_ENABLED,
+        host: env.VITE_CRIKKET_HOST || undefined,
+        key: env.VITE_CRIKKET_KEY || undefined,
+        scriptSrc: env.VITE_CRIKKET_SCRIPT_SRC || undefined
+      }
     });
   });
 

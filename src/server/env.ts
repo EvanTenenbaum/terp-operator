@@ -13,7 +13,10 @@ const envSchema = z.object({
   DATABASE_SSL_REJECT_UNAUTHORIZED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   SESSION_SECRET: z.string().min(16).default(DEV_SESSION_SECRET),
   VITE_AG_GRID_LICENSE_KEY: z.string().default(''),
+  VITE_CRIKKET_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   VITE_CRIKKET_HOST: z.string().default(''),
+  VITE_CRIKKET_KEY: z.string().default(''),
+  VITE_CRIKKET_SCRIPT_SRC: z.string().default('/vendor/crikket/capture.global.js'),
   JOURNAL_DIR: z.string().default('./storage/journal'),
   ARCHIVE_DIR: z.string().default('./storage/archives'),
   // Photography feature flag. Defaults ON for dev; production toggles via deploy env.
