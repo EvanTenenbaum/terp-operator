@@ -64,9 +64,8 @@ export function PickView() {
     }
     const rawLine = pickListQuery.data?.lines.find((l) => l.id === selectedLine.id);
     if (!rawLine) {
-      // The line the picker was working on is no longer in the pick list —
-      // it was recalled by the sales operator (Scenario B).
-      if (selectedLine) setRecalledLineItem(selectedLine.itemName);
+      // The line is gone — recalled by the sales operator (Scenario B).
+      setRecalledLineItem(selectedLine.itemName);
       setActiveInterrupt(null);
       return;
     }

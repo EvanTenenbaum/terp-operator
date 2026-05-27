@@ -91,7 +91,10 @@ export function PickListScreen({ pickList, loading, onBack, onSelectLine, onComp
                         {line.status}
                       </span>
                       {line.alertCount > 0 ? (
-                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                        <span
+                          className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800"
+                          aria-label={`${line.alertCount} alert${line.alertCount !== 1 ? 's' : ''}`}
+                        >
                           {line.alertCount}⚠
                         </span>
                       ) : null}

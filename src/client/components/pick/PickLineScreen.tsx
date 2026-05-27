@@ -114,6 +114,8 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, recalled, re
 
   // Focus trap for the alert interrupt overlay — must not be dismissable
   const interruptRef = useFocusTrap<HTMLDivElement>(!!interrupt, undefined);
+  // Focus trap for the recall overlay (Scenario B)
+  const recalledRef = useFocusTrap<HTMLDivElement>(Boolean(recalled), undefined);
 
   async function handleAcknowledgeInterrupt() {
     if (!interrupt) return;
@@ -129,9 +131,16 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, recalled, re
   // Scenario B — line was recalled while picker was on this screen
   if (recalled) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-amber-50 p-8">
+      <div
+        ref={recalledRef}
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-amber-50 p-8"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="recalled-title"
+        onKeyDown={(e) => { if (e.key === 'Escape') e.preventDefault(); }}
+      >
         <div className="text-4xl">↩️</div>
-        <h2 className="text-xl font-bold text-amber-900">Line Recalled</h2>
+        <h2 id="recalled-title" className="text-xl font-bold text-amber-900">Line Recalled</h2>
         <p className="max-w-xs text-center text-base text-amber-800">
           <strong>{recalledItemName || 'This line'}</strong> was recalled by sales. Check with the sales operator for the updated quantity.
         </p>
