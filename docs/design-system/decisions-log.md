@@ -358,6 +358,15 @@ Added `wrapHeaderText: true` + `autoHeaderHeight: true` to OperatorGrid defaultC
 
 ---
 
+## 2026-05-27: Crikket launcher defaults to top-left
+**Decision:** Add `VITE_CRIKKET_POSITION` and default the Crikket launcher to `top-left`, applied from `FeedbackCapture.tsx` after the Crikket SDK mounts.
+**Rationale:** Agentation occupies the bottom-right corner during user testing, and Crikket's public SDK init options expose z-index but not launcher placement. A runtime-configured shadow-root style override keeps the hosted widget usable without editing the vendored SDK bundle.
+**Example:** `src/client/components/FeedbackCapture.tsx`, `src/server/env.ts`, `src/server/app.ts`.
+**Author:** Codex via Evan
+**Related:** `docs/agent-orientation/feedback-capture.md`.
+
+---
+
 ## 2026-05-18: Documentation grounded in actual codebase, not aspirational spec
 **Decision:** When the original 2026-05-18 spec for the agent-orientation/design-system docs referenced files and structures that didn't exist (a `Button` component, `ui/`/`grids/`/`forms/`/`layout/` subfolders, `@/` path aliases, `cn()` helper, `IntakeToolbar` / `StatusCellRenderer` / `CurrencyCellRenderer` components, raw TanStack mutation patterns), the docs were rewritten from the actual codebase rather than transcribed from the spec.
 **Rationale:** Documentation that misrepresents the codebase is worse than no documentation — it teaches agents to write code that doesn't compile (`@/lib/utils`) or that bypasses the audit/journal contract (raw `useMutation` instead of `useCommandRunner`). The spec's value was its structural outline (which docs to write, what topics each should cover). The code is the source of truth for content.

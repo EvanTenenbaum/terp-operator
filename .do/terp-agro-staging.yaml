@@ -76,3 +76,6 @@ services:
       - key: VITE_CRIKKET_SCRIPT_SRC
         scope: RUN_AND_BUILD_TIME
         value: /vendor/crikket/capture.global.js
+      - key: VITE_CRIKKET_POSITION
+        scope: RUN_AND_BUILD_TIME
+        value: top-left

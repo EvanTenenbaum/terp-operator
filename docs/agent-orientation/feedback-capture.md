@@ -19,9 +19,16 @@ VITE_CRIKKET_ENABLED=true
 VITE_CRIKKET_HOST=http://localhost:3000
 VITE_CRIKKET_KEY=crk_terp_operator_feedback_local
 VITE_CRIKKET_SCRIPT_SRC=/vendor/crikket/capture.global.js
+VITE_CRIKKET_POSITION=top-left
 ```
 
 Set `VITE_CRIKKET_ENABLED=false` in `.env` to remove the widget while debugging TERP UI noise. Production does not mount the widget unless `VITE_CRIKKET_KEY` is set.
+
+## Widget Position
+
+TERP keeps the Crikket launcher in the top-left corner by default so it does not overlap the Agentation widget in the bottom-right corner. Set `VITE_CRIKKET_POSITION` to `top-left`, `top-right`, `bottom-left`, or `bottom-right` to move it.
+
+Crikket's public capture SDK currently exposes `zIndex` but not launcher placement. TERP applies the configured placement after the SDK mounts by injecting a small style override into the Crikket shadow root from `FeedbackCapture.tsx`; do not edit the vendored SDK bundle just to move the launcher.
 
 ## DigitalOcean Staging
 
@@ -37,7 +44,7 @@ Public capture key:
 crk_terp_operator_feedback_do
 ```
 
-As of 2026-05-26, DigitalOcean staging was pointed at branch `codex/crikket-feedback-20260526` for immediate user testing. After this branch merges, switch the App Platform branch back to `main` if it has not already been reset.
+As of 2026-05-27, DigitalOcean staging should stay pointed at branch `main` with deploy-on-push enabled. Keep these Crikket env values present when updating the app spec: `VITE_CRIKKET_ENABLED=true`, `VITE_CRIKKET_HOST`, `VITE_CRIKKET_KEY`, `VITE_CRIKKET_SCRIPT_SRC=/vendor/crikket/capture.global.js`, and `VITE_CRIKKET_POSITION=top-left`.
 
 Crikket is hosted on a small DigitalOcean droplet because App Platform repeatedly failed while deploying the upstream prebuilt Crikket images with a platform-level `InternalError`.
 
