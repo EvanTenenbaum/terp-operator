@@ -2,8 +2,10 @@
  * Shared display formatting utilities for TERP Operator.
  *
  * TER-1612: formatTs() — canonical timestamp formatter.
- * Do NOT add formatMoney() here — that belongs in TER-1613 (separate branch).
+ * TER-1613: formatMoney() + moneyCol() — shared money formatting + AG Grid factory.
  */
+
+import type { ColDef } from 'ag-grid-community';
 
 export type FormatTsVariant = 'relative' | 'short' | 'long';
 
@@ -83,4 +85,75 @@ export function formatTs(
   if (hours >= 1) return `${hours}h ago`;
   if (minutes >= 1) return `${minutes}m ago`;
   return 'just now';
+}
+
+// ── Money formatting (TER-1613) ───────────────────────────────────────────────
+
+export interface FormatMoneyOpts {
+  /**
+   * Whether to show cents (fractional digits).
+   * Defaults to `true`.
+   * Pass `false` for KPI tiles where whole-dollar display is preferred.
+   */
+  cents?: boolean;
+}
+
+/**
+ * Format a numeric dollar value for display.
+ *
+ * @param value  Dollar amount (not cents). Null/undefined treated as zero.
+ * @param opts.cents  Show fractional digits. Defaults to `true`.
+ *
+ * @example
+ * formatMoney(1234.56)               // "$1,234.56"
+ * formatMoney(1234.56, {cents:false}) // "$1,235"
+ * formatMoney(null)                   // "$0.00"
+ * formatMoney(null, {cents:false})    // "$0"
+ */
+export function formatMoney(
+  value: number | null | undefined,
+  opts?: FormatMoneyOpts,
+): string {
+  const showCents = opts?.cents !== false;
+  const n = (value == null || !Number.isFinite(value)) ? 0 : value;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: showCents ? 2 : 0,
+    maximumFractionDigits: showCents ? 2 : 0,
+  }).format(n);
+}
+
+// ── AG Grid money column factory (TER-1613) ───────────────────────────────────
+
+export interface MoneyColOpts extends FormatMoneyOpts {
+  headerName?: string;
+  width?: number;
+}
+
+/**
+ * AG Grid ColDef factory for a right-aligned money column.
+ *
+ * @param field      Row field containing a numeric dollar value.
+ * @param opts.headerName  Column header (defaults to capitalised field name).
+ * @param opts.width       Column width in pixels (defaults to 120).
+ * @param opts.cents       Show fractional digits (defaults to true).
+ *
+ * @example
+ * moneyCol('total', { headerName: 'Total', width: 100 })
+ * moneyCol('balance', { headerName: 'Balance', cents: false })
+ */
+export function moneyCol(field: string, opts?: MoneyColOpts): ColDef {
+  const { headerName, width = 120, ...fmtOpts } = opts ?? {};
+  return {
+    field,
+    headerName: headerName ?? field.charAt(0).toUpperCase() + field.slice(1),
+    width,
+    cellClass: 'text-right tabular-nums',
+    headerClass: 'text-right',
+    valueFormatter: (params) => formatMoney(
+      params.value == null ? null : Number(params.value),
+      fmtOpts,
+    ),
+  };
 }

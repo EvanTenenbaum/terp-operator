@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, ToggleLeft, ToggleRight } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
+import { formatMoney } from '../utils/format';
 
 interface ProcessorFeesGridProps {
   processorId: string;
@@ -102,8 +103,8 @@ export function ProcessorFeesGrid({ processorId }: ProcessorFeesGridProps) {
               {rows.map((f) => (
                 <tr key={f.id} className="border-t border-zinc-100">
                   <td className="px-3 py-2 text-xs text-zinc-600">{new Date(f.createdAt).toLocaleDateString()}</td>
-                  <td className="px-3 py-2 tabular-nums">${Number(f.processingFeeTotal).toFixed(2)}</td>
-                  <td className="px-3 py-2 tabular-nums">${Number(f.userFeeShare).toFixed(2)}</td>
+                  <td className="px-3 py-2 tabular-nums">{formatMoney(Number(f.processingFeeTotal))}</td>
+                  <td className="px-3 py-2 tabular-nums">{formatMoney(Number(f.userFeeShare))}</td>
                   <td className="px-3 py-2">
                     {f.userFeeStatus === 'collected' ? (
                       <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">Collected</span>
@@ -111,7 +112,7 @@ export function ProcessorFeesGrid({ processorId }: ProcessorFeesGridProps) {
                       <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">Collectible</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 tabular-nums">${Number(f.processorFeeShare).toFixed(2)}</td>
+                  <td className="px-3 py-2 tabular-nums">{formatMoney(Number(f.processorFeeShare))}</td>
                   <td className="px-3 py-2">
                     {f.processorFeeStatus === 'paid' ? (
                       <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">Paid</span>

@@ -1,9 +1,10 @@
 /**
- * Unit tests for shared timestamp formatting utility.
+ * Unit tests for shared display formatting utilities.
  * TER-1612: formatTs() — canonical timestamp formatter.
+ * TER-1613: formatMoney() + moneyCol() — shared money formatting + AG Grid factory.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { formatTs } from './format';
+import { formatTs, formatMoney, moneyCol } from './format';
 
 // ─── null / undefined / empty / invalid ──────────────────────────────────────
 
@@ -181,5 +182,98 @@ describe('formatTs — relative variant', () => {
   it('handles numeric timestamp inputs in relative mode', () => {
     const fiveHoursAgo = FIXED_NOW - 5 * 60 * 60 * 1000;
     expect(formatTs(fiveHoursAgo, { variant: 'relative' })).toBe('5h ago');
+  });
+});
+
+// ─── formatMoney ─────────────────────────────────────────────────────────────
+
+describe('formatMoney — null / undefined', () => {
+  it('returns "$0.00" for null (cents: true default)', () => {
+    expect(formatMoney(null)).toBe('$0.00');
+  });
+
+  it('returns "$0.00" for undefined', () => {
+    expect(formatMoney(undefined)).toBe('$0.00');
+  });
+
+  it('returns "$0" for null with cents: false', () => {
+    expect(formatMoney(null, { cents: false })).toBe('$0');
+  });
+});
+
+describe('formatMoney — cents: true (default)', () => {
+  it('always shows two decimal places for whole numbers', () => {
+    expect(formatMoney(0)).toBe('$0.00');
+    expect(formatMoney(200)).toBe('$200.00');
+    expect(formatMoney(1234567)).toBe('$1,234,567.00');
+  });
+
+  it('formats fractional values with 2 decimal places', () => {
+    expect(formatMoney(200.5)).toBe('$200.50');
+    expect(formatMoney(0.99)).toBe('$0.99');
+    expect(formatMoney(1234.56)).toBe('$1,234.56');
+  });
+
+  it('rounds to 2 decimal places', () => {
+    expect(formatMoney(1.005)).toBe('$1.01');
+    expect(formatMoney(1.004)).toBe('$1.00');
+  });
+});
+
+describe('formatMoney — cents: false (KPI tile mode)', () => {
+  it('shows no decimal places for whole numbers', () => {
+    expect(formatMoney(0, { cents: false })).toBe('$0');
+    expect(formatMoney(200, { cents: false })).toBe('$200');
+    expect(formatMoney(1234567, { cents: false })).toBe('$1,234,567');
+  });
+
+  it('rounds fractional values to nearest whole dollar', () => {
+    expect(formatMoney(1234.56, { cents: false })).toBe('$1,235');
+    expect(formatMoney(1234.49, { cents: false })).toBe('$1,234');
+  });
+});
+
+// ─── moneyCol ────────────────────────────────────────────────────────────────
+
+describe('moneyCol — ColDef factory', () => {
+  it('sets field correctly', () => {
+    const col = moneyCol('totalAmount');
+    expect(col.field).toBe('totalAmount');
+  });
+
+  it('defaults width to 120', () => {
+    const col = moneyCol('balance');
+    expect(col.width).toBe(120);
+  });
+
+  it('accepts custom headerName and width', () => {
+    const col = moneyCol('total', { headerName: 'Order Total', width: 150 });
+    expect(col.headerName).toBe('Order Total');
+    expect(col.width).toBe(150);
+  });
+
+  it('capitalises field name when no headerName given', () => {
+    const col = moneyCol('balance');
+    expect(col.headerName).toBe('Balance');
+  });
+
+  it('produces a right-aligned cell class', () => {
+    const col = moneyCol('total');
+    expect(String(col.cellClass)).toContain('text-right');
+  });
+
+  it('valueFormatter uses formatMoney with cents: true by default', () => {
+    const col = moneyCol('amount');
+    const fmt = col.valueFormatter as (p: { value: unknown }) => string;
+    expect(fmt({ value: 1234.56 })).toBe('$1,234.56');
+    expect(fmt({ value: 200 })).toBe('$200.00');
+    expect(fmt({ value: null })).toBe('$0.00');
+  });
+
+  it('valueFormatter uses cents: false when specified', () => {
+    const col = moneyCol('balance', { cents: false });
+    const fmt = col.valueFormatter as (p: { value: unknown }) => string;
+    expect(fmt({ value: 1234.56 })).toBe('$1,235');
+    expect(fmt({ value: null })).toBe('$0');
   });
 });

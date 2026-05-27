@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { ProcessorFeesGrid } from './ProcessorFeesGrid';
+import { formatMoney } from '../utils/format';
 
 interface ProcessorDetailPanelProps {
   processorId: string;
@@ -40,25 +41,25 @@ export function ProcessorDetailPanel({ processorId, processorName, onClose }: Pr
         <div className="bg-white p-3">
           <div className="text-xs text-zinc-500">Total Fees Processed</div>
           <div className="text-lg font-semibold tabular-nums">
-            ${data ? Number(data.totalFeesProcessed).toFixed(2) : '—'}
+            {data ? formatMoney(Number(data.totalFeesProcessed)) : '—'}
           </div>
         </div>
         <div className="bg-white p-3">
           <div className="text-xs text-zinc-500">User Fees Collectible</div>
           <div className="text-lg font-semibold tabular-nums text-amber-700">
-            ${data ? Number(data.userFeesCollectible).toFixed(2) : '—'}
+            {data ? formatMoney(Number(data.userFeesCollectible)) : '—'}
           </div>
         </div>
         <div className="bg-white p-3">
           <div className="text-xs text-zinc-500">User Fees Collected</div>
           <div className="text-lg font-semibold tabular-nums text-emerald-700">
-            ${data ? Number(data.userFeesCollected).toFixed(2) : '—'}
+            {data ? formatMoney(Number(data.userFeesCollected)) : '—'}
           </div>
         </div>
         <div className="bg-white p-3">
           <div className="text-xs text-zinc-500">Processor Fees Unpaid</div>
           <div className="text-lg font-semibold tabular-nums text-amber-700">
-            ${data ? Number(data.processorFeesUnpaid).toFixed(2) : '—'}
+            {data ? formatMoney(Number(data.processorFeesUnpaid)) : '—'}
           </div>
         </div>
       </section>

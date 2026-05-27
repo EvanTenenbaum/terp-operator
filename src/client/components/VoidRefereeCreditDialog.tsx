@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useCommandRunner } from './useCommandRunner';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { formatMoney } from '../utils/format';
 
 interface VoidRefereeCreditDialogProps {
   creditId: string;
@@ -56,7 +57,7 @@ export function VoidRefereeCreditDialog({
           </button>
         </div>
         <p className="mb-4 text-sm text-zinc-600">
-          Void credit for transaction <strong>{transactionNo}</strong> in the amount of <strong>${creditAmount.toFixed(2)}</strong>?
+          Void credit for transaction <strong>{transactionNo}</strong> in the amount of <strong>{formatMoney(creditAmount)}</strong>?
         </p>
         <form noValidate onSubmit={handleSubmit} className="space-y-4">
           <div>

@@ -1,5 +1,6 @@
 import { WorkspacePanel } from '../WorkspacePanel';
 import type { ContactProfileData } from './types';
+import { formatMoney } from '../../utils/format';
 
 interface Props { data: ContactProfileData; }
 
@@ -30,7 +31,7 @@ export function ContactVendorPanel({ data }: Props) {
           <label className="field-inline">
             <span className="text-zinc-500">Open bills</span>
             <span>
-              {String(vendor.open_bills_count ?? 0)} totaling ${Number(vendor.open_bills_amount ?? 0).toFixed(2)}
+              {String(vendor.open_bills_count ?? 0)} totaling {formatMoney(Number(vendor.open_bills_amount ?? 0))}
             </span>
           </label>
           <label className="field-inline">
@@ -39,11 +40,11 @@ export function ContactVendorPanel({ data }: Props) {
           </label>
           <label className="field-inline">
             <span className="text-zinc-500">Total billed</span>
-            <span>${Number(vendor.total_billed ?? 0).toFixed(2)}</span>
+            <span>{formatMoney(Number(vendor.total_billed ?? 0))}</span>
           </label>
           <label className="field-inline">
             <span className="text-zinc-500">Total paid</span>
-            <span>${Number(vendor.total_paid ?? 0).toFixed(2)}</span>
+            <span>{formatMoney(Number(vendor.total_paid ?? 0))}</span>
           </label>
         </div>
       </WorkspacePanel>
