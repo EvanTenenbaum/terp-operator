@@ -2,6 +2,24 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-05-27 — Finder chrome redesign: pill filter bar, Add filter dropdown, presets strip, builder restyle
+
+**Decision 1:** `InventoryFinderPanel` filter chrome restructured from stacked controls to: filter bar (search + active filter pills + "Add filter" two-step dropdown + Advanced toggle) → presets strip (DB-driven saved views + save/manage) → `AdvancedFilterBuilder` slide-down panel. All filter evaluation logic (`evaluateFilterGroup`, `filterEvaluator.ts`, `filterSchemas.ts`) is unchanged.
+
+**Decision 2:** Active filters shown as removable pills in the filter bar. The "Add filter" button opens a two-step dropdown: pick a field (grouped: Product, Qty & Price, Date & Age, Status) → enter value (operator select + field-specific input). "Save current" in presets strip names and persists the current advanced filter to `saved_filters` via `trpc.filters.saveFilter`.
+
+**Decision 3:** Hardcoded `savedSlices` array removed from `InventoryFinderPanel`. The 5 default views (Aging premium, Consignment risk, Value buyers, Low stock, Office owned) are seeded by migration 0071 as global `saved_filters` rows, so they persist across deploys and are user-editable/deletable.
+
+**Decision 4:** `AdvancedFilterBuilder` restyled with new semantic classes: `.builder-panel`, `.builder-panel-header`, `.builder-panel-body`, `.builder-panel-footer`, `.condition-row`, `.logic-badge`, `.nested-group`. Logic unchanged. Two new props: `onSaveAsView` (callback) and `resultCount` (display in Apply button).
+
+**Decision 5:** Filter chrome CSS classes added to `styles.css`: `.filter-bar`, `.filter-pill`, `.filter-pill-remove`, `.add-filter-btn`, `.add-filter-dropdown`, `.advanced-btn`, `.presets-strip`, `.preset-save-chip`, `.presets-manage-link`, `.presets-label`, plus all builder panel classes.
+
+**Files:** `src/client/components/InventoryFinderPanel.tsx`, `src/client/components/AdvancedFilterBuilder.tsx`, `src/client/styles.css`, `migrations/0071_default_inventory_views.sql`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** Spec `docs/superpowers/specs/2026-05-27-finder-pricing-ui-redesign.md`
+
+---
+
 ## 2026-05-27 — Pricing redesign: nested CategoryPricingEntry, inline SalesView pricing columns, OrderPricingPanel removed
 
 **Decision 1:** `CustomerPricingRule.categories` changed from `Record<string, PricingRuleEntry>` to `Record<string, CategoryPricingEntry>` where `CategoryPricingEntry = { rule?: PricingRuleEntry; subcategories?: Record<string, PricingRuleEntry> }`. Key collision between same-named subcategories across categories is prevented by nesting under the category key. Existing flat `{ basis, amount }` entries are migrated to `{ rule: { basis, amount } }` transparently in `validatePricingRulePayload`.
