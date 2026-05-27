@@ -468,17 +468,22 @@ export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId,
           </button>
         ))}
       </div>
-      {compared.length ? (
-        <div className="finder-chip-row" aria-label="Compared inventory">
-          <span className="text-xs font-semibold uppercase text-zinc-600">Compare list</span>
-          {compared.map((row) => (
-            <span key={row.id} className="finder-chip success">
-              {row.batchCode} / ${moneyish(row.unitPrice)} / {moneyish(row.availableQty)} {row.uom}
-            </span>
-          ))}
-          <button className="text-button compact-action" type="button" disabled={!compared.some((row) => customerShareReady(row.mediaStatus))} onClick={() => copyFinderOffer(compared)}>
-            Copy customer-safe offer
-          </button>
+      {compared.length > 0 ? (
+        <div className="selection-summary" aria-live="polite">
+          <div className="selection-summary-main">
+            <span className="selection-pill">{compared.length} selected</span>
+          </div>
+          <div className="selection-summary-actions">
+            <button
+              className="secondary-button compact-action"
+              type="button"
+              disabled={!compared.some((row) => customerShareReady(row.mediaStatus))}
+              onClick={() => copyFinderOffer(compared)}
+            >
+              <Clipboard className="h-4 w-4" aria-hidden="true" />
+              Copy {compared.length} rows as offer
+            </button>
+          </div>
         </div>
       ) : null}
       <div className="finder-table-wrap">
@@ -487,7 +492,7 @@ export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId,
           <thead>
             <tr>
               <th>Qty</th>
-              <th>Compare</th>
+              <th><span className="sr-only">Select</span></th>
               <th>Batch</th>
               <th>Lot / date</th>
               <th>Product</th>
@@ -539,7 +544,7 @@ export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId,
                       </div>
                     </td>
                     <td>
-                      <input aria-label={`Add ${row.batchCode} to compare list`} type="checkbox" checked={compareIds.has(row.id)} onChange={() => toggleCompare(row.id)} />
+                      <input aria-label={`Select ${row.batchCode}`} type="checkbox" checked={compareIds.has(row.id)} onChange={() => toggleCompare(row.id)} />
                     </td>
                     <td className="font-medium">
                       <div>{row.batchCode}</div>
