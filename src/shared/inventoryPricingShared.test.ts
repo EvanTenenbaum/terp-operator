@@ -17,6 +17,8 @@ describe('resolvePricingRuleEntry — subcategory resolution', () => {
     const result = resolvePricingRuleEntry(rule, null, 'Flower', 'Indoor');
     expect(result.amount).toBe(0.40);
     expect(result.source).toBe('customer-subcategory');
+    expect(result.category).toBe('Flower');
+    expect(result.subcategory).toBe('Indoor');
   });
 
   it('falls through to category rule when subcategory not found', () => {
@@ -38,6 +40,8 @@ describe('resolvePricingRuleEntry — subcategory resolution', () => {
     const result = resolvePricingRuleEntry(null, settings, 'Flower', 'Indoor');
     expect(result.amount).toBe(0.38);
     expect(result.source).toBe('settings-subcategory');
+    expect(result.category).toBe('Flower');
+    expect(result.subcategory).toBe('Indoor');
   });
 
   it('returns fallback when nothing matches', () => {
@@ -61,6 +65,16 @@ describe('markupDollarsFromPrice', () => {
 
   it('returns 0 for invalid price', () => {
     const markup = markupDollarsFromPrice(NaN, { basis: 'percent', amount: 0.3, source: 'fallback' });
+    expect(markup).toBe(0);
+  });
+
+  it('returns 0 for zero price', () => {
+    const markup = markupDollarsFromPrice(0, { basis: 'percent', amount: 0.3, source: 'fallback' });
+    expect(markup).toBe(0);
+  });
+
+  it('returns 0 for negative price', () => {
+    const markup = markupDollarsFromPrice(-10, { basis: 'percent', amount: 0.3, source: 'fallback' });
     expect(markup).toBe(0);
   });
 });
