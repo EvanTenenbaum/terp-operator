@@ -139,7 +139,7 @@ const lineColumns: ColDef<GridRow>[] = [
   },
   { field: 'itemName', headerName: 'Canonical', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
   { field: 'batchCode', headerName: 'Source', width: 140 },
-  { field: 'unresolvedSourceText', headerName: 'Unresolved source', editable: true, minWidth: 170 },
+  { field: 'unresolvedSourceText', headerName: 'Unresolved source', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
   { field: 'qty', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 95 },
   { field: 'unitPrice', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 115 },
   { field: 'unitCost', headerName: 'Cost', type: 'numericColumn', width: 105 },
