@@ -32,6 +32,7 @@ export function DashboardView() {
   const drilldown = trpc.queries.drilldown.useQuery({ metricKey: drilldownMetric ?? 'cash' }, { enabled: Boolean(drilldownMetric) });
   const rankedWorkRows = useMemo(() => [...((workQueue.data ?? []) as GridRow[])].sort(workUrgencySort), [workQueue.data]);
   const { runCommand, isRunning } = useCommandRunner();
+  const myDrafts = trpc.queries.myDrafts.useQuery(undefined, { refetchInterval: 15_000 });
 
   const workQueueExpansionConfig = useMemo(() => ({
     enabled: true,
@@ -219,6 +220,31 @@ export function DashboardView() {
           </button>
         </div>
       </WorkspacePanel>
+      {/* ── Your Drafts (TER-1632) ────────────────────────────────────────────── */}
+      {(myDrafts.data?.length ?? 0) > 0 && (
+        <WorkspacePanel
+          panelId="dashboard:my-drafts"
+          title={`Your drafts (${myDrafts.data?.length ?? 0})`}
+          headingLevel={2}
+          contentClassName="p-3"
+        >
+          <div className="grid gap-2">
+            {(myDrafts.data ?? []).map((draft) => (
+              <button
+                key={String(draft.id)}
+                className="queue-row"
+                type="button"
+                onClick={() => navigate('/' + String(draft.route))}
+              >
+                <span>{String(draft.lane)}: {String(draft.title)}</span>
+                <StatusPill status={String(draft.status ?? '')} />
+              </button>
+            ))}
+          </div>
+        </WorkspacePanel>
+      )}
+      {/* ── End Your Drafts ─────────────────────────────────────────────────── */}
+
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
         <WorkspacePanel panelId="dashboard:pending-work-queues" title="Pending work queues" headingLevel={2} contentClassName="p-3">
           <div className="grid gap-2">
