@@ -48,6 +48,13 @@ export interface InventoryFinderBatch extends GridRow {
    * When present and > 0, the qty input defaults to this value instead of 1.
    */
   casePack?: number | null;
+  /**
+   * TER-1634 / F-28: Qty already held in other operators' draft/confirmed sales
+   * orders.  Returned by the server-side draftReservedQty projection.  When > 0
+   * the Avail cell shows an amber indicator so operators can see reduced effective
+   * availability before committing the line.
+   */
+  draftReservedQty?: string | number | null;
 }
 
 interface InventoryFinderPanelProps {
@@ -836,7 +843,16 @@ export function InventoryFinderPanel({
                         </div>
                       </td>
                       <td>
-                        {moneyish(row.availableQty)} {row.uom ?? ''}
+                        {Number(row.draftReservedQty ?? 0) > 0 ? (
+                          <span
+                            title={`${moneyish(Number(row.availableQty ?? 0) - Number(row.draftReservedQty ?? 0))} avail (${moneyish(row.draftReservedQty)} ${row.uom ?? ''} in draft)`}
+                          >
+                            {moneyish(Number(row.availableQty ?? 0) - Number(row.draftReservedQty ?? 0))} {row.uom ?? ''}{' '}
+                            <span className="finder-chip warning">in draft</span>
+                          </span>
+                        ) : (
+                          <>{moneyish(row.availableQty)} {row.uom ?? ''}</>
+                        )}
                       </td>
                       <td>
                         <div>${moneyish(row.ticketCost ?? row.unitCost)}</div>
