@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import { StatusPill } from './StatusPill';
+import { formatTs } from '../utils/format';
 import type { GridRow, ViewKey } from '../../shared/types';
 
 const viewLabels: Record<ViewKey, string> = {
@@ -91,7 +92,15 @@ function displayTitle(row: GridRow, view: ViewKey) {
 }
 
 function detailFor(row: GridRow) {
-  const values = [row.poNo, row.orderNo, row.billNo, row.sourceCode, row.createdAt]
+  const values = [
+    row.poNo,
+    row.orderNo,
+    row.billNo,
+    row.sourceCode,
+    row.createdAt != null
+      ? formatTs(row.createdAt as Date | string | number, { variant: 'short' })
+      : null,
+  ]
     .map((value) => (value == null ? '' : String(value)))
     .filter(Boolean);
   return values.slice(0, 2).join(' · ');
