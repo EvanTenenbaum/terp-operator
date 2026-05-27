@@ -40,6 +40,7 @@ import {
   serializeGridFilter
 } from './gridFilterUtils';
 import { buildCsvExportOptions } from './OperatorGrid.csvExport';
+import { formatTs } from '../utils/format';
 
 interface OperatorGridProps {
   view: ViewKey;
@@ -126,7 +127,7 @@ export function OperatorGrid({
 
   const columnDefs = useMemo<ColDef<GridRow>[]>(() => {
     const baseColumns = mergeColumnDefsWithPrefs(
-      withRowNumbers(withStatusRenderer(columns, canWrite)),
+      withRowNumbers(withCreatedAtFormatter(withStatusRenderer(columns, canWrite))),
       storedColumnPrefs
     );
 
@@ -520,7 +521,7 @@ function formatGridValue(value: unknown) {
     if (value.every((entry) => entry == null || ['string', 'number', 'boolean'].includes(typeof entry))) return value.join(', ');
     return `${value.length} item${value.length === 1 ? '' : 's'}`;
   }
-  if (value instanceof Date) return value.toLocaleString();
+  if (value instanceof Date) return formatTs(value, { variant: 'short' });
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, entry]) => entry == null || ['string', 'number', 'boolean'].includes(typeof entry))
@@ -545,6 +546,18 @@ function withStatusRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
             cellClass: column.editable ? 'editable-cell' : column.cellClass
           }
         : { ...column, editable: false }
+  );
+}
+
+function withCreatedAtFormatter(columns: ColDef<GridRow>[]) {
+  return columns.map((column) =>
+    column.field === 'createdAt'
+      ? {
+          ...column,
+          valueFormatter: (params: { value?: unknown }) =>
+            formatTs(params.value as Date | string | number | null, { variant: 'short' }),
+        }
+      : column,
   );
 }
 

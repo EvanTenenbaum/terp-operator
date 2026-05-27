@@ -10,6 +10,7 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { commandLabelFor } from '../../shared/commandCatalog';
+import { formatTs } from '../utils/format';
 import type { ColDef } from 'ag-grid-community';
 import type { GridRow, ViewKey } from '../../shared/types';
 
@@ -230,7 +231,9 @@ export function DashboardView() {
               <div key={activity.id} className="activity-row">
                 <span className="font-medium">{commandLabelFor(activity.commandName)}</span>
                 <span>{activity.actorName}</span>
-                <span>{new Date(activity.createdAt).toLocaleString()}</span>
+                <span title={formatTs(activity.createdAt, { variant: 'long' })}>
+                  {formatTs(activity.createdAt, { variant: 'relative' })}
+                </span>
                 <span>{activity.toast}</span>
               </div>
             ))}
