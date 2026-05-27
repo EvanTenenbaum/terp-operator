@@ -15,6 +15,8 @@ export function PickView() {
   const [selectedPickList, setSelectedPickList] = useState<PickQueueItem | null>(null);
   const [selectedLine, setSelectedLine] = useState<PickLine | null>(null);
   const [activeInterrupt, setActiveInterrupt] = useState<WarehouseAlertInterrupt | null>(null);
+  // Scenario B: track when the picker is on a line that gets recalled while they're on it.
+  const [recalledLineItem, setRecalledLineItem] = useState<string | null>(null);
 
   const me = trpc.auth.me.useQuery();
   usePickWorkLoopGuard(me.data ?? null);
@@ -61,7 +63,14 @@ export function PickView() {
       return;
     }
     const rawLine = pickListQuery.data?.lines.find((l) => l.id === selectedLine.id);
-    if (!rawLine) return;
+    if (!rawLine) {
+      // The line the picker was working on is no longer in the pick list —
+      // it was recalled by the sales operator (Scenario B).
+      if (selectedLine) setRecalledLineItem(selectedLine.itemName);
+      setActiveInterrupt(null);
+      return;
+    }
+    setRecalledLineItem(null); // clear stale recalled state when line is still present
     const rawAlerts = Array.isArray(rawLine.warehouseAlerts)
       ? (rawLine.warehouseAlerts as Array<{ id: string; type: string; message: string; status: string }>)
       : [];
@@ -128,8 +137,11 @@ export function PickView() {
         pickNo={selectedPickList?.pickNo ?? ''}
         customer={selectedPickList?.customer ?? ''}
         interrupt={activeInterrupt}
+        recalled={Boolean(recalledLineItem)}
+        recalledItemName={recalledLineItem ?? ''}
         onBack={() => {
           setActiveInterrupt(null);
+          setRecalledLineItem(null);
           setScreen('list');
         }}
         onPicked={handleLinePicked}
