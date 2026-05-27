@@ -95,14 +95,39 @@ function AppContent() {
     if (!me.data) return;
     const currentUserId = me.data.id;
     const socket = io(import.meta.env.VITE_SOCKET_URL ?? '/', { withCredentials: true });
+
+    // Peer command:completed events are batched into a 2-second debounce window
+    // to prevent toast storms during high-tempo workflows (closeout, AR collections).
+    // A single summary is shown instead of one toast per peer action. GH #408.
+    let peerCompletedQueue: string[] = [];
+    let peerCompletedTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const flushPeerCompletedToasts = () => {
+      const n = peerCompletedQueue.length;
+      if (n === 1) {
+        pushToast(peerCompletedQueue[0], 'success');
+      } else if (n > 1) {
+        pushToast(`${n} team actions completed`, 'success');
+      }
+      peerCompletedQueue = [];
+      peerCompletedTimer = null;
+    };
+
     socket.on('command:completed', (event: { toast?: string; actorId?: string; affectedIds?: string[] }) => {
-      if (event.toast && event.actorId !== currentUserId) pushToast(event.toast, 'success');
       // Cross-tab targeted invalidation — see #44. The WS payload already
       // carries the affectedIds the originating command reported, so we can
       // refetch only the queries that reference those entities.
       void invalidateAffectedQueries(queryClient, event.affectedIds ?? []);
+      // Peer completions are debounced: accumulate for 2s then show ONE summary. GH #408.
+      if (event.toast && event.actorId !== currentUserId) {
+        peerCompletedQueue.push(event.toast);
+        if (peerCompletedTimer) clearTimeout(peerCompletedTimer);
+        peerCompletedTimer = setTimeout(flushPeerCompletedToasts, 2000);
+      }
     });
     socket.on('command:failed', (event: { toast?: string; actorId?: string; affectedIds?: string[] }) => {
+      // Failures are shown immediately regardless of actor — operators need to see
+      // peer failures promptly. They are less frequent than completions. GH #408.
       if (event.toast && event.actorId !== currentUserId) pushToast(event.toast, 'error');
       void invalidateAffectedQueries(queryClient, event.affectedIds ?? []);
     });
@@ -141,6 +166,7 @@ function AppContent() {
     });
 
     return () => {
+      if (peerCompletedTimer) clearTimeout(peerCompletedTimer);
       socket.close();
     };
   }, [me.data, pushToast, queryClient]);
