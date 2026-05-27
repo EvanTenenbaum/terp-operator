@@ -345,6 +345,7 @@ export function IntakeView() {
           </WorkspacePanel>
         ) : null}
         <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
+          <p className="page-subtitle px-3 pb-1">Yellow = qty differs from expected · Red = discrepancy reason required</p>
           <div className="ag-theme-quartz grid-shell">
             <AgGridReact<IntakeOrderRow>
               rowData={orderRows}
@@ -443,6 +444,14 @@ function buildBatchColumns(
         const expected = Number(params.data?.expectedQty ?? 0);
         const actual = Number(params.value ?? 0);
         return expected && actual && expected !== actual ? { backgroundColor: '#fef9c3' } : null;
+      },
+      tooltipValueGetter: (params) => {
+        const expected = Number(params.data?.expectedQty ?? 0);
+        const actual = Number(params.data?.intakeQty ?? 0);
+        if (expected && actual && expected !== actual) {
+          return `Off by ${(actual - expected).toFixed(3)} from expected ${expected.toFixed(3)}`;
+        }
+        return null;
       }
     },
     {
