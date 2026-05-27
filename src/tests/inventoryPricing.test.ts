@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { CustomerPricingRule } from '../shared/types';
 import {
   asCustomerPricingRule,
   computeInventoryUnitPrice,
@@ -40,8 +41,8 @@ describe('computeInventoryUnitPrice', () => {
       customerRule: null,
       defaultsRule: {
         default: { basis: 'percent', amount: 0.3 },
-        categories: { Flower: { basis: 'dollar', amount: 25 } }
-      }
+        categories: { Flower: { rule: { basis: 'dollar', amount: 25 } } }
+      } as unknown as CustomerPricingRule
     });
     expect(result.unitPrice).toBe(75);
     expect(result.rule.source).toBe('settings-category');

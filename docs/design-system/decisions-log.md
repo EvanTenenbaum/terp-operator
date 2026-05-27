@@ -2,6 +2,42 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-05-27 — Finder chrome redesign: pill filter bar, Add filter dropdown, presets strip, builder restyle
+
+**Decision 1:** `InventoryFinderPanel` filter chrome restructured from stacked controls to: filter bar (search + active filter pills + "Add filter" two-step dropdown + Advanced toggle) → presets strip (DB-driven saved views + save/manage) → `AdvancedFilterBuilder` slide-down panel. All filter evaluation logic (`evaluateFilterGroup`, `filterEvaluator.ts`, `filterSchemas.ts`) is unchanged.
+
+**Decision 2:** Active filters shown as removable pills in the filter bar. The "Add filter" button opens a two-step dropdown: pick a field (grouped: Product, Qty & Price, Date & Age, Status) → enter value (operator select + field-specific input). "Save current" in presets strip names and persists the current advanced filter to `saved_filters` via `trpc.filters.saveFilter`.
+
+**Decision 3:** Hardcoded `savedSlices` array removed from `InventoryFinderPanel`. The 5 default views (Aging premium, Consignment risk, Value buyers, Low stock, Office owned) are seeded by migration 0071 as global `saved_filters` rows, so they persist across deploys and are user-editable/deletable.
+
+**Decision 4:** `AdvancedFilterBuilder` restyled with new semantic classes: `.builder-panel`, `.builder-panel-header`, `.builder-panel-body`, `.builder-panel-footer`, `.condition-row`, `.logic-badge`, `.nested-group`. Logic unchanged. Two new props: `onSaveAsView` (callback) and `resultCount` (display in Apply button).
+
+**Decision 5:** Filter chrome CSS classes added to `styles.css`: `.filter-bar`, `.filter-pill`, `.filter-pill-remove`, `.add-filter-btn`, `.add-filter-dropdown`, `.advanced-btn`, `.presets-strip`, `.preset-save-chip`, `.presets-manage-link`, `.presets-label`, plus all builder panel classes.
+
+**Files:** `src/client/components/InventoryFinderPanel.tsx`, `src/client/components/AdvancedFilterBuilder.tsx`, `src/client/styles.css`, `migrations/0071_default_inventory_views.sql`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** Spec `docs/superpowers/specs/2026-05-27-finder-pricing-ui-redesign.md`
+
+---
+
+## 2026-05-27 — Pricing redesign: nested CategoryPricingEntry, inline SalesView pricing columns, OrderPricingPanel removed
+
+**Decision 1:** `CustomerPricingRule.categories` changed from `Record<string, PricingRuleEntry>` to `Record<string, CategoryPricingEntry>` where `CategoryPricingEntry = { rule?: PricingRuleEntry; subcategories?: Record<string, PricingRuleEntry> }`. Key collision between same-named subcategories across categories is prevented by nesting under the category key. Existing flat `{ basis, amount }` entries are migrated to `{ rule: { basis, amount } }` transparently in `validatePricingRulePayload`.
+
+**Decision 2:** `resolvePricingRuleEntry` updated with 7-level resolution: customer subcategory → customer category rule → customer default → settings subcategory → settings category rule → settings default → fallback 30%. `PricingRuleApplication.source` union extended with `'customer-subcategory'` and `'settings-subcategory'`. New `subcategory?: string` field on `PricingRuleApplication` populated when source is a subcategory match.
+
+**Decision 3:** `markupDollarsFromPrice(price, rule)` added to `inventoryPricingShared.ts`. For range-COGS batches where price is the primary input, converts markup-on-cost rule% to a dollar amount: `price × (rule% / (1 + rule%))`. This keeps Markup % = Markup $ ÷ COGS consistent with fixed-COGS rows.
+
+**Decision 4:** `OrderPricingPanel` removed from `PricingPanel.tsx` and `RelationshipDrawer.tsx`. Per-line pricing now lives inline in the SalesView sales order lines AG Grid as three new margin-gated columns: `markup` (editable), `markupPct` (calculated), `derivedCogs` (display). All gated by `showMargin` toggle via `MARGIN_COLUMN_FIELDS` in `SalesView.columns.ts`.
+
+**Decision 5:** Two pricing flows in the same grid: fixed-COGS rows use COGS→markup→price; range-COGS rows use price→markup(via markupDollarsFromPrice)→derivedCogs(range-checked). Both display Markup % as markup-on-cost (Markup $ ÷ COGS) for consistency.
+
+**Files:** `src/shared/types.ts`, `src/shared/schemas.ts`, `src/shared/inventoryPricingShared.ts`, `src/server/services/commandBus.ts`, `src/client/components/DefaultPricingPanel.tsx`, `src/client/components/PricingPanel.tsx`, `src/client/components/RelationshipDrawer.tsx`, `src/client/views/SalesView.tsx`, `src/client/views/SalesView.columns.ts`, `src/client/styles.css`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** Spec `docs/superpowers/specs/2026-05-27-finder-pricing-ui-redesign.md`
+
+---
+
 ## 2026-05-27 — CountPill: navigable count badge component (TER-1624)
 
 **Decision:** New `CountPill` component (`src/client/components/CountPill.tsx`) wraps any numeric count in a `<button>` that calls `setGridFilter(filterView, filterValue)` + `navigate(route)` on click.

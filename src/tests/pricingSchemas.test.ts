@@ -54,10 +54,11 @@ describe('customerPricingRuleSchema', () => {
   it('accepts default + categories', () => {
     const parsed = customerPricingRuleSchema.parse({
       default: { basis: 'percent', amount: 0.3 },
-      categories: { Flower: { basis: 'dollar', amount: 100 } }
+      categories: { Flower: { rule: { basis: 'dollar', amount: 100 } } }
     });
     expect(parsed.default?.amount).toBe(0.3);
-    expect(parsed.categories?.Flower?.amount).toBe(100);
+    const flowerRule = parsed.categories?.["Flower"]?.rule as { basis: string; amount: number } | undefined;
+    expect(flowerRule?.amount).toBe(100);
   });
 
   it('accepts empty rule (clears the rule)', () => {
@@ -75,7 +76,7 @@ describe('customerPricingRuleSchema', () => {
   it('rejects malformed nested category entry', () => {
     expect(() =>
       customerPricingRuleSchema.parse({
-        categories: { Flower: { basis: 'multiplier', amount: 1 } }
+        categories: { Flower: { rule: { basis: 'multiplier', amount: 1 } } }
       })
     ).toThrow();
   });

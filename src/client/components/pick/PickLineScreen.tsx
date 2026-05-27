@@ -11,6 +11,10 @@ interface Props {
   customer: string;
   // interrupt: active alert that must be acknowledged before picking can continue
   interrupt: WarehouseAlertInterrupt | null;
+  /** Scenario B: true when this line was recalled while the picker was actively on it */
+  recalled?: boolean;
+  /** The item name of the recalled line (for display) */
+  recalledItemName?: string;
   onBack: () => void;
   onPicked: () => void;
 }
@@ -24,7 +28,7 @@ declare global {
   }
 }
 
-export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPicked }: Props) {
+export function PickLineScreen({ line, pickNo, customer, interrupt, recalled, recalledItemName, onBack, onPicked }: Props) {
   const { runCommand, isRunning } = useCommandRunner();
   const [actualQty, setActualQty] = useState('');
   const [actualWeight, setActualWeight] = useState('');
@@ -110,6 +114,8 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
 
   // Focus trap for the alert interrupt overlay — must not be dismissable
   const interruptRef = useFocusTrap<HTMLDivElement>(!!interrupt, undefined);
+  // Focus trap for the recall overlay (Scenario B)
+  const recalledRef = useFocusTrap<HTMLDivElement>(Boolean(recalled), undefined);
 
   async function handleAcknowledgeInterrupt() {
     if (!interrupt) return;
@@ -120,6 +126,34 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, onBack, onPi
       'Acknowledge alert interrupt from picker'
     );
     // activeInterrupt will clear automatically when pickListQuery refetches and alerts are empty
+  }
+
+  // Scenario B — line was recalled while picker was on this screen
+  if (recalled) {
+    return (
+      <div
+        ref={recalledRef}
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-amber-50 p-8"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="recalled-title"
+        onKeyDown={(e) => { if (e.key === 'Escape') e.preventDefault(); }}
+      >
+        <div className="text-4xl">↩️</div>
+        <h2 id="recalled-title" className="text-xl font-bold text-amber-900">Line Recalled</h2>
+        <p className="max-w-xs text-center text-base text-amber-800">
+          <strong>{recalledItemName || 'This line'}</strong> was recalled by sales. Check with the sales operator for the updated quantity.
+        </p>
+        <button
+          type="button"
+          className="primary-button mt-4 w-full max-w-xs"
+          style={{ minHeight: 56 }}
+          onClick={onBack}
+        >
+          Got it
+        </button>
+      </div>
+    );
   }
 
   if (!line) {

@@ -26,6 +26,13 @@ export interface InMemoryState {
   documentSnapshots: Array<Record<string, unknown>>;
   commandJournal: Array<Record<string, unknown>>;
   advisoryLocks: string[];
+  salesOrders: Array<Record<string, unknown>>;
+  salesOrderLines: Array<Record<string, unknown>>;
+  batches: Array<Record<string, unknown>>;
+  customers: Array<Record<string, unknown>>;
+  payments: Array<Record<string, unknown>>;
+  clientLedgerEntries: Array<Record<string, unknown>>;
+  vendorBills: Array<Record<string, unknown>>;
   // Catch-all for tables the mock does not model explicitly. Writes are
   // accepted (so production code paths that touch peripheral tables do not
   // crash), and reads return empty rows.
@@ -33,6 +40,13 @@ export interface InMemoryState {
 }
 
 export function createInMemoryState(): InMemoryState {
+  const salesOrders: Array<Record<string, unknown>> = [];
+  const salesOrderLines: Array<Record<string, unknown>> = [];
+  const batches: Array<Record<string, unknown>> = [];
+  const customers: Array<Record<string, unknown>> = [];
+  const payments: Array<Record<string, unknown>> = [];
+  const clientLedgerEntries: Array<Record<string, unknown>> = [];
+  const vendorBills: Array<Record<string, unknown>> = [];
   return {
     purchaseOrders: [],
     purchaseOrderLines: [],
@@ -40,7 +54,24 @@ export function createInMemoryState(): InMemoryState {
     documentSnapshots: [],
     commandJournal: [],
     advisoryLocks: [],
-    _dynamic: {},
+    salesOrders,
+    salesOrderLines,
+    batches,
+    customers,
+    payments,
+    clientLedgerEntries,
+    vendorBills,
+    // Alias the named tables into _dynamic so seedRow() calls that push to
+    // _dynamic['sales_orders'] etc. are immediately visible to getStateArray().
+    _dynamic: {
+      'sales_orders': salesOrders,
+      'sales_order_lines': salesOrderLines,
+      'batches': batches,
+      'customers': customers,
+      'payments': payments,
+      'client_ledger_entries': clientLedgerEntries,
+      'vendor_bills': vendorBills,
+    },
   };
 }
 
@@ -51,11 +82,34 @@ export function resetInMemoryState(state: InMemoryState): void {
   state.documentSnapshots.length = 0;
   state.commandJournal.length = 0;
   state.advisoryLocks.length = 0;
-  if (state._dynamic) {
-    for (const key of Object.keys(state._dynamic)) delete state._dynamic[key];
-  } else {
-    state._dynamic = {};
+  if (!state.salesOrders) (state as Record<string, unknown>).salesOrders = [];
+  else state.salesOrders.length = 0;
+  if (!state.salesOrderLines) (state as Record<string, unknown>).salesOrderLines = [];
+  else state.salesOrderLines.length = 0;
+  if (!state.batches) (state as Record<string, unknown>).batches = [];
+  else state.batches.length = 0;
+  if (!state.customers) (state as Record<string, unknown>).customers = [];
+  else state.customers.length = 0;
+  if (!state.payments) (state as Record<string, unknown>).payments = [];
+  else state.payments.length = 0;
+  if (!state.clientLedgerEntries) (state as Record<string, unknown>).clientLedgerEntries = [];
+  else state.clientLedgerEntries.length = 0;
+  if (!state.vendorBills) (state as Record<string, unknown>).vendorBills = [];
+  else state.vendorBills.length = 0;
+  // Re-alias _dynamic entries to the explicit arrays so seedRow() callers that
+  // push to _dynamic[tableName] remain visible via getStateArray().
+  if (!state._dynamic) state._dynamic = {};
+  for (const key of Object.keys(state._dynamic)) {
+    const NAMED = ['sales_orders','sales_order_lines','batches','customers','payments','client_ledger_entries','vendor_bills'];
+    if (!NAMED.includes(key)) delete state._dynamic[key];
   }
+  state._dynamic['sales_orders']         = state.salesOrders;
+  state._dynamic['sales_order_lines']    = state.salesOrderLines;
+  state._dynamic['batches']              = state.batches;
+  state._dynamic['customers']            = state.customers;
+  state._dynamic['payments']             = state.payments;
+  state._dynamic['client_ledger_entries'] = state.clientLedgerEntries;
+  state._dynamic['vendor_bills']         = state.vendorBills;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,11 +132,24 @@ function getStateArray(
       return state.documentSnapshots;
     case 'command_journal':
       return state.commandJournal;
+    case 'sales_orders':
+      return state.salesOrders;
+    case 'sales_order_lines':
+      return state.salesOrderLines;
+    case 'batches':
+      return state.batches;
+    case 'customers':
+      return state.customers;
+    case 'payments':
+      return state.payments;
+    case 'client_ledger_entries':
+      return state.clientLedgerEntries;
+    case 'vendor_bills':
+      return state.vendorBills;
     default: {
-      // Dynamic fallback: peripheral tables (batches, invoices, etc.) used
-      // by commandBus.snapshotByAffectedIds() get a transparent empty bucket
-      // so writes succeed and reads return [] without forcing every test to
-      // model the full schema.
+      // Dynamic fallback: peripheral tables (invoices, fulfillment_lines, etc.) used
+      // by commandBus get a transparent empty bucket so writes succeed and reads
+      // return [] without forcing every test to model the full schema.
       if (!state._dynamic) state._dynamic = {};
       const key = String(name);
       if (!state._dynamic[key]) state._dynamic[key] = [];
@@ -249,6 +316,132 @@ function recordAdvisoryLock(state: InMemoryState, sqlNode: unknown): string | nu
     state.advisoryLocks.push(key);
   }
   return key;
+}
+
+// ---------------------------------------------------------------------------
+// FOR UPDATE helpers
+// ---------------------------------------------------------------------------
+
+/** Convert camelCase to snake_case for execute() return rows. */
+function camelToSnakeCase(s: string): string {
+  return s.replace(/([A-Z])/g, (_: string, c: string) => `_${c.toLowerCase()}`);
+}
+
+/** Convert all keys in a row from camelCase to snake_case. */
+function rowToSnake(row: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    result[camelToSnakeCase(k)] = v;
+  }
+  return result;
+}
+
+/**
+ * Recursively check if any chunk in the SQL AST indicates a FOR UPDATE query.
+ *
+ * In the actual Drizzle SQL AST (drizzle-orm 0.45.x):
+ * - Template literal string parts → StringChunk objects `{ value: ['string'] }`
+ * - Interpolated plain values → raw strings in queryChunks
+ * - Table references → objects with `[DRIZZLE_NAME]`
+ * - Column references → objects with `.columnType`
+ *
+ * 'FOR UPDATE' appears as part of the template literal string → inside a
+ * StringChunk's `.value` array, NOT as a raw string chunk.
+ */
+function hasForUpdate(node: unknown): boolean {
+  if (!node || typeof node !== 'object') return false;
+  const obj = node as Record<string, unknown>;
+  if (!Array.isArray(obj.queryChunks)) return false;
+  for (const chunk of obj.queryChunks as unknown[]) {
+    // Raw string chunk — could be an interpolated string value
+    if (typeof chunk === 'string' && /\bfor\s+update\b/i.test(chunk)) return true;
+    if (!chunk || typeof chunk !== 'object' || Array.isArray(chunk)) continue;
+    const c = chunk as Record<string, unknown>;
+    // StringChunk: { value: ['string'] } — template literal part
+    if (Array.isArray(c.value)) {
+      for (const s of c.value as unknown[]) {
+        if (typeof s === 'string' && /\bfor\s+update\b/i.test(s)) return true;
+      }
+    }
+    // Recurse into sub-SQL nodes (if any)
+    if (Array.isArray(c.queryChunks)) {
+      if (hasForUpdate(chunk)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Recursively find the first DRIZZLE_NAME in the SQL node's chunk tree.
+ * Table chunks have [DRIZZLE_NAME] set directly on them (no queryChunks).
+ */
+function findDrizzleName(node: unknown): string | null {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return null;
+  const obj = node as Record<string | symbol, unknown>;
+
+  // Direct DRIZZLE_NAME on this object (table reference placed directly in chunks)
+  const directName = obj[DRIZZLE_NAME];
+  if (typeof directName === 'string') return directName;
+
+  // Skip StringChunks { value: ['string'] } — template literal parts
+  const objStr = obj as Record<string, unknown>;
+  if (Array.isArray(objStr.value)) return null;
+
+  // Recurse into sub-SQL nodes
+  if (Array.isArray(objStr.queryChunks)) {
+    for (const chunk of objStr.queryChunks as unknown[]) {
+      if (chunk && typeof chunk !== 'string') {
+        const found = findDrizzleName(chunk);
+        if (found !== null) return found;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the last interpolated id value from a FOR UPDATE raw SQL query.
+ *
+ * In the actual Drizzle SQL AST, interpolated plain-value strings (like a UUID)
+ * appear as RAW STRINGS directly in the queryChunks array, while template
+ * literal string parts appear as StringChunk objects `{ value: ['string'] }`.
+ *
+ * This function:
+ *  - Treats raw strings in queryChunks as interpolated values (keeps the last one)
+ *  - Skips StringChunks (template parts, value is an array)
+ *  - Skips column objects (have columnType)
+ *  - Skips table objects (have DRIZZLE_NAME)
+ *  - Also handles legacy Param-style { value: 'string' } chunks
+ */
+function findLastParam(node: unknown): unknown {
+  if (!node || typeof node !== 'object') return null;
+  const obj = node as Record<string, unknown>;
+  if (!Array.isArray(obj.queryChunks)) return null;
+  let lastVal: unknown = null;
+  for (const chunk of obj.queryChunks as unknown[]) {
+    // Raw strings in queryChunks ARE interpolated values (not template literal parts)
+    if (typeof chunk === 'string') {
+      lastVal = chunk;
+      continue;
+    }
+    if (!chunk || typeof chunk !== 'object' || Array.isArray(chunk)) continue;
+    const c = chunk as Record<string | symbol, unknown>;
+    const cs = c as Record<string, unknown>;
+    // Skip StringChunks (template literal parts): value is an array
+    if (Array.isArray(cs.value)) continue;
+    // Skip column objects (have columnType)
+    if ('columnType' in cs) continue;
+    // Skip table objects (have DRIZZLE_NAME)
+    if (c[DRIZZLE_NAME]) continue;
+    // Legacy Param-style { value: 'string' } or { value: number }
+    if ('value' in cs) {
+      const v = cs.value;
+      if (typeof v === 'string' || typeof v === 'number') {
+        lastVal = v;
+      }
+    }
+  }
+  return lastVal;
 }
 
 // ---------------------------------------------------------------------------
@@ -454,20 +647,41 @@ function buildOps(state: InMemoryState) {
   }
 
   // --- EXECUTE ---
-  async function execute(sqlNode: unknown): Promise<void> {
+  // Handles:
+  //   1. Advisory lock SQL (document_snapshot: prefix) — acquires mutex, returns { rows: [] }
+  //   2. FOR UPDATE raw SQL — extracts table + id, returns matching rows in snake_case
+  //   3. Other raw SQL — returns { rows: [] }
+  async function execute(sqlNode: unknown): Promise<{ rows: Array<Record<string, unknown>> }> {
     const key = recordAdvisoryLock(state, sqlNode);
-    if (key === null) return;
-    // Serialize on this key: wait for any previously-installed mutex slot
-    // to resolve, then install a fresh slot that resolves on the next
-    // macrotask tick.  This gives the current acquirer's full pipeline of
-    // microtask-resolved awaits (select/update/insert) a chance to run
-    // to completion before the next concurrent acquirer proceeds.
-    const prev = subjectMutex.get(key);
-    if (prev) await prev;
-    const next = new Promise<void>((resolve) => {
-      setTimeout(resolve, 0);
-    });
-    subjectMutex.set(key, next);
+    if (key !== null) {
+      // Advisory lock path: serialize on this key.
+      const prev = subjectMutex.get(key);
+      if (prev) await prev;
+      const next = new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
+      subjectMutex.set(key, next);
+      return { rows: [] };
+    }
+
+    // FOR UPDATE path: extract table name and id, return matching rows.
+    if (hasForUpdate(sqlNode)) {
+      const tableName = findDrizzleName(sqlNode);
+      if (tableName) {
+        // Create a fake table reference so getStateArray can look up by name.
+        const fakeTable = { [DRIZZLE_NAME]: tableName } as unknown;
+        const arr = getStateArray(state, fakeTable);
+        const idValue = findLastParam(sqlNode);
+        const rows =
+          idValue !== null && idValue !== undefined
+            ? arr.filter((row) => row.id === idValue)
+            : [...arr];
+        // Return snake_case rows to match Postgres raw SELECT * output.
+        return { rows: rows.map(rowToSnake) };
+      }
+    }
+
+    return { rows: [] };
   }
 
   return { select, insert, update, delete: deleteFrom, execute };
@@ -489,6 +703,14 @@ export function makeMockedDb(state: InMemoryState) {
     update: ops.update,
     delete: ops.delete,
     execute: ops.execute,
+    // Expose a stub session.client.query so enqueueCustomerRecompute (which
+    // unwraps the Drizzle transaction to its underlying pg.PoolClient via
+    // client.session.client) does not throw "query is not a function".
+    session: {
+      client: {
+        query: async (_sql: string, _params?: unknown[]) => ({ rows: [] }),
+      },
+    },
   };
 
   // Alias type to avoid the TypeScript self-referential annotation error
@@ -505,6 +727,13 @@ export function makeMockedDb(state: InMemoryState) {
     documentSnapshots: Array<Record<string, unknown>>;
     commandJournal: Array<Record<string, unknown>>;
     advisoryLocks: string[];
+    salesOrders: Array<Record<string, unknown>>;
+    salesOrderLines: Array<Record<string, unknown>>;
+    batches: Array<Record<string, unknown>>;
+    customers: Array<Record<string, unknown>>;
+    payments: Array<Record<string, unknown>>;
+    clientLedgerEntries: Array<Record<string, unknown>>;
+    vendorBills: Array<Record<string, unknown>>;
     _dynamic: Record<string, Array<Record<string, unknown>>>;
   } {
     const cloneRows = (rows: Array<Record<string, unknown>>) =>
@@ -520,6 +749,13 @@ export function makeMockedDb(state: InMemoryState) {
       documentSnapshots: cloneRows(state.documentSnapshots),
       commandJournal: cloneRows(state.commandJournal),
       advisoryLocks: [...state.advisoryLocks],
+      salesOrders: cloneRows(state.salesOrders ?? []),
+      salesOrderLines: cloneRows(state.salesOrderLines ?? []),
+      batches: cloneRows(state.batches ?? []),
+      customers: cloneRows(state.customers ?? []),
+      payments: cloneRows(state.payments ?? []),
+      clientLedgerEntries: cloneRows(state.clientLedgerEntries ?? []),
+      vendorBills: cloneRows(state.vendorBills ?? []),
       _dynamic: dyn,
     };
   }
@@ -537,9 +773,46 @@ export function makeMockedDb(state: InMemoryState) {
     state.commandJournal.push(...snap.commandJournal);
     state.advisoryLocks.length = 0;
     state.advisoryLocks.push(...snap.advisoryLocks);
+
+    if (!state.salesOrders) (state as Record<string, unknown>).salesOrders = [];
+    state.salesOrders.length = 0;
+    state.salesOrders.push(...snap.salesOrders);
+
+    if (!state.salesOrderLines) (state as Record<string, unknown>).salesOrderLines = [];
+    state.salesOrderLines.length = 0;
+    state.salesOrderLines.push(...snap.salesOrderLines);
+
+    if (!state.batches) (state as Record<string, unknown>).batches = [];
+    state.batches.length = 0;
+    state.batches.push(...snap.batches);
+
+    if (!state.customers) (state as Record<string, unknown>).customers = [];
+    state.customers.length = 0;
+    state.customers.push(...snap.customers);
+
+    if (!state.payments) (state as Record<string, unknown>).payments = [];
+    state.payments.length = 0;
+    state.payments.push(...snap.payments);
+
+    if (!state.clientLedgerEntries) (state as Record<string, unknown>).clientLedgerEntries = [];
+    state.clientLedgerEntries.length = 0;
+    state.clientLedgerEntries.push(...snap.clientLedgerEntries);
+
+    if (!state.vendorBills) (state as Record<string, unknown>).vendorBills = [];
+    state.vendorBills.length = 0;
+    state.vendorBills.push(...snap.vendorBills);
+
     if (!state._dynamic) state._dynamic = {};
     for (const k of Object.keys(state._dynamic)) delete state._dynamic[k];
     for (const [k, v] of Object.entries(snap._dynamic)) state._dynamic[k] = v;
+    // Re-alias named tables so _dynamic and explicit arrays stay in sync.
+    state._dynamic['sales_orders']         = state.salesOrders;
+    state._dynamic['sales_order_lines']    = state.salesOrderLines;
+    state._dynamic['batches']              = state.batches;
+    state._dynamic['customers']            = state.customers;
+    state._dynamic['payments']             = state.payments;
+    state._dynamic['client_ledger_entries'] = state.clientLedgerEntries;
+    state._dynamic['vendor_bills']         = state.vendorBills;
   }
 
   const db = {

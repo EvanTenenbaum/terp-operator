@@ -15,10 +15,13 @@ import { useUiStore } from '../store/uiStore';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { buildSheetCsv } from '../utils/salesExport';
 import { buildCustomerSheetSnapshotRows } from '../../shared/customerSheetSnapshot';
-import type { GridRow } from '../../shared/types';
+import type { GridRow, CustomerPricingRule } from '../../shared/types';
 import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
 import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { buildCustomerOfferCsv } from './SalesView.csvExport';
+import { resolvePricingRuleEntry, markupDollarsFromPrice, applyPricingRule } from '../../shared/inventoryPricingShared';
+import { parsePriceRange } from '../../shared/priceRange';
+
 import { filterSalesOrdersByCustomer, salesButtonTitle, selectionPillText, selectVisibleSalesColumns } from './SalesView.columns';
 
 // CAP-030 / TER-1508 — types matching live releaseEligibility API shape (backend now merged)
@@ -108,8 +111,47 @@ const exceptionBadgeColumn: ColDef<GridRow> = {
   }
 };
 
+/** Pick statuses where the sales-side row should be read-only (operator must Recall first to edit). */
+const RELEASED_PICK_STATUSES = new Set(['released', 'picking', 'picked', 'recall_pending']);
+
+function isRowEditLocked(params: { data?: GridRow }): boolean {
+  return RELEASED_PICK_STATUSES.has(String(params.data?.pickStatus ?? ''));
+}
+
+function asRule(value: unknown): CustomerPricingRule {
+  if (value && typeof value === 'object') return value as CustomerPricingRule;
+  return {};
+}
+
+/** Returns the rule source label shown in the COGS cell */
+function ruleSourceLabel(source: string, category?: string): string {
+  if (source === 'customer-subcategory' || source === 'customer-category') return `▲ customer · ${category ?? ''}`;
+  if (source === 'customer-default') return '▲ customer · default';
+  if (source === 'settings-subcategory' || source === 'settings-category') return `▲ default · ${category ?? ''}`;
+  if (source === 'settings-default') return '▲ default';
+  return '▲ fallback 30%';
+}
+
+/** Compute markup dollars and derived COGS for a line row.
+ *  Fixed COGS: markup = applyPricingRule(unitCost, rule) - unitCost
+ *  Range COGS: markup = markupDollarsFromPrice(unitPrice, rule) */
+function computeLineMarkup(
+  row: GridRow,
+  rule: ReturnType<typeof resolvePricingRuleEntry>
+): { markupDollars: number; derivedCogs: number; isRange: boolean; rangeLow?: number; rangeHigh?: number } {
+  const range = parsePriceRange(row.priceRange as string | null);
+  const unitPrice = Number(row.unitPrice ?? 0);
+  const unitCost = Number(row.unitCost ?? 0);
+  if (range) {
+    const markup = markupDollarsFromPrice(unitPrice, rule);
+    return { markupDollars: markup, derivedCogs: unitPrice - markup, isRange: true, rangeLow: range.low, rangeHigh: range.high };
+  }
+  const markup = Math.max(0, applyPricingRule(unitCost, rule) - unitCost);
+  return { markupDollars: markup, derivedCogs: unitCost, isRange: false };
+}
+
 const lineColumns: ColDef<GridRow>[] = [
-  { field: 'legacyStatusMarker', headerName: 'Raw', editable: true, width: 90, pinned: 'left' },
+  { field: 'legacyStatusMarker', headerName: 'Raw', editable: (params) => !isRowEditLocked(params), width: 90, pinned: 'left' },
   {
     field: 'displayName',
     headerName: 'Product name',
@@ -130,12 +172,92 @@ const lineColumns: ColDef<GridRow>[] = [
       );
     }
   },
-  { field: 'itemName', headerName: 'Canonical', editable: true, minWidth: 170 },
+  { field: 'itemName', headerName: 'Canonical', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
   { field: 'batchCode', headerName: 'Source', width: 140 },
-  { field: 'unresolvedSourceText', headerName: 'Unresolved source', editable: true, minWidth: 170 },
-  { field: 'qty', editable: true, type: 'numericColumn', width: 95 },
-  { field: 'unitPrice', editable: true, type: 'numericColumn', width: 115 },
+  { field: 'unresolvedSourceText', headerName: 'Unresolved source', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
+  { field: 'qty', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 95 },
+  { field: 'unitPrice', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 115 },
   { field: 'unitCost', headerName: 'Cost', type: 'numericColumn', width: 105 },
+  {
+    field: 'markup',
+    headerName: 'Markup $',
+    headerClass: 'pricing-col-header',
+    width: 100,
+    editable: (params) => !isRowEditLocked(params),
+    valueFormatter: (params) =>
+      params.value != null ? `$${Number(params.value).toFixed(2)}` : '—',
+    valueSetter: (params) => {
+      const newMarkup = parseFloat(String(params.newValue));
+      if (!Number.isFinite(newMarkup)) return false;
+      const row = params.data as GridRow;
+      const range = parsePriceRange(row.priceRange as string | null);
+      if (range) {
+        // range flow: price stays fixed, markup overrides — derivedCogs = price - markup
+        (row as Record<string, unknown>).markup = newMarkup;
+      } else {
+        // fixed flow: unitPrice = unitCost + markup
+        const unitCost = Number(row.unitCost ?? 0);
+        (row as Record<string, unknown>).unitPrice = unitCost + newMarkup;
+        (row as Record<string, unknown>).markup = newMarkup;
+      }
+      return true;
+    }
+  },
+  {
+    field: 'markupPct',
+    headerName: 'Markup %',
+    headerClass: 'pricing-col-header',
+    width: 85,
+    editable: false,
+    valueGetter: (params) => {
+      const row = params.data as GridRow | undefined;
+      if (!row) return null;
+      const markup = Number((row as Record<string, unknown>).markup ?? 0);
+      const cogs = parsePriceRange(row.priceRange as string | null)
+        ? Number(row.unitPrice ?? 0) - markup   // range: derivedCogs
+        : Number(row.unitCost ?? 0);             // fixed: known COGS
+      if (!cogs || cogs <= 0) return null;
+      return markup / cogs;
+    },
+    valueFormatter: (params) =>
+      params.value != null ? `${(Number(params.value) * 100).toFixed(1)}%` : '—'
+  },
+  {
+    field: 'derivedCogs',
+    headerName: 'COGS',
+    headerClass: 'pricing-col-header',
+    width: 130,
+    editable: false,
+    cellRenderer: (params: { data?: GridRow }) => {
+      const row = params.data;
+      if (!row) return null;
+      const range = parsePriceRange(row.priceRange as string | null);
+      const markup = Number((row as Record<string, unknown>).markup ?? 0);
+      const unitPrice = Number(row.unitPrice ?? 0);
+      const rule = (row as Record<string, unknown>).__rule as ReturnType<typeof resolvePricingRuleEntry> | undefined;
+
+      if (!range) {
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '2px 0' }}>
+            <span>${Number(row.unitCost ?? 0).toFixed(2)}</span>
+            {rule ? <span style={{ fontSize: 10, color: '#71717a' }}>{ruleSourceLabel(rule.source, rule.category)}</span> : null}
+          </div>
+        );
+      }
+      if (!unitPrice) return <span style={{ color: '#71717a', fontSize: 12 }}>Set price first</span>;
+      const derivedCogs = unitPrice - markup;
+      const inRange = derivedCogs >= range.low && derivedCogs <= range.high;
+      const rangeCheck = inRange ? '✓' : derivedCogs < range.low ? '↓ below' : '↑ above';
+      const rangeColor = inRange ? '#216e4e' : '#b06915';
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '2px 0' }}>
+          <span>${derivedCogs.toFixed(2)}</span>
+          <span style={{ fontSize: 10, color: rangeColor }}>{range.low}–{range.high} {rangeCheck}</span>
+          {rule ? <span style={{ fontSize: 10, color: '#71717a' }}>{ruleSourceLabel(rule.source, rule.category)}</span> : null}
+        </div>
+      );
+    }
+  },
   // #64 PR-2: vendor-warning chip for any projected below-range COGS
   // exception. Renders nothing for in-range lines. Uses the existing
   // `.selection-pill.warning` amber styling — no new colors. The renderer is
@@ -149,9 +271,9 @@ const lineColumns: ColDef<GridRow>[] = [
   },
   exceptionBadgeColumn,
   { field: 'availableQty', headerName: 'Avail', type: 'numericColumn', width: 105 },
-  { field: 'packed', editable: true, width: 105 },
-  { field: 'inventoryPosted', headerName: 'Inv Posted', editable: true, width: 125 },
-  { field: 'paymentFollowup', headerName: 'Pay/F-up', editable: true, width: 125 },
+  { field: 'packed', editable: (params) => !isRowEditLocked(params), width: 105 },
+  { field: 'inventoryPosted', headerName: 'Inv Posted', editable: (params) => !isRowEditLocked(params), width: 125 },
+  { field: 'paymentFollowup', headerName: 'Pay/F-up', editable: (params) => !isRowEditLocked(params), width: 125 },
   { field: 'validationIssues', headerName: 'Fix', minWidth: 220 },
   {
     field: 'pickStatus',
@@ -221,6 +343,7 @@ export function SalesView() {
   const setSalesSheetState = useUiStore((state) => state.setSalesSheetState);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const pushToast = useUiStore((state) => state.pushToast);
   const visibleOrderColumns = useMemo(() => selectVisibleSalesColumns(showMargin, orderColumns), [showMargin]);
   const visibleSuggestionColumns = useMemo(() => selectVisibleSalesColumns(showMargin, suggestionColumns), [showMargin]);
   const visibleLineColumns = useMemo(() => selectVisibleSalesColumns(showMargin, lineColumns), [showMargin]);
@@ -239,8 +362,29 @@ export function SalesView() {
   const { runCommand, isRunning } = useCommandRunner();
   const workspaceOrder = workspace.data?.orders.find((order) => ['draft', 'confirmed'].includes(String(order.status))) ?? workspace.data?.orders[0];
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
-  const orderLines = trpc.queries.salesOrderLines.useQuery({ orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedOrder?.id) });
+  const orderLines = trpc.queries.salesOrderLines.useQuery(
+    { orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') },
+    { enabled: Boolean(selectedOrder?.id), refetchInterval: 30_000 }
+  );
   const selectedOrderStatus = String(selectedOrder?.status ?? '');
+
+  const lineRowsWithRule = useMemo(() => {
+    if (!orderLines.data) return [];
+    const customerObj = (reference.data?.customers as Array<Record<string, unknown>> | undefined)
+      ?.find((c) => c['id'] === customerId);
+    const customerRule = asRule(customerObj?.['pricingRule']);
+    const defaultsRule = asRule(reference.data?.defaultPricingRule);
+    return (orderLines.data as GridRow[]).map((row) => {
+      const rule = resolvePricingRuleEntry(
+        customerRule,
+        defaultsRule,
+        row.batchCategory as string | null,
+        row.batchSubcategory as string | null
+      );
+      const { markupDollars } = computeLineMarkup(row, rule);
+      return { ...row, __rule: rule, markup: Number.isFinite(markupDollars) ? markupDollars : 0 };
+    });
+  }, [orderLines.data, reference.data, customerId]);
 
   // CAP-030 / TER-1508 — release eligibility per order (live — backend merged)
   const blankOrderId = '00000000-0000-0000-0000-000000000000';
@@ -248,6 +392,68 @@ export function SalesView() {
     { orderId: String(selectedOrder?.id ?? blankOrderId) },
     { enabled: Boolean(selectedOrder?.id) }
   );
+
+  const fulfillmentActionsColumn = useMemo<ColDef<GridRow>>(() => ({
+    headerName: 'Pick',
+    colId: 'fulfillmentActions',
+    width: 190,
+    pinned: 'right' as const,
+    sortable: false,
+    suppressMovable: true,
+    cellRenderer: (params: { data?: GridRow }) => {
+      const row = params.data;
+      if (!row) return null;
+      const ps = String(row.pickStatus ?? '');
+      const isQueued = ps === 'released' || ps === 'picking' || ps === 'recall_pending';
+      const isPacked = ps === 'picked' || row.packed === true;
+      const eligibility = releaseEligibility.data?.find((e) => e.lineId === row.id);
+      const alreadyReleased = eligibility?.alreadyReleased ?? (isQueued || isPacked);
+      const canRelease = !alreadyReleased && eligibility?.eligible === true;
+      const inactiveRelease = !alreadyReleased && eligibility != null && !eligibility.eligible;
+      const releaseTitle = inactiveRelease
+        ? (eligibility?.reasons ?? []).join(' ')
+        : '';
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isQueued ? (
+            <span className="selection-pill info" style={{ fontSize: 11 }}>Queued</span>
+          ) : isPacked ? (
+            <span className="selection-pill success" style={{ fontSize: 11 }}>Packed</span>
+          ) : null}
+          {canRelease && canWrite ? (
+            <button
+              className="primary-button compact-action"
+              style={{ fontSize: 11, padding: '2px 8px' }}
+              disabled={isRunning}
+              onClick={() => void runCommand('releaseLineForPicking', { lineId: row.id }, 'Release line for picking')}
+            >
+              Release
+            </button>
+          ) : null}
+          {inactiveRelease && canWrite ? (
+            <button
+              className="primary-button compact-action"
+              style={{ fontSize: 11, padding: '2px 8px', opacity: 0.5 }}
+              disabled
+              title={releaseTitle}
+            >
+              Release
+            </button>
+          ) : null}
+          {(isQueued || isPacked) && canWrite ? (
+            <button
+              className="secondary-button compact-action"
+              style={{ fontSize: 11, padding: '2px 8px' }}
+              disabled={isRunning}
+              onClick={() => void runCommand('recallLineFromPicking', { lineId: row.id }, 'Recall line from picking')}
+            >
+              Recall
+            </button>
+          ) : null}
+        </div>
+      );
+    },
+  }), [releaseEligibility.data, isRunning, canWrite, runCommand]);
 
   // TER-1617 F-23: reset the dismissed flag whenever the active customer changes
   // so the chip re-appears for a freshly-selected customer.
@@ -385,7 +591,7 @@ export function SalesView() {
               </button>
             );
           })()}
-          {String(row.pickStatus ?? 'unreleased') === 'released' || String(row.pickStatus ?? '') === 'picking' ? (
+          {['released', 'picking', 'picked', 'recall_pending'].includes(String(row.pickStatus ?? '')) ? (
             <button
               className="secondary-button compact-action"
               disabled={isRunning || !canWrite}
@@ -757,7 +963,22 @@ export function SalesView() {
             panelId="sales:customer-workspace"
             title="Sale Builder"
             contentClassName="p-3"
-            actions={canWrite ? showMarginToggle : undefined}
+            actions={canWrite ? (
+              <>
+                {selectedOrder?.id ? (
+                  <button
+                    type="button"
+                    className="secondary-button compact-action"
+                    disabled={isRunning || !canWrite}
+                    onClick={() => void runCommand('priceSalesOrder', { orderId: String(selectedOrder.id), strategy: 'customer-rule' }, 'Re-apply pricing rule')}
+                    data-testid="reapply-pricing-rule"
+                  >
+                    ↻ Re-apply rule
+                  </button>
+                ) : null}
+                {showMarginToggle}
+              </>
+            ) : undefined}
           >
             <div className="customer-workspace-header">
               <div>
@@ -813,8 +1034,8 @@ export function SalesView() {
               <OperatorGrid
                 view="sales"
                 title="Customer Draft Lines"
-                rows={(orderLines.data ?? []) as GridRow[]}
-                columns={visibleLineColumns}
+                rows={lineRowsWithRule}
+                columns={[...visibleLineColumns, fulfillmentActionsColumn]}
                 loading={false}
                 onSelectionChange={setSelectedLines}
                 onCellCommit={canWrite ? onLineCommit : undefined}
@@ -831,14 +1052,37 @@ export function SalesView() {
                         className="primary-button compact-action"
                         type="button"
                         disabled={isRunning || !canWrite || !rows.length}
-                        onClick={() => {
+                        onClick={async () => {
+                          const total = rows.length;
                           const eligible = rows.filter((r) => {
                             const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
-                            return !elig || (elig.eligible && !elig.alreadyReleased);
+                            return elig ? (elig.eligible && !elig.alreadyReleased) : false;
                           });
-                          if (eligible.length > 0) {
-                            runCommand('releaseLinesForPicking', { lineIds: eligible.map((r) => r.id) }, 'Bulk release lines for picking');
+                          const skipped = total - eligible.length;
+                          if (eligible.length === 0) return;
+                          let failed = 0;
+                          try {
+                            const result = await runCommand(
+                              'releaseLinesForPicking',
+                              { lineIds: eligible.map((r) => r.id) },
+                              'Bulk release lines for picking'
+                            );
+                            if (!result.ok) {
+                              failed = eligible.length;
+                            }
+                          } catch {
+                            // Network/transport failure — treat all lines as failed
+                            failed = eligible.length;
                           }
+                          const released = eligible.length - failed;
+                          const parts = [`${released} of ${total} lines released`];
+                          if (skipped > 0) parts.push(`${skipped} skipped (not eligible)`);
+                          if (failed > 0) parts.push(`${failed} failed`);
+                          if (skipped > 0 || failed > 0) {
+                            pushToast(parts.join(' — '), failed > 0 ? 'error' : 'info');
+                          }
+                          // All released successfully — useCommandRunner already shows the server toast.
+                          // No supplemental toast needed for the all-success case.
                         }}
                       >
                         Release {rows.filter((r) => {

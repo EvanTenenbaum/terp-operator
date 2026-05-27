@@ -24,7 +24,10 @@ export const MARGIN_COLUMN_FIELDS = [
   'internalMargin',
   'estimatedMargin',
   'rangeBadge',
-  'landedCostExceptionReason'
+  'landedCostExceptionReason',
+  'markup',        // inline pricing column — cost/margin sensitive
+  'markupPct',     // inline pricing column — cost/margin sensitive
+  'derivedCogs'    // inline pricing column — cost/margin sensitive
 ] as const;
 
 const MARGIN_FIELD_SET = new Set<string>(MARGIN_COLUMN_FIELDS);

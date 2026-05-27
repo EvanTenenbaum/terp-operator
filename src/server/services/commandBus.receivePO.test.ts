@@ -20,7 +20,14 @@ const { inMemoryState } = vi.hoisted(() => ({
     vendors: [],
     documentSnapshots: [],
     commandJournal: [],
-    advisoryLocks: []
+    advisoryLocks: [],
+    salesOrders: [],
+    salesOrderLines: [],
+    batches: [],
+    customers: [],
+    payments: [],
+    clientLedgerEntries: [],
+    vendorBills: [],
   } as InMemoryState
 }));
 
@@ -59,25 +66,25 @@ function seedApprovedPurchaseOrder(s: InMemoryState, paymentTerms: string, lineO
   s.purchaseOrderLines.push({
     id: LINE_ID,
     purchaseOrderId: PO_ID,
-    itemId: null,
+    itemId: undefined,
     productName: 'Mendo Breath',
     category: 'Flower',
-    subcategory: null,
+    subcategory: undefined,
     tags: [],
     qty: '1.000',
     receivedQty: '0.000',
     uom: 'lb',
     unitCost: '1200.00',
     unitPrice: '1800.00',
-    costRangeLow: null,
-    costRangeHigh: null,
-    sourceCode: null,
-    shorthand: null,
-    legacyMarker: null,
+    costRangeLow: undefined,
+    costRangeHigh: undefined,
+    sourceCode: undefined,
+    shorthand: undefined,
+    legacyMarker: undefined,
     ownershipStatus: lineOwnershipStatus,
-    notes: null,
-    internalNotes: null,
-    externalNotes: null,
+    notes: undefined,
+    internalNotes: undefined,
+    externalNotes: undefined,
     status: 'planned'
   });
 }
@@ -101,7 +108,7 @@ describe('receivePurchaseOrder — ownershipStatus inference from paymentTerms (
       reason: 'test'
     } as any, operatorUser, ioStub);
     expect(result.ok).toBe(true);
-    const batches = inMemoryState._dynamic?.batches ?? [];
+    const batches = inMemoryState.batches ?? [];
     expect(batches.length).toBeGreaterThan(0);
     return batches[batches.length - 1];
   }

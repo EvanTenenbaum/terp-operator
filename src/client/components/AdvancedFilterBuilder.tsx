@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Filter } from 'lucide-react';
 import { FilterCondition, FilterFieldName, FilterGroupInput, FILTER_FIELDS } from '../../shared/filterSchemas';
 import { trpc } from '../api/trpc';
 
@@ -6,9 +7,13 @@ interface AdvancedFilterBuilderProps {
   filter: FilterGroupInput;
   onChange: (filter: FilterGroupInput) => void;
   targetView?: string;
+  /** Called when the user clicks "Save as view" inside the builder. */
+  onSaveAsView?: () => void;
+  /** Current result count shown in the builder footer. */
+  resultCount?: number;
 }
 
-export function AdvancedFilterBuilder({ filter, onChange, targetView = 'inventory' }: AdvancedFilterBuilderProps) {
+export function AdvancedFilterBuilder({ filter, onChange, targetView = 'inventory', onSaveAsView, resultCount }: AdvancedFilterBuilderProps) {
   const { data: facets } = trpc.filters.getFacets.useQuery();
 
   const addCondition = (groupPath: number[]) => {
@@ -73,25 +78,75 @@ export function AdvancedFilterBuilder({ filter, onChange, targetView = 'inventor
   };
 
   return (
-    <div className="advanced-filter-builder">
-      <div className="filter-builder-header">
-        <h3>Advanced Filters</h3>
-        <button className="btn-link" onClick={() => onChange({ logic: 'AND', conditions: [] })}>
-          Clear All
+    <div className="builder-panel" data-testid="advanced-filter-builder">
+      <div className="builder-panel-header">
+        <div className="builder-panel-title">
+          <Filter className="h-3.5 w-3.5" aria-hidden="true" />
+          Advanced filters — match
+          <button
+            type="button"
+            className={`logic-badge${filter.logic === 'OR' ? ' or' : ''}`}
+            onClick={() => onChange({ ...filter, logic: filter.logic === 'AND' ? 'OR' : 'AND' })}
+            data-testid="filter-logic-toggle"
+            aria-label={`Toggle logic operator (currently ${filter.logic})`}
+          >
+            {filter.logic}
+          </button>
+          of all conditions
+        </div>
+        <button
+          type="button"
+          className="secondary-button compact-action ml-auto"
+          onClick={() => onChange({ logic: 'AND', conditions: [] })}
+        >
+          ✕ Close builder
         </button>
       </div>
 
-      <FilterGroupComponent
-        group={filter}
-        groupPath={[]}
-        facets={facets}
-        onAddCondition={addCondition}
-        onAddGroup={addGroup}
-        onRemoveCondition={removeCondition}
-        onUpdateCondition={updateCondition}
-        onToggleLogic={toggleLogic}
-        depth={0}
-      />
+      <div className="builder-panel-body">
+        <FilterGroupComponent
+          group={filter}
+          groupPath={[]}
+          facets={facets}
+          onAddCondition={addCondition}
+          onAddGroup={addGroup}
+          onRemoveCondition={removeCondition}
+          onUpdateCondition={updateCondition}
+          onToggleLogic={toggleLogic}
+          depth={0}
+        />
+      </div>
+
+      <div className="builder-panel-footer">
+        <button
+          type="button"
+          className="primary-button compact-action"
+          onClick={() => {/* filter is live — no explicit apply needed */}}
+        >
+          Apply
+          {resultCount != null ? (
+            <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">
+              {resultCount}
+            </span>
+          ) : null}
+        </button>
+        {onSaveAsView ? (
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            onClick={onSaveAsView}
+          >
+            Save as view…
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="text-button compact-action ml-auto"
+          onClick={() => onChange({ logic: 'AND', conditions: [] })}
+        >
+          Clear all
+        </button>
+      </div>
     </div>
   );
 }
@@ -123,20 +178,23 @@ function FilterGroupComponent({
   const canNest = depth < maxDepth;
 
   return (
-    <div className={`filter-group depth-${depth}`} style={{ marginLeft: depth * 20 }}>
-      <div className="filter-group-header">
-        <button
-          className="logic-toggle"
-          onClick={() => onToggleLogic(groupPath)}
-          data-testid="filter-logic-toggle"
-          aria-label={`Toggle logic operator (currently ${group.logic})`}
-        >
-          {group.logic}
-        </button>
-        <span className="group-label">Match {group.logic === 'AND' ? 'all' : 'any'} of:</span>
-      </div>
-
-      <div className="filter-conditions">
+    <div className={depth > 0 ? 'nested-group' : ''} data-testid={`filter-group-depth-${depth}`}>
+      {depth > 0 && (
+        <div className="flex items-center gap-1.5 pb-1 text-xs text-zinc-500">
+          Match
+          <button
+            type="button"
+            className={`logic-badge${group.logic === 'OR' ? ' or' : ''}`}
+            onClick={() => onToggleLogic(groupPath)}
+            data-testid="filter-logic-toggle"
+            aria-label={`Toggle logic operator (currently ${group.logic})`}
+          >
+            {group.logic}
+          </button>
+          of:
+        </div>
+      )}
+      <div className="flex flex-col gap-1.5">
         {group.conditions.map((condition, index) => {
           if ('field' in condition) {
             return (
@@ -168,24 +226,25 @@ function FilterGroupComponent({
           }
         })}
       </div>
-
-      <div className="filter-group-actions">
+      <div className="flex items-center gap-1.5 mt-1.5">
         <button
-          className="btn-sm"
+          type="button"
+          className="add-filter-btn"
           onClick={() => onAddCondition(groupPath)}
           data-testid="filter-add-condition"
           aria-label="Add filter condition"
         >
-          + Add Condition
+          + Add condition
         </button>
         {canNest && (
           <button
-            className="btn-sm"
+            type="button"
+            className="add-filter-btn"
             onClick={() => onAddGroup(groupPath)}
             data-testid="filter-add-group"
             aria-label="Add filter group"
           >
-            + Add Group
+            + Add group
           </button>
         )}
       </div>
@@ -237,7 +296,7 @@ function FilterConditionComponent({
     if (condition.operator === 'between') {
       if (fieldType === 'number') {
         return (
-          <div className="value-range">
+          <div className="flex items-center gap-1">
             <input
               type="number"
               placeholder="Min"
@@ -265,7 +324,7 @@ function FilterConditionComponent({
         );
       } else if (fieldType === 'date') {
         return (
-          <div className="value-range">
+          <div className="flex items-center gap-1">
             <input
               type="date"
               value={Array.isArray(condition.value) ? condition.value[0] : ''}
@@ -419,15 +478,16 @@ function FilterConditionComponent({
   };
 
   return (
-    <div className="filter-condition">
+    <div className="condition-row" data-testid="filter-condition">
       <select
-        className="field-select"
+        className="select compact"
+        style={{ minWidth: 110 }}
         value={condition.field}
         onChange={(e) => onUpdate({ field: e.target.value as FilterFieldName, operator: 'equals', value: '' })}
         data-testid="filter-field-select"
         aria-label="Filter field"
       >
-        {Object.keys(FILTER_FIELDS).map(field => (
+        {Object.keys(FILTER_FIELDS).map((field) => (
           <option key={field} value={field}>
             {field.replace(/([A-Z])/g, ' $1').trim()}
           </option>
@@ -435,13 +495,14 @@ function FilterConditionComponent({
       </select>
 
       <select
-        className="operator-select"
+        className="select compact"
+        style={{ minWidth: 110 }}
         value={condition.operator}
         onChange={(e) => onUpdate({ operator: e.target.value as any })}
         data-testid="filter-operator-select"
         aria-label="Filter operator"
       >
-        {getOperators().map(op => (
+        {getOperators().map((op) => (
           <option key={op} value={op}>
             {op.replace(/_/g, ' ')}
           </option>
@@ -451,14 +512,12 @@ function FilterConditionComponent({
       {renderValueInput()}
 
       <button
-        className="btn-icon"
+        type="button"
+        className="ml-auto flex h-[22px] w-[22px] items-center justify-center rounded border border-line bg-white text-zinc-400 text-sm hover:border-danger hover:text-danger hover:bg-red-50 flex-shrink-0"
         onClick={onRemove}
-        title="Remove condition"
         data-testid="filter-remove-condition"
         aria-label="Remove this filter condition"
-      >
-        ×
-      </button>
+      >×</button>
     </div>
   );
 }

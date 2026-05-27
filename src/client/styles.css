@@ -537,6 +537,12 @@ kbd {
   @apply border-red-300 bg-red-50 text-red-700;
 }
 
+.selection-pill.info {
+  background-color: theme(colors.blue.50);
+  border-color: theme(colors.blue.300);
+  color: theme(colors.blue.700);
+}
+
 .compact-action {
   @apply h-7 px-2 text-xs;
 }
@@ -1110,6 +1116,162 @@ kbd {
 
 .media-upload-progress-bar-fill {
   @apply h-full rounded bg-accent transition-all;
+}
+
+/* ── Pricing rule panels ───────────────────────────────────── */
+
+.pricing-rule-table {
+  @apply w-full border-collapse text-sm;
+}
+
+.pricing-rule-table th {
+  @apply border-b-2 border-line px-2 pb-2 pt-0 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-500;
+}
+
+.pricing-rule-table td {
+  @apply border-b border-line px-2 py-1 align-middle;
+}
+
+.pricing-rule-table tr:last-child td {
+  @apply border-b-0;
+}
+
+.pricing-cat-row td {
+  @apply bg-panel;
+}
+
+.pricing-cat-row:hover td {
+  @apply bg-zinc-100;
+}
+
+.pricing-sub-row td {
+  @apply bg-white pl-7;
+}
+
+.pricing-sub-row:hover td {
+  @apply bg-accent/10;
+}
+
+.pricing-add-sub-row td {
+  @apply bg-white pl-7;
+}
+
+.pricing-add-cat-row td {
+  @apply bg-panel;
+}
+
+.pricing-internal-badge {
+  @apply inline-flex h-5 items-center rounded border border-amber/40 bg-amber/10 px-2 text-[10px] font-bold uppercase tracking-tight text-amber;
+}
+
+/* ── SalesView inline pricing column headers ─────────────── */
+
+.pricing-col-header {
+  @apply bg-accent/10 text-accent-dark;
+  font-weight: 700;
+}
+
+/* ── Inventory Finder filter chrome ────────────────────── */
+
+.filter-bar {
+  @apply flex flex-wrap items-center gap-1.5 border-b border-line bg-field px-2.5 py-2;
+  min-height: 44px;
+}
+
+.filter-pill {
+  @apply inline-flex h-[26px] items-center gap-1 rounded-full border border-accent/30 bg-accent/10 pl-2.5 pr-1 text-[11px] font-medium text-accent-dark;
+}
+
+.filter-pill-remove {
+  @apply flex h-4 w-4 flex-shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent/30 text-[11px] leading-none text-white hover:bg-accent;
+}
+
+.add-filter-btn {
+  @apply inline-flex h-[26px] cursor-pointer items-center gap-1 rounded-full border-[1.5px] border-dashed border-line bg-transparent px-2.5 text-[11px] font-medium text-zinc-500 hover:border-accent hover:text-accent;
+}
+
+.add-filter-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  @apply z-50 w-60 overflow-hidden rounded-md border border-line bg-white shadow-md;
+}
+
+.add-filter-dropdown-search {
+  @apply flex items-center gap-1.5 border-b border-line px-2.5 py-2 text-xs text-zinc-500;
+}
+
+.add-filter-dropdown-group {
+  @apply px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-400;
+}
+
+.add-filter-dropdown-item {
+  @apply flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-accent/10 hover:text-accent;
+}
+
+.add-filter-dropdown-item.active {
+  @apply bg-accent/10 text-accent;
+}
+
+.advanced-btn {
+  @apply ml-auto inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded border border-accent/30 bg-accent/10 px-2.5 text-xs font-semibold text-accent-dark;
+}
+
+.advanced-btn.open {
+  @apply border-accent bg-accent text-white;
+}
+
+.presets-strip {
+  @apply flex flex-wrap items-center gap-1.5 border-b border-line bg-panel px-2.5 py-1.5;
+}
+
+.presets-label {
+  @apply mr-1 flex-shrink-0 text-[10px] font-bold uppercase tracking-widest text-zinc-400;
+}
+
+.preset-save-chip {
+  @apply inline-flex h-6 cursor-pointer items-center gap-1 rounded-full border border-dashed border-line bg-transparent px-2.5 text-[11px] font-medium text-zinc-500 hover:border-accent hover:text-accent;
+}
+
+.presets-manage-link {
+  @apply ml-auto inline-flex flex-shrink-0 cursor-pointer items-center gap-1 rounded px-1 text-[11px] text-zinc-500 hover:text-accent;
+}
+
+/* Advanced filter builder panel */
+.builder-panel {
+  @apply border-b-2 border-accent/30 bg-white;
+}
+
+.builder-panel-header {
+  @apply flex items-center gap-2 border-b border-line bg-accent/10 px-3 py-2;
+}
+
+.builder-panel-title {
+  @apply flex items-center gap-1.5 text-xs font-bold text-accent-dark;
+}
+
+.builder-panel-body {
+  @apply flex flex-col gap-1.5 p-3;
+}
+
+.builder-panel-footer {
+  @apply flex items-center gap-2 border-t border-line bg-panel px-3 py-2;
+}
+
+.condition-row {
+  @apply flex items-center gap-1.5 rounded border border-line bg-panel px-2 py-1.5 hover:border-accent/30;
+}
+
+.logic-badge {
+  @apply inline-flex h-5 cursor-pointer select-none items-center rounded-full bg-accent px-2 text-[10px] font-bold uppercase tracking-wide text-white;
+}
+
+.logic-badge.or {
+  @apply bg-violet-600;
+}
+
+.nested-group {
+  @apply ml-4 flex flex-col gap-1.5 border-l-2 border-accent/30 py-0.5 pl-2.5;
 }
 
 /* Inline field validation error banner (role="alert" container) */

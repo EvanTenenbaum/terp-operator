@@ -156,9 +156,20 @@ export interface PricingRuleEntry {
   amount: number;
 }
 
+/**
+ * Pricing configuration for a single product category.
+ * `rule` applies when the line matches this category but not a specific subcategory.
+ * `subcategories` maps subcategory names to their own flat pricing rules.
+ * Depth is intentionally two levels: category → subcategory (no deeper nesting).
+ */
+export interface CategoryPricingEntry {
+  rule?: PricingRuleEntry;
+  subcategories?: Record<string, PricingRuleEntry>;
+}
+
 export interface CustomerPricingRule {
   default?: PricingRuleEntry;
-  categories?: Record<string, PricingRuleEntry>;
+  categories?: Record<string, CategoryPricingEntry>;
 }
 
 export type LandedCostBasisName = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual' | 'override';
@@ -166,8 +177,10 @@ export type LandedCostBasisName = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high
 export interface PricingRuleApplication {
   basis: PricingBasis;
   amount: number;
-  source: 'customer-category' | 'customer-default' | 'settings-category' | 'settings-default' | 'fallback';
+  source: 'customer-subcategory' | 'customer-category' | 'customer-default'
+        | 'settings-subcategory' | 'settings-category' | 'settings-default' | 'fallback';
   category?: string;
+  subcategory?: string;  // populated when source is *-subcategory
 }
 
 // ─── Contacts system (CAP-033 / TER-1564) ───────────────────────────────────

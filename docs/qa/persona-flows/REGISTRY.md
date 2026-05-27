@@ -24,8 +24,8 @@
 
 | # | File | Type | Risk | Commands | Est. Time |
 |---|------|------|------|----------|-----------|
-| X1 | `_cross-persona/01-purchase-to-payment-lifecycle.md` | cross-persona | Critical | CMD-PO, CMD-INTAKE, CMD-SALES, CMD-FULFILLMENT, CMD-PAYMENTS | 25 min |
-| X2 | `_cross-persona/02-intake-reversal-mid-sale.md` | cross-persona | Critical | CMD-INTAKE, CMD-SALES, CMD-RECOVERY | 20 min |
+| X1 | `_cross-persona/01-purchase-to-payment-lifecycle.md` | cross-persona | Critical | CMD-PO, CMD-INTAKE, CMD-SALES, CMD-FULFILLMENT, CMD-PAYMENTS | 25 min | 2026-05-27 ❌ (see #398) |
+| X2 | `_cross-persona/02-intake-reversal-mid-sale.md` | cross-persona | Critical | CMD-INTAKE, CMD-SALES, CMD-RECOVERY | 20 min | 2026-05-27 ✅ |
 
 ---
 
@@ -33,30 +33,30 @@
 
 | # | Persona | File | Type | Risk | Commands | Est. Time | Last Validated |
 |---|---------|------|------|------|----------|-----------|---------------|
-| 1 | Owner / Main Manager | `owner-manager/01-morning-triage-normal.md` | normal | Normal | CMD-SALES, CMD-INTAKE | 10 min | 2026-05-22 ✅ |
-| 2 | Owner / Main Manager | `owner-manager/02-exception-approval-edge.md` | edge-case | Deep QA | CMD-SALES, CMD-PAYMENTS | 12 min | not yet run |
-| 3 | Owner / Main Manager | `owner-manager/03-period-closeout-full-lifecycle.md` | full-lifecycle | Deep QA | CMD-CLOSEOUT | 20 min | not yet run |
-| 4 | Sales Operator | `sales-operator/01-instant-sale-normal.md` | normal | Normal | CMD-SALES | 8 min | not yet run |
-| 5 | Sales Operator | `sales-operator/02-customer-credit-hold-edge.md` | edge-case | Deep QA | CMD-SALES, CMD-PAYMENTS | 10 min | not yet run |
-| 6 | Sales Operator | `sales-operator/03-no-available-inventory-error.md` | error-path | Normal | CMD-SALES | 6 min | not yet run |
-| 7 | Inventory Operator | `inventory-operator/01-receive-batch-normal.md` | normal | Normal | CMD-INTAKE, CMD-PO | 10 min | 2026-05-22 ✅ |
-| 8 | Inventory Operator | `inventory-operator/02-flagged-batch-edge.md` | edge-case | Deep QA | CMD-INTAKE | 10 min | 2026-05-22 ✅ |
-| 9 | Inventory Operator | `inventory-operator/03-reversal-after-bad-post-error.md` | error-path | Deep QA | CMD-INTAKE, CMD-RECOVERY | 12 min | not yet run |
-| 10 | Payments / Accounting | `payments-accounting/01-log-and-allocate-payment-normal.md` | normal | Deep QA | CMD-PAYMENTS | 10 min | 2026-05-22 ✅ |
-| 11 | Payments / Accounting | `payments-accounting/02-unapplied-balance-edge.md` | edge-case | Deep QA | CMD-PAYMENTS | 12 min | 2026-05-22 ✅ |
-| 12 | Payments / Accounting | `payments-accounting/03-vendor-bill-payment-lifecycle.md` | full-lifecycle | Critical | CMD-VENDOR, CMD-PAYMENTS | 15 min | not yet run |
-| 13 | Warehouse Operator | `warehouse-operator/01-pick-weigh-fulfill-normal.md` | normal | Normal | CMD-FULFILLMENT | 8 min | not yet run |
-| 14 | Warehouse Operator | `warehouse-operator/02-weight-discrepancy-edge.md` | edge-case | Deep QA | CMD-FULFILLMENT | 10 min | not yet run |
-| 15 | Warehouse Operator | `warehouse-operator/03-partial-fulfillment-error.md` | error-path | Deep QA | CMD-FULFILLMENT | 10 min | not yet run |
-| 16 | Support Operator | `support-operator/01-trace-order-status-normal.md` | normal | Normal | — (read-only) | 6 min | not yet run |
-| 17 | Support Operator | `support-operator/02-reconstruct-payment-history-edge.md` | edge-case | Normal | — (read-only) | 8 min | not yet run |
-| 18 | Support Operator | `support-operator/03-missing-batch-investigation-error.md` | error-path | Normal | CMD-RECOVERY | 8 min | not yet run |
-| 19 | Photographer / Readiness | `photographer-readiness/01-batch-photo-session-normal.md` | normal | Normal | CMD-INTAKE | 8 min | not yet run |
-| 20 | Photographer / Readiness | `photographer-readiness/02-missing-media-blocker-edge.md` | edge-case | Normal | CMD-INTAKE | 8 min | not yet run |
-| 21 | Photographer / Readiness | `photographer-readiness/03-catalog-readiness-sweep-normal.md` | normal | Normal | — (read-only) | 6 min | 2026-05-22 ✅ |
-| 22 | Connector Actor | `connector-actor/01-submit-connector-request-normal.md` | normal | Normal | CMD-CONNECTOR | 8 min | 2026-05-22 ✅ |
-| 23 | Connector Actor | `connector-actor/02-request-routing-edge.md` | edge-case | Normal | CMD-CONNECTOR | 8 min | 2026-05-22 ✅ |
-| 24 | Connector Actor | `connector-actor/03-safe-default-no-ledger-write-error.md` | error-path | Deep QA | CMD-CONNECTOR | 10 min | 2026-05-22 ✅ |
+| 1 | Owner / Main Manager | `owner-manager/01-morning-triage-normal.md` | normal | Normal | CMD-SALES, CMD-INTAKE | 10 min | 2026-05-27 ✅ |
+| 2 | Owner / Main Manager | `owner-manager/02-exception-approval-edge.md` | edge-case | Deep QA | CMD-SALES, CMD-PAYMENTS | 12 min | 2026-05-27 ✅ |
+| 3 | Owner / Main Manager | `owner-manager/03-period-closeout-full-lifecycle.md` | full-lifecycle | Deep QA | CMD-CLOSEOUT | 20 min | 2026-05-27 ✅ |
+| 4 | Sales Operator | `sales-operator/01-instant-sale-normal.md` | normal | Normal | CMD-SALES | 8 min | 2026-05-27 ❌ (see #398) |
+| 5 | Sales Operator | `sales-operator/02-customer-credit-hold-edge.md` | edge-case | Deep QA | CMD-SALES, CMD-PAYMENTS | 10 min | 2026-05-27 ❌ (see #398) |
+| 6 | Sales Operator | `sales-operator/03-no-available-inventory-error.md` | error-path | Normal | CMD-SALES | 6 min | 2026-05-27 ✅ |
+| 7 | Inventory Operator | `inventory-operator/01-receive-batch-normal.md` | normal | Normal | CMD-INTAKE, CMD-PO | 10 min | 2026-05-27 ✅ |
+| 8 | Inventory Operator | `inventory-operator/02-flagged-batch-edge.md` | edge-case | Deep QA | CMD-INTAKE | 10 min | 2026-05-27 ✅ |
+| 9 | Inventory Operator | `inventory-operator/03-reversal-after-bad-post-error.md` | error-path | Deep QA | CMD-INTAKE, CMD-RECOVERY | 12 min | 2026-05-27 ✅ |
+| 10 | Payments / Accounting | `payments-accounting/01-log-and-allocate-payment-normal.md` | normal | Deep QA | CMD-PAYMENTS | 10 min | 2026-05-27 ✅ |
+| 11 | Payments / Accounting | `payments-accounting/02-unapplied-balance-edge.md` | edge-case | Deep QA | CMD-PAYMENTS | 12 min | 2026-05-27 ✅ |
+| 12 | Payments / Accounting | `payments-accounting/03-vendor-bill-payment-lifecycle.md` | full-lifecycle | Critical | CMD-VENDOR, CMD-PAYMENTS | 15 min | 2026-05-27 ✅ |
+| 13 | Warehouse Operator | `warehouse-operator/01-pick-weigh-fulfill-normal.md` | normal | Normal | CMD-FULFILLMENT | 8 min | 2026-05-27 ❌ (see #398) |
+| 14 | Warehouse Operator | `warehouse-operator/02-weight-discrepancy-edge.md` | edge-case | Deep QA | CMD-FULFILLMENT | 10 min | 2026-05-27 ✅ |
+| 15 | Warehouse Operator | `warehouse-operator/03-partial-fulfillment-error.md` | error-path | Deep QA | CMD-FULFILLMENT | 10 min | 2026-05-27 ✅ |
+| 16 | Support Operator | `support-operator/01-trace-order-status-normal.md` | normal | Normal | — (read-only) | 6 min | 2026-05-27 ❌ (see #398) |
+| 17 | Support Operator | `support-operator/02-reconstruct-payment-history-edge.md` | edge-case | Normal | — (read-only) | 8 min | 2026-05-27 ✅ |
+| 18 | Support Operator | `support-operator/03-missing-batch-investigation-error.md` | error-path | Normal | CMD-RECOVERY | 8 min | 2026-05-27 ✅ |
+| 19 | Photographer / Readiness | `photographer-readiness/01-batch-photo-session-normal.md` | normal | Normal | CMD-INTAKE | 8 min | 2026-05-27 ✅ |
+| 20 | Photographer / Readiness | `photographer-readiness/02-missing-media-blocker-edge.md` | edge-case | Normal | CMD-INTAKE | 8 min | 2026-05-27 ✅ |
+| 21 | Photographer / Readiness | `photographer-readiness/03-catalog-readiness-sweep-normal.md` | normal | Normal | — (read-only) | 6 min | 2026-05-27 ✅ |
+| 22 | Connector Actor | `connector-actor/01-submit-connector-request-normal.md` | normal | Normal | CMD-CONNECTOR | 8 min | 2026-05-27 ✅ |
+| 23 | Connector Actor | `connector-actor/02-request-routing-edge.md` | edge-case | Normal | CMD-CONNECTOR | 8 min | 2026-05-27 ✅ |
+| 24 | Connector Actor | `connector-actor/03-safe-default-no-ledger-write-error.md` | error-path | Deep QA | CMD-CONNECTOR | 10 min | 2026-05-27 ✅ |
 
 ---
 

@@ -111,7 +111,7 @@ import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
 import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import { photoUploadTokens } from '../schema';
-import { emitPickEvent, emitPickOrderAndQueue } from '../sockets';
+import { emitPickEvent, emitPickOrderAndQueue, emitSalesLineEvent } from '../sockets';
 
 import { createHash, randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
@@ -739,6 +739,22 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         }
       } catch (e) {
         console.warn('[commandBus] pick event emit failed after commit:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Emit sales:order:*:line:changed so the sales grid refreshes pick status
+    // badges in real time and picker screens know when order lines change.
+    // Intentionally mirrors PICK_QUEUE_AND_ORDER_CMDS. If you add a command to one, update the other.
+    const SALES_LINE_CMDS = ['releaseLineForPicking', 'releaseLinesForPicking', 'recallLineFromPicking', 'removeSalesOrderLine'];
+    if (commandResult.ok && commandResult.orderId && SALES_LINE_CMDS.includes(input.name)) {
+      try {
+        emitSalesLineEvent(commandResult.orderId, {
+          kind: input.name,
+          lineId: typeof commandResult.affectedIds?.[0] === 'string' ? commandResult.affectedIds[0] : undefined,
+          at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn('[commandBus] sales line event emit failed after commit:', e instanceof Error ? e.message : e);
       }
     }
 
@@ -2604,12 +2620,13 @@ async function removeSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
       ok: true,
       commandId,
       affectedIds: [line.orderId, lineId, ...(fl ? [fl.id] : [])],
-      toast: 'Sales line removed. Warehouse alerted for reconciliation.'
+      toast: 'Sales line removed. Warehouse alerted for reconciliation.',
+      orderId: line.orderId
     };
   }
   await tx.delete(salesOrderLines).where(eq(salesOrderLines.id, lineId));
   await recalcOrder(tx, line.orderId);
-  return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line removed.' };
+  return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line removed.', orderId: line.orderId };
 }
 
 async function reserveInventoryForOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -3070,6 +3087,24 @@ export async function setDefaultPricingRule(tx: Tx, payload: Payload, commandId:
 }
 
 function validatePricingRulePayload(value: unknown): Record<string, unknown> {
+  // Migrate old flat categories shape { category: { basis, amount } }
+  // to new nested shape { category: { rule: { basis, amount } } }
+  // so existing saved pricing rules continue to work.
+  if (value && typeof value === 'object' && 'categories' in value) {
+    const categories = (value as Record<string, unknown>).categories;
+    if (categories && typeof categories === 'object') {
+      const migrated: Record<string, unknown> = {};
+      for (const [key, entry] of Object.entries(categories as Record<string, unknown>)) {
+        if (entry && typeof entry === 'object' && 'basis' in entry && 'amount' in entry) {
+          // Old flat PricingRuleEntry — wrap into new CategoryPricingEntry shape
+          migrated[key] = { rule: entry };
+        } else {
+          migrated[key] = entry;
+        }
+      }
+      value = { ...(value as Record<string, unknown>), categories: migrated };
+    }
+  }
   const parsed = customerPricingRuleSchema.safeParse(value ?? {});
   if (!parsed.success) {
     const detail = parsed.error.issues.map((issue) => issue.message).join('; ');
@@ -4007,10 +4042,16 @@ async function releaseLinesForPicking(tx: Tx, payload: Payload, userId: string, 
   return { ok: true, commandId, affectedIds: affected, toast: `${lineIds.length} line(s) released for picking.`, orderId: firstOrderId };
 }
 
-// CAP-030 (TER-1485): Recall a released line from picking. Only allowed while the
-// associated fulfillment line is open with actual_qty = 0. Use returnPickedUnits first
-// if any units have been picked. Removes the fulfillment line and, if the pick list is
-// then empty, also removes the pick list.
+// CAP-030 (TER-1485): Recall a released line from picking.
+// Two paths depending on pick progress:
+//   • actualQty = 0 (nothing picked): deletes the fulfillment line; if the pick list
+//     is then empty, deletes it too. Always clears pickReleasedAt/By on the SOL.
+//   • actualQty > 0 (line picked or packed): does NOT delete the FL. Instead sets
+//     statusExtended = 'recall_pending' and appends a warehouse alert so the picker
+//     must acknowledge before the line can be re-packed. pickReleasedAt is still
+//     cleared on the SOL so a subsequent releaseLineForPicking call can re-enter
+//     the line into the queue (reusing the existing FL, which retains its alerts
+//     until acknowledged by the picker).
 async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
@@ -4018,18 +4059,44 @@ async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string
   if (!line.pickReleasedAt) {
     return { ok: true, commandId, affectedIds: [lineId], toast: 'Line is not released for picking.', orderId: line.orderId };
   }
-  // Only recall when the fulfillment line is still open and unpacked.
   const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.orderLineId, lineId)).limit(1);
   if (fl) {
-    if (fl.status !== 'open' || Number(fl.actualQty) > 0) {
-      throw new Error('Cannot recall a line that has already been picked or is in progress. Use returnPickedUnits first.');
-    }
-    await tx.delete(fulfillmentLines).where(eq(fulfillmentLines.id, fl.id));
-    const remaining = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.pickListId, fl.pickListId));
-    if (!remaining.length) {
-      await tx.delete(pickLists).where(eq(pickLists.id, fl.pickListId));
+    if (Number(fl.actualQty) > 0) {
+      // Line has been picked/packed — cannot safely delete the FL.
+      // Set recall_pending status and add a warehouse alert so the picker
+      // must acknowledge before proceeding.
+      const existingAlerts = Array.isArray(fl.warehouseAlerts)
+        ? (fl.warehouseAlerts as Array<Record<string, unknown>>)
+        : [];
+      const recallAlert = {
+        id: `recall-${randomBytes(4).toString('hex')}`,
+        type: 'recall',
+        message: 'Recalled by sales — verify quantity with operator before completing this line.',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+      await tx.update(fulfillmentLines)
+        .set({
+          warehouseAlerts: [...existingAlerts, recallAlert],
+          statusExtended: 'recall_pending',
+          updatedAt: new Date(),
+        })
+        .where(eq(fulfillmentLines.id, fl.id));
+    } else {
+      // actualQty = 0: FL is effectively unstarted. We previously also checked
+      // fl.status !== 'open' but any non-open/zero-qty state is not reachable
+      // in practice (open/zero is the only valid unstarted state).
+      await tx.delete(fulfillmentLines).where(eq(fulfillmentLines.id, fl.id));
+      const remaining = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.pickListId, fl.pickListId));
+      if (!remaining.length) {
+        await tx.delete(pickLists).where(eq(pickLists.id, fl.pickListId));
+      }
     }
   }
+  // Clear the SOL release stamp even when the FL survives. This allows the sales
+  // operator to re-release the line via releaseLineForPicking, which will reuse
+  // the existing FL. The FL's recall_pending statusExtended and warehouse alerts
+  // remain until the picker acknowledges — this is intentional per spec.
   await tx.update(salesOrderLines)
     .set({ pickReleasedAt: null, pickReleasedBy: null, updatedAt: new Date() })
     .where(eq(salesOrderLines.id, lineId));

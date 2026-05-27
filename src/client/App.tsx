@@ -121,6 +121,23 @@ function AppContent() {
         const orderId = event.slice('pick:order:'.length);
         if (orderId) void invalidateAffectedQueries(queryClient, [orderId]);
       }
+      // sales:order:{orderId}:line:changed — fired when the sales operator releases
+      // or recalls a line. Invalidates all queries for the affected order (salesOrderLines,
+      // pickListWithLines, etc.) and the pick queue.
+      if (event.startsWith('sales:order:') && event.endsWith(':line:changed')) {
+        const parts = event.split(':'); // ['sales', 'order', orderId, 'line', 'changed']
+        const orderId = parts[2];
+        if (orderId) {
+          void invalidateAffectedQueries(queryClient, [orderId]);
+          // Also refresh the pick queue (roster changes when a line is released/recalled).
+          void queryClient.invalidateQueries({
+            predicate: (q) => {
+              try { return JSON.stringify(q.queryKey).includes('pickQueue'); }
+              catch { return false; }
+            }
+          });
+        }
+      }
     });
 
     return () => {

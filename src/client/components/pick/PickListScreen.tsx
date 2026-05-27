@@ -61,6 +61,16 @@ export function PickListScreen({ pickList, loading, onBack, onSelectLine, onComp
         </div>
       ) : (
         <>
+            {/* Scenario C — amber banner when any line has unacknowledged alerts */}
+            {lines.some((l) => l.alertCount > 0) ? (
+              <div
+                className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+                role="alert"
+              >
+                <span className="text-base">⚠️</span>
+                <span>Sales updated this order — check flagged lines.</span>
+              </div>
+            ) : null}
           <ul className="divide-y divide-line">
             {lines.map((line) => (
               <li key={line.id}>
@@ -81,7 +91,10 @@ export function PickListScreen({ pickList, loading, onBack, onSelectLine, onComp
                         {line.status}
                       </span>
                       {line.alertCount > 0 ? (
-                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                        <span
+                          className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800"
+                          aria-label={`${line.alertCount} alert${line.alertCount !== 1 ? 's' : ''}`}
+                        >
                           {line.alertCount}⚠
                         </span>
                       ) : null}
