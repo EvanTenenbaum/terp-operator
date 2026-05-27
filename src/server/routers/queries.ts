@@ -2075,6 +2075,62 @@ export const queriesRouter = router({
       .orderBy(desc(commandJournal.createdAt))
       .limit(500);
   }),
+
+  // TER-1632 — "Your drafts (N)" dashboard row.
+  // Returns draft POs and draft SOs that belong to the currently-logged-in
+  // operator. Actor ownership is resolved via command_journal (GIN index on
+  // affected_ids from migration 0043) so no schema migration is required.
+  // purchase_orders.ordered_by is used as a fast fallback for POs.
+  myDrafts: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.id;
+    return (await pool.query<{
+      id: string;
+      route: string;
+      lane: string;
+      title: string;
+      status: string;
+      createdAt: string;
+      detail: string;
+      type: string;
+    }>(`
+      select id, route, lane, title, status, "createdAt", detail, type
+      from (
+        -- Draft purchase orders owned by the current user
+        select po.id, 'purchaseOrders' as route, 'Purchase' as lane, po.po_no as title,
+               po.status, po.created_at as "createdAt",
+               concat(coalesce(v.name, 'No vendor'), ' / $', po.total) as detail,
+               'purchaseOrder' as type
+        from purchase_orders po
+        left join vendors v on v.id = po.vendor_id
+        where po.status = 'draft'
+          and (
+            po.ordered_by = $1
+            or exists (
+              select 1 from command_journal cj
+              where po.id::text = any(cj.affected_ids)
+                and cj.actor_id = $1
+                and cj.command_name = 'createPurchaseOrder'
+            )
+          )
+        union all
+        -- Draft sales orders created by the current user
+        select so.id, 'orders' as route, 'Sales' as lane, so.order_no as title,
+               so.status, so.created_at as "createdAt",
+               concat(coalesce(c.name, 'No customer'), ' / $', so.total) as detail,
+               'salesOrder' as type
+        from sales_orders so
+        left join customers c on c.id = so.customer_id
+        where so.status = 'draft'
+          and exists (
+            select 1 from command_journal cj
+            where so.id::text = any(cj.affected_ids)
+              and cj.actor_id = $1
+              and cj.command_name = 'createSalesOrder'
+          )
+      ) t
+      order by "createdAt" desc
+    `, [userId])).rows;
+  }),
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
