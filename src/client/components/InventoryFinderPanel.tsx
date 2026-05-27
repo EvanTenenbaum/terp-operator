@@ -78,6 +78,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
   const [advancedFilter, setAdvancedFilter] = useState<FilterGroupInput | null>(null);
   const [selectedSavedFilter, setSelectedSavedFilter] = useState<string | null>(null);
   const [manageFiltersOpen, setManageFiltersOpen] = useState(false);
+  const [filterSaveStatus, setFilterSaveStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const lastInitialSearch = useRef('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const rows = ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
@@ -250,9 +251,9 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
         filterDefinition: advancedFilter,
         isGlobal
       });
-      alert('Filter saved successfully!');
+      setFilterSaveStatus({ ok: true, msg: 'Filter saved successfully!' });
     } catch (err) {
-      alert('Failed to save filter: ' + (err as Error).message);
+      setFilterSaveStatus({ ok: false, msg: 'Failed to save filter: ' + (err as Error).message });
     }
   }
 
@@ -301,6 +302,14 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
               <button className="secondary-button compact-action" type="button" onClick={saveCurrentFilter}>
                 Save Current Filter
               </button>
+            )}
+            {filterSaveStatus && (
+              <div
+                className={filterSaveStatus.ok ? 'text-xs text-green-700' : 'field-error text-xs'}
+                role="alert"
+              >
+                {filterSaveStatus.msg}
+              </div>
             )}
           </div>
           {manageFiltersOpen && (

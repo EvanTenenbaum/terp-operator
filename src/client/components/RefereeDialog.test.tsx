@@ -16,7 +16,6 @@ import { RefereeDialog } from './RefereeDialog';
 describe('RefereeDialog', () => {
   beforeEach(() => {
     runCommand.mockClear();
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
   it('renders with pre-filled values from initial', () => {
@@ -52,12 +51,11 @@ describe('RefereeDialog', () => {
     );
   });
 
-  it('rejects empty name via alert (no runCommand call)', async () => {
+  it('shows inline field error for empty name (no runCommand call)', async () => {
     const user = userEvent.setup();
-    const alertSpy = vi.spyOn(window, 'alert');
     render(<RefereeDialog refereeId="ref-1" initial={{ name: '' }} onClose={() => {}} />);
     await user.click(screen.getByRole('button', { name: /save changes/i }));
-    expect(alertSpy).toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Name is required.');
     expect(runCommand).not.toHaveBeenCalled();
   });
 });

@@ -16,7 +16,6 @@ import { RecordPrepaymentDialog } from './RecordPrepaymentDialog';
 describe('RecordPrepaymentDialog', () => {
   beforeEach(() => {
     runCommand.mockClear();
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
   it('renders the PO number and max amount', () => {
@@ -37,15 +36,14 @@ describe('RecordPrepaymentDialog', () => {
     );
   });
 
-  it('rejects amount greater than maxAmount', async () => {
+  it('shows inline field error when amount exceeds maxAmount', async () => {
     const user = userEvent.setup();
-    const alertSpy = vi.spyOn(window, 'alert');
     render(<RecordPrepaymentDialog purchaseOrderId="po-1" poNo="PO-001" maxAmount={100} onClose={() => {}} />);
     const input = screen.getByLabelText(/amount/i);
     await user.clear(input);
     await user.type(input, '500');
     await user.click(screen.getByRole('button', { name: /record prepayment/i }));
-    expect(alertSpy).toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Prepayment cannot exceed');
     expect(runCommand).not.toHaveBeenCalled();
   });
 });

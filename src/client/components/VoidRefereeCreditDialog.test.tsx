@@ -16,7 +16,6 @@ import { VoidRefereeCreditDialog } from './VoidRefereeCreditDialog';
 describe('VoidRefereeCreditDialog', () => {
   beforeEach(() => {
     runCommand.mockClear();
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
   it('renders the transactionNo and credit amount', () => {
@@ -53,9 +52,8 @@ describe('VoidRefereeCreditDialog', () => {
     );
   });
 
-  it('rejects empty reason via alert (no runCommand call)', async () => {
+  it('shows inline field error for empty reason (no runCommand call)', async () => {
     const user = userEvent.setup();
-    const alertSpy = vi.spyOn(window, 'alert');
     render(
       <VoidRefereeCreditDialog
         creditId="cred-1"
@@ -65,7 +63,7 @@ describe('VoidRefereeCreditDialog', () => {
       />
     );
     await user.click(screen.getByRole('button', { name: /void credit/i }));
-    expect(alertSpy).toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('A reason is required to void a referee credit.');
     expect(runCommand).not.toHaveBeenCalled();
   });
 });
