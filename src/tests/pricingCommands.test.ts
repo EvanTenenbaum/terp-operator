@@ -377,7 +377,7 @@ describe('priceSalesOrder with customer-rule strategy', () => {
     ];
     const updates: Array<any> = [];
     const customerRule = {
-      categories: { Flower: { basis: 'percent', amount: 0.5 } },
+      categories: { Flower: { rule: { basis: 'percent', amount: 0.5 } } },
       default: { basis: 'percent', amount: 0.2 }
     };
 
@@ -442,7 +442,7 @@ describe('priceSalesOrder with customer-rule strategy', () => {
     ];
     const updates: Array<any> = [];
     const settingsRule = {
-      categories: { Flower: { basis: 'dollar', amount: 50 } },
+      categories: { Flower: { rule: { basis: 'dollar', amount: 50 } } },
       default: { basis: 'percent', amount: 0.25 }
     };
 
