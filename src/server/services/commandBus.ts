@@ -744,6 +744,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
 
     // Emit sales:order:*:line:changed so the sales grid refreshes pick status
     // badges in real time and picker screens know when order lines change.
+    // Intentionally mirrors PICK_QUEUE_AND_ORDER_CMDS. If you add a command to one, update the other.
     const SALES_LINE_CMDS = ['releaseLineForPicking', 'releaseLinesForPicking', 'recallLineFromPicking'];
     if (commandResult.ok && commandResult.orderId && SALES_LINE_CMDS.includes(input.name)) {
       try {
@@ -4022,10 +4023,16 @@ async function releaseLinesForPicking(tx: Tx, payload: Payload, userId: string, 
   return { ok: true, commandId, affectedIds: affected, toast: `${lineIds.length} line(s) released for picking.`, orderId: firstOrderId };
 }
 
-// CAP-030 (TER-1485): Recall a released line from picking. Only allowed while the
-// associated fulfillment line is open with actual_qty = 0. Use returnPickedUnits first
-// if any units have been picked. Removes the fulfillment line and, if the pick list is
-// then empty, also removes the pick list.
+// CAP-030 (TER-1485): Recall a released line from picking.
+// Two paths depending on pick progress:
+//   • actualQty = 0 (nothing picked): deletes the fulfillment line; if the pick list
+//     is then empty, deletes it too. Always clears pickReleasedAt/By on the SOL.
+//   • actualQty > 0 (line picked or packed): does NOT delete the FL. Instead sets
+//     statusExtended = 'recall_pending' and appends a warehouse alert so the picker
+//     must acknowledge before the line can be re-packed. pickReleasedAt is still
+//     cleared on the SOL so a subsequent releaseLineForPicking call can re-enter
+//     the line into the queue (reusing the existing FL, which retains its alerts
+//     until acknowledged by the picker).
 async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
   const [line] = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.id, lineId)).limit(1);
@@ -4043,7 +4050,7 @@ async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string
         ? (fl.warehouseAlerts as Array<Record<string, unknown>>)
         : [];
       const recallAlert = {
-        id: `recall-${Date.now()}`,
+        id: `recall-${randomBytes(4).toString('hex')}`,
         type: 'recall',
         message: 'Recalled by sales — verify quantity with operator before completing this line.',
         status: 'pending',
@@ -4057,7 +4064,9 @@ async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string
         })
         .where(eq(fulfillmentLines.id, fl.id));
     } else {
-      // Line is open and unpicked — safe to delete the FL.
+      // actualQty = 0: FL is effectively unstarted. We previously also checked
+      // fl.status !== 'open' but any non-open/zero-qty state is not reachable
+      // in practice (open/zero is the only valid unstarted state).
       await tx.delete(fulfillmentLines).where(eq(fulfillmentLines.id, fl.id));
       const remaining = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.pickListId, fl.pickListId));
       if (!remaining.length) {
@@ -4065,6 +4074,10 @@ async function recallLineFromPicking(tx: Tx, payload: Payload, commandId: string
       }
     }
   }
+  // Clear the SOL release stamp even when the FL survives. This allows the sales
+  // operator to re-release the line via releaseLineForPicking, which will reuse
+  // the existing FL. The FL's recall_pending statusExtended and warehouse alerts
+  // remain until the picker acknowledges — this is intentional per spec.
   await tx.update(salesOrderLines)
     .set({ pickReleasedAt: null, pickReleasedBy: null, updatedAt: new Date() })
     .where(eq(salesOrderLines.id, lineId));
