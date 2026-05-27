@@ -46,6 +46,49 @@ export function selectVisibleSalesColumns(
   return columns.filter((column) => !column.field || !MARGIN_FIELD_SET.has(column.field));
 }
 
+// TER-1620 F-21: Sales empty-state cleanup helpers.
+//
+// Two pure helpers that drive the empty-state affordances in the control band:
+// - `salesButtonTitle`: returns a tooltip for the primary action button when it
+//   is disabled because no customer has been selected yet.
+// - `selectionPillText`: returns the text for the selection-pill status display,
+//   or null when no meaningful state exists to show (i.e., no customer selected).
+//   Returning null suppresses the pill entirely so there is no redundant
+//   "Pick customer to start" prompt alongside the customer picker.
+
+/**
+ * Tooltip title for the primary Sales action button.
+ *
+ * When `customerId` is empty the button is disabled and callers should set
+ * `title="Pick a customer first"` so the operator understands why the button
+ * is not clickable.  Returns `undefined` (no title) when a customer is active.
+ */
+export function salesButtonTitle(customerId: string): string | undefined {
+  return customerId ? undefined : 'Pick a customer first';
+}
+
+/**
+ * Text content for the selection-pill status indicator.
+ *
+ * Returns `null` when there is no customer selected — the pill is omitted
+ * entirely in that case so it does not duplicate the customer picker's own
+ * call-to-action ("Choose customer").
+ *
+ * `selectedOrderNo` is typed as `unknown` because GridRow uses an index
+ * signature (`[key: string]: unknown`); the function coerces it safely.
+ */
+export function selectionPillText(
+  selectedOrderNo: unknown,
+  customerId: string,
+  selectedOrderStatus: string
+): string | null {
+  if (selectedOrderNo != null && String(selectedOrderNo) !== '') {
+    return `${String(selectedOrderNo)} / ${selectedOrderStatus || 'open'}`;
+  }
+  if (customerId) return 'Draft — add your first item';
+  return null;
+}
+
 // TER-1617 F-23: Sales Orders pane customer scope filter.
 //
 // When an activeCustomerId is set, the Sales Orders grid must show only orders

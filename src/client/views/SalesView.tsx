@@ -19,7 +19,7 @@ import type { GridRow } from '../../shared/types';
 import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
 import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { buildCustomerOfferCsv } from './SalesView.csvExport';
-import { filterSalesOrdersByCustomer, selectVisibleSalesColumns } from './SalesView.columns';
+import { filterSalesOrdersByCustomer, salesButtonTitle, selectionPillText, selectVisibleSalesColumns } from './SalesView.columns';
 
 // CAP-030 / TER-1508 — types matching live releaseEligibility API shape (backend now merged)
 
@@ -695,11 +695,11 @@ export function SalesView() {
             ))}
           </select>
         </label>
-        <button className="primary-button" type="button" disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
+        <button className="primary-button" type="button" title={salesButtonTitle(customerId)} disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
           <Send className="h-4 w-4" aria-hidden="true" />
           {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder), Boolean(orderLines.data?.length))}
         </button>
-        <span className="selection-pill">{selectedOrder ? `${String(selectedOrder.orderNo ?? 'Selected sale')} / ${selectedOrderStatus || 'open'}` : customerId ? 'Draft — add your first item' : 'Pick customer to start'}</span>
+        {selectionPillText(selectedOrder?.orderNo, customerId, selectedOrderStatus) && <span className="selection-pill">{selectionPillText(selectedOrder?.orderNo, customerId, selectedOrderStatus)}</span>}
         {!customerId ? showMarginToggle : null}
         <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
           {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
