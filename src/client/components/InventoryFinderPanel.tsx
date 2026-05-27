@@ -35,10 +35,30 @@ export interface InventoryFinderBatch extends GridRow {
   tags?: string[] | string | null;
   ageDays?: number;
   uom?: string | null;
+  /**
+   * TER-1618 / F-27: item UUID from `b.item_id` — present in batch query.
+   * Used for future last-ordered-qty lookup once customerWorkspace or a
+   * dedicated panel query surfaces per-item purchase history.
+   */
+  itemId?: string | null;
+  /**
+   * TER-1618 / F-27: wholesale case-pack quantity for this item.
+   * Not yet in the DB schema — field is reserved for when a `case_pack`
+   * column is added to `batches` or `items` and the batch query is updated.
+   * When present and > 0, the qty input defaults to this value instead of 1.
+   */
+  casePack?: number | null;
 }
 
 interface InventoryFinderPanelProps {
   selectedOrderId?: string;
+  /**
+   * TER-1618 / F-27: customer UUID for the active sale workspace.
+   * Passed through from SalesSourcePane. Reserved for future use when
+   * a per-item order-history lookup (Priority 2 of the UOM-aware default)
+   * is wired up without violating the no-new-fetch guardrail.
+   */
+  customerId?: string;
   focusKey?: string;
   addedBatchIds?: Set<string>;
   initialSearch?: string;
@@ -53,7 +73,7 @@ const savedSlices = [
   ['office-owned', 'Office owned']
 ] as const;
 
-export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatchIds = new Set(), initialSearch = '', onAddBatch }: InventoryFinderPanelProps) {
+export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId, focusKey = '', addedBatchIds = new Set(), initialSearch = '', onAddBatch }: InventoryFinderPanelProps) {
   const reference = trpc.queries.reference.useQuery();
   const { data: savedFilters } = trpc.filters.listSavedFilters.useQuery({ targetView: 'inventory' });
   const me = trpc.auth.me.useQuery();
@@ -230,11 +250,13 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
   }
 
   async function add(batch: InventoryFinderBatch) {
-    const raw = quantities[batch.id] || '1';
+    // TER-1618 / F-27: use smart default (casePack → fallback '1')
+    const raw = quantities[batch.id] ?? defaultQtyFor(batch);
     const requested = Math.max(1, Number.parseFloat(raw) || 1);
     const available = Number(batch.availableQty ?? 0);
     await onAddBatch(batch, Math.min(requested, available || requested));
-    setQuantities((current) => ({ ...current, [batch.id]: '1' }));
+    // Reset to smart default so repeat-add remains UOM-aware
+    setQuantities((current) => ({ ...current, [batch.id]: defaultQtyFor(batch) }));
   }
 
   async function saveCurrentFilter() {
@@ -460,7 +482,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
                       <div className="finder-add-cell">
                         <input
                           aria-label={`Quantity for ${row.name ?? row.batchCode}`}
-                          value={quantities[row.id] ?? '1'}
+                          value={quantities[row.id] ?? defaultQtyFor(row)}
                           inputMode="decimal"
                           disabled={!selectedOrderId || added || available <= 0}
                           onChange={(event) => setQuantities((current) => ({ ...current, [row.id]: event.target.value.replace(/[^\d.]/g, '') }))}
@@ -472,6 +494,15 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
                           <PackagePlus className="h-4 w-4" aria-hidden="true" />
                           Add
                         </button>
+                        {/* TER-1618 / F-27: "last: N" hint — rendered when the default
+                            comes from customer order history (Priority 2). Currently
+                            unreachable: customerWorkspace does not expose per-item
+                            purchase qtys. Wired for when that data is added. */}
+                        {qtyHintFor(row) && (
+                          <span className="text-[10px] text-zinc-400" aria-label={`Last ordered: ${qtyHintFor(row)}`}>
+                            last: {qtyHintFor(row)}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -548,6 +579,43 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
       </div>
     </WorkspacePanel>
   );
+}
+
+/**
+ * TER-1618 / F-27: UOM-aware default quantity for an inventory row.
+ * Exported for unit testing.
+ *
+ * Priority 1 — casePack: use the item's wholesale case-pack qty when the
+ *   batch carries a `casePack` value > 0. This field is added to
+ *   `InventoryFinderBatch` as optional forward-compat; it is not yet in the
+ *   DB schema (needs a `case_pack` column migration + query update). Until
+ *   that work lands, this branch is always skipped and the fallback fires.
+ *
+ * Priority 2 — last-ordered qty (NOT YET IMPLEMENTED): would return the
+ *   customer's most recent qty for this itemId when customerWorkspace or a
+ *   dedictaed panel query exposes per-item purchase history. Guarded by the
+ *   no-new-fetch constraint; see TER-1618 for follow-up work.
+ *
+ * Priority 3 — fallback: '1'
+ */
+export function defaultQtyFor(row: InventoryFinderBatch): string {
+  if (row.casePack != null && Number(row.casePack) > 0) {
+    return String(Number(row.casePack));
+  }
+  return '1';
+}
+
+/**
+ * TER-1618 / F-27: returns the "last: N" hint value when the default qty
+ * comes from customer order history (Priority 2).
+ *
+ * Currently always returns null because the order-history data source is not
+ * yet wired into the panel. When `customerWorkspace` (or a future panel prop)
+ * exposes a `lastOrderedQtyByItemId` map, update this function to read from it.
+ */
+export function qtyHintFor(_row: InventoryFinderBatch): string | null {
+  // Future: return lastOrderedQtyByItemId?.[row.itemId ?? ''] ?? null
+  return null;
 }
 
 function unique(values: Array<string | null | undefined>) {
