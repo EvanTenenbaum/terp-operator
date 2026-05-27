@@ -108,8 +108,15 @@ const exceptionBadgeColumn: ColDef<GridRow> = {
   }
 };
 
+/** Pick statuses where the sales-side row should be read-only (operator must Recall first to edit). */
+const RELEASED_PICK_STATUSES = new Set(['released', 'picking', 'picked', 'recall_pending']);
+
+function isRowEditLocked(params: { data?: GridRow }): boolean {
+  return RELEASED_PICK_STATUSES.has(String(params.data?.pickStatus ?? ''));
+}
+
 const lineColumns: ColDef<GridRow>[] = [
-  { field: 'legacyStatusMarker', headerName: 'Raw', editable: true, width: 90, pinned: 'left' },
+  { field: 'legacyStatusMarker', headerName: 'Raw', editable: (params) => !isRowEditLocked(params), width: 90, pinned: 'left' },
   {
     field: 'displayName',
     headerName: 'Product name',
@@ -130,11 +137,11 @@ const lineColumns: ColDef<GridRow>[] = [
       );
     }
   },
-  { field: 'itemName', headerName: 'Canonical', editable: true, minWidth: 170 },
+  { field: 'itemName', headerName: 'Canonical', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
   { field: 'batchCode', headerName: 'Source', width: 140 },
   { field: 'unresolvedSourceText', headerName: 'Unresolved source', editable: true, minWidth: 170 },
-  { field: 'qty', editable: true, type: 'numericColumn', width: 95 },
-  { field: 'unitPrice', editable: true, type: 'numericColumn', width: 115 },
+  { field: 'qty', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 95 },
+  { field: 'unitPrice', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 115 },
   { field: 'unitCost', headerName: 'Cost', type: 'numericColumn', width: 105 },
   // #64 PR-2: vendor-warning chip for any projected below-range COGS
   // exception. Renders nothing for in-range lines. Uses the existing
@@ -149,9 +156,9 @@ const lineColumns: ColDef<GridRow>[] = [
   },
   exceptionBadgeColumn,
   { field: 'availableQty', headerName: 'Avail', type: 'numericColumn', width: 105 },
-  { field: 'packed', editable: true, width: 105 },
-  { field: 'inventoryPosted', headerName: 'Inv Posted', editable: true, width: 125 },
-  { field: 'paymentFollowup', headerName: 'Pay/F-up', editable: true, width: 125 },
+  { field: 'packed', editable: (params) => !isRowEditLocked(params), width: 105 },
+  { field: 'inventoryPosted', headerName: 'Inv Posted', editable: (params) => !isRowEditLocked(params), width: 125 },
+  { field: 'paymentFollowup', headerName: 'Pay/F-up', editable: (params) => !isRowEditLocked(params), width: 125 },
   { field: 'validationIssues', headerName: 'Fix', minWidth: 220 },
   {
     field: 'pickStatus',
