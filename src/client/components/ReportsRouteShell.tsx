@@ -21,6 +21,7 @@ import { trpc } from '../api/trpc';
 import { EmptyState } from './EmptyState';
 import { workLoopForUser } from '../accessPolicy';
 import type { GridRow, ViewKey } from '../../shared/types';
+import { formatMoney } from '../utils/format';
 
 // ── Report registry ───────────────────────────────────────────────────────────
 
@@ -511,7 +512,7 @@ function buildRevenueRows(salesData: GridRow[]): ReportRow[] {
     .map(([status, g]) => ({
       Status: status,
       Orders: g.count,
-      'Total Value': g.total.toFixed(2),
+      'Total Value': formatMoney(g.total),
       Note: status === 'posted' ? 'Posted = recognized revenue' : '',
     }));
   const postedTotal = salesData
@@ -521,7 +522,7 @@ function buildRevenueRows(salesData: GridRow[]): ReportRow[] {
     rows.push({
       Status: 'Posted total',
       Orders: '',
-      'Total Value': postedTotal.toFixed(2),
+      'Total Value': formatMoney(postedTotal),
       Note: 'Gross posted order total. Formal adjustments not yet tracked.',
     });
   }
@@ -569,7 +570,7 @@ function buildPayablesRows(vendorData: GridRow[]): ReportRow[] {
     rows.push({
       Status: 'Overdue',
       Bills: overdueGroup.count,
-      'Outstanding Balance': overdueGroup.balance.toFixed(2),
+      'Outstanding Balance': formatMoney(overdueGroup.balance),
       'Overdue?': 'Yes',
     });
   }
@@ -577,7 +578,7 @@ function buildPayablesRows(vendorData: GridRow[]): ReportRow[] {
     ...Object.entries(groups).map(([status, g]) => ({
       Status: status,
       Bills: g.count,
-      'Outstanding Balance': g.balance.toFixed(2),
+      'Outstanding Balance': formatMoney(g.balance),
       'Overdue?': '',
     }))
   );
@@ -585,7 +586,7 @@ function buildPayablesRows(vendorData: GridRow[]): ReportRow[] {
     rows.push({
       Status: 'Total outstanding',
       Bills: '',
-      'Outstanding Balance': grandTotal.toFixed(2),
+      'Outstanding Balance': formatMoney(grandTotal),
       'Overdue?': '',
     });
   }
@@ -616,7 +617,7 @@ function buildCashMovementRows(paymentsData: GridRow[]): ReportRow[] {
   const rows: ReportRow[] = Object.entries(groups).map(([key, g]) => ({
     'Direction / Method': key,
     Transactions: g.count,
-    'Total Amount': g.total.toFixed(2),
+    'Total Amount': formatMoney(g.total),
     'Net Position': '',
   }));
 
@@ -625,7 +626,7 @@ function buildCashMovementRows(paymentsData: GridRow[]): ReportRow[] {
       'Direction / Method': 'Net position',
       Transactions: '',
       'Total Amount': '',
-      'Net Position': net.toFixed(2),
+      'Net Position': formatMoney(net),
     });
   }
   return rows;
@@ -655,8 +656,8 @@ function buildVendorPerformanceRows(vendorData: GridRow[]): ReportRow[] {
     .map(([vendor, g]) => ({
       Vendor: vendor,
       Bills: g.billCount,
-      'Total Billed': g.totalBilled.toFixed(2),
-      'Outstanding Balance': g.outstanding.toFixed(2),
+      'Total Billed': formatMoney(g.totalBilled),
+      'Outstanding Balance': formatMoney(g.outstanding),
     }));
 }
 
@@ -702,8 +703,8 @@ function buildInventoryAgingRows(inventoryData: GridRow[]): ReportRow[] {
       'Age Range': b,
       Lots: buckets[b].lotCount,
       'Total Available Qty': buckets[b].totalQty,
-      'Cost Value': buckets[b].costValue.toFixed(2),
-      'Retail Value': buckets[b].retailValue.toFixed(2),
+      'Cost Value': formatMoney(buckets[b].costValue),
+      'Retail Value': formatMoney(buckets[b].retailValue),
     }));
 }
 
@@ -741,8 +742,8 @@ function buildCategoryPerformanceRows(inventoryData: GridRow[]): ReportRow[] {
       Category: category,
       Lots: g.lotCount,
       'Available Qty': g.totalQty,
-      'Cost Value': g.costValue.toFixed(2),
-      'Retail Value': g.retailValue.toFixed(2),
+      'Cost Value': formatMoney(g.costValue),
+      'Retail Value': formatMoney(g.retailValue),
     }));
 }
 
@@ -752,9 +753,9 @@ function buildClientBalancesRows(clientsData: GridRow[]): ReportRow[] {
   return clientsData.map((row) => ({
     Client: String(row.name ?? ''),
     'Open Invoices': Number(row.openInvoiceCount ?? 0),
-    Balance: Number(row.balance ?? 0).toFixed(2),
-    'Credit Limit': Number(row.creditLimit ?? 0).toFixed(2),
-    'Available Credit': Number(row.headroom ?? 0).toFixed(2),
+    Balance: formatMoney(Number(row.balance ?? 0)),
+    'Credit Limit': formatMoney(Number(row.creditLimit ?? 0)),
+    'Available Credit': formatMoney(Number(row.headroom ?? 0)),
   }));
 }
 
@@ -784,8 +785,8 @@ function buildClientSalesHistoryRows(salesData: GridRow[]): ReportRow[] {
     .map(([customer, g]) => ({
       Client: customer,
       'Total Orders': g.orderCount,
-      'Posted Revenue': g.postedRevenue.toFixed(2),
-      'In Pipeline': g.pipeline.toFixed(2),
+      'Posted Revenue': formatMoney(g.postedRevenue),
+      'In Pipeline': formatMoney(g.pipeline),
     }));
 }
 

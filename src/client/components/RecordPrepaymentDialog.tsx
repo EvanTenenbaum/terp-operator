@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useCommandRunner } from './useCommandRunner';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { formatMoney } from '../utils/format';
 
 interface RecordPrepaymentDialogProps {
   purchaseOrderId: string;
@@ -26,7 +27,7 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
       return;
     }
     if (numericAmount > maxAmount) {
-      setErrorMsg(`Prepayment cannot exceed $${maxAmount.toFixed(2)} (PO prepayment limit).`);
+      setErrorMsg(`Prepayment cannot exceed ${formatMoney(maxAmount)} (PO prepayment limit).`);
       return;
     }
     setErrorMsg(null);
@@ -56,7 +57,7 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
           </button>
         </div>
         <p className="mb-4 text-sm text-zinc-600">
-          PO <strong>{poNo}</strong> — prepayment limit: <strong>${maxAmount.toFixed(2)}</strong>
+          PO <strong>{poNo}</strong> — prepayment limit: <strong>{formatMoney(maxAmount)}</strong>
         </p>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>

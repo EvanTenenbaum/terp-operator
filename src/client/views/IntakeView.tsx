@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
+import { formatMoney, moneyCol } from '../utils/format';
 import type {
   ColDef,
   GetDetailRowDataParams,
@@ -223,12 +224,12 @@ export function IntakeView() {
       {
         headerName: 'Expected $',
         valueGetter: (params: ValueGetterParams<IntakeOrderRow>) =>
-          params.data ? `$${Number(params.data.expectedTotal || 0).toFixed(2)}` : ''
+          params.data ? formatMoney(Number(params.data.expectedTotal || 0)) : ''
       },
       {
         headerName: 'Verified $',
         valueGetter: (params: ValueGetterParams<IntakeOrderRow>) =>
-          params.data ? `$${Number(params.data.total || 0).toFixed(2)}` : ''
+          params.data ? formatMoney(Number(params.data.total || 0)) : ''
       },
       {
         headerName: 'Actions',
@@ -461,14 +462,7 @@ function buildBatchColumns(
       },
       tooltipValueGetter: () => 'Free-text reason; carried onto the vendor bill and PO notes when intake is verified.'
     },
-    {
-      field: 'unitCost',
-      headerName: 'Unit cost',
-      type: 'numericColumn',
-      editable: false,
-      valueFormatter: (params) => `$${Number(params.value ?? 0).toFixed(2)}`,
-      minWidth: 110
-    },
+    { ...(moneyCol('unitCost', { headerName: 'Unit cost', width: 110 }) as ColDef<IntakeBatchRow>), type: 'numericColumn', editable: false, minWidth: 110 },
     { field: 'status', minWidth: 110 },
     { field: 'arrivalStatus', headerName: 'Arrival', width: 110 },
     { field: 'mediaStatus', headerName: 'Media', width: 110 },

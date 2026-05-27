@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
+import { formatMoney } from '../utils/format';
 import { parsePriceRange } from '../../shared/priceRange';
 import { applyPricingRule, resolvePricingRuleEntry } from '../../shared/inventoryPricingShared';
 import type { CustomerPricingRule, PricingRuleApplication, PricingRuleEntry } from '../../shared/types';
@@ -301,7 +302,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
   const fallbackText = defaultsRule.default
     ? defaultsRule.default.basis === 'percent'
       ? `${(defaultsRule.default.amount * 100).toFixed(1)}%`
-      : `+$${defaultsRule.default.amount.toFixed(2)}`
+      : `+${formatMoney(defaultsRule.default.amount)}`
     : 'fallback 30%';
 
   return (

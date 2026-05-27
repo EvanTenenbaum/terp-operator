@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Ban } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { VoidRefereeCreditDialog } from './VoidRefereeCreditDialog';
+import { formatMoney } from '../utils/format';
 
 interface RefereeCreditsListProps {
   refereeId: string;
@@ -56,8 +57,8 @@ export function RefereeCreditsList({ refereeId }: RefereeCreditsListProps) {
                   <div className="font-medium">{c.transactionNo}</div>
                   <div className="text-xs text-zinc-500">{c.transactionType}</div>
                 </td>
-                <td className="px-3 py-2">${Number(c.creditAmount).toFixed(2)}</td>
-                <td className="px-3 py-2">${Number(c.amountPaid).toFixed(2)}</td>
+                <td className="px-3 py-2">{formatMoney(Number(c.creditAmount))}</td>
+                <td className="px-3 py-2">{formatMoney(Number(c.amountPaid))}</td>
                 <td className="px-3 py-2">
                   {isVoided ? (
                     <span className="text-amber-700" title={c.voidedReason ?? undefined}>

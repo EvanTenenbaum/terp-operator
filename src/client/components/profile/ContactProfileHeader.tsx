@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCommandRunner } from '../useCommandRunner';
 import { trpc } from '../../api/trpc';
 import type { ContactProfileData } from './types';
+import { formatMoney } from '../../utils/format';
 
 interface Props { data: ContactProfileData; }
 
@@ -54,7 +55,7 @@ export function ContactProfileHeader({ data }: Props) {
           <>
             <div className="kpi-card">
               <span className="kpi-label">Balance</span>
-              <span className="kpi-value">${Number(customer?.balance ?? 0).toFixed(2)}</span>
+              <span className="kpi-value">{formatMoney(Number(customer?.balance ?? 0))}</span>
             </div>
             <div className="kpi-card">
               <span className="kpi-label">Open Invoices</span>
@@ -65,7 +66,7 @@ export function ContactProfileHeader({ data }: Props) {
         {Boolean(contact.is_vendor) && Boolean(vendor) && (
           <div className="kpi-card">
             <span className="kpi-label">Open Bills</span>
-            <span className="kpi-value">${Number(vendor?.open_bills_amount ?? 0).toFixed(2)}</span>
+            <span className="kpi-value">{formatMoney(Number(vendor?.open_bills_amount ?? 0))}</span>
           </div>
         )}
       </div>

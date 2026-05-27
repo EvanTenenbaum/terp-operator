@@ -5,6 +5,7 @@ import { CustomerPurchaseHistoryPanel } from '../CustomerPurchaseHistoryPanel';
 import type { ColDef } from 'ag-grid-community';
 import type { GridRow } from '../../../shared/types';
 import type { ContactProfileData } from './types';
+import { moneyCol } from '../../utils/format';
 
 interface Props { data: ContactProfileData; }
 
@@ -22,8 +23,7 @@ export function ContactCustomerPanel({ data }: Props) {
     { field: 'createdAt',  headerName: 'Date',    width: 120,
       valueFormatter: (p) => p.value ? new Date(String(p.value)).toLocaleDateString() : '—' },
     { field: 'line_count', headerName: 'Lines',   width: 80 },
-    { field: 'total',      headerName: 'Total',   width: 100,
-      valueFormatter: (p) => `$${Number(p.value).toFixed(2)}` },
+    moneyCol('total', { headerName: 'Total', width: 100 }),
     { field: 'status',     headerName: 'Status',  width: 120 },
   ];
 

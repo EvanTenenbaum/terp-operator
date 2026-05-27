@@ -1,3 +1,5 @@
+import { formatMoney } from '../../utils/format';
+
 export type SignalConfidence = 'high' | 'medium' | 'low' | 'none';
 
 export type SignalBucket =
@@ -25,19 +27,7 @@ export function bucketSignal(
   return 'Excellent';
 }
 
-export function formatMoney(value: number | null | undefined): string {
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    return '$0';
-  }
-
-  const hasCents = value % 1 !== 0;
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: hasCents ? 2 : 0,
-  }).format(value);
-}
+export { formatMoney };
 
 export function formatDateish(
   value: Date | string | null | undefined

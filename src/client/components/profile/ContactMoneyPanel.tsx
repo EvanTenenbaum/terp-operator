@@ -1,6 +1,7 @@
 import { trpc } from '../../api/trpc';
 import { WorkspacePanel } from '../WorkspacePanel';
 import type { ContactProfileData } from './types';
+import { formatMoney } from '../../utils/format';
 
 interface Props { data: ContactProfileData; }
 
@@ -26,10 +27,10 @@ export function ContactMoneyPanel({ data }: Props) {
     <div className="space-y-4">
       {isDualRole && (
         <div className="subtle-band flex items-center gap-6 px-4 py-2 text-sm">
-          <span>Receivable (owed to you): <strong>${receivable.toFixed(2)}</strong></span>
-          <span>Payable (owed to them): <strong>${payable.toFixed(2)}</strong></span>
+          <span>Receivable (owed to you): <strong>{formatMoney(receivable)}</strong></span>
+          <span>Payable (owed to them): <strong>{formatMoney(payable)}</strong></span>
           <span className={`selection-pill ${net < 0 ? 'warning' : ''}`}>
-            Net: ${net.toFixed(2)} {net >= 0 ? '(favorable)' : '(unfavorable)'}
+            Net: {formatMoney(net)} {net >= 0 ? '(favorable)' : '(unfavorable)'}
           </span>
         </div>
       )}
@@ -39,9 +40,9 @@ export function ContactMoneyPanel({ data }: Props) {
           <div className="p-3 text-sm space-y-1">
             <div>
               Open invoices: <strong>{String(customer.open_invoices_count ?? 0)}</strong>{' '}
-              totaling <strong>${Number(customer.open_invoices_amount ?? 0).toFixed(2)}</strong>
+              totaling <strong>{formatMoney(Number(customer.open_invoices_amount ?? 0))}</strong>
             </div>
-            <div>Balance: <strong>${Number(customer.balance ?? 0).toFixed(2)}</strong></div>
+            <div>Balance: <strong>{formatMoney(Number(customer.balance ?? 0))}</strong></div>
           </div>
         </WorkspacePanel>
       )}
@@ -51,7 +52,7 @@ export function ContactMoneyPanel({ data }: Props) {
           <div className="p-3 text-sm space-y-1">
             <div>
               Open bills: <strong>{String(vendor.open_bills_count ?? 0)}</strong>{' '}
-              totaling <strong>${Number(vendor.open_bills_amount ?? 0).toFixed(2)}</strong>
+              totaling <strong>{formatMoney(Number(vendor.open_bills_amount ?? 0))}</strong>
             </div>
           </div>
         </WorkspacePanel>
@@ -84,8 +85,8 @@ export function ContactMoneyPanel({ data }: Props) {
                       {new Date(String(row.created_at)).toLocaleDateString()}
                     </td>
                     <td className="px-3 py-2">{String(row.kind)}</td>
-                    <td className="px-3 py-2">${Math.abs(Number(row.amount)).toFixed(2)}</td>
-                    <td className="px-3 py-2">${Number(row.running_balance).toFixed(2)}</td>
+                    <td className="px-3 py-2">{formatMoney(Math.abs(Number(row.amount)))}</td>
+                    <td className="px-3 py-2">{formatMoney(Number(row.running_balance))}</td>
                     <td className="px-3 py-2 text-zinc-500">{String(row.reference ?? '—')}</td>
                   </tr>
                 ))}
