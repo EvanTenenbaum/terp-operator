@@ -3087,6 +3087,24 @@ export async function setDefaultPricingRule(tx: Tx, payload: Payload, commandId:
 }
 
 function validatePricingRulePayload(value: unknown): Record<string, unknown> {
+  // Migrate old flat categories shape { category: { basis, amount } }
+  // to new nested shape { category: { rule: { basis, amount } } }
+  // so existing saved pricing rules continue to work.
+  if (value && typeof value === 'object' && 'categories' in value) {
+    const categories = (value as Record<string, unknown>).categories;
+    if (categories && typeof categories === 'object') {
+      const migrated: Record<string, unknown> = {};
+      for (const [key, entry] of Object.entries(categories as Record<string, unknown>)) {
+        if (entry && typeof entry === 'object' && 'basis' in entry && 'amount' in entry) {
+          // Old flat PricingRuleEntry — wrap into new CategoryPricingEntry shape
+          migrated[key] = { rule: entry };
+        } else {
+          migrated[key] = entry;
+        }
+      }
+      value = { ...(value as Record<string, unknown>), categories: migrated };
+    }
+  }
   const parsed = customerPricingRuleSchema.safeParse(value ?? {});
   if (!parsed.success) {
     const detail = parsed.error.issues.map((issue) => issue.message).join('; ');
