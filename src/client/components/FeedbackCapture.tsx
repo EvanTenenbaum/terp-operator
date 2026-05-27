@@ -31,7 +31,7 @@ const DEFAULT_SCRIPT_SRC = '/vendor/crikket/capture.global.js';
 const DEFAULT_POSITION: FeedbackCapturePosition = 'top-left';
 const SCRIPT_ID = 'crikket-capture-sdk';
 const POSITION_STYLE_ID = 'terp-crikket-position';
-const POSITION_RETRY_LIMIT = 40;
+const POSITION_RETRY_LIMIT = 200;
 
 const launcherPositionStyles: Record<FeedbackCapturePosition, string> = {
   'top-left': 'top: 24px !important; left: 24px !important; right: auto !important; bottom: auto !important;',
