@@ -6,6 +6,10 @@ interface AdvancedFilterBuilderProps {
   filter: FilterGroupInput;
   onChange: (filter: FilterGroupInput) => void;
   targetView?: string;
+  /** Called when the user clicks "Save as view" inside the builder. */
+  onSaveAsView?: () => void;
+  /** Current result count shown in the builder footer. */
+  resultCount?: number;
 }
 
 export function AdvancedFilterBuilder({ filter, onChange, targetView = 'inventory' }: AdvancedFilterBuilderProps) {
