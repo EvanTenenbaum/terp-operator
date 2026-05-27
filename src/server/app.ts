@@ -10,8 +10,19 @@ import { env, isProd } from './env';
 import { getHealth } from './services/metrics';
 import { registerHttpRoutes } from './routes';
 
+function crikketConnectSrc() {
+  if (!env.VITE_CRIKKET_HOST) return [];
+  const storageOrigins = ['https://*.digitaloceanspaces.com', 'http://localhost:9000'];
+  try {
+    return [new URL(env.VITE_CRIKKET_HOST).origin, ...storageOrigins];
+  } catch {
+    return storageOrigins;
+  }
+}
+
 export function createApp(getIo: () => SocketServer) {
   const app = express();
+  const feedbackConnectSrc = crikketConnectSrc();
 
   app.set('trust proxy', 1);
   // GH #314: 'unsafe-inline' in scriptSrc is removed in production.
@@ -31,10 +42,10 @@ export function createApp(getIo: () => SocketServer) {
           scriptSrc: isProd ? ["'self'"] : ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles (CSS-in-JS / Tailwind)
           imgSrc: ["'self'", "data:", "blob:"], // Allow data URIs and blob URLs for images
-          connectSrc: ["'self'", "ws:", "wss:"], // Allow WebSocket for Socket.io and Vite HMR
+          connectSrc: ["'self'", "ws:", "wss:", ...feedbackConnectSrc], // Allow Socket.io, Vite HMR, and configured feedback capture host
           fontSrc: ["'self'", "data:"],
           objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
+          mediaSrc: ["'self'", "blob:"],
           frameSrc: ["'none'"]
         }
       }
@@ -52,7 +63,13 @@ export function createApp(getIo: () => SocketServer) {
 
   app.get('/api/client-config', (_req, res) => {
     res.json({
-      agGridLicenseKey: env.VITE_AG_GRID_LICENSE_KEY
+      agGridLicenseKey: env.VITE_AG_GRID_LICENSE_KEY,
+      feedbackCapture: {
+        enabled: env.VITE_CRIKKET_ENABLED,
+        host: env.VITE_CRIKKET_HOST || undefined,
+        key: env.VITE_CRIKKET_KEY || undefined,
+        scriptSrc: env.VITE_CRIKKET_SCRIPT_SRC || undefined
+      }
     });
   });
 

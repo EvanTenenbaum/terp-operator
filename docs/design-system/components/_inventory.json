@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-24T15:14:10.699Z",
-  "componentCount": 79,
+  "generated": "2026-05-26T23:47:41.488Z",
+  "componentCount": 99,
   "byCategory": {
-    "drawer": 28,
+    "drawer": 29,
     "form": 8,
-    "navigation": 6,
-    "other": 26,
-    "grid": 10,
+    "navigation": 7,
+    "other": 43,
+    "grid": 11,
     "hook": 1
   },
   "components": [
@@ -105,6 +105,22 @@
       "category": "grid",
       "exports": [
         "ExpansionPanel"
+      ]
+    },
+    {
+      "name": "FeedbackCapture",
+      "path": "src/client/components/FeedbackCapture.tsx",
+      "category": "other",
+      "exports": [
+        "FeedbackCapture"
+      ]
+    },
+    {
+      "name": "GlobalFinderPanel",
+      "path": "src/client/components/GlobalFinderPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "GlobalFinderPanel"
       ]
     },
     {
@@ -511,6 +527,78 @@
       ]
     },
     {
+      "name": "CommandReversalTab",
+      "path": "src/client/components/drawerTabs/CommandReversalTab.tsx",
+      "category": "other",
+      "exports": [
+        "CommandReversalTab"
+      ]
+    },
+    {
+      "name": "LotHistoryTab",
+      "path": "src/client/components/drawerTabs/LotHistoryTab.tsx",
+      "category": "other",
+      "exports": [
+        "LotHistoryTab"
+      ]
+    },
+    {
+      "name": "LotMovementTab",
+      "path": "src/client/components/drawerTabs/LotMovementTab.tsx",
+      "category": "other",
+      "exports": [
+        "LotMovementTab"
+      ]
+    },
+    {
+      "name": "LotPhotosTab",
+      "path": "src/client/components/drawerTabs/LotPhotosTab.tsx",
+      "category": "other",
+      "exports": [
+        "LotPhotosTab"
+      ]
+    },
+    {
+      "name": "PoCommandsTab",
+      "path": "src/client/components/drawerTabs/PoCommandsTab.tsx",
+      "category": "other",
+      "exports": [
+        "PoCommandsTab"
+      ]
+    },
+    {
+      "name": "PoHistoryTab",
+      "path": "src/client/components/drawerTabs/PoHistoryTab.tsx",
+      "category": "other",
+      "exports": [
+        "PoHistoryTab"
+      ]
+    },
+    {
+      "name": "PoLinesTab",
+      "path": "src/client/components/drawerTabs/PoLinesTab.tsx",
+      "category": "other",
+      "exports": [
+        "PoLinesTab"
+      ]
+    },
+    {
+      "name": "PoLinkedIntakeTab",
+      "path": "src/client/components/drawerTabs/PoLinkedIntakeTab.tsx",
+      "category": "other",
+      "exports": [
+        "PoLinkedIntakeTab"
+      ]
+    },
+    {
+      "name": "PoVendorTab",
+      "path": "src/client/components/drawerTabs/PoVendorTab.tsx",
+      "category": "other",
+      "exports": [
+        "PoVendorTab"
+      ]
+    },
+    {
       "name": "SalesCommandHistoryTab",
       "path": "src/client/components/drawerTabs/SalesCommandHistoryTab.tsx",
       "category": "other",
@@ -535,6 +623,30 @@
       ]
     },
     {
+      "name": "VendorBillDetailsTab",
+      "path": "src/client/components/drawerTabs/VendorBillDetailsTab.tsx",
+      "category": "other",
+      "exports": [
+        "VendorBillDetailsTab"
+      ]
+    },
+    {
+      "name": "VendorBillTraceTab",
+      "path": "src/client/components/drawerTabs/VendorBillTraceTab.tsx",
+      "category": "other",
+      "exports": [
+        "VendorBillTraceTab"
+      ]
+    },
+    {
+      "name": "VendorPaymentHistoryTab",
+      "path": "src/client/components/drawerTabs/VendorPaymentHistoryTab.tsx",
+      "category": "other",
+      "exports": [
+        "VendorPaymentHistoryTab"
+      ]
+    },
+    {
       "name": "gridFilterUtils",
       "path": "src/client/components/gridFilterUtils.ts",
       "category": "grid",
@@ -550,6 +662,55 @@
         "parseGridFilter",
         "removeFilterChip",
         "serializeGridFilter"
+      ]
+    },
+    {
+      "name": "MobileConfirmSheet",
+      "path": "src/client/components/mobile/MobileConfirmSheet.tsx",
+      "category": "other",
+      "exports": [
+        "MobileConfirmSheet"
+      ]
+    },
+    {
+      "name": "MobileEmptyState",
+      "path": "src/client/components/mobile/MobileEmptyState.tsx",
+      "category": "grid",
+      "exports": [
+        "MobileEmptyState"
+      ]
+    },
+    {
+      "name": "MobileFilterChips",
+      "path": "src/client/components/mobile/MobileFilterChips.tsx",
+      "category": "other",
+      "exports": [
+        "MobileFilterChips"
+      ]
+    },
+    {
+      "name": "MobileSearchInput",
+      "path": "src/client/components/mobile/MobileSearchInput.tsx",
+      "category": "other",
+      "exports": [
+        "MobileSearchInput"
+      ]
+    },
+    {
+      "name": "MobileShell",
+      "path": "src/client/components/mobile/MobileShell.tsx",
+      "category": "navigation",
+      "exports": [
+        "MobileShell"
+      ]
+    },
+    {
+      "name": "MobileToast",
+      "path": "src/client/components/mobile/MobileToast.tsx",
+      "category": "other",
+      "exports": [
+        "MobileToastProvider",
+        "useMobileToast"
       ]
     },
     {
