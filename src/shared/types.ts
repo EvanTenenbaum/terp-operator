@@ -156,9 +156,14 @@ export interface PricingRuleEntry {
   amount: number;
 }
 
+export interface CategoryPricingEntry {
+  rule?: PricingRuleEntry;
+  subcategories?: Record<string, PricingRuleEntry>;
+}
+
 export interface CustomerPricingRule {
   default?: PricingRuleEntry;
-  categories?: Record<string, PricingRuleEntry>;
+  categories?: Record<string, CategoryPricingEntry>;
 }
 
 export type LandedCostBasisName = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high' | 'manual' | 'override';
@@ -166,7 +171,8 @@ export type LandedCostBasisName = 'fixed' | 'pick-low' | 'pick-mid' | 'pick-high
 export interface PricingRuleApplication {
   basis: PricingBasis;
   amount: number;
-  source: 'customer-category' | 'customer-default' | 'settings-category' | 'settings-default' | 'fallback';
+  source: 'customer-subcategory' | 'customer-category' | 'customer-default'
+        | 'settings-subcategory' | 'settings-category' | 'settings-default' | 'fallback';
   category?: string;
 }
 

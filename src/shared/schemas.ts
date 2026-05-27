@@ -107,9 +107,14 @@ export const pricingRuleEntrySchema = z.discriminatedUnion('basis', [
   })
 ]);
 
+export const categoryPricingEntrySchema = z.object({
+  rule: pricingRuleEntrySchema.optional(),
+  subcategories: z.record(pricingRuleEntrySchema).optional()
+});
+
 export const customerPricingRuleSchema = z.object({
   default: pricingRuleEntrySchema.optional(),
-  categories: z.record(pricingRuleEntrySchema).optional()
+  categories: z.record(categoryPricingEntrySchema).optional()
 });
 
 export const setLineLandedCostPayloadSchema = z.object({
