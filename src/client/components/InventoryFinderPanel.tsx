@@ -73,6 +73,35 @@ const savedSlices = [
   ['office-owned', 'Office owned']
 ] as const;
 
+/**
+ * TER-1625 / F-24: Static field-map for each preset filter chip.
+ * Each entry declares exactly which filter fields that chip contributes when
+ * active. Used by `applySlice` to merge/recompute chip contributions so that
+ * multiple chips can be active simultaneously (AND logic).
+ *
+ * Keeping this outside the component avoids recreating the object on every
+ * render; the definitions are purely static.
+ */
+type SliceFields = {
+  search?: string;
+  category?: string;
+  vendorId?: string;
+  tag?: string;
+  location?: string;
+  ownership?: string;
+  minQty?: string;
+  maxPrice?: string;
+  agingOnly?: boolean;
+};
+
+const SLICE_DEFS: Record<string, SliceFields> = {
+  'aging-premium': { agingOnly: true, minQty: '1', maxPrice: '100' },
+  'consignment-risk': { ownership: 'C', minQty: '1' },
+  'value-buyers': { maxPrice: '30', search: 'value flex' },
+  'low-stock': { search: 'reorder low', minQty: '1' },
+  'office-owned': { ownership: 'OFC' },
+};
+
 export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId, focusKey = '', addedBatchIds = new Set(), initialSearch = '', onAddBatch }: InventoryFinderPanelProps) {
   const reference = trpc.queries.reference.useQuery();
   const { data: savedFilters } = trpc.filters.listSavedFilters.useQuery({ targetView: 'inventory' });
@@ -95,7 +124,8 @@ export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId,
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
-  const [activeSlice, setActiveSlice] = useState('');
+  /** TER-1625 / F-24: set of currently active preset chip keys (multi-select AND logic) */
+  const [activeSlices, setActiveSlices] = useState<Set<string>>(new Set());
   const [advancedFilter, setAdvancedFilter] = useState<FilterGroupInput | null>(null);
   const [selectedSavedFilter, setSelectedSavedFilter] = useState<string | null>(null);
   const [manageFiltersOpen, setManageFiltersOpen] = useState(false);
@@ -226,36 +256,71 @@ export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId,
     setMinQty('');
     setMaxPrice('');
     setAgingOnly(false);
-    setActiveSlice('');
+    setActiveSlices(new Set());
   }
 
-  function applySlice(slice: string) {
-    resetFilters();
-    setActiveSlice(slice);
-    if (slice === 'aging-premium') {
-      setAgingOnly(true);
-      setMinQty('1');
-      setMaxPrice('100');
+  /**
+   * TER-1625 / F-24: Additive (combinable) preset filter chips.
+   *
+   * Clicking an inactive chip merges its filter fields into the current state
+   * (AND logic — each new chip narrows the result set further).
+   * Clicking an already-active chip removes it and recomputes the merged filter
+   * state from the remaining active chips only, without touching fields that
+   * were not contributed by any chip.
+   *
+   * Implementation: `SLICE_DEFS` (static, above) declares which fields each
+   * chip contributes. On every toggle, this function:
+   *   1. Computes the new active-slice set (add or remove the clicked key).
+   *   2. Builds a clean merged state by iterating over all remaining slices.
+   *   3. Applies that merged state in one batched React update.
+   *
+   * Tracking lives entirely in `activeSlices` (a Set<string>) — no extra
+   * store, no separate "chip contribution" map needed because SLICE_DEFS is
+   * the source of truth for what each chip sets.
+   */
+  function applySlice(sliceKey: string) {
+    const next = new Set(activeSlices);
+    if (next.has(sliceKey)) {
+      next.delete(sliceKey);
+    } else {
+      next.add(sliceKey);
     }
-    if (slice === 'consignment-risk') {
-      setOwnership('C');
-      setMinQty('1');
+    setActiveSlices(next);
+
+    // Recompute merged filter state from the new set of active chips.
+    // Start with all fields cleared so removing a chip resets its fields.
+    const merged: Required<SliceFields> = {
+      search: '',
+      category: '',
+      vendorId: '',
+      tag: '',
+      location: '',
+      ownership: '',
+      minQty: '',
+      maxPrice: '',
+      agingOnly: false,
+    };
+    for (const key of next) {
+      const def = SLICE_DEFS[key];
+      if (def) Object.assign(merged, def);
     }
-    if (slice === 'value-buyers') {
-      setMaxPrice('30');
-      setSearch('value flex');
-    }
-    if (slice === 'low-stock') {
-      setSearch('reorder low');
-      setMinQty('1');
-    }
-    if (slice === 'office-owned') {
-      setOwnership('OFC');
-    }
+    setSearch(merged.search);
+    setCategory(merged.category);
+    setVendorId(merged.vendorId);
+    setTag(merged.tag);
+    setLocation(merged.location);
+    setOwnership(merged.ownership);
+    setMinQty(merged.minQty);
+    setMaxPrice(merged.maxPrice);
+    setAgingOnly(merged.agingOnly);
   }
 
   function copySlice() {
-    const label = savedSlices.find(([key]) => key === activeSlice)?.[1] ?? 'Custom slice';
+    const label = activeSlices.size > 0
+      ? Array.from(activeSlices)
+          .map((key) => savedSlices.find(([k]) => k === key)?.[1] ?? key)
+          .join(' + ')
+      : 'Custom slice';
     const shareReady = filtered.filter((row) => customerShareReady(row.mediaStatus));
     const heldBack = filtered.length - shareReady.length;
     const customerSafeRows = shareReady
@@ -375,7 +440,7 @@ export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId,
 
       <div className="finder-chip-row" aria-label="Saved inventory slices">
         {savedSlices.map(([key, label]) => (
-          <button className={activeSlice === key ? 'finder-chip success' : 'finder-chip'} type="button" key={key} onClick={() => applySlice(key)} aria-pressed={activeSlice === key}>
+          <button className={activeSlices.has(key) ? 'finder-chip success' : 'finder-chip'} type="button" key={key} onClick={() => applySlice(key)} aria-pressed={activeSlices.has(key)}>
             {label}
           </button>
         ))}
