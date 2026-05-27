@@ -1,4 +1,5 @@
 import { Ban, CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
+import { whyShownCol, type RuleMap } from '../components/columns';
 import { CommandReversalTab } from '../components/drawerTabs/CommandReversalTab';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -55,6 +56,15 @@ interface PickQueueRow {
 }
 
 const MS_PER_DAY = 86400000;
+
+// Rule map for the Closeout "Why shown" audit column (status field).
+const CLOSEOUT_STATUS_MAP: RuleMap = {
+  open:     'Period is open — closeout has not been initiated yet.',
+  locked:   'Period is locked — all open work is resolved and this period is ready to archive.',
+  archived: 'Period has been archived — this run is complete and historical.',
+  failed:   'Archive run encountered an error — review the log and retry.',
+  draft:    'Period is in draft state — not yet locked.',
+};
 
 const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
   purchaseOrders: [
@@ -210,7 +220,11 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'csvPath', headerName: 'CSV', minWidth: 180 },
     { field: 'jsonlPath', headerName: 'JSONL', minWidth: 180 },
     { field: 'pdfPath', headerName: 'PDF', minWidth: 180 },
-    { field: 'createdAt', width: 180 }
+    { field: 'createdAt', width: 180 },
+    // Why shown audit column — uses status as the reason key; tooltip shows full
+    // description.  Hidden by default to avoid duplicating the Status column
+    // visually; visible columns remain at 7.
+    { ...whyShownCol('status', CLOSEOUT_STATUS_MAP), hide: true },
   ]
 };
 
