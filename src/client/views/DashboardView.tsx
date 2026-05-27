@@ -14,8 +14,17 @@ import { formatTs } from '../utils/format';
 import type { ColDef } from 'ag-grid-community';
 import type { GridRow, ViewKey } from '../../shared/types';
 
+/** Maps a pendingQueue key to the pre-apply grid filter string.
+ *  Empty string → navigate without applying a filter. */
+const QUEUE_FILTER: Partial<Record<string, string>> = {
+  intake:   'status:ready',
+  sales:    'status:confirmed',
+  payments: '',  // count is from invoices; payments view shows payment records — no direct filter
+};
+
 export function DashboardView() {
   const setDrilldownMetric = useUiStore((state) => state.setDrilldownMetric);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
   const navigate = useNavigate();
   const drilldownMetric = useUiStore((state) => state.drilldownMetric);
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 15_000 });
@@ -213,12 +222,23 @@ export function DashboardView() {
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
         <WorkspacePanel panelId="dashboard:pending-work-queues" title="Pending work queues" headingLevel={2} contentClassName="p-3">
           <div className="grid gap-2">
-            {(dashboard.data?.pendingQueues ?? []).map((queue) => (
-                <button key={queue.key} className="queue-row" type="button" onClick={() => navigate('/' + queue.key)}>
-                <span>{queue.label}</span>
-                <strong>{queue.count}</strong>
-              </button>
-            ))}
+          {(dashboard.data?.pendingQueues ?? []).map((queue) => {
+              const filter = QUEUE_FILTER[queue.key] ?? '';
+              return (
+                <button
+                  key={queue.key}
+                  className="queue-row"
+                  type="button"
+                  onClick={() => {
+                    if (filter) setGridFilter(queue.key as ViewKey, filter);
+                    navigate('/' + queue.key);
+                  }}
+                >
+                  <span>{queue.label}</span>
+                  <strong>{queue.count}</strong>
+                </button>
+              );
+            })}
           </div>
           <div className="mt-4 flex items-center gap-2 text-sm">
             <StatusPill status={dashboard.data?.health.ok ? 'posted' : 'needs_fix'} />

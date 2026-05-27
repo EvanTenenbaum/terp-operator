@@ -2,6 +2,26 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-05-27 — CountPill: navigable count badge component (TER-1624)
+
+**Decision:** New `CountPill` component (`src/client/components/CountPill.tsx`) wraps any numeric count in a `<button>` that calls `setGridFilter(filterView, filterValue)` + `navigate(route)` on click.
+
+**API:** `count`, `route` (absolute path), `filterView?` (ViewKey), `filterValue?` (string in the `field:val1,val2` format used by `gridFilterUtils`), `label?`, `className?`.
+
+**Style:** Reuses the existing `selection-pill` semantic CSS class (no new CSS). Adds `hover:border-accent hover:text-accent cursor-pointer` via Tailwind.
+
+**Why not wrap in outer button:** Anywhere a count is already inside a `<button>` (e.g., DashboardView pending queue rows), nesting `CountPill` would create `<button><button>` which is invalid HTML. In those cases, update the outer button's `onClick` directly to apply the filter before navigating. Only replace truly inert `<span>` or `<strong>` count displays with CountPill.
+
+**Adopted at:**
+- `PhotographyQueuePanel.tsx` — "ready" and "needs media" inert spans replaced with CountPill targeting `/inventory` with `mediaStatus` filters
+- `DashboardView.tsx` — pending queue buttons updated to call `setGridFilter` before navigate (Intake → `status:ready`, Sales → `status:confirmed`)
+
+**Files:** `src/client/components/CountPill.tsx`, `src/client/components/CountPill.test.tsx`, `src/client/components/PhotographyQueuePanel.tsx`, `src/client/views/DashboardView.tsx`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** TER-1624, TER-1611 (Phase 8 UX/Flow audit), GH PR #416.
+
+---
+
 ## 2026-05-25 — Wave 3A AQA repair: WorkspacePanel default heading level changed to h2 (GH #325)
 
 **Decision:** `WorkspacePanel` section titles now render as `<h2>` by default (previously defaulted to `<h3>` with an opt-in `headingLevel` prop). The `headingLevel` prop (values `2 | 3 | 4`) still allows call sites to override when the surrounding heading hierarchy requires a different level.
