@@ -118,21 +118,23 @@ function AppContent() {
     socket.onAny((event: string) => {
       if (event.startsWith('pick:order:')) {
         const orderId = event.slice('pick:order:'.length);
-        if (orderId) {
-          void invalidateAffectedQueries(queryClient, [orderId]);
-          // Also invalidate salesOrderLines so Pick status badges on the sales grid
-          // refresh when pick state changes (e.g., line packed).
-          void queryClient.invalidateQueries({ predicate: (q) => JSON.stringify(q.queryKey).includes(orderId) });
-        }
+        if (orderId) void invalidateAffectedQueries(queryClient, [orderId]);
       }
       // sales:order:{orderId}:line:changed — fired when the sales operator releases
-      // or recalls a line. Invalidate affected pick queries and the sales grid.
+      // or recalls a line. Invalidates all queries for the affected order (salesOrderLines,
+      // pickListWithLines, etc.) and the pick queue.
       if (event.startsWith('sales:order:') && event.endsWith(':line:changed')) {
-        const parts = event.split(':');
-        const orderId = parts[2]; // "sales:order:{orderId}:line:changed"
+        const parts = event.split(':'); // ['sales', 'order', orderId, 'line', 'changed']
+        const orderId = parts[2];
         if (orderId) {
-          void queryClient.invalidateQueries({ predicate: (q) => JSON.stringify(q.queryKey).includes(orderId) });
-          void queryClient.invalidateQueries({ predicate: (q) => JSON.stringify(q.queryKey).includes('pickQueue') });
+          void invalidateAffectedQueries(queryClient, [orderId]);
+          // Also refresh the pick queue (roster changes when a line is released/recalled).
+          void queryClient.invalidateQueries({
+            predicate: (q) => {
+              try { return JSON.stringify(q.queryKey).includes('pickQueue'); }
+              catch { return false; }
+            }
+          });
         }
       }
     });
