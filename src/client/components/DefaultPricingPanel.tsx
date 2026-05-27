@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
@@ -167,8 +167,8 @@ export function DefaultPricingPanel() {
           </thead>
           <tbody>
             {Object.entries(categoryDrafts).map(([cat, draft]) => (
-              <>
-                <tr key={cat} className="pricing-cat-row">
+              <Fragment key={cat}>
+                <tr className="pricing-cat-row">
                   <td>
                     <button
                       type="button"
@@ -321,7 +321,7 @@ export function DefaultPricingPanel() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
 
             <tr className="pricing-add-cat-row">
