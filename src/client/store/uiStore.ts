@@ -82,6 +82,8 @@ interface UiState {
   selectedRows: Partial<Record<ViewKey, GridRow[]>>;
   commandPaletteOpen: boolean;
   commandPaletteAdvancedOpen: boolean;
+  // TER-1633: unified spotlight tab — 'commands' (⌘K) or 'entities' (⌘⇧F)
+  commandPaletteTab: 'commands' | 'entities';
   rightPanelOpen: boolean;
   sideNavCollapsed: boolean;
   drilldownMetric: string | null;
@@ -127,6 +129,9 @@ interface UiState {
   setSelectedRows: (view: ViewKey, rows: GridRow[]) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   setCommandPaletteAdvancedOpen: (open: boolean) => void;
+  // TER-1633: open unified palette on a specific tab
+  openPalette: (tab: 'commands' | 'entities') => void;
+  setCommandPaletteTab: (tab: 'commands' | 'entities') => void;
   toggleSideNav: () => void;
   setDrilldownMetric: (metric: string | null) => void;
   togglePanelCollapsed: (panelId: string) => void;
@@ -180,6 +185,7 @@ export const useUiStore = create<UiState>()(
     selectedRows: {},
     commandPaletteOpen: false,
     commandPaletteAdvancedOpen: false,
+    commandPaletteTab: 'commands' as const,
     rightPanelOpen: false,
     sideNavCollapsed: false,
     drilldownMetric: null,
@@ -248,12 +254,25 @@ export const useUiStore = create<UiState>()(
     setCommandPaletteOpen: (open) =>
       set((state) => {
         state.commandPaletteOpen = open;
-        if (!open) state.commandPaletteAdvancedOpen = false;
+        if (!open) {
+          state.commandPaletteAdvancedOpen = false;
+          state.commandPaletteTab = 'commands';
+        }
       }),
     setCommandPaletteAdvancedOpen: (open) =>
       set((state) => {
         state.commandPaletteAdvancedOpen = open;
         state.commandPaletteOpen = open || state.commandPaletteOpen;
+      }),
+    openPalette: (tab) =>
+      set((state) => {
+        state.commandPaletteOpen = true;
+        state.commandPaletteTab = tab;
+        state.announcement = tab === 'commands' ? 'Command palette opened.' : 'Entity search opened.';
+      }),
+    setCommandPaletteTab: (tab) =>
+      set((state) => {
+        state.commandPaletteTab = tab;
       }),
     toggleSideNav: () =>
       set((state) => {
@@ -417,6 +436,7 @@ export const useUiStore = create<UiState>()(
         state.finderOpen = false;
         state.commandPaletteOpen = false;
         state.commandPaletteAdvancedOpen = false;
+        state.commandPaletteTab = 'commands';
         state.pickQueueFilters = new Set();
         state.ledgerDrafts = [makeLedgerRow('receiving')];
         state.announcement = 'Signed out.';
