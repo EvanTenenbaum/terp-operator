@@ -1,7 +1,7 @@
 # Finder & Pricing UI Redesign
 
 **Date:** 2026-05-27  
-**Status:** Approved — ready for implementation planning  
+**Status:** Approved — AQA findings addressed — ready for implementation planning  
 **Scope:** `InventoryFinderPanel`, `AdvancedFilterBuilder`, `DefaultPricingPanel`, `CustomerPricingPanel`, inline sales order pricing in `SalesView`
 
 ---
@@ -53,11 +53,11 @@
 
 - Always visible row below the filter bar
 - "Views" uppercase label at left
-- Chips: existing 5 hardcoded slices + any user-saved named views
+- Chips: the 5 default views + any user-saved named views from `trpc.filters.listSavedFilters`
 - Active preset shown with accent fill (`.finder-chip.success` pattern)
-- **`+ Save current`**: dashed chip — saves the current filter bar state (search + pills + advanced filter if set) as a named view. Opens an inline name input in the strip or a small popover with a name field + Save/Cancel.
-- **`Manage views`**: opens the existing `SavedFiltersManager` (already implemented). Link at trailing edge of strip.
-- Saved views from `trpc.filters.listSavedFilters` replace the hardcoded saved slices concept. The 5 hardcoded slices (`savedSlices` array) are removed from the component and instead pre-seeded as saved filters via `db:seed` so they exist out of the box for all workspaces. They are then user-editable/deletable like any other saved view.
+- **`+ Save current`**: dashed chip — saves the current filter bar state (search + pills + advanced filter if set) as a named view via `trpc.filters.saveFilter`. Opens a small name-entry popover with Save/Cancel.
+- **`Manage views`**: opens the existing `SavedFiltersManager`. Link at trailing edge of strip.
+- **Migration for existing workspaces**: the 5 hardcoded slices (`savedSlices` array in the component) are removed. A new DB migration (or idempotent startup upsert) inserts the 5 default views as saved filters for any workspace with zero saved filters of type `inventory`. This ensures existing workspaces are not broken on deploy — `db:seed` alone is insufficient for live workspaces.
 
 ### Advanced filter builder panel
 
@@ -65,7 +65,7 @@
 - **Header**: accent-tinted bar with title, logic badge (`AND`/`OR`, clickable to toggle), and `✕ Close builder` button
 - **Body**: one `condition-row` per condition — field select, operator select, value input, remove button. Nested groups shown indented with a left accent border and their own logic badge.
 - **Condition row inputs**: use `.select` and `.input` semantic classes (not raw `border px-2`)
-- **Footer**: `Apply (N results)` primary button, `Save as view…` secondary button (opens save-name popover, writes to presets strip), `Clear all` ghost button
+- **Footer**: `Apply (N results)` primary button, `Save as view…` secondary button, `Clear all` ghost button
 - **Logic badge**: accent pill showing `AND` or `OR`, click toggles. Nested groups have their own badge.
 - The builder is the existing `AdvancedFilterBuilder` component, restyled — logic is unchanged.
 
@@ -85,8 +85,9 @@ New semantic classes in `styles.css`:
 - `.condition-row` — single filter condition row
 - `.logic-badge` — AND/OR toggle pill
 - `.nested-group` — indented nested group with left accent border
+- `.presets-strip` — the views strip row
 
-Existing classes reused: `.finder-chip`, `.finder-chip.success`, `.presets-strip` (new), `.control-band`, `.secondary-button`, `.primary-button`, `.compact-action`
+Existing classes reused: `.finder-chip`, `.finder-chip.success`, `.control-band`, `.secondary-button`, `.primary-button`, `.compact-action`
 
 ---
 
@@ -128,23 +129,32 @@ Existing classes reused: `.finder-chip`, `.finder-chip.success`, `.presets-strip
 ### Behaviour
 - Category rows show a summary badge (e.g. `35%`) and a collapse chevron (▾/▸)
 - Subcategory rows indent under their category. Only appear when category is expanded.
-- Subcategory rows without an explicit override show "inherits X%" in grey — they take the parent category's value
-- "Add subcategory override" link appears at the bottom of each expanded category
-- "Add category override" select at table bottom for categories not yet overridden
+- Subcategory rows without an explicit override show "inherits X%" in grey
+- "Add subcategory override" link at the bottom of each expanded category
+- "Add category override" select at table bottom
 - Inputs: `.select` + `.input` semantic classes throughout
 - Save: `.primary-button`
 - Internal-only: amber `.selection-pill` badge in the card header
 
-### Data model extension needed
-`CustomerPricingRule` type needs a `subcategories` map alongside `categories`:
+### Data model — subcategory key design (AQA fix)
+
+`CustomerPricingRule` type uses a **nested structure** to avoid key collisions between subcategories that share a name across different categories (e.g. `Flower > Indoor` and `Vape > Indoor` must not collide):
+
 ```ts
+interface CategoryPricingEntry {
+  rule?: PricingRuleEntry                           // category-level override
+  subcategories?: Record<string, PricingRuleEntry> // subcategory overrides, keyed by subcategory name within this category
+}
+
 interface CustomerPricingRule {
   default?: PricingRuleEntry
-  categories?: Record<string, PricingRuleEntry>        // existing
-  subcategories?: Record<string, PricingRuleEntry>     // new — key = subcategory name
+  categories?: Record<string, CategoryPricingEntry>  // replaces old Record<string, PricingRuleEntry>
 }
 ```
-The `setDefaultPricingRule` and `setCustomerPricingRule` commands need to accept and persist `subcategories`.
+
+**Migration note**: the existing `categories` field stores `PricingRuleEntry` directly. The new shape wraps it in `CategoryPricingEntry`. The `setDefaultPricingRule` / `setCustomerPricingRule` command handlers must be backward-compatible: when reading an existing rule, if a category value is a bare `PricingRuleEntry` (has `basis` + `amount`), treat it as `{ rule: value }`.
+
+The `resolvePricingRuleEntry` function in `src/shared/inventoryPricingShared.ts` must be updated to walk: `customer category.subcategories[sub]` → `customer category.rule` → `customer default` → `settings category.subcategories[sub]` → `settings category.rule` → `settings default` → fallback.
 
 ---
 
@@ -164,50 +174,77 @@ Same visual structure as DefaultPricingPanel. Additional elements:
 **File:** `src/client/views/SalesView.tsx` (sales order lines AG Grid)
 
 ### Remove
-`OrderPricingPanel` component and its usage in `ContextDrawer` are removed entirely. The `PricingPanel.tsx` export `OrderPricingPanel` is deleted.
+`OrderPricingPanel` component and its usage in `ContextDrawer` are removed entirely. The `PricingPanel.tsx` export `OrderPricingPanel` is deleted. `ContextDrawer.tsx` must be updated to remove the import and render site.
 
 ### New grid columns (operator view only, hidden in customer-facing view)
 
 | Column | Type | Notes |
 |---|---|---|
-| COGS / Range | Display | Fixed: shows cost + rule source. Range: shows derived COGS + range check (✓ or ↓) |
-| Markup $ | Editable | Auto-filled from pricing rule on line add. `rule` badge when auto; `override` badge when manually changed |
-| Markup % | Calculated | Display only — always Markup $ ÷ COGS (markup-on-cost). For range rows, COGS is the derived value. |
+| COGS | Display | Fixed: `batch.unitCost` + rule source label. Range: derived value + range check (✓ / ↓ / ↑), informational only |
+| Markup $ | Editable | Auto-filled from pricing rule. `rule` badge when auto; `override` badge when manually changed |
+| Markup % | Calculated | Display only — **always Markup $ ÷ COGS** (markup-on-cost, consistent for both batch types) |
 | Unit price | Editable | Always editable |
 
-All four columns are gated behind the existing `showMargin` toggle — hidden in customer screen-share posture.
+All four columns gated behind the existing `showMargin` toggle.
+
+### Markup formula decision (AQA fix)
+
+**Canonical formula**: markup-on-cost for both batch types. `Markup % = Markup $ ÷ COGS`.
+
+This requires a consistent way to auto-fill `Markup $` from the rule when price is the primary input (range batches). The conversion is:
+
+```
+Markup $ = Unit price × (rule% / (1 + rule%))
+COGS     = Unit price − Markup $
+Markup % = Markup $ / COGS   ← always equals rule%  ✓
+```
+
+Example: rule = 30%, price = $100 → Markup $ = $100 × (0.30/1.30) = $23.08, COGS = $76.92, Markup % = 30%. Mathematically consistent.
+
+For dollar-basis rules (`basis: 'dollar'`): `Markup $ = rule.amount` (fixed dollar); `Unit price = COGS + rule.amount` for fixed batches; for range batches, `Markup $` is pre-filled to `rule.amount` and COGS is derived as `price - rule.amount`.
 
 ### Two flows
 
-**Fixed COGS batch** (batch has a single `unitCost` value):
-1. COGS = `batch.unitCost` — known, shown in COGS cell with rule source label
-2. Markup $ = COGS × rule% (or + rule$) — auto-filled on line add, tagged `rule`
+**Fixed COGS batch** (batch has a single `unitCost`):
+1. COGS = `batch.unitCost` — shown in COGS cell with rule source label
+2. Markup $ = `applyPricingRule(COGS, resolvedRule) - COGS` — auto-filled, tagged `rule`
 3. Unit price = COGS + Markup $ — editable
-4. Editing unit price → Markup $ = Unit price − COGS, tag changes to `override`
-5. Editing Markup $ → Unit price = COGS + Markup $, tag changes to `override`
+4. Editing unit price → Markup $ = Unit price − COGS, tag → `override`
+5. Editing Markup $ → Unit price = COGS + Markup $, tag → `override`
 
 **Range COGS batch** (batch has a `priceRange` low–high):
-1. Unit price — operator sets this first (primary input)
-2. Markup $ = Unit price × rule% — auto-filled from rule on price entry, tagged `rule`
+1. Unit price — operator sets this (primary input)
+2. Markup $ = Unit price × (rule% / (1 + rule%)) — auto-filled from rule, tagged `rule`
 3. COGS = Unit price − Markup $ — derived, shown with range check
-4. Range check: if derived COGS is within `[rangeLow, rangeHigh]` → show ✓ in range; if outside → show ↓ below or ↑ above (informational only, no gate, no approval required)
-5. Editing Markup $ → COGS updates (price stays), tag changes to `override`
-6. Editing Unit price → Markup $ recalculates from rule, COGS updates
+4. Range check: ✓ in range / ↓ below / ↑ above — informational only, no gate
+5. Editing Markup $ → COGS updates (price stays), tag → `override`
+6. Editing Unit price → Markup $ recalculates from rule, COGS updates, tag stays `rule`
 
 ### Rule resolution order
-Same as existing `resolvePricingRuleEntry`: customer subcategory → customer category → customer default → settings subcategory → settings category → settings default → fallback 30%.
+`resolvePricingRuleEntry` updated to walk: customer `subcategories[sub]` → customer `categories[cat].rule` → customer `default` → settings `subcategories[sub]` → settings `categories[cat].rule` → settings `default` → fallback 30%.
 
-The rule source label under the COGS cell identifies which level matched: `▲ customer · Indoor`, `▲ customer · Flower`, `▲ default · Vape`, etc.
+Rule source label shown under COGS cell: `▲ customer · Indoor`, `▲ customer · Flower`, `▲ default · Vape`, etc.
 
 ### "Re-apply rule" toolbar button
-Resets all draft lines' Markup $ back to the current pricing rule (clears overrides). Existing `priceSalesOrder` command or equivalent.
+Resets all draft lines' Markup $ to rule auto-fill (clears overrides). Reuses or extends existing `priceSalesOrder` command.
 
 ### AG Grid cell implementation
-- COGS / Range: custom `cellRenderer` — reads `unitCost` vs `priceRange` to decide which layout to render
-- Markup $: `editable: true`, `valueSetter` writes to local state and triggers recalc
+- COGS: custom `cellRenderer` — reads `unitCost` vs `priceRange` to choose fixed vs range layout
+- Markup $: `editable: true`, `valueSetter` writes to local row state and triggers recalc
 - Unit price: `editable: true`, `valueSetter` triggers recalc
-- Markup %: `valueGetter` — computed from Markup $ and COGS/price depending on batch type
-- All four columns use `headerClass: 'pricing-col-header'` for the green-tinted header background
+- Markup %: `valueGetter` — `markupDollars / derivedCogs`
+- All four columns: `headerClass: 'pricing-col-header'` for green-tinted header
+
+### Test coverage (AQA fix)
+
+A new test file `src/client/views/SalesView.pricing.test.tsx` (or extended existing SalesView test) must cover:
+- Fixed-COGS: auto-fill markup on line add
+- Fixed-COGS: editing unit price → markup recalculates, tag → `override`
+- Fixed-COGS: editing Markup $ → price recalculates
+- Range-COGS: operator sets price → markup auto-fills, COGS derived
+- Range-COGS: range check boundary (in-range ✓, below ↓, above ↑)
+- Range-COGS: editing Markup $ → COGS updates, price unchanged
+- Re-apply rule: all draft lines reset to `rule` tag values
 
 ---
 
@@ -228,13 +265,13 @@ All new classes follow the hybrid Tailwind+semantic-class pattern. New entries i
 .condition-row { }
 .logic-badge { }
 .nested-group { }
-.presets-strip { }  /* if not already present */
+.presets-strip { }
 
 /* Pricing table */
-.pricing-rule-table { }      /* the cat/subcat override table */
+.pricing-rule-table { }
 .pricing-cat-row { }
 .pricing-sub-row { }
-.pricing-col-header { }      /* green-tinted AG Grid header for pricing cols */
+.pricing-col-header { }
 ```
 
 ---
@@ -242,10 +279,9 @@ All new classes follow the hybrid Tailwind+semantic-class pattern. New entries i
 ## 6. What is NOT changing
 
 - AG Grid results area in `InventoryFinderPanel` — completely untouched
-- `AdvancedFilterBuilder` logic, `filterSchemas.ts`, `filterEvaluator.ts`, `trpc.filters.*` — logic unchanged, restyled only
+- `AdvancedFilterBuilder` filter evaluation logic, `filterSchemas.ts`, `filterEvaluator.ts`, `trpc.filters.*` — logic unchanged, restyled only
 - `SavedFiltersManager` component — unchanged, surfaced via "Manage views" link
 - `useCommandRunner` contract — all mutations still route through it
-- `priceSalesOrder` command — reused as-is for "Re-apply rule"
 - `showMargin` toggle behaviour — pricing columns remain gated
 
 ---
@@ -259,8 +295,12 @@ All new classes follow the hybrid Tailwind+semantic-class pattern. New entries i
 | `src/client/components/DefaultPricingPanel.tsx` | Redesign + subcategory support |
 | `src/client/components/PricingPanel.tsx` | Remove `OrderPricingPanel`; redesign `CustomerPricingPanel` |
 | `src/client/components/PricingPanel.test.tsx` | Remove `OrderPricingPanel` test suite; update `CustomerPricingPanel` tests |
+| `src/client/components/ContextDrawer.tsx` | Remove `OrderPricingPanel` import and render site |
 | `src/client/views/SalesView.tsx` | Add inline pricing columns to sales order lines grid |
-| `src/client/styles.css` | Add ~12 new semantic classes |
-| `src/shared/types.ts` | Add `subcategories` to `CustomerPricingRule` |
-| `src/server/services/commandBus.ts` | Accept `subcategories` in `setDefaultPricingRule` + `setCustomerPricingRule` |
+| `src/client/views/SalesView.pricing.test.tsx` | New — covers both pricing flows (7 cases, see §4) |
+| `src/client/styles.css` | Add ~14 new semantic classes |
+| `src/shared/types.ts` | Update `CustomerPricingRule` to nested `CategoryPricingEntry` structure |
+| `src/shared/inventoryPricingShared.ts` | Update `resolvePricingRuleEntry` for subcategory resolution |
+| `src/server/services/commandBus.ts` | Accept new `CustomerPricingRule` shape; backward-compat read of old flat `categories` |
+| `migrations/XXXX_default_inventory_views.sql` | Idempotent upsert of 5 default saved filter views for existing workspaces |
 | `docs/design-system/decisions-log.md` | Append entry |
