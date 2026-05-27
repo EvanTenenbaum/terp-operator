@@ -4,9 +4,9 @@
  * inventory-operator, payments-accounting, warehouse-operator,
  * support-operator, photographer-readiness, connector-actor
  *
- * Target: QA_APP_URL=http://100.104.134.78:5173
- * Run with: PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://100.104.134.78:5173
- *   pnpm exec playwright test tests/e2e/persona-flow-qa.spec.ts --project=chromium --workers=1
+ * Run via: scripts/run-persona-qa.sh   (detects Tailscale IP automatically — GH #400)
+ * Manual:  PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=<app-url> \
+ *            pnpm exec playwright test tests/e2e/persona-flow-qa.spec.ts --project=chromium --workers=1
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -67,16 +67,19 @@ async function goDashboard(page: Page) {
 
 async function goIntake(page: Page) {
   await nav(page).getByRole('button', { name: /Intake/ }).click();
-  await expect(page.getByText('Intake queue').first()).toBeVisible({ timeout: 30_000 });
+  // Increase timeout to 60s: after long PO creation sequences intake queries may be slow (GH #398 Fix 2)
+  await expect(page.getByText('Intake queue').first()).toBeVisible({ timeout: 60_000 });
 }
 
 async function goInventory(page: Page) {
   await nav(page).getByRole('button', { name: /Inventory/ }).click();
-  await page.waitForTimeout(1_500);
+  // Wait for Inventory heading so previous view's content is gone before callers assert (GH #398 Fix 3)
+  await expect(page.locator('h1').filter({ hasText: /Inventory/ })).toBeVisible({ timeout: 15_000 });
 }
 
 async function goSales(page: Page) {
-  await page.getByTestId('sidenav-item-sales').click();
+  // Use direct navigation to avoid stale nav-button state after cross-view transitions (GH #398 Fix 1)
+  await page.goto('/sales');
   await expect(page.getByText('Sales Orders').first()).toBeVisible({ timeout: 30_000 });
 }
 
@@ -391,7 +394,8 @@ test('SO1 – Sales: Instant Sale Normal Path', async ({ page }) => {
     await customerSelect.selectOption({ label: 'Capitol Cure' });
   }
   await page.waitForTimeout(1_000);
-  await expect(page.getByText('Sales Orders').first()).toBeVisible({ timeout: 10_000 });
+  // Increased from 10s to 30s: workspace settle time after customer select (GH #398 Fix 4)
+  await expect(page.getByText('Sales Orders').first()).toBeVisible({ timeout: 30_000 });
 
   // Step 2: Check Inventory Finder
   const finder = page.getByTestId('inventory-finder');

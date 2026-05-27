@@ -416,6 +416,8 @@ export function OperatorGrid({
               setSelectedRows(selected);
               onSelectionChange?.(selected);
             }}
+            onCellEditingStarted={() => { useUiStore.getState().setCellEditing(true); }}
+            onCellEditingStopped={() => { useUiStore.getState().setCellEditing(false); }}
             onCellValueChanged={onCellCommit}
           />
         ) : (

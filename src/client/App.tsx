@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -75,8 +75,16 @@ function AppContent() {
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
   const focusMode = useUiStore((state) => state.focusMode);
   const pushToast = useUiStore((state) => state.pushToast);
+  // GH #409: subscribe to editing state so we can flush deferred peer
+  // invalidations the moment the operator finishes editing a cell.
+  const isCellEditing = useUiStore((state) => state.isCellEditing);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  // GH #409: accumulates affectedIds that arrived while a cell was being
+  // edited. Flushed by the effect below when isCellEditing drops to false.
+  const pendingPeerIds = useRef<string[]>([]);
+  // Prevents repeated "updating" toasts for a single editing session.
+  const peerToastShownRef = useRef(false);
 
   // Auto-redirect mobile viewports to the mobile shell
   // Skipped if user has explicitly chosen desktop (localStorage flag)
@@ -90,6 +98,17 @@ function AppContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // GH #409: when editing stops, flush any peer invalidations that were
+  // deferred to avoid silently discarding mid-edit cell values.
+  useEffect(() => {
+    if (!isCellEditing && pendingPeerIds.current.length > 0) {
+      const ids = pendingPeerIds.current;
+      pendingPeerIds.current = [];
+      peerToastShownRef.current = false;
+      void invalidateAffectedQueries(queryClient, ids);
+    }
+  }, [isCellEditing, queryClient]);
 
   useEffect(() => {
     if (!me.data) return;
@@ -117,8 +136,18 @@ function AppContent() {
       // Cross-tab targeted invalidation — see #44. The WS payload already
       // carries the affectedIds the originating command reported, so we can
       // refetch only the queries that reference those entities.
-      void invalidateAffectedQueries(queryClient, event.affectedIds ?? []);
-      // Peer completions are debounced: accumulate for 2s then show ONE summary. GH #408.
+      // GH #409: defer invalidation while a cell is being edited.
+      const ids = event.affectedIds ?? [];
+      if (useUiStore.getState().isCellEditing) {
+        pendingPeerIds.current = [...pendingPeerIds.current, ...ids];
+        if (!peerToastShownRef.current) {
+          pushToast('Inventory updated by another user — will refresh when you finish editing', 'info');
+          peerToastShownRef.current = true;
+        }
+      } else {
+        void invalidateAffectedQueries(queryClient, ids);
+      }
+      // GH #408: debounce peer completion toasts — accumulate for 2s then show ONE summary.
       if (event.toast && event.actorId !== currentUserId) {
         peerCompletedQueue.push(event.toast);
         if (peerCompletedTimer) clearTimeout(peerCompletedTimer);
