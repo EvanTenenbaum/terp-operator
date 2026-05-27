@@ -49,10 +49,22 @@ async function _fetchReferenceData() {
                        b.ownership_status as "ownershipStatus", b.price_range as "priceRange", b.tags, b.status,
                        b.legacy_marker as "legacyMarker", b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus",
                        b.created_at as "createdAt",
-                       floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays"
+                       floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays",
+                       coalesce(dr.draft_reserved_qty, 0)::numeric(12,3) as "draftReservedQty"
                 from batches b
                 left join vendors v on v.id = b.vendor_id
                 left join items i on i.id = b.item_id
+                -- TER-1634 / F-28: soft reservation projection — shows how much of this
+                -- batch is already held in other operators' draft/confirmed sales orders.
+                -- Line statuses reserved/allocated/posted/cancelled are settled and excluded.
+                left join lateral (
+                  select coalesce(sum(sol.qty), 0)::numeric(12,3) as draft_reserved_qty
+                  from sales_order_lines sol
+                  join sales_orders so on so.id = sol.order_id
+                  where so.status in ('draft', 'confirmed')
+                    and sol.status not in ('reserved', 'allocated', 'posted', 'cancelled')
+                    and sol.batch_id = b.id
+                ) dr on true
                 where b.status = 'posted' and b.available_qty > 0
                 order by b.created_at desc`),
     pool.query("select id, order_no as \"orderNo\", customer_id as \"customerId\", status, total from sales_orders where status in ('draft','confirmed','posted') order by created_at desc"),

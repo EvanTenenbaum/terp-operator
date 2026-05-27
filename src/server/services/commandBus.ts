@@ -2410,6 +2410,64 @@ async function assertSalesOrderEditableById(tx: Tx, orderId: string): Promise<vo
   }
 }
 
+/**
+ * TER-1634 / F-28: Read-derived draft reservation projection.
+ *
+ * Returns a map of batchId → total qty currently held by *other* draft/confirmed
+ * sales orders so the availability guard in addSalesOrderLine and
+ * updateSalesOrderLine can account for competing drafts before a hard reserve.
+ *
+ * IMPORTANT: This is a soft guard only.  The hard TOCTOU close happens at
+ * reserveInventoryForOrder via a FOR UPDATE row-lock on the batch (GH #249).
+ * Two operators who read this projection simultaneously (before either commits)
+ * can both pass the soft guard — the residual race window is documented and
+ * known.  This guard narrows the window in the common sequential case.
+ *
+ * Uses tx.execute() with raw SQL so it works with the existing test mock tx
+ * (which returns `{ rows: [] }` for all execute calls → draftReservedQty=0,
+ * falling back to the original availableQty - reservedQty guard semantics).
+ *
+ * @param tx             Drizzle transaction — keeps the read within the tx
+ * @param batchIds       Batch UUIDs to check — pass only the IDs in scope
+ * @param excludeOrderId UUID of the current order; own lines are excluded so
+ *                       operators don't double-count their own existing lines
+ */
+export async function getDraftReservedQtyMap(
+  tx: Tx,
+  batchIds: string[],
+  excludeOrderId?: string
+): Promise<Record<string, number>> {
+  if (!batchIds.length) return {};
+
+  // Build `$1::uuid, $2::uuid, ...` placeholders via sql.join so drizzle
+  // parameterizes each UUID correctly without manual string interpolation.
+  const batchIdList = sql.join(
+    batchIds.map((id) => sql`${id}::uuid`),
+    sql`, `
+  );
+  const excludeClause = excludeOrderId
+    ? sql`AND sol.order_id != ${excludeOrderId}::uuid`
+    : sql``;
+
+  const result = await tx.execute<{ batch_id: string; draft_reserved_qty: string }>(sql`
+    SELECT sol.batch_id,
+           SUM(sol.qty)::numeric(12,3) AS draft_reserved_qty
+    FROM   sales_order_lines sol
+    JOIN   sales_orders so ON so.id = sol.order_id
+    WHERE  so.status IN ('draft', 'confirmed')
+      AND  sol.status NOT IN ('reserved', 'allocated', 'posted', 'cancelled')
+      AND  sol.batch_id IN (${batchIdList})
+      ${excludeClause}
+    GROUP BY sol.batch_id
+  `);
+
+  const map: Record<string, number> = {};
+  for (const row of result.rows) {
+    map[row.batch_id] = Number(row.draft_reserved_qty);
+  }
+  return map;
+}
+
 async function createSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   createSalesOrderPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
@@ -2429,7 +2487,17 @@ async function addSalesOrderLine(tx: Tx, payload: Payload, commandId: string): P
   const unresolvedSourceText = stringValue(payload.unresolvedSourceText ?? payload.itemName ?? payload.sourceRowKey);
   const [batch] = batchId ? await tx.select().from(batches).where(eq(batches.id, requiredId(batchId, 'batchId'))).limit(1) : [];
   if (batchId && (!batch || batch.status !== 'posted')) throw new Error('Selected batch is not available for sale.');
-  if (batch && Number(batch.availableQty) - Number(batch.reservedQty) < qty) throw new Error(`${batch.name} does not have enough available quantity.`);
+  // TER-1634: Soft reservation guard — subtract draft-held qty from other orders
+  // so two operators building concurrent drafts see reduced visible availability.
+  // NOTE (GH #249): This guard shifts but does NOT close the TOCTOU race window.
+  // The hard close is at reserveInventoryForOrder (FOR UPDATE row-lock on batch).
+  if (batch) {
+    const draftMap = await getDraftReservedQtyMap(tx, [batch.id], orderId);
+    const draftReservedQty = draftMap[batch.id] ?? 0;
+    if (Number(batch.availableQty) - Number(batch.reservedQty) - draftReservedQty < qty) {
+      throw new Error(`${batch.name} does not have enough available quantity.`);
+    }
+  }
   const itemName = batch?.name || stringValue(payload.itemName) || unresolvedSourceText;
   if (!itemName) throw new Error('Item name or source text is required for a draft sale line.');
   const unitPrice = payload.unitPrice != null ? requiredNumber(payload.unitPrice, 'unitPrice') : Number(batch?.unitPrice ?? 0);
@@ -2556,6 +2624,26 @@ async function updateSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
   }
   copyIfPresent(values, 'itemName', payload.itemName);
   if (payload.qty != null) values.qty = qtyScale(payload.qty);
+  // TER-1634: Latent gap fix — updateSalesOrderLine previously had no availability
+  // re-check when qty was increased.  A qty increase on a draft line backed by a
+  // batch must pass the same guard as addSalesOrderLine.
+  //
+  // NOTE (GH #249): Same soft-guard limitation applies — the hard close is at
+  // reserveInventoryForOrder (FOR UPDATE row-lock on batch row).
+  if (payload.qty != null) {
+    const effectiveBatchId = (values.batchId as string | null | undefined) ?? line.batchId;
+    if (effectiveBatchId) {
+      const [guardBatch] = await tx.select().from(batches).where(eq(batches.id, effectiveBatchId)).limit(1);
+      if (guardBatch) {
+        const draftMap = await getDraftReservedQtyMap(tx, [effectiveBatchId], line.orderId);
+        const draftReservedQty = draftMap[effectiveBatchId] ?? 0;
+        const newQty = requiredNumber(payload.qty, 'qty');
+        if (Number(guardBatch.availableQty) - Number(guardBatch.reservedQty) - draftReservedQty < newQty) {
+          throw new Error(`${guardBatch.name} does not have enough available quantity.`);
+        }
+      }
+    }
+  }
   if (payload.unitPrice != null) values.unitPrice = moneyScale(payload.unitPrice);
   if (payload.status != null) values.status = stringValue(payload.status);
   if (payload.sourceRowKey != null) values.sourceRowKey = stringValue(payload.sourceRowKey) || null;
