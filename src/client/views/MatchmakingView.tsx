@@ -245,6 +245,7 @@ export function MatchmakingView() {
                 <button
                   className="primary-button compact-action"
                   disabled={isRunning || !canWrite}
+                  title={!canWrite ? 'You have view-only access' : undefined}
                   onClick={() => {
                     if (!row.id || row.id.trim() === '') return;
                     runCommand('acceptMatchmakingMatch', { matchId: row.id }, 'Accept match');
@@ -257,6 +258,7 @@ export function MatchmakingView() {
                 <button
                   className="secondary-button compact-action"
                   disabled={isRunning || !canWrite}
+                  title={!canWrite ? 'You have view-only access' : undefined}
                   onClick={() => {
                     if (!row.id || row.id.trim() === '') return;
                     runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss match');
@@ -272,6 +274,7 @@ export function MatchmakingView() {
               <button
                 className="secondary-button compact-action"
                 disabled={isRunning || !canWrite}
+                title={!canWrite ? 'You have view-only access' : undefined}
                 onClick={() => {
                   if (!row.id || row.id.trim() === '') return;
                   runCommand('reopenMatchmakingMatch', { matchId: row.id }, 'Reopen for review');
@@ -326,24 +329,27 @@ export function MatchmakingView() {
     {
       headerName: 'Action',
       width: 130,
-      cellRenderer: (params: { data?: GridRow }) => (
-        <button
-          className="secondary-button compact-action"
-          disabled={isRunning || !canWrite}
-          onClick={() => {
-            if (!params.data?.customerId || !params.data?.category) return;
-            runCommand('noteMatchmakingOutreach', {
-              entityType: 'customer',
-              entityId: params.data.customerId,
-              context: params.data.category,
-              leg: 2,
-            }, 'Note customer outreach').then(() => opportunities.refetch());
-          }}
-          type="button"
-        >
-          Note contact
-        </button>
-      ),
+      cellRenderer: (params: { data?: GridRow }) => {
+        if (!canWrite) return null;
+        return (
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={() => {
+              if (!params.data?.customerId || !params.data?.category) return;
+              runCommand('noteMatchmakingOutreach', {
+                entityType: 'customer',
+                entityId: params.data.customerId,
+                context: params.data.category,
+                leg: 2,
+              }, 'Note customer outreach').then(() => opportunities.refetch());
+            }}
+            type="button"
+          >
+            Note contact
+          </button>
+        );
+      },
     },
   ], [isRunning, canWrite, runCommand, opportunities]);
 
@@ -393,24 +399,27 @@ export function MatchmakingView() {
     {
       headerName: 'Action',
       width: 130,
-      cellRenderer: (params: { data?: GridRow }) => (
-        <button
-          className="secondary-button compact-action"
-          disabled={isRunning || !canWrite}
-          onClick={() => {
-            if (!params.data?.vendorId || !params.data?.category) return;
-            runCommand('noteMatchmakingOutreach', {
-              entityType: 'vendor',
-              entityId: params.data.vendorId,
-              context: params.data.category,
-              leg: 3,
-            }, 'Note vendor outreach').then(() => opportunities.refetch());
-          }}
-          type="button"
-        >
-          Note contact
-        </button>
-      ),
+      cellRenderer: (params: { data?: GridRow }) => {
+        if (!canWrite) return null;
+        return (
+          <button
+            className="secondary-button compact-action"
+            disabled={isRunning}
+            onClick={() => {
+              if (!params.data?.vendorId || !params.data?.category) return;
+              runCommand('noteMatchmakingOutreach', {
+                entityType: 'vendor',
+                entityId: params.data.vendorId,
+                context: params.data.category,
+                leg: 3,
+              }, 'Note vendor outreach').then(() => opportunities.refetch());
+            }}
+            type="button"
+          >
+            Note contact
+          </button>
+        );
+      },
     },
   ], [isRunning, canWrite, runCommand, opportunities]);
 
