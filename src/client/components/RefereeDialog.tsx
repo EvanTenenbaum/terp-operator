@@ -27,17 +27,20 @@ export function RefereeDialog({ refereeId, initial, onClose }: RefereeDialogProp
     paymentMethod: initial.paymentMethod ?? 'check',
     notes: initial.notes ?? ''
   });
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   function update<K extends keyof RefereeFormValues>(key: K, value: RefereeFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
+    if (errorMsg) setErrorMsg(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!values.name.trim()) {
-      alert('Name is required.');
+      setErrorMsg('Name is required.');
       return;
     }
+    setErrorMsg(null);
     const result = await runCommand('updateReferee', {
       refereeId,
       name: values.name.trim(),
@@ -68,7 +71,13 @@ export function RefereeDialog({ refereeId, initial, onClose }: RefereeDialogProp
         <form noValidate onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rd-name">Name</label>
-            <input id="rd-name" type="text" value={values.name} onChange={(e) => update('name', e.target.value)} className="w-full rounded border border-zinc-300 px-3 py-2" />
+            <input
+              id="rd-name"
+              type="text"
+              value={values.name}
+              onChange={(e) => update('name', e.target.value)}
+              className={`w-full rounded border border-zinc-300 px-3 py-2${errorMsg ? ' input-error' : ''}`}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rd-email">Email</label>
@@ -92,6 +101,7 @@ export function RefereeDialog({ refereeId, initial, onClose }: RefereeDialogProp
             <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rd-notes">Notes</label>
             <textarea id="rd-notes" value={values.notes} onChange={(e) => update('notes', e.target.value)} className="w-full rounded border border-zinc-300 px-3 py-2" rows={2} />
           </div>
+          {errorMsg && <div className="field-error" role="alert">{errorMsg}</div>}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Cancel</button>
             <button type="submit" disabled={isRunning} className="btn-primary">

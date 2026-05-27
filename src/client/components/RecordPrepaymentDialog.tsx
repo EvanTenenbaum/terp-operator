@@ -16,18 +16,20 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
   const [amount, setAmount] = useState(maxAmount > 0 ? maxAmount.toFixed(2) : '');
   const [method, setMethod] = useState<'cash' | 'check' | 'wire' | 'ach' | 'crypto'>('wire');
   const [reference, setReference] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const numericAmount = parseFloat(amount);
     if (!numericAmount || numericAmount <= 0) {
-      alert('Prepayment amount must be greater than zero.');
+      setErrorMsg('Prepayment amount must be greater than zero.');
       return;
     }
     if (numericAmount > maxAmount) {
-      alert(`Prepayment cannot exceed $${maxAmount.toFixed(2)} (PO prepayment limit).`);
+      setErrorMsg(`Prepayment cannot exceed $${maxAmount.toFixed(2)} (PO prepayment limit).`);
       return;
     }
+    setErrorMsg(null);
     const result = await runCommand('recordVendorPrepayment', {
       purchaseOrderId,
       amount: numericAmount,
@@ -66,8 +68,8 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
               min="0.01"
               max={maxAmount}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2"
+              onChange={(e) => { setAmount(e.target.value); if (errorMsg) setErrorMsg(null); }}
+              className={`w-full rounded border border-zinc-300 px-3 py-2${errorMsg ? ' input-error' : ''}`}
               required
             />
           </div>
@@ -97,6 +99,7 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
               placeholder="Wire ID, check number, etc."
             />
           </div>
+          {errorMsg && <div className="field-error" role="alert">{errorMsg}</div>}
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"

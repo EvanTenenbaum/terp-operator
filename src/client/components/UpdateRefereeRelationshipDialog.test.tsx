@@ -16,7 +16,6 @@ import { UpdateRefereeRelationshipDialog } from './UpdateRefereeRelationshipDial
 describe('UpdateRefereeRelationshipDialog', () => {
   beforeEach(() => {
     runCommand.mockClear();
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
   it('renders with the initial fee config visible', () => {
@@ -55,9 +54,8 @@ describe('UpdateRefereeRelationshipDialog', () => {
     );
   });
 
-  it('rejects out-of-range percentage (>100) via alert', async () => {
+  it('shows inline field error for out-of-range percentage (>100)', async () => {
     const user = userEvent.setup();
-    const alertSpy = vi.spyOn(window, 'alert');
     render(
       <UpdateRefereeRelationshipDialog
         relationshipId="rel-1"
@@ -71,7 +69,7 @@ describe('UpdateRefereeRelationshipDialog', () => {
     await user.clear(input);
     await user.type(input, '150');
     await user.click(screen.getByRole('button', { name: /save changes/i }));
-    expect(alertSpy).toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Percentage must be between 0 and 100');
     expect(runCommand).not.toHaveBeenCalled();
   });
 });

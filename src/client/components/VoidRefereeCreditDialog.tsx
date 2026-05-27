@@ -19,13 +19,15 @@ export function VoidRefereeCreditDialog({
   const { runCommand, isRunning } = useCommandRunner();
   const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
   const [reason, setReason] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!reason.trim()) {
-      alert('A reason is required to void a referee credit.');
+      setErrorMsg('A reason is required to void a referee credit.');
       return;
     }
+    setErrorMsg(null);
     const result = await runCommand(
       'voidRefereeCredit',
       { creditId, reason: reason.trim() },
@@ -62,12 +64,13 @@ export function VoidRefereeCreditDialog({
             <textarea
               id="vrc-reason"
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2"
+              onChange={(e) => { setReason(e.target.value); if (errorMsg) setErrorMsg(null); }}
+              className={`w-full rounded border border-zinc-300 px-3 py-2${errorMsg ? ' input-error' : ''}`}
               rows={3}
               placeholder="Why is this credit being voided?"
             />
           </div>
+          {errorMsg && <div className="field-error" role="alert">{errorMsg}</div>}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Cancel</button>
             <button type="submit" disabled={isRunning} className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50">
