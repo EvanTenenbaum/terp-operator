@@ -259,6 +259,7 @@ export const batches = pgTable(
     status: varchar('status', { length: 32 }).notNull().default('draft'),
     sortId: integer('sort_id'),
     photoUrl: text('photo_url'),
+    casePack: integer('case_pack'),
     postedAt: timestamp('posted_at', { withTimezone: true }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: now(),
