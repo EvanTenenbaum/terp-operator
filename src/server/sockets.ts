@@ -66,3 +66,16 @@ export function emitPickOrderAndQueue(orderId: string, payload: Record<string, u
   emitPickEvent('pick:queue', payload);
   emitPickEvent(`pick:order:${orderId}`, payload);
 }
+
+/**
+ * Real-time sales ↔ pick coordination — emit a sales:order:*:line:changed event.
+ * Called from commandBus after mutations that affect a released/picked line.
+ * Gracefully no-ops if socket server is not initialized.
+ */
+export function emitSalesLineEvent(
+  orderId: string,
+  payload: { kind: string; lineId?: string; at: string }
+): void {
+  if (!_io) return;
+  _io.emit(`sales:order:${orderId}:line:changed`, payload);
+}
