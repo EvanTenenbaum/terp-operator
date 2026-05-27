@@ -888,12 +888,16 @@ export function SalesView() {
                           if (eligible.length === 0) return;
                           let failed = 0;
                           try {
-                            await runCommand(
+                            const result = await runCommand(
                               'releaseLinesForPicking',
                               { lineIds: eligible.map((r) => r.id) },
                               'Bulk release lines for picking'
                             );
+                            if (!result.ok) {
+                              failed = eligible.length;
+                            }
                           } catch {
+                            // Network/transport failure — treat all lines as failed
                             failed = eligible.length;
                           }
                           const released = eligible.length - failed;
