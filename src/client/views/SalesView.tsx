@@ -877,13 +877,30 @@ export function SalesView() {
                         className="primary-button compact-action"
                         type="button"
                         disabled={isRunning || !canWrite || !rows.length}
-                        onClick={() => {
+                        onClick={async () => {
+                          const total = rows.length;
                           const eligible = rows.filter((r) => {
                             const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
-                            return !elig || (elig.eligible && !elig.alreadyReleased);
+                            return elig ? (elig.eligible && !elig.alreadyReleased) : false;
                           });
-                          if (eligible.length > 0) {
-                            runCommand('releaseLinesForPicking', { lineIds: eligible.map((r) => r.id) }, 'Bulk release lines for picking');
+                          const skipped = total - eligible.length;
+                          if (eligible.length === 0) return;
+                          let failed = 0;
+                          try {
+                            await runCommand(
+                              'releaseLinesForPicking',
+                              { lineIds: eligible.map((r) => r.id) },
+                              'Bulk release lines for picking'
+                            );
+                          } catch {
+                            failed = eligible.length;
+                          }
+                          const released = eligible.length - failed;
+                          const parts = [`${released} of ${total} lines released`];
+                          if (skipped > 0) parts.push(`${skipped} skipped (not eligible)`);
+                          if (failed > 0) parts.push(`${failed} failed`);
+                          if ((skipped > 0 || failed > 0) && typeof console !== 'undefined') {
+                            console.info('[bulk release]', parts.join(' — '));
                           }
                         }}
                       >
