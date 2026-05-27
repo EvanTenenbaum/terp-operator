@@ -1117,3 +1117,49 @@ kbd {
 .media-upload-progress-bar-fill {
   @apply h-full rounded bg-accent transition-all;
 }
+
+/* ── Pricing rule panels ───────────────────────────────────── */
+
+.pricing-rule-table {
+  @apply w-full border-collapse text-sm;
+}
+
+.pricing-rule-table th {
+  @apply border-b-2 border-line px-2 pb-2 pt-0 text-left text-[10px] font-bold uppercase tracking-wider text-zinc-500;
+}
+
+.pricing-rule-table td {
+  @apply border-b border-line px-2 py-1 align-middle;
+}
+
+.pricing-rule-table tr:last-child td {
+  @apply border-b-0;
+}
+
+.pricing-cat-row td {
+  @apply bg-panel;
+}
+
+.pricing-cat-row:hover td {
+  @apply bg-zinc-100;
+}
+
+.pricing-sub-row td {
+  @apply bg-white pl-7;
+}
+
+.pricing-sub-row:hover td {
+  @apply bg-accent/10;
+}
+
+.pricing-add-sub-row td {
+  @apply bg-white pl-7;
+}
+
+.pricing-add-cat-row td {
+  @apply bg-panel;
+}
+
+.pricing-internal-badge {
+  @apply inline-flex h-5 items-center rounded border border-amber/40 bg-amber/10 px-2 text-[10px] font-bold uppercase tracking-tight text-amber;
+}
