@@ -13,7 +13,9 @@ import type {
 import { trpc } from '../api/trpc';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
+import { VerifyAllPreviewBody } from '../components/VerifyAllPreviewBody';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { useConfirm } from '../hooks/useConfirm';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useUiStore } from '../store/uiStore';
 import type { CommandResult, GridRow } from '../../shared/types';
@@ -37,9 +39,9 @@ export function IntakeView() {
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
 
+  const confirm = useConfirm();
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirmVerifyAllFor, setConfirmVerifyAllFor] = useState<IntakeOrderRow | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
   const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
   const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
@@ -48,10 +50,6 @@ export function IntakeView() {
   // stays in-panel and Escape collapses them, matching CommandPalette /
   // RefereeRelationshipDialog. The trap activates only when its panel is open.
   const csvImportFocusRef = useFocusTrap<HTMLDivElement>(csvOpen, () => setCsvOpen(false));
-  const confirmVerifyAllFocusRef = useFocusTrap<HTMLDivElement>(
-    confirmVerifyAllFor !== null,
-    () => setConfirmVerifyAllFor(null)
-  );
   const orderRows = (intakeQueue.data ?? EMPTY) as IntakeOrderRow[];
 
   async function importCsv(validateOnly: boolean) {
@@ -252,7 +250,25 @@ export function IntakeView() {
                 type="button"
                 className="secondary-button compact-action"
                 disabled={!canWrite || busy || isRunning || !hasPendingBatches(order)}
-                onClick={() => setConfirmVerifyAllFor(order)}
+                onClick={() => {
+                  void (async () => {
+                    const ok = await confirm({
+                      title: `Verify all intake for ${order.poNo}?`,
+                      body: (
+                        <VerifyAllPreviewBody
+                          batches={order.batches}
+                          vendor={order.vendor}
+                        />
+                      ),
+                      primaryLabel: 'Verify all',
+                      tone: 'default',
+                      persist: true,
+                    });
+                    if (!ok) return;
+                    await verifyAllForOrder(order);
+                    pushToast(`Verified all intake for ${order.poNo}.`, 'success');
+                  })();
+                }}
               >
                 Verify all
               </button>
@@ -269,7 +285,7 @@ export function IntakeView() {
         }
       }
     ],
-    [busy, isRunning, canWrite]
+    [busy, isRunning, canWrite, confirm, pushToast]
   );
 
   function hasPendingBatches(order: IntakeOrderRow) {
@@ -366,35 +382,7 @@ export function IntakeView() {
             <div className="p-4 text-sm text-zinc-600">No approved purchase orders with linked intake batches yet. Approve a PO to populate this queue.</div>
           ) : null}
         </WorkspacePanel>
-        {confirmVerifyAllFor ? (
-          <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
-            <div ref={confirmVerifyAllFocusRef}>
-              <p className="text-sm text-zinc-700">
-                This will accept every pending batch on this PO as the expected quantity and post the receipt.
-              </p>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  className="primary-button compact-action"
-                  disabled={busy || isRunning}
-                  onClick={async () => {
-                    const target = confirmVerifyAllFor;
-                    setConfirmVerifyAllFor(null);
-                    if (target) {
-                      await verifyAllForOrder(target);
-                      pushToast(`Verified all intake for ${target.poNo}.`, 'success');
-                    }
-                  }}
-                >
-                  Yes — verify all
-                </button>
-                <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </WorkspacePanel>
-        ) : null}
+
       </div>
       <ReceiptPreviewDrawer
         order={previewOrder}

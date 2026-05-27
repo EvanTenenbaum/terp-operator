@@ -53,6 +53,12 @@ export function ConfirmRoot() {
       ? 'inline-flex h-8 items-center justify-center gap-2 border border-danger bg-danger px-3 text-sm font-medium text-white transition focus:outline-none focus-visible:shadow-focus hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45'
       : 'primary-button compact-action';
 
+  // Widen dialog when body is rich (ReactNode, not a plain string).
+  const isRichBody = body !== undefined && typeof body !== 'string';
+  const dialogClass = isRichBody
+    ? 'w-full max-w-2xl bg-white p-6 shadow-xl'
+    : 'w-full max-w-sm bg-white p-6 shadow-xl';
+
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
@@ -69,7 +75,7 @@ export function ConfirmRoot() {
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         ref={containerRef}
-        className="w-full max-w-sm bg-white p-6 shadow-xl"
+        className={dialogClass}
         onClick={(e) => e.stopPropagation()}
       >
         <h2
@@ -80,7 +86,11 @@ export function ConfirmRoot() {
         </h2>
 
         {body ? (
-          <p className="mt-2 text-sm text-zinc-600">{body}</p>
+          isRichBody ? (
+            <div className="mt-2">{body}</div>
+          ) : (
+            <p className="mt-2 text-sm text-zinc-600">{body as string}</p>
+          )
         ) : null}
 
         {/* Flex-row-reverse: Confirm (DOM first) appears right, Cancel appears left */}

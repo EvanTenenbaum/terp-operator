@@ -1,8 +1,10 @@
+import type { ReactNode } from 'react';
 import { create } from 'zustand';
 
 export interface ConfirmOptions {
   title: string;
-  body?: string;
+  /** String or ReactNode for rich preview bodies (e.g. verify-all table). */
+  body?: ReactNode;
   tone?: 'default' | 'danger';
   primaryLabel?: string;
   cancelLabel?: string;
