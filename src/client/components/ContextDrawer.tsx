@@ -142,6 +142,7 @@ export function ContextDrawer() {
   const setDrawerState = useUiStore((state) => state.setDrawerState);
   const setDrawerTab = useUiStore((state) => state.setDrawerTab);
   const toggleDrawer = useUiStore((state) => state.toggleDrawer);
+  const cycleDrawer = useUiStore((state) => state.cycleDrawer);
   const row = selectedRows[activeView]?.[0];
   const tabs = tabsFor(activeEntity.entityType);
   const activeTab = tabs.some((tab) => tab.key === drawer.activeTab) ? drawer.activeTab : defaultTabForEntity(activeEntity.entityType);
@@ -188,7 +189,13 @@ export function ContextDrawer() {
             {entitySubline(activeEntity.entityType, row)}
           </div>
         </div>
-        <button type="button" className="icon-button" onClick={() => toggleDrawer(activeView)} aria-label="Cycle drawer size">
+        <button
+          type="button"
+          className="icon-button"
+          onClick={(e) => { if (e.shiftKey) cycleDrawer(activeView); else toggleDrawer(activeView); }}
+          title="Close drawer (shift-click to cycle width)"
+          aria-label="Toggle context drawer"
+        >
           <PanelRightClose className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>

@@ -138,6 +138,9 @@ interface UiState {
   setDrawerTab: (view: ViewKey, tab: string) => void;
   toggleDrawer: (view: ViewKey) => void;
   cycleDrawer: (view: ViewKey) => void;
+  // TER-1630: last-used open state per view — restored on the next plain click.
+  // Persisted as a benign UX preference (no PII/UUIDs). Keyed by view name.
+  lastUsedDrawerStateByView: Record<string, DrawerStateName>;
   setGridFilter: (view: ViewKey, filter: string) => void;
   setGridColumnPrefs: (tableKey: string, prefs: GridColumnPref[]) => void;
   resetGridColumnPrefs: (tableKey: string) => void;
@@ -185,6 +188,7 @@ export const useUiStore = create<UiState>()(
     focusMode: false,
     drawerByView: {},
     activeDrawerEntityByView: {},
+    lastUsedDrawerStateByView: {},
     gridFilters: {},
     gridColumnPrefs: {},
     routeHistory: [],
@@ -308,23 +312,38 @@ export const useUiStore = create<UiState>()(
         if (state.drawerByView[key].state === 'closed') state.drawerByView[key].state = 'peek';
         state.announcement = `Opened ${tab} drawer tab.`;
       }),
+    // TER-1630: plain click is a binary toggle — closed ↔ last-used open state.
+    // Shift-click (cycleDrawer) still cycles through all open widths.
     toggleDrawer: (view) =>
       set((state) => {
         const entity = activeEntityForState(state, view);
         const key = drawerStorageKey(view, entity);
         state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
         const current = state.drawerByView[key].state;
-        state.drawerByView[key].state = current === 'closed' ? 'peek' : current === 'peek' ? 'standard' : 'closed';
-        state.announcement = state.drawerByView[key].state === 'closed' ? 'Context drawer closed.' : `Context drawer ${state.drawerByView[key].state}.`;
+        if (current === 'closed') {
+          // Open to last-used state for this view; default to 'standard'.
+          const target = state.lastUsedDrawerStateByView[view] ?? 'standard';
+          state.drawerByView[key].state = target;
+          state.announcement = `Context drawer ${target}.`;
+        } else {
+          // Save the current open state so the next open restores it, then close.
+          state.lastUsedDrawerStateByView[view] = current;
+          state.drawerByView[key].state = 'closed';
+          state.announcement = 'Context drawer closed.';
+        }
       }),
+    // Shift-click: cycle through open widths (peek → standard → wide → focus → standard).
+    // Each step persists as the new last-used state for this view.
     cycleDrawer: (view) =>
       set((state) => {
         const entity = activeEntityForState(state, view);
         const key = drawerStorageKey(view, entity);
         state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
         const current = state.drawerByView[key].state;
-        state.drawerByView[key].state = current === 'standard' ? 'wide' : current === 'wide' ? 'focus' : 'standard';
-        state.announcement = `Context drawer ${state.drawerByView[key].state}.`;
+        const next: DrawerStateName = current === 'standard' ? 'wide' : current === 'wide' ? 'focus' : 'standard';
+        state.drawerByView[key].state = next;
+        state.lastUsedDrawerStateByView[view] = next;
+        state.announcement = `Context drawer ${next}.`;
       }),
     setGridFilter: (view, filter) =>
       set((state) => {
@@ -448,7 +467,9 @@ export const useUiStore = create<UiState>()(
       gridColumnPrefs: state.gridColumnPrefs,
       dismissedShadowBanner: state.dismissedShadowBanner,
       // #63: persist operator margin visibility — see comment on UiState.showMargin.
-      showMargin: state.showMargin
+      showMargin: state.showMargin,
+      // TER-1630: last-used open width per view — benign UX preference, no PII.
+      lastUsedDrawerStateByView: state.lastUsedDrawerStateByView
     })
   }
   )
