@@ -8,6 +8,7 @@ import { evaluateFilterGroup, calculateAgeDays } from '../utils/filterEvaluator'
 import { AdvancedFilterBuilder } from './AdvancedFilterBuilder';
 import { SavedFiltersDropdown } from './SavedFiltersDropdown';
 import { SavedFiltersManager } from './SavedFiltersManager';
+import { INVENTORY_FINDER_RULE_MAP } from './columns';
 
 export interface InventoryFinderBatch extends GridRow {
   batchCode?: string;
@@ -439,6 +440,11 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
               filtered.map((row) => {
                 const added = addedBatchIds.has(row.id);
                 const available = Number(row.availableQty ?? 0);
+                const whyReasons = matchReasons(row, search, { agingOnly, category, location, maxPrice, minQty, ownership, tag });
+                const whyTooltip = whyReasons.map((r) => {
+                  const key = Object.keys(INVENTORY_FINDER_RULE_MAP).find((k) => r.startsWith(k));
+                  return key ? INVENTORY_FINDER_RULE_MAP[key] : r;
+                }).join('\n');
                 return (
                   <tr key={row.id}>
                     <td>
@@ -492,7 +498,7 @@ export function InventoryFinderPanel({ selectedOrderId, focusKey = '', addedBatc
                     </td>
                     <td>{row.legacyMarker || row.ownershipStatus || '-'}</td>
                     <td>{mediaLabel(row.mediaStatus)}</td>
-                    <td className="finder-match">{matchReasons(row, search, { agingOnly, category, location, maxPrice, minQty, ownership, tag }).join('; ')}</td>
+                    <td className="finder-match" title={whyTooltip}>{whyReasons.join('; ')}</td>
                   </tr>
                 );
               })
