@@ -15,11 +15,13 @@ import { useUiStore } from '../store/uiStore';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { buildSheetCsv } from '../utils/salesExport';
 import { buildCustomerSheetSnapshotRows } from '../../shared/customerSheetSnapshot';
-import type { GridRow } from '../../shared/types';
+import type { GridRow, CustomerPricingRule } from '../../shared/types';
 import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
 import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { buildCustomerOfferCsv } from './SalesView.csvExport';
 import { selectVisibleSalesColumns } from './SalesView.columns';
+import { resolvePricingRuleEntry, markupDollarsFromPrice, applyPricingRule } from '../../shared/inventoryPricingShared';
+import { parsePriceRange } from '../../shared/priceRange';
 
 // CAP-030 / TER-1508 — types matching live releaseEligibility API shape (backend now merged)
 
@@ -115,6 +117,38 @@ function isRowEditLocked(params: { data?: GridRow }): boolean {
   return RELEASED_PICK_STATUSES.has(String(params.data?.pickStatus ?? ''));
 }
 
+function asRule(value: unknown): CustomerPricingRule {
+  if (value && typeof value === 'object') return value as CustomerPricingRule;
+  return {};
+}
+
+/** Returns the rule source label shown in the COGS cell */
+function ruleSourceLabel(source: string, category?: string): string {
+  if (source === 'customer-subcategory' || source === 'customer-category') return `▲ customer · ${category ?? ''}`;
+  if (source === 'customer-default') return '▲ customer · default';
+  if (source === 'settings-subcategory' || source === 'settings-category') return `▲ default · ${category ?? ''}`;
+  if (source === 'settings-default') return '▲ default';
+  return '▲ fallback 30%';
+}
+
+/** Compute markup dollars and derived COGS for a line row.
+ *  Fixed COGS: markup = applyPricingRule(unitCost, rule) - unitCost
+ *  Range COGS: markup = markupDollarsFromPrice(unitPrice, rule) */
+function computeLineMarkup(
+  row: GridRow,
+  rule: ReturnType<typeof resolvePricingRuleEntry>
+): { markupDollars: number; derivedCogs: number; isRange: boolean; rangeLow?: number; rangeHigh?: number } {
+  const range = parsePriceRange(row.priceRange as string | null);
+  const unitPrice = Number(row.unitPrice ?? 0);
+  const unitCost = Number(row.unitCost ?? 0);
+  if (range) {
+    const markup = markupDollarsFromPrice(unitPrice, rule);
+    return { markupDollars: markup, derivedCogs: unitPrice - markup, isRange: true, rangeLow: range.low, rangeHigh: range.high };
+  }
+  const markup = Math.max(0, applyPricingRule(unitCost, rule) - unitCost);
+  return { markupDollars: markup, derivedCogs: unitCost, isRange: false };
+}
+
 const lineColumns: ColDef<GridRow>[] = [
   { field: 'legacyStatusMarker', headerName: 'Raw', editable: (params) => !isRowEditLocked(params), width: 90, pinned: 'left' },
   {
@@ -143,6 +177,86 @@ const lineColumns: ColDef<GridRow>[] = [
   { field: 'qty', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 95 },
   { field: 'unitPrice', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 115 },
   { field: 'unitCost', headerName: 'Cost', type: 'numericColumn', width: 105 },
+  {
+    field: 'markup',
+    headerName: 'Markup $',
+    headerClass: 'pricing-col-header',
+    width: 100,
+    editable: (params) => !isRowEditLocked(params),
+    valueFormatter: (params) =>
+      params.value != null ? `$${Number(params.value).toFixed(2)}` : '—',
+    valueSetter: (params) => {
+      const newMarkup = parseFloat(String(params.newValue));
+      if (!Number.isFinite(newMarkup)) return false;
+      const row = params.data as GridRow;
+      const range = parsePriceRange(row.priceRange as string | null);
+      if (range) {
+        // range flow: price stays fixed, markup overrides — derivedCogs = price - markup
+        (row as Record<string, unknown>).markup = newMarkup;
+      } else {
+        // fixed flow: unitPrice = unitCost + markup
+        const unitCost = Number(row.unitCost ?? 0);
+        (row as Record<string, unknown>).unitPrice = unitCost + newMarkup;
+        (row as Record<string, unknown>).markup = newMarkup;
+      }
+      return true;
+    }
+  },
+  {
+    field: 'markupPct',
+    headerName: 'Markup %',
+    headerClass: 'pricing-col-header',
+    width: 85,
+    editable: false,
+    valueGetter: (params) => {
+      const row = params.data as GridRow | undefined;
+      if (!row) return null;
+      const markup = Number((row as Record<string, unknown>).markup ?? 0);
+      const cogs = parsePriceRange(row.priceRange as string | null)
+        ? Number(row.unitPrice ?? 0) - markup   // range: derivedCogs
+        : Number(row.unitCost ?? 0);             // fixed: known COGS
+      if (!cogs || cogs <= 0) return null;
+      return markup / cogs;
+    },
+    valueFormatter: (params) =>
+      params.value != null ? `${(Number(params.value) * 100).toFixed(1)}%` : '—'
+  },
+  {
+    field: 'derivedCogs',
+    headerName: 'COGS',
+    headerClass: 'pricing-col-header',
+    width: 130,
+    editable: false,
+    cellRenderer: (params: { data?: GridRow }) => {
+      const row = params.data;
+      if (!row) return null;
+      const range = parsePriceRange(row.priceRange as string | null);
+      const markup = Number((row as Record<string, unknown>).markup ?? 0);
+      const unitPrice = Number(row.unitPrice ?? 0);
+      const rule = (row as Record<string, unknown>).__rule as ReturnType<typeof resolvePricingRuleEntry> | undefined;
+
+      if (!range) {
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '2px 0' }}>
+            <span>${Number(row.unitCost ?? 0).toFixed(2)}</span>
+            {rule ? <span style={{ fontSize: 10, color: '#71717a' }}>{ruleSourceLabel(rule.source, rule.category)}</span> : null}
+          </div>
+        );
+      }
+      if (!unitPrice) return <span style={{ color: '#71717a', fontSize: 12 }}>Set price first</span>;
+      const derivedCogs = unitPrice - markup;
+      const inRange = derivedCogs >= range.low && derivedCogs <= range.high;
+      const rangeCheck = inRange ? '✓' : derivedCogs < range.low ? '↓ below' : '↑ above';
+      const rangeColor = inRange ? '#216e4e' : '#b06915';
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '2px 0' }}>
+          <span>${derivedCogs.toFixed(2)}</span>
+          <span style={{ fontSize: 10, color: rangeColor }}>{range.low}–{range.high} {rangeCheck}</span>
+          {rule ? <span style={{ fontSize: 10, color: '#71717a' }}>{ruleSourceLabel(rule.source, rule.category)}</span> : null}
+        </div>
+      );
+    }
+  },
   // #64 PR-2: vendor-warning chip for any projected below-range COGS
   // exception. Renders nothing for in-range lines. Uses the existing
   // `.selection-pill.warning` amber styling — no new colors. The renderer is
@@ -249,6 +363,24 @@ export function SalesView() {
     { enabled: Boolean(selectedOrder?.id), refetchInterval: 30_000 }
   );
   const selectedOrderStatus = String(selectedOrder?.status ?? '');
+
+  const lineRowsWithRule = useMemo(() => {
+    if (!orderLines.data) return [];
+    const customerObj = (reference.data?.customers as Array<Record<string, unknown>> | undefined)
+      ?.find((c) => c['id'] === customerId);
+    const customerRule = asRule(customerObj?.['pricingRule']);
+    const defaultsRule = asRule(reference.data?.defaultPricingRule);
+    return (orderLines.data as GridRow[]).map((row) => {
+      const rule = resolvePricingRuleEntry(
+        customerRule,
+        defaultsRule,
+        row.batchCategory as string | null,
+        row.batchSubcategory as string | null
+      );
+      const { markupDollars } = computeLineMarkup(row, rule);
+      return { ...row, __rule: rule, markup: Number.isFinite(markupDollars) ? markupDollars : 0 };
+    });
+  }, [orderLines.data, reference.data, customerId]);
 
   // CAP-030 / TER-1508 — release eligibility per order (live — backend merged)
   const blankOrderId = '00000000-0000-0000-0000-000000000000';
@@ -804,7 +936,22 @@ export function SalesView() {
             panelId="sales:customer-workspace"
             title="Sale Builder"
             contentClassName="p-3"
-            actions={canWrite ? showMarginToggle : undefined}
+            actions={canWrite ? (
+              <>
+                {selectedOrder?.id ? (
+                  <button
+                    type="button"
+                    className="secondary-button compact-action"
+                    disabled={isRunning || !canWrite}
+                    onClick={() => void runCommand('priceSalesOrder', { orderId: String(selectedOrder.id), strategy: 'customer-rule' }, 'Re-apply pricing rule')}
+                    data-testid="reapply-pricing-rule"
+                  >
+                    ↻ Re-apply rule
+                  </button>
+                ) : null}
+                {showMarginToggle}
+              </>
+            ) : undefined}
           >
             <div className="customer-workspace-header">
               <div>
@@ -860,7 +1007,7 @@ export function SalesView() {
               <OperatorGrid
                 view="sales"
                 title="Customer Draft Lines"
-                rows={(orderLines.data ?? []) as GridRow[]}
+                rows={lineRowsWithRule}
                 columns={[...visibleLineColumns, fulfillmentActionsColumn]}
                 loading={false}
                 onSelectionChange={setSelectedLines}
