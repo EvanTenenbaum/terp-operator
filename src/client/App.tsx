@@ -10,6 +10,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { GlobalFinderPanel } from './components/GlobalFinderPanel';
 import { ContextDrawer } from './components/ContextDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ConfirmRoot } from './components/ConfirmRoot';
 import { FeedbackCapture } from './components/FeedbackCapture';
 import { Hotkeys } from './components/Hotkeys';
 import { IdentityRibbon } from './components/IdentityRibbon';
@@ -162,6 +163,7 @@ function AppContent() {
       <CommandPalette />
       <GlobalFinderPanel />
       <ToastCenter />
+      <ConfirmRoot />
       <FeedbackCapture />
       <Agentation
         onCopy={(markdown) => {

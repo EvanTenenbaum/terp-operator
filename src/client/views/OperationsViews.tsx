@@ -14,6 +14,7 @@ import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
+import { useConfirm } from '../hooks/useConfirm';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
 import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationshipDrawer';
 import { ReceiptPanel } from '../components/ReceiptPanel';
@@ -1516,8 +1517,10 @@ function InventoryRowActions({
     setTagText(Array.isArray(currentTags) ? currentTags.join(', ') : String(currentTags ?? ''));
   }, [selectedBatch?.id, selectedBatch?.tags]);
 
-  const confirmAction = (label: string, exec: () => void) => {
-    if (typeof window !== 'undefined' && !window.confirm(`${label} for selected inventory row?`)) return;
+  const confirm = useConfirm();
+  const confirmAction = async (label: string, exec: () => void) => {
+    const ok = await confirm({ title: `${label} for selected inventory row?` });
+    if (!ok) return;
     exec();
   };
 
@@ -1552,7 +1555,7 @@ function InventoryRowActions({
               type="button"
               disabled={!reason.trim()}
               onClick={() =>
-                confirmAction(`Set inventory status to ${status}`, () =>
+                void confirmAction(`Set inventory status to ${status}`, () =>
                   runCommand('setInventoryStatus', { batchId, status }, reason || `Set inventory status to ${status}`)
                 )
               }
@@ -1569,7 +1572,7 @@ function InventoryRowActions({
               type="button"
               disabled={!location.trim() || !reason.trim()}
               onClick={() =>
-                confirmAction(`Move location to ${location}`, () =>
+                void confirmAction(`Move location to ${location}`, () =>
                   runCommand('transferInventoryLocation', { batchId, location: location.trim() }, reason || `Move inventory to ${location}`)
                 )
               }
@@ -1605,7 +1608,7 @@ function InventoryRowActions({
               type="button"
               disabled={!reason.trim() || (ownershipStatus === 'C' && !consignedVendorId)}
               onClick={() =>
-                confirmAction(`Move ownership to ${ownershipStatus}`, () =>
+                void confirmAction(`Move ownership to ${ownershipStatus}`, () =>
                   runCommand(
                     'transferInventoryOwnership',
                     { batchId, ownershipStatus, vendorId: ownershipStatus === 'C' ? consignedVendorId : undefined },
@@ -1629,7 +1632,7 @@ function InventoryRowActions({
               className="secondary-button compact-action"
               type="button"
               onClick={() =>
-                confirmAction('Replace tags', () =>
+                void confirmAction('Replace tags', () =>
                   runCommand('applyTags', { entityType: 'batch', entityId: batchId, tags: parseTagInput(tagText), mode: 'replace' }, 'Replace tags on selected inventory row')
                 )
               }
