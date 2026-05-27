@@ -2,7 +2,7 @@ import { Ban, CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, Cr
 import { whyShownCol, type RuleMap } from '../components/columns';
 import { CommandReversalTab } from '../components/drawerTabs/CommandReversalTab';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -2511,6 +2511,12 @@ export function RecoveryView() {
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const rows = selectedRecoveryRows ?? EMPTY_ROWS;
   const { runCommand } = useCommandRunner();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
+  // True when rendered as the standalone /recovery route; false when embedded
+  // inside SettingsView as the "Action log" tab.
+  const isStandaloneRecovery = !location.pathname.startsWith('/settings');
   const [q, setQ] = useState('');
   const [showAdminTools, setShowAdminTools] = useState(false);
   const [backupId, setBackupId] = useState('');
@@ -2532,6 +2538,21 @@ export function RecoveryView() {
   const selected = rows[0];
   return (
     <div className="view-stack">
+      {/* TER-1628 F-41: Recovery vs per-row Undo guidance (standalone Recovery route only) */}
+      {isStandaloneRecovery ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="page-subtitle">
+            Use this for bulk reversals or commands older than the last 30 days' log; for a single recent command use Undo from the Action Log.
+          </p>
+          <button
+            type="button"
+            className="text-button text-xs"
+            onClick={() => { setActiveSettingsTab('actions'); navigate('/settings'); }}
+          >
+            → Action Log
+          </button>
+        </div>
+      ) : null}
       <div className="control-band">
         <label className="field-inline">
           Search
@@ -2644,6 +2665,15 @@ export function RecoveryView() {
       {/* CAP-009 / Phase 5 — reversal preview panel (CMD-RECOVERY TER-1521) */}
       {selected ? (
         <section className="inline-panel" data-testid="recovery-reversal-panel">
+          {/* TER-1628 F-41: cross-link to Recovery when viewing from Settings > Action log */}
+          {!isStandaloneRecovery ? (
+            <p className="text-xs text-zinc-500">
+              For bulk reversals →{' '}
+              <button type="button" className="text-button text-xs" onClick={() => navigate('/recovery')}>
+                Recovery
+              </button>
+            </p>
+          ) : null}
           <CommandReversalTab commandId={String(selected.id)} />
         </section>
       ) : null}
