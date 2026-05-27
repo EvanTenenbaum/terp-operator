@@ -68,7 +68,8 @@ export function createApp(getIo: () => SocketServer) {
         enabled: env.VITE_CRIKKET_ENABLED,
         host: env.VITE_CRIKKET_HOST || undefined,
         key: env.VITE_CRIKKET_KEY || undefined,
-        scriptSrc: env.VITE_CRIKKET_SCRIPT_SRC || undefined
+        scriptSrc: env.VITE_CRIKKET_SCRIPT_SRC || undefined,
+        position: env.VITE_CRIKKET_POSITION
       }
     });
   });
