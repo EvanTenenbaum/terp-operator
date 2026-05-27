@@ -21,6 +21,10 @@ vi.mock('../api/trpc', () => ({
     filters: {
       listSavedFilters: { useQuery: () => ({ data: [] }) },
       saveFilter: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      // AdvancedFilterBuilder needs getFacets
+      getFacets: {
+        useQuery: () => ({ data: { categories: [], vendors: [], tags: [], locations: [], ownership: [] } }),
+      },
     },
     auth: { me: { useQuery: () => ({ data: { id: 'u1', role: 'operator' } }) } },
     useContext: () => ({ filters: { listSavedFilters: { invalidate: vi.fn() } } }),
@@ -49,13 +53,13 @@ describe('InventoryFinderPanel per-pill filter removal (TER-1619)', () => {
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
     // Activate two filters: search text and aging toggle
-    const searchInput = screen.getByPlaceholderText(/search code/i);
-    await user.type(searchInput, 'floral');
-
-    // Open advanced section to access the aging checkbox
+    // Aging checkbox is in the advanced section — open it first
     await user.click(screen.getByRole('button', { name: /more filters/i }));
     const agingCheckbox = screen.getByRole('checkbox');
     await user.click(agingCheckbox);
+
+    const searchInput = screen.getByPlaceholderText(/search code/i);
+    await user.type(searchInput, 'floral');
 
     // Both filter pills should be present
     expect(screen.getByRole('button', { name: /remove search: floral filter/i })).toBeInTheDocument();
@@ -73,14 +77,17 @@ describe('InventoryFinderPanel per-pill filter removal (TER-1619)', () => {
     const user = userEvent.setup();
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
+    // Open advanced section to access aging checkbox and minQty input
+    await user.click(screen.getByRole('button', { name: /more filters/i }));
+
     // Activate three filters
     const searchInput = screen.getByPlaceholderText(/search code/i);
     await user.type(searchInput, 'premium');
 
+    // minQty is in the advanced controls panel (visible after More filters)
     const minQtyInput = screen.getByLabelText(/finder minimum quantity/i);
     await user.type(minQtyInput, '5');
 
-    await user.click(screen.getByRole('button', { name: /more filters/i }));
     const agingCheckbox = screen.getByRole('checkbox');
     await user.click(agingCheckbox);
 
