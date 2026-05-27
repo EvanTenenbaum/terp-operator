@@ -9,7 +9,7 @@ import { OperatorGrid } from '../components/OperatorGrid';
 import { RecordPrepaymentDialog } from '../components/RecordPrepaymentDialog';
 import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 import { DefaultPricingPanel } from '../components/DefaultPricingPanel';
-import { OrderPricingPanel } from '../components/PricingPanel';
+
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
