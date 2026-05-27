@@ -246,32 +246,34 @@ export function IntakeView() {
               <span className={allVerified ? 'selection-pill success' : 'selection-pill'}>
                 {postedCount}/{totalCount} verified
               </span>
-              <button
-                type="button"
-                className="secondary-button compact-action"
-                disabled={!canWrite || busy || isRunning || !hasPendingBatches(order)}
-                onClick={() => {
-                  void (async () => {
-                    const ok = await confirm({
-                      title: `Verify all intake for ${order.poNo}?`,
-                      body: (
-                        <VerifyAllPreviewBody
-                          batches={order.batches}
-                          vendor={order.vendor}
-                        />
-                      ),
-                      primaryLabel: 'Verify all',
-                      tone: 'default',
-                      persist: true,
-                    });
-                    if (!ok) return;
-                    await verifyAllForOrder(order);
-                    pushToast(`Verified all intake for ${order.poNo}.`, 'success');
-                  })();
-                }}
-              >
-                Verify all
-              </button>
+              {canWrite ? (
+                <button
+                  type="button"
+                  className="secondary-button compact-action"
+                  disabled={busy || isRunning || !hasPendingBatches(order)}
+                  onClick={() => {
+                    void (async () => {
+                      const ok = await confirm({
+                        title: `Verify all intake for ${order.poNo}?`,
+                        body: (
+                          <VerifyAllPreviewBody
+                            batches={order.batches}
+                            vendor={order.vendor}
+                          />
+                        ),
+                        primaryLabel: 'Verify all',
+                        tone: 'default',
+                        persist: true,
+                      });
+                      if (!ok) return;
+                      await verifyAllForOrder(order);
+                      pushToast(`Verified all intake for ${order.poNo}.`, 'success');
+                    })();
+                  }}
+                >
+                  Verify all
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="secondary-button compact-action"
