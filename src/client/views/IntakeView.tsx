@@ -492,6 +492,15 @@ function buildBatchColumns(
   ];
 }
 
+const REJECT_REASONS = [
+  { value: 'over_weight', label: 'Over weight' },
+  { value: 'wrong_product', label: 'Wrong product' },
+  { value: 'quality_fail', label: 'Quality fail' },
+  { value: 'pricing_dispute', label: 'Pricing dispute' },
+  { value: 'paperwork_mismatch', label: 'Paperwork mismatch' },
+  { value: 'other', label: 'Other (specify)' },
+] as const;
+
 function BatchRowActions({
   row,
   busy,
@@ -513,6 +522,8 @@ function BatchRowActions({
 }) {
   const [mode, setMode] = useState<'idle' | 'reject' | 'note' | 'marketName' | 'confirmDelete'>('idle');
   const [inputValue, setInputValue] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReasonOther, setRejectReasonOther] = useState('');
 
   const canVerify = row.status === 'draft' || row.status === 'ready';
   const canAct = row.status !== 'returned' && row.status !== 'posted';
@@ -525,6 +536,8 @@ function BatchRowActions({
   function cancel() {
     setMode('idle');
     setInputValue('');
+    setRejectReason('');
+    setRejectReasonOther('');
   }
 
   if (mode === 'idle') {
@@ -600,13 +613,56 @@ function BatchRowActions({
     );
   }
 
+  if (mode === 'reject') {
+    const submitValue = rejectReason === 'other' ? rejectReasonOther.trim() : rejectReason;
+    return (
+      <div className="flex h-full items-center gap-1">
+        <select
+          className="input compact"
+          autoFocus
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') cancel(); }}
+        >
+          <option value="">Select a reason...</option>
+          {REJECT_REASONS.map(r => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+        {rejectReason === 'other' && (
+          <textarea
+            className="input compact"
+            placeholder="Describe the reason..."
+            value={rejectReasonOther}
+            onChange={(e) => setRejectReasonOther(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') cancel(); }}
+            rows={1}
+          />
+        )}
+        <button
+          type="button"
+          className="primary-button compact-action"
+          disabled={!submitValue}
+          onClick={async () => {
+            if (!submitValue) return;
+            await onReject(row.id, submitValue);
+            cancel();
+          }}
+        >
+          Reject
+        </button>
+        <button type="button" className="secondary-button compact-action" onClick={cancel}>
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
   const placeholder =
-    mode === 'reject' ? 'Reject reason' :
     mode === 'note' ? 'Add a note…' :
     'Market name';
 
   const label =
-    mode === 'reject' ? 'Reject' :
     mode === 'note' ? 'Save note' :
     'Set name';
 
@@ -626,10 +682,7 @@ function BatchRowActions({
         disabled={mode !== 'note' && !inputValue.trim()}
         onClick={async () => {
           const value = inputValue.trim();
-          if (mode === 'reject') {
-            if (!value) return;
-            await onReject(row.id, value);
-          } else if (mode === 'note') {
+          if (mode === 'note') {
             if (!value) { cancel(); return; }
             await onAppendNote(row.id, row.notes ?? null, value);
           } else if (mode === 'marketName') {
