@@ -1164,6 +1164,13 @@ kbd {
   @apply inline-flex h-5 items-center rounded border border-amber/40 bg-amber/10 px-2 text-[10px] font-bold uppercase tracking-tight text-amber;
 }
 
+/* ── SalesView inline pricing column headers ─────────────── */
+
+.pricing-col-header {
+  @apply bg-accent/10 text-accent-dark;
+  font-weight: 700;
+}
+
 /* ── Inventory Finder filter chrome ────────────────────── */
 
 .filter-bar {
