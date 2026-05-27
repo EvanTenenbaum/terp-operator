@@ -61,6 +61,16 @@ export function PickListScreen({ pickList, loading, onBack, onSelectLine, onComp
         </div>
       ) : (
         <>
+            {/* Scenario C — amber banner when any line has unacknowledged alerts */}
+            {lines.some((l) => l.alertCount > 0) ? (
+              <div
+                className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+                role="alert"
+              >
+                <span className="text-base">⚠️</span>
+                <span>Sales updated this order — check flagged lines.</span>
+              </div>
+            ) : null}
           <ul className="divide-y divide-line">
             {lines.map((line) => (
               <li key={line.id}>
