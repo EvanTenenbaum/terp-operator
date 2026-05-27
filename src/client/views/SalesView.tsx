@@ -432,7 +432,7 @@ export function SalesView() {
               </button>
             );
           })()}
-          {String(row.pickStatus ?? 'unreleased') === 'released' || String(row.pickStatus ?? '') === 'picking' ? (
+          {['released', 'picking', 'picked', 'recall_pending'].includes(String(row.pickStatus ?? '')) ? (
             <button
               className="secondary-button compact-action"
               disabled={isRunning || !canWrite}

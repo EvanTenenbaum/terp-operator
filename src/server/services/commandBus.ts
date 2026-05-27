@@ -745,7 +745,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     // Emit sales:order:*:line:changed so the sales grid refreshes pick status
     // badges in real time and picker screens know when order lines change.
     // Intentionally mirrors PICK_QUEUE_AND_ORDER_CMDS. If you add a command to one, update the other.
-    const SALES_LINE_CMDS = ['releaseLineForPicking', 'releaseLinesForPicking', 'recallLineFromPicking'];
+    const SALES_LINE_CMDS = ['releaseLineForPicking', 'releaseLinesForPicking', 'recallLineFromPicking', 'removeSalesOrderLine'];
     if (commandResult.ok && commandResult.orderId && SALES_LINE_CMDS.includes(input.name)) {
       try {
         emitSalesLineEvent(commandResult.orderId, {
@@ -2620,12 +2620,13 @@ async function removeSalesOrderLine(tx: Tx, payload: Payload, commandId: string)
       ok: true,
       commandId,
       affectedIds: [line.orderId, lineId, ...(fl ? [fl.id] : [])],
-      toast: 'Sales line removed. Warehouse alerted for reconciliation.'
+      toast: 'Sales line removed. Warehouse alerted for reconciliation.',
+      orderId: line.orderId
     };
   }
   await tx.delete(salesOrderLines).where(eq(salesOrderLines.id, lineId));
   await recalcOrder(tx, line.orderId);
-  return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line removed.' };
+  return { ok: true, commandId, affectedIds: [line.orderId, lineId], toast: 'Sales line removed.', orderId: line.orderId };
 }
 
 async function reserveInventoryForOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {

@@ -161,6 +161,7 @@ function AppContent() {
           Connection lost — changes may not save.{' '}
           <button className="underline ml-2" onClick={() => me.refetch()}>Reconnect</button>
         </div>
+      )}
       <LocationSync />
       <SideNav user={me.data} />
       <div className="flex min-w-0 flex-1 flex-col">
