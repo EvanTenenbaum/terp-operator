@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db, pool } from '../db';
-import { protectedProcedure, router } from '../trpc';
+import { protectedProcedure, publicProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
@@ -48,6 +48,7 @@ async function _fetchReferenceData() {
                        b.shorthand, b.notes, b.intake_date as "intakeDate", b.ticket_cost as "ticketCost",
                        b.ownership_status as "ownershipStatus", b.price_range as "priceRange", b.tags, b.status,
                        b.legacy_marker as "legacyMarker", b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus",
+                       b.case_pack as "casePack",
                        b.created_at as "createdAt",
                        floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays",
                        coalesce(dr.draft_reserved_qty, 0)::numeric(12,3) as "draftReservedQty"
@@ -2143,6 +2144,26 @@ export const queriesRouter = router({
       order by "createdAt" desc
     `, [userId])).rows;
   }),
+
+  // TER-1618 follow-up: Priority 2 — return the qty from the most recent
+  // confirmed/posted sales order line for this customer+batch so InventoryFinderPanel
+  // can pre-fill the qty input with the customer's last ordered amount.
+  customerLastOrderedQty: publicProcedure
+    .input(z.object({ batchId: z.string().uuid(), customerId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const result = await pool.query<{ qty: string }>(
+        `select sol.qty
+         from sales_order_lines sol
+         join sales_orders so on so.id = sol.order_id
+         where sol.batch_id = $1
+           and so.customer_id = $2
+           and sol.status in ('confirmed', 'reserved', 'allocated', 'posted')
+         order by sol.created_at desc
+         limit 1`,
+        [input.batchId, input.customerId]
+      );
+      return result.rows[0]?.qty ?? null;
+    }),
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
