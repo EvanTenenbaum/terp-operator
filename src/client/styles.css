@@ -537,6 +537,12 @@ kbd {
   @apply border-red-300 bg-red-50 text-red-700;
 }
 
+.selection-pill.info {
+  background-color: theme(colors.blue.50);
+  border-color: theme(colors.blue.300);
+  color: theme(colors.blue.700);
+}
+
 .compact-action {
   @apply h-7 px-2 text-xs;
 }
