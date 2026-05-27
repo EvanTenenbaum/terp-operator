@@ -172,6 +172,11 @@ interface UiState {
   setLedgerDrafts: (drafts: LedgerDraft[]) => void;
   upsertLedgerDraft: (draft: LedgerDraft) => void;
   removeLedgerDraft: (id: string) => void;
+  // GH #409: tracks whether any AG Grid cell is actively being edited so
+  // peer socket invalidations can be deferred until editing completes.
+  // NOT persisted — ephemeral session state only.
+  isCellEditing: boolean;
+  setCellEditing: (v: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -206,6 +211,7 @@ export const useUiStore = create<UiState>()(
     finderOpen: false,
     pickQueueFilters: new Set<string>(),
     ledgerDrafts: [makeLedgerRow('receiving')],
+    isCellEditing: false,
     setActiveView: (view) =>
       set((state) => {
         if (state.activeView !== view) {
@@ -467,7 +473,9 @@ export const useUiStore = create<UiState>()(
         else state.ledgerDrafts.unshift(draft);
       }),
     removeLedgerDraft: (id) =>
-      set((state) => { state.ledgerDrafts = state.ledgerDrafts.filter((d) => d.id !== id); })
+      set((state) => { state.ledgerDrafts = state.ledgerDrafts.filter((d) => d.id !== id); }),
+    setCellEditing: (v) =>
+      set((state) => { state.isCellEditing = v; })
   })),
   {
     // Persist key intentionally retains legacy 'terp-agro-ui' name (see PR #66)
