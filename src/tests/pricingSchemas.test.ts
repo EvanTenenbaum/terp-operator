@@ -57,7 +57,8 @@ describe('customerPricingRuleSchema', () => {
       categories: { Flower: { rule: { basis: 'dollar', amount: 100 } } }
     });
     expect(parsed.default?.amount).toBe(0.3);
-    expect(parsed.categories?.Flower?.rule?.amount).toBe(100);
+    const flowerRule = parsed.categories?.['Flower']?.rule;
+    expect(flowerRule?.amount).toBe(100);
   });
 
   it('accepts empty rule (clears the rule)', () => {

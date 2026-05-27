@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { CategoryPricingEntry, CustomerPricingRule } from '../../shared/types';
 import {
   applyPricingRule,
   asCustomerPricingRule,
@@ -9,7 +10,7 @@ import {
 describe('resolvePricingRuleEntry', () => {
   it('picks customer-category when customer has matching category override', () => {
     const result = resolvePricingRuleEntry(
-      { categories: { Flower: { rule: { basis: 'percent', amount: 0.4 } } }, default: { basis: 'percent', amount: 0.25 } },
+      { categories: { Flower: { rule: { basis: 'percent', amount: 0.4 } } }, default: { basis: 'percent', amount: 0.25 } } as CustomerPricingRule,
       { default: { basis: 'percent', amount: 0.3 } },
       'Flower'
     );
@@ -18,7 +19,7 @@ describe('resolvePricingRuleEntry', () => {
 
   it('falls back to customer-default when customer has no matching category', () => {
     const result = resolvePricingRuleEntry(
-      { categories: { Extract: { rule: { basis: 'dollar', amount: 50 } } }, default: { basis: 'percent', amount: 0.25 } },
+      { categories: { Extract: { rule: { basis: 'dollar', amount: 50 } } }, default: { basis: 'percent', amount: 0.25 } } as CustomerPricingRule,
       { default: { basis: 'percent', amount: 0.3 } },
       'Flower'
     );
@@ -28,7 +29,7 @@ describe('resolvePricingRuleEntry', () => {
   it('uses settings-category when customer has no rule and settings has matching category', () => {
     const result = resolvePricingRuleEntry(
       null,
-      { categories: { Flower: { rule: { basis: 'dollar', amount: 75 } } }, default: { basis: 'percent', amount: 0.3 } },
+      { categories: { Flower: { rule: { basis: 'dollar', amount: 75 } } }, default: { basis: 'percent', amount: 0.3 } } as CustomerPricingRule,
       'Flower'
     );
     expect(result).toEqual({ basis: 'dollar', amount: 75, source: 'settings-category', category: 'Flower' });
@@ -50,7 +51,7 @@ describe('resolvePricingRuleEntry', () => {
 
   it('treats undefined category as no category match', () => {
     const result = resolvePricingRuleEntry(
-      { categories: { Flower: { rule: { basis: 'percent', amount: 0.4 } } } },
+      { categories: { Flower: { rule: { basis: 'percent', amount: 0.4 } } } } as CustomerPricingRule,
       { default: { basis: 'percent', amount: 0.3 } },
       undefined
     );
@@ -85,7 +86,8 @@ describe('asCustomerPricingRule', () => {
 
   it('returns rule for an object with categories', () => {
     const rule = asCustomerPricingRule({ categories: { Flower: { rule: { basis: 'percent', amount: 0.4 } } } });
-    expect(rule?.categories?.Flower?.rule?.amount).toBe(0.4);
+    const flowerEntry: CategoryPricingEntry | undefined = rule?.categories?.['Flower'];
+    expect(flowerEntry?.rule?.amount).toBe(0.4);
   });
 
   it('returns null for empty objects', () => {
