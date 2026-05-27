@@ -9,6 +9,7 @@ const ORDER_ID    = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const CUSTOMER_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const BATCH_ID    = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const LINE_ID     = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const FL_ID       = 'ffffffff-ffff-4fff-8fff-ffffffffffff'; // fulfillmentLine ID
 const USER_ID     = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 
 const { inMemoryState } = vi.hoisted(() => ({
@@ -35,9 +36,8 @@ const ioStub = { emit: () => {} } as any;
 
 /**
  * Seed a minimal valid sales order ready to be confirmed.
- * - pricingStrategy 'margin' (standard profile: minMargin 20%)
- * - unitPrice 1500, unitCost 1000 → 33% margin, well above 20% guardrail
- * - unitCostResolved: true, no exception flags
+ * pricingStrategy 'margin' → standard profile (minMargin 20%).
+ * unitPrice=1500, unitCost=1000 → 33% margin, safely above 20% guardrail.
  */
 function seedConfirmableOrder(overrides: {
   balance?: string;
@@ -86,7 +86,7 @@ afterEach(() => { vi.clearAllMocks(); });
 // ---------------------------------------------------------------------------
 
 describe('confirmSalesOrder', () => {
-  it('sets order status to confirmed on happy path', async () => {
+  it('sets order status to confirmed and writes an ok journal entry', async () => {
     seedConfirmableOrder();
     const result = await executeCommand(
       { name: 'confirmSalesOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k1', reason: '' } as any,
@@ -94,10 +94,14 @@ describe('confirmSalesOrder', () => {
     );
     expect(result.ok).toBe(true);
     expect(inMemoryState.salesOrders[0].status).toBe('confirmed');
+    // commandJournal entry must be finalized as 'ok'
+    expect(inMemoryState.commandJournal.length).toBe(1);
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
+    expect(inMemoryState.commandJournal[0].commandName).toBe('confirmSalesOrder');
   });
 
   it('blocks confirmation when customer would exceed credit limit', async () => {
-    // balance 4800, limit 5000, order total (2 × 1500) = 3000 → would be 7800 > 5000
+    // balance 4800 + order total (2×1500=3000) = 7800 > creditLimit 5000
     seedConfirmableOrder({ balance: '4800.00', creditLimit: '5000.00' });
     const result = await executeCommand(
       { name: 'confirmSalesOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k2', reason: '' } as any,
@@ -135,10 +139,9 @@ describe('confirmSalesOrder', () => {
 // ---------------------------------------------------------------------------
 
 describe('postSalesOrder', () => {
-  it('sets order status to posted and decrements batch availableQty', async () => {
+  it('sets order status to posted, decrements batch qty by exactly line qty, and increments customer balance by exact order total', async () => {
     seedConfirmableOrder({ orderStatus: 'confirmed' });
-    // patch orders[0] so recalcOrder sets a realistic total
-    inMemoryState.salesOrders[0].total = '3000.00';
+    inMemoryState.salesOrders[0].total = '3000.00'; // 2 × 1500
 
     const result = await executeCommand(
       { name: 'postSalesOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k5', reason: '' } as any,
@@ -146,20 +149,12 @@ describe('postSalesOrder', () => {
     );
     expect(result.ok).toBe(true);
     expect(inMemoryState.salesOrders[0].status).toBe('posted');
-    // batch availableQty started at 20, line qty is 2 → should be 18
-    expect(Number(inMemoryState.batches[0].availableQty)).toBeCloseTo(18, 3);
-  });
-
-  it('updates customer balance after posting', async () => {
-    seedConfirmableOrder({ orderStatus: 'confirmed', balance: '0.00' });
-    inMemoryState.salesOrders[0].total = '3000.00';
-
-    await executeCommand(
-      { name: 'postSalesOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k6', reason: '' } as any,
-      operatorUser, ioStub
-    );
-    // balance should increase by the order total
-    expect(Number(inMemoryState.customers[0].balance)).toBeGreaterThan(0);
+    // batch.availableQty 20 − line.qty 2 = 18 exactly
+    expect(inMemoryState.batches[0].availableQty).toBe('18.000');
+    // customer balance 0 + order total 3000 = 3000.00 exactly (TER-1566 Decimal path)
+    expect(inMemoryState.customers[0].balance).toBe('3000.00');
+    // journal entry finalized
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
   });
 
   it('blocks posting an already-posted order', async () => {
@@ -199,10 +194,11 @@ describe('postSalesOrder', () => {
 // ---------------------------------------------------------------------------
 
 describe('cancelSalesOrder', () => {
-  it('sets order status to cancelled and releases batch reservation', async () => {
+  it('sets order to cancelled and releases batch reservation when no lines are released for picking', async () => {
     seedConfirmableOrder({ orderStatus: 'confirmed' });
-    inMemoryState.batches[0].reservedQty = '2.000'; // reserved for this order
+    inMemoryState.batches[0].reservedQty = '2.000';
     inMemoryState.salesOrderLines[0].batchId = BATCH_ID;
+    inMemoryState.salesOrderLines[0].pickReleasedAt = null; // not released
 
     const result = await executeCommand(
       { name: 'cancelSalesOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k10', reason: '' } as any,
@@ -210,7 +206,29 @@ describe('cancelSalesOrder', () => {
     );
     expect(result.ok).toBe(true);
     expect(inMemoryState.salesOrders[0].status).toBe('cancelled');
-    // reservedQty should be decremented back to 0
+    // reservedQty released: 2 - 2 = 0
     expect(Number(inMemoryState.batches[0].reservedQty)).toBe(0);
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
+  });
+
+  it('blocks cancel when a pick-released line has already been picked (actualQty > 0)', async () => {
+    seedConfirmableOrder({ orderStatus: 'confirmed' });
+    // Mark line as pick-released
+    inMemoryState.salesOrderLines[0].pickReleasedAt = new Date();
+    // Seed a fulfillment line with actualQty > 0 (already picked)
+    if (!inMemoryState._dynamic) inMemoryState._dynamic = {};
+    if (!inMemoryState._dynamic['fulfillment_lines']) inMemoryState._dynamic['fulfillment_lines'] = [];
+    inMemoryState._dynamic['fulfillment_lines'].push({
+      id: FL_ID, orderLineId: LINE_ID,
+      actualQty: '1.000', statusExtended: 'in_progress',
+      warehouseAlerts: [],
+    });
+
+    const result = await executeCommand(
+      { name: 'cancelSalesOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k11', reason: '' } as any,
+      operatorUser, ioStub
+    );
+    expect(result.ok).toBe(false);
+    expect(result.toast).toMatch(/picked.*Return picked units|Return picked units|has already been picked/i);
   });
 });

@@ -41,7 +41,7 @@ beforeEach(() => { resetInMemoryState(inMemoryState); });
 afterEach(() => { vi.clearAllMocks(); });
 
 describe('logPayment', () => {
-  it('inserts a payment record with status posted', async () => {
+  it('inserts a payment record with status posted and finalizes journal', async () => {
     seedCustomer();
     const result = await executeCommand(
       { name: 'logPayment', payload: { customerId: CUSTOMER_ID, amount: 500, method: 'cash' }, idempotencyKey: 'k1', reason: '' } as any,
@@ -52,6 +52,7 @@ describe('logPayment', () => {
     expect(inMemoryState.payments[0].status).toBe('posted');
     expect(inMemoryState.payments[0].amount).toBe('500.00');
     expect(inMemoryState.payments[0].customerId).toBe(CUSTOMER_ID);
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
   });
 
   it('rejects zero-amount payment', async () => {
@@ -64,34 +65,33 @@ describe('logPayment', () => {
     expect(result.toast).toContain('Payment amount cannot be zero');
   });
 
-  it('negative amount decrements customer balance and inserts a buyer-credit ledger entry', async () => {
+  it('negative amount (buyer credit) decrements customer balance exactly and inserts a down_payment ledger entry', async () => {
     seedCustomer('200.00');
     const result = await executeCommand(
       { name: 'logPayment', payload: { customerId: CUSTOMER_ID, amount: -50, method: 'adjustment' }, idempotencyKey: 'k3', reason: '' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(true);
-    const customer = inMemoryState.customers[0];
-    // balance should decrease by 50 (negative payment = buyer credit)
-    expect(Number(customer.balance)).toBeCloseTo(150, 2);
+    expect(inMemoryState.customers[0].balance).toBe('150.00');
     const creditEntry = inMemoryState.clientLedgerEntries.find(
       (e) => e.kind === 'down_payment'
     );
     expect(creditEntry).toBeTruthy();
+    expect(creditEntry!.balanceAfter).toBe('150.00');
   });
 
   it('returns ok:false when customer is not found', async () => {
-    // no customer seeded
     const result = await executeCommand(
       { name: 'logPayment', payload: { customerId: CUSTOMER_ID, amount: 100 }, idempotencyKey: 'k4', reason: '' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(false);
+    expect(result.toast).toContain('Customer not found');
   });
 });
 
 describe('applyClientCredit', () => {
-  it('decrements customer balance by the credit amount', async () => {
+  it('decrements customer balance by the credit amount exactly', async () => {
     seedCustomer('200.00');
     const result = await executeCommand(
       { name: 'applyClientCredit', payload: { customerId: CUSTOMER_ID, amount: 50, reason: 'goodwill' }, idempotencyKey: 'k5', reason: '' } as any,
@@ -99,9 +99,10 @@ describe('applyClientCredit', () => {
     );
     expect(result.ok).toBe(true);
     expect(inMemoryState.customers[0].balance).toBe('150.00');
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
   });
 
-  it('inserts a client ledger entry with kind credit', async () => {
+  it('inserts a client ledger entry with kind credit and correct balanceAfter', async () => {
     seedCustomer('200.00');
     await executeCommand(
       { name: 'applyClientCredit', payload: { customerId: CUSTOMER_ID, amount: 50, reason: 'courtesy' }, idempotencyKey: 'k6', reason: '' } as any,
@@ -113,12 +114,13 @@ describe('applyClientCredit', () => {
     expect(entry!.balanceAfter).toBe('150.00');
   });
 
-  it('balance math is decimal-precise', async () => {
+  it('balance math is decimal-precise (avoids IEEE 754 drift)', async () => {
     seedCustomer('200.00');
     await executeCommand(
       { name: 'applyClientCredit', payload: { customerId: CUSTOMER_ID, amount: 50.01, reason: 'test' }, idempotencyKey: 'k7', reason: '' } as any,
       operatorUser, ioStub
     );
+    // 200.00 - 50.01 = 149.99 exactly (Decimal arithmetic, not floating-point)
     expect(inMemoryState.customers[0].balance).toBe('149.99');
   });
 
@@ -128,5 +130,6 @@ describe('applyClientCredit', () => {
       operatorUser, ioStub
     );
     expect(result.ok).toBe(false);
+    expect(result.toast).toContain('Customer not found');
   });
 });

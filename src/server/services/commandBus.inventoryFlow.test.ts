@@ -47,24 +47,25 @@ beforeEach(() => { resetInMemoryState(inMemoryState); });
 afterEach(() => { vi.clearAllMocks(); });
 
 describe('adjustBatchQuantity', () => {
-  it('increments availableQty by deltaQty', async () => {
+  it('increments availableQty exactly by deltaQty', async () => {
     seedBatch({ availableQty: '10.000' });
     const result = await executeCommand(
       { name: 'adjustBatchQuantity', payload: { batchId: BATCH_ID, deltaQty: 5, reason: 'recount' }, idempotencyKey: 'k1', reason: 'recount' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(true);
-    expect(Number(inMemoryState.batches[0].availableQty)).toBeCloseTo(15, 3);
+    expect(inMemoryState.batches[0].availableQty).toBe('15.000');
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
   });
 
-  it('decrements availableQty by negative deltaQty', async () => {
+  it('decrements availableQty exactly by negative deltaQty', async () => {
     seedBatch({ availableQty: '10.000' });
     const result = await executeCommand(
       { name: 'adjustBatchQuantity', payload: { batchId: BATCH_ID, deltaQty: -3, reason: 'damage' }, idempotencyKey: 'k2', reason: 'damage' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(true);
-    expect(Number(inMemoryState.batches[0].availableQty)).toBeCloseTo(7, 3);
+    expect(inMemoryState.batches[0].availableQty).toBe('7.000');
   });
 
   it('blocks adjustment that would send qty below zero', async () => {
@@ -77,14 +78,14 @@ describe('adjustBatchQuantity', () => {
     expect(result.toast).toContain('Available quantity cannot go below zero');
   });
 
-  it('requires a reason', async () => {
+  it('requires a reason — rejects with the full traceable message', async () => {
     seedBatch();
     const result = await executeCommand(
       { name: 'adjustBatchQuantity', payload: { batchId: BATCH_ID, deltaQty: 1 }, idempotencyKey: 'k4', reason: '' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(false);
-    expect(result.toast).toContain('reason');
+    expect(result.toast).toContain('Adjustment reason is required so inventory corrections stay traceable');
   });
 });
 
@@ -97,9 +98,10 @@ describe('setInventoryStatus', () => {
     );
     expect(result.ok).toBe(true);
     expect(inMemoryState.batches[0].status).toBe('held');
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
   });
 
-  it('is idempotent — returns ok when status is already the target', async () => {
+  it('is idempotent — returns ok with unchanged:true when status is already the target', async () => {
     seedBatch({ status: 'held' });
     const result = await executeCommand(
       { name: 'setInventoryStatus', payload: { batchId: BATCH_ID, status: 'held' }, idempotencyKey: 'k6', reason: 'QC hold' } as any,
@@ -109,13 +111,14 @@ describe('setInventoryStatus', () => {
     expect((result as any).delta?.unchanged).toBe(true);
   });
 
-  it('rejects an invalid status string', async () => {
+  it('rejects an invalid status string with the canonical message', async () => {
     seedBatch({ status: 'posted' });
     const result = await executeCommand(
       { name: 'setInventoryStatus', payload: { batchId: BATCH_ID, status: 'garbage' }, idempotencyKey: 'k7', reason: 'test' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(false);
+    expect(result.toast).toContain('Inventory status must be posted, held, damaged, returned, or in_transit');
   });
 });
 
@@ -133,18 +136,19 @@ describe('reserveInventoryForOrder', () => {
     });
   }
 
-  it('increments batch.reservedQty and marks line as reserved', async () => {
+  it('increments batch.reservedQty exactly by line.qty and marks line as reserved', async () => {
     seedOrderWithLine('10.000', '0.000', '3.000');
     const result = await executeCommand(
       { name: 'reserveInventoryForOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k8', reason: '' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(true);
-    expect(Number(inMemoryState.batches[0].reservedQty)).toBeCloseTo(3, 3);
+    expect(inMemoryState.batches[0].reservedQty).toBe('3.000');
     expect(inMemoryState.salesOrderLines[0].status).toBe('reserved');
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
   });
 
-  it('blocks reservation when available - reserved < line qty', async () => {
+  it('blocks reservation when (availableQty - reservedQty) < lineQty', async () => {
     // available=3, reserved=2 → net 1, but line wants 5
     seedOrderWithLine('3.000', '2.000', '5.000');
     const result = await executeCommand(
@@ -155,15 +159,15 @@ describe('reserveInventoryForOrder', () => {
     expect(result.toast).toContain('short on available quantity');
   });
 
-  it('skips lines already reserved (idempotent)', async () => {
+  it('skips already-reserved lines without double-incrementing reservedQty', async () => {
     seedOrderWithLine('10.000', '3.000', '3.000');
-    inMemoryState.salesOrderLines[0].status = 'reserved'; // already reserved
+    inMemoryState.salesOrderLines[0].status = 'reserved';
     const result = await executeCommand(
       { name: 'reserveInventoryForOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k10', reason: '' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(true);
-    // reservedQty must NOT increase again
-    expect(Number(inMemoryState.batches[0].reservedQty)).toBeCloseTo(3, 3);
+    // reservedQty must NOT increase again — stays at the seeded 3.000
+    expect(inMemoryState.batches[0].reservedQty).toBe('3.000');
   });
 });
