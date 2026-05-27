@@ -20,8 +20,7 @@ export function Hotkeys() {
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
   const setCommandPaletteAdvancedOpen = useUiStore((state) => state.setCommandPaletteAdvancedOpen);
-  const setFinderOpen = useUiStore((state) => state.setFinderOpen);
-  const finderOpen = useUiStore((state) => state.finderOpen);
+  const openPalette = useUiStore((state) => state.openPalette);
   const setFocusedPanel = useUiStore((state) => state.setFocusedPanel);
   const commandPaletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
@@ -56,13 +55,14 @@ export function Hotkeys() {
       }
       if (event.metaKey && key === 'k') {
         event.preventDefault();
-        setCommandPaletteOpen(true);
+        // TER-1633: unified spotlight — ⌘K always opens on Commands tab
+        openPalette('commands');
         return;
       }
-      // CAP-005 / TER-1478: Cmd+Shift+F opens the global finder
+      // TER-1633: ⌘⇧F opens the unified spotlight on the Entities tab
       if (event.metaKey && event.shiftKey && key === 'f') {
         event.preventDefault();
-        setFinderOpen(true);
+        openPalette('entities');
         return;
       }
 
@@ -74,10 +74,6 @@ export function Hotkeys() {
         }
         if (commandPaletteOpen) {
           setCommandPaletteOpen(false);
-          return;
-        }
-        if (finderOpen) {
-          setFinderOpen(false);
           return;
         }
         if (focusedPanelId || focusMode) {
@@ -185,9 +181,9 @@ export function Hotkeys() {
     commandPaletteOpen,
     cycleDrawer,
     drawerState,
-    finderOpen,
     focusMode,
     focusedPanelId,
+    openPalette,
     pushToast,
     runCommand,
     selectedRows,
@@ -196,7 +192,6 @@ export function Hotkeys() {
     setCommandPaletteOpen,
     setDrawerState,
     setDrawerTab,
-    setFinderOpen,
     setFocusedPanel,
     setFocusMode,
     toggleDrawer,
