@@ -330,7 +330,7 @@ const reverseCommandByIdPayloadSchema = z.object({
 
 const setCustomerCreditLimitPayloadSchema = z.object({
   customerId: z.string().uuid(),
-  amount: z.coerce.number().min(0),
+  amount: z.coerce.number().min(0, 'amount must be greater than or equal to zero'),
   reason: z.string().min(4, 'reason must be at least 4 characters'),
 });
 

@@ -10,11 +10,21 @@ import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { commandLabelFor } from '../../shared/commandCatalog';
+import { formatTs } from '../utils/format';
 import type { ColDef } from 'ag-grid-community';
 import type { GridRow, ViewKey } from '../../shared/types';
 
+/** Maps a pendingQueue key to the pre-apply grid filter string.
+ *  Empty string → navigate without applying a filter. */
+const QUEUE_FILTER: Partial<Record<string, string>> = {
+  intake:   'status:ready',
+  sales:    'status:confirmed',
+  payments: '',  // count is from invoices; payments view shows payment records — no direct filter
+};
+
 export function DashboardView() {
   const setDrilldownMetric = useUiStore((state) => state.setDrilldownMetric);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
   const navigate = useNavigate();
   const drilldownMetric = useUiStore((state) => state.drilldownMetric);
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 15_000 });
@@ -22,6 +32,7 @@ export function DashboardView() {
   const drilldown = trpc.queries.drilldown.useQuery({ metricKey: drilldownMetric ?? 'cash' }, { enabled: Boolean(drilldownMetric) });
   const rankedWorkRows = useMemo(() => [...((workQueue.data ?? []) as GridRow[])].sort(workUrgencySort), [workQueue.data]);
   const { runCommand, isRunning } = useCommandRunner();
+  const myDrafts = trpc.queries.myDrafts.useQuery(undefined, { refetchInterval: 15_000 });
 
   const workQueueExpansionConfig = useMemo(() => ({
     enabled: true,
@@ -209,15 +220,51 @@ export function DashboardView() {
           </button>
         </div>
       </WorkspacePanel>
+      {/* ── Your Drafts (TER-1632) ────────────────────────────────────────────── */}
+      {(myDrafts.data?.length ?? 0) > 0 && (
+        <WorkspacePanel
+          panelId="dashboard:my-drafts"
+          title={`Your drafts (${myDrafts.data?.length ?? 0})`}
+          headingLevel={2}
+          contentClassName="p-3"
+        >
+          <div className="grid gap-2">
+            {(myDrafts.data ?? []).map((draft) => (
+              <button
+                key={String(draft.id)}
+                className="queue-row"
+                type="button"
+                onClick={() => navigate('/' + String(draft.route))}
+              >
+                <span>{String(draft.lane)}: {String(draft.title)}</span>
+                <StatusPill status={String(draft.status ?? '')} />
+              </button>
+            ))}
+          </div>
+        </WorkspacePanel>
+      )}
+      {/* ── End Your Drafts ─────────────────────────────────────────────────── */}
+
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
         <WorkspacePanel panelId="dashboard:pending-work-queues" title="Pending work queues" headingLevel={2} contentClassName="p-3">
           <div className="grid gap-2">
-            {(dashboard.data?.pendingQueues ?? []).map((queue) => (
-                <button key={queue.key} className="queue-row" type="button" onClick={() => navigate('/' + queue.key)}>
-                <span>{queue.label}</span>
-                <strong>{queue.count}</strong>
-              </button>
-            ))}
+          {(dashboard.data?.pendingQueues ?? []).map((queue) => {
+              const filter = QUEUE_FILTER[queue.key] ?? '';
+              return (
+                <button
+                  key={queue.key}
+                  className="queue-row"
+                  type="button"
+                  onClick={() => {
+                    if (filter) setGridFilter(queue.key as ViewKey, filter);
+                    navigate('/' + queue.key);
+                  }}
+                >
+                  <span>{queue.label}</span>
+                  <strong>{queue.count}</strong>
+                </button>
+              );
+            })}
           </div>
           <div className="mt-4 flex items-center gap-2 text-sm">
             <StatusPill status={dashboard.data?.health.ok ? 'posted' : 'needs_fix'} />
@@ -230,7 +277,9 @@ export function DashboardView() {
               <div key={activity.id} className="activity-row">
                 <span className="font-medium">{commandLabelFor(activity.commandName)}</span>
                 <span>{activity.actorName}</span>
-                <span>{new Date(activity.createdAt).toLocaleString()}</span>
+                <span title={formatTs(activity.createdAt, { variant: 'long' })}>
+                  {formatTs(activity.createdAt, { variant: 'relative' })}
+                </span>
                 <span>{activity.toast}</span>
               </div>
             ))}

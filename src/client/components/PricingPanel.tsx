@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
+import { formatMoney } from '../utils/format';
 import type { CustomerPricingRule, CategoryPricingEntry, PricingRuleEntry } from '../../shared/types';
 
 function asRule(value: unknown): CustomerPricingRule {
@@ -79,7 +80,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
   const fallbackText = defaultsRule.default
     ? defaultsRule.default.basis === 'percent'
       ? `${(defaultsRule.default.amount * 100).toFixed(1)}%`
-      : `+$${defaultsRule.default.amount.toFixed(2)}`
+      : `+${formatMoney(defaultsRule.default.amount)}`
     : 'fallback 30%';
 
   const customerName = String(

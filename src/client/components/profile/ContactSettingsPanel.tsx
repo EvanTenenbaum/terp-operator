@@ -1,5 +1,6 @@
 import { WorkspacePanel } from '../WorkspacePanel';
 import type { ContactProfileData } from './types';
+import { formatMoney } from '../../utils/format';
 
 interface Props { data: ContactProfileData; }
 
@@ -14,8 +15,8 @@ export function ContactSettingsPanel({ data }: Props) {
       {Boolean(contact.is_referee) && referee && (
         <WorkspacePanel panelId="contact-settings-referee" title="Referee Settings">
           <div className="context-drawer-card p-3 space-y-1 text-sm">
-            <label className="field-inline"><span className="text-zinc-500">Balance</span><span>${Number(referee.balance ?? 0).toFixed(2)}</span></label>
-            <label className="field-inline"><span className="text-zinc-500">Lifetime earned</span><span>${Number(referee.lifetime_earned ?? 0).toFixed(2)}</span></label>
+            <label className="field-inline"><span className="text-zinc-500">Balance</span><span>{formatMoney(Number(referee.balance ?? 0))}</span></label>
+            <label className="field-inline"><span className="text-zinc-500">Lifetime earned</span><span>{formatMoney(Number(referee.lifetime_earned ?? 0))}</span></label>
             <label className="field-inline"><span className="text-zinc-500">Payment method</span><span>{String(referee.payment_method ?? '—')}</span></label>
             <label className="field-inline"><span className="text-zinc-500">Payment details</span><span>{String(referee.payment_details ?? '—')}</span></label>
           </div>
@@ -28,7 +29,7 @@ export function ContactSettingsPanel({ data }: Props) {
             <label className="field-inline"><span className="text-zinc-500">Type</span><span>{String(processor.processor_type ?? '—')}</span></label>
             <label className="field-inline"><span className="text-zinc-500">Fee type</span><span>{String(processor.fee_type ?? '—')}</span></label>
             <label className="field-inline"><span className="text-zinc-500">Fee %</span><span>{String(processor.fee_percentage ?? '—')}</span></label>
-            <label className="field-inline"><span className="text-zinc-500">Fixed fee</span><span>{processor.fee_fixed_amount ? `$${Number(processor.fee_fixed_amount).toFixed(2)}` : '—'}</span></label>
+            <label className="field-inline"><span className="text-zinc-500">Fixed fee</span><span>{processor.fee_fixed_amount ? formatMoney(Number(processor.fee_fixed_amount)) : '—'}</span></label>
             <label className="field-inline"><span className="text-zinc-500">User split</span><span>{String(processor.default_user_split ?? '—')}%</span></label>
           </div>
         </WorkspacePanel>

@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import type { IntakeOrderRow } from '../views/IntakeView.types';
+import { formatMoney } from '../utils/format';
 
 interface ReceiptPreviewDrawerProps {
   order: IntakeOrderRow | null;
@@ -74,7 +75,7 @@ export function ReceiptPreviewDrawer({ order, onClose }: ReceiptPreviewDrawerPro
                         <td>{String(row.name)}</td>
                         <td>{String(row.intakeQty)}</td>
                         <td>${String(row.unitCost)}</td>
-                        <td>${Number(row.subtotal ?? 0).toFixed(2)}</td>
+                        <td>{formatMoney(Number(row.subtotal ?? 0))}</td>
                       </tr>
                     ))}
                   </tbody>

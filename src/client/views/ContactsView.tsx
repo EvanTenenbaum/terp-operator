@@ -5,6 +5,7 @@ import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { ContactCreateModal } from '../components/ContactCreateModal';
 import type { GridRow } from '../../shared/types';
+import { moneyCol } from '../utils/format';
 
 const ROLE_FILTERS = ['customer', 'vendor', 'referee', 'contractor', 'employee', 'processor'] as const;
 type RoleFilter = (typeof ROLE_FILTERS)[number];
@@ -60,12 +61,7 @@ export function ContactsView() {
     { field: 'companyName', headerName: 'Company',  flex: 2 },
     { field: 'phone',       headerName: 'Phone',    flex: 1 },
     { field: 'email',       headerName: 'Email',    flex: 2 },
-    {
-      field: 'customerBalance',
-      headerName: 'Balance',
-      flex: 1,
-      valueFormatter: (p) => p.value != null ? `$${Number(p.value).toFixed(2)}` : '—',
-    },
+    { ...moneyCol('customerBalance', { headerName: 'Balance' }), flex: 1 },
   ];
 
   return (

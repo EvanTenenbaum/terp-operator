@@ -30,6 +30,7 @@ vi.mock('../api/trpc', () => {
     }),
     workQueue: () => ({ data: [], isLoading: false }),
     drilldown: () => ({ data: [], isLoading: false }),
+    myDrafts: () => ({ data: [], isLoading: false }),
     me: () => ({ data: { id: 'u-1', name: 'op', email: 'op@example.test', role: 'operator' } })
   };
 
@@ -156,5 +157,17 @@ describe('DashboardView accessibility (#34 FE-M3)', () => {
         expect.stringContaining('recent activity')
       ])
     );
+  });
+});
+
+describe('DashboardView — Your drafts section (TER-1632)', () => {
+  it('hides the "Your drafts" panel when the current user has no drafts', () => {
+    // The module-level mock already returns myDrafts: [] — confirm section is absent.
+    render(
+      <Wrap>
+        <DashboardView />
+      </Wrap>
+    );
+    expect(screen.queryByRole('heading', { name: /your drafts/i })).not.toBeInTheDocument();
   });
 });

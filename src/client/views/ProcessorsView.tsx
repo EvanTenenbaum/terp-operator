@@ -7,6 +7,7 @@ import { OperatorGrid } from '../components/OperatorGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { ProcessorDetailPanel } from '../components/ProcessorDetailPanel';
 import type { GridRow } from '../../shared/types';
+import { formatMoney } from '../utils/format';
 
 export function ProcessorsView() {
   const navigate = useNavigate();
@@ -43,8 +44,8 @@ export function ProcessorsView() {
         const row = params.data;
         if (!row) return '';
         if (row.feeType === 'percentage') return `${row.feePercentage}%`;
-        if (row.feeType === 'fixed') return `$${Number(row.feeFixedAmount).toFixed(2)}`;
-        return `${row.feePercentage}% + $${Number(row.feeFixedAmount).toFixed(2)}`;
+        if (row.feeType === 'fixed') return formatMoney(Number(row.feeFixedAmount));
+        return `${row.feePercentage}% + ${formatMoney(Number(row.feeFixedAmount))}`;
       }
     },
     {

@@ -19,6 +19,7 @@ A self-hosted wholesale cannabis ERP operator console. The mental model is **a w
 | Styling a UI element | `../design-system/styling-guide.md` |
 | Domain question ("what's a referee?") | `domain-concepts.md` |
 | Local setup / how to test | `development.md` |
+| Feedback widget / Crikket capture | `feedback-capture.md` |
 
 ## Key Principles (don't violate without justification)
 

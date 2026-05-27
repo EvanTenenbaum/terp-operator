@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
+import { formatMoney, moneyCol } from '../utils/format';
 import type {
   ColDef,
   GetDetailRowDataParams,
@@ -12,7 +13,9 @@ import type {
 import { trpc } from '../api/trpc';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
+import { VerifyAllPreviewBody } from '../components/VerifyAllPreviewBody';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { useConfirm } from '../hooks/useConfirm';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useUiStore } from '../store/uiStore';
 import type { CommandResult, GridRow } from '../../shared/types';
@@ -36,27 +39,40 @@ export function IntakeView() {
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
 
+  const confirm = useConfirm();
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirmVerifyAllFor, setConfirmVerifyAllFor] = useState<IntakeOrderRow | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
   const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
   const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [previewOrder, setPreviewOrder] = useState<IntakeOrderRow | null>(null);
+  // TER-1627 (F-13/F-32): drag-and-drop affordance for the CSV import textarea
+  const [csvDragActive, setCsvDragActive] = useState(false);
   // #21 slice 3 (UX-A9): inline confirm panels each get a focus trap so Tab
   // stays in-panel and Escape collapses them, matching CommandPalette /
   // RefereeRelationshipDialog. The trap activates only when its panel is open.
   const csvImportFocusRef = useFocusTrap<HTMLDivElement>(csvOpen, () => setCsvOpen(false));
-  const confirmVerifyAllFocusRef = useFocusTrap<HTMLDivElement>(
-    confirmVerifyAllFor !== null,
-    () => setConfirmVerifyAllFor(null)
-  );
   const orderRows = (intakeQueue.data ?? EMPTY) as IntakeOrderRow[];
 
   async function importCsv(validateOnly: boolean) {
     const result = await runCommand('importBatchesCsv', { csv: csvText, validateOnly }, validateOnly ? 'Validate intake CSV import' : 'Import validated intake CSV');
     setCsvResult(result);
     if (result.ok && !validateOnly) setCsvOpen(false);
+  }
+
+  // TER-1627: accept .csv files dropped onto the import textarea zone
+  function handleCsvDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setCsvDragActive(false);
+    const file = e.dataTransfer.files[0];
+    if (file && (file.name.endsWith('.csv') || file.type === 'text/csv')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        setCsvText(text);
+      };
+      reader.readAsText(file);
+    }
   }
 
   async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) {
@@ -223,12 +239,12 @@ export function IntakeView() {
       {
         headerName: 'Expected $',
         valueGetter: (params: ValueGetterParams<IntakeOrderRow>) =>
-          params.data ? `$${Number(params.data.expectedTotal || 0).toFixed(2)}` : ''
+          params.data ? formatMoney(Number(params.data.expectedTotal || 0)) : ''
       },
       {
         headerName: 'Verified $',
         valueGetter: (params: ValueGetterParams<IntakeOrderRow>) =>
-          params.data ? `$${Number(params.data.total || 0).toFixed(2)}` : ''
+          params.data ? formatMoney(Number(params.data.total || 0)) : ''
       },
       {
         headerName: 'Actions',
@@ -247,14 +263,34 @@ export function IntakeView() {
               <span className={allVerified ? 'selection-pill success' : 'selection-pill'}>
                 {postedCount}/{totalCount} verified
               </span>
-              <button
-                type="button"
-                className="secondary-button compact-action"
-                disabled={!canWrite || busy || isRunning || !hasPendingBatches(order)}
-                onClick={() => setConfirmVerifyAllFor(order)}
-              >
-                Verify all
-              </button>
+              {canWrite ? (
+                <button
+                  type="button"
+                  className="secondary-button compact-action"
+                  disabled={busy || isRunning || !hasPendingBatches(order)}
+                  onClick={() => {
+                    void (async () => {
+                      const ok = await confirm({
+                        title: `Verify all intake for ${order.poNo}?`,
+                        body: (
+                          <VerifyAllPreviewBody
+                            batches={order.batches}
+                            vendor={order.vendor}
+                          />
+                        ),
+                        primaryLabel: 'Verify all',
+                        tone: 'default',
+                        persist: true,
+                      });
+                      if (!ok) return;
+                      await verifyAllForOrder(order);
+                      pushToast(`Verified all intake for ${order.poNo}.`, 'success');
+                    })();
+                  }}
+                >
+                  Verify all
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="secondary-button compact-action"
@@ -268,7 +304,7 @@ export function IntakeView() {
         }
       }
     ],
-    [busy, isRunning, canWrite]
+    [busy, isRunning, canWrite, confirm, pushToast]
   );
 
   function hasPendingBatches(order: IntakeOrderRow) {
@@ -332,11 +368,22 @@ export function IntakeView() {
                   </button>
                 </div>
               </div>
-              <textarea
-                className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
-                value={csvText}
-                onChange={(event) => setCsvText(event.target.value)}
-              />
+              {/* TER-1627: drop zone wrapper — accepts .csv file drag-and-drop */}
+              <div
+                className={`media-upload-zone mt-2${csvDragActive ? ' media-upload-zone-active' : ''}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setCsvDragActive(true);
+                }}
+                onDragLeave={() => setCsvDragActive(false)}
+                onDrop={handleCsvDrop}
+              >
+                <textarea
+                  className="h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
+                  value={csvText}
+                  onChange={(event) => setCsvText(event.target.value)}
+                />
+              </div>
               {csvResult ? (
                 <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
               ) : null}
@@ -344,6 +391,7 @@ export function IntakeView() {
           </WorkspacePanel>
         ) : null}
         <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
+          <p className="page-subtitle px-3 pb-1">Yellow = qty differs from expected · Red = discrepancy reason required</p>
           <div className="ag-theme-quartz grid-shell">
             <AgGridReact<IntakeOrderRow>
               rowData={orderRows}
@@ -365,35 +413,7 @@ export function IntakeView() {
             <div className="p-4 text-sm text-zinc-600">No approved purchase orders with linked intake batches yet. Approve a PO to populate this queue.</div>
           ) : null}
         </WorkspacePanel>
-        {confirmVerifyAllFor ? (
-          <WorkspacePanel panelId="intake:confirm-verify-all" title={`Verify all intake for ${confirmVerifyAllFor.poNo}?`} contentClassName="p-3">
-            <div ref={confirmVerifyAllFocusRef}>
-              <p className="text-sm text-zinc-700">
-                This will accept every pending batch on this PO as the expected quantity and post the receipt.
-              </p>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  className="primary-button compact-action"
-                  disabled={busy || isRunning}
-                  onClick={async () => {
-                    const target = confirmVerifyAllFor;
-                    setConfirmVerifyAllFor(null);
-                    if (target) {
-                      await verifyAllForOrder(target);
-                      pushToast(`Verified all intake for ${target.poNo}.`, 'success');
-                    }
-                  }}
-                >
-                  Yes — verify all
-                </button>
-                <button type="button" className="secondary-button compact-action" onClick={() => setConfirmVerifyAllFor(null)}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </WorkspacePanel>
-        ) : null}
+
       </div>
       <ReceiptPreviewDrawer
         order={previewOrder}
@@ -442,6 +462,14 @@ function buildBatchColumns(
         const expected = Number(params.data?.expectedQty ?? 0);
         const actual = Number(params.value ?? 0);
         return expected && actual && expected !== actual ? { backgroundColor: '#fef9c3' } : null;
+      },
+      tooltipValueGetter: (params) => {
+        const expected = Number(params.data?.expectedQty ?? 0);
+        const actual = Number(params.data?.intakeQty ?? 0);
+        if (expected && actual && expected !== actual) {
+          return `Off by ${(actual - expected).toFixed(3)} from expected ${expected.toFixed(3)}`;
+        }
+        return null;
       }
     },
     {
@@ -461,14 +489,7 @@ function buildBatchColumns(
       },
       tooltipValueGetter: () => 'Free-text reason; carried onto the vendor bill and PO notes when intake is verified.'
     },
-    {
-      field: 'unitCost',
-      headerName: 'Unit cost',
-      type: 'numericColumn',
-      editable: false,
-      valueFormatter: (params) => `$${Number(params.value ?? 0).toFixed(2)}`,
-      minWidth: 110
-    },
+    { ...(moneyCol('unitCost', { headerName: 'Unit cost', width: 110 }) as ColDef<IntakeBatchRow>), type: 'numericColumn', editable: false, minWidth: 110 },
     { field: 'status', minWidth: 110 },
     { field: 'arrivalStatus', headerName: 'Arrival', width: 110 },
     { field: 'mediaStatus', headerName: 'Media', width: 110 },
@@ -498,6 +519,15 @@ function buildBatchColumns(
   ];
 }
 
+const REJECT_REASONS = [
+  { value: 'over_weight', label: 'Over weight' },
+  { value: 'wrong_product', label: 'Wrong product' },
+  { value: 'quality_fail', label: 'Quality fail' },
+  { value: 'pricing_dispute', label: 'Pricing dispute' },
+  { value: 'paperwork_mismatch', label: 'Paperwork mismatch' },
+  { value: 'other', label: 'Other (specify)' },
+] as const;
+
 function BatchRowActions({
   row,
   busy,
@@ -519,6 +549,8 @@ function BatchRowActions({
 }) {
   const [mode, setMode] = useState<'idle' | 'reject' | 'note' | 'marketName' | 'confirmDelete'>('idle');
   const [inputValue, setInputValue] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReasonOther, setRejectReasonOther] = useState('');
 
   const canVerify = row.status === 'draft' || row.status === 'ready';
   const canAct = row.status !== 'returned' && row.status !== 'posted';
@@ -531,6 +563,8 @@ function BatchRowActions({
   function cancel() {
     setMode('idle');
     setInputValue('');
+    setRejectReason('');
+    setRejectReasonOther('');
   }
 
   if (mode === 'idle') {
@@ -606,13 +640,56 @@ function BatchRowActions({
     );
   }
 
+  if (mode === 'reject') {
+    const submitValue = rejectReason === 'other' ? rejectReasonOther.trim() : rejectReason;
+    return (
+      <div className="flex h-full items-center gap-1">
+        <select
+          className="input compact"
+          autoFocus
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Escape') cancel(); }}
+        >
+          <option value="">Select a reason...</option>
+          {REJECT_REASONS.map(r => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+        {rejectReason === 'other' && (
+          <textarea
+            className="input compact"
+            placeholder="Describe the reason..."
+            value={rejectReasonOther}
+            onChange={(e) => setRejectReasonOther(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') cancel(); }}
+            rows={1}
+          />
+        )}
+        <button
+          type="button"
+          className="primary-button compact-action"
+          disabled={!submitValue}
+          onClick={async () => {
+            if (!submitValue) return;
+            await onReject(row.id, submitValue);
+            cancel();
+          }}
+        >
+          Reject
+        </button>
+        <button type="button" className="secondary-button compact-action" onClick={cancel}>
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
   const placeholder =
-    mode === 'reject' ? 'Reject reason' :
     mode === 'note' ? 'Add a note…' :
     'Market name';
 
   const label =
-    mode === 'reject' ? 'Reject' :
     mode === 'note' ? 'Save note' :
     'Set name';
 
@@ -632,10 +709,7 @@ function BatchRowActions({
         disabled={mode !== 'note' && !inputValue.trim()}
         onClick={async () => {
           const value = inputValue.trim();
-          if (mode === 'reject') {
-            if (!value) return;
-            await onReject(row.id, value);
-          } else if (mode === 'note') {
+          if (mode === 'note') {
             if (!value) { cancel(); return; }
             await onAppendNote(row.id, row.notes ?? null, value);
           } else if (mode === 'marketName') {

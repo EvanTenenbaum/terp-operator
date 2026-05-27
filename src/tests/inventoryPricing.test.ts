@@ -42,7 +42,7 @@ describe('computeInventoryUnitPrice', () => {
       defaultsRule: {
         default: { basis: 'percent', amount: 0.3 },
         categories: { Flower: { rule: { basis: 'dollar', amount: 25 } } }
-      } as CustomerPricingRule
+      } as unknown as CustomerPricingRule
     });
     expect(result.unitPrice).toBe(75);
     expect(result.rule.source).toBe('settings-category');

@@ -38,7 +38,25 @@ Before substantial work, run:
 pnpm agent:doctor
 ```
 
-If the doctor reports that you are outside the canonical repo, stop and redirect to the TERP Operator checkout instead of editing the nearest TERP-like folder. Legacy TERP-family repos are read-only reference material unless Evan explicitly asks otherwise.
+The doctor must report the canonical GitHub repo. If it reports a problem, stop and fix it before proceeding.
+
+Then run manual git freshness checks:
+
+```bash
+git fetch origin
+git status --short --branch
+git log --oneline -3 origin/main
+```
+
+Do not edit local `main`. Create a fresh worktree from `origin/main` for implementation:
+
+```bash
+git worktree add -b <branch-name> ../<worktree-name> origin/main
+```
+
+Legacy TERP-family repos are read-only reference material unless Evan explicitly asks otherwise.
+
+For the full GitHub-first workflow (fresh worktrees, read-only main, checkpoint discipline), see [`docs/agent-github-first-workflow.md`](docs/agent-github-first-workflow.md).
 
 ## Project Posture
 

@@ -45,15 +45,18 @@ describe('bucketSignal', () => {
 });
 
 describe('formatMoney', () => {
-  it('returns "$0" for nullish values', () => {
-    expect(formatMoney(null)).toBe('$0');
-    expect(formatMoney(undefined)).toBe('$0');
+  // formatMoney is now re-exported from src/client/utils/format.ts (TER-1613).
+  // The canonical implementation always shows 2 decimal places (cents: true default).
+
+  it('returns "$0.00" for nullish values', () => {
+    expect(formatMoney(null)).toBe('$0.00');
+    expect(formatMoney(undefined)).toBe('$0.00');
   });
 
-  it('formats whole dollars without cents', () => {
-    expect(formatMoney(200)).toBe('$200');
-    expect(formatMoney(0)).toBe('$0');
-    expect(formatMoney(1234567)).toBe('$1,234,567');
+  it('formats whole dollars with cents', () => {
+    expect(formatMoney(200)).toBe('$200.00');
+    expect(formatMoney(0)).toBe('$0.00');
+    expect(formatMoney(1234567)).toBe('$1,234,567.00');
   });
 
   it('formats values with cents using 2 fraction digits', () => {
@@ -123,16 +126,16 @@ describe('classifyDelta', () => {
   it('formats above correctly with ratio input', () => {
     expect(
       classifyDelta({ direction: 'above', deltaDollars: 200, deltaPct: 0.25 })
-    ).toBe('$200 above engine (+25.0%)');
+    ).toBe('$200.00 above engine (+25.0%)');
     expect(
       classifyDelta({ direction: 'above', deltaDollars: 200, deltaPct: 1.5 })
-    ).toBe('$200 above engine (+150.0%)');
+    ).toBe('$200.00 above engine (+150.0%)');
   });
 
   it('formats below correctly with ratio input', () => {
     expect(
       classifyDelta({ direction: 'below', deltaDollars: -150, deltaPct: -0.125 })
-    ).toBe('$150 below engine (-12.5%)');
+    ).toBe('$150.00 below engine (-12.5%)');
   });
 });
 

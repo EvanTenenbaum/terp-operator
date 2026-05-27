@@ -1,7 +1,8 @@
 import { Ban, CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
+import { whyShownCol, type RuleMap } from '../components/columns';
 import { CommandReversalTab } from '../components/drawerTabs/CommandReversalTab';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -14,6 +15,7 @@ import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
+import { useConfirm } from '../hooks/useConfirm';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
 import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationshipDrawer';
 import { ReceiptPanel } from '../components/ReceiptPanel';
@@ -55,6 +57,15 @@ interface PickQueueRow {
 }
 
 const MS_PER_DAY = 86400000;
+
+// Rule map for the Closeout "Why shown" audit column (status field).
+const CLOSEOUT_STATUS_MAP: RuleMap = {
+  open:     'Period is open — closeout has not been initiated yet.',
+  locked:   'Period is locked — all open work is resolved and this period is ready to archive.',
+  archived: 'Period has been archived — this run is complete and historical.',
+  failed:   'Archive run encountered an error — review the log and retry.',
+  draft:    'Period is in draft state — not yet locked.',
+};
 
 const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
   purchaseOrders: [
@@ -210,7 +221,11 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'csvPath', headerName: 'CSV', minWidth: 180 },
     { field: 'jsonlPath', headerName: 'JSONL', minWidth: 180 },
     { field: 'pdfPath', headerName: 'PDF', minWidth: 180 },
-    { field: 'createdAt', width: 180 }
+    { field: 'createdAt', width: 180 },
+    // Why shown audit column — uses status as the reason key; tooltip shows full
+    // description.  Hidden by default to avoid duplicating the Status column
+    // visually; visible columns remain at 7.
+    { ...whyShownCol('status', CLOSEOUT_STATUS_MAP), hide: true },
   ]
 };
 
@@ -1516,8 +1531,10 @@ function InventoryRowActions({
     setTagText(Array.isArray(currentTags) ? currentTags.join(', ') : String(currentTags ?? ''));
   }, [selectedBatch?.id, selectedBatch?.tags]);
 
-  const confirmAction = (label: string, exec: () => void) => {
-    if (typeof window !== 'undefined' && !window.confirm(`${label} for selected inventory row?`)) return;
+  const confirm = useConfirm();
+  const confirmAction = async (label: string, exec: () => void) => {
+    const ok = await confirm({ title: `${label} for selected inventory row?` });
+    if (!ok) return;
     exec();
   };
 
@@ -1552,7 +1569,7 @@ function InventoryRowActions({
               type="button"
               disabled={!reason.trim()}
               onClick={() =>
-                confirmAction(`Set inventory status to ${status}`, () =>
+                void confirmAction(`Set inventory status to ${status}`, () =>
                   runCommand('setInventoryStatus', { batchId, status }, reason || `Set inventory status to ${status}`)
                 )
               }
@@ -1569,7 +1586,7 @@ function InventoryRowActions({
               type="button"
               disabled={!location.trim() || !reason.trim()}
               onClick={() =>
-                confirmAction(`Move location to ${location}`, () =>
+                void confirmAction(`Move location to ${location}`, () =>
                   runCommand('transferInventoryLocation', { batchId, location: location.trim() }, reason || `Move inventory to ${location}`)
                 )
               }
@@ -1605,7 +1622,7 @@ function InventoryRowActions({
               type="button"
               disabled={!reason.trim() || (ownershipStatus === 'C' && !consignedVendorId)}
               onClick={() =>
-                confirmAction(`Move ownership to ${ownershipStatus}`, () =>
+                void confirmAction(`Move ownership to ${ownershipStatus}`, () =>
                   runCommand(
                     'transferInventoryOwnership',
                     { batchId, ownershipStatus, vendorId: ownershipStatus === 'C' ? consignedVendorId : undefined },
@@ -1629,7 +1646,7 @@ function InventoryRowActions({
               className="secondary-button compact-action"
               type="button"
               onClick={() =>
-                confirmAction('Replace tags', () =>
+                void confirmAction('Replace tags', () =>
                   runCommand('applyTags', { entityType: 'batch', entityId: batchId, tags: parseTagInput(tagText), mode: 'replace' }, 'Replace tags on selected inventory row')
                 )
               }
@@ -2494,6 +2511,12 @@ export function RecoveryView() {
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const rows = selectedRecoveryRows ?? EMPTY_ROWS;
   const { runCommand } = useCommandRunner();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
+  // True when rendered as the standalone /recovery route; false when embedded
+  // inside SettingsView as the "Action log" tab.
+  const isStandaloneRecovery = !location.pathname.startsWith('/settings');
   const [q, setQ] = useState('');
   const [showAdminTools, setShowAdminTools] = useState(false);
   const [backupId, setBackupId] = useState('');
@@ -2515,6 +2538,21 @@ export function RecoveryView() {
   const selected = rows[0];
   return (
     <div className="view-stack">
+      {/* TER-1628 F-41: Recovery vs per-row Undo guidance (standalone Recovery route only) */}
+      {isStandaloneRecovery ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="page-subtitle">
+            Use this for bulk reversals or commands older than the last 30 days' log; for a single recent command use Undo from the Action Log.
+          </p>
+          <button
+            type="button"
+            className="text-button text-xs"
+            onClick={() => { setActiveSettingsTab('actions'); navigate('/settings'); }}
+          >
+            → Action Log
+          </button>
+        </div>
+      ) : null}
       <div className="control-band">
         <label className="field-inline">
           Search
@@ -2627,6 +2665,15 @@ export function RecoveryView() {
       {/* CAP-009 / Phase 5 — reversal preview panel (CMD-RECOVERY TER-1521) */}
       {selected ? (
         <section className="inline-panel" data-testid="recovery-reversal-panel">
+          {/* TER-1628 F-41: cross-link to Recovery when viewing from Settings > Action log */}
+          {!isStandaloneRecovery ? (
+            <p className="text-xs text-zinc-500">
+              For bulk reversals →{' '}
+              <button type="button" className="text-button text-xs" onClick={() => navigate('/recovery')}>
+                Recovery
+              </button>
+            </p>
+          ) : null}
           <CommandReversalTab commandId={String(selected.id)} />
         </section>
       ) : null}

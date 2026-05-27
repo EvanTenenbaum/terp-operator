@@ -4,6 +4,7 @@ import { trpc } from '../api/trpc';
 import type { GridRow } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
 import { WorkspacePanel } from './WorkspacePanel';
+import { CountPill } from './CountPill';
 
 export function PhotographyQueuePanel() {
   const inventory = trpc.queries.grid.useQuery({ view: 'inventory' });
@@ -36,8 +37,22 @@ export function PhotographyQueuePanel() {
       contentClassName="p-3"
       actions={
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="selection-pill success">{ready} ready</span>
-          <span className="selection-pill warning">{open.length} needs media</span>
+          <CountPill
+            count={ready}
+            route="/inventory"
+            filterView="inventory"
+            filterValue="mediaStatus:done"
+            label={`${ready} inventory items with media ready`}
+            className="success"
+          />
+          <CountPill
+            count={open.length}
+            route="/inventory"
+            filterView="inventory"
+            filterValue="mediaStatus:open,in_progress"
+            label={`${open.length} inventory items needing media`}
+            className="warning"
+          />
         </div>
       }
     >

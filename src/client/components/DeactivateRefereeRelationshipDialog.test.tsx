@@ -16,7 +16,6 @@ import { DeactivateRefereeRelationshipDialog } from './DeactivateRefereeRelation
 describe('DeactivateRefereeRelationshipDialog', () => {
   beforeEach(() => {
     runCommand.mockClear();
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
   });
 
   it('renders the entity name', () => {
@@ -50,9 +49,8 @@ describe('DeactivateRefereeRelationshipDialog', () => {
     );
   });
 
-  it('rejects empty reason via alert (no runCommand call)', async () => {
+  it('shows inline field error for empty reason (no runCommand call)', async () => {
     const user = userEvent.setup();
-    const alertSpy = vi.spyOn(window, 'alert');
     render(
       <DeactivateRefereeRelationshipDialog
         relationshipId="rel-1"
@@ -61,7 +59,7 @@ describe('DeactivateRefereeRelationshipDialog', () => {
       />
     );
     await user.click(screen.getByRole('button', { name: /^deactivate$/i }));
-    expect(alertSpy).toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('A reason is required to deactivate a relationship.');
     expect(runCommand).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ import { Pencil, PowerOff } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { UpdateRefereeRelationshipDialog } from './UpdateRefereeRelationshipDialog';
 import { DeactivateRefereeRelationshipDialog } from './DeactivateRefereeRelationshipDialog';
+import { formatMoney } from '../utils/format';
 
 interface RefereeRelationshipsListProps {
   refereeId: string;
@@ -61,8 +62,8 @@ export function RefereeRelationshipsList({ refereeId }: RefereeRelationshipsList
               </td>
               <td className="px-3 py-2">
                 {r.feeType === 'percentage' && `${r.feePercentage}%`}
-                {r.feeType === 'fixed' && `$${Number(r.feeFixedAmount).toFixed(2)}`}
-                {r.feeType === 'hybrid' && `${r.feePercentage}% + $${Number(r.feeFixedAmount).toFixed(2)}`}
+                {r.feeType === 'fixed' && formatMoney(Number(r.feeFixedAmount))}
+                {r.feeType === 'hybrid' && `${r.feePercentage}% + ${formatMoney(Number(r.feeFixedAmount))}`}
               </td>
               <td className="px-3 py-2">{r.applyByDefault ? 'Yes' : 'No'}</td>
               <td className="px-3 py-2">{r.active ? 'Active' : 'Inactive'}</td>

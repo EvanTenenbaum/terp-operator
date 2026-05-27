@@ -8,6 +8,7 @@ import type { FilterCondition, FilterFieldName } from '../../shared/filterSchema
 import { evaluateFilterGroup, calculateAgeDays } from '../utils/filterEvaluator';
 import { AdvancedFilterBuilder } from './AdvancedFilterBuilder';
 import { SavedFiltersManager } from './SavedFiltersManager';
+import { INVENTORY_FINDER_RULE_MAP } from './columns';
 
 export interface InventoryFinderBatch extends GridRow {
   batchCode?: string;
@@ -34,10 +35,30 @@ export interface InventoryFinderBatch extends GridRow {
   tags?: string[] | string | null;
   ageDays?: number;
   uom?: string | null;
+  /**
+   * TER-1618 / F-27: item UUID from `b.item_id` — present in batch query.
+   * Used for future last-ordered-qty lookup once customerWorkspace or a
+   * dedicated panel query surfaces per-item purchase history.
+   */
+  itemId?: string | null;
+  /**
+   * TER-1618 / F-27: wholesale case-pack quantity for this item.
+   * Not yet in the DB schema — field is reserved for when a `case_pack`
+   * column is added to `batches` or `items` and the batch query is updated.
+   * When present and > 0, the qty input defaults to this value instead of 1.
+   */
+  casePack?: number | null;
 }
 
 interface InventoryFinderPanelProps {
   selectedOrderId?: string;
+  /**
+   * TER-1618 / F-27: customer UUID for the active sale workspace.
+   * Passed through from SalesSourcePane. Reserved for future use when
+   * a per-item order-history lookup (Priority 2 of the UOM-aware default)
+   * is wired up without violating the no-new-fetch guardrail.
+   */
+  customerId?: string;
   focusKey?: string;
   addedBatchIds?: Set<string>;
   initialSearch?: string;
@@ -151,6 +172,7 @@ export function InventoryFinderPanel({
   const [advancedFilter, setAdvancedFilter] = useState<FilterGroupInput | null>(null);
   const [selectedSavedFilter, setSelectedSavedFilter] = useState<string | null>(null);
   const [manageFiltersOpen, setManageFiltersOpen] = useState(false);
+  const [filterSaveStatus, setFilterSaveStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // Add filter dropdown state
   const [addFilterOpen, setAddFilterOpen] = useState(false);
@@ -275,11 +297,13 @@ export function InventoryFinderPanel({
   }
 
   async function add(batch: InventoryFinderBatch) {
-    const raw = quantities[batch.id] || '1';
+    // TER-1618 / F-27: use smart default (casePack → fallback '1')
+    const raw = quantities[batch.id] ?? defaultQtyFor(batch);
     const requested = Math.max(1, Number.parseFloat(raw) || 1);
     const available = Number(batch.availableQty ?? 0);
     await onAddBatch(batch, Math.min(requested, available || requested));
-    setQuantities((current) => ({ ...current, [batch.id]: '1' }));
+    // Reset to smart default so repeat-add remains UOM-aware
+    setQuantities((current) => ({ ...current, [batch.id]: defaultQtyFor(batch) }));
   }
 
   async function saveCurrentFilter() {
@@ -563,6 +587,14 @@ export function InventoryFinderPanel({
                     </div>
                   </>
                 )}
+              </div>
+            )}
+            {filterSaveStatus && (
+              <div
+                className={filterSaveStatus.ok ? 'text-xs text-green-700' : 'field-error text-xs'}
+                role="alert"
+              >
+                {filterSaveStatus.msg}
               </div>
             )}
           </div>
@@ -875,6 +907,28 @@ export function InventoryFinderPanel({
 // ---------------------------------------------------------------------------
 // Utility helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * TER-1618 / F-27: UOM-aware default quantity for an inventory row.
+ * Exported for unit testing.
+ * Priority 1 — casePack: use the item's wholesale case-pack qty when present.
+ * Priority 2 — last-ordered qty (NOT YET IMPLEMENTED).
+ * Priority 3 — fallback: '1'
+ */
+export function defaultQtyFor(row: InventoryFinderBatch): string {
+  if (row.casePack != null && Number(row.casePack) > 0) {
+    return String(Number(row.casePack));
+  }
+  return '1';
+}
+
+/**
+ * TER-1618 / F-27: Returns the "last: N" hint value when the default qty
+ * comes from customer order history (Priority 2). Currently always returns null.
+ */
+export function qtyHintFor(_row: InventoryFinderBatch): string | null {
+  return null;
+}
 
 function unique(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value)))).sort(

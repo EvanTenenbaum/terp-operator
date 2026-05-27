@@ -6,6 +6,7 @@ import type { LedgerDraft, LedgerDirection, LedgerEntityType } from '../store/ui
 import type { GridRow } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
 import { WorkspacePanel } from './WorkspacePanel';
+import { formatMoney } from '../utils/format';
 
 interface PostedLedgerRow {
   id: string;
@@ -568,7 +569,7 @@ function DraftLedgerRow({
             />
           </td>
           <td className="calculated-display">
-            {customerCredit > 0 ? `$${customerCredit.toFixed(2)}` : '-'}
+            {customerCredit > 0 ? formatMoney(customerCredit) : '-'}
           </td>
         </>
       ) : (
@@ -764,7 +765,7 @@ function validate(row: LedgerDraft, reference: any) {
   if (row.direction === 'paying' && row.entityType === 'referee') {
     const referee = (reference?.referees ?? []).find((r: any) => r.id === row.entityId);
     if (referee && amount > Number(referee.balance ?? 0)) {
-      return `Amount exceeds referee balance $${(Number(referee.balance ?? 0)).toFixed(2)}`;
+      return `Amount exceeds referee balance ${formatMoney(Number(referee.balance ?? 0))}`;
     }
   }
   return null;

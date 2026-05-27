@@ -105,6 +105,7 @@ export function SalesSourcePane({
       >
         <InventoryFinderPanel
           selectedOrderId={selectedOrderId}
+          customerId={customerId}
           focusKey={customerId}
           addedBatchIds={addedBatchIds}
           initialSearch={initialSearch}
