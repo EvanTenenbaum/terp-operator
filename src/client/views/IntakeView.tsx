@@ -46,6 +46,8 @@ export function IntakeView() {
   const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
   const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [previewOrder, setPreviewOrder] = useState<IntakeOrderRow | null>(null);
+  // TER-1627 (F-13/F-32): drag-and-drop affordance for the CSV import textarea
+  const [csvDragActive, setCsvDragActive] = useState(false);
   // #21 slice 3 (UX-A9): inline confirm panels each get a focus trap so Tab
   // stays in-panel and Escape collapses them, matching CommandPalette /
   // RefereeRelationshipDialog. The trap activates only when its panel is open.
@@ -56,6 +58,21 @@ export function IntakeView() {
     const result = await runCommand('importBatchesCsv', { csv: csvText, validateOnly }, validateOnly ? 'Validate intake CSV import' : 'Import validated intake CSV');
     setCsvResult(result);
     if (result.ok && !validateOnly) setCsvOpen(false);
+  }
+
+  // TER-1627: accept .csv files dropped onto the import textarea zone
+  function handleCsvDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setCsvDragActive(false);
+    const file = e.dataTransfer.files[0];
+    if (file && (file.name.endsWith('.csv') || file.type === 'text/csv')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        setCsvText(text);
+      };
+      reader.readAsText(file);
+    }
   }
 
   async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) {
@@ -349,11 +366,22 @@ export function IntakeView() {
                   </button>
                 </div>
               </div>
-              <textarea
-                className="mt-2 h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
-                value={csvText}
-                onChange={(event) => setCsvText(event.target.value)}
-              />
+              {/* TER-1627: drop zone wrapper — accepts .csv file drag-and-drop */}
+              <div
+                className={`media-upload-zone mt-2${csvDragActive ? ' media-upload-zone-active' : ''}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setCsvDragActive(true);
+                }}
+                onDragLeave={() => setCsvDragActive(false)}
+                onDrop={handleCsvDrop}
+              >
+                <textarea
+                  className="h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
+                  value={csvText}
+                  onChange={(event) => setCsvText(event.target.value)}
+                />
+              </div>
               {csvResult ? (
                 <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
               ) : null}
