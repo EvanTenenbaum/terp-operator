@@ -243,7 +243,10 @@ export function SalesView() {
   const { runCommand, isRunning } = useCommandRunner();
   const workspaceOrder = workspace.data?.orders.find((order) => ['draft', 'confirmed'].includes(String(order.status))) ?? workspace.data?.orders[0];
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
-  const orderLines = trpc.queries.salesOrderLines.useQuery({ orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedOrder?.id) });
+  const orderLines = trpc.queries.salesOrderLines.useQuery(
+    { orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') },
+    { enabled: Boolean(selectedOrder?.id), refetchInterval: 30_000 }
+  );
   const selectedOrderStatus = String(selectedOrder?.status ?? '');
 
   // CAP-030 / TER-1508 — release eligibility per order (live — backend merged)
@@ -252,6 +255,68 @@ export function SalesView() {
     { orderId: String(selectedOrder?.id ?? blankOrderId) },
     { enabled: Boolean(selectedOrder?.id) }
   );
+
+  const fulfillmentActionsColumn = useMemo<ColDef<GridRow>>(() => ({
+    headerName: 'Pick',
+    colId: 'fulfillmentActions',
+    width: 190,
+    pinned: 'right' as const,
+    sortable: false,
+    suppressMovable: true,
+    cellRenderer: (params: { data?: GridRow }) => {
+      const row = params.data;
+      if (!row) return null;
+      const ps = String(row.pickStatus ?? '');
+      const isQueued = ps === 'released' || ps === 'picking' || ps === 'recall_pending';
+      const isPacked = ps === 'picked' || row.packed === true;
+      const eligibility = releaseEligibility.data?.find((e) => e.lineId === row.id);
+      const alreadyReleased = eligibility?.alreadyReleased ?? (isQueued || isPacked);
+      const canRelease = !alreadyReleased && eligibility?.eligible === true;
+      const inactiveRelease = !alreadyReleased && eligibility != null && !eligibility.eligible;
+      const releaseTitle = inactiveRelease
+        ? (eligibility?.reasons ?? []).join(' ')
+        : '';
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isQueued ? (
+            <span className="selection-pill info" style={{ fontSize: 11 }}>Queued</span>
+          ) : isPacked ? (
+            <span className="selection-pill success" style={{ fontSize: 11 }}>Packed</span>
+          ) : null}
+          {canRelease && canWrite ? (
+            <button
+              className="primary-button compact-action"
+              style={{ fontSize: 11, padding: '2px 8px' }}
+              disabled={isRunning}
+              onClick={() => void runCommand('releaseLineForPicking', { lineId: row.id }, 'Release line for picking')}
+            >
+              Release
+            </button>
+          ) : null}
+          {inactiveRelease && canWrite ? (
+            <button
+              className="primary-button compact-action"
+              style={{ fontSize: 11, padding: '2px 8px', opacity: 0.5 }}
+              disabled
+              title={releaseTitle}
+            >
+              Release
+            </button>
+          ) : null}
+          {(isQueued || isPacked) && canWrite ? (
+            <button
+              className="secondary-button compact-action"
+              style={{ fontSize: 11, padding: '2px 8px' }}
+              disabled={isRunning}
+              onClick={() => void runCommand('recallLineFromPicking', { lineId: row.id }, 'Recall line from picking')}
+            >
+              Recall
+            </button>
+          ) : null}
+        </div>
+      );
+    },
+  }), [releaseEligibility.data, isRunning, canWrite, runCommand]);
 
   const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
   const balance = Number(workspace.data?.customer?.balance ?? 0);
@@ -795,7 +860,7 @@ export function SalesView() {
                 view="sales"
                 title="Customer Draft Lines"
                 rows={(orderLines.data ?? []) as GridRow[]}
-                columns={visibleLineColumns}
+                columns={[...visibleLineColumns, fulfillmentActionsColumn]}
                 loading={false}
                 onSelectionChange={setSelectedLines}
                 onCellCommit={canWrite ? onLineCommit : undefined}
