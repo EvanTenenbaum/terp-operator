@@ -45,3 +45,20 @@ export function selectVisibleSalesColumns(
   if (showMargin) return columns.slice();
   return columns.filter((column) => !column.field || !MARGIN_FIELD_SET.has(column.field));
 }
+
+// TER-1617 F-23: Sales Orders pane customer scope filter.
+//
+// When an activeCustomerId is set, the Sales Orders grid must show only orders
+// belonging to that customer. This is a client-side view filter — the
+// underlying tRPC query remains unchanged (all orders are still fetched).
+//
+// `activeCustomerId` is null → return all rows unchanged (no scoping).
+// `activeCustomerId` is non-null → keep only rows whose `customerId` matches.
+// The caller is responsible for the "dismissed" state (chip ×).
+export function filterSalesOrdersByCustomer(
+  rows: GridRow[],
+  activeCustomerId: string | null
+): GridRow[] {
+  if (!activeCustomerId) return rows;
+  return rows.filter((row) => String(row.customerId ?? '') === activeCustomerId);
+}

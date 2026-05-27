@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackagePlus, Send } from 'lucide-react';
+import { ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackagePlus, Send, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -19,7 +19,7 @@ import type { GridRow } from '../../shared/types';
 import { formatMoney, shouldShowSalesCreditIndicator } from '../components/credit/creditPanelUtils';
 import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { buildCustomerOfferCsv } from './SalesView.csvExport';
-import { selectVisibleSalesColumns } from './SalesView.columns';
+import { filterSalesOrdersByCustomer, selectVisibleSalesColumns } from './SalesView.columns';
 
 // CAP-030 / TER-1508 — types matching live releaseEligibility API shape (backend now merged)
 
@@ -195,6 +195,9 @@ export function SalesView() {
   const [autoStartedCustomerIds, setAutoStartedCustomerIds] = useState<Set<string>>(new Set());
   const [dismissedCreditIndicators, setDismissedCreditIndicators] = useState<Set<string>>(new Set());
   const [exportError, setExportError] = useState<string | null>(null);
+  // TER-1617 F-23: track whether the operator dismissed the customer-scope chip
+  // for the Sales Orders pane. Resets automatically when the active customer changes.
+  const [customerFilterDismissed, setCustomerFilterDismissed] = useState(false);
   // CAP-030 / TER-1508 — edit confirmation for released lines
   const [pendingLineEdit, setPendingLineEdit] = useState<{
     type: 'qty' | 'remove';
@@ -244,6 +247,29 @@ export function SalesView() {
   const releaseEligibility = trpc.queries.releaseEligibility.useQuery(
     { orderId: String(selectedOrder?.id ?? blankOrderId) },
     { enabled: Boolean(selectedOrder?.id) }
+  );
+
+  // TER-1617 F-23: reset the dismissed flag whenever the active customer changes
+  // so the chip re-appears for a freshly-selected customer.
+  useEffect(() => {
+    setCustomerFilterDismissed(false);
+  }, [activeCustomerId]);
+
+  // TER-1617 F-23: derive the active customer name for the filter chip label.
+  const activeCustomerName = useMemo(
+    () => reference.data?.customers.find((c) => c.id === activeCustomerId)?.name ?? null,
+    [reference.data, activeCustomerId]
+  );
+
+  // TER-1617 F-23: filter the Sales Orders pane rows to the active customer
+  // when one is set and the operator has not dismissed the chip. This is a
+  // client-side view filter only — the underlying query is unchanged.
+  const salesOrderRows = useMemo<GridRow[]>(
+    () => filterSalesOrdersByCustomer(
+      (orders.data ?? []) as GridRow[],
+      customerFilterDismissed ? null : activeCustomerId
+    ),
+    [orders.data, activeCustomerId, customerFilterDismissed]
   );
 
   const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
@@ -841,7 +867,7 @@ export function SalesView() {
           <OperatorGrid
             view="sales"
             title="Sales Orders"
-            rows={(orders.data ?? []) as GridRow[]}
+            rows={salesOrderRows}
             columns={visibleOrderColumns}
             loading={orders.isLoading && !customerId}
             isError={orders.isError}
@@ -850,6 +876,21 @@ export function SalesView() {
             emptyTitle="No open sales shown"
             emptyChildren="Choose a customer to start."
             expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
+            actions={
+              activeCustomerId && !customerFilterDismissed && activeCustomerName ? (
+                <button
+                  type="button"
+                  className="selection-pill success"
+                  data-testid="sales-customer-scope-chip"
+                  title="Clear customer filter — shows all orders"
+                  aria-label={`Filtered to ${activeCustomerName}. Click to show all orders.`}
+                  onClick={() => setCustomerFilterDismissed(true)}
+                >
+                  Filtered to {activeCustomerName}&nbsp;
+                  <X className="inline h-3 w-3" aria-hidden="true" />
+                </button>
+              ) : undefined
+            }
           />
           <SalesSourcePane
             customerId={customerId}
