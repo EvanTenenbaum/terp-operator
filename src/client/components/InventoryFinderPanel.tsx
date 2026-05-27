@@ -191,6 +191,31 @@ export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId,
     [agingOnly, category, facets.vendors, location, maxPrice, minQty, ownership, search, tag, vendorId]
   );
 
+  /** TER-1619: each active filter as a { key, label, remove } entry for per-pill × removal */
+  const activeFilterEntries = useMemo(
+    () =>
+      [
+        search && { key: 'search', label: `search: ${search}`, remove: () => setSearch('') },
+        category && { key: 'category', label: category, remove: () => setCategory('') },
+        vendorName(facets.vendors, vendorId) && {
+          key: 'vendor',
+          label: vendorName(facets.vendors, vendorId),
+          remove: () => setVendorId(''),
+        },
+        tag && { key: 'tag', label: tag, remove: () => setTag('') },
+        location && { key: 'location', label: location, remove: () => setLocation('') },
+        ownership && { key: 'ownership', label: ownership, remove: () => setOwnership('') },
+        minQty && { key: 'minQty', label: `>= ${minQty}`, remove: () => setMinQty('') },
+        (maxPrice || parsedPriceHint(search)) && {
+          key: 'maxPrice',
+          label: `<= $${maxPrice || parsedPriceHint(search)}`,
+          remove: () => setMaxPrice(''),
+        },
+        agingOnly && { key: 'agingOnly', label: '30+ days', remove: () => setAgingOnly(false) },
+      ].filter(Boolean) as Array<{ key: string; label: string; remove: () => void }>,
+    [agingOnly, category, facets.vendors, location, maxPrice, minQty, ownership, search, tag, vendorId]
+  );
+
   function resetFilters() {
     setSearch('');
     setCategory('');
@@ -429,10 +454,18 @@ export function InventoryFinderPanel({ selectedOrderId, customerId: _customerId,
       <div className="finder-chip-row" aria-label="Active finder filters">
         <Filter className="h-4 w-4 text-zinc-500" aria-hidden="true" />
         {!selectedOrderId ? <span className="finder-chip warning">Choose customer to add</span> : null}
-        {activeFilterLabels.map((label) => (
-          <span className="finder-chip" key={String(label)}>
-            {label}
-          </span>
+        {/* TER-1619: per-pill × removal — each chip is a button that clears its own filter */}
+        {activeFilterEntries.map((entry) => (
+          <button
+            key={entry.key}
+            type="button"
+            className="finder-chip"
+            onClick={entry.remove}
+            aria-label={`Remove ${entry.label} filter`}
+          >
+            {entry.label}
+            <X className="ml-1 inline h-3 w-3" aria-hidden="true" />
+          </button>
         ))}
       </div>
       {compared.length ? (
