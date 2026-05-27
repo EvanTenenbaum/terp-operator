@@ -4,26 +4,28 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Track every call to useFocusTrap so we can assert the inline confirm
-// panels in IntakeView wire it up correctly. Each call corresponds to one
-// panel mount — when the CSV import panel or the "Verify all" confirm panel
-// opens, useFocusTrap should be called with (true, <cancel handler>).
-//
-// Use separate refs for each call site so double-wiring bugs are visible:
-// call index 0 = csvImportFocusRef, call index 1 = confirmVerifyAllFocusRef.
+// panels in IntakeView wire it up correctly. With TER-1621 the verify-all
+// confirm now goes through useConfirm() (modal portal) rather than an inline
+// WorkspacePanel, so there is only ONE useFocusTrap call site in IntakeView:
+// call index 0 = csvImportFocusRef.
 const csvFocusRef = { current: null };
-const confirmFocusRef = { current: null };
 let focusTrapCallCount = 0;
 const useFocusTrapMock = vi.fn(
   (_isOpen: boolean, _onClose?: () => void) => {
-    // Return a distinct ref per call site within each render cycle
-    const idx = focusTrapCallCount % 2;
     focusTrapCallCount++;
-    return idx === 0 ? csvFocusRef : confirmFocusRef;
+    return csvFocusRef;
   }
 );
 vi.mock('../hooks/useFocusTrap', () => ({
   useFocusTrap: (isOpen: boolean, onClose?: () => void) =>
     useFocusTrapMock(isOpen, onClose)
+}));
+
+// Mock useConfirm so we can assert it is called when "Verify all" is clicked.
+// Returns false (user cancelled) by default so verifyAllForOrder is not run.
+const mockConfirm = vi.fn().mockResolvedValue(false);
+vi.mock('../hooks/useConfirm', () => ({
+  useConfirm: () => mockConfirm
 }));
 
 const runCommand = vi.fn().mockResolvedValue({ ok: true, toast: 'done' });
@@ -132,6 +134,7 @@ describe('IntakeView inline confirm panels — focus trap (#21 slice 3 / UX-A9)'
   beforeEach(() => {
     useFocusTrapMock.mockClear();
     runCommand.mockClear();
+    mockConfirm.mockClear();
     focusTrapCallCount = 0;
   });
 
@@ -158,10 +161,11 @@ describe('IntakeView inline confirm panels — focus trap (#21 slice 3 / UX-A9)'
     expect(typeof firstOpenCall[1]).toBe('function');
   });
 
-  it('activates a focus trap when the confirmVerifyAll panel is opened', async () => {
-    // The AG Grid mock renders the Actions cell renderer for each row, which
-    // includes the "Verify all" button. Clicking it sets confirmVerifyAllFor
-    // (call site #2 of useFocusTrap) to open=true.
+  it('calls useConfirm() with a rich preview when Verify all is clicked (TER-1621)', async () => {
+    // TER-1621: the inline WorkspacePanel confirm was replaced with a
+    // useConfirm() modal that carries a VerifyAllPreviewBody. Clicking
+    // "Verify all" should invoke the confirm function with the right options;
+    // no second useFocusTrap call site lives in IntakeView any more.
     const user = userEvent.setup();
     render(<IntakeView />);
 
@@ -169,16 +173,18 @@ describe('IntakeView inline confirm panels — focus trap (#21 slice 3 / UX-A9)'
     const verifyAllBtn = screen.getByRole('button', { name: /verify all/i });
     await user.click(verifyAllBtn);
 
-    // After the state update the confirm panel is mounted. useFocusTrap call
-    // site #2 (confirmVerifyAllFocusRef) should now have been called with
-    // open === true and a cancel handler (so Escape dismisses the panel).
-    const openCalls = useFocusTrapMock.mock.calls.filter(([open]) => open === true);
-    expect(openCalls.length).toBeGreaterThanOrEqual(1);
-    // The open call should carry a close callback so Escape works
-    const openCall = openCalls[0]!;
-    expect(typeof openCall[1]).toBe('function');
+    // useConfirm() should have been called with a title that names the PO,
+    // the 'Verify all' primary label, and persist:true so backdrop clicks
+    // cannot accidentally dismiss a destructive receipt confirmation.
+    expect(mockConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringContaining('PO-1001'),
+        primaryLabel: 'Verify all',
+        persist: true,
+      })
+    );
 
-    // Confirm the actual panel UI is visible
-    expect(screen.getByText(/verify all intake for PO-1001/i)).toBeInTheDocument();
+    // Since mockConfirm returns false, verifyAllForOrder should NOT have run.
+    expect(runCommand).not.toHaveBeenCalled();
   });
 });
