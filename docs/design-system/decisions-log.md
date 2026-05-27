@@ -2,6 +2,24 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-05-27 — Pricing redesign: nested CategoryPricingEntry, inline SalesView pricing columns, OrderPricingPanel removed
+
+**Decision 1:** `CustomerPricingRule.categories` changed from `Record<string, PricingRuleEntry>` to `Record<string, CategoryPricingEntry>` where `CategoryPricingEntry = { rule?: PricingRuleEntry; subcategories?: Record<string, PricingRuleEntry> }`. Key collision between same-named subcategories across categories is prevented by nesting under the category key. Existing flat `{ basis, amount }` entries are migrated to `{ rule: { basis, amount } }` transparently in `validatePricingRulePayload`.
+
+**Decision 2:** `resolvePricingRuleEntry` updated with 7-level resolution: customer subcategory → customer category rule → customer default → settings subcategory → settings category rule → settings default → fallback 30%. `PricingRuleApplication.source` union extended with `'customer-subcategory'` and `'settings-subcategory'`. New `subcategory?: string` field on `PricingRuleApplication` populated when source is a subcategory match.
+
+**Decision 3:** `markupDollarsFromPrice(price, rule)` added to `inventoryPricingShared.ts`. For range-COGS batches where price is the primary input, converts markup-on-cost rule% to a dollar amount: `price × (rule% / (1 + rule%))`. This keeps Markup % = Markup $ ÷ COGS consistent with fixed-COGS rows.
+
+**Decision 4:** `OrderPricingPanel` removed from `PricingPanel.tsx` and `RelationshipDrawer.tsx`. Per-line pricing now lives inline in the SalesView sales order lines AG Grid as three new margin-gated columns: `markup` (editable), `markupPct` (calculated), `derivedCogs` (display). All gated by `showMargin` toggle via `MARGIN_COLUMN_FIELDS` in `SalesView.columns.ts`.
+
+**Decision 5:** Two pricing flows in the same grid: fixed-COGS rows use COGS→markup→price; range-COGS rows use price→markup(via markupDollarsFromPrice)→derivedCogs(range-checked). Both display Markup % as markup-on-cost (Markup $ ÷ COGS) for consistency.
+
+**Files:** `src/shared/types.ts`, `src/shared/schemas.ts`, `src/shared/inventoryPricingShared.ts`, `src/server/services/commandBus.ts`, `src/client/components/DefaultPricingPanel.tsx`, `src/client/components/PricingPanel.tsx`, `src/client/components/RelationshipDrawer.tsx`, `src/client/views/SalesView.tsx`, `src/client/views/SalesView.columns.ts`, `src/client/styles.css`
+**Author:** Claude Sonnet 4.6 via Evan
+**Related:** Spec `docs/superpowers/specs/2026-05-27-finder-pricing-ui-redesign.md`
+
+---
+
 ## 2026-05-25 — Wave 3A AQA repair: WorkspacePanel default heading level changed to h2 (GH #325)
 
 **Decision:** `WorkspacePanel` section titles now render as `<h2>` by default (previously defaulted to `<h3>` with an opt-in `headingLevel` prop). The `headingLevel` prop (values `2 | 3 | 4`) still allows call sites to override when the surrounding heading hierarchy requires a different level.
