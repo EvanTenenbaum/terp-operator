@@ -225,6 +225,7 @@ export function SalesView() {
   const setSalesSheetState = useUiStore((state) => state.setSalesSheetState);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const pushToast = useUiStore((state) => state.pushToast);
   const visibleOrderColumns = useMemo(() => selectVisibleSalesColumns(showMargin, orderColumns), [showMargin]);
   const visibleSuggestionColumns = useMemo(() => selectVisibleSalesColumns(showMargin, suggestionColumns), [showMargin]);
   const visibleLineColumns = useMemo(() => selectVisibleSalesColumns(showMargin, lineColumns), [showMargin]);
@@ -899,9 +900,11 @@ export function SalesView() {
                           const parts = [`${released} of ${total} lines released`];
                           if (skipped > 0) parts.push(`${skipped} skipped (not eligible)`);
                           if (failed > 0) parts.push(`${failed} failed`);
-                          if ((skipped > 0 || failed > 0) && typeof console !== 'undefined') {
-                            console.info('[bulk release]', parts.join(' — '));
+                          if (skipped > 0 || failed > 0) {
+                            pushToast(parts.join(' — '), failed > 0 ? 'error' : 'info');
                           }
+                          // All released successfully — useCommandRunner already shows the server toast.
+                          // No supplemental toast needed for the all-success case.
                         }}
                       >
                         Release {rows.filter((r) => {
