@@ -241,7 +241,7 @@ export function QuickLedgerGrid() {
         defaultAllocationIntent: typeDraft.defaultAllocationIntent,
         requiresApproval: typeDraft.requiresApproval
       },
-      'Transaction ledger: save custom type'
+      'Payment entry: save custom type'
     );
     if (result.ok) {
       setTypeDraft(makeTypeDraft(typeDraft.direction));
@@ -256,7 +256,7 @@ export function QuickLedgerGrid() {
   function section(direction: LedgerDirection) {
     const draftRows = drafts.filter((row) => row.direction === direction);
     const postedRows = direction === 'receiving' ? posted.receiving : posted.paying;
-    const title = direction === 'receiving' ? 'Receiving Ledger' : 'Paying Ledger';
+    const title = direction === 'receiving' ? 'Money In' : 'Money Out';
     const entityHeader = direction === 'receiving' ? 'Cash received from' : 'Entity paying cash to';
     const total = postedRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
     const hidden = collapsed[direction];
@@ -303,7 +303,7 @@ export function QuickLedgerGrid() {
                   <th scope="col">Fee</th>
                   <th scope="col">Split %</th>
                   <th scope="col">Net</th>
-                  <th scope="col">PO / FIFO / target</th>
+                  <th scope="col">Applied to</th>
                   <th scope="col">Amount</th>
                   <th scope="col">Method</th>
                   <th scope="col">Bucket</th>
@@ -324,7 +324,7 @@ export function QuickLedgerGrid() {
                     typeOptions={typeOptions}
                     reference={reference.data}
                     allocationPreview={row.id === activeRowId ? preview.data?.label : undefined}
-                    accessIssue={canPostLedgerRow ? undefined : 'Manager access required to post transaction ledger rows'}
+                    accessIssue={canPostLedgerRow ? undefined : 'Manager access required to post payment entries'}
                     disabled={isRunning || !canPostLedgerRow}
                     onCommit={commit}
                     onFocus={() => setActiveRowId(row.id)}
@@ -345,7 +345,7 @@ export function QuickLedgerGrid() {
   return (
     <WorkspacePanel
       panelId="payments:transaction-ledger"
-      title="Transaction Ledger"
+      title="Payment entry"
       subtitle="Manual rows, workflow-created payments, PO product payments, and accounting handoff in one audit surface."
       contentClassName="p-3"
       actions={
@@ -425,10 +425,10 @@ export function QuickLedgerGrid() {
           <label>
             Default target
             <select className="select" value={typeDraft.defaultAllocationIntent} onChange={(event) => setTypeDraft((current) => ({ ...current, defaultAllocationIntent: event.target.value }))}>
-              <option value="fifo">FIFO</option>
-              <option value="po_fifo">Open PO FIFO</option>
+              <option value="fifo">Oldest order first</option>
+              <option value="po_fifo">Oldest open PO first</option>
               <option value="selected_po">Selected PO</option>
-              <option value="selected_invoice">Selected invoice</option>
+              <option value="selected_invoice">Selected order</option>
               <option value="selected_bill">Selected bill</option>
               <option value="unapplied">Unapplied</option>
             </select>
@@ -615,9 +615,9 @@ function DraftLedgerRow({
       <td><span className={row.status === 'posted' ? 'finder-chip success' : row.status === 'needs_fix' ? 'finder-chip warning' : 'finder-chip'}>{labelFromToken(row.status)}</span></td>
       <td><span className="transaction-ledger-source">Draft</span></td>
       <td>
-        <button className="icon-button" type="button" disabled={disabled || row.status === 'posted'} onClick={() => onCommit(row)} title={accessIssue ?? 'Commit ledger row'}>
+        <button className="icon-button" type="button" disabled={disabled || row.status === 'posted'} onClick={() => onCommit(row)} title={accessIssue ?? 'Record payment'}>
           <Check className="h-4 w-4" aria-hidden="true" />
-          <span className="sr-only">Commit ledger row</span>
+          <span className="sr-only">Record payment</span>
         </button>
         {/* CAP-004: role-gate note for viewers */}
         {accessIssue ? (
@@ -722,7 +722,7 @@ function allocationTargets(row: LedgerDraft, reference: any, openBills: GridRow[
   if (row.direction === 'receiving' && row.entityType === 'customer') {
     const invoices = (reference?.openInvoices ?? []).filter((invoice: any) => !row.entityId || invoice.customerId === row.entityId);
     return [
-      { type: 'fifo', id: '', label: 'FIFO oldest open invoices' },
+      { type: 'fifo', id: '', label: 'Oldest open orders first' },
       { type: 'unapplied', id: '', label: 'Unapplied / down payment' },
       ...invoices.map((invoice: any) => ({
         type: 'selected_invoice',
@@ -747,7 +747,7 @@ function allocationTargets(row: LedgerDraft, reference: any, openBills: GridRow[
     }
     const purchaseOrders = (reference?.activePurchaseOrders ?? []).filter((po: any) => !row.entityId || po.vendorId === row.entityId);
     return [
-      { type: 'po_fifo', id: '', label: 'FIFO open purchase orders' },
+      { type: 'po_fifo', id: '', label: 'Oldest open PO first' },
       ...purchaseOrders.map((po: any) => ({
         type: 'selected_po',
         id: po.id,
@@ -756,7 +756,7 @@ function allocationTargets(row: LedgerDraft, reference: any, openBills: GridRow[
     ];
   }
 
-  return [{ type: 'unapplied', id: '', label: 'Manual journal / no target' }];
+  return [{ type: 'unapplied', id: '', label: 'No order / unattributed' }];
 }
 
 function validate(row: LedgerDraft, reference: any) {
@@ -782,7 +782,7 @@ function ledgerImpact(row: LedgerDraft, reference: any, openBills: GridRow[]) {
     const invoices = (reference?.openInvoices ?? []).filter((invoice: any) => invoice.customerId === row.entityId);
     const open = invoices.reduce((sum: number, invoice: any) => sum + Math.max(0, Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0)), 0);
     if (row.allocationTargetType === 'unapplied') return `Leaves $${money(amount)} unapplied`;
-    if (row.allocationTargetType === 'selected_invoice') return `Applies to selected invoice, then tracks residual`;
+    if (row.allocationTargetType === 'selected_invoice') return `Applies to selected order, then tracks residual`;
     return `Applies up to $${money(Math.min(open, amount))}; $${money(Math.max(0, amount - open))} remains`;
   }
   if (row.direction === 'paying' && row.entityType === 'referee') {

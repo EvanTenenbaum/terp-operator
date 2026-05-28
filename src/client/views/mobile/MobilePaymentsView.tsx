@@ -248,7 +248,7 @@ export function MobilePaymentsView() {
 
       {tab === 'receive' ? (
         invoices.length === 0 ? (
-          <MobileEmptyState icon="💰" headline="No open receivables" body="All caught up." />
+          <MobileEmptyState icon="💰" headline="No open customer balances" body="All caught up." />
         ) : (
           <div className="divide-y px-4" style={{ borderColor: 'var(--m-line)' }}>
             {invoices.map(row => {
@@ -465,7 +465,7 @@ function PaymentForm(props: PaymentFormProps) {
           aria-label="Reference"
           value={props.reference}
           onChange={e => props.onReference(e.target.value)}
-          placeholder={props.kind === 'receive' ? 'Check #, wire ref…' : 'Vendor invoice ref…'}
+          placeholder={props.kind === 'receive' ? 'Check #, wire ref…' : 'Vendor ref / bill #'}
           style={inputStyle}
         />
       </label>

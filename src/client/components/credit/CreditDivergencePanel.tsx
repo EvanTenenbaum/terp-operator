@@ -81,7 +81,7 @@ export function CreditDivergencePanel() {
 
       {kpi.blockerCount > 0 && (
         <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {kpi.blockerCount} customer{kpi.blockerCount !== 1 ? 's' : ''} with open invoices have $0 engine
+          {kpi.blockerCount} customer{kpi.blockerCount !== 1 ? 's' : ''} with open orders have $0 engine
           recommendation — flipping to engine would block their sales.
         </div>
       )}

@@ -87,10 +87,10 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
             <Clipboard className="h-4 w-4" aria-hidden="true" />
             Copy external-safe status
           </button>
-          <RelationshipSection title="Invoices" rows={data?.invoices ?? []} columns={['invoiceNo', 'status', 'total', 'amountPaid']} />
-          <RelationshipSection title="Client ledger" rows={data?.ledger ?? []} columns={['kind', 'amount', 'balanceAfter', 'note']} />
+          <RelationshipSection title="Orders" rows={data?.invoices ?? []} columns={['invoiceNo', 'status', 'total', 'amountPaid']} />
+          <RelationshipSection title="Client balances" rows={data?.ledger ?? []} columns={['kind', 'amount', 'balanceAfter', 'note']} />
           <RelationshipSection title="Credit overrides" rows={data?.creditOverrides ?? []} columns={['status', 'amount', 'reason', 'createdAt']} />
-          <RelationshipSection title="Invoice disputes" rows={data?.disputes ?? []} columns={['invoiceNo', 'status', 'reason', 'resolution']} />
+          <RelationshipSection title="Disputes" rows={data?.disputes ?? []} columns={['invoiceNo', 'status', 'reason', 'resolution']} />
           <RelationshipSection title="Payments" rows={data?.payments ?? []} columns={['method', 'amount', 'unappliedAmount', 'category']} />
           <RelationshipSection title="Orders" rows={data?.orders ?? []} columns={['orderNo', 'status', 'total', 'createdAt']} />
           <RelationshipSection title="Purchase receipts" rows={data?.receipts ?? []} columns={['receiptNo', 'status', 'total', 'createdAt']} />

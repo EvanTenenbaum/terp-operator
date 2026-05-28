@@ -69,10 +69,10 @@ export function IssueSidecar({ row, view, onClose }: IssueSidecarProps) {
             <label className="field-inline">
               Action
               <select className="select" value={action} onChange={(event) => setAction(event.target.value as typeof action)}>
-                <option value="correction">Correction journal</option>
-                <option value="dispute" disabled={!canDispute}>Invoice dispute</option>
+                <option value="correction">Manual correction</option>
+                <option value="dispute" disabled={!canDispute}>Dispute</option>
                 <option value="refund" disabled={!canRefund}>Refund payment</option>
-                <option value="credit" disabled={!canCredit}>Client credit</option>
+                <option value="credit" disabled={!canCredit}>Buyer credit</option>
               </select>
             </label>
             <label className="field-inline">
@@ -99,8 +99,8 @@ export function IssueSidecar({ row, view, onClose }: IssueSidecarProps) {
 function impactPreview(action: string, amount: string, row: GridRow, view: ViewKey) {
   if (action === 'refund') return `Marks payment ${rowLabel(row)} refunded and clears unapplied amount.`;
   if (action === 'credit') return `Applies $${money(Number(amount || 0))} credit to ${String(row.customer ?? row.name ?? rowLabel(row))}.`;
-  if (action === 'dispute') return `Creates an open dispute entry for invoice ${String(row.invoiceNo ?? row.invoiceId)} plus correction journal trace.`;
-  return `Posts a correction journal entry from ${view} for $${money(Number(amount || 0))}.`;
+  if (action === 'dispute') return `Creates an open dispute entry for order ${String(row.invoiceNo ?? row.invoiceId)} plus manual correction trace.`;
+  return `Posts a manual correction from ${view} for $${money(Number(amount || 0))}.`;
 }
 
 function rowLabel(row: GridRow) {

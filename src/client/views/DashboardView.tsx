@@ -211,12 +211,12 @@ export function DashboardView() {
             </button>
           ))}
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('payables')}>
-            <strong>Payables due/scheduled</strong>
+            <strong>Bills due / scheduled</strong>
             <div className="mt-1 text-sm text-ink">Open vendor bills</div>
           </button>
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('receivables')}>
-            <strong>Receivables</strong>
-            <div className="mt-1 text-sm text-ink">Open customer invoices</div>
+            <strong>Customer balances due</strong>
+            <div className="mt-1 text-sm text-ink">Open customer orders</div>
           </button>
         </div>
       </WorkspacePanel>

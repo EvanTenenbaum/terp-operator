@@ -53,7 +53,7 @@ const REPORT_DEFS: readonly ReportDef[] = [
     key: 'client-balances',
     label: 'Client Balances',
     description: 'Client accounts sorted by outstanding balance.',
-    columns: ['Client', 'Open Invoices', 'Balance', 'Credit Limit', 'Available Credit'] as const,
+    columns: ['Client', 'Open Orders', 'Balance', 'Credit Limit', 'Available Credit'] as const,
   },
   {
     key: 'inventory-aging',
@@ -752,7 +752,7 @@ function buildCategoryPerformanceRows(inventoryData: GridRow[]): ReportRow[] {
 function buildClientBalancesRows(clientsData: GridRow[]): ReportRow[] {
   return clientsData.map((row) => ({
     Client: String(row.name ?? ''),
-    'Open Invoices': Number(row.openInvoiceCount ?? 0),
+    'Open Orders': Number(row.openInvoiceCount ?? 0),
     Balance: formatMoney(Number(row.balance ?? 0)),
     'Credit Limit': formatMoney(Number(row.creditLimit ?? 0)),
     'Available Credit': formatMoney(Number(row.headroom ?? 0)),
