@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { eq } from 'drizzle-orm';
 import { db, pool } from './db';
 import { realisticDemoConfigFromEnv, seedRealisticDemoData } from './realisticSeed';
 import {
@@ -24,7 +25,8 @@ import {
   users,
   vendorBills,
   vendorSupply,
-  vendors
+  vendors,
+  contacts
 } from './schema';
 import { createPoFinalizationReceipts } from './services/poFinalizationReceipts';
 
@@ -64,6 +66,7 @@ async function seed() {
         credit_engine_config, credit_engine_stances,
         user_dismissed_banners,
         document_snapshots,
+        contacts, appointments, contact_ledger_entries, contact_merge_candidates,
         items, customers, vendors, users
       restart identity cascade
     `);
@@ -140,6 +143,20 @@ async function insertSeedData() {
     ])
     .returning();
 
+  const vendorContacts = await db
+    .insert(contacts)
+    .values([
+      { name: 'Rhea Marin', displayName: 'Rhea Marin', email: 'rhea@ncgardens.terpagro.local', phone: '707-555-1001', companyName: 'North Coast Gardens', preferredContactMethod: 'email', notes: 'Primary sales rep', tags: ['sales-rep'], isVendor: true, active: true },
+      { name: 'Kai North', displayName: 'Kai North', email: 'kai@ncgardens.terpagro.local', phone: '707-555-1002', companyName: 'North Coast Gardens', preferredContactMethod: 'phone', notes: 'Owner', tags: ['owner'], isVendor: true, active: true },
+      { name: 'Marco Silva', displayName: 'Marco Silva', email: 'marco@emeraldproc.terpagro.local', phone: '510-555-1101', companyName: 'Emerald Processing Co', preferredContactMethod: 'email', notes: 'Account Manager', tags: ['account-manager'], isVendor: true, active: true },
+      { name: 'June Fields', displayName: 'June Fields', email: 'june@uplandcraft.terpagro.local', phone: '831-555-1201', companyName: 'Upland Craft', preferredContactMethod: 'email', notes: 'Sales Rep', tags: ['sales-rep'], isVendor: true, active: true }
+    ])
+    .returning();
+
+  await db.update(vendors).set({ contactId: vendorContacts[0].id }).where(eq(vendors.id, northCoast.id));
+  await db.update(vendors).set({ contactId: vendorContacts[2].id }).where(eq(vendors.id, emerald.id));
+  await db.update(vendors).set({ contactId: vendorContacts[3].id }).where(eq(vendors.id, upland.id));
+
   const [sunset, harbor, valley, cobalt] = await db
     .insert(customers)
     .values([
@@ -149,6 +166,24 @@ async function insertSeedData() {
       { name: 'Cobalt Reserve', creditLimit: '65000.00', balance: '0.00', tags: ['premium', 'flower', 'live'], notes: 'VIP connector customer.' }
     ])
     .returning();
+
+  const customerContacts = await db
+    .insert(contacts)
+    .values([
+      { name: 'Rhea Valdez', displayName: 'Rhea Valdez', email: 'rhea@sunsetcollective.terpagro.local', phone: '415-555-0101', companyName: 'Sunset Collective', preferredContactMethod: 'email', notes: 'Head Buyer', tags: ['head-buyer'], isCustomer: true, active: true },
+      { name: 'Marcus Chen', displayName: 'Marcus Chen', email: 'ap@sunsetcollective.terpagro.local', phone: '415-555-0102', companyName: 'Sunset Collective', preferredContactMethod: 'email', notes: 'Accounts Payable', tags: ['ap-contact'], isCustomer: true, active: true },
+      { name: 'Dana Brooks', displayName: 'Dana Brooks', email: 'dana@harborwellness.terpagro.local', phone: '510-555-0201', companyName: 'Harbor Wellness', preferredContactMethod: 'email', notes: 'Buyer', tags: ['buyer'], isCustomer: true, active: true },
+      { name: 'James Park', displayName: 'James Park', email: 'ops@harborwellness.terpagro.local', phone: '510-555-0202', companyName: 'Harbor Wellness', preferredContactMethod: 'phone', notes: 'Operations Manager', tags: ['operations-manager'], isCustomer: true, active: true },
+      { name: 'Tina Ortiz', displayName: 'Tina Ortiz', email: 'tina@valleymeds.terpagro.local', phone: '209-555-0301', companyName: 'Valley Meds', preferredContactMethod: 'email', notes: 'Buyer', tags: ['buyer'], isCustomer: true, active: true },
+      { name: 'Leo Stone', displayName: 'Leo Stone', email: 'leo@cobaltreserve.terpagro.local', phone: '707-555-0401', companyName: 'Cobalt Reserve', preferredContactMethod: 'email', notes: 'Head Buyer', tags: ['head-buyer'], isCustomer: true, active: true },
+      { name: 'Nina Cross', displayName: 'Nina Cross', email: 'vip@cobaltreserve.terpagro.local', phone: '707-555-0402', companyName: 'Cobalt Reserve', preferredContactMethod: 'phone', notes: 'VIP Relations', tags: ['vip-relations'], isCustomer: true, active: true }
+    ])
+    .returning();
+
+  await db.update(customers).set({ contactId: customerContacts[0].id }).where(eq(customers.id, sunset.id));
+  await db.update(customers).set({ contactId: customerContacts[2].id }).where(eq(customers.id, harbor.id));
+  await db.update(customers).set({ contactId: customerContacts[4].id }).where(eq(customers.id, valley.id));
+  await db.update(customers).set({ contactId: customerContacts[5].id }).where(eq(customers.id, cobalt.id));
 
   await db.insert(tagCatalog).values([
     { slug: 'infused', label: 'Infused', color: 'purple', description: 'Infused product family' },
