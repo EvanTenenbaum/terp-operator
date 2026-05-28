@@ -350,7 +350,7 @@ export function OperatorGrid({
           </button>
         </div>
       ) : null}
-      <div className="ag-theme-quartz grid-shell">
+      <div className="ag-theme-quartz grid-shell" aria-busy={loading}>
         {isError ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-500 p-8">
             <p className="text-sm font-medium text-red-600">Failed to load data</p>

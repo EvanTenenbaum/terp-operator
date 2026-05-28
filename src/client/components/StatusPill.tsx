@@ -25,12 +25,32 @@ const labelByStatus: Record<string, string> = {
   routed: 'in progress'
 };
 
+// A2 (phase7-keyboard-a11y-audit): non-color visual indicators per status category.
+const activeStatuses = new Set(['posted', 'confirmed', 'fulfilled', 'accepted', 'paid', 'open', 'scheduled', 'matched', 'routed']);
+const warningStatuses = new Set(['ready', 'needs_fix', 'failed', 'rejected']);
+
+function statusCategory(label: string): string {
+  if (activeStatuses.has(label)) return 'Active';
+  if (warningStatuses.has(label)) return 'Warning';
+  return 'Inactive';
+}
+
 export function StatusPill({ status }: { status?: string | null }) {
   const label = status ?? 'unknown';
   const displayLabel = labelByStatus[label] ?? label.replaceAll('_', ' ');
+  const category = statusCategory(label);
+  const isCircle = activeStatuses.has(label);
+  const isDiamond = warningStatuses.has(label);
   return (
     <span className={clsx('inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-normal border', toneByStatus[label] ?? 'bg-zinc-50 text-zinc-800 border-zinc-300')}>
-      <span className="h-2 w-2 rounded-sm bg-current" aria-hidden="true" />
+      {isDiamond ? (
+        <svg className="h-2 w-2" viewBox="0 0 10 10" aria-hidden="true">
+          <rect x="1.5" y="1.5" width="7" height="7" transform="rotate(45 5 5)" fill="currentColor" />
+        </svg>
+      ) : (
+        <span className={clsx('h-2 w-2 bg-current', isCircle ? 'rounded-full' : 'rounded-sm')} aria-hidden="true" />
+      )}
+      <span className="sr-only">{category}: </span>
       {displayLabel}
     </span>
   );
