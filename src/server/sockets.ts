@@ -37,6 +37,27 @@ export function createSocketServer(httpServer: HttpServer) {
     });
   });
 
+  // GH #329: Connection handler — join 'authenticated' room and wire up
+  // order-specific room subscription protocol.
+  io.on('connection', (socket) => {
+    // Every successfully-authenticated socket joins the shared 'authenticated'
+    // room. Command-bus broadcasts target this room instead of the whole namespace
+    // so unauthenticated or mid-handshake sockets cannot receive them.
+    socket.join('authenticated');
+
+    // Order-specific room protocol:
+    // Clients call socket.emit('order:subscribe', { orderId }) when they open an
+    // order view and socket.emit('order:unsubscribe', { orderId }) when they leave.
+    // This allows pick:order:* and sales:order:*:line:changed events to be scoped
+    // to only the clients that are actively viewing a given order.
+    socket.on('order:subscribe', ({ orderId }: { orderId: string }) => {
+      if (orderId) socket.join(`order:${orderId}`);
+    });
+    socket.on('order:unsubscribe', ({ orderId }: { orderId: string }) => {
+      if (orderId) socket.leave(`order:${orderId}`);
+    });
+  });
+
   _io = io;
   return io;
 }
@@ -47,6 +68,9 @@ export function createSocketServer(httpServer: HttpServer) {
  * Called from commandBus after mutations that affect pick state. Safe to call even
  * if the socket server hasn't been initialized (e.g., in unit tests) — it no-ops.
  *
+ * pick:queue    → 'authenticated' room   (all operators need queue updates)
+ * pick:order:*  → 'order:{orderId}' room (only clients subscribed to that order)
+ *
  * Clients that don't receive a socket event still reconcile via react-query's
  * staleness interval (30s for pickQueue, 10s for pickListWithLines).
  */
@@ -55,7 +79,14 @@ export function emitPickEvent(
   payload: Record<string, unknown>
 ): void {
   if (!_io) return;
-  _io.emit(event, payload);
+  if (event === 'pick:queue') {
+    // All authenticated operators need to know when the pick queue roster changes.
+    _io.to('authenticated').emit(event, payload);
+  } else {
+    // pick:order:{orderId} — only clients that have subscribed to this order's room.
+    const orderId = event.slice('pick:order:'.length);
+    _io.to(`order:${orderId}`).emit(event, payload);
+  }
 }
 
 /**
@@ -71,13 +102,16 @@ export function emitPickOrderAndQueue(orderId: string, payload: Record<string, u
  * Real-time sales ↔ pick coordination — emit a sales:order:*:line:changed event.
  * Called from commandBus after mutations that affect a released/picked line.
  * Gracefully no-ops if socket server is not initialized.
+ *
+ * GH #329: scoped to 'order:{orderId}' room instead of broadcasting to all clients.
+ * Clients subscribe via socket.emit('order:subscribe', { orderId }).
  */
 export function emitSalesLineEvent(
   orderId: string,
   payload: { kind: string; lineId?: string; at: string }
 ): void {
   if (!_io) return;
-  _io.emit(`sales:order:${orderId}:line:changed`, payload);
+  _io.to(`order:${orderId}`).emit(`sales:order:${orderId}:line:changed`, payload);
 }
 
 /**

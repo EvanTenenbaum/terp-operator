@@ -647,11 +647,12 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     }
 
     try {
+      // GH #329: emit only to 'authenticated' room.
       // Strip toast from broadcast: toast strings may contain customer names or
-      // other operator-specific data that should not be visible to all connected
-      // users. Actors receive their own toast via the mutation's onSuccess callback.
-      // Other clients receive only the cache-invalidation signal (affectedIds).
-      io.emit('command:completed', {
+      // other operator-specific data that should not be visible to peer operators.
+      // Actors receive their own toast via the mutation's onSuccess callback.
+      // Peer clients receive only the cache-invalidation signal (affectedIds).
+      io.to('authenticated').emit('command:completed', {
         commandId,
         commandName: input.name,
         actorId: user.id,
@@ -800,10 +801,10 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       console.warn('[commandBus] appendJsonlJournal failed on failure path:', e instanceof Error ? e.message : e);
     }
 
-    // Socket emit is broadcast to all connected clients — must use scrubbed
+    // GH #329: emit only to 'authenticated' room — must use scrubbed
     // message, not the raw one.
     try {
-      io.emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
+      io.to('authenticated').emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
     } catch (e) {
       console.warn('[commandBus] socket emit failed on failure path:', e instanceof Error ? e.message : e);
     }

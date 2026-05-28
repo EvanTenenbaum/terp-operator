@@ -13,6 +13,7 @@ import { LandedCostExceptionCellRenderer } from '../components/LandedCostExcepti
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useOrderSocket } from '../context/SocketContext';
 import { buildSheetCsv } from '../utils/salesExport';
 import { buildCustomerSheetSnapshotRows } from '../../shared/customerSheetSnapshot';
 import type { GridRow, CustomerPricingRule } from '../../shared/types';
@@ -367,6 +368,16 @@ export function SalesView() {
     { enabled: Boolean(selectedOrder?.id), refetchInterval: 30_000 }
   );
   const selectedOrderStatus = String(selectedOrder?.status ?? '');
+
+  // GH #329: subscribe to the order-specific socket room when an order is
+  // selected so we receive sales:order:*:line:changed events in real time.
+  const { subscribeOrder, unsubscribeOrder } = useOrderSocket();
+  const _selectedOrderId = selectedOrder?.id ? String(selectedOrder.id) : null;
+  useEffect(() => {
+    if (!_selectedOrderId) return;
+    subscribeOrder(_selectedOrderId);
+    return () => { unsubscribeOrder(_selectedOrderId); };
+  }, [_selectedOrderId, subscribeOrder, unsubscribeOrder]);
 
   const lineRowsWithRule = useMemo(() => {
     if (!orderLines.data) return [];

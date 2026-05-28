@@ -7,6 +7,7 @@ import { QueueScreen } from '../components/pick/QueueScreen';
 import { PickListScreen } from '../components/pick/PickListScreen';
 import { PickLineScreen } from '../components/pick/PickLineScreen';
 import type { PickQueueItem, PickLine, PickListWithLines, WarehouseAlertInterrupt } from '../components/pick/pickTypes';
+import { useOrderSocket } from '../context/SocketContext';
 
 type Screen = 'queue' | 'list' | 'line';
 
@@ -24,6 +25,16 @@ export function PickView() {
   const utils = trpc.useUtils();
   // GH #347: command runner for Complete Order / markOrderFulfilled
   const { runCommand: runPickCommand, isRunning: isCompletingOrder } = useCommandRunner();
+
+  // GH #329: subscribe to the order-specific socket room when a pick list is
+  // selected so we receive pick:order:{orderId} events for real-time updates.
+  const { subscribeOrder, unsubscribeOrder } = useOrderSocket();
+  useEffect(() => {
+    const orderId = selectedPickList?.orderId;
+    if (!orderId) return;
+    subscribeOrder(orderId);
+    return () => { unsubscribeOrder(orderId); };
+  }, [selectedPickList?.orderId, subscribeOrder, unsubscribeOrder]);
 
   const queueQuery = trpc.queries.pickQueue.useQuery(undefined, { refetchInterval: 30000 });
   const queueItems = (queueQuery.data ?? []) as PickQueueItem[];
