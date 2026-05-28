@@ -1,7 +1,7 @@
 import { Ban, CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
 import { whyShownCol, type RuleMap } from '../components/columns';
 import { CommandReversalTab } from '../components/drawerTabs/CommandReversalTab';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
@@ -16,6 +16,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import { useConfirm } from '../hooks/useConfirm';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { VendorContextDrawer } from '../components/VendorContextDrawer';
 import { AddRefereeRelationshipDrawer } from '../components/AddRefereeRelationshipDrawer';
 import { ReceiptPanel } from '../components/ReceiptPanel';
@@ -1210,6 +1211,11 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
   const chosenAllocationId = allocationId || String(firstAllocation?.id ?? '');
   const invoices = (reference.data?.openInvoices ?? []).filter((invoice) => !selectedPayment?.customerId || invoice.customerId === selectedPayment.customerId);
 
+  // K7 (phase7-keyboard-a11y-audit): explicit label associations ensure reliable tab order.
+  const allocationSelectId = useId();
+  const invoiceSelectId = useId();
+  const discountInputId = useId();
+
   // CAP-004: detect buyer credit (negative amount or explicit direction flag)
   const isBuyerCredit = paymentAmount < 0 || selectedPayment?.direction === 'buyer_credit';
   const preview = allocationPreview.data;
@@ -1242,9 +1248,9 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
         </div>
       ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <label className="field-inline">
+        <label htmlFor={allocationSelectId} className="field-inline">
           Allocation
-          <select className="select" value={chosenAllocationId} onChange={(event) => setAllocationId(event.target.value)} disabled={!allocations.data?.length || !canAllocate}>
+          <select id={allocationSelectId} className="select" value={chosenAllocationId} onChange={(event) => setAllocationId(event.target.value)} disabled={!allocations.data?.length || !canAllocate}>
             <option value="">Choose</option>
             {allocations.data?.map((row) => (
               <option key={String(row.id)} value={String(row.id)}>
@@ -1256,9 +1262,9 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
         <button className="secondary-button" type="button" disabled={!chosenAllocationId || isRunning || !canAllocate} onClick={() => runCommand('unallocatePayment', { allocationId: chosenAllocationId }, 'Unallocate selected payment allocation')}>
           Unallocate
         </button>
-        <label className="field-inline">
+        <label htmlFor={invoiceSelectId} className="field-inline">
           Invoice
-          <select className="select" value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)} disabled={!canAllocate}>
+          <select id={invoiceSelectId} className="select" value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)} disabled={!canAllocate}>
             <option value="">Choose invoice</option>
             {invoices.map((invoice) => (
               <option key={invoice.id} value={invoice.id}>
@@ -1267,9 +1273,9 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
             ))}
           </select>
         </label>
-        <label className="field-inline">
+        <label htmlFor={discountInputId} className="field-inline">
           Discount
-          <input className="input compact" value={discountAmount} inputMode="decimal" disabled={!canAllocate} onChange={(event) => setDiscountAmount(event.target.value)} />
+          <input id={discountInputId} className="input compact" value={discountAmount} inputMode="decimal" disabled={!canAllocate} onChange={(event) => setDiscountAmount(event.target.value)} />
         </label>
         <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning || !canAllocate} onClick={() => runCommand('applyEarlyPayDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply early-pay discount from payments surface')}>
           Apply Early Pay Discount
@@ -2124,6 +2130,9 @@ export function FulfillmentView() {
   }
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
   const [alertsPickListId, setAlertsPickListId] = useState<string | null>(null);
+
+  // K8 (phase7-keyboard-a11y-audit): Trap focus inside the alerts drawer.
+  const alertsRef = useFocusTrap<HTMLDivElement>(alertsDrawerOpen, () => setAlertsDrawerOpen(false));
   const [alertReturnQty, setAlertReturnQty] = useState('');
   // CAP-030 / TER-1510 — derive live alerts from fulfillmentLines.warehouseAlerts JSONB (backend now merged)
   const liveAlerts: Array<WarehouseAlert & { alertIndex: number }> = alertsPickListId && lines.data
@@ -2315,7 +2324,7 @@ export function FulfillmentView() {
       />
       {/* CAP-030 / TER-1510 — Alerts drawer */}
       {canWrite && alertsDrawerOpen && alertsPickListId ? (
-        <div className="inline-panel border-t border-line">
+        <div ref={alertsRef} className="inline-panel border-t border-line">
           <div className="flex items-center justify-between">
             <h2 className="section-title">
               Warehouse Alerts

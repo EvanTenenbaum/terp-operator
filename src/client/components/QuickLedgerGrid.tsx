@@ -1,5 +1,6 @@
 import { Check, ChevronDown, ChevronRight, Plus, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import type { LedgerDraft, LedgerDirection, LedgerEntityType } from '../store/uiStore';
@@ -131,6 +132,9 @@ export function QuickLedgerGrid() {
   }, [activeQuickLaunch]);
   const [typeDrawerOpen, setTypeDrawerOpen] = useState(false);
   const [typeDraft, setTypeDraft] = useState<TypeDraft>(() => makeTypeDraft('paying'));
+
+  // K6 (phase7-keyboard-a11y-audit): Trap focus inside the custom transaction type drawer.
+  const typeDrawerRef = useFocusTrap<HTMLElement>(typeDrawerOpen, () => setTypeDrawerOpen(false));
 
   const bills = (vendorBills.data ?? []) as GridRow[];
   const openBills = useMemo(() => bills.filter((bill) => Number(bill.amount ?? 0) - Number(bill.amountPaid ?? 0) > 0), [bills]);
@@ -289,25 +293,25 @@ export function QuickLedgerGrid() {
               <caption className="sr-only">{title}</caption>
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Date</th>
-                  <th>Entity type</th>
-                  <th>{entityHeader}</th>
-                  <th>Payment type</th>
-                  <th>Gross</th>
-                  <th>Processor</th>
-                  <th>Fee</th>
-                  <th>Split %</th>
-                  <th>Net</th>
-                  <th>PO / FIFO / target</th>
-                  <th>Amount</th>
-                  <th>Method</th>
-                  <th>Bucket</th>
-                  <th>Notes</th>
-                  <th>Trace</th>
-                  <th>Status</th>
-                  <th>Source</th>
-                  <th>Commit</th>
+                  <th scope="col">#</th>
+                  <th scope="col">Date</th>
+                  <th scope="col">Entity type</th>
+                  <th scope="col">{entityHeader}</th>
+                  <th scope="col">Payment type</th>
+                  <th scope="col">Gross</th>
+                  <th scope="col">Processor</th>
+                  <th scope="col">Fee</th>
+                  <th scope="col">Split %</th>
+                  <th scope="col">Net</th>
+                  <th scope="col">PO / FIFO / target</th>
+                  <th scope="col">Amount</th>
+                  <th scope="col">Method</th>
+                  <th scope="col">Bucket</th>
+                  <th scope="col">Notes</th>
+                  <th scope="col">Trace</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Source</th>
+                  <th scope="col">Commit</th>
                 </tr>
               </thead>
               <tbody>
@@ -362,7 +366,7 @@ export function QuickLedgerGrid() {
         {section('paying')}
       </div>
       {typeDrawerOpen ? (
-        <aside className="transaction-type-drawer" aria-label="Custom transaction type">
+        <aside ref={typeDrawerRef} className="transaction-type-drawer" aria-label="Custom transaction type">
           <div className="transaction-type-drawer-header">
             <div>
               <h3>Custom Type</h3>

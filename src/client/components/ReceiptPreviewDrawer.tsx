@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { trpc } from '../api/trpc';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import type { IntakeOrderRow } from '../views/IntakeView.types';
 import { formatMoney } from '../utils/format';
 
@@ -9,6 +10,9 @@ interface ReceiptPreviewDrawerProps {
 }
 
 export function ReceiptPreviewDrawer({ order, onClose }: ReceiptPreviewDrawerProps) {
+  // K5 (phase7-keyboard-a11y-audit): Trap focus inside the receipt preview drawer.
+  const drawerRef = useFocusTrap<HTMLElement>(Boolean(order), onClose);
+
   const previewBatchIds = order
     ? order.batches
         .filter((batch) => ['draft', 'ready', 'needs_fix'].includes(batch.status))
@@ -23,7 +27,7 @@ export function ReceiptPreviewDrawer({ order, onClose }: ReceiptPreviewDrawerPro
   if (!order) return null;
 
   return (
-    <aside className="context-drawer context-drawer-standard" aria-label="Receipt preview">
+    <aside ref={drawerRef} className="context-drawer context-drawer-standard" aria-label="Receipt preview">
       <div className="context-drawer-header">
         <button
           type="button"

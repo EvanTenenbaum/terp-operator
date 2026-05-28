@@ -19,6 +19,7 @@ export function KpiCard({ metric, onOpen }: { metric: KpiMetric; onOpen: (key: s
           })}
           aria-hidden="true"
         />
+        <span className="sr-only">{metric.severity}</span>
       </div>
       <div className="mt-2 text-xl font-bold text-ink">{metric.value}</div>
       <p className="mt-2 line-clamp-2 text-xs text-zinc-600">{metric.definition}</p>

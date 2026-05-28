@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 function moneyish(value: unknown) {
   const numberValue = Number(value ?? 0);
@@ -47,6 +48,9 @@ export function VendorContextDrawer({
 }: VendorContextDrawerProps): React.ReactElement | null {
   const [activeTab, setActiveTab] = useState<TabKey>('context');
 
+  // K4 (phase7-keyboard-a11y-audit): Trap focus inside the vendor context drawer.
+  const drawerRef = useFocusTrap<HTMLElement>(isOpen, onClose);
+
   if (!isOpen) return null;
 
   return (
@@ -60,6 +64,7 @@ export function VendorContextDrawer({
 
       {/* Drawer */}
       <aside
+        ref={drawerRef}
         className="fixed top-0 right-0 h-screen w-[400px] bg-white shadow-2xl z-50 flex flex-col"
         role="dialog"
         aria-label="Vendor context drawer"
