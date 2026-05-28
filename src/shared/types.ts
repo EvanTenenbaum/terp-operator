@@ -120,7 +120,7 @@ export interface HealthStatus {
   ok: boolean;
   database: 'ok' | 'down';
   journal: 'ok' | 'down';
-  websocket: 'ok';
+  websocket: 'ok' | 'degraded';
   checkedAt: string;
   warnings: string[];
 }

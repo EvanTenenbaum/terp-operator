@@ -2023,17 +2023,40 @@ export const queriesRouter = router({
       limit:     z.number().int().min(1).max(200).default(50),
       cursor:    z.string().optional(),
     }))
-    .query(async ({ input: { contactId, limit } }) => {
-      const result = await pool.query(
-        `SELECT id, kind, amount, method, reference, note, created_at,
-          SUM(amount) OVER (PARTITION BY contact_id ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance
-         FROM contact_ledger_entries
-         WHERE contact_id = $1
-         ORDER BY created_at DESC
-         LIMIT $2`,
-        [contactId, limit]
-      );
-      return { rows: result.rows, nextCursor: null };
+    .query(async ({ input: { contactId, limit, cursor } }) => {
+      // GH #300 — real keyset cursor: encode as "created_at_ISO|uuid"
+      let cursorTs: string | null = null;
+      let cursorId: string | null = null;
+      if (cursor) {
+        const parts = cursor.split('|');
+        cursorTs = parts[0] ?? null;
+        cursorId = parts[1] ?? null;
+      }
+
+      let sql = `SELECT id, kind, amount, method, reference, note, created_at,
+        SUM(amount) OVER (PARTITION BY contact_id ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance
+       FROM contact_ledger_entries
+       WHERE contact_id = $1`;
+      const params: unknown[] = [contactId];
+      let idx = 2;
+
+      if (cursorTs && cursorId) {
+        sql += ` AND (created_at, id) < ($${idx}::timestamptz, $${idx + 1}::uuid)`;
+        params.push(cursorTs, cursorId); idx += 2;
+      }
+
+      sql += ` ORDER BY created_at DESC LIMIT $${idx}`;
+      params.push(limit + 1);
+
+      const result = await pool.query(sql, params);
+      const rows = result.rows;
+      const hasMore = rows.length > limit;
+      if (hasMore) rows.pop();
+      const lastRow = rows[rows.length - 1] as { created_at: string; id: string } | undefined;
+      const nextCursor = hasMore && lastRow
+        ? `${new Date(lastRow.created_at).toISOString()}|${lastRow.id}`
+        : null;
+      return { rows, nextCursor };
     }),
 
   // CAP-029 (TER-1564): Sales order history for a customer entity.
@@ -2041,20 +2064,43 @@ export const queriesRouter = router({
     .input(z.object({
       customerId: z.string().uuid(),
       limit:      z.number().int().min(1).max(200).default(50),
-      cursor:     z.string().uuid().optional(),
+      cursor:     z.string().optional(),   // GH #300 — composite "created_at_ISO|uuid" cursor
     }))
-    .query(async ({ input: { customerId, limit } }) => {
-      const result = await pool.query(
-        `SELECT id, order_no AS "orderNo", created_at AS "createdAt",
-          (SELECT COUNT(*) FROM sales_order_lines WHERE sales_order_lines.order_id = sales_orders.id) AS line_count,
-          total, status, posted_at AS "postedAt"
-         FROM sales_orders
-         WHERE customer_id = $1
-         ORDER BY created_at DESC
-         LIMIT $2`,
-        [customerId, limit]
-      );
-      return { rows: result.rows };
+    .query(async ({ input: { customerId, limit, cursor } }) => {
+      // GH #300 — real keyset cursor: encode as "created_at_ISO|uuid"
+      let cursorTs: string | null = null;
+      let cursorId: string | null = null;
+      if (cursor) {
+        const parts = cursor.split('|');
+        cursorTs = parts[0] ?? null;
+        cursorId = parts[1] ?? null;
+      }
+
+      let sql = `SELECT id, order_no AS "orderNo", created_at AS "createdAt",
+        (SELECT COUNT(*) FROM sales_order_lines WHERE sales_order_lines.order_id = sales_orders.id) AS line_count,
+        total, status, posted_at AS "postedAt"
+       FROM sales_orders
+       WHERE customer_id = $1`;
+      const params: unknown[] = [customerId];
+      let idx = 2;
+
+      if (cursorTs && cursorId) {
+        sql += ` AND (created_at, id) < ($${idx}::timestamptz, $${idx + 1}::uuid)`;
+        params.push(cursorTs, cursorId); idx += 2;
+      }
+
+      sql += ` ORDER BY created_at DESC LIMIT $${idx}`;
+      params.push(limit + 1);
+
+      const result = await pool.query(sql, params);
+      const rows = result.rows;
+      const hasMore = rows.length > limit;
+      if (hasMore) rows.pop();
+      const lastRow = rows[rows.length - 1] as { createdAt: string; id: string } | undefined;
+      const nextCursor = hasMore && lastRow
+        ? `${new Date(lastRow.createdAt).toISOString()}|${lastRow.id}`
+        : null;
+      return { rows, nextCursor };
     }),
 
   mergeCandidateCount: protectedProcedure.query(async () => {

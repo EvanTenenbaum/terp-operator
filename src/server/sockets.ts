@@ -79,3 +79,16 @@ export function emitSalesLineEvent(
   if (!_io) return;
   _io.emit(`sales:order:${orderId}:line:changed`, payload);
 }
+
+/**
+ * GH #288 — Returns the actual socket server health instead of a hardcoded 'ok'.
+ * Returns 'ok' when the Socket.io Server has been initialized (accepts connections),
+ * 'degraded' if it has not been set up yet or errored.
+ */
+export function getSocketHealth(): 'ok' | 'degraded' {
+  try {
+    return _io != null ? 'ok' : 'degraded';
+  } catch {
+    return 'degraded';
+  }
+}
