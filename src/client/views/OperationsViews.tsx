@@ -1180,7 +1180,7 @@ export function PaymentsView() {
               Overdue
             </button>
           </div>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('allocatePayment', { paymentId: rows[0].id }, 'Auto-apply payment to oldest open invoices')} type="button">
+          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('allocatePayment', { paymentId: rows[0].id }, 'Auto-apply payment to oldest open orders')} type="button">
             <Check className="h-4 w-4" aria-hidden="true" />
             Auto-apply oldest
           </button>
@@ -1237,13 +1237,13 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
       {preview && selectedPayment?.id ? (
         <div className="mt-2 text-xs text-zinc-500">
           {preview.kind === 'buyer_credit' ? (
-            <span>Buyer credit of ${moneyish(preview.unapplied)} recorded as unapplied credit available for future invoices.</span>
+            <span>Buyer credit of ${moneyish(preview.unapplied)} recorded as unapplied credit available for future orders.</span>
           ) : preview.rows && preview.rows.length > 0 ? (
-            <span>Will apply ${moneyish(preview.rows[0]?.applied)} to invoice {String(preview.rows[0]?.invoiceNo ?? preview.rows[0]?.invoiceId ?? '—')}
+            <span>Will apply ${moneyish(preview.rows[0]?.applied)} to order {String(preview.rows[0]?.invoiceNo ?? preview.rows[0]?.invoiceId ?? '—')}
               {Number(preview.unapplied) > 0 ? ` · $${moneyish(preview.unapplied)} remains unapplied` : ''}.
             </span>
           ) : Number(preview.unapplied) > 0 ? (
-            <span>Overpayment of ${moneyish(preview.unapplied)} will be recorded as unapplied credit available for future invoices.</span>
+            <span>Overpayment of ${moneyish(preview.unapplied)} will be recorded as unapplied credit available for future orders.</span>
           ) : null}
         </div>
       ) : null}
@@ -1263,9 +1263,9 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
           Unallocate
         </button>
         <label htmlFor={invoiceSelectId} className="field-inline">
-          Invoice
+          Order
           <select id={invoiceSelectId} className="select" value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)} disabled={!canAllocate}>
-            <option value="">Choose invoice</option>
+            <option value="">Choose order</option>
             {invoices.map((invoice) => (
               <option key={invoice.id} value={invoice.id}>
                 {invoice.invoiceNo} / ${Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0)}
@@ -1295,7 +1295,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
           <table className="finder-table">
             <thead>
               <tr>
-                <th>Invoice</th>
+                <th>Order</th>
                 <th>Amount</th>
                 <th>Created</th>
                 <th>Trace</th>
@@ -1304,10 +1304,10 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
             <tbody>
               {allocations.data.map((row) => (
                 <tr key={String(row.id)}>
-                  <td>{String(row.invoiceNo ?? row.invoiceId ?? 'Invoice')}</td>
+                  <td>{String(row.invoiceNo ?? row.invoiceId ?? 'Order')}</td>
                   <td>${moneyish(row.amount)}</td>
                   <td>{dateish(row.createdAt)}</td>
-                  <td>{String(selectedPayment?.reference ?? selectedPayment?.method ?? 'Payment row')} -&gt; {String(row.invoiceNo ?? 'invoice')}</td>
+                  <td>{String(selectedPayment?.reference ?? selectedPayment?.method ?? 'Payment row')} -&gt; {String(row.invoiceNo ?? 'order')}</td>
                 </tr>
               ))}
             </tbody>
@@ -1319,7 +1319,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
 }
 
 function paymentAllocationLabel(intent: unknown) {
-  if (intent === 'selected' || intent === 'selected_invoice') return 'Selected invoice';
+  if (intent === 'selected' || intent === 'selected_invoice') return 'Selected order';
   if (intent === 'unapplied') return 'Leave unapplied';
   return 'Auto-apply to oldest';
 }
@@ -1719,7 +1719,7 @@ export function ClientLedgerView() {
       },
     ];
   }, [matchSettings.data?.showClientsColumn, matchCounts.data, navigate]);
-  return <GridJourney view="clients" title="Client Ledger and Credit" columns={clientColumns} />;
+  return <GridJourney view="clients" title="Client Balances" columns={clientColumns} />;
 }
 
 export function VendorPayablesView() {
@@ -1867,7 +1867,7 @@ export function VendorPayablesView() {
   return (
     <GridJourney
       view="vendors"
-      title="Vendor Payables"
+      title="Vendor Payouts"
       columns={vendorMatchColumns}
       prelude={() => (
         <>
@@ -2604,7 +2604,7 @@ export function RecoveryView() {
               Memo
               <input id="recovery-memo" className="input" value={memo} onChange={(event) => setMemo(event.target.value)} />
             </label>
-            <button className="secondary-button" type="button" disabled={!memo} onClick={() => runCommand('createCorrectionJournalEntry', { period, amount: Number(amount), memo }, 'Create correction journal entry')}>
+            <button className="secondary-button" type="button" disabled={!memo} onClick={() => runCommand('createCorrectionJournalEntry', { period, amount: Number(amount), memo }, 'Create manual correction')}>
               <Check className="h-4 w-4" aria-hidden="true" />
               Correction
             </button>

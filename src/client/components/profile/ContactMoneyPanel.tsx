@@ -36,10 +36,10 @@ export function ContactMoneyPanel({ data }: Props) {
       )}
 
       {Boolean(contact.is_customer) && customer && (
-        <WorkspacePanel panelId="contact-money-receivables" title="Receivables (Customer)">
+        <WorkspacePanel panelId="contact-money-receivables" title="Customer Balances">
           <div className="p-3 text-sm space-y-1">
             <div>
-              Open invoices: <strong>{String(customer.open_invoices_count ?? 0)}</strong>{' '}
+              Open orders: <strong>{String(customer.open_invoices_count ?? 0)}</strong>{' '}
               totaling <strong>{formatMoney(Number(customer.open_invoices_amount ?? 0))}</strong>
             </div>
             <div>Balance: <strong>{formatMoney(Number(customer.balance ?? 0))}</strong></div>
@@ -48,7 +48,7 @@ export function ContactMoneyPanel({ data }: Props) {
       )}
 
       {Boolean(contact.is_vendor) && vendor && (
-        <WorkspacePanel panelId="contact-money-payables" title="Payables (Vendor)">
+        <WorkspacePanel panelId="contact-money-payables" title="Vendor Balances">
           <div className="p-3 text-sm space-y-1">
             <div>
               Open bills: <strong>{String(vendor.open_bills_count ?? 0)}</strong>{' '}

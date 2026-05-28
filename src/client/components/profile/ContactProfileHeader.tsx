@@ -26,7 +26,7 @@ export function ContactProfileHeader({ data }: Props) {
     signals.push({ label: 'Over credit limit', tone: 'danger' });
   }
   if (customer && Number(customer.oldest_open_invoice_days ?? 0) > 30) {
-    signals.push({ label: 'Invoice 30+ days overdue', tone: 'warning' });
+    signals.push({ label: 'Balance 30+ days overdue', tone: 'warning' });
   }
   if (data.upcomingAppointmentCount > 0) {
     signals.push({ label: `${data.upcomingAppointmentCount} upcoming appointment${data.upcomingAppointmentCount > 1 ? 's' : ''}`, tone: 'info' });
@@ -58,7 +58,7 @@ export function ContactProfileHeader({ data }: Props) {
               <span className="kpi-value">{formatMoney(Number(customer?.balance ?? 0))}</span>
             </div>
             <div className="kpi-card">
-              <span className="kpi-label">Open Invoices</span>
+              <span className="kpi-label">Open Orders</span>
               <span className="kpi-value">{String(customer?.open_invoices_count ?? 0)}</span>
             </div>
           </>

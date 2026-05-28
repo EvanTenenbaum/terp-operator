@@ -16,7 +16,7 @@ const viewLabels: Record<ViewKey, string> = {
   orders: 'Orders',
   payments: 'Payments',
   inventory: 'Inventory',
-  clients: 'Client Ledger',
+  clients: 'Client Balances',
   vendors: 'Vendor Payouts',
   fulfillment: 'Fulfillment',
   connectors: 'Connectors',

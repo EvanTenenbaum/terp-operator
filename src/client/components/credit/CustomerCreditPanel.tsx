@@ -292,7 +292,7 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
           >
             <h3 className="section-title">Engine recommendation</h3>
             <p className="mt-2 text-xs text-zinc-600">
-              No signals yet — engine recommendation is unavailable until invoices appear.
+              No signals yet — engine recommendation is unavailable until orders appear.
             </p>
           </div>
         )}
@@ -302,7 +302,7 @@ export function CustomerCreditPanel({ customerId }: { customerId: string }) {
             <h3 className="section-title">Cold-start warming</h3>
             <div className="mt-2 grid gap-2 text-xs text-zinc-600">
               <div className="drawer-fact-row">
-                <span>Invoices</span>
+                <span>Orders</span>
                 <strong>
                   {progressGlyph(status.coldStart.invoicesPosted, status.coldStart.invoicesRequired)}{' '}
                   {status.coldStart.invoicesPosted} / {status.coldStart.invoicesRequired}

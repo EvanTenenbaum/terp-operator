@@ -468,7 +468,7 @@ function RelationshipContext({
         <div className="drawer-fact-row"><span>Recent actions</span><strong>{data?.commands?.length ?? 0}</strong></div>
       </div>
       <MiniRows title="Orders" rows={data?.orders ?? []} fields={['orderNo', 'status', 'total']} />
-      <MiniRows title="Invoices" rows={data?.invoices ?? []} fields={['invoiceNo', 'status', 'total']} />
+      <MiniRows title="Orders" rows={data?.invoices ?? []} fields={['invoiceNo', 'status', 'total']} />
       <MiniRows title="Payments" rows={data?.payments ?? []} fields={['method', 'amount', 'category']} />
       <MiniRows title="Vendor bills" rows={data?.bills ?? []} fields={['billNo', 'status', 'amount']} />
       <MiniRows title="Recent actions" rows={data?.commands ?? []} fields={['commandName', 'actorName', 'status']} />
@@ -532,7 +532,7 @@ function compactFacts(
     return [
       ['Balance', `$${moneyish(relationship.customer.balance)}`],
       ['Credit', `$${moneyish(relationship.customer.creditLimit)}`],
-      ['Open invoices', `$${moneyish(openInvoices)}`],
+      ['Open orders', `$${moneyish(openInvoices)}`],
       ['Last order', dateish(lastOrder)]
     ];
   }
