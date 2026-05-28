@@ -178,6 +178,7 @@ export function InventoryFinderPanel({
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
   const [advancedFilter, setAdvancedFilter] = useState<FilterGroupInput | null>(null);
   const [selectedSavedFilter, setSelectedSavedFilter] = useState<string | null>(null);
+  const [activeSliceIds, setActiveSliceIds] = useState<Set<string>>(new Set());
   const [manageFiltersOpen, setManageFiltersOpen] = useState(false);
   const [filterSaveStatus, setFilterSaveStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -291,7 +292,33 @@ export function InventoryFinderPanel({
   function applySavedFilter(sf: { id: string; filterDefinition: FilterGroupInput; name: string }) {
     setAdvancedFilter(sf.filterDefinition);
     setSelectedSavedFilter(sf.id);
+    setActiveSliceIds(new Set([sf.id]));
     setAdvancedOpen(true);
+  }
+
+  function toggleSlice(sf: { id: string; filterDefinition: FilterGroupInput; name: string }) {
+    setActiveSliceIds(prev => {
+      const next = new Set(prev);
+      if (next.has(sf.id)) {
+        next.delete(sf.id);
+      } else {
+        next.add(sf.id);
+      }
+      // Compute merged filter from all active slices
+      const activeFilters = (savedFilters ?? []).filter(f => next.has(f.id));
+      if (activeFilters.length === 0) {
+        setAdvancedFilter(null);
+      } else {
+        const allConditions = activeFilters.flatMap(f => {
+          const def = f.filterDefinition as FilterGroupInput;
+          return def.conditions ?? [];
+        });
+        setAdvancedFilter({ logic: 'AND', conditions: allConditions });
+      }
+      return next;
+    });
+    // Clear selected saved filter (since we're now using multi-select)
+    setSelectedSavedFilter(null);
   }
 
   function toggleCompare(batchId: string) {
@@ -608,12 +635,13 @@ export function InventoryFinderPanel({
 
           {/* Clear all */}
           {search || (advancedFilter?.conditions ?? []).length > 0 ? (
-            <button
+          <button
               type="button"
               className="text-button compact-action"
               onClick={() => {
                 setSearch('');
                 setAdvancedFilter(null);
+                setActiveSliceIds(new Set());
               }}
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -643,9 +671,9 @@ export function InventoryFinderPanel({
             <button
               key={sf.id}
               type="button"
-              className={selectedSavedFilter === sf.id ? 'finder-chip success' : 'finder-chip'}
-              aria-pressed={selectedSavedFilter === sf.id}
-              onClick={() => applySavedFilter(sf)}
+              className={activeSliceIds.has(sf.id) ? 'finder-chip success' : 'finder-chip'}
+              aria-pressed={activeSliceIds.has(sf.id)}
+              onClick={() => toggleSlice(sf)}
             >
               {sf.name}
             </button>
