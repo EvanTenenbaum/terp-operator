@@ -39,7 +39,8 @@ import {
   vendors,
   vendorSupply,
   customers,
-  customerNeeds
+  customerNeeds,
+  contacts
 } from './schema';
 
 type Insertable<T extends { $inferInsert: unknown }> = T['$inferInsert'];
@@ -222,7 +223,7 @@ async function seedItems() {
 async function seedVendors(config: RealisticDemoConfig) {
   const large = ['North Coast Gardens', 'Emerald Triangle Supply', 'Upland Craft Farm', 'Sun Valley Mixed Light'];
   const other = ['Redwood Ridge', 'Fogline Farms', 'Sierra Canna', 'High Desert House', 'Mendocino Lane', 'Pacific Resin Co', 'Boulder Creek', 'Valley Cure', 'Coastal Cure', 'Marin Harvest', 'Vista Verde', 'Golden State Supply', 'Humboldt Depot', 'Canyon Flower', 'Monarch Outdoor'];
-  return db
+  const vendorRows = await db
     .insert(vendors)
     .values([
       ...large.slice(0, config.largeVendors).map((name, index) => ({
@@ -241,12 +242,55 @@ async function seedVendors(config: RealisticDemoConfig) {
       }))
     ])
     .returning();
+
+  const allContactRows: Array<typeof contacts.$inferInsert> = [];
+  for (let i = 0; i < vendorRows.length; i++) {
+    const vendor = vendorRows[i];
+    const isLarge = i < config.largeVendors;
+    const count = isLarge ? 2 : 1;
+    const roles = isLarge ? ['Sales Rep', 'Owner'] : ['Account Manager'];
+    for (let j = 0; j < count; j++) {
+      const name = contactName(vendor.name, j);
+      allContactRows.push({
+        name,
+        displayName: name,
+        email: contactEmail(vendor.name, name),
+        phone: contactPhone(vendor.name, j),
+        companyName: vendor.name,
+        contactKind: 'individual',
+        preferredContactMethod: j === 0 ? 'email' : 'phone',
+        notes: `${roles[j]} at ${vendor.name}`,
+        tags: [roles[j].toLowerCase().replace(/\s+/g, '-')],
+        isCustomer: false,
+        isVendor: true,
+        isReferee: false,
+        isProcessor: false,
+        isContractor: false,
+        isEmployee: false,
+        active: true
+      });
+    }
+  }
+
+  const insertedContacts = await insertChunks(contacts, allContactRows, 250);
+
+  let contactCursor = 0;
+  for (let i = 0; i < vendorRows.length; i++) {
+    const vendor = vendorRows[i];
+    const isLarge = i < config.largeVendors;
+    const count = isLarge ? 2 : 1;
+    const primary = insertedContacts[contactCursor];
+    await db.update(vendors).set({ contactId: primary.id, updatedAt: new Date() }).where(eq(vendors.id, vendor.id));
+    contactCursor += count;
+  }
+
+  return vendorRows;
 }
 
 async function seedCustomers(config: RealisticDemoConfig) {
   const whales = ['Cobalt Reserve', 'Sunset Collective', 'Harbor Wellness', 'Golden Gate Buyers', 'Maven Provisions', 'Lighthouse Retail Group', 'Redwood Buyers Club', 'Canyon Market'];
   const small = ['Valley Meds', 'Oak Street Wellness', 'Moss Landing Co-op', 'Mission Relief', 'Green Door Collective', 'Northside Patient Care', 'Pine Hill Supply', 'Metro Herb', 'Lagoon Wellness', 'Silver Lake Buyers', 'East Bay Select', 'Vista Patient Group', 'Prairie House', 'Capitol Cure', 'Coastal Corner'];
-  return db
+  const customerRows = await db
     .insert(customers)
     .values([
       ...whales.slice(0, config.whaleCustomers).map((name, index) => ({
@@ -265,6 +309,47 @@ async function seedCustomers(config: RealisticDemoConfig) {
       }))
     ])
     .returning();
+
+  const allContactRows: Array<typeof contacts.$inferInsert> = [];
+  for (const customer of customerRows) {
+    const isWhale = customer.tags.includes('whale');
+    const count = isWhale ? 3 : 1;
+    const roles = isWhale ? ['Head Buyer', 'Accounts Payable', 'Operations Manager'] : ['Buyer'];
+    for (let i = 0; i < count; i++) {
+      const name = contactName(customer.name, i);
+      allContactRows.push({
+        name,
+        displayName: name,
+        email: contactEmail(customer.name, name),
+        phone: contactPhone(customer.name, i),
+        companyName: customer.name,
+        contactKind: 'individual',
+        preferredContactMethod: i === 0 ? 'email' : 'phone',
+        notes: `${roles[i]} at ${customer.name}`,
+        tags: [roles[i].toLowerCase().replace(/\s+/g, '-')],
+        isCustomer: true,
+        isVendor: false,
+        isReferee: false,
+        isProcessor: false,
+        isContractor: false,
+        isEmployee: false,
+        active: true
+      });
+    }
+  }
+
+  const insertedContacts = await insertChunks(contacts, allContactRows, 250);
+
+  let contactCursor = 0;
+  for (const customer of customerRows) {
+    const isWhale = customer.tags.includes('whale');
+    const count = isWhale ? 3 : 1;
+    const primary = insertedContacts[contactCursor];
+    await db.update(customers).set({ contactId: primary.id, updatedAt: new Date() }).where(eq(customers.id, customer.id));
+    contactCursor += count;
+  }
+
+  return customerRows;
 }
 
 async function seedPurchasingAndInventory(
@@ -1230,4 +1315,25 @@ function tagColor(slug: string) {
 
 function firstName(index: number) {
   return ['Rhea', 'Marco', 'June', 'Talia', 'Omar', 'Nina', 'Cole', 'Vera', 'Ari', 'Lena', 'Samir', 'Jo', 'Paz', 'Mika', 'Eli', 'Noor', 'Ren', 'Ivy', 'Kai'][index % 19];
+}
+
+function contactName(entityName: string, index: number) {
+  const firstNames = ['Rhea', 'Marco', 'June', 'Talia', 'Omar', 'Nina', 'Cole', 'Vera', 'Ari', 'Lena', 'Samir', 'Jo', 'Paz', 'Mika', 'Eli', 'Noor', 'Ren', 'Ivy', 'Kai', 'Drew', 'Sage', 'Blair', 'Reese', 'Quinn', 'Casey'];
+  const lastNames = ['Valdez', 'Silva', 'Fields', 'Brooks', 'Park', 'Ortiz', 'Stone', 'Cross', 'Marin', 'North', 'Chen', 'Rivera', 'Patel', 'Kim', 'Singh', 'Nakamura', 'Bakari', 'Lindqvist', 'Moreau', 'Wright', 'Lopez', 'Adams', 'Reyes', 'Carter', 'Evans'];
+  const first = firstNames[(entityName.length + index) % firstNames.length];
+  const last = lastNames[(entityName.charCodeAt(0) + index) % lastNames.length];
+  return `${first} ${last}`;
+}
+
+function contactEmail(entityName: string, name: string) {
+  const slug = entityName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+  const [first] = name.toLowerCase().split(' ');
+  return `${first}@${slug}.terpagro.local`;
+}
+
+function contactPhone(entityName: string, index: number) {
+  const area = 200 + (entityName.length % 700);
+  const prefix = 500 + (entityName.charCodeAt(0) % 400);
+  const line = 1000 + (index * 137 % 8000);
+  return `${area}-${prefix}-${String(line).padStart(4, '0')}`;
 }
