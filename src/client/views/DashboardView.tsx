@@ -337,17 +337,18 @@ function TodayFocusTile({
   onClick?: () => void;
 }) {
   return (
-    <div className="border border-line bg-white p-3">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`View ${label}`}
+      className="border border-line bg-white p-3 text-left focus:outline-none focus-visible:shadow-focus"
+    >
       <span className="text-xs font-semibold uppercase text-zinc-600">{label}</span>
       <div className="mt-2 text-xl font-bold text-ink">{value ?? '--'}</div>
-      <button
-        type="button"
-        onClick={onClick}
-        className="mt-2 inline-flex items-center text-xs text-accent hover:underline focus:outline-none focus-visible:shadow-focus"
-      >
+      <span className="mt-2 inline-flex items-center text-xs text-accent hover:underline">
         View
-      </button>
-    </div>
+      </span>
+    </button>
   );
 }
 // ─────────────────────────────────────────────────────────────────────────────
