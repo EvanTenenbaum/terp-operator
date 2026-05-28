@@ -204,9 +204,9 @@ function makeUser(): SessionUser {
   };
 }
 
-const io = {
-  emit: vi.fn()
-} as unknown as SocketServer;
+const emitMock = vi.fn();
+const toMock = vi.fn().mockReturnValue({ emit: emitMock });
+const io = { to: toMock, emit: emitMock } as unknown as SocketServer;
 
 const db = (dbModule as unknown as { db: { transaction: ReturnType<typeof vi.fn> } }).db;
 
@@ -214,7 +214,8 @@ beforeEach(() => {
   mocked.__resetStore();
   vi.clearAllMocks();
   mockedAppendJsonlJournal.mockReset();
-  (io.emit as ReturnType<typeof vi.fn>).mockReset();
+  emitMock.mockReset();
+  toMock.mockClear();
 });
 
 afterEach(() => {
@@ -539,7 +540,7 @@ describe('atomic idempotency claim', () => {
     };
 
     stubSuccessfulInnerCommand();
-    (io.emit as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+    emitMock.mockImplementationOnce(() => {
       throw new Error('socket down');
     });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -615,7 +616,7 @@ describe('atomic idempotency claim', () => {
     db.transaction.mockImplementation(async (_cb: unknown) => {
       throw sqlError;
     });
-    (io.emit as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+    emitMock.mockImplementationOnce(() => {
       throw new Error('socket down');
     });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});

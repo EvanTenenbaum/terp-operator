@@ -1,11 +1,8 @@
-import { useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
 import clsx from 'clsx';
 import { trpc } from './api/trpc';
 import { Agentation } from 'agentation';
-import { invalidateAffectedQueries } from './components/useCommandRunner';
 import { CommandPalette } from './components/CommandPalette';
 import { ContextDrawer } from './components/ContextDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -17,6 +14,7 @@ import { ReportsRouteShell } from './components/ReportsRouteShell';
 import { Keel, SideNav } from './components/Shell';
 import { ToastCenter } from './components/ToastCenter';
 import { useUiStore } from './store/uiStore';
+import { SocketProvider } from './context/SocketContext';
 import { DashboardView } from './views/DashboardView';
 import { IntakeView } from './views/IntakeView';
 import { LoginView } from './views/LoginView';
@@ -74,17 +72,7 @@ function AppContent() {
   const me = trpc.auth.me.useQuery();
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
   const focusMode = useUiStore((state) => state.focusMode);
-  const pushToast = useUiStore((state) => state.pushToast);
-  // GH #409: subscribe to editing state so we can flush deferred peer
-  // invalidations the moment the operator finishes editing a cell.
-  const isCellEditing = useUiStore((state) => state.isCellEditing);
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  // GH #409: accumulates affectedIds that arrived while a cell was being
-  // edited. Flushed by the effect below when isCellEditing drops to false.
-  const pendingPeerIds = useRef<string[]>([]);
-  // Prevents repeated "updating" toasts for a single editing session.
-  const peerToastShownRef = useRef(false);
 
   // Auto-redirect mobile viewports to the mobile shell
   // Skipped if user has explicitly chosen desktop (localStorage flag)
@@ -99,107 +87,6 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // GH #409: when editing stops, flush any peer invalidations that were
-  // deferred to avoid silently discarding mid-edit cell values.
-  useEffect(() => {
-    if (!isCellEditing && pendingPeerIds.current.length > 0) {
-      const ids = pendingPeerIds.current;
-      pendingPeerIds.current = [];
-      peerToastShownRef.current = false;
-      void invalidateAffectedQueries(queryClient, ids);
-    }
-  }, [isCellEditing, queryClient]);
-
-  useEffect(() => {
-    if (!me.data) return;
-    const currentUserId = me.data.id;
-    const socket = io(import.meta.env.VITE_SOCKET_URL ?? '/', { withCredentials: true });
-
-    // Peer command:completed events are batched into a 2-second debounce window
-    // to prevent toast storms during high-tempo workflows (closeout, AR collections).
-    // A single summary is shown instead of one toast per peer action. GH #408.
-    let peerCompletedQueue: string[] = [];
-    let peerCompletedTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const flushPeerCompletedToasts = () => {
-      const n = peerCompletedQueue.length;
-      if (n === 1) {
-        pushToast(peerCompletedQueue[0], 'success');
-      } else if (n > 1) {
-        pushToast(`${n} team actions completed`, 'success');
-      }
-      peerCompletedQueue = [];
-      peerCompletedTimer = null;
-    };
-
-    socket.on('command:completed', (event: { toast?: string; actorId?: string; affectedIds?: string[] }) => {
-      // Cross-tab targeted invalidation — see #44. The WS payload already
-      // carries the affectedIds the originating command reported, so we can
-      // refetch only the queries that reference those entities.
-      // GH #409: defer invalidation while a cell is being edited.
-      const ids = event.affectedIds ?? [];
-      if (useUiStore.getState().isCellEditing) {
-        pendingPeerIds.current = [...pendingPeerIds.current, ...ids];
-        if (!peerToastShownRef.current) {
-          pushToast('Inventory updated by another user — will refresh when you finish editing', 'info');
-          peerToastShownRef.current = true;
-        }
-      } else {
-        void invalidateAffectedQueries(queryClient, ids);
-      }
-      // GH #408: debounce peer completion toasts — accumulate for 2s then show ONE summary.
-      if (event.toast && event.actorId !== currentUserId) {
-        peerCompletedQueue.push(event.toast);
-        if (peerCompletedTimer) clearTimeout(peerCompletedTimer);
-        peerCompletedTimer = setTimeout(flushPeerCompletedToasts, 2000);
-      }
-    });
-    socket.on('command:failed', (event: { toast?: string; actorId?: string; affectedIds?: string[] }) => {
-      // Failures are shown immediately regardless of actor — operators need to see
-      // peer failures promptly. They are less frequent than completions. GH #408.
-      if (event.toast && event.actorId !== currentUserId) pushToast(event.toast, 'error');
-      void invalidateAffectedQueries(queryClient, event.affectedIds ?? []);
-    });
-
-    // CAP-030 / TER-1518 — pick-specific event channels.
-    // pick:queue fires when the queue roster changes (release / recall).
-    // pick:order:{orderId} fires when a specific order's pick state changes.
-    // If socket is unavailable, react-query's refetch intervals cover updates.
-    socket.on('pick:queue', () => {
-      void queryClient.invalidateQueries({
-        predicate: (query) => JSON.stringify(query.queryKey).includes('pickQueue')
-      });
-    });
-    socket.onAny((event: string) => {
-      if (event.startsWith('pick:order:')) {
-        const orderId = event.slice('pick:order:'.length);
-        if (orderId) void invalidateAffectedQueries(queryClient, [orderId]);
-      }
-      // sales:order:{orderId}:line:changed — fired when the sales operator releases
-      // or recalls a line. Invalidates all queries for the affected order (salesOrderLines,
-      // pickListWithLines, etc.) and the pick queue.
-      if (event.startsWith('sales:order:') && event.endsWith(':line:changed')) {
-        const parts = event.split(':'); // ['sales', 'order', orderId, 'line', 'changed']
-        const orderId = parts[2];
-        if (orderId) {
-          void invalidateAffectedQueries(queryClient, [orderId]);
-          // Also refresh the pick queue (roster changes when a line is released/recalled).
-          void queryClient.invalidateQueries({
-            predicate: (q) => {
-              try { return JSON.stringify(q.queryKey).includes('pickQueue'); }
-              catch { return false; }
-            }
-          });
-        }
-      }
-    });
-
-    return () => {
-      if (peerCompletedTimer) clearTimeout(peerCompletedTimer);
-      socket.close();
-    };
-  }, [me.data, pushToast, queryClient]);
-
   if (me.isLoading) {
     return <div className="flex min-h-screen items-center justify-center bg-panel text-sm text-zinc-600">Loading TERP Operator...</div>;
   }
@@ -211,52 +98,56 @@ function AppContent() {
   const isServerUnreachable = me.isError && me.failureCount > 0;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white text-ink">
-      {isServerUnreachable && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white text-xs text-center py-1.5">
-          Connection lost — changes may not save.{' '}
-          <button className="underline ml-2" onClick={() => me.refetch()}>Reconnect</button>
+    // GH #329: SocketProvider manages the socket.io connection, all event handlers,
+    // and exposes subscribeOrder/unsubscribeOrder so views can join per-order rooms.
+    <SocketProvider>
+      <div className="flex h-screen overflow-hidden bg-white text-ink">
+        {isServerUnreachable && (
+          <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white text-xs text-center py-1.5">
+            Connection lost — changes may not save.{' '}
+            <button className="underline ml-2" onClick={() => me.refetch()}>Reconnect</button>
+          </div>
+        )}
+        <LocationSync />
+        <SideNav user={me.data} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          {CANVAS_GRAMMAR_ENABLED && <Keel user={me.data} />}
+          {CANVAS_GRAMMAR_ENABLED && <IdentityRibbon />}
+          <div className={clsx(CANVAS_GRAMMAR_ENABLED && 'canvas-shell', CANVAS_GRAMMAR_ENABLED && (focusedPanelId || focusMode) && 'canvas-shell-focus')}>
+            <main className={clsx('min-h-0 flex-1 overflow-auto', CANVAS_GRAMMAR_ENABLED && (focusedPanelId || focusMode) ? 'p-2' : 'p-4')}>
+              <Outlet />
+            </main>
+            {CANVAS_GRAMMAR_ENABLED && <ContextDrawer />}
+          </div>
         </div>
-      )}
-      <LocationSync />
-      <SideNav user={me.data} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        {CANVAS_GRAMMAR_ENABLED && <Keel user={me.data} />}
-        {CANVAS_GRAMMAR_ENABLED && <IdentityRibbon />}
-        <div className={clsx(CANVAS_GRAMMAR_ENABLED && 'canvas-shell', CANVAS_GRAMMAR_ENABLED && (focusedPanelId || focusMode) && 'canvas-shell-focus')}>
-          <main className={clsx('min-h-0 flex-1 overflow-auto', CANVAS_GRAMMAR_ENABLED && (focusedPanelId || focusMode) ? 'p-2' : 'p-4')}>
-            <Outlet />
-          </main>
-          {CANVAS_GRAMMAR_ENABLED && <ContextDrawer />}
-        </div>
-      </div>
-      <Hotkeys />
-      <CommandPalette />
-      <ToastCenter />
-      <ConfirmRoot />
-      <FeedbackCapture />
-      <Agentation
-        onCopy={(markdown) => {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(markdown).catch(() => {
+        <Hotkeys />
+        <CommandPalette />
+        <ToastCenter />
+        <ConfirmRoot />
+        <FeedbackCapture />
+        <Agentation
+          onCopy={(markdown) => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(markdown).catch(() => {
+                fallbackCopy(markdown);
+              });
+            } else {
               fallbackCopy(markdown);
-            });
-          } else {
-            fallbackCopy(markdown);
-          }
-          function fallbackCopy(text: string) {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
-            try { document.execCommand('copy'); } catch {}
-            document.body.removeChild(ta);
-          }
-        }}
-      />
-    </div>
+            }
+            function fallbackCopy(text: string) {
+              const ta = document.createElement('textarea');
+              ta.value = text;
+              ta.style.position = 'fixed';
+              ta.style.opacity = '0';
+              document.body.appendChild(ta);
+              ta.select();
+              try { document.execCommand('copy'); } catch {}
+              document.body.removeChild(ta);
+            }
+          }}
+        />
+      </div>
+    </SocketProvider>
   );
 }
 
