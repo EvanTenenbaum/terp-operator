@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db, pingDatabase, pool } from '../db';
+import { getSocketHealth } from '../sockets';
 import { batches, commandJournal, invoices, salesOrders, vendorBills } from '../schema';
 import { checkJournalWritable } from './journal';
 import type { DashboardData, HealthStatus, KpiMetric, Role } from '../../shared/types';
@@ -26,11 +27,16 @@ export async function getHealth(): Promise<HealthStatus> {
     warnings.push('JSONL command journal is not writable.');
   }
 
+  const websocket = getSocketHealth();
+  if (websocket === 'degraded') {
+    warnings.push('WebSocket server is not initialized.');
+  }
+
   return {
     ok: database === 'ok' && journal === 'ok',
     database,
     journal,
-    websocket: 'ok',
+    websocket,
     checkedAt: new Date().toISOString(),
     warnings
   };
