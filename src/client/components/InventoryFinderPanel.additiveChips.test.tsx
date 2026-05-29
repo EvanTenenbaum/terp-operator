@@ -3,12 +3,12 @@
  * TER-1625 / F-24: Additive (combinable) inventory finder filter chips
  *
  * Tests cover:
- *  1. Activating a chip sets aria-pressed and applies its filters
- *  2. Activating a second chip (AND logic) merges both chips' filters; both
- *     show aria-pressed="true" simultaneously
- *  3. Deactivating one chip removes its exclusive filters while leaving the
- *     other chip's filters intact
+ *  1. Activating a chip sets aria-pressed and applies its filter conditions
+ *  2. Activating a second chip (AND logic) merges both chips' conditions; both
+ *     chips show aria-pressed="true" simultaneously
+ *  3. Deactivating one chip removes its exclusive conditions, leaving the other intact
  *  4. Global "Clear" removes all chip state and all filter pills
+ *  5. Clicking an active chip a second time toggles it off
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -16,13 +16,36 @@ import userEvent from '@testing-library/user-event';
 
 // ─── Stubs ───────────────────────────────────────────────────────────────────
 
+const SAVED_FILTERS = [
+  {
+    id: 'aging-premium',
+    name: 'Aging premium',
+    filterDefinition: {
+      logic: 'AND' as const,
+      conditions: [
+        { field: 'ageDays', operator: 'gte', value: 30 },
+      ],
+    },
+  },
+  {
+    id: 'low-stock',
+    name: 'Low stock',
+    filterDefinition: {
+      logic: 'AND' as const,
+      conditions: [
+        { field: 'availableQty', operator: 'lte', value: 5 },
+      ],
+    },
+  },
+];
+
 vi.mock('../api/trpc', () => ({
   trpc: {
     queries: {
       reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) },
     },
     filters: {
-      listSavedFilters: { useQuery: () => ({ data: [] }) },
+      listSavedFilters: { useQuery: () => ({ data: SAVED_FILTERS }) },
       saveFilter: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       getFacets: {
         useQuery: () => ({ data: { categories: [], vendors: [], tags: [], locations: [], ownership: [] } }),
@@ -48,10 +71,8 @@ describe('InventoryFinderPanel additive filter chips (TER-1625)', () => {
     await user.click(agingChip);
 
     expect(agingChip).toHaveAttribute('aria-pressed', 'true');
-    // aging-premium contributes: agingOnly=true (30+ days pill), minQty=1, maxPrice=100
-    expect(screen.getByRole('button', { name: /remove 30\+ days filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove >= 1 filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove <= \$100 filter/i })).toBeInTheDocument();
+    // ageDays condition should produce a filter pill
+    expect(screen.getByRole('button', { name: /remove filter: ageDays/i })).toBeInTheDocument();
   });
 
   it('activating a second chip merges both filter sets; both chips show aria-pressed=true', async () => {
@@ -61,48 +82,35 @@ describe('InventoryFinderPanel additive filter chips (TER-1625)', () => {
     const agingChip = screen.getByRole('button', { name: /aging premium/i });
     const lowStockChip = screen.getByRole('button', { name: /low stock/i });
 
-    // Activate "Aging premium": agingOnly=true, minQty='1', maxPrice='100'
     await user.click(agingChip);
-    // Activate "Low stock": search='reorder low', minQty='1' (minQty same value, search new)
     await user.click(lowStockChip);
 
-    // Both chips should be pressed
     expect(agingChip).toHaveAttribute('aria-pressed', 'true');
     expect(lowStockChip).toHaveAttribute('aria-pressed', 'true');
 
-    // Combined filter pills: 30+ days (aging), >= 1 (minQty), <= $100 (maxPrice), search: reorder low
-    expect(screen.getByRole('button', { name: /remove 30\+ days filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove >= 1 filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove <= \$100 filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove search: reorder low filter/i })).toBeInTheDocument();
+    // Both condition pills should be present
+    expect(screen.getByRole('button', { name: /remove filter: ageDays/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove filter: availableQty/i })).toBeInTheDocument();
   });
 
-  it('deactivating one chip removes only its exclusive filters, leaving the other chip intact', async () => {
+  it('deactivating one chip removes only its conditions, leaving the other chip intact', async () => {
     const user = userEvent.setup();
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
     const agingChip = screen.getByRole('button', { name: /aging premium/i });
     const lowStockChip = screen.getByRole('button', { name: /low stock/i });
 
-    // Activate both chips
     await user.click(agingChip);
     await user.click(lowStockChip);
 
-    // Deactivate "Aging premium"
+    // Both active — deactivate aging
     await user.click(agingChip);
 
-    // "Aging premium" chip is no longer pressed
     expect(agingChip).toHaveAttribute('aria-pressed', 'false');
-    // "Low stock" chip remains pressed
     expect(lowStockChip).toHaveAttribute('aria-pressed', 'true');
-
-    // agingOnly (30+ days) and maxPrice ($100) contributed only by aging-premium → gone
-    expect(screen.queryByRole('button', { name: /remove 30\+ days filter/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /remove <= \$100 filter/i })).toBeNull();
-
-    // minQty ('>=1') and search ('reorder low') contributed by low-stock → still present
-    expect(screen.getByRole('button', { name: /remove >= 1 filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove search: reorder low filter/i })).toBeInTheDocument();
+    // ageDays pill gone; availableQty pill remains
+    expect(screen.queryByRole('button', { name: /remove filter: ageDays/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /remove filter: availableQty/i })).toBeInTheDocument();
   });
 
   it('global Clear removes all chip state and all filter pills', async () => {
@@ -110,42 +118,27 @@ describe('InventoryFinderPanel additive filter chips (TER-1625)', () => {
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
     const agingChip = screen.getByRole('button', { name: /aging premium/i });
-    const lowStockChip = screen.getByRole('button', { name: /low stock/i });
-
-    // Activate both chips
     await user.click(agingChip);
-    await user.click(lowStockChip);
+    expect(screen.getByRole('button', { name: /remove filter: ageDays/i })).toBeInTheDocument();
 
-    // Both chips are active; some pills are present
-    expect(agingChip).toHaveAttribute('aria-pressed', 'true');
-    expect(lowStockChip).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByRole('button', { name: /^remove .+ filter$/i }).length).toBeGreaterThan(0);
+    // Activate clear
+    const clearBtn = screen.getByRole('button', { name: /clear all/i });
+    await user.click(clearBtn);
 
-    // Click global Clear
-    await user.click(screen.getByRole('button', { name: /^clear$/i }));
-
-    // All chips are no longer pressed
     expect(agingChip).toHaveAttribute('aria-pressed', 'false');
-    expect(lowStockChip).toHaveAttribute('aria-pressed', 'false');
-
-    // No active filter pills remain
-    expect(screen.queryAllByRole('button', { name: /^remove .+ filter$/i })).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /remove filter: ageDays/i })).toBeNull();
   });
 
   it('clicking an active chip a second time toggles it off (clears its filters)', async () => {
     const user = userEvent.setup();
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
-    const officeChip = screen.getByRole('button', { name: /office owned/i });
-    expect(officeChip).toHaveAttribute('aria-pressed', 'false');
+    const agingChip = screen.getByRole('button', { name: /aging premium/i });
+    await user.click(agingChip);
+    expect(agingChip).toHaveAttribute('aria-pressed', 'true');
 
-    await user.click(officeChip);
-    expect(officeChip).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /remove ofc filter/i })).toBeInTheDocument();
-
-    // Toggle off
-    await user.click(officeChip);
-    expect(officeChip).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByRole('button', { name: /remove ofc filter/i })).toBeNull();
+    await user.click(agingChip);
+    expect(agingChip).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: /remove filter: ageDays/i })).toBeNull();
   });
 });

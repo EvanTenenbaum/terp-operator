@@ -32,10 +32,10 @@ describe('QuickLedgerGrid section header a11y (#34)', () => {
     const user = userEvent.setup();
     render(<QuickLedgerGrid />);
 
-    // Two sections render: "Receiving Ledger" and "Paying Ledger". Each
+    // Two sections render: "Money In" and "Money Out". Each
     // header is a <button> whose accessible name includes the title.
-    const receiving = screen.getByRole('button', { name: /receiving ledger/i });
-    const paying = screen.getByRole('button', { name: /paying ledger/i });
+    const receiving = screen.getByRole('button', { name: /money in/i });
+    const paying = screen.getByRole('button', { name: /money out/i });
 
     // Initially both sections are expanded (collapsed = false).
     expect(receiving.getAttribute('aria-expanded')).toBe('true');

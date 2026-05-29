@@ -156,7 +156,7 @@ describe('CustomerCreditPanel - cold-start empty state', () => {
     // The empty-state explains why the engine recommendation is unavailable.
     expect(
       screen.getByText(
-        /No signals yet — engine recommendation is unavailable until invoices appear\./i
+        /No signals yet — engine recommendation is unavailable until orders appear\./i
       )
     ).toBeInTheDocument();
     // And the testid is wired so e2e/visual tests can target the state.

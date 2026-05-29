@@ -82,19 +82,19 @@ export function resetInMemoryState(state: InMemoryState): void {
   state.documentSnapshots.length = 0;
   state.commandJournal.length = 0;
   state.advisoryLocks.length = 0;
-  if (!state.salesOrders) (state as Record<string, unknown>).salesOrders = [];
+  if (!state.salesOrders) (state as unknown as Record<string, unknown>).salesOrders = [];
   else state.salesOrders.length = 0;
-  if (!state.salesOrderLines) (state as Record<string, unknown>).salesOrderLines = [];
+  if (!state.salesOrderLines) (state as unknown as Record<string, unknown>).salesOrderLines = [];
   else state.salesOrderLines.length = 0;
-  if (!state.batches) (state as Record<string, unknown>).batches = [];
+  if (!state.batches) (state as unknown as Record<string, unknown>).batches = [];
   else state.batches.length = 0;
-  if (!state.customers) (state as Record<string, unknown>).customers = [];
+  if (!state.customers) (state as unknown as Record<string, unknown>).customers = [];
   else state.customers.length = 0;
-  if (!state.payments) (state as Record<string, unknown>).payments = [];
+  if (!state.payments) (state as unknown as Record<string, unknown>).payments = [];
   else state.payments.length = 0;
-  if (!state.clientLedgerEntries) (state as Record<string, unknown>).clientLedgerEntries = [];
+  if (!state.clientLedgerEntries) (state as unknown as Record<string, unknown>).clientLedgerEntries = [];
   else state.clientLedgerEntries.length = 0;
-  if (!state.vendorBills) (state as Record<string, unknown>).vendorBills = [];
+  if (!state.vendorBills) (state as unknown as Record<string, unknown>).vendorBills = [];
   else state.vendorBills.length = 0;
   // Re-alias _dynamic entries to the explicit arrays so seedRow() callers that
   // push to _dynamic[tableName] remain visible via getStateArray().
@@ -774,31 +774,31 @@ export function makeMockedDb(state: InMemoryState) {
     state.advisoryLocks.length = 0;
     state.advisoryLocks.push(...snap.advisoryLocks);
 
-    if (!state.salesOrders) (state as Record<string, unknown>).salesOrders = [];
+    if (!state.salesOrders) (state as unknown as Record<string, unknown>).salesOrders = [];
     state.salesOrders.length = 0;
     state.salesOrders.push(...snap.salesOrders);
 
-    if (!state.salesOrderLines) (state as Record<string, unknown>).salesOrderLines = [];
+    if (!state.salesOrderLines) (state as unknown as Record<string, unknown>).salesOrderLines = [];
     state.salesOrderLines.length = 0;
     state.salesOrderLines.push(...snap.salesOrderLines);
 
-    if (!state.batches) (state as Record<string, unknown>).batches = [];
+    if (!state.batches) (state as unknown as Record<string, unknown>).batches = [];
     state.batches.length = 0;
     state.batches.push(...snap.batches);
 
-    if (!state.customers) (state as Record<string, unknown>).customers = [];
+    if (!state.customers) (state as unknown as Record<string, unknown>).customers = [];
     state.customers.length = 0;
     state.customers.push(...snap.customers);
 
-    if (!state.payments) (state as Record<string, unknown>).payments = [];
+    if (!state.payments) (state as unknown as Record<string, unknown>).payments = [];
     state.payments.length = 0;
     state.payments.push(...snap.payments);
 
-    if (!state.clientLedgerEntries) (state as Record<string, unknown>).clientLedgerEntries = [];
+    if (!state.clientLedgerEntries) (state as unknown as Record<string, unknown>).clientLedgerEntries = [];
     state.clientLedgerEntries.length = 0;
     state.clientLedgerEntries.push(...snap.clientLedgerEntries);
 
-    if (!state.vendorBills) (state as Record<string, unknown>).vendorBills = [];
+    if (!state.vendorBills) (state as unknown as Record<string, unknown>).vendorBills = [];
     state.vendorBills.length = 0;
     state.vendorBills.push(...snap.vendorBills);
 

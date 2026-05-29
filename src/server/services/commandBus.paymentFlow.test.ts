@@ -28,7 +28,7 @@ import type { SessionUser } from '../../shared/types';
 const operatorUser: SessionUser = {
   id: USER_ID, name: 'Op', role: 'owner', email: 'owner@terpagro.local'
 } as unknown as SessionUser;
-const ioStub = { emit: () => {} } as any;
+const ioStub = { emit: () => {}, to: () => ({ emit: () => {} }) } as any;
 
 function seedCustomer(balance = '0.00', creditLimit = '10000.00') {
   inMemoryState.customers.push({
