@@ -46,7 +46,7 @@ const { s } = vi.hoisted(() => ({
     commandJournal: [],
     advisoryLocks: [],
     _dynamic: {},
-  } as import('./__tests__/inMemoryDbMock').InMemoryState,
+  } as unknown as import('./__tests__/inMemoryDbMock').InMemoryState,
 }));
 
 // Prevent writeBagManifest from actually touching the filesystem.

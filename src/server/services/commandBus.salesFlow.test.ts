@@ -32,7 +32,7 @@ import type { SessionUser } from '../../shared/types';
 const operatorUser: SessionUser = {
   id: USER_ID, name: 'Op', role: 'owner', email: 'owner@terpagro.local'
 } as unknown as SessionUser;
-const ioStub = { emit: () => {} } as any;
+const ioStub = { emit: () => {}, to: () => ({ emit: () => {} }) } as any;
 
 /**
  * Seed a minimal valid sales order ready to be confirmed.

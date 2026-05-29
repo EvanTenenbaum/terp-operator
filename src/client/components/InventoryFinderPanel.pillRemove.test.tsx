@@ -5,7 +5,8 @@
  * Tests cover:
  *  1. Active filter pills render with individual × remove buttons
  *  2. Removing one pill leaves all other active filters intact
- *  3. Global "Clear" button still removes all filters in one click
+ *  3. Removing a second pill (C from [A, B, C]) leaves A and B intact
+ *  4. Global "Clear" button removes all active filter pills
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -13,15 +14,41 @@ import userEvent from '@testing-library/user-event';
 
 // ─── Stubs ───────────────────────────────────────────────────────────────────
 
+const SAVED_FILTERS = [
+  {
+    id: 'chip-a',
+    name: 'Filter A',
+    filterDefinition: {
+      logic: 'AND' as const,
+      conditions: [{ field: 'category', operator: 'eq', value: 'Flower' }],
+    },
+  },
+  {
+    id: 'chip-b',
+    name: 'Filter B',
+    filterDefinition: {
+      logic: 'AND' as const,
+      conditions: [{ field: 'vendor', operator: 'eq', value: 'ACME' }],
+    },
+  },
+  {
+    id: 'chip-c',
+    name: 'Filter C',
+    filterDefinition: {
+      logic: 'AND' as const,
+      conditions: [{ field: 'ageDays', operator: 'gte', value: 30 }],
+    },
+  },
+];
+
 vi.mock('../api/trpc', () => ({
   trpc: {
     queries: {
       reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) },
     },
     filters: {
-      listSavedFilters: { useQuery: () => ({ data: [] }) },
+      listSavedFilters: { useQuery: () => ({ data: SAVED_FILTERS }) },
       saveFilter: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
-      // AdvancedFilterBuilder needs getFacets
       getFacets: {
         useQuery: () => ({ data: { categories: [], vendors: [], tags: [], locations: [], ownership: [] } }),
       },
@@ -40,11 +67,11 @@ describe('InventoryFinderPanel per-pill filter removal (TER-1619)', () => {
     const user = userEvent.setup();
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
-    const searchInput = screen.getByPlaceholderText(/search code/i);
-    await user.type(searchInput, 'floral');
+    // Activate chip A to get a filter pill
+    await user.click(screen.getByRole('button', { name: /filter a/i }));
 
-    // The search pill should be a button with the correct aria-label
-    const removeBtn = screen.getByRole('button', { name: /remove search: floral filter/i });
+    // A pill with a remove button should appear
+    const removeBtn = screen.getByRole('button', { name: /remove filter: category/i });
     expect(removeBtn).toBeInTheDocument();
   });
 
@@ -52,72 +79,54 @@ describe('InventoryFinderPanel per-pill filter removal (TER-1619)', () => {
     const user = userEvent.setup();
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
-    // Activate two filters: search text and aging toggle
-    // Aging checkbox is in the advanced section — open it first
-    await user.click(screen.getByRole('button', { name: /more filters/i }));
-    const agingCheckbox = screen.getByRole('checkbox');
-    await user.click(agingCheckbox);
+    // Activate chips A and B
+    await user.click(screen.getByRole('button', { name: /filter a/i }));
+    await user.click(screen.getByRole('button', { name: /filter b/i }));
 
-    const searchInput = screen.getByPlaceholderText(/search code/i);
-    await user.type(searchInput, 'floral');
+    expect(screen.getByRole('button', { name: /remove filter: category/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove filter: vendor/i })).toBeInTheDocument();
 
-    // Both filter pills should be present
-    expect(screen.getByRole('button', { name: /remove search: floral filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove 30\+ days filter/i })).toBeInTheDocument();
+    // Remove only the category pill
+    await user.click(screen.getByRole('button', { name: /remove filter: category/i }));
 
-    // Remove only the search filter pill
-    await user.click(screen.getByRole('button', { name: /remove search: floral filter/i }));
-
-    // Search pill is gone; aging pill remains
-    expect(screen.queryByRole('button', { name: /remove search: floral filter/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /remove 30\+ days filter/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /remove filter: category/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /remove filter: vendor/i })).toBeInTheDocument();
   });
 
   it('removing a second pill (C from [A, B, C]) leaves A and B intact', async () => {
     const user = userEvent.setup();
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
-    // Open advanced section to access aging checkbox and minQty input
-    await user.click(screen.getByRole('button', { name: /more filters/i }));
+    // Activate all three chips
+    await user.click(screen.getByRole('button', { name: /filter a/i }));
+    await user.click(screen.getByRole('button', { name: /filter b/i }));
+    await user.click(screen.getByRole('button', { name: /filter c/i }));
 
-    // Activate three filters
-    const searchInput = screen.getByPlaceholderText(/search code/i);
-    await user.type(searchInput, 'premium');
+    expect(screen.getByRole('button', { name: /remove filter: category/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove filter: vendor/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove filter: ageDays/i })).toBeInTheDocument();
 
-    // minQty is in the advanced controls panel (visible after More filters)
-    const minQtyInput = screen.getByLabelText(/finder minimum quantity/i);
-    await user.type(minQtyInput, '5');
+    // Remove the vendor pill (middle one)
+    await user.click(screen.getByRole('button', { name: /remove filter: vendor/i }));
 
-    const agingCheckbox = screen.getByRole('checkbox');
-    await user.click(agingCheckbox);
-
-    // All three pills present
-    expect(screen.getByRole('button', { name: /remove search: premium filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove >= 5 filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove 30\+ days filter/i })).toBeInTheDocument();
-
-    // Remove the minQty pill (middle one)
-    await user.click(screen.getByRole('button', { name: /remove >= 5 filter/i }));
-
-    // minQty gone; search and aging intact
-    expect(screen.queryByRole('button', { name: /remove >= 5 filter/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /remove search: premium filter/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /remove 30\+ days filter/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove filter: category/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /remove filter: vendor/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /remove filter: ageDays/i })).toBeInTheDocument();
   });
 
   it('global Clear button removes all active filter pills', async () => {
     const user = userEvent.setup();
     render(<InventoryFinderPanel onAddBatch={vi.fn()} />);
 
-    const searchInput = screen.getByPlaceholderText(/search code/i);
-    await user.type(searchInput, 'premium');
+    await user.click(screen.getByRole('button', { name: /filter a/i }));
+    await user.click(screen.getByRole('button', { name: /filter b/i }));
 
-    expect(screen.getByRole('button', { name: /remove search: premium filter/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove filter: category/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove filter: vendor/i })).toBeInTheDocument();
 
-    // Click the global Clear button
-    await user.click(screen.getByRole('button', { name: /^clear$/i }));
+    await user.click(screen.getByRole('button', { name: /clear all/i }));
 
-    // No filter pills remain
-    expect(screen.queryAllByRole('button', { name: /^remove .+ filter$/i })).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /remove filter: category/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /remove filter: vendor/i })).toBeNull();
   });
 });

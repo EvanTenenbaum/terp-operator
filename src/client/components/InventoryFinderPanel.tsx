@@ -756,24 +756,22 @@ export function InventoryFinderPanel({
           />
         )}
 
-        {/* Compare list */}
-        {compared.length ? (
-          <div className="finder-chip-row" aria-label="Compared inventory">
-            <span className="text-xs font-semibold uppercase text-zinc-600">Compare</span>
-            {compared.map((row) => (
-              <span key={row.id} className="finder-chip success">
-                {row.batchCode} / ${moneyish(row.unitPrice)} / {moneyish(row.availableQty)}{' '}
-                {row.uom}
-              </span>
-            ))}
-            <button
-              type="button"
-              className="text-button compact-action"
-              disabled={!compared.some((row) => customerShareReady(row.mediaStatus))}
-              onClick={() => copyFinderOffer(compared)}
-            >
-              Copy offer
-            </button>
+        {/* Selection summary */}
+        {compared.length > 0 ? (
+          <div className="selection-summary" aria-live="polite">
+            <div className="selection-summary-main">
+              <span className="selection-pill">{compared.length} selected</span>
+            </div>
+            <div className="selection-summary-actions">
+              <button
+                className="secondary-button compact-action"
+                type="button"
+                disabled={!compared.some((row) => customerShareReady(row.mediaStatus))}
+                onClick={() => copyFinderOffer(compared)}
+              >
+                Copy {compared.length} rows as offer
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -784,7 +782,7 @@ export function InventoryFinderPanel({
             <thead>
               <tr>
                 <th>Qty</th>
-                <th>Compare</th>
+                <th><span className="sr-only">Select</span></th>
                 <th>Batch</th>
                 <th>Lot / date</th>
                 <th>Product</th>
@@ -834,7 +832,7 @@ export function InventoryFinderPanel({
                       </td>
                       <td>
                         <input
-                          aria-label={`Add ${row.batchCode} to compare list`}
+                          aria-label={`Select ${row.batchCode}`}
                           type="checkbox"
                           checked={compareIds.has(row.id)}
                           onChange={() => toggleCompare(row.id)}
