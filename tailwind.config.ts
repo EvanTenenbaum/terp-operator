@@ -10,6 +10,7 @@ export default {
         field: '#ffffff',
         line: '#d8ded6',
         accent: '#216e4e',
+        'accent-dark': '#174d36',
         amber: '#b06915',
         danger: '#b42318'
       },
