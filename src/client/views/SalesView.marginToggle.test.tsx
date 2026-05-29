@@ -63,7 +63,7 @@ describe('selectVisibleSalesColumns (#63)', () => {
     // exception reason (keep_margin, vendor_approval_pending, etc.) reveals
     // vendor/COGS relationship state that must not leak during customer screen-share.
     expect(new Set(MARGIN_COLUMN_FIELDS)).toEqual(
-      new Set(['unitCost', 'rangeBadge', 'internalMargin', 'estimatedMargin', 'landedCostExceptionReason'])
+      new Set(['unitCost', 'rangeBadge', 'internalMargin', 'estimatedMargin', 'landedCostExceptionReason', 'markup', 'markupPct', 'derivedCogs'])
     );
   });
 

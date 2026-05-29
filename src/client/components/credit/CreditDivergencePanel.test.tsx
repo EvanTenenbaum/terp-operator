@@ -91,7 +91,7 @@ describe('CreditDivergencePanel', () => {
       isLoading: false, isError: false, refetch: refetchMock,
     });
     render(<CreditDivergencePanel />);
-    expect(screen.getByText(/3 customers with open invoices/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 customers with open orders/i)).toBeInTheDocument();
   });
 
   it('calls refetch on Refresh button click', async () => {
