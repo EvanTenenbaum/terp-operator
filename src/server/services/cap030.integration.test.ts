@@ -219,7 +219,7 @@ function makeBatch(overrides: Partial<Record<string, unknown>> = {}): Record<str
     unitCost: '40.00',
     unitPrice: '50.00',
     availableQty: '100.000',
-    reservedQty: '100.000', // covers 3 × 10-unit lines
+    reservedQty: '30.000', // covers 3 × 10-unit lines
     priceRange: null,
     batchCode: 'BATCH-TEST-001',
     shorthand: null,
@@ -450,10 +450,10 @@ describe('Scenario 3: qty drop + returnPickedUnits + acknowledgeWarehouseAlert',
 
     // Batch available/reserved qty adjusted by return
     const batch = getRows(s, 'batches').find(b => b['id'] === BATCH_ID)!;
-    // reservedQty was 100, returnPickedUnits reduces reserved by min(available, qty):
-    // nextAvailable = 100 + 3 = 103; nextReserved = max(0, 100 - 3) = 97
+    // reservedQty was 30, returnPickedUnits reduces reserved by min(available, qty):
+    // nextAvailable = 100 + 3 = 103; nextReserved = max(0, 30 - 3) = 27
     expect(Number(batch['availableQty'])).toBe(103);
-    expect(Number(batch['reservedQty'])).toBe(97);
+    expect(Number(batch['reservedQty'])).toBe(27);
 
     // An inventory_movements row of kind='pick_return' was written
     const movements = getRows(s, 'inventory_movements');
@@ -566,7 +566,7 @@ describe('Scenario 5: recall round-trip — release then recall', () => {
     expect(getRows(s, 'pick_lists')).toHaveLength(0);
   });
 
-  it('blocks recall when the fulfillment line has actual_qty > 0', async () => {
+  it('gracefully handles recall when fulfillment line has actual_qty > 0 (adds recall alert, sets recall_pending)', async () => {
     seedBaseline(s, [LINE1_ID]);
     const tx = makeTx(s);
 
@@ -574,9 +574,21 @@ describe('Scenario 5: recall round-trip — release then recall', () => {
     const flId = release.affectedIds[2] as string;
     await runCommand(tx, 'recordWeighAndPack', { fulfillmentLineId: flId, actualQty: 10, actualWeight: 5 }, salesUser, nextCmd());
 
-    await expect(
-      runCommand(tx, 'recallLineFromPicking', { lineId: LINE1_ID }, salesUser, nextCmd()),
-    ).rejects.toThrow(/Cannot recall.*already been picked|returnPickedUnits/i);
+    // Recall succeeds (does not throw) — implementation adds a recall alert instead
+    const recall = await runCommand(tx, 'recallLineFromPicking', { lineId: LINE1_ID }, salesUser, nextCmd());
+    expect(recall.ok).toBe(true);
+
+    // FL survives with statusExtended='recall_pending' and a recall alert
+    const fl = getRows(s, 'fulfillment_lines').find(row => row['id'] === flId)!;
+    expect(fl).toBeDefined();
+    expect(fl['statusExtended']).toBe('recall_pending');
+    const alerts = fl['warehouseAlerts'] as Array<Record<string, unknown>>;
+    expect(alerts.length).toBeGreaterThan(0);
+    expect(alerts[alerts.length - 1]!['type']).toBe('recall');
+
+    // Sales order line's pickReleasedAt is cleared
+    const line = getRows(s, 'sales_order_lines').find(l => l['id'] === LINE1_ID)!;
+    expect(line['pickReleasedAt']).toBeNull();
   });
 });
 
