@@ -8,7 +8,6 @@ import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { RecordPrepaymentDialog } from '../components/RecordPrepaymentDialog';
-import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 import { DefaultPricingPanel } from '../components/DefaultPricingPanel';
 
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
@@ -1348,7 +1347,6 @@ export function InventoryView() {
       view="inventory"
       title="Inventory Batches"
       columns={inventoryColumns}
-      prelude={() => <PhotographyQueuePanel />}
       actions={() => (
         /* GH #354: filter presets */
         <div role="group" aria-label="Filter inventory">
