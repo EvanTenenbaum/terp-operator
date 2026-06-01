@@ -86,10 +86,10 @@ export function MobileContactProfileView() {
         <p className="text-xl font-bold" style={{ color: 'var(--m-ink)' }}>
           {String(c.name ?? '')}
         </p>
-        {c.display_name && c.display_name !== c.name && (
+        {Boolean(c.display_name) && c.display_name !== c.name && (
           <p className="text-sm" style={{ color: 'var(--m-muted-2)' }}>{String(c.display_name)}</p>
         )}
-        {c.company_name && (
+        {Boolean(c.company_name) && (
           <p className="text-sm" style={{ color: 'var(--m-muted)' }}>{String(c.company_name)}</p>
         )}
         {roles.length > 0 && (
@@ -124,7 +124,7 @@ export function MobileContactProfileView() {
             </div>
           ) : null}
         </div>
-        {c.notes && (
+        {Boolean(c.notes) && (
           <p className="mt-3 text-xs italic" style={{ color: 'var(--m-muted)' }}>{String(c.notes)}</p>
         )}
       </div>
@@ -183,7 +183,7 @@ export function MobileContactProfileView() {
               <p className="text-xs" style={{ color: 'var(--m-muted-2)' }}>
                 {String(cmd.actorName ?? '—')}
               </p>
-              {cmd.toast && (
+              {Boolean(cmd.toast) && (
                 <p className="text-xs" style={{ color: 'var(--m-muted)' }}>{String(cmd.toast)}</p>
               )}
             </div>
