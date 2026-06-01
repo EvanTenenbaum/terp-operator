@@ -61,6 +61,9 @@ export function MobileContactProfileView() {
   };
 
   const c = contact as Record<string, unknown>;
+  const displayName = c.display_name as string | undefined;
+  const companyName = c.company_name as string | undefined;
+  const notes = c.notes as string | undefined;
   const roles = ROLE_FLAGS.filter(r => Boolean(c[r.key]));
   const commands = (commandsQuery.data ?? []) as Array<Record<string, unknown>>;
   const hasFinancials = Boolean(c.is_customer || c.is_vendor);
@@ -86,11 +89,11 @@ export function MobileContactProfileView() {
         <p className="text-xl font-bold" style={{ color: 'var(--m-ink)' }}>
           {String(c.name ?? '')}
         </p>
-        {Boolean(c.display_name) && c.display_name !== c.name && (
-          <p className="text-sm" style={{ color: 'var(--m-muted-2)' }}>{String(c.display_name)}</p>
+        {Boolean(displayName) && displayName !== c.name && (
+          <p className="text-sm" style={{ color: 'var(--m-muted-2)' }}>{displayName}</p>
         )}
-        {Boolean(c.company_name) && (
-          <p className="text-sm" style={{ color: 'var(--m-muted)' }}>{String(c.company_name)}</p>
+        {Boolean(companyName) && (
+          <p className="text-sm" style={{ color: 'var(--m-muted)' }}>{companyName}</p>
         )}
         {roles.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
@@ -124,8 +127,8 @@ export function MobileContactProfileView() {
             </div>
           ) : null}
         </div>
-        {Boolean(c.notes) && (
-          <p className="mt-3 text-xs italic" style={{ color: 'var(--m-muted)' }}>{String(c.notes)}</p>
+        {Boolean(notes) && (
+          <p className="mt-3 text-xs italic" style={{ color: 'var(--m-muted)' }}>{notes}</p>
         )}
       </div>
 
@@ -184,7 +187,7 @@ export function MobileContactProfileView() {
                 {String(cmd.actorName ?? '—')}
               </p>
               {Boolean(cmd.toast) && (
-                <p className="text-xs" style={{ color: 'var(--m-muted)' }}>{String(cmd.toast)}</p>
+                <p className="text-xs" style={{ color: 'var(--m-muted)' }}>{String(cmd.toast as string)}</p>
               )}
             </div>
           ))}
