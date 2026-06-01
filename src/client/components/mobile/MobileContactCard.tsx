@@ -1,7 +1,6 @@
 interface Contact {
   id: string;
   name: string;
-  displayName?: string | null;
   companyName?: string | null;
   isCustomer: boolean;
   isVendor: boolean;

@@ -6,7 +6,6 @@ import { MobileContactCard } from './MobileContactCard';
 const BASE = {
   id: 'c1',
   name: 'Acme Corp',
-  displayName: null,
   companyName: 'Acme Corp Ltd',
   isCustomer: true,
   isVendor: false,
@@ -60,7 +59,7 @@ describe('MobileContactCard', () => {
     render(<MobileContactCard contact={contact} onClick={() => {}} />);
     // Max 3 badges shown
     const badges = screen.getAllByText(/Customer|Vendor|Referee|Contractor/);
-    expect(badges.length).toBeLessThanOrEqual(3);
+    expect(badges.length).toBe(3);
   });
 
   it('calls onClick when clicked', () => {
