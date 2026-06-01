@@ -2,6 +2,15 @@ import { Clock, Sigma, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { GridRow, ViewKey } from '../../shared/types';
 
+export interface CellRangeStat {
+  field: string;
+  total: number;
+  average: number;
+  count: number;   // total cell count (including zeros)
+  min: number;
+  max: number;
+}
+
 interface SelectionSummaryProps {
   rows: GridRow[];
   view: ViewKey;
@@ -9,6 +18,7 @@ interface SelectionSummaryProps {
   onOpenRelationship?: (row: GridRow) => void;
   onOpenIssue?: (row: GridRow) => void;
   actions?: ReactNode;
+  cellRangeStats?: CellRangeStat[];  // NEW optional prop
 }
 
 const VIEW_LABELS: Partial<Record<string, string>> = {
@@ -34,28 +44,51 @@ const VIEW_LABELS: Partial<Record<string, string>> = {
 
 const sumFields = ['subtotal', 'total', 'amount', 'intakeQty', 'availableQty', 'qty', 'openBalance'];
 
-export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship, onOpenIssue, actions }: SelectionSummaryProps) {
-  if (!rows.length) return null;
+export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship, onOpenIssue, actions, cellRangeStats }: SelectionSummaryProps) {
+  const hasRangeStats = Boolean(cellRangeStats?.length);
+  if (!rows.length && !hasRangeStats) return null;
+
   const sums = sumFields
     .map((field) => {
-      const values = rows.map((row) => numeric(row[field])).filter((value) => Math.abs(value) > 0.0001);
-      const total = values.reduce((sum, value) => sum + value, 0);
-      return values.length ? { field, total, average: total / values.length, count: values.length } : null;
+      const hasField = rows.some((row) => row[field] != null);
+      if (!hasField) return null;
+      const allValues = rows.map((row) => numeric(row[field]));
+      const total = allValues.reduce((sum, value) => sum + value, 0);
+      const min = allValues.reduce((m, v) => Math.min(m, v), Infinity);
+      const max = allValues.reduce((m, v) => Math.max(m, v), -Infinity);
+      return { field, total, average: total / rows.length, count: rows.length, min, max };
     })
-    .filter((row): row is { field: string; total: number; average: number; count: number } => Boolean(row));
+    .filter((row): row is { field: string; total: number; average: number; count: number; min: number; max: number } => Boolean(row));
+
   const issues = rows.flatMap((row) => Array.isArray(row.validationIssues) ? row.validationIssues.map(String) : []);
+  const totalCells = cellRangeStats?.reduce((sum, stat) => sum + stat.count, 0) ?? 0;
 
   return (
     <div className="selection-summary" aria-live="polite">
       <div className="selection-summary-main">
-        <span className="selection-pill">{rows.length} selected</span>
-        <span className="selection-pill">{VIEW_LABELS[view] ?? view}</span>
-        {sums.slice(0, 4).map((sum) => (
-          <span className="selection-pill" key={sum.field}>
-            <Sigma className="h-3.5 w-3.5" aria-hidden="true" />
-            {label(sum.field)} total {format(sum.total)} / avg {format(sum.average)} / count {sum.count}
-          </span>
-        ))}
+        {hasRangeStats ? (
+          <>
+            <span className="selection-pill">{totalCells} cells</span>
+            <span className="selection-pill">cell range</span>
+            {cellRangeStats!.slice(0, 4).map((stat) => (
+              <span className="selection-pill" key={stat.field}>
+                <Sigma className="h-3.5 w-3.5" aria-hidden="true" />
+                {label(stat.field)} sum {format(stat.total)} / avg {format(stat.average)} / count {stat.count}
+              </span>
+            ))}
+          </>
+        ) : rows.length > 0 ? (
+          <>
+            <span className="selection-pill">{rows.length} selected</span>
+            <span className="selection-pill">{VIEW_LABELS[view] ?? view}</span>
+            {sums.slice(0, 4).map((sum) => (
+              <span className="selection-pill" key={sum.field}>
+                <Sigma className="h-3.5 w-3.5" aria-hidden="true" />
+                {label(sum.field)} total {format(sum.total)} / avg {format(sum.average)} / count {sum.count}
+              </span>
+            ))}
+          </>
+        ) : null}
         {issues.length ? (
           <span className="selection-pill warning">
             <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
@@ -65,20 +98,22 @@ export function SelectionSummary({ rows, view, onOpenHistory, onOpenRelationship
       </div>
       <div className="selection-summary-actions">
         {actions}
-        {onOpenRelationship && hasRelationship(rows[0], view) ? (
+        {onOpenRelationship && rows[0] && hasRelationship(rows[0], view) ? (
           <button className="secondary-button compact-action" type="button" onClick={() => onOpenRelationship(rows[0])}>
             Relationship
           </button>
         ) : null}
-        {onOpenIssue && hasIssueSurface(rows[0], view) ? (
+        {onOpenIssue && rows[0] && hasIssueSurface(rows[0], view) ? (
           <button className="secondary-button compact-action" type="button" onClick={() => onOpenIssue(rows[0])}>
             Issue
           </button>
         ) : null}
-        <button className="secondary-button compact-action" type="button" onClick={() => onOpenHistory(rows[0])}>
-          <Clock className="h-4 w-4" aria-hidden="true" />
-          History
-        </button>
+        {rows[0] ? (
+          <button className="secondary-button compact-action" type="button" onClick={() => onOpenHistory(rows[0])}>
+            <Clock className="h-4 w-4" aria-hidden="true" />
+            History
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -106,5 +141,3 @@ function format(value: number) {
 function label(value: string) {
   return value.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase());
 }
-
-

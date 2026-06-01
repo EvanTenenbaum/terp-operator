@@ -11,6 +11,7 @@ import type {
   GridApi,
   GridReadyEvent,
   ICellRendererParams,
+  RangeSelectionChangedEvent,
   SideBarDef,
   SortChangedEvent,
   TabToNextCellParams,
@@ -23,6 +24,7 @@ import { IssueSidecar } from './IssueSidecar';
 import { RelationshipDrawer } from './RelationshipDrawer';
 import { RowCommandHistoryDrawer } from './RowCommandHistoryDrawer';
 import { SelectionSummary } from './SelectionSummary';
+import type { CellRangeStat } from './SelectionSummary';
 import { StatusPill } from './StatusPill';
 import { WorkspacePanel } from './WorkspacePanel';
 import { ExpansionPanel } from './ExpansionPanel';
@@ -91,6 +93,7 @@ export function OperatorGrid({
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const [selectedRows, setSelectedRows] = useState<GridRow[]>([]);
+  const [cellRangeStats, setCellRangeStats] = useState<CellRangeStat[]>([]);
   const [historyRow, setHistoryRow] = useState<GridRow | null>(null);
   const [relationshipRow, setRelationshipRow] = useState<GridRow | null>(null);
   const [issueRow, setIssueRow] = useState<GridRow | null>(null);
@@ -267,6 +270,51 @@ export function OperatorGrid({
     [parsedFilter, writeQuickFilter]
   );
 
+  const onRangeSelectionChanged = useCallback((event: RangeSelectionChangedEvent<GridRow>) => {
+    const api = event.api;
+    const ranges = api.getCellRanges();
+    if (!ranges?.length) {
+      setCellRangeStats([]);
+      return;
+    }
+    // Collect values per column across all ranges
+    const fieldValues = new Map<string, number[]>();
+    for (const range of ranges) {
+      const startRow = Math.min(range.startRow!.rowIndex, range.endRow!.rowIndex);
+      const endRow = Math.max(range.startRow!.rowIndex, range.endRow!.rowIndex);
+      for (const col of range.columns) {
+        const field = col.getColDef().field;
+        if (!field) continue;
+        for (let rowIdx = startRow; rowIdx <= endRow; rowIdx++) {
+          const rowNode = api.getDisplayedRowAtIndex(rowIdx);
+          if (!rowNode?.data) continue;
+          const raw = rowNode.data[field as keyof GridRow];
+          const n = typeof raw === 'number' ? raw : Number(raw);
+          if (!Number.isFinite(n)) continue;
+          if (!fieldValues.has(field)) fieldValues.set(field, []);
+          fieldValues.get(field)!.push(n);
+        }
+      }
+    }
+    // Only include numeric columns (at least 1 value found)
+    const stats: CellRangeStat[] = [];
+    for (const [field, values] of fieldValues) {
+      if (!values.length) continue;
+      const total = values.reduce((s, v) => s + v, 0);
+      const min = values.reduce((m, v) => Math.min(m, v), Infinity);
+      const max = values.reduce((m, v) => Math.max(m, v), -Infinity);
+      stats.push({
+        field,
+        total,
+        average: total / values.length,
+        count: values.length,
+        min,
+        max
+      });
+    }
+    setCellRangeStats(stats);
+  }, []);
+
   return (
     <WorkspacePanel
       panelId={panelId}
@@ -411,10 +459,13 @@ export function OperatorGrid({
             onColumnVisible={(_event: ColumnVisibleEvent<GridRow>) => persistColumnState()}
             onColumnPinned={(_event: ColumnPinnedEvent<GridRow>) => persistColumnState()}
             onSortChanged={(_event: SortChangedEvent<GridRow>) => persistColumnState()}
+            onRangeSelectionChanged={onRangeSelectionChanged}
             onSelectionChanged={() => {
               const selected = apiRef.current?.getSelectedRows() ?? [];
               setSelectedRows(selected);
               onSelectionChange?.(selected);
+              // Clear range stats when row selection fires (AG Grid clears ranges on row click)
+              setCellRangeStats([]);
             }}
             onCellEditingStarted={() => { useUiStore.getState().setCellEditing(true); }}
             onCellEditingStopped={() => { useUiStore.getState().setCellEditing(false); }}
@@ -424,7 +475,7 @@ export function OperatorGrid({
           <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'Create or import rows, then mark them Ready when they can be posted.'}</EmptyState>
         )}
       </div>
-      <SelectionSummary rows={selectedRows} view={view} onOpenHistory={setHistoryRow} onOpenRelationship={setRelationshipRow} onOpenIssue={canWrite ? setIssueRow : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} />
+      <SelectionSummary rows={selectedRows} view={view} onOpenHistory={setHistoryRow} onOpenRelationship={setRelationshipRow} onOpenIssue={canWrite ? setIssueRow : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} cellRangeStats={cellRangeStats} />
       <RowCommandHistoryDrawer row={historyRow} onClose={() => setHistoryRow(null)} />
       <RelationshipDrawer row={relationshipRow} view={view} onClose={() => setRelationshipRow(null)} />
       <IssueSidecar row={issueRow} view={view} onClose={() => setIssueRow(null)} />
