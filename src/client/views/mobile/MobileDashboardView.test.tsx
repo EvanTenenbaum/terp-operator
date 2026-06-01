@@ -17,6 +17,7 @@ vi.mock('../../api/trpc', () => ({
     queries: {
       dashboard: { useQuery: vi.fn() },
       workQueue:  { useQuery: vi.fn() },
+      myDrafts:   { useQuery: vi.fn() },
     },
   },
 }));
@@ -26,6 +27,7 @@ import { MobileDashboardView } from './MobileDashboardView';
 
 const mockDashboard = trpc.queries.dashboard.useQuery as ReturnType<typeof vi.fn>;
 const mockWorkQueue  = trpc.queries.workQueue.useQuery  as ReturnType<typeof vi.fn>;
+const mockMyDrafts = trpc.queries.myDrafts.useQuery as ReturnType<typeof vi.fn>;
 
 const METRICS = [
   { key: 'cash',        label: 'Cash on Hand', value: '$142,400', definition: 'Operating accounts', severity: 'good'    as const },
@@ -61,6 +63,7 @@ beforeEach(() => {
     refetch: vi.fn(),
   });
   mockWorkQueue.mockReturnValue({ data: WORK_QUEUE_ROWS, isLoading: false });
+  mockMyDrafts.mockReturnValue({ data: [], isLoading: false });
 });
 
 function renderView() {
@@ -108,5 +111,38 @@ describe('MobileDashboardView', () => {
     mockWorkQueue.mockReturnValue({ data: undefined, isLoading: true });
     renderView();
     expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
+  });
+
+  it('hides My Drafts section when no drafts', () => {
+    mockMyDrafts.mockReturnValue({ data: [], isLoading: false });
+    renderView();
+    expect(screen.queryByText(/my drafts/i)).not.toBeInTheDocument();
+  });
+
+  it('shows My Drafts section when drafts exist', () => {
+    mockMyDrafts.mockReturnValue({
+      data: [
+        { id: 'd1', lane: 'Sales', title: 'SO-2001', route: 'sales', status: 'draft' },
+        { id: 'd2', lane: 'Purchase Order', title: 'PO-1002', route: 'purchaseOrders', status: 'draft' },
+      ],
+      isLoading: false,
+    });
+    renderView();
+    expect(screen.getByText(/my drafts/i)).toBeInTheDocument();
+    expect(screen.getByText(/sales.*SO-2001/i)).toBeInTheDocument();
+    expect(screen.getByText(/purchase order.*PO-1002/i)).toBeInTheDocument();
+  });
+
+  it('navigates to desktop route and sets prefer-desktop flag when a draft is clicked', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    mockMyDrafts.mockReturnValue({
+      data: [{ id: 'd1', lane: 'Sales', title: 'SO-2001', route: 'sales', status: 'draft' }],
+      isLoading: false,
+    });
+    renderView();
+    fireEvent.click(screen.getByRole('button', { name: /sales.*SO-2001/i }));
+    expect(setItemSpy).toHaveBeenCalledWith('terp-prefer-desktop', 'true');
+    expect(navigateMock).toHaveBeenCalledWith('/sales');
+    setItemSpy.mockRestore();
   });
 });
