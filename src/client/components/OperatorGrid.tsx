@@ -280,8 +280,9 @@ export function OperatorGrid({
     // Collect values per column across all ranges
     const fieldValues = new Map<string, number[]>();
     for (const range of ranges) {
-      const startRow = Math.min(range.startRow!.rowIndex, range.endRow!.rowIndex);
-      const endRow = Math.max(range.startRow!.rowIndex, range.endRow!.rowIndex);
+      if (!range.startRow || !range.endRow) continue;
+      const startRow = Math.min(range.startRow.rowIndex, range.endRow.rowIndex);
+      const endRow = Math.max(range.startRow.rowIndex, range.endRow.rowIndex);
       for (const col of range.columns) {
         const field = col.getColDef().field;
         if (!field) continue;
