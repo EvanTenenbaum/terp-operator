@@ -88,7 +88,7 @@ interface MobileContactCardProps {
 
 File: `src/client/views/mobile/MobileContactsView.tsx`
 
-**Data:** `trpc.queries.contactDirectory.useQuery({ query, roleFilter, limit: 50 })`
+**Data:** `trpc.queries.contactDirectory.useQuery({ limit: 50 })` — loads once; search and role filter applied client-side (50 contacts is small enough to avoid per-keystroke refetches).
 
 **UI:**
 1. Sticky header bar:
