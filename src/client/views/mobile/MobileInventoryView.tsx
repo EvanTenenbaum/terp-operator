@@ -5,6 +5,9 @@ import type { GridRow } from '../../../shared/types';
 import { MobileSearchInput } from '../../components/mobile/MobileSearchInput';
 import { MobileFilterChips } from '../../components/mobile/MobileFilterChips';
 import { MobileEmptyState } from '../../components/mobile/MobileEmptyState';
+import { useCommandRunner } from '../../components/useCommandRunner';
+import { MobileConfirmSheet } from '../../components/mobile/MobileConfirmSheet';
+import { useMobileToast } from '../../components/mobile/MobileToast';
 
 const STATUS_OPTIONS = ['All', 'Ready', 'Low Stock', 'Needs Review', 'Consignment'];
 const CATEGORY_OPTIONS = ['All', 'Flower', 'Concentrate', 'Edible'];
@@ -41,6 +44,19 @@ export function MobileInventoryView() {
   const [categoryFilter, setCategory] = useState('All');
   const [expandedId, setExpandedId]   = useState<string | null>(null);
 
+  const [actionMode, setActionMode]           = useState<null | 'adjust'>(null);
+  const [deltaQty, setDeltaQty]               = useState<string>('');
+  const [adjReason, setAdjReason]             = useState<string>('');
+  const [flagConfirmId, setFlagConfirmId]     = useState<string | null>(null);
+  const [adjConfirmPayload, setAdjConfirmPayload] = useState<{ batchId: string; delta: number; reason: string } | null>(null);
+
+  const me = trpc.auth.me.useQuery();
+  const role: string = (me.data as { role?: string } | undefined)?.role ?? 'viewer';
+  const isManager = role === 'owner' || role === 'manager';
+
+  const { runCommand } = useCommandRunner();
+  const { addToast } = useMobileToast();
+
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const grid = trpc.queries.grid.useQuery({ view: 'inventory' }, { refetchInterval: 60_000 });
   const rows = (grid.data ?? []) as GridRow[];
@@ -69,8 +85,18 @@ export function MobileInventoryView() {
     return true;
   });
 
+  function resetAction() {
+    setActionMode(null);
+    setDeltaQty('');
+    setAdjReason('');
+  }
+
   function toggleExpand(id: string) {
-    setExpandedId(prev => prev === id ? null : id);
+    setExpandedId(prev => {
+      if (prev === id) { resetAction(); return null; }
+      resetAction();
+      return id;
+    });
   }
 
   function clearFilters() {
@@ -119,6 +145,8 @@ export function MobileInventoryView() {
             const location    = String(row.location ?? '—');
             const tags        = String(row.tags ?? '');
             const expDate     = row.expirationDate ? String(row.expirationDate) : null;
+            const casePack    = Number(row.casePack ?? 0);
+            const draftReserved = Number(row.draftReservedQty ?? 0);
 
             return (
               <div key={id} ref={el => { rowRefs.current[id] = el; }}>
@@ -145,7 +173,10 @@ export function MobileInventoryView() {
                   <div className="flex items-center justify-between text-xs" style={{ color: 'var(--m-muted-2)' }}>
                     <span>{vendor}</span>
                     <span style={{ color: 'var(--m-muted)' }}>
-                      {availableQty.toLocaleString()} {uom} · ${unitPrice.toLocaleString()}/lb
+                      {draftReserved > 0
+                        ? `${(availableQty - draftReserved).toLocaleString()} ${uom} free (${draftReserved} reserved)`
+                        : `${availableQty.toLocaleString()} ${uom}`}
+                      {' · '}${unitPrice.toLocaleString()}/lb
                     </span>
                   </div>
                   {/* Expiry warning */}
@@ -170,6 +201,18 @@ export function MobileInventoryView() {
                         <p className="font-semibold uppercase" style={{ color: 'var(--m-muted-2)', fontSize: 10, letterSpacing: '0.06em' }}>Location</p>
                         <p style={{ color: 'var(--m-ink)' }}>{location}</p>
                       </div>
+                      {casePack > 0 && (
+                        <div>
+                          <p className="font-semibold uppercase" style={{ color: 'var(--m-muted-2)', fontSize: 10, letterSpacing: '0.06em' }}>Case Pack</p>
+                          <p style={{ color: 'var(--m-ink)' }}>{casePack} {uom} per case</p>
+                        </div>
+                      )}
+                      {draftReserved > 0 && (
+                        <div>
+                          <p className="font-semibold uppercase" style={{ color: 'var(--m-amber)', fontSize: 10, letterSpacing: '0.06em' }}>Draft Reserved</p>
+                          <p style={{ color: 'var(--m-amber)' }}>{draftReserved} {uom}</p>
+                        </div>
+                      )}
                     </div>
                     {tags && (
                       <div className="mt-2 flex flex-wrap gap-1">
@@ -184,19 +227,89 @@ export function MobileInventoryView() {
                         ))}
                       </div>
                     )}
-                    {/* Quick action stubs */}
-                    <div className="mt-3 flex gap-2">
-                      {['Adjust qty', 'Mark needs review', 'Call vendor'].map(action => (
+                    {/* Actions */}
+                    {actionMode === null && (
+                      <div className="mt-3 flex gap-2">
                         <button
-                          key={action}
                           type="button"
+                          disabled={!isManager}
+                          aria-label="Adjust qty"
+                          onClick={() => setActionMode('adjust')}
+                          className="m-btn-secondary flex-1"
+                          style={{ minHeight: 36, fontSize: 11, padding: '0 8px', opacity: isManager ? 1 : 0.45 }}
+                          title={!isManager ? 'Manager role required' : undefined}
+                        >
+                          Adjust qty
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Flag for review"
+                          onClick={() => setFlagConfirmId(id)}
                           className="m-btn-secondary flex-1"
                           style={{ minHeight: 36, fontSize: 11, padding: '0 8px' }}
                         >
-                          {action}
+                          Flag for review
                         </button>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+
+                    {/* Inline adjust form */}
+                    {actionMode === 'adjust' && (
+                      <div className="mt-3 flex flex-col gap-2">
+                        <label>
+                          <span className="mb-1 block text-xs font-medium" style={{ color: 'var(--m-muted)' }}>Delta quantity (+/-)</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            aria-label="Delta quantity"
+                            value={deltaQty}
+                            onChange={e => setDeltaQty(e.target.value)}
+                            style={{ width: '100%', height: 40, borderRadius: 12, border: '1px solid var(--m-line)', padding: '0 12px', background: 'var(--m-field)', color: 'var(--m-ink)', fontSize: 14 }}
+                          />
+                        </label>
+                        <label>
+                          <span className="mb-1 block text-xs font-medium" style={{ color: 'var(--m-muted)' }}>Reason (required)</span>
+                          <input
+                            type="text"
+                            aria-label="Reason"
+                            value={adjReason}
+                            onChange={e => setAdjReason(e.target.value)}
+                            placeholder="e.g. recount, damage, correction…"
+                            style={{ width: '100%', height: 40, borderRadius: 12, border: '1px solid var(--m-line)', padding: '0 12px', background: 'var(--m-field)', color: 'var(--m-ink)', fontSize: 14 }}
+                          />
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={!deltaQty || !adjReason.trim()}
+                            className="m-btn-primary flex-1"
+                            style={{ minHeight: 40, fontSize: 13 }}
+                            onClick={() => {
+                              const delta = Number(deltaQty);
+                              const reason = adjReason.trim();
+                              if (!Number.isFinite(delta) || delta === 0 || !reason) return;
+                              if (Math.abs(delta) > 10) {
+                                setAdjConfirmPayload({ batchId: id, delta, reason });
+                              } else {
+                                void runCommand('adjustBatchQuantity', { batchId: id, deltaQty: delta, reason })
+                                  .then(() => { addToast(`Adjusted ${name} by ${delta}`, 'success'); resetAction(); })
+                                  .catch(() => {});
+                              }
+                            }}
+                          >
+                            Apply
+                          </button>
+                          <button
+                            type="button"
+                            onClick={resetAction}
+                            className="m-btn-secondary"
+                            style={{ minHeight: 40, fontSize: 13, width: 80 }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -204,6 +317,43 @@ export function MobileInventoryView() {
           })}
         </div>
       )}
+
+      {/* Adjust quantity confirm sheet (large deltas) */}
+      <MobileConfirmSheet
+        open={adjConfirmPayload !== null}
+        summary={adjConfirmPayload
+          ? `Adjust ${adjConfirmPayload.delta > 0 ? '+' : ''}${adjConfirmPayload.delta} lb — ${adjConfirmPayload.reason}`
+          : ''}
+        confirmLabel="Apply Adjustment"
+        onConfirm={async () => {
+          const p = adjConfirmPayload;
+          setAdjConfirmPayload(null);
+          if (!p) return;
+          try {
+            await runCommand('adjustBatchQuantity', { batchId: p.batchId, deltaQty: p.delta, reason: p.reason });
+            addToast(`Adjusted by ${p.delta}`, 'success');
+            resetAction();
+          } catch {}
+        }}
+        onCancel={() => setAdjConfirmPayload(null)}
+      />
+
+      {/* Flag for review confirm sheet */}
+      <MobileConfirmSheet
+        open={flagConfirmId !== null}
+        summary={flagConfirmId ? `Flag batch for review?` : ''}
+        confirmLabel="Flag Batch"
+        onConfirm={async () => {
+          const bId = flagConfirmId;
+          setFlagConfirmId(null);
+          if (!bId) return;
+          try {
+            await runCommand('flagBatch', { batchId: bId, reason: 'Flagged from mobile — needs review' });
+            addToast('Batch flagged for review', 'success');
+          } catch {}
+        }}
+        onCancel={() => setFlagConfirmId(null)}
+      />
     </div>
   );
 }

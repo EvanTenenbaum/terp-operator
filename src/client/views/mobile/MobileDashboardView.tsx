@@ -65,9 +65,11 @@ export function MobileDashboardView() {
   const navigate = useNavigate();
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 30_000 });
   const workQueue  = trpc.queries.workQueue.useQuery(undefined,  { refetchInterval: 30_000 });
+  const myDrafts  = trpc.queries.myDrafts.useQuery(undefined, { refetchInterval: 30_000 });
 
   const metrics  = dashboard.data?.metrics ?? [];
   const workRows = (workQueue.data ?? []) as WorkQueueRow[];
+  const draftRows = (myDrafts.data ?? []) as Array<{ id: string; lane: string; title: string; route: string }>;
   const laneGroups = groupByLane(workRows);
   const activity = dashboard.data?.recentActivity ?? [];
   const health   = dashboard.data?.health;
@@ -152,6 +154,33 @@ export function MobileDashboardView() {
               </button>
             ))}
       </div>
+
+      {/* My Drafts */}
+      {draftRows.length > 0 && (
+        <>
+          <p className="m-section-header">My Drafts</p>
+          <div className="px-4">
+            {draftRows.map(draft => (
+              <button
+                key={draft.id}
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('terp-prefer-desktop', 'true');
+                  navigate('/' + draft.route);
+                }}
+                aria-label={`${draft.lane}: ${draft.title}`}
+                className="flex min-h-14 w-full items-center justify-between border-b py-4 text-left last:border-0"
+                style={{ borderColor: 'var(--m-line)' }}
+              >
+                <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  {draft.lane}: {draft.title}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--m-muted-2)' }}>→</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Recent activity */}
       <p className="m-section-header">Recent Activity</p>
