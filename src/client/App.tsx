@@ -75,9 +75,6 @@ function AppContent() {
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
   const focusMode = useUiStore((state) => state.focusMode);
   const pushToast = useUiStore((state) => state.pushToast);
-  // GH #409: subscribe to editing state so we can flush deferred peer
-  // invalidations the moment the operator finishes editing a cell.
-  const isCellEditing = useUiStore((state) => state.isCellEditing);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // GH #409: accumulates affectedIds that arrived while a cell was being
@@ -99,16 +96,24 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // GH #409: when editing stops, flush any peer invalidations that were
-  // deferred to avoid silently discarding mid-edit cell values.
+  // GH #409: when editing stops, flush any peer invalidations that were deferred.
+  // Uses Zustand external subscribe (not a React hook) so this side-effect does NOT
+  // cause AppContent to re-render — a re-render during cell editing disrupts the
+  // in-progress editor and produces the "one letter per cell" bug.
   useEffect(() => {
-    if (!isCellEditing && pendingPeerIds.current.length > 0) {
-      const ids = pendingPeerIds.current;
-      pendingPeerIds.current = [];
-      peerToastShownRef.current = false;
-      void invalidateAffectedQueries(queryClient, ids);
-    }
-  }, [isCellEditing, queryClient]);
+    let prevEditing = useUiStore.getState().isCellEditing;
+    const unsub = useUiStore.subscribe((state) => {
+      const nowEditing = state.isCellEditing;
+      if (prevEditing && !nowEditing && pendingPeerIds.current.length > 0) {
+        const ids = pendingPeerIds.current;
+        pendingPeerIds.current = [];
+        peerToastShownRef.current = false;
+        void invalidateAffectedQueries(queryClient, ids);
+      }
+      prevEditing = nowEditing;
+    });
+    return unsub;
+  }, [queryClient]);
 
   useEffect(() => {
     if (!me.data) return;
