@@ -458,7 +458,7 @@ Each journey section follows a fixed template:
 2. Sales operator releases lines for warehouse: `releaseLineForPicking` (single line) or `releaseLinesForPicking` (bulk). Guard: line must have a `batchId`, `qty > 0`, and `batch.reservedQty >= line.qty`. Line `pickStatus`: `'unreleased'` → `'released'`. `pickReleasedAt` timestamp set.
 3. Warehouse operator sees released lines in the `pick` view (mobile-optimized). `pickStatus` → `'picking'`.
 4. Warehouse operator weighs and packs each line: `recordWeighAndPack`. Sets `fulfillmentLines.actualQty` and `fulfillmentLines.actualWeight`. Both must be > 0. Line status: → `'packed'`.
-5. Operator prints labels: `printLabels` → marks labels as printed. Bag manifest CSV written to `ARCHIVE_DIR/bag-manifests`.
+5. <!-- TER-1660: label printing deferred to backlog; the `printLabels` command remains in the catalog but is hidden from the active flow. -->
 6. Once all lines are packed, operator runs `markOrderFulfilled` → validates no unpacked lines remain. Sales order status: → `'fulfilled'`. Pick list status: → `'fulfilled'`.
 
 ---
@@ -500,9 +500,12 @@ Each journey section follows a fixed template:
 - Trigger: Some lines fulfilled, others cancelled.
 - Path: Cancelled lines are `'cancelled'`, remaining lines `'packed'`. `markOrderFulfilled` succeeds if all non-cancelled lines have `actualQty > 0`.
 
+<!-- TER-1660: Label format selection branch deferred to backlog with the rest of label printing.
 🔀 **B9 — Label format selection**
 - Trigger: Different label printers available.
 - Path: `printLabels` supports 4×6 and 2×1 label formats. Format selected at print time.
+-->
+
 
 ---
 

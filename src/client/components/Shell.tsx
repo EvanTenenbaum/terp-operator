@@ -73,7 +73,8 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
       { view: 'vendors', label: 'Vendor Payouts', icon: Landmark },
       { view: 'referees', label: 'Referees', icon: Users },
       { view: 'contacts', label: 'Contacts', icon: Users },
-      { view: 'processors', label: 'Processors', icon: BadgeDollarSign }
+      // TER-1664: Connectors removed from MVP nav
+      // { view: 'processors', label: 'Processors', icon: BadgeDollarSign }
     ]
   },
   {
@@ -81,7 +82,8 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { view: 'recovery', label: 'Recovery', icon: RotateCcw },
       { view: 'closeout', label: 'Closeout', icon: Archive },
-      { view: 'connectors', label: 'Connectors', icon: Plug },
+      // TER-1664: Connectors removed from MVP nav
+      // { view: 'connectors', label: 'Connectors', icon: Plug },
       { view: 'settings', label: 'Settings', icon: Settings }
     ]
   }

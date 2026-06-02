@@ -279,7 +279,8 @@ const setDeliveryWindowPayloadSchema = z.object({
 const logPaymentPayloadSchema = z.object({
   customerId: z.string().uuid(),
   amount: z.coerce.number(),
-  method: z.string().optional(),
+  // TER-1661: payment methods simplified to cash, check, other.
+  method: z.enum(['cash', 'check', 'other']).optional(),
   date: z.string().optional(),
   createdAt: z.string().optional(),
   reference: z.string().optional(),
@@ -297,9 +298,12 @@ const allocatePaymentPayloadSchema = z.object({
   amount: z.coerce.number().optional(),
 });
 
-const applyEarlyPayDiscountPayloadSchema = z.object({
+// TER-1662: applyEarlyPayDiscount renamed to applyDiscount — early-payment
+// gating dropped; this is now a generic invoice discount command.
+const applyDiscountPayloadSchema = z.object({
   invoiceId: z.string().uuid(),
   amount: z.coerce.number(),
+  reason: z.string().optional(),
 });
 
 const recordWeighAndPackPayloadSchema = z.object({
@@ -923,8 +927,8 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return unallocatePayment(tx, payload, commandId);
     case 'refundPayment':
       return refundPayment(tx, payload, commandId);
-    case 'applyEarlyPayDiscount':
-      return applyEarlyPayDiscount(tx, payload, commandId);
+    case 'applyDiscount':
+      return applyDiscount(tx, payload, commandId);
     case 'createVendorBill':
       return createVendorBill(tx, payload, commandId);
     case 'approveVendorBill':
@@ -1083,6 +1087,11 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
 
 async function createBatch(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   createBatchPayloadSchema.parse(payload);
+  // TER-1658: All intake batches must originate from a purchase order.
+  // Manual batch creation without a PO line is no longer supported.
+  if (!stringValue(payload.purchaseOrderLineId)) {
+    throw new Error('All intake batches must originate from a purchase order. Create a PO first.');
+  }
   const decoded = decodeShorthand(stringValue(payload.shorthand));
   const name = stringValue(payload.name) || decoded.name;
   const category = stringValue(payload.category) || decoded.category;
@@ -1462,7 +1471,7 @@ async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string):
   if (payload.externalNotes !== undefined) values.externalNotes = stringValue(payload.externalNotes) || null;
   if (payload.status !== undefined) {
     const nextStatus = stringValue(payload.status);
-    if (!['draft', 'approved', 'ordered', 'partially_received'].includes(nextStatus)) throw new Error('Purchase order status is not valid for manual update.');
+    if (nextStatus === 'cancelled') throw new Error('Cancelled purchase orders cannot be edited.');
     values.status = nextStatus;
   }
   await tx.update(purchaseOrders).set(values).where(eq(purchaseOrders.id, purchaseOrderId));
@@ -2294,49 +2303,10 @@ export async function deleteBatchMedia(
   };
 }
 
-async function importBatchesCsv(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const csv = requiredString(payload.csv, 'csv');
-  const validateOnly = payload.validateOnly !== false;
-  const validation = validateBatchCsv(csv);
-  if (validateOnly) {
-    return {
-      ok: validation.valid,
-      commandId,
-      affectedIds: [],
-      toast: validation.valid ? `CSV is valid for ${validation.rows.length} batch row(s).` : `${validation.errors.length} CSV issue(s) found.`,
-      delta: validation as unknown as Record<string, unknown>
-    };
-  }
-  if (!validation.valid) throw new Error(`${validation.errors.length} CSV issue(s) must be fixed before import.`);
-
-  const affected: string[] = [];
-  for (const row of validation.rows) {
-    const vendorId = await ensureVendor(tx, row.values.vendor);
-    const created = await createBatch(
-      tx,
-      {
-        vendorId,
-        name: row.values.name,
-        category: row.values.category,
-        tags: row.values.tags ? row.values.tags.split('|').map((tag) => tag.trim()) : [],
-        intakeQty: Number(row.values.intake_qty),
-        unitCost: Number(row.values.unit_cost),
-        unitPrice: 0,
-        sourceCode: row.values.source_code,
-        intakeDate: row.values.intake_date,
-        ticketCost: row.values.ticket_cost,
-        priceRange: row.values.price_range,
-        notes: row.values.notes,
-        legacyMarker: row.values.legacy_marker || row.values.ownership_status || null,
-        ownershipStatus: row.values.ownership_status || 'UNKNOWN',
-        arrivalStatus: row.values.arrival_status || 'pending',
-        status: 'draft'
-      },
-      commandId
-    );
-    affected.push(...created.affectedIds);
-  }
-  return { ok: true, commandId, affectedIds: affected, toast: `Imported ${affected.length} batch row(s).` };
+async function importBatchesCsv(_tx: Tx, _payload: Payload, _commandId: string): Promise<CommandResult> {
+  // TER-1658: CSV import is no longer part of the MVP intake flow.
+  // All batches must originate from a purchase order via receivePurchaseOrder.
+  throw new Error('CSV import is not available. Create a purchase order and use receivePurchaseOrder instead.');
 }
 
 async function applyTags(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -3304,20 +3274,38 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
   if (unresolved) throw new Error(`${unresolved.itemName} needs resolution before confirming: ${salesLineValidationIssues(unresolved).join(' ')} ${await candidateSourceText(tx, unresolved)}`);
   const unresolvedCogs = lines.find((line: typeof salesOrderLines.$inferSelect) => !line.unitCostResolved);
   if (unresolvedCogs) throw new Error(`${unresolvedCogs.itemName} has unresolved landed COGS. Resolve the COGS range before confirming the order.`);
-  const exceptionBlocker = findExceptionBlockedLine(lines);
-  if (exceptionBlocker) throw new Error(formatExceptionBlockerMessage(exceptionBlocker, 'confirming'));
+  // TER-1659: vendor_approval and below_floor_reason_missing exceptions are no
+  // longer hard blockers. Below-floor lines surface as advisory warnings; the
+  // operator may still confirm the order.
   if (!order.customerId) throw new Error('Customer not found.');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, order.customerId)).limit(1);
   if (!customer) throw new Error('Customer not found.');
+  const warnings: string[] = [];
+  // TER-1659: credit limit is advisory; do not block confirmation.
   if (Number(customer.balance) + Number(order.total) > Number(customer.creditLimit)) {
-    throw new Error(`${customer.name} would exceed credit limit. Request a credit override before confirming.`);
+    warnings.push(
+      `⚠️ Customer ${customer.name} will exceed credit limit ($${Number(customer.creditLimit).toFixed(2)}) after this order. Balance: $${Number(customer.balance).toFixed(2)}, Order total: $${Number(order.total).toFixed(2)}.`
+    );
   }
   const pricingSnapshot = buildPricingSnapshot(lines, order.pricingStrategy, customer.tags);
-  const belowGuardrail = pricingSnapshot.lines.find((line) => line.guardrails.length > 0);
-  if (belowGuardrail) throw new Error(`${belowGuardrail.itemName} is below pricing guardrails. Reprice before confirming.`);
+  // TER-1659: below-floor lines are advisory warnings, not blockers.
+  for (const line of lines) {
+    if (line.priceFloor != null && Number(line.unitPrice) < Number(line.priceFloor)) {
+      warnings.push(
+        `⚠️ ${line.itemName} is priced below the floor price of $${Number(line.priceFloor).toFixed(2)} (line price: $${Number(line.unitPrice).toFixed(2)}).`
+      );
+    }
+  }
   await tx.update(salesOrders).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
   await enqueueCustomerRecompute(tx, order.customerId, 'event:confirmSalesOrder', commandId);
-  return { ok: true, commandId, affectedIds: [orderId], toast: `${order.orderNo} confirmed.`, delta: { pricingSnapshot } };
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [orderId],
+    toast: `${order.orderNo} confirmed.`,
+    delta: { pricingSnapshot },
+    ...(warnings.length ? { warnings } : {})
+  };
 }
 
 async function cancelSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -3377,8 +3365,10 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
   if (unresolved) throw new Error(`${unresolved.itemName} needs resolution before posting: ${salesLineValidationIssues(unresolved).join(' ')} ${await candidateSourceText(tx, unresolved)}`);
   const unresolvedCogs = lines.find((line: typeof salesOrderLines.$inferSelect) => !line.unitCostResolved);
   if (unresolvedCogs) throw new Error(`${unresolvedCogs.itemName} has unresolved landed COGS. Resolve the COGS range before posting the order.`);
-  const exceptionBlocker = findExceptionBlockedLine(lines);
-  if (exceptionBlocker) throw new Error(formatExceptionBlockerMessage(exceptionBlocker, 'posting'));
+  // TER-1659: vendor_approval and below_floor_reason_missing exceptions are no
+  // longer hard blockers. Below-floor lines surface as advisory warnings; the
+  // operator may still post the order.
+  const warnings: string[] = [];
   const sourceKeys = new Set<string>();
   for (const line of lines) {
     const sourceKey = line.sourceRowKey || line.batchId;
@@ -3407,8 +3397,19 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
   );
   const customer = customerRows.rows[0];
   if (!customer) throw new Error('Customer not found.');
+  // TER-1659: credit limit is advisory; do not block posting.
   if (Number(customer.balance) + Number(freshOrder.total) > Number(customer['credit_limit'])) {
-    throw new Error(`${customer.name} would exceed credit limit. Request a credit override before posting.`);
+    warnings.push(
+      `⚠️ Customer ${customer.name} will exceed credit limit ($${Number(customer['credit_limit']).toFixed(2)}) after this order. Balance: $${Number(customer.balance).toFixed(2)}, Order total: $${Number(freshOrder.total).toFixed(2)}.`
+    );
+  }
+  // TER-1659: below-floor lines are advisory warnings, not blockers.
+  for (const line of lines) {
+    if (line.priceFloor != null && Number(line.unitPrice) < Number(line.priceFloor)) {
+      warnings.push(
+        `⚠️ ${line.itemName} is priced below the floor price of $${Number(line.priceFloor).toFixed(2)} (line price: $${Number(line.unitPrice).toFixed(2)}).`
+      );
+    }
   }
 
   const affected = [orderId];
@@ -3598,7 +3599,8 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
       marginWaivedTotal: moneyScale(exceptionTotals.marginWaivedTotal),
       lossRecognizedTotal: moneyScale(exceptionTotals.lossRecognizedTotal),
       vendorApprovalPending: exceptionTotals.vendorApprovalPending
-    }
+    },
+    ...(warnings.length ? { warnings } : {})
   };
 }
 
@@ -3910,10 +3912,15 @@ async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promi
   return { ok: true, commandId, affectedIds: affected, toast: 'Payment refunded.' };
 }
 
-async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  applyEarlyPayDiscountPayloadSchema.parse(payload);
+// TER-1662: applyEarlyPayDiscount → applyDiscount. The "early payment" gate
+// is dropped; this command now applies a generic discount to any open invoice.
+// The open-balance guard remains: a discount cannot exceed the invoice's
+// unpaid amount. Optional `reason` is captured in the toast / receipt copy.
+async function applyDiscount(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  applyDiscountPayloadSchema.parse(payload);
   const invoiceId = requiredId(payload.invoiceId, 'invoiceId');
   const amount = requiredNumber(payload.amount, 'amount');
+  const reason = stringValue(payload.reason);
 
   // Lock invoice row to prevent concurrent total adjustment races.
   // Raw `SELECT *` returns Postgres column names (snake_case), so multi-word
@@ -3931,7 +3938,12 @@ async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string
   }
   const nextTotal = Math.max(0, Number(invoice.total) - amount);
   await tx.update(invoices).set({ total: moneyScale(nextTotal), status: Number(invoice['amount_paid']) >= nextTotal ? 'paid' : (invoice.status as string), updatedAt: new Date() }).where(eq(invoices.id, invoiceId));
-  return { ok: true, commandId, affectedIds: [invoiceId], toast: 'Early-pay discount applied.' };
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [invoiceId],
+    toast: reason ? `Discount applied: ${reason}.` : 'Discount applied.'
+  };
 }
 
 async function createVendorBill(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
@@ -5611,8 +5623,11 @@ async function recalcPurchaseOrder(tx: Tx, purchaseOrderId: string) {
 }
 
 function assertPurchaseOrderEditable(status: string) {
-  if (['approved', 'received', 'cancelled'].includes(status)) {
-    throw new Error('Approved, received, or cancelled purchase orders cannot be edited.');
+  // TER-1657: POs are editable at any lifecycle stage except 'cancelled'.
+  // Data-integrity guards (receivedQty floor on qty edits, receivedQty>0 on line removal)
+  // remain enforced at the line-level handlers.
+  if (status === 'cancelled') {
+    throw new Error('Cancelled purchase orders cannot be edited.');
   }
 }
 

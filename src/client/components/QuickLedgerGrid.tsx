@@ -54,7 +54,11 @@ interface TypeDraft {
   requiresApproval: boolean;
 }
 
-const methods = ['cash', 'check', 'card', 'crypto', 'wire', 'journal'];
+// TER-1661: payment methods simplified to cash, check, other. The legacy
+// values ('card', 'crypto', 'wire') are no longer offered to operators —
+// historical rows were migrated to 'other' by migrations/0074. 'journal'
+// remains for non-payment ledger entries.
+const methods = ['cash', 'check', 'other', 'journal'];
 const buckets = ['cash-file-a', 'cash-file-b', 'office', 'accounting', 'crypto-wallet', 'wire-clearing'];
 const entityTypes: LedgerEntityType[] = ['customer', 'vendor', 'referee', 'staff', 'processor', 'other'];
 const processorTransactionTypes = ['crypto_payment_in', 'crypto_cashout', 'check_payment_in'];
