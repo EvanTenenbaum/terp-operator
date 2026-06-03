@@ -29,6 +29,7 @@ Read top to bottom for a full understanding, or jump to the domain you own.
 | 01 | [Product Overview, Personas & Roles](./01-product-overview-personas-roles.md) | Business model, work loops, every user role + RBAC, navigation map. |
 | 02 | [Global UX Primitives & Navigation](./02-global-ux-primitives-and-navigation.md) | The reusable shell: Identity Ribbon, Context Drawer, Finder, Operator Grid, Command Palette, Dashboard/Work Queue, etc. |
 | 03 | [Capability Registry Walkthrough](./03-capability-registry-walkthrough.md) | Every CAP-xxx capability explained as function · context · use case, mapped to code. |
+| 04 | [Auth/Login, Mobile Shell Primitives & Document Procs](./04-auth-login-mobile-shell-and-document-procs.md) | The auth gate, mobile leaf primitives, and document-output/recovery procedures that sit between domains. |
 | 10 | [Purchasing & Intake](./10-domain-purchasing-intake.md) | Purchase Orders + Receiving. Journey + backend. |
 | 11 | [Inventory, Tags & Media](./11-domain-inventory-tags-media.md) | Batches, movements, tags/brands, photography pipeline. |
 | 12 | [Sales, Pricing & Matchmaking](./12-domain-sales-pricing-matchmaking.md) | Sales orders, pricing engine, demand/supply board. |
