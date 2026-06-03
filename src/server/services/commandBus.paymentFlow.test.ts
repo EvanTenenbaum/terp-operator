@@ -68,7 +68,7 @@ describe('logPayment', () => {
   it('negative amount (buyer credit) decrements customer balance exactly and inserts a down_payment ledger entry', async () => {
     seedCustomer('200.00');
     const result = await executeCommand(
-      { name: 'logPayment', payload: { customerId: CUSTOMER_ID, amount: -50, method: 'adjustment' }, idempotencyKey: 'k3', reason: '' } as any,
+      { name: 'logPayment', payload: { customerId: CUSTOMER_ID, amount: -50, method: 'other' }, idempotencyKey: 'k3', reason: '' } as any,
       operatorUser, ioStub
     );
     expect(result.ok).toBe(true);

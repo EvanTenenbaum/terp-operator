@@ -477,7 +477,7 @@ describe('Scenario 4: cancel with picked lines — block then resolve', () => {
     await runCommand(tx, 'recordWeighAndPack', { fulfillmentLineId: flId, actualQty: 10, actualWeight: 5 }, salesUser, nextCmd());
 
     // Try to cancel → should be blocked
-    await expect(
+    const confirmWarn = await 
       runCommand(tx, 'cancelSalesOrder', { orderId: ORDER_ID }, salesUser, nextCmd()),
     ).rejects.toThrow(/Cannot cancel.*has already been picked|picked.*Return picked units/i);
   });
@@ -620,7 +620,7 @@ describe('Scenario 6: credit underwater — release/pick proceed, confirm blocks
     expect(pack.ok).toBe(true);
   });
 
-  it('confirmSalesOrder blocks when customer would exceed credit limit', async () => {
+  it('confirmSalesOrder warns but does not block when customer exceeds credit limit', async () => {
     seedBaseline(s, [LINE1_ID], {
       customer: {
         balance: '99999.00',     // almost at limit
@@ -633,7 +633,7 @@ describe('Scenario 6: credit underwater — release/pick proceed, confirm blocks
     await runCommand(tx, 'releaseLineForPicking', { lineId: LINE1_ID }, salesUser, nextCmd());
 
     // Confirm must block at the credit gate
-    await expect(
+    const confirmWarn = await 
       runCommand(tx, 'confirmSalesOrder', { orderId: ORDER_ID }, salesUser, nextCmd()),
     ).rejects.toThrow(/exceed credit limit|credit/i);
   });
@@ -682,7 +682,7 @@ describe('releaseLinesForPicking — bulk release', () => {
     seedBaseline(s, [LINE1_ID]);
     const tx = makeTx(s);
 
-    await expect(
+    const confirmWarn = await 
       runCommand(tx, 'releaseLinesForPicking', { lineIds: [] }, salesUser, nextCmd()),
     ).rejects.toThrow(/lineIds must be a non-empty array/i);
   });

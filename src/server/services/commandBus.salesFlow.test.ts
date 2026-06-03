@@ -100,15 +100,17 @@ describe('confirmSalesOrder', () => {
     expect(inMemoryState.commandJournal[0].commandName).toBe('confirmSalesOrder');
   });
 
-  it('blocks confirmation when customer would exceed credit limit', async () => {
+  it('warns but does not block when customer exceeds credit limit', async () => {
+    // TER-1659: credit limit is now an advisory warning, not a block.
     // balance 4800 + order total (2×1500=3000) = 7800 > creditLimit 5000
     seedConfirmableOrder({ balance: '4800.00', creditLimit: '5000.00' });
     const result = await executeCommand(
       { name: 'confirmSalesOrder', payload: { orderId: ORDER_ID }, idempotencyKey: 'k2', reason: '' } as any,
       operatorUser, ioStub
     );
-    expect(result.ok).toBe(false);
-    expect(result.toast).toContain('credit limit');
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w: string) => w.toLowerCase().includes('credit'))).toBe(true);
   });
 
   it('blocks confirmation when there are no lines', async () => {
