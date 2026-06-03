@@ -24,3 +24,6 @@ storage/media/*
 storage/media/.thumbnails/*
 !storage/media/.thumbnails/.gitkeep
 .worktrees/
+
+# Generated handoff deliverable (regenerable from docs/handoff/)
+terp-operator-handoff-bible.zip
