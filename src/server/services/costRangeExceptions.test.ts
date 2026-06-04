@@ -127,6 +127,14 @@ function makeMockTx(state: Map<unknown, TableState>) {
     execute: (sql: any) => {
       log.executes.push(sql);
       return Promise.resolve({ rows: [] });
+    },
+    // TER-1659: confirmSalesOrder now calls enqueueCustomerRecompute, which
+    // unwraps session.client from Drizzle ORM tx objects and uses pgClient.query.
+    // The mock must provide a query stub that accepts raw SQL.
+    session: {
+      client: {
+        query: (_sql: string, _params?: any[]) => Promise.resolve({ rowCount: 1, rows: [] })
+      }
     }
   };
 
