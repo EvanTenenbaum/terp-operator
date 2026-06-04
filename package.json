@@ -35,6 +35,7 @@
     "cron:credit-engine-nightly": "tsx scripts/credit-engine-nightly-cron.ts",
     "cron:balance-reconciliation": "tsx scripts/customer-balance-reconciliation-cron.ts",
     "cron:media-cleanup": "tsx scripts/media-cleanup-cron.ts",
+    "cron:detect-merges": "tsx scripts/detect-merge-candidates.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 9999"
   },
