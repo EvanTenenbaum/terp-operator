@@ -5,6 +5,7 @@ import { realisticDemoConfigFromEnv, seedRealisticDemoData } from './realisticSe
 import {
   backupSnapshots,
   batches,
+  brands,
   clientLedgerEntries,
   commandJournal,
   connectorRequests,
@@ -156,6 +157,17 @@ async function insertSeedData() {
   await db.update(vendors).set({ contactId: vendorContacts[0].id }).where(eq(vendors.id, northCoast.id));
   await db.update(vendors).set({ contactId: vendorContacts[2].id }).where(eq(vendors.id, emerald.id));
   await db.update(vendors).set({ contactId: vendorContacts[3].id }).where(eq(vendors.id, upland.id));
+
+  // TER-1589: seed secondary brands per vendor
+  await db.insert(brands).values([
+    { name: 'North Coast Gardens', alias: 'North Coast Gardens', vendorId: northCoast.id },
+    { name: 'NCG Indoor', alias: 'NCG Indoor', vendorId: northCoast.id },
+    { name: 'NCG Sungrown', alias: 'NCG Sungrown', vendorId: northCoast.id },
+    { name: 'Emerald Processing Co', alias: 'Emerald Processing Co', vendorId: emerald.id },
+    { name: 'Emerald Labs', alias: 'Emerald Labs', vendorId: emerald.id },
+    { name: 'Upland Craft', alias: 'Upland Craft', vendorId: upland.id },
+    { name: 'Upland Pre-Rolls', alias: 'Upland Pre-Rolls', vendorId: upland.id }
+  ]);
 
   const [sunset, harbor, valley, cobalt] = await db
     .insert(customers)
