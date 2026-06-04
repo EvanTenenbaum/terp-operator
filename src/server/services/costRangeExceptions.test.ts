@@ -25,7 +25,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { runCommand } from './commandBus';
-import { batches, salesOrders, salesOrderLines, vendorBills } from '../schema';
+import { batches, customers, salesOrders, salesOrderLines, vendorBills } from '../schema';
 import type { SessionUser } from '../../shared/types';
 
 const OPERATOR: SessionUser = {
@@ -445,9 +445,11 @@ describe('Issue #64: declined vendor approval blocks confirm/post', () => {
       validationIssues: [],
       status: 'draft'
     });
+    const customer = { id: '00000000-0000-0000-0000-0000000000e1', name: 'Test Customer', balance: '0.00', creditLimit: '100000.00', creditLimitSource: 'manual' };
     const state = new Map<unknown, TableState>([
       [salesOrders, { rows: [order] }],
-      [salesOrderLines, { rows: [declinedLine] }]
+      [salesOrderLines, { rows: [declinedLine] }],
+      [customers, { rows: [customer] }]
     ]);
     const { tx, log } = makeMockTx(state);
 
@@ -589,7 +591,8 @@ describe('Issue #64: below-floor vendor approval gate', () => {
     });
     const state = new Map<unknown, TableState>([
       [salesOrders, { rows: [order] }],
-      [salesOrderLines, { rows: [blockedLine] }]
+      [salesOrderLines, { rows: [blockedLine] }],
+      [customers, { rows: [customer] }]
     ]);
     const { tx, log } = makeMockTx(state);
 
