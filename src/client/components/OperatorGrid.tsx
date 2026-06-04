@@ -189,8 +189,11 @@ export function OperatorGrid({
     const rowIndex = params.previousCellPosition.rowIndex;
     const rowPinned = params.previousCellPosition.rowPinned ?? null;
     const currentIdx = editableCols.findIndex((c) => c.getColId() === currentColId);
+    // If current cell is not in the editable set (e.g. a read-only column like batchCode),
+    // fall back to AG Grid default Tab behaviour rather than jumping to the next row.
+    if (currentIdx < 0) return params.nextCellPosition;
     if (!params.backwards) {
-      if (currentIdx >= 0 && currentIdx < editableCols.length - 1) {
+      if (currentIdx < editableCols.length - 1) {
         return { rowIndex, column: editableCols[currentIdx + 1], rowPinned };
       }
       const nextRow = rowIndex + 1;

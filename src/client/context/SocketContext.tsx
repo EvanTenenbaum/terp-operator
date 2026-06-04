@@ -43,7 +43,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const me = trpc.auth.me.useQuery();
   const queryClient = useQueryClient();
   const pushToast = useUiStore((state) => state.pushToast);
-  const isCellEditing = useUiStore((state) => state.isCellEditing);
 
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   // GH #409: accumulate affectedIds that arrived while a cell was being edited.
@@ -52,14 +51,23 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const peerToastShownRef = useRef(false);
 
   // GH #409: flush deferred peer invalidations the moment the operator finishes editing.
+  // Uses Zustand external subscribe (not a React hook) so this side-effect does NOT
+  // cause SocketProvider to re-render — a re-render during cell editing disrupts the
+  // in-progress editor and produces the "one letter per cell" bug.
   useEffect(() => {
-    if (!isCellEditing && pendingPeerIds.current.length > 0) {
-      const ids = pendingPeerIds.current;
-      pendingPeerIds.current = [];
-      peerToastShownRef.current = false;
-      void invalidateAffectedQueries(queryClient, ids);
-    }
-  }, [isCellEditing, queryClient]);
+    let prevEditing = useUiStore.getState().isCellEditing;
+    const unsub = useUiStore.subscribe((state) => {
+      const nowEditing = state.isCellEditing;
+      if (prevEditing && !nowEditing && pendingPeerIds.current.length > 0) {
+        const ids = pendingPeerIds.current;
+        pendingPeerIds.current = [];
+        peerToastShownRef.current = false;
+        void invalidateAffectedQueries(queryClient, ids);
+      }
+      prevEditing = nowEditing;
+    });
+    return unsub;
+  }, [queryClient]);
 
   useEffect(() => {
     if (!me.data) return;
