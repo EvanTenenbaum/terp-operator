@@ -26,21 +26,25 @@ import {
   ConnectorsView,
   FulfillmentView,
   InventoryView,
+  InvoiceDisputesView,
   OrdersView,
   PaymentsView,
   PurchaseOrdersView,
+  PurchaseReceiptsView,
   RecoveryView,
   SettingsView,
   VendorPayablesView
 } from './views/OperationsViews';
 import { RefereesView } from './views/RefereesView';
 import { ProcessorsView } from './views/ProcessorsView';
+import { ItemsView } from './views/ItemsView';
 import { CreditReviewView } from './views/CreditReviewView';
 import { MediaView } from './views/MediaView';
 import { PickView } from './views/PickView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 import { ContactsView } from './views/ContactsView';
 import { ContactProfileView } from './views/ContactProfileView';
+import { MergeCandidatesView } from './views/MergeCandidatesView';
 import { MobileShell } from './components/mobile/MobileShell';
 import { MobileDashboardView } from './views/mobile/MobileDashboardView';
 import { MobileInventoryView } from './views/mobile/MobileInventoryView';
@@ -173,6 +177,7 @@ export function App() {
             <Route path="dashboard" element={<DashboardView />} />
             <Route path="reports" element={<ReportsRouteShell />} />
             <Route path="purchaseOrders" element={<PurchaseOrdersView />} />
+            <Route path="purchaseReceipts" element={<PurchaseReceiptsView />} />
             <Route path="intake" element={<IntakeView />} />
             <Route path="sales" element={<SalesView />} />
             <Route path="matchmaking" element={<MatchmakingView />} />
@@ -187,11 +192,14 @@ export function App() {
             <Route path="closeout" element={<CloseoutView />} />
             <Route path="referees" element={<RefereesView />} />
             <Route path="processors" element={<ProcessorsView />} />
+            <Route path="items" element={<ItemsView />} />
+            <Route path="disputes" element={<InvoiceDisputesView />} />
             <Route path="credit-review" element={<CreditReviewView />} />
             <Route path="photography" element={<MediaView />} />
             <Route path="photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
             <Route path="pick" element={<PickView />} />
             <Route path="contacts" element={<ContactsView />} />
+            <Route path="contacts/merge-candidates" element={<MergeCandidatesView />} />
             <Route path="contacts/:id" element={<ContactProfileView />} />
             <Route path="settings" element={<SettingsView />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -4,7 +4,6 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db, pool } from '../db';
 import { protectedProcedure, publicProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
-import { rowsToCsv } from '../services/csv';
 import { getCloseoutSafety } from '../services/closeout';
 import { getExternalReceipt, getInternalReceipt, renderPrintHtml, renderSignalText } from '../services/documentSnapshots';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
@@ -17,7 +16,7 @@ import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCos
 // Exported so the HTTP CSV export route (`/api/export/:view.csv`, see #35
 // FE-M1) can share the same view whitelist, SQL, and column ordering as the
 // in-app tRPC export, keeping the two surfaces in lockstep.
-export const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors', 'photography']);
+export const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors', 'photography', 'purchaseReceipts', 'items', 'disputes']);
 
 // GH #309: server-side TTL cache for reference data (lookup tables that rarely change).
 // Avoids firing 15 parallel DB queries on every page load/refetch.
@@ -26,7 +25,7 @@ let _referenceCache: Awaited<ReturnType<typeof _fetchReferenceData>> | null = nu
 let _referenceCacheAt = 0;
 
 async function _fetchReferenceData() {
-  const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors, pricingDefaults] = await Promise.all([
+  const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors, pricingDefaults, allSystemSettings] = await Promise.all([
     pool.query('select id, name, credit_limit as "creditLimit", balance, tags, pricing_rule as "pricingRule" from customers order by name'),
     pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
     pool.query("select id, name, role from users where role in ('owner','manager','operator') and active order by name"),
@@ -37,7 +36,7 @@ async function _fetchReferenceData() {
                 from transaction_types
                 where is_active
                 order by is_system desc, direction, label`),
-    pool.query('select id, sku, name, alias, category, tags from items order by name'),
+    pool.query('select id, sku, name, alias, category, tags, status, description from items order by name'),
     pool.query('select id, slug, label, color, description, is_active as "isActive" from tag_catalog where is_active order by label'),
     pool.query("select id, invoice_no as \"invoiceNo\", customer_id as \"customerId\", total, amount_paid as \"amountPaid\", status from invoices where status in ('open', 'partial') order by created_at"),
     pool.query(`select b.id, b.batch_code as "batchCode", b.name, b.category, b.vendor_id as "vendorId", v.name as vendor,
@@ -88,7 +87,8 @@ async function _fetchReferenceData() {
                 where rr.active
                 order by r.name, rr.entity_type, "entityName"`),
     pool.query('select id, name, processor_type as "processorType", fee_type as "feeType", fee_percentage as "feePercentage", fee_fixed_amount as "feeFixedAmount", default_user_split as "defaultUserSplit", default_processor_split as "defaultProcessorSplit", active from payment_processors where active order by name'),
-    pool.query("select value from system_settings where key = 'pricing.defaults' limit 1")
+    pool.query("select value from system_settings where key = 'pricing.defaults' limit 1"),
+    pool.query('select id, key, value from system_settings order by key')
   ]);
   return {
     customers: customers.rows,
@@ -106,6 +106,7 @@ async function _fetchReferenceData() {
     refereeRelationships: refereeRelationships.rows,
     processors: processors.rows,
     defaultPricingRule: pricingDefaults.rows[0]?.value ?? {},
+    systemSettings: allSystemSettings.rows as Array<{ id: string; key: string; value: Record<string, unknown> }>,
     categories: ['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape'],
     priceBrackets: ['under-25', '25-100', '100-plus'],
     commands: commandNames
@@ -122,6 +123,72 @@ export function invalidateReferenceCache() {
 
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(({ ctx }) => getDashboardData(ctx.user.role)),
+  // GH #359: Credit watch watchlist — top customers by credit risk.
+  creditWatchlist: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(50).default(10) }))
+    .query(async ({ input, ctx }) => {
+      assertRole(ctx.user, 'manager');
+      const { limit } = input;
+      const rows = await pool.query<{
+        customer_id: string;
+        customer_name: string;
+        balance: string;
+        credit_limit: string;
+        overall_score: string | null;
+      }>(
+        `WITH latest_assessment AS (
+           SELECT DISTINCT ON (customer_id)
+             customer_id,
+             overall_score
+           FROM customer_credit_assessments
+           ORDER BY customer_id, created_at DESC
+         )
+         SELECT
+           c.id AS customer_id,
+           c.name AS customer_name,
+           COALESCE(c.balance, 0)::text AS balance,
+           COALESCE(c.credit_limit, 0)::text AS credit_limit,
+           la.overall_score::text AS overall_score
+         FROM customers c
+         LEFT JOIN latest_assessment la ON la.customer_id = c.id
+         ORDER BY
+           -- at-risk (balance > credit_limit) first, then watch (high utilization), then good
+           CASE
+             WHEN COALESCE(c.credit_limit, 0) <= 0 AND COALESCE(c.balance, 0) > 0 THEN 1
+             WHEN COALESCE(c.credit_limit, 0) > 0 AND c.balance >= c.credit_limit THEN 1
+             WHEN COALESCE(c.credit_limit, 0) > 0 AND c.balance::numeric / c.credit_limit::numeric >= 0.75 THEN 2
+             ELSE 3
+           END,
+           c.balance DESC NULLS LAST
+         LIMIT $1`,
+        [limit]
+      );
+      return rows.rows.map((r) => {
+        const balance = Number(r.balance);
+        const creditLimit = Number(r.credit_limit);
+        const headroom = creditLimit - balance;
+        const utilizationPct = creditLimit > 0 ? Math.round((balance / creditLimit) * 100) : 0;
+        const overallScore = r.overall_score !== null ? Number(r.overall_score) : null;
+        let risk: 'good' | 'watch' | 'at-risk' = 'good';
+        if (creditLimit <= 0 && balance > 0) {
+          risk = 'at-risk';
+        } else if (creditLimit > 0 && balance >= creditLimit) {
+          risk = 'at-risk';
+        } else if (creditLimit > 0 && balance / creditLimit >= 0.75) {
+          risk = 'watch';
+        }
+        return {
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          balance,
+          creditLimit,
+          headroom,
+          utilizationPct,
+          overallScore,
+          risk
+        };
+      });
+    }),
   health: protectedProcedure.query(() => getHealth()),
   reference: protectedProcedure.query(async () => {
     // GH #309: return cached result if within TTL; otherwise re-fetch and repopulate.
@@ -691,19 +758,58 @@ export const queriesRouter = router({
       return { ...rest, ...projection };
     });
   }),
-  purchaseOrderLines: protectedProcedure.input(z.object({ purchaseOrderId: z.string().uuid() })).query(async ({ input }) => {
-    return (
+  purchaseOrderLines: protectedProcedure.input(z.object({ purchaseOrderId: z.string().uuid() })).query(async ({ input, ctx }) => {
+    const canViewFinancials = canRole(ctx.user.role, 'manager');
+    const rows = (
       await pool.query(
         `select pol.id, pol.purchase_order_id as "purchaseOrderId", pol.item_id as "itemId",
                 pol.product_name as "productName", pol.category, pol.tags, pol.qty, pol.received_qty as "receivedQty",
                 pol.uom, pol.unit_cost as "unitCost", pol.unit_price as "unitPrice", pol.source_code as "sourceCode",
                 pol.shorthand, pol.legacy_marker as "legacyMarker", pol.ownership_status as "ownershipStatus",
-                pol.notes, pol.status, pol.created_at as "createdAt", i.sku
+                pol.notes, pol.status, pol.created_at as "createdAt", i.sku,
+                coalesce(bs."currentStock", 0)::numeric(12,3) as "currentStock",
+                coalesce(bs."soldQty", 0)::numeric(12,3) as "soldQty",
+                coalesce(bs."soldRevenue", 0)::numeric(14,2) as "soldRevenue",
+                coalesce(bs."soldCost", 0)::numeric(14,2) as "soldCost"
          from purchase_order_lines pol
          left join items i on i.id = pol.item_id
+         left join lateral (
+           select sum(b.available_qty) as "currentStock",
+                  sum(ss."soldQty") as "soldQty",
+                  sum(ss."soldRevenue") as "soldRevenue",
+                  sum(ss."soldCost") as "soldCost"
+           from batches b
+           left join lateral (
+             select coalesce(sum(sol.qty), 0) as "soldQty",
+                    coalesce(sum(sol.qty * sol.unit_price), 0) as "soldRevenue",
+                    coalesce(sum(sol.qty * sol.unit_cost), 0) as "soldCost"
+             from sales_order_lines sol
+             where sol.batch_id = b.id
+               and sol.status not in ('void', 'cancelled')
+           ) ss on true
+           where b.purchase_order_line_id = pol.id
+         ) bs on true
          where pol.purchase_order_id = $1
          order by pol.created_at`,
         [input.purchaseOrderId]
+      )
+    ).rows;
+    if (!canViewFinancials) {
+      return rows.map((row) => ({ ...row, unitCost: null, soldRevenue: null, soldCost: null }));
+    }
+    return rows;
+  }),
+  purchaseReceiptLines: protectedProcedure.input(z.object({ purchaseReceiptId: z.string().uuid() })).query(async ({ input }) => {
+    return (
+      await pool.query(
+        `select prl.id, prl.receipt_id as "purchaseReceiptId", prl.batch_id as "batchId",
+                b.batch_code as "batchCode", b.name as "itemName",
+                prl.qty, prl.unit_cost as "unitCost", prl.subtotal
+         from purchase_receipt_lines prl
+         left join batches b on b.id = prl.batch_id
+         where prl.receipt_id = $1
+          order by prl.id`,
+        [input.purchaseReceiptId]
       )
     ).rows;
   }),
@@ -1310,11 +1416,6 @@ export const queriesRouter = router({
       const result = await pool.query(query, params as unknown[]);
       return { rows: result.rows as Row[] };
     }),
-  csvExport: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input }) => {
-    const rows = (await pool.query(gridSql(input.view))).rows;
-    const headers = deterministicHeaders(input.view);
-    return { filename: `${input.view}.csv`, csv: rowsToCsv(rows, headers), headers };
-  }),
   salesSuggestions: protectedProcedure
     .input(
       z.object({
@@ -2017,13 +2118,15 @@ export const queriesRouter = router({
     }),
 
   // CAP-029 (TER-1564): Contact ledger with running balance via window function.
+  // TER-1654: Added kind filter and total count for browsable ledger panel.
   contactLedger: protectedProcedure
     .input(z.object({
       contactId: z.string().uuid(),
       limit:     z.number().int().min(1).max(200).default(50),
       cursor:    z.string().optional(),
+      kind:      z.string().optional(),
     }))
-    .query(async ({ input: { contactId, limit, cursor } }) => {
+    .query(async ({ input: { contactId, limit, cursor, kind } }) => {
       // GH #300 — real keyset cursor: encode as "created_at_ISO|uuid"
       let cursorTs: string | null = null;
       let cursorId: string | null = null;
@@ -2033,30 +2136,59 @@ export const queriesRouter = router({
         cursorId = parts[1] ?? null;
       }
 
-      let sql = `SELECT id, kind, amount, method, reference, note, created_at,
-        SUM(amount) OVER (PARTITION BY contact_id ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance
-       FROM contact_ledger_entries
-       WHERE contact_id = $1`;
-      const params: unknown[] = [contactId];
-      let idx = 2;
+      // Build filter conditions for reuse in both count and data queries.
+      const filterClauses: string[] = [];
+      const filterParams: unknown[] = [];
+      let filterIdx = 1;
 
-      if (cursorTs && cursorId) {
-        sql += ` AND (created_at, id) < ($${idx}::timestamptz, $${idx + 1}::uuid)`;
-        params.push(cursorTs, cursorId); idx += 2;
+      // contact_id filter (always present in CTE / count)
+      filterClauses.push(`contact_id = $${filterIdx}`);
+      filterParams.push(contactId); filterIdx++;
+
+      if (kind) {
+        filterClauses.push(`kind = $${filterIdx}`);
+        filterParams.push(kind); filterIdx++;
       }
 
-      sql += ` ORDER BY created_at DESC LIMIT $${idx}`;
-      params.push(limit + 1);
+      const whereFilter = filterClauses.join(' AND ');
 
-      const result = await pool.query(sql, params);
-      const rows = result.rows;
+      // CTE: compute running_balance over ALL entries for this contact so the
+      // running balance stays correct even when filtered by kind (TER-1654).
+      const cte = `WITH all_entries AS (
+        SELECT id, kind, amount, method, reference, note, created_at,
+          SUM(amount) OVER (PARTITION BY contact_id ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance
+        FROM contact_ledger_entries
+        WHERE contact_id = $1
+      )`;
+
+      let dataSql = `${cte} SELECT * FROM all_entries WHERE ${whereFilter}`;
+      const dataParams: unknown[] = [...filterParams];
+      let dataIdx = filterIdx;
+
+      if (cursorTs && cursorId) {
+        dataSql += ` AND (created_at, id) < ($${dataIdx}::timestamptz, $${dataIdx + 1}::uuid)`;
+        dataParams.push(cursorTs, cursorId); dataIdx += 2;
+      }
+
+      dataSql += ` ORDER BY created_at DESC LIMIT $${dataIdx}`;
+      dataParams.push(limit + 1);
+
+      const countSql = `SELECT COUNT(*) FROM contact_ledger_entries WHERE ${whereFilter}`;
+
+      const [dataResult, countResult] = await Promise.all([
+        pool.query(dataSql, dataParams),
+        pool.query(countSql, filterParams)
+      ]);
+
+      const rows = dataResult.rows;
       const hasMore = rows.length > limit;
       if (hasMore) rows.pop();
       const lastRow = rows[rows.length - 1] as { created_at: string; id: string } | undefined;
       const nextCursor = hasMore && lastRow
         ? `${new Date(lastRow.created_at).toISOString()}|${lastRow.id}`
         : null;
-      return { rows, nextCursor };
+      const total = Number(countResult.rows[0]?.count ?? 0);
+      return { rows, nextCursor, total };
     }),
 
   // CAP-029 (TER-1564): Sales order history for a customer entity.
@@ -2103,6 +2235,63 @@ export const queriesRouter = router({
       return { rows, nextCursor };
     }),
 
+  // CAP-029 (TER-1653): Paginated, filterable client ledger entries for a customer.
+  customerLedgerEntries: protectedProcedure
+    .input(z.object({
+      customerId: z.string().uuid(),
+      kind:       z.string().optional(),          // filter by transaction kind
+      dateFrom:   z.string().optional(),          // ISO date YYYY-MM-DD
+      dateTo:     z.string().optional(),          // ISO date YYYY-MM-DD
+      limit:      z.number().int().min(1).max(200).default(50),
+      cursor:     z.string().optional(),          // composite "created_at_ISO|uuid"
+    }))
+    .query(async ({ input: { customerId, kind, dateFrom, dateTo, limit, cursor } }) => {
+      let cursorTs: string | null = null;
+      let cursorId: string | null = null;
+      if (cursor) {
+        const parts = cursor.split('|');
+        cursorTs = parts[0] ?? null;
+        cursorId = parts[1] ?? null;
+      }
+
+      let sql = `SELECT id, kind, amount, balance_after AS "balanceAfter", note, created_at AS "createdAt"
+        FROM client_ledger_entries
+        WHERE customer_id = $1`;
+      const params: unknown[] = [customerId];
+      let idx = 2;
+
+      if (kind) {
+        sql += ` AND kind = $${idx}`;
+        params.push(kind); idx++;
+      }
+      if (dateFrom) {
+        sql += ` AND created_at >= $${idx}::timestamptz`;
+        params.push(dateFrom); idx++;
+      }
+      if (dateTo) {
+        sql += ` AND created_at < ($${idx}::timestamptz + interval '1 day')`;
+        params.push(dateTo); idx++;
+      }
+
+      if (cursorTs && cursorId) {
+        sql += ` AND (created_at, id) < ($${idx}::timestamptz, $${idx + 1}::uuid)`;
+        params.push(cursorTs, cursorId); idx += 2;
+      }
+
+      sql += ` ORDER BY created_at DESC, id DESC LIMIT $${idx}`;
+      params.push(limit + 1);
+
+      const result = await pool.query(sql, params);
+      const rows = result.rows;
+      const hasMore = rows.length > limit;
+      if (hasMore) rows.pop();
+      const lastRow = rows[rows.length - 1] as { createdAt: string; id: string } | undefined;
+      const nextCursor = hasMore && lastRow
+        ? `${new Date(lastRow.createdAt).toISOString()}|${lastRow.id}`
+        : null;
+      return { rows, nextCursor };
+    }),
+
   mergeCandidateCount: protectedProcedure.query(async () => {
     const result = await pool.query(
       `SELECT COUNT(*) AS count FROM contact_merge_candidates WHERE reviewed = false AND dismissed = false`
@@ -2111,7 +2300,40 @@ export const queriesRouter = router({
   }),
 
   /**
+   * Returns pending merge candidates with contact details for review.
+   * Joins contact_merge_candidates with contacts twice to resolve both sides.
+   */
+  mergeCandidates: protectedProcedure.query(async () => {
+    const result = await pool.query(
+      `SELECT
+        cmc.id,
+        cmc.contact_a_id AS "contactAId",
+        cmc.contact_b_id AS "contactBId",
+        cmc.match_reason AS "matchReason",
+        cmc.reviewed,
+        cmc.dismissed,
+        cmc.merged_into AS "mergedInto",
+        cmc.created_at AS "createdAt",
+        ca.name AS "contactAName",
+        ca.phone AS "contactAPhone",
+        ca.email AS "contactAEmail",
+        cb.name AS "contactBName",
+        cb.phone AS "contactBPhone",
+        cb.email AS "contactBEmail"
+       FROM contact_merge_candidates cmc
+       JOIN contacts ca ON ca.id = cmc.contact_a_id
+       JOIN contacts cb ON cb.id = cmc.contact_b_id
+       WHERE cmc.reviewed = false
+       ORDER BY cmc.created_at DESC
+       LIMIT 100`
+    );
+    return { rows: result.rows };
+  }),
+
+  /**
    * Returns recent command journal entries (up to 500, newest first).
+   * This procedure exists for testing and support/debugging use only;
+   * there is no operator-facing journal view at this time.
    * Used by adversarial idempotency tests to verify that concurrent requests
    * with the same idempotency key produce exactly one journal row.
    * Manager-gated so it cannot be called from viewer/operator surfaces.
@@ -2373,9 +2595,20 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                      c.contact_id AS "contactId",
                      c.credit_limit - c.balance as "headroom",
                      count(i.id)::int as "invoiceCount",
-                     count(case when i.status in ('open','partial') then 1 end)::int as "openInvoiceCount"
-              from customers c left join invoices i on i.customer_id = c.id
-              group by c.id
+                     count(case when i.status in ('open','partial') then 1 end)::int as "openInvoiceCount",
+                     coalesce(round(dp."avgDaysToPay"::numeric, 1), null) as "avgDaysToPay",
+                     coalesce(floor(extract(epoch from (now() - min(case when i.status in ('open','partial') then i.due_date end))) / 86400)::int, 0) as "daysPastDue",
+                     coalesce(sum(case when i.status in ('open','partial') then i.total - i.amount_paid end), 0) as "unpaidBalance"
+              from customers c
+              left join invoices i on i.customer_id = c.id
+              left join lateral (
+                select avg(extract(epoch from (p.created_at - invp.created_at)) / 86400) as "avgDaysToPay"
+                from payment_allocations pa
+                join payments p on p.id = pa.payment_id and p.status not in ('reversed', 'refunded')
+                join invoices invp on invp.id = pa.invoice_id
+                where invp.customer_id = c.id
+              ) dp on true
+              group by c.id, dp."avgDaysToPay"
               order by c.balance desc, c.name`;
     case 'vendors':
       return `select vb.id, v.name as vendor, vb.vendor_id as "vendorId", vb.bill_no as "billNo", po.po_no as "poNo", vb.purchase_order_id as "purchaseOrderId",
@@ -2455,8 +2688,39 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                 case when bms.has_primary_photo then 1 else 0 end asc,
                 bms.media_updated_at asc nulls first,
                 b.created_at asc`;
-  }
-}
+    case 'purchaseReceipts':
+      return `select pr.id, pr.receipt_no as "receiptNo", v.name as vendor, pr.vendor_id as "vendorId",
+                     po.po_no as "poNo", pr.purchase_order_id as "purchaseOrderId",
+                     pr.total, pr.status, pr.created_at as "createdAt",
+                     count(prl.id)::int as lines
+              from purchase_receipts pr
+              left join vendors v on v.id = pr.vendor_id
+              left join purchase_orders po on po.id = pr.purchase_order_id
+              left join purchase_receipt_lines prl on prl.receipt_id = pr.id
+              group by pr.id, v.name, po.po_no
+               order by pr.created_at desc`;
+    case 'items':
+      return `select i.id, i.sku, i.name, i.alias, i.category, i.tags,
+                     i.pricing_rule as "pricingRule", i.status,
+                     i.description,
+                     count(distinct b.id)::int as "batchCount",
+                     coalesce(sum(b.available_qty), 0)::numeric(12,3) as "totalAvailableQty",
+                     i.created_at as "createdAt", i.updated_at as "updatedAt"
+              from items i
+              left join batches b on b.item_id = i.id and b.archived_at is null
+              group by i.id
+               order by i.name`;
+     case 'disputes':
+       return `select d.id, d.invoice_id as "invoiceId", d.status, d.reason, d.resolution,
+                      d.created_at as "createdAt", d.updated_at as "updatedAt",
+                      i.invoice_no as "invoiceNo", i.total as "invoiceAmount", i.status as "invoiceStatus",
+                      c.name as customer, c.id as "customerId"
+               from invoice_disputes d
+               join invoices i on i.id = d.invoice_id
+               left join customers c on c.id = i.customer_id
+               order by d.created_at desc`;
+   }
+ }
 
 function drilldownSql(metricKey: string) {
   switch (metricKey) {
@@ -2487,7 +2751,7 @@ export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     orders: ['id', 'orderNo', 'customer', 'status', 'total', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes', 'invoiceNo', 'invoiceStatus'],
     payments: ['id', 'customer', 'direction', 'category', 'method', 'amount', 'unappliedAmount', 'allocationIntent', 'impactPreview', 'reference', 'locationBucket', 'notes', 'status', 'createdAt'],
     inventory: ['id', 'batchCode', 'name', 'category', 'tags', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'priceRange', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
-    clients: ['id', 'name', 'creditLimit', 'balance', 'headroom', 'tags', 'notes', 'invoiceCount', 'openInvoiceCount'],
+    clients: ['id', 'name', 'creditLimit', 'balance', 'headroom', 'tags', 'notes', 'invoiceCount', 'openInvoiceCount', 'daysPastDue', 'unpaidBalance', 'avgDaysToPay'],
     vendors: ['id', 'vendor', 'billNo', 'poNo', 'purchaseOrderId', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],
     connectors: ['id', 'source', 'requestType', 'customer', 'status', 'operatorNotes', 'createdAt'],
@@ -2495,7 +2759,10 @@ export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     closeout: ['id', 'period', 'status', 'controlTotals', 'csvPath', 'jsonlPath', 'pdfPath', 'createdAt'],
     referees: ['id', 'name', 'email', 'phone', 'balance', 'lifetimeEarned', 'paymentMethod', 'paymentDetails', 'notes', 'active', 'relationshipsCount', 'createdAt'],
     processors: ['id', 'name', 'processorType', 'feeType', 'feePercentage', 'feeFixedAmount', 'defaultUserSplit', 'defaultProcessorSplit', 'notes', 'active', 'totalFeesProcessed', 'userFeesCollectible', 'userFeesCollected', 'processorFeesUnpaid', 'relationshipsCount', 'createdAt'],
-    photography: ['id', 'batchId', 'batchCode', 'name', 'mediaUpdatedAt', 'publishedMediaCount', 'draftMediaCount', 'hasPrimaryPhoto', 'hasPrimaryVideo', 'createdAt']
+    photography: ['id', 'batchId', 'batchCode', 'name', 'mediaUpdatedAt', 'publishedMediaCount', 'draftMediaCount', 'hasPrimaryPhoto', 'hasPrimaryVideo', 'createdAt'],
+    purchaseReceipts: ['id', 'receiptNo', 'vendor', 'poNo', 'purchaseOrderId', 'total', 'status', 'lines', 'createdAt'],
+    items: ['id', 'sku', 'name', 'alias', 'category', 'tags', 'pricingRule', 'status', 'description', 'batchCount', 'totalAvailableQty', 'createdAt', 'updatedAt'],
+    disputes: ['id', 'invoiceId', 'invoiceNo', 'customer', 'customerId', 'invoiceAmount', 'invoiceStatus', 'status', 'reason', 'resolution', 'createdAt', 'updatedAt'],
   };
   return map[view];
 }

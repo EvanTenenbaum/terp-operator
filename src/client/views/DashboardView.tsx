@@ -33,6 +33,8 @@ export function DashboardView() {
   const rankedWorkRows = useMemo(() => [...((workQueue.data ?? []) as GridRow[])].sort(workUrgencySort), [workQueue.data]);
   const { runCommand, isRunning } = useCommandRunner();
   const myDrafts = trpc.queries.myDrafts.useQuery(undefined, { refetchInterval: 15_000 });
+  // GH #359: Credit watch watchlist — top customers by credit risk
+  const creditWatchlist = trpc.queries.creditWatchlist.useQuery({ limit: 10 }, { refetchInterval: 30_000 });
 
   const workQueueExpansionConfig = useMemo(() => ({
     enabled: true,
@@ -220,6 +222,54 @@ export function DashboardView() {
           </button>
         </div>
       </WorkspacePanel>
+      {/* ── Credit Watch (GH #359) ──────────────────────────────────────────────── */}
+      {creditWatchlist.data && creditWatchlist.data.length > 0 && (
+        <WorkspacePanel
+          panelId="dashboard:credit-watch"
+          title="Credit Watch"
+          subtitle="Customers closest to or over their credit limit"
+          headingLevel={2}
+          contentClassName="p-3"
+        >
+          <div aria-busy={creditWatchlist.isLoading}>
+            <div className="credit-watch-list">
+              {creditWatchlist.data.map((item) => {
+                const riskClass =
+                  item.risk === 'at-risk' ? 'credit-risk-bad' :
+                  item.risk === 'watch' ? 'credit-risk-watch' :
+                  'credit-risk-good';
+                return (
+                  <button
+                    key={item.customerId}
+                    type="button"
+                    className="queue-row"
+                    onClick={() => navigate('/clients')}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${riskClass}`}
+                        title={item.risk === 'at-risk' ? 'At risk' : item.risk === 'watch' ? 'Watch' : 'Good'}
+                      />
+                      <span className="font-medium truncate">{item.customerName}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-zinc-500">
+                      <span title="Outstanding balance">
+                        ${Number(item.balance).toLocaleString()}
+                      </span>
+                      <span title={`Credit limit: $${Number(item.creditLimit).toLocaleString()}`}>
+                        limit ${Number(item.creditLimit).toLocaleString()}
+                      </span>
+                      {item.overallScore !== null && (
+                        <span title="Credit score">{item.overallScore}</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </WorkspacePanel>
+      )}
       {/* ── Your Drafts (TER-1632) ────────────────────────────────────────────── */}
       {(myDrafts.data?.length ?? 0) > 0 && (
         <WorkspacePanel

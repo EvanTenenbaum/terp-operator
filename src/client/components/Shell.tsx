@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Archive,
   ArrowDown,
   ArrowUp,
@@ -25,6 +26,7 @@ import {
   ShoppingCart,
   Settings,
   Smartphone,
+  Tags,
   Users
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -49,9 +51,11 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     label: 'Procure',
     items: [
       { view: 'purchaseOrders', label: 'Purchase Orders', icon: PackagePlus },
+      { view: 'purchaseReceipts', label: 'Receipts', icon: ReceiptText },
       { view: 'intake', label: 'Intake', hotkey: '⌘2', icon: ClipboardList },
       { view: 'inventory', label: 'Inventory', hotkey: '⌘5', icon: Boxes },
-      { view: 'photography', label: 'Photography', icon: Camera }
+      { view: 'photography', label: 'Photography', icon: Camera },
+      { view: 'items', label: 'Items / SKUs', icon: Tags }
     ]
   },
   {
@@ -71,6 +75,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { view: 'payments', label: 'Payments', hotkey: '⌘4', icon: BadgeDollarSign },
       { view: 'vendors', label: 'Vendor Payouts', icon: Landmark },
+      { view: 'disputes', label: 'Disputes', icon: AlertTriangle },
       { view: 'referees', label: 'Referees', icon: Users },
       { view: 'contacts', label: 'Contacts', icon: Users },
       // TER-1664: Connectors removed from MVP nav

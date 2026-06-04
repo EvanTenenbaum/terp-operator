@@ -38,7 +38,7 @@ export type Status =
 export type OwnershipStatus = 'C' | 'OFC' | 'UNKNOWN';
 export type ArrivalStatus = 'pending' | 'arrived' | 'cancelled';
 export type QuickLaunchMode = 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut' | 'customerNeed' | 'vendorSupply';
-export type SettingsTab = 'requests' | 'actions' | 'archive' | 'strain-aliases' | 'credit-engine' | 'pricing';
+export type SettingsTab = 'requests' | 'actions' | 'archive' | 'strain-aliases' | 'credit-engine' | 'pricing' | 'system';
 
 export type PaymentMethod = 'cash' | 'check' | 'card' | 'crypto' | 'wire';
 
@@ -86,7 +86,10 @@ export type ViewKey =
   | 'contacts' // CAP-033 / TER-1564 — entity profiles directory + per-contact view
   | 'contacts-customer-orders' // CAP-029 / TER-1564: order history sub-grid in ContactCustomerPanel
   | 'settings'
-  | 'pick'; // CAP-030 / TER-1513
+  | 'pick' // CAP-030 / TER-1513
+  | 'purchaseReceipts' // TER-1656 — operator view for purchase receipts and line items
+  | 'items' // TER-1651 — items/SKU catalog management
+  | 'disputes'; // TER-1649 — invoice disputes management
 
 export interface SessionUser {
   id: string;
@@ -138,6 +141,18 @@ export interface KpiMetric {
   definition: string;
   severity: 'good' | 'watch' | 'bad' | 'neutral';
   minRole?: 'manager' | 'owner';  // absent = visible to all roles
+}
+
+/** GH #359: Credit watch dashboard watchlist row. */
+export interface CreditWatchlistItem {
+  customerId: string;
+  customerName: string;
+  balance: number;
+  creditLimit: number;
+  headroom: number;           // creditLimit - balance (negative when over limit)
+  utilizationPct: number;     // 0–100+ (balance as % of credit limit; 0 when no limit)
+  overallScore: number | null; // latest credit assessment score, or null if never assessed
+  risk: 'good' | 'watch' | 'at-risk';
 }
 
 export interface DashboardData {

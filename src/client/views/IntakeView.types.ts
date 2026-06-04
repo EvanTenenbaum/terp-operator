@@ -7,6 +7,7 @@ export interface IntakeBatchRow {
   itemId?: string | null;
   itemAlias?: string | null;
   category: string;
+  subcategory?: string | null;
   intakeQty: string;
   availableQty: string;
   unitCost: string;

@@ -8,6 +8,7 @@ import type { GridRow } from '../../shared/types';
 const columns: ColDef<GridRow>[] = [
   { field: 'batchCode', headerName: 'Batch Code', pinned: 'left', width: 160 },
   { field: 'name', headerName: 'Batch Name', width: 200 },
+  { field: 'subcategory', headerName: 'Subcategory', width: 120 },
   { field: 'mediaUpdatedAt', headerName: 'Media Updated', width: 160 },
   { field: 'publishedMediaCount', headerName: 'Published', type: 'numericColumn', width: 100 },
   { field: 'draftMediaCount', headerName: 'Drafts', type: 'numericColumn', width: 100 },

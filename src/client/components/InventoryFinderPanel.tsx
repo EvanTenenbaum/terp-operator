@@ -18,6 +18,7 @@ export interface InventoryFinderBatch extends GridRow {
   itemAlias?: string | null;
   displayName?: string | null;
   category?: string;
+  subcategory?: string | null;
   vendorId?: string | null;
   vendor?: string | null;
   availableQty?: string | number;
@@ -156,6 +157,7 @@ function getOperatorsForField(field: FilterFieldName): { value: string; label: s
 
 export function InventoryFinderPanel({
   selectedOrderId,
+  customerId,
   focusKey = '',
   addedBatchIds = new Set(),
   initialSearch = '',
@@ -282,6 +284,29 @@ export function InventoryFinderPanel({
     [compareIds, rows],
   );
 
+  // TER-1646: batch-fetch last-ordered qty for filtered rows when a customer
+  // is selected in the sales workspace.  tRPC httpBatchLink merges the per-row
+  // queries into a single HTTP request so we stay within the no-new-fetch
+  // guardrail established in TER-1618.
+  const lastOrderedResults = trpc.useQueries((t) =>
+    customerId
+      ? filtered.map((row) =>
+          t.queries.customerLastOrderedQty({ batchId: row.id, customerId }),
+        )
+      : ([] as const),
+  );
+  const lastOrderedQtyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!customerId) return map;
+    for (const [index, result] of lastOrderedResults.entries()) {
+      const qty = result.data;
+      if (qty != null && Number(qty) > 0) {
+        map.set(filtered[index].id, String(Number(qty)));
+      }
+    }
+    return map;
+  }, [customerId, filtered, lastOrderedResults]);
+
   const activeFilterCount =
     (search ? 1 : 0) + (advancedFilter?.conditions?.length ?? 0);
 
@@ -331,13 +356,13 @@ export function InventoryFinderPanel({
   }
 
   async function add(batch: InventoryFinderBatch) {
-    // TER-1618 / F-27: use smart default (casePack → fallback '1')
-    const raw = quantities[batch.id] ?? defaultQtyFor(batch);
+    // TER-1618 / F-27: use smart default (casePack → last-ordered qty → fallback '1')
+    const raw = quantities[batch.id] ?? defaultQtyFor(batch, lastOrderedQtyMap);
     const requested = Math.max(1, Number.parseFloat(raw) || 1);
     const available = Number(batch.availableQty ?? 0);
     await onAddBatch(batch, Math.min(requested, available || requested));
     // Reset to smart default so repeat-add remains UOM-aware
-    setQuantities((current) => ({ ...current, [batch.id]: defaultQtyFor(batch) }));
+    setQuantities((current) => ({ ...current, [batch.id]: defaultQtyFor(batch, lastOrderedQtyMap) }));
   }
 
   async function saveCurrentFilter() {
@@ -786,6 +811,7 @@ export function InventoryFinderPanel({
                 <th>Batch</th>
                 <th>Lot / date</th>
                 <th>Product</th>
+                <th>Subcat</th>
                 <th>Source</th>
                 <th>Avail</th>
                 <th>Ticket / Price</th>
@@ -799,13 +825,14 @@ export function InventoryFinderPanel({
                 filtered.map((row) => {
                   const added = addedBatchIds.has(row.id);
                   const available = Number(row.availableQty ?? 0);
+                  const hint = qtyHintFor(row, lastOrderedQtyMap);
                   return (
                     <tr key={row.id}>
                       <td>
                         <div className="finder-add-cell">
                           <input
                             aria-label={`Quantity for ${row.name ?? row.batchCode}`}
-                            value={quantities[row.id] ?? '1'}
+                            value={quantities[row.id] ?? defaultQtyFor(row, lastOrderedQtyMap)}
                             inputMode="decimal"
                             disabled={!selectedOrderId || added || available <= 0}
                             onChange={(event) =>
@@ -818,6 +845,11 @@ export function InventoryFinderPanel({
                               if (event.key === 'Enter') void add(row);
                             }}
                           />
+                          {hint && (
+                            <span className="text-[10px] text-amber-600 font-medium" title="Last ordered qty for this customer">
+                              {hint}
+                            </span>
+                          )}
                           <button
                             className="secondary-button compact-action finder-add-button"
                             type="button"
@@ -862,6 +894,9 @@ export function InventoryFinderPanel({
                           {row.category} / {Array.isArray(row.tags) ? row.tags.join(', ') : ''}
                         </div>
                       </td>
+                      <td className="text-[12px]">
+                        {row.subcategory ?? '-'}
+                      </td>
                       <td>
                         <div>{row.vendor ?? '-'}</div>
                         <div className="text-[11px] text-zinc-500">
@@ -904,7 +939,7 @@ export function InventoryFinderPanel({
                 })
               ) : (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-sm text-zinc-600">
+                  <td colSpan={12} className="py-8 text-center text-sm text-zinc-600">
                     <div>No inventory matches these filters.</div>
                     <div className="mt-2 flex flex-wrap justify-center gap-2">
                       {[
@@ -954,21 +989,33 @@ export function InventoryFinderPanel({
  * TER-1618 / F-27: UOM-aware default quantity for an inventory row.
  * Exported for unit testing.
  * Priority 1 — casePack: use the item's wholesale case-pack qty when present.
- * Priority 2 — last-ordered qty (NOT YET IMPLEMENTED).
+ * Priority 2 — last-ordered qty: from customerLastOrderedQty (TER-1646).
  * Priority 3 — fallback: '1'
  */
-export function defaultQtyFor(row: InventoryFinderBatch): string {
+export function defaultQtyFor(row: InventoryFinderBatch, lastOrderedQtyMap?: Map<string, string>): string {
   if (row.casePack != null && Number(row.casePack) > 0) {
     return String(Number(row.casePack));
+  }
+  const lastQty = lastOrderedQtyMap?.get(row.id);
+  if (lastQty != null && Number(lastQty) > 0) {
+    return String(Number(lastQty));
   }
   return '1';
 }
 
 /**
  * TER-1618 / F-27: Returns the "last: N" hint value when the default qty
- * comes from customer order history (Priority 2). Currently always returns null.
+ * comes from customer order history (Priority 2).  Returns null when
+ * casePack takes priority or no order history exists.  Wired in TER-1646.
  */
-export function qtyHintFor(_row: InventoryFinderBatch): string | null {
+export function qtyHintFor(row: InventoryFinderBatch, lastOrderedQtyMap?: Map<string, string>): string | null {
+  if (row.casePack != null && Number(row.casePack) > 0) {
+    return null;
+  }
+  const lastQty = lastOrderedQtyMap?.get(row.id);
+  if (lastQty != null && Number(lastQty) > 0) {
+    return `last: ${Number(lastQty)}`;
+  }
   return null;
 }
 
@@ -992,6 +1039,7 @@ function buildFinderHaystack(row: InventoryFinderBatch, tags: string[]) {
     row.shorthand,
     row.name,
     row.category,
+    row.subcategory,
     row.vendor,
     row.location,
     row.lotCode,

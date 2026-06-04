@@ -108,6 +108,7 @@ export const commandNames = [
   'setLineLandedCost',
   'setCustomerPricingRule',
   'setDefaultPricingRule',
+  'updateSystemSetting',
   'mintPhotoUploadToken',
   'revokePhotoUploadToken',
   'createCustomerSheetSnapshot',
@@ -131,7 +132,15 @@ export const commandNames = [
   'cancelAppointment',
   'completeAppointment',
   'updateVendor',
-  'updateProcessor'
+  'updateProcessor',
+  'createItem',
+  'updateItem',
+  'toggleItemStatus',
+  'resolveInvoiceDispute',
+  'rejectInvoiceDispute',
+  // D2 — merge candidate review (RBAC + audit trail)
+  'approveMergeCandidate',
+  'dismissMergeCandidate'
 ] as const;
 
 // Commands whose frontend surface is deferred to a follow-up. The parity
@@ -169,33 +178,21 @@ export const internalOnlyCommandNames = [
 // is pending. Remove from this list when the frontend PR lands so that parity
 // enforcement kicks back in.
 //
-// CAP-030 frontend (PR #186): releaseLineForPicking, releaseLinesForPicking,
-// recallLineFromPicking, acknowledgeWarehouseAlert, returnPickedUnits,
-// cancelFulfillmentLine.
+// CAP-030 wired (SalesView, OperationsViews, PickLineScreen) — removed 2026-06-04:
+//   releaseLineForPicking, releaseLinesForPicking, recallLineFromPicking,
+//   acknowledgeWarehouseAlert, returnPickedUnits, cancelFulfillmentLine
 //
-// TER-1564 / CAP-033 entity profiles (Phase 1): createContact, updateContact,
-// archiveContact, addContactRole, linkContactToExistingEntity, linkContactToUser,
-// createAppointment, updateAppointment, cancelAppointment, completeAppointment,
-// updateVendor, updateProcessor.
+// TER-1564 / CAP-033 partially wired:
+//   Wired (removed): createContact (ContactCreateModal), createAppointment/
+//   updateAppointment (AppointmentModal), cancelAppointment/completeAppointment
+//   (ContactAppointmentsPanel)
 export const pendingFrontendCommandNames = [
-  // CAP-030
-  'releaseLineForPicking',
-  'releaseLinesForPicking',
-  'recallLineFromPicking',
-  'acknowledgeWarehouseAlert',
-  'returnPickedUnits',
-  'cancelFulfillmentLine',
-  // TER-1564 / CAP-033
-  'createContact',
+  // TER-1564 / CAP-033 — contacts/entity profiles not yet surfaced
   'updateContact',
   'archiveContact',
   'addContactRole',
   'linkContactToExistingEntity',
   'linkContactToUser',
-  'createAppointment',
-  'updateAppointment',
-  'cancelAppointment',
-  'completeAppointment',
   'updateVendor',
   'updateProcessor',
 ] as const;
@@ -318,6 +315,7 @@ export const commandLabels: Record<CommandName, string> = {
   setLineLandedCost: 'Set landed COGS',
   setCustomerPricingRule: 'Set customer pricing rule',
   setDefaultPricingRule: 'Set default pricing rule',
+  updateSystemSetting: 'Update system setting',
   mintPhotoUploadToken: 'Mint photo upload share link',
   revokePhotoUploadToken: 'Revoke photo upload share link',
   createCustomerSheetSnapshot: 'Persist customer sheet snapshot',
@@ -341,7 +339,15 @@ export const commandLabels: Record<CommandName, string> = {
   cancelAppointment: 'Cancel appointment',
   completeAppointment: 'Complete appointment',
   updateVendor: 'Update vendor',
-  updateProcessor: 'Update processor'
+  updateProcessor: 'Update processor',
+  createItem: 'Create item',
+  updateItem: 'Update item',
+  toggleItemStatus: 'Toggle item status',
+  resolveInvoiceDispute: 'Resolve invoice dispute',
+  rejectInvoiceDispute: 'Reject invoice dispute',
+  // D2 — merge candidate review
+  approveMergeCandidate: 'Mark merge candidate reviewed',
+  dismissMergeCandidate: 'Dismiss merge candidate'
 };
 
 export const commandMinRole: Record<CommandName, Role> = {
@@ -452,6 +458,7 @@ export const commandMinRole: Record<CommandName, Role> = {
   setLineLandedCost: 'operator',
   setCustomerPricingRule: 'manager',
   setDefaultPricingRule: 'manager',
+  updateSystemSetting: 'manager',
   mintPhotoUploadToken: 'manager',
   revokePhotoUploadToken: 'manager',
   createCustomerSheetSnapshot: 'operator',
@@ -475,7 +482,15 @@ export const commandMinRole: Record<CommandName, Role> = {
   cancelAppointment: 'operator',
   completeAppointment: 'operator',
   updateVendor: 'operator',
-  updateProcessor: 'owner'
+  updateProcessor: 'owner',
+  createItem: 'operator',
+  updateItem: 'operator',
+  toggleItemStatus: 'manager',
+  resolveInvoiceDispute: 'manager',
+  rejectInvoiceDispute: 'manager',
+  // D2 — merge candidate review (manager-gated so viewers/operators cannot approve/dismiss)
+  approveMergeCandidate: 'manager',
+  dismissMergeCandidate: 'manager'
 };
 
 export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
@@ -586,6 +601,7 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   setLineLandedCost: { disposition: 'reversible', guidance: 'Restores the prior landed COGS, basis, and resolution flag from the command snapshot.' },
   setCustomerPricingRule: { disposition: 'reversible', guidance: 'Restores the prior customer pricing rule from the command snapshot.' },
   setDefaultPricingRule: { disposition: 'reversible', guidance: 'Restores the prior default pricing rule from the command snapshot.' },
+  updateSystemSetting: { disposition: 'offsettable', guidance: 'Run updateSystemSetting again with the prior value to restore the previous state.' },
   mintPhotoUploadToken: { disposition: 'reversible', guidance: 'Use revokePhotoUploadToken with the returned tokenId to invalidate the share link immediately.' },
   revokePhotoUploadToken: { disposition: 'terminal', guidance: 'Mint a new photo upload share link if the revoke was accidental — the previous raw token is unrecoverable.' },
   createCustomerSheetSnapshot: { disposition: 'terminal', guidance: 'Snapshots are append-only audit records of what was sent. Create a new sheet instead.' },
@@ -609,7 +625,15 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   cancelAppointment: { disposition: 'terminal', guidance: 'Cancelled appointments cannot be reactivated; create a new appointment instead.' },
   completeAppointment: { disposition: 'terminal', guidance: 'Completed appointments cannot be uncompleted.' },
   updateVendor: { disposition: 'offsettable', guidance: 'Run updateVendor again with the prior values.' },
-  updateProcessor: { disposition: 'offsettable', guidance: 'Run updateProcessor again with the prior values.' }
+  updateProcessor: { disposition: 'offsettable', guidance: 'Run updateProcessor again with the prior values.' },
+  createItem: { disposition: 'terminal', guidance: 'Use toggleItemStatus to deactivate; items cannot be deleted if referenced by batches or orders.' },
+  updateItem: { disposition: 'offsettable', guidance: 'Run updateItem again with the prior values.' },
+  toggleItemStatus: { disposition: 'reversible', guidance: 'Run toggleItemStatus again to re-activate the item.' },
+  resolveInvoiceDispute: { disposition: 'terminal', guidance: 'Resolved disputes are final. Use rejectInvoiceDispute to change to rejected instead.' },
+  rejectInvoiceDispute: { disposition: 'terminal', guidance: 'Rejected disputes are final. Use resolveInvoiceDispute to change to resolved instead.' },
+  // D2 — merge candidate review is a one-way audit mark; not reversible
+  approveMergeCandidate: { disposition: 'terminal', guidance: 'Marking a candidate reviewed is a one-way audit mark. Dismiss the candidate instead if the match is not valid.' },
+  dismissMergeCandidate: { disposition: 'terminal', guidance: 'Dismissal is a one-way audit mark. Re-run the deduplication scan to regenerate candidates if needed.' }
 };
 
 export const reversibleCommands = new Set<CommandName>(

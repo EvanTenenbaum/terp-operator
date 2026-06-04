@@ -266,6 +266,7 @@ export function AddRefereeRelationshipDrawer({
           {/* Fee structure — common to both modes */}
           <div className="border-t border-gray-200 pt-4 space-y-3">
             <div className="text-sm font-semibold text-gray-700">Fee structure</div>
+            <p className="text-xs text-gray-500 mt-0.5">Calculated on the total order amount, not per line item.</p>
 
             <label className="field-inline">
               Fee type

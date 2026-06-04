@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackagePlus, Send, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackagePlus, RotateCcw, Search, Send, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -7,6 +7,7 @@ import { OperatorGrid } from '../components/OperatorGrid';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHistoryPanel';
 import { SalesSourcePane } from '../components/SalesSourcePane';
+import { type CustomerSheetSnapshotRow, type CustomerSheetSnapshotSummary } from '../components/RecentSheetsPanel';
 import { SaleLineExceptionControls } from '../components/SaleLineExceptionControls';
 import { ReceiptPanel } from '../components/ReceiptPanel';
 import { LandedCostExceptionCellRenderer } from '../components/LandedCostExceptionChip';
@@ -82,6 +83,7 @@ const suggestionColumns: ColDef<GridRow>[] = [
   { field: 'batchCode', pinned: 'left', width: 150 },
   { field: 'name', minWidth: 180 },
   { field: 'category', width: 110 },
+  { field: 'subcategory', width: 120 },
   { field: 'vendor', width: 150 },
   { field: 'availableQty', type: 'numericColumn', width: 130 },
   { field: 'unitPrice', type: 'numericColumn', width: 110 },
@@ -174,6 +176,7 @@ const lineColumns: ColDef<GridRow>[] = [
     }
   },
   { field: 'itemName', headerName: 'Canonical', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
+  { field: 'subcategory', headerName: 'Subcategory', width: 120 },
   { field: 'batchCode', headerName: 'Source', width: 140 },
   { field: 'unresolvedSourceText', headerName: 'Unresolved source', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
   { field: 'qty', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 95 },
@@ -322,9 +325,12 @@ export function SalesView() {
   // for the Sales Orders pane. Resets automatically when the active customer changes.
   const [customerFilterDismissed, setCustomerFilterDismissed] = useState(false);
   // CAP-030 / TER-1508 — edit confirmation for released lines
+  // GH #403: lineIds is an array so removeSelectedLines can batch multiple
+  // released-line deletions into a single confirmation dialog instead of
+  // having each setState call overwrite the previous one.
   const [pendingLineEdit, setPendingLineEdit] = useState<{
     type: 'qty' | 'remove';
-    lineId: string;
+    lineIds: string[];
     field?: string;
     newValue?: unknown;
     lineStatus?: string;
@@ -332,7 +338,18 @@ export function SalesView() {
   } | null>(null);
   // GH #323: focus trap for warehouse alert dialog
   const warehouseAlertRef = useFocusTrap<HTMLDivElement>(Boolean(pendingLineEdit), () => setPendingLineEdit(null));
-  const customerSelectRef = useRef<HTMLSelectElement | null>(null);
+  const customerInputRef = useRef<HTMLInputElement | null>(null);
+  const customerDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const [highlightedCustomerIndex, setHighlightedCustomerIndex] = useState(0);
+  // GH #352: repeat last order loading state
+  const [repeatLoading, setRepeatLoading] = useState(false);
+  // GH #351: suggestion filter state
+  const [suggestionCategory, setSuggestionCategory] = useState('');
+  const [suggestionPriceBracket, setSuggestionPriceBracket] = useState('');
+  const [suggestionAgingOnly, setSuggestionAgingOnly] = useState(false);
+  const suggestionFiltersActive = Boolean(suggestionCategory || suggestionPriceBracket || suggestionAgingOnly);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const setActiveCustomerId = useUiStore((state) => state.setActiveCustomerId);
@@ -351,17 +368,45 @@ export function SalesView() {
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const orders = trpc.queries.grid.useQuery({ view: 'sales' });
-  const reference = trpc.queries.reference.useQuery();
+  const reference = trpc.queries.reference.useQuery(undefined, { staleTime: 60_000, refetchOnWindowFocus: false });
   const workspace = trpc.queries.customerWorkspace.useQuery({ customerId: customerId || '00000000-0000-0000-0000-000000000000' }, { enabled: Boolean(customerId) });
   const suggestions = trpc.queries.salesSuggestions.useQuery({
-    customerId: customerId || undefined
+    customerId: customerId || undefined,
+    category: suggestionCategory || undefined,
+    priceBracket: suggestionPriceBracket || undefined,
+    agingOnly: suggestionAgingOnly || undefined
   });
   const creditStatus = trpc.credit.customerCreditStatus.useQuery(
     { customerId },
     { enabled: Boolean(customerId && (me.data?.role === 'manager' || me.data?.role === 'owner')) }
   );
+  // GH #352: check for most recent customer sheet to surface "Repeat last order"
+  const recentSheetList = trpc.queries.recentCustomerSheets.useQuery(
+    { customerId: customerId || '00000000-0000-0000-0000-000000000000', limit: 1 },
+    { enabled: Boolean(customerId) }
+  );
+  const lastSheet = (recentSheetList.data?.[0] ?? null) as CustomerSheetSnapshotSummary | null;
+  const utils = trpc.useUtils();
   const { runCommand, isRunning } = useCommandRunner();
   const workspaceOrder = workspace.data?.orders.find((order) => ['draft', 'confirmed'].includes(String(order.status))) ?? workspace.data?.orders[0];
+
+  // GH #349: computed open invoice / payment summary for the customer panel
+  const openInvoices = useMemo(() => {
+    const invoices = (workspace.data?.invoices ?? []) as Array<{ status: string; total: unknown; amountPaid: unknown }>;
+    return invoices.filter((inv) => inv.status === 'open' || inv.status === 'partial');
+  }, [workspace.data?.invoices]);
+
+  const openInvoiceBalance = useMemo(() => {
+    return openInvoices.reduce((sum, inv) => {
+      return sum + (Number(inv.total ?? 0) - Number(inv.amountPaid ?? 0));
+    }, 0);
+  }, [openInvoices]);
+
+  const lastPayment = useMemo(() => {
+    const payments = workspace.data?.payments ?? [];
+    return payments.length > 0 ? payments[0] : null;
+  }, [workspace.data?.payments]);
+
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
   const orderLines = trpc.queries.salesOrderLines.useQuery(
     { orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') },
@@ -404,6 +449,11 @@ export function SalesView() {
     { enabled: Boolean(selectedOrder?.id) }
   );
 
+  // TER-1671: stable ref for releaseEligibility.data so fulfillmentActionsColumn
+  // useMemo does not depend on the array reference (new on every fetch).
+  const eligibilityDataRef = useRef(releaseEligibility.data);
+  eligibilityDataRef.current = releaseEligibility.data;
+
   const fulfillmentActionsColumn = useMemo<ColDef<GridRow>>(() => ({
     headerName: 'Pick',
     colId: 'fulfillmentActions',
@@ -417,7 +467,7 @@ export function SalesView() {
       const ps = String(row.pickStatus ?? '');
       const isQueued = ps === 'released' || ps === 'picking' || ps === 'recall_pending';
       const isPacked = ps === 'picked' || row.packed === true;
-      const eligibility = releaseEligibility.data?.find((e) => e.lineId === row.id);
+      const eligibility = eligibilityDataRef.current?.find((e) => e.lineId === row.id);
       const alreadyReleased = eligibility?.alreadyReleased ?? (isQueued || isPacked);
       const canRelease = !alreadyReleased && eligibility?.eligible === true;
       const inactiveRelease = !alreadyReleased && eligibility != null && !eligibility.eligible;
@@ -464,7 +514,14 @@ export function SalesView() {
         </div>
       );
     },
-  }), [releaseEligibility.data, isRunning, canWrite, runCommand]);
+  }), [isRunning, canWrite, runCommand]);
+
+  // TER-1671: memoize the columns array to prevent AG Grid from re-initializing
+  // on every render when a fresh array is created via spread.
+  const lineGridColumns = useMemo(
+    () => [...visibleLineColumns, fulfillmentActionsColumn],
+    [visibleLineColumns, fulfillmentActionsColumn]
+  );
 
   // TER-1617 F-23: reset the dismissed flag whenever the active customer changes
   // so the chip re-appears for a freshly-selected customer.
@@ -477,6 +534,15 @@ export function SalesView() {
     () => reference.data?.customers.find((c) => c.id === activeCustomerId)?.name ?? null,
     [reference.data, activeCustomerId]
   );
+
+  // GH #352: live inventory map for matching snapshot rows to current batches
+  const liveByBatchId = useMemo(() => {
+    const map = new Map<string, InventoryFinderBatch>();
+    for (const batch of (reference.data?.availableBatches ?? []) as InventoryFinderBatch[]) {
+      if (batch.id) map.set(String(batch.id), batch);
+    }
+    return map;
+  }, [reference.data?.availableBatches]);
 
   // TER-1617 F-23: filter the Sales Orders pane rows to the active customer
   // when one is set and the operator has not dismissed the chip. This is a
@@ -503,6 +569,52 @@ export function SalesView() {
   });
   const indicatorKey = `${customerId}:${String(selectedOrder?.id ?? '')}`;
   const isIndicatorDismissed = dismissedCreditIndicators.has(indicatorKey);
+
+  // GH #352: repeat last order — fetch the most recent customer sheet
+  // snapshot and add all available items to the current draft order.
+  async function repeatLastOrder() {
+    if (!lastSheet || !selectedOrder || !customerId) return;
+    setRepeatLoading(true);
+    try {
+      const detail = await utils.queries.customerSheetSnapshotById.fetch({
+        id: lastSheet.id,
+        customerId
+      });
+      const rows = (detail?.rows ?? []) as CustomerSheetSnapshotRow[];
+      let added = 0;
+      for (const row of rows) {
+        const batchId = row.batchId ? String(row.batchId) : '';
+        const live = batchId ? liveByBatchId.get(batchId) ?? null : null;
+        if (!live) continue;
+        const available = Number(live.availableQty ?? 0);
+        if (available <= 0) continue;
+        const snapshotQty = Number(row.qty ?? NaN);
+        const snapshotAvail = Number(row.availableQty ?? NaN);
+        let desired = 1;
+        if (Number.isFinite(snapshotQty) && snapshotQty > 0) desired = snapshotQty;
+        else if (Number.isFinite(snapshotAvail) && snapshotAvail > 0) desired = snapshotAvail;
+        const qty = Math.max(0, Math.min(desired, available));
+        if (qty <= 0) continue;
+        const snapshotPrice = Number(row.unitPrice ?? NaN);
+        const batch: InventoryFinderBatch = Number.isFinite(snapshotPrice)
+          ? { ...live, unitPrice: snapshotPrice }
+          : live;
+        await addFinderBatch(batch, qty);
+        added++;
+      }
+      if (added > 0) {
+        pushToast(`Repeated last order: ${added} item${added === 1 ? '' : 's'} added.`);
+        await orderLines.refetch();
+      } else {
+        pushToast('No items from last order are currently available.', 'info');
+      }
+    } catch (err) {
+      console.error('Repeat last order failed', err);
+      pushToast('Failed to repeat last order.', 'error');
+    } finally {
+      setRepeatLoading(false);
+    }
+  }
 
   const sheetRows = useMemo(() => selectedSuggestions.slice(0, 8), [selectedSuggestions]);
 
@@ -662,7 +774,7 @@ export function SalesView() {
               if (isReleased) {
                 setPendingLineEdit({
                   type: 'remove',
-                  lineId: row.id,
+                  lineIds: [row.id],
                   lineStatus,
                   onConfirm: async () => {
                     await runCommand('removeSalesOrderLine', { lineId: row.id }, 'Remove line (post-release warehouse notified)');
@@ -691,7 +803,7 @@ export function SalesView() {
   }, [draftItem, salesRequestText]);
 
   useEffect(() => {
-    if (activeQuickLaunch === 'sale' && !customerId) customerSelectRef.current?.focus();
+    if (activeQuickLaunch === 'sale' && !customerId) customerInputRef.current?.focus();
   }, [activeQuickLaunch, customerId]);
 
   useEffect(() => {
@@ -765,24 +877,34 @@ export function SalesView() {
   }
 
   async function removeSelectedLines() {
-    for (const line of selectedLines) {
-      const lineStatus = String((line as GridRow).pickStatus ?? 'unreleased');
-      const isReleased = ['released', 'picking'].includes(lineStatus);
-      if (isReleased) {
-        setPendingLineEdit({
-          type: 'remove',
-          lineId: line.id,
-          lineStatus,
-          onConfirm: async () => {
-            await runCommand('removeSalesOrderLine', { lineId: line.id }, 'Remove selected sales line (post-release)');
-            await orderLines.refetch();
-          }
-        });
-      } else {
-        await runCommand('removeSalesOrderLine', { lineId: line.id }, 'Remove selected sales line');
-      }
+    // GH #403: collect released lines for batched confirmation instead of
+    // overwriting pendingLineEdit on each iteration.
+    const selectedGridRows: GridRow[] = selectedLines.map(l => l as GridRow);
+    const unreleased = selectedGridRows.filter(l => !['released', 'picking'].includes(String(l.pickStatus ?? 'unreleased')));
+    const released = selectedGridRows.filter(l => ['released', 'picking'].includes(String(l.pickStatus ?? 'unreleased')));
+
+    // Remove unreleased lines immediately — no warehouse confirmation needed.
+    for (const line of unreleased) {
+      await runCommand('removeSalesOrderLine', { lineId: line.id }, 'Remove selected sales line');
     }
-    await orderLines.refetch();
+
+    if (released.length > 0) {
+      // Batch all released lines into a single confirmation dialog.
+      const releasedLineIds = released.map(l => l.id);
+      setPendingLineEdit({
+        type: 'remove',
+        lineIds: releasedLineIds,
+        lineStatus: 'released',
+        onConfirm: async () => {
+          for (const lineId of releasedLineIds) {
+            await runCommand('removeSalesOrderLine', { lineId }, 'Remove selected sales line (post-release)');
+          }
+          await orderLines.refetch();
+        }
+      });
+    }
+
+    if (unreleased.length > 0) await orderLines.refetch();
   }
 
   async function addDraftLine() {
@@ -815,7 +937,7 @@ export function SalesView() {
     if (isReleased && isQtyOrRemoval) {
       setPendingLineEdit({
         type: 'qty',
-        lineId: event.data.id,
+        lineIds: [event.data.id],
         field: event.colDef.field,
         newValue: event.newValue,
         lineStatus,
@@ -874,6 +996,46 @@ export function SalesView() {
     }
   }
 
+  // GH #350: filtered customer list for searchable picker
+  const filteredCustomers = useMemo(() => {
+    if (!reference.data?.customers) return [];
+    const q = customerSearch.toLowerCase().trim();
+    if (!q) return reference.data.customers;
+    return reference.data.customers.filter((c) =>
+      (c.name as string).toLowerCase().includes(q)
+    );
+  }, [reference.data?.customers, customerSearch]);
+
+  // GH #350: close dropdown on outside click
+  useEffect(() => {
+    if (!customerDropdownOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        customerInputRef.current && !customerInputRef.current.contains(e.target as Node) &&
+        customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)
+      ) {
+        setCustomerDropdownOpen(false);
+        setCustomerSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [customerDropdownOpen]);
+
+  const selectCustomer = (cust: { id: string; name: string }) => {
+    setCustomerId(cust.id);
+    setActiveCustomerId(cust.id);
+    setCustomerDropdownOpen(false);
+    setCustomerSearch('');
+    setHighlightedCustomerIndex(0);
+  };
+
+  const customerDisplayName = useMemo(() => {
+    if (customerDropdownOpen && customerSearch) return undefined;
+    if (!customerId) return undefined;
+    return reference.data?.customers.find((c) => c.id === customerId)?.name as string | undefined;
+  }, [reference.data, customerId, customerDropdownOpen, customerSearch]);
+
   // Show margin toggle button — rendered as a WorkspacePanel header action
   // when a customer is selected, or in the top control band otherwise.
   const showMarginToggle = (
@@ -895,22 +1057,108 @@ export function SalesView() {
       {canWrite ? <div className="control-band">
         <label className="field-inline">
           Customer
-          <select
-            ref={customerSelectRef}
-            className="select"
-            value={customerId}
-            onChange={(event) => {
-              setCustomerId(event.target.value);
-              setActiveCustomerId(event.target.value || null);
-            }}
-          >
-            <option value="">Choose customer</option>
-            {reference.data?.customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name}
-              </option>
-            ))}
-          </select>
+          <div style={{ position: 'relative', width: 220 }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Search className="absolute left-2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" aria-hidden="true" style={{ zIndex: 1 }} />
+              <input
+                ref={customerInputRef}
+                className="input"
+                style={{ paddingLeft: 28, paddingRight: customerId && !customerDropdownOpen ? 24 : 8 }}
+                type="text"
+                role="combobox"
+                aria-expanded={customerDropdownOpen}
+                aria-haspopup="listbox"
+                aria-autocomplete="list"
+                aria-controls="customer-dropdown-list"
+                placeholder="Choose customer"
+                value={customerDropdownOpen ? customerSearch : (customerDisplayName ?? '')}
+                onChange={(e) => {
+                  setCustomerSearch(e.target.value);
+                  setCustomerDropdownOpen(true);
+                  setHighlightedCustomerIndex(0);
+                }}
+                onFocus={() => {
+                  setCustomerDropdownOpen(true);
+                  setHighlightedCustomerIndex(0);
+                }}
+                onKeyDown={(e) => {
+                  if (!customerDropdownOpen) {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setCustomerDropdownOpen(true);
+                    }
+                    return;
+                  }
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setHighlightedCustomerIndex((prev) =>
+                      prev >= filteredCustomers.length - 1 ? 0 : prev + 1
+                    );
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setHighlightedCustomerIndex((prev) =>
+                      prev <= 0 ? filteredCustomers.length - 1 : prev - 1
+                    );
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const cust = filteredCustomers[highlightedCustomerIndex];
+                    if (cust) selectCustomer(cust as { id: string; name: string });
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setCustomerDropdownOpen(false);
+                    setCustomerSearch('');
+                  }
+                }}
+              />
+              {customerId && !customerDropdownOpen ? (
+                <button
+                  type="button"
+                  style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)' }}
+                  className="icon-button"
+                  aria-label="Clear customer selection"
+                  onClick={() => {
+                    setCustomerId('');
+                    setActiveCustomerId(null);
+                    setCustomerSearch('');
+                    customerInputRef.current?.focus();
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            {customerDropdownOpen ? (
+              <div
+                ref={customerDropdownRef}
+                id="customer-dropdown-list"
+                role="listbox"
+                className="add-filter-dropdown"
+                style={{ width: '100%', maxHeight: 280, overflowY: 'auto' }}
+              >
+                {filteredCustomers.length === 0 ? (
+                  <div className="add-filter-dropdown-item" style={{ cursor: 'default', opacity: 0.6 }}>
+                    No customers found
+                  </div>
+                ) : (
+                  filteredCustomers.map((customer, idx) => (
+                    <div
+                      key={customer.id as string}
+                      role="option"
+                      aria-selected={idx === highlightedCustomerIndex}
+                      className={`add-filter-dropdown-item${idx === highlightedCustomerIndex ? ' active' : ''}`}
+                      onMouseEnter={() => setHighlightedCustomerIndex(idx)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        selectCustomer(customer as { id: string; name: string });
+                      }}
+                    >
+                      {customer.name as string}
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </div>
         </label>
         <button className="primary-button" type="button" title={salesButtonTitle(customerId)} disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
           <Send className="h-4 w-4" aria-hidden="true" />
@@ -918,6 +1166,20 @@ export function SalesView() {
         </button>
         {selectionPillText(selectedOrder?.orderNo, customerId, selectedOrderStatus) && <span className="selection-pill">{selectionPillText(selectedOrder?.orderNo, customerId, selectedOrderStatus)}</span>}
         {!customerId ? showMarginToggle : null}
+        {/* GH #352: surface "Repeat last order" as a visible action in the control band */}
+        {canWrite && customerId && lastSheet ? (
+          <button
+            className="secondary-button compact-action"
+            type="button"
+            disabled={!selectedOrder || isRunning || repeatLoading}
+            onClick={repeatLastOrder}
+            title="Add all items from the most recent sheet to the current order"
+            data-testid="repeat-last-order"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            Repeat last order
+          </button>
+        ) : null}
         <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
           {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
           Sale tray
@@ -1000,6 +1262,12 @@ export function SalesView() {
                 <span>Balance ${moneyish(workspace.data?.customer?.balance)}</span>
                 <span>Credit ${moneyish(workspace.data?.customer?.creditLimit)}</span>
                 <span>{(workspace.data?.customer?.tags ?? []).join(', ')}</span>
+                {openInvoices.length > 0 ? (
+                  <span>{openInvoices.length} open invoice{openInvoices.length !== 1 ? 's' : ''} · ${moneyish(openInvoiceBalance)}</span>
+                ) : null}
+                {lastPayment ? (
+                  <span>Last payment ${moneyish(lastPayment.amount)}</span>
+                ) : null}
               </div>
             </div>
             <ShadowModeBanner />
@@ -1046,7 +1314,7 @@ export function SalesView() {
                 view="sales"
                 title="Customer Draft Lines"
                 rows={lineRowsWithRule}
-                columns={[...visibleLineColumns, fulfillmentActionsColumn]}
+                columns={lineGridColumns}
                 loading={false}
                 onSelectionChange={setSelectedLines}
                 onCellCommit={canWrite ? onLineCommit : undefined}
@@ -1158,6 +1426,61 @@ export function SalesView() {
       )}
 
       {customerId ? <div className="min-h-[340px]">
+        {/* GH #351: suggestion filter bar */}
+        <div className="filter-bar">
+          <Search className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" aria-hidden="true" />
+          <select
+            className="text-[11px] font-medium border border-line bg-white px-2 py-1 text-zinc-700 focus:outline-none focus:border-accent"
+            value={suggestionCategory}
+            onChange={(e) => setSuggestionCategory(e.target.value)}
+            aria-label="Filter by category"
+          >
+            <option value="">All categories</option>
+            <option value="Flower">Flower</option>
+            <option value="Infused">Infused</option>
+            <option value="Extract">Extract</option>
+            <option value="Pre-roll">Pre-roll</option>
+            <option value="Vape">Vape</option>
+          </select>
+          <select
+            className="text-[11px] font-medium border border-line bg-white px-2 py-1 text-zinc-700 focus:outline-none focus:border-accent"
+            value={suggestionPriceBracket}
+            onChange={(e) => setSuggestionPriceBracket(e.target.value)}
+            aria-label="Filter by price bracket"
+          >
+            <option value="">Any price</option>
+            <option value="under-25">Under $25</option>
+            <option value="25-100">$25–$100</option>
+            <option value="100-plus">$100+</option>
+          </select>
+          <label className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="h-3 w-3 accent-accent cursor-pointer"
+              checked={suggestionAgingOnly}
+              onChange={(e) => setSuggestionAgingOnly(e.target.checked)}
+            />
+            Aging only
+          </label>
+          {suggestionFiltersActive ? (
+            <button
+              type="button"
+              className="filter-pill"
+              onClick={() => {
+                setSuggestionCategory('');
+                setSuggestionPriceBracket('');
+                setSuggestionAgingOnly(false);
+              }}
+              title="Clear all suggestion filters"
+            >
+              Clear
+              <span className="filter-pill-remove">×</span>
+            </button>
+          ) : null}
+          <span className="ml-auto text-[11px] font-medium text-zinc-400">
+            {(suggestions.data ?? []).length} match{(suggestions.data ?? []).length !== 1 ? 'es' : ''}
+          </span>
+        </div>
         <OperatorGrid
           view="sales"
           title="Smart Suggestions / Buyer Fit"
@@ -1193,7 +1516,9 @@ export function SalesView() {
               Warehouse alert required
             </h2>
             <p className="mt-2 text-sm text-zinc-600">
-              The warehouse has started picking this line. They will be alerted to reconcile. Continue?
+              {pendingLineEdit.lineIds.length > 1
+                ? `The warehouse has started picking ${pendingLineEdit.lineIds.length} lines. They will be alerted to reconcile. Continue?`
+                : 'The warehouse has started picking this line. They will be alerted to reconcile. Continue?'}
             </p>
             <div className="mt-4 flex gap-2">
               <button

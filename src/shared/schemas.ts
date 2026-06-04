@@ -135,6 +135,11 @@ export const setDefaultPricingRulePayloadSchema = z.object({
   pricingRule: customerPricingRuleSchema
 });
 
+export const updateSystemSettingPayloadSchema = z.object({
+  key: z.string().min(1, 'Setting key is required.').max(80, 'Setting key must be 80 characters or fewer.'),
+  value: z.record(z.unknown()).default({})
+});
+
 export const paymentPayloadSchema = z.object({
   paymentId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
@@ -289,4 +294,13 @@ export const updateProcessorPayloadSchema = z.object({
   defaultProcessorSplit: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().max(5000).nullish(),
   active: z.boolean().optional()
+});
+
+// ─── D2 — merge candidate review (RBAC + audit trail) ─────────────────────
+export const approveMergeCandidatePayloadSchema = z.object({
+  candidateId: z.string().uuid()
+});
+
+export const dismissMergeCandidatePayloadSchema = z.object({
+  candidateId: z.string().uuid()
 });

@@ -2,6 +2,7 @@ import { trpc } from '../../api/trpc';
 import { OperatorGrid } from '../OperatorGrid';
 import { CustomerCreditPanel } from '../credit/CustomerCreditPanel';
 import { CustomerPurchaseHistoryPanel } from '../CustomerPurchaseHistoryPanel';
+import { CustomerLedgerPanel } from './CustomerLedgerPanel';
 import type { ColDef } from 'ag-grid-community';
 import type { GridRow } from '../../../shared/types';
 import type { ContactProfileData } from './types';
@@ -49,6 +50,8 @@ export function ContactCustomerPanel({ data }: Props) {
         customerId={customerId}
         customerName={customerName}
       />
+
+      <CustomerLedgerPanel customerId={customerId} />
     </div>
   );
 }

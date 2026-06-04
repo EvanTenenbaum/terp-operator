@@ -228,41 +228,6 @@ export const filtersRouter = router({
     }),
 
   // =========================================================================
-  // GET SINGLE FILTER
-  // =========================================================================
-
-  getFilter: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ input, ctx }) => {
-      const result = await pool.query(
-        `SELECT
-          id,
-          user_id AS "userId",
-          name,
-          description,
-          target_view AS "targetView",
-          filter_definition AS "filterDefinition",
-          schema_version AS "schemaVersion",
-          is_global AS "isGlobal",
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
-        FROM saved_filters
-        WHERE id = $1 AND deleted_at IS NULL
-          AND (user_id = $2 OR is_global = true)`,
-        [input.id, ctx.user.id]
-      );
-
-      if (result.rows.length === 0) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Filter not found or access denied'
-        });
-      }
-
-      return result.rows[0] as SavedFilterOutput;
-    }),
-
-  // =========================================================================
   // UPDATE FILTER
   // =========================================================================
 

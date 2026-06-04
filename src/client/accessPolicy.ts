@@ -2,7 +2,7 @@ import type { QuickLaunchMode, SessionUser, ViewKey } from '../shared/types';
 
 type WorkLoop = 'owner' | 'manager' | 'sales' | 'intake' | 'warehouse' | 'operator' | 'viewer';
 
-const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'contacts', 'processors', 'photography', 'connectors', 'recovery'];
+const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'purchaseReceipts', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'disputes', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'contacts', 'processors', 'photography', 'connectors', 'recovery'];
 
 const managerPlusViews: readonly ViewKey[] = [...defaultOperatorViews, 'settings', 'credit-review', 'closeout'];
 
@@ -10,10 +10,10 @@ const viewsByLoop: Record<WorkLoop, readonly ViewKey[]> = {
   owner: managerPlusViews,
   manager: managerPlusViews,
   sales: ['dashboard', 'reports', 'sales', 'matchmaking', 'orders', 'inventory', 'clients', 'payments', 'referees'],
-  intake: ['dashboard', 'purchaseOrders', 'intake', 'matchmaking', 'inventory', 'fulfillment', 'vendors'],
+  intake: ['dashboard', 'purchaseOrders', 'purchaseReceipts', 'intake', 'matchmaking', 'inventory', 'fulfillment', 'vendors'],
   warehouse: ['dashboard', 'orders', 'inventory', 'fulfillment', 'pick'],
   operator: defaultOperatorViews,
-  viewer: ['dashboard', 'reports', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees']
+  viewer: ['dashboard', 'reports', 'purchaseOrders', 'purchaseReceipts', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees']
 };
 
 const startsByLoop: Record<WorkLoop, readonly QuickLaunchMode[]> = {

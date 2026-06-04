@@ -22,9 +22,7 @@ export function ContactsView() {
     query: searchQuery || undefined,
   });
 
-  // TODO: Contact merge UI — when implemented, expose a deduplicate workflow here.
-  // The backend mergeCandidateCount query exists but the merge action has no UI yet.
-  // Track implementation in the Recovery view or a dedicated contact merge modal.
+  const { data: mergeCount } = trpc.queries.mergeCandidateCount.useQuery();
 
   const columnDefs: ColDef<GridRow>[] = [
     {
@@ -110,6 +108,25 @@ export function ContactsView() {
           </button>
         </div>
       </div>
+
+      {mergeCount && mergeCount.count > 0 ? (
+        <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2">
+          <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-amber-200 px-1.5 text-xs font-bold text-amber-800">
+            {mergeCount.count}
+          </span>
+          <span className="text-sm text-amber-800">
+            Possible duplicate contacts found.{' '}
+            Review and merge.
+          </span>
+          <button
+            type="button"
+            className="btn-primary text-xs h-7 ml-auto"
+            onClick={() => navigate('/contacts/merge-candidates')}
+          >
+            Review Merge Candidates
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex-1">
         <OperatorGrid

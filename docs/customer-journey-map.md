@@ -66,7 +66,7 @@ Each journey section follows a fixed template:
 2. Operator adds product lines: `addPurchaseOrderLine` (one per SKU). Each line requires either a fixed `unitCost > 0` **or** a cost range (`costRangeLow` and `costRangeHigh`, both positive, low ≤ high). Line status: `'planned'`.
 3. Operator edits lines as needed: `updatePurchaseOrderLine`, `removePurchaseOrderLine`.
 4. Operator runs `finalizePurchaseOrder` → PO status: `'draft'` → `'finalized'`. Lines are locked from removal.
-5. Manager/owner runs `approvePurchaseOrder` → PO status: `'finalized'` → `'approved'`, `orderedAt` timestamp set. **System automatically triggers `receivePurchaseOrder` internally**, creating one draft `batch` row per PO line with status `'draft'` in the Intake view.
+5. Manager/owner runs `approvePurchaseOrder` → PO status: `'finalized'` → `'approved'`, `orderedAt` timestamp set. When product arrives, an operator runs `receivePurchaseOrder`, creating one draft `batch` row per PO line with status `'draft'` in the Intake view.
 6. Intake team processes the batches (→ Journey 2).
 7. As batches are posted, PO status moves to `'partially_received'` (some lines) or `'received'` (all lines). `purchaseOrderLines.status` for each received line → `'received'`.
 
@@ -92,7 +92,7 @@ Each journey section follows a fixed template:
 - Path: `recordVendorPrepayment` with `amount` (must be > 0, cannot exceed the PO's `prepaymentAmount` cap, and only one prepayment is allowed per PO). Creates a prepayment record. PO continues normally. Journey does not end — intake still required.
 
 🔀 **B5 — Ownership status determined at receive time**
-- Trigger: `approvePurchaseOrder` auto-calls `receivePurchaseOrder`.
+- Trigger: `receivePurchaseOrder` is called when product arrives.
 - Branch logic: System determines `ownershipStatus` for each created batch by: (1) line-level override if set, else (2) infer from PO `paymentTerms` — `'cod'`/`'prepay'`/`'net_*'` → `'OFC'`; `'consignment'` → `'C'`, else (3) falls back to `'UNKNOWN'`.
 
 🔀 **B6 — Line has `unitCost <= 0` and no cost range**
@@ -135,7 +135,7 @@ Each journey section follows a fixed template:
 
 ### Handoffs
 
-→ **Journey 2 (Intake)** — `approvePurchaseOrder` creates draft batches that immediately appear in the intake queue.
+→ **Journey 2 (Intake)** — After `receivePurchaseOrder` is run, draft batches appear in the intake queue.
 → **Journey 7 (Vendor Bills/AP)** — `postPurchaseReceipt` (in Journey 2) auto-creates vendor bills based on this PO.
 
 ---
@@ -154,7 +154,7 @@ Each journey section follows a fixed template:
 
 ### Happy Path
 
-1. Draft batches appear in Intake view — created automatically by `approvePurchaseOrder` → `receivePurchaseOrder`, or manually via `createBatch`.
+1. Draft batches appear in Intake view — created when an operator runs `receivePurchaseOrder` on an approved PO, or manually via `createBatch`.
 2. Operator reviews each batch: confirms `batchCode`, `name`, `category`, `intakeQty`, `unitCost`, `notes`, `ownershipStatus`, `arrivalStatus`.
 3. Operator edits as needed: `updateBatch`. Note: `intakeQty` is **not** immutable yet — it can be changed pre-posting.
 4. Operator marks batch as ready (sets status to `'ready'`) via `updateBatch`.

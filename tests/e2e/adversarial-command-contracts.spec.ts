@@ -275,10 +275,8 @@ test.describe('adversarial command contracts', () => {
     const approved = commandData(await runCommand(page, 'approvePurchaseOrder', { purchaseOrderId }));
     expect(approved.ok).toBe(true);
 
-    // approvePurchaseOrder internally calls receivePurchaseOrder when a vendor is set,
-    // so the second explicit call returns the no-new-rows path which still contains
-    // 'draft intake row' in the toast message. Use the singular stem so the assertion
-    // matches both "draft intake row(s)" and "draft intake rows".
+    // After approval, the PO status is 'approved' and the operator must explicitly
+    // call receivePurchaseOrder to create draft intake rows.
     const received = commandData(await runCommand(page, 'receivePurchaseOrder', { purchaseOrderId }));
     expect(received.ok).toBe(true);
     expect(received.toast).toContain('draft intake row');

@@ -33,7 +33,7 @@ export interface CustomerSheetSnapshotSummary {
   createdAt: string;
 }
 
-interface CustomerSheetSnapshotRow {
+export interface CustomerSheetSnapshotRow {
   batchId?: string | null;
   batchCode?: string | null;
   name?: string | null;

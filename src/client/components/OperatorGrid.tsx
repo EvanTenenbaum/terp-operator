@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
+  CellContextMenuEvent,
   CellPosition,
   CellValueChangedEvent,
   ColDef,
@@ -17,7 +18,7 @@ import type {
   TabToNextCellParams,
   ValueGetterParams
 } from 'ag-grid-community';
-import { Columns3, Download, RotateCcw, Search, X } from 'lucide-react';
+import { Columns3, Download, Filter, RotateCcw, Search, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { EmptyState } from './EmptyState';
 import { IssueSidecar } from './IssueSidecar';
@@ -31,6 +32,9 @@ import { ExpansionPanel } from './ExpansionPanel';
 import { ExpansionChevronCell } from './ExpansionChevronColumn';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow, ViewKey } from '../../shared/types';
+import type { FilterGroupInput, FilterCondition } from '../../shared/filterSchemas';
+import { AdvancedFilterBuilder } from './AdvancedFilterBuilder';
+import { evaluateFilterGroup } from '../utils/filterEvaluator';
 import {
   applyGridFilter,
   columnIdentities,
@@ -44,6 +48,13 @@ import {
 import { buildCsvExportOptions } from './OperatorGrid.csvExport';
 import { formatTs } from '../utils/format';
 
+export interface ContextMenuItem {
+  label: string;
+  action: () => void;
+  icon?: ReactNode;
+  disabled?: boolean;
+}
+
 interface OperatorGridProps {
   view: ViewKey;
   title: string;
@@ -55,6 +66,7 @@ interface OperatorGridProps {
   onRetry?: () => void;
   actions?: ReactNode;
   selectionActions?: (rows: GridRow[]) => ReactNode;
+  contextMenuItems?: (row: GridRow, canWrite: boolean) => ContextMenuItem[];
   onSelectionChange?: (rows: GridRow[]) => void;
   onCellCommit?: (event: CellValueChangedEvent<GridRow>) => void;
   emptyTitle?: string;
@@ -70,7 +82,7 @@ interface OperatorGridProps {
   };
 }
 
-export function OperatorGrid({
+export const OperatorGrid = memo(function OperatorGrid({
   view,
   title,
   subtitle,
@@ -81,6 +93,7 @@ export function OperatorGrid({
   onRetry,
   actions,
   selectionActions,
+  contextMenuItems,
   onSelectionChange,
   onCellCommit,
   emptyTitle,
@@ -97,15 +110,28 @@ export function OperatorGrid({
   const [historyRow, setHistoryRow] = useState<GridRow | null>(null);
   const [relationshipRow, setRelationshipRow] = useState<GridRow | null>(null);
   const [issueRow, setIssueRow] = useState<GridRow | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    items: ContextMenuItem[];
+    x: number;
+    y: number;
+  } | null>(null);
   const storedGridFilter = useUiStore((state) => state.gridFilters[view] ?? '');
   const setStoredGridFilter = useUiStore((state) => state.setGridFilter);
+  const storedAdvancedFilter = useUiStore((state) => state.gridAdvancedFilters[view]);
+  const setStoredAdvancedFilter = useUiStore((state) => state.setGridAdvancedFilter);
+  const clearStoredAdvancedFilter = useUiStore((state) => state.clearGridAdvancedFilter);
   const resolvedTableKey = tableKey ?? `view:${view}`;
   const storedColumnPrefs = useUiStore((state) => state.gridColumnPrefs[resolvedTableKey]);
   const setGridColumnPrefs = useUiStore((state) => state.setGridColumnPrefs);
   const resetGridColumnPrefs = useUiStore((state) => state.resetGridColumnPrefs);
   const [quickFilter, setQuickFilter] = useState(storedGridFilter);
+  const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
   const parsedFilter = useMemo(() => parseGridFilter(quickFilter), [quickFilter]);
-  const renderedRows = useMemo(() => applyGridFilter(rows, parsedFilter), [parsedFilter, rows]);
+  const advancedFilteredRows = useMemo(() => {
+    if (!storedAdvancedFilter || storedAdvancedFilter.conditions.length === 0) return rows;
+    return rows.filter((row) => evaluateFilterGroup(row as unknown as Record<string, unknown>, storedAdvancedFilter));
+  }, [rows, storedAdvancedFilter]);
+  const renderedRows = useMemo(() => applyGridFilter(advancedFilteredRows, parsedFilter), [parsedFilter, advancedFilteredRows]);
   const panelId = useMemo(() => `grid:${view}:${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [title, view]);
 
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
@@ -319,6 +345,80 @@ export function OperatorGrid({
     setCellRangeStats(stats);
   }, []);
 
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const onCellContextMenuHandler = useCallback(
+    (event: CellContextMenuEvent<GridRow>) => {
+      event.event?.preventDefault();
+      const row = event.data;
+      if (!row) return;
+
+      // Select the right-clicked row (clears prior selection for single-row context)
+      const api = event.api;
+      api.deselectAll();
+      event.node?.setSelected(true);
+
+      const items: ContextMenuItem[] = [];
+
+      // Common actions that match the SelectionSummary bar
+      items.push({
+        label: 'History',
+        action: () => setHistoryRow(row)
+      });
+      if (canWrite && hasRelationship(row, view)) {
+        items.push({
+          label: 'Relationship',
+          action: () => setRelationshipRow(row)
+        });
+      }
+      if (canWrite && hasIssueSurface(row, view)) {
+        items.push({
+          label: 'Issue',
+          action: () => setIssueRow(row)
+        });
+      }
+
+      // View-specific actions from the prop
+      if (contextMenuItems) {
+        const viewItems = contextMenuItems(row, canWrite);
+        if (viewItems.length) {
+          if (items.length) items.push({ label: '', action: () => {} }); // separator hint — we'll render a separator
+          items.push(...viewItems);
+        }
+      }
+
+      setContextMenu({
+        items,
+        x: (event.event as MouseEvent)?.clientX ?? 0,
+        y: (event.event as MouseEvent)?.clientY ?? 0
+      });
+    },
+    [view, canWrite, contextMenuItems]
+  );
+
+  // Close context menu on Escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [contextMenu, closeContextMenu]);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest('.operator-context-menu')) {
+        closeContextMenu();
+      }
+    };
+    document.addEventListener('pointerdown', handler, { capture: true });
+    return () => document.removeEventListener('pointerdown', handler, { capture: true });
+  }, [contextMenu, closeContextMenu]);
+
   return (
     <WorkspacePanel
       panelId={panelId}
@@ -326,6 +426,20 @@ export function OperatorGrid({
       subtitle={subtitle ?? `${renderedRows.length.toLocaleString('en-US')} row(s)`}
       actions={
         <>
+          <button
+            type="button"
+            className={`icon-button${advancedFilterOpen ? ' active' : ''}${(storedAdvancedFilter?.conditions?.length ?? 0) > 0 ? ' ring-1 ring-blue-400' : ''}`}
+            title="Advanced filters"
+            aria-expanded={advancedFilterOpen}
+            aria-label={`Advanced filters${(storedAdvancedFilter?.conditions?.length ?? 0) > 0 ? ` (${storedAdvancedFilter!.conditions.length} active)` : ''}`}
+            onClick={() => setAdvancedFilterOpen((prev) => !prev)}
+          >
+            <Filter className="h-4 w-4" aria-hidden="true" />
+            {(storedAdvancedFilter?.conditions?.length ?? 0) > 0 ? (
+              <span className="ml-0.5 text-[10px] font-bold">{storedAdvancedFilter!.conditions.length}</span>
+            ) : null}
+            <span className="sr-only">Advanced filters</span>
+          </button>
           <label className="flex h-8 items-center gap-2 border border-line bg-white px-2 text-sm">
             <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
             <span className="sr-only">Filter {title} grid</span>
@@ -402,6 +516,55 @@ export function OperatorGrid({
           </button>
         </div>
       ) : null}
+      {/* Advanced filter chips — shown when collapsed but active */}
+      {(storedAdvancedFilter?.conditions?.length ?? 0) > 0 && !advancedFilterOpen ? (
+        <div className="flex flex-wrap items-center gap-1 px-2 py-1" data-testid="grid-advanced-filter-chips">
+          {storedAdvancedFilter!.conditions.filter((c): c is FilterCondition => 'field' in c).map((condition, i) => {
+            const cond = condition as { field: string; operator: string; value: unknown };
+            const valueStr = cond.operator === 'is_null' || cond.operator === 'is_not_null'
+              ? ''
+              : ` ${Array.isArray(cond.value) ? cond.value.join(' – ') : String(cond.value)}`;
+            return (
+            <button
+              key={i}
+              type="button"
+              className="selection-pill"
+              title={`Remove ${cond.field} filter`}
+              aria-label={`Remove advanced filter: ${cond.field} ${cond.operator} ${cond.value}`}
+              onClick={() => {
+                const updated = {
+                  ...storedAdvancedFilter!,
+                  conditions: storedAdvancedFilter!.conditions.filter((_, idx) => idx !== i)
+                };
+                setStoredAdvancedFilter(view, updated);
+              }}
+            >
+              {cond.field}: {String(cond.operator).replace(/_/g, ' ')}{valueStr}
+              <X className="ml-1 inline h-3 w-3" aria-hidden="true" />
+            </button>
+            );
+          })}
+          <button
+            type="button"
+            className="icon-button"
+            title="Clear advanced filters"
+            aria-label="Clear all advanced filters"
+            onClick={() => clearStoredAdvancedFilter(view)}
+          >
+            <RotateCcw className="h-3 w-3" aria-hidden="true" />
+            <span className="sr-only">Clear advanced filters</span>
+          </button>
+        </div>
+      ) : null}
+      {/* Advanced filter builder — shown when expanded */}
+      {advancedFilterOpen ? (
+        <AdvancedFilterBuilder
+          filter={storedAdvancedFilter ?? { logic: 'AND', conditions: [] }}
+          onChange={(filter) => setStoredAdvancedFilter(view, filter)}
+          targetView={view}
+          resultCount={renderedRows.length}
+        />
+      ) : null}
       <div className="ag-theme-quartz grid-shell" aria-busy={loading}>
         {isError ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-500 p-8">
@@ -474,6 +637,7 @@ export function OperatorGrid({
             onCellEditingStarted={() => { useUiStore.getState().setCellEditing(true); }}
             onCellEditingStopped={() => { useUiStore.getState().setCellEditing(false); }}
             onCellValueChanged={onCellCommit}
+            onCellContextMenu={onCellContextMenuHandler}
           />
         ) : (
           <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'Create or import rows, then mark them Ready when they can be posted.'}</EmptyState>
@@ -483,9 +647,68 @@ export function OperatorGrid({
       <RowCommandHistoryDrawer row={historyRow} onClose={() => setHistoryRow(null)} />
       <RelationshipDrawer row={relationshipRow} view={view} onClose={() => setRelationshipRow(null)} />
       <IssueSidecar row={issueRow} view={view} onClose={() => setIssueRow(null)} />
+      {contextMenu ? (
+        <div
+          className="operator-context-menu"
+          role="menu"
+          style={{
+            position: 'fixed',
+            left: Math.min(contextMenu.x, window.innerWidth - 200),
+            top: Math.min(contextMenu.y, window.innerHeight - 200),
+            zIndex: 9999,
+            background: 'white',
+            border: '1px solid var(--line, #e4e4e7)',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            minWidth: '180px',
+            padding: '4px 0'
+          }}
+        >
+          {contextMenu.items.map((item, i) => {
+            if (!item.label) {
+              // Separator
+              return <div key={i} style={{ borderTop: '1px solid var(--line, #e4e4e7)', margin: '2px 0' }} />;
+            }
+            return (
+              <button
+                key={i}
+                type="button"
+                role="menuitem"
+                disabled={item.disabled}
+                onClick={() => {
+                  item.action();
+                  closeContextMenu();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  width: '100%',
+                  padding: '6px 12px',
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: '13px',
+                  cursor: item.disabled ? 'default' : 'pointer',
+                  textAlign: 'left',
+                  opacity: item.disabled ? 0.4 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!item.disabled) (e.currentTarget as HTMLButtonElement).style.background = '#f4f4f5';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </WorkspacePanel>
   );
-}
+});
 
 function hiddenColumnsByPrefs(prefs: ReturnType<typeof useUiStore.getState>['gridColumnPrefs'][string] | undefined) {
   const hidden = new Set<string>();
@@ -640,4 +863,12 @@ function withRowNumbers(columns: ColDef<GridRow>[]) {
     rowNumberColumn,
     ...columns
   ];
+}
+
+function hasRelationship(row: GridRow, view: ViewKey) {
+  return Boolean(row.customerId || row.vendorId || view === 'clients' || view === 'vendors');
+}
+
+function hasIssueSurface(row: GridRow, view: ViewKey) {
+  return ['clients', 'orders', 'payments'].includes(view);
 }

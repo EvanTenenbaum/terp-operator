@@ -5,7 +5,7 @@ export type TriggerSource =
   | 'event:recordPayment' | 'event:allocatePayment'
   | 'event:postLedgerRow' | 'event:voidInvoice'
   | 'event:reverseSalesOrder' | 'event:disputeInvoice'
-  | 'event:resolveDispute' | 'event:setEngineMax'
+  | 'event:resolveDispute' | 'event:rejectDispute' | 'event:setEngineMax'
   | 'event:setStance' | 'event:stanceEdited'
   | 'nightly' | 'manualTrigger' | 'shadowMode' | 'bulkRevert' | 'reconciliation';
 

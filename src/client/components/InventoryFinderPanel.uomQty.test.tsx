@@ -22,6 +22,7 @@ import { defaultQtyFor, qtyHintFor, InventoryFinderPanel, type InventoryFinderBa
 vi.mock('../api/trpc', () => ({
   trpc: {
     queries: { reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) } },
+    useQueries: () => [],
     filters: {
       listSavedFilters: { useQuery: () => ({ data: [] }) },
       saveFilter: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
@@ -65,22 +66,71 @@ describe('defaultQtyFor', () => {
     const row: InventoryFinderBatch = { id: 'b6', casePack: -5 };
     expect(defaultQtyFor(row)).toBe('1');
   });
+
+  // TER-1646: Priority 2 — last-ordered qty from customerLastOrderedQty
+  it('returns last-ordered qty when casePack is absent and map has entry', () => {
+    const map = new Map<string, string>([['b7', '24']]);
+    expect(defaultQtyFor({ id: 'b7' }, map)).toBe('24');
+  });
+
+  it('returns last-ordered qty (decimal) when casePack is null', () => {
+    const map = new Map<string, string>([['b8', '2.5']]);
+    expect(defaultQtyFor({ id: 'b8', casePack: null }, map)).toBe('2.5');
+  });
+
+  it('prefers casePack over last-ordered qty (Priority 1 > 2)', () => {
+    const map = new Map<string, string>([['b9', '5']]);
+    expect(defaultQtyFor({ id: 'b9', casePack: 12 }, map)).toBe('12');
+  });
+
+  it('falls back to "1" when last-ordered qty is zero', () => {
+    const map = new Map<string, string>([['b10', '0']]);
+    expect(defaultQtyFor({ id: 'b10' }, map)).toBe('1');
+  });
+
+  it('falls back to "1" when last-ordered qty is negative', () => {
+    const map = new Map<string, string>([['b11', '-3']]);
+    expect(defaultQtyFor({ id: 'b11' }, map)).toBe('1');
+  });
+
+  it('falls back to "1" when row not in map', () => {
+    const map = new Map<string, string>([['other', '42']]);
+    expect(defaultQtyFor({ id: 'b12' }, map)).toBe('1');
+  });
+
+  it('falls back to "1" when map is undefined (backward-compatible)', () => {
+    expect(defaultQtyFor({ id: 'b13' })).toBe('1');
+  });
 });
 
 describe('qtyHintFor', () => {
-  // Priority 2 (last-ordered qty from order history) is not yet implemented.
-  // customerWorkspace does not expose per-item purchase qtys.
-  // These tests assert the current "always null" state so a future PR can
-  // flip them when the data is wired up.
+  // TER-1646: qtyHintFor is now wired to customerLastOrderedQty.
+  // It returns "last: N" when the default qty comes from order history
+  // (Priority 2) and null when casePack (Priority 1) or fallback is used.
 
-  it('returns null for a row without order history data (current state)', () => {
-    const row: InventoryFinderBatch = { id: 'b1', casePack: 12 };
+  it('returns null when no map is provided (backward-compatible)', () => {
+    const row: InventoryFinderBatch = { id: 'b1' };
     expect(qtyHintFor(row)).toBeNull();
   });
 
-  it('returns null for any row regardless of casePack', () => {
-    expect(qtyHintFor({ id: 'b2', casePack: 6 })).toBeNull();
-    expect(qtyHintFor({ id: 'b3' })).toBeNull();
+  it('returns null when row has casePack (Priority 1 takes precedence)', () => {
+    const map = new Map<string, string>([['b2', '5']]);
+    expect(qtyHintFor({ id: 'b2', casePack: 12 }, map)).toBeNull();
+  });
+
+  it('returns "last: N" when last-ordered qty is available and no casePack', () => {
+    const map = new Map<string, string>([['b3', '5']]);
+    expect(qtyHintFor({ id: 'b3' }, map)).toBe('last: 5');
+  });
+
+  it('returns null when map has the row but qty is not positive', () => {
+    const map = new Map<string, string>([['b4', '0']]);
+    expect(qtyHintFor({ id: 'b4' }, map)).toBeNull();
+  });
+
+  it('returns null when row is not in the map', () => {
+    const map = new Map<string, string>([['other', '5']]);
+    expect(qtyHintFor({ id: 'b5' }, map)).toBeNull();
   });
 });
 
@@ -103,6 +153,7 @@ describe('InventoryFinderPanel qty input defaults', () => {
         queries: {
           reference: { useQuery: () => ({ data: { availableBatches: [batchWithCasePack], vendors: [] }, isLoading: false }) },
         },
+        useQueries: () => [],
         filters: {
           listSavedFilters: { useQuery: () => ({ data: [] }) },
           saveFilter: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
@@ -130,9 +181,9 @@ describe('InventoryFinderPanel qty input defaults', () => {
     expect(qty).toBe('1');
   });
 
-  it('does not show a "last: N" hint when order history is unavailable', () => {
+  it('returns null hint when casePack takes priority (Priority 1)', () => {
     const row: InventoryFinderBatch = { id: 'b-nohint', casePack: 6 };
-    // qtyHintFor returning null means the hint span is not rendered
+    // casePack > 0 so qtyHintFor returns null — no "last: N" shown
     expect(qtyHintFor(row)).toBeNull();
   });
 });

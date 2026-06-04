@@ -1,7 +1,8 @@
-import { Ban, CalendarClock, Check, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2 } from 'lucide-react';
+import { Ban, CalendarClock, Check, CheckCircle, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2, XCircle } from 'lucide-react';
 import { whyShownCol, type RuleMap } from '../components/columns';
 import { CommandReversalTab } from '../components/drawerTabs/CommandReversalTab';
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
@@ -156,9 +157,20 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'name', pinned: 'left', width: 190 },
     { field: 'creditLimit', type: 'numericColumn', width: 140 },
     { field: 'balance', type: 'numericColumn', width: 130 },
+    {
+      headerName: 'Aging',
+      width: 120,
+      cellRenderer: (params: { data?: GridRow }) => {
+        const days = Number(params.data?.daysPastDue ?? 0);
+        if (days <= 0) return <span className="text-xs font-medium text-emerald-600">Current</span>;
+        if (days <= 30) return <span className="text-xs font-medium text-amber-600">{days}d past due</span>;
+        return <span className="text-xs font-medium text-red-600">{days}d past due</span>;
+      },
+    },
     { field: 'tags', minWidth: 180 },
     { field: 'notes', minWidth: 260 },
-    { field: 'invoiceCount', width: 120 }
+    { field: 'invoiceCount', width: 120 },
+    { field: 'avgDaysToPay', headerName: 'Avg days to pay', type: 'numericColumn', width: 145 }
   ],
   vendors: [
     { field: 'vendor', pinned: 'left', width: 190 },
@@ -214,6 +226,24 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'reversedByCommandId', width: 220 },
     { field: 'createdAt', width: 180 }
   ],
+  purchaseReceipts: [
+    { field: 'receiptNo', pinned: 'left', width: 150 },
+    { field: 'vendor', width: 190 },
+    { field: 'poNo', headerName: 'PO', width: 150 },
+    { field: 'total', type: 'numericColumn', width: 120 },
+    { field: 'status', width: 125 },
+    { field: 'lines', width: 90 },
+    { field: 'createdAt', width: 180 }
+  ],
+  disputes: [
+    { field: 'invoiceNo', headerName: 'Invoice', pinned: 'left', width: 160 },
+    { field: 'customer', width: 180 },
+    { field: 'invoiceAmount', headerName: 'Amount', type: 'numericColumn', width: 130 },
+    { field: 'reason', headerName: 'Reason', minWidth: 240 },
+    { field: 'status', width: 125 },
+    { field: 'resolution', headerName: 'Resolution', minWidth: 220 },
+    { field: 'createdAt', width: 180 }
+  ],
   closeout: [
     { field: 'period', pinned: 'left', width: 100 },
     { field: 'status', width: 125 },
@@ -264,6 +294,14 @@ const fulfillmentLineColumns: ColDef<GridRow>[] = [
   { field: 'actualWeight', editable: true, type: 'numericColumn', width: 140 },
   { field: 'bagCode', editable: true, width: 140 },
   { field: 'status', width: 120 }
+];
+
+const purchaseReceiptLineColumns: ColDef<GridRow>[] = [
+  { field: 'itemName', headerName: 'Product', pinned: 'left', minWidth: 190 },
+  { field: 'batchCode', width: 140 },
+  { field: 'qty', headerName: 'Qty', type: 'numericColumn', width: 120 },
+  { field: 'unitCost', headerName: 'Unit cost', type: 'numericColumn', width: 120 },
+  { field: 'subtotal', headerName: 'Subtotal', type: 'numericColumn', width: 120 }
 ];
 
 export function PurchaseOrdersView() {
@@ -1694,6 +1732,7 @@ export function ClientLedgerView() {
       { field: 'tags', minWidth: 180 },
       { field: 'notes', minWidth: 260 },
       { field: 'invoiceCount', width: 120 },
+      { field: 'avgDaysToPay', headerName: 'Avg days to pay', type: 'numericColumn', width: 145 },
     ];
     if (!matchSettings.data?.showClientsColumn) return base;
     return [
@@ -2725,6 +2764,57 @@ export function RecoveryView() {
   );
 }
 
+export function PurchaseReceiptsView() {
+  const grid = trpc.queries.grid.useQuery({ view: 'purchaseReceipts' });
+  const selectedRows = useUiStore((state) => state.selectedRows.purchaseReceipts);
+  const selected = selectedRows ?? EMPTY_ROWS;
+  const selectedReceipt = selected[0];
+  const lines = trpc.queries.purchaseReceiptLines.useQuery(
+    { purchaseReceiptId: String(selectedReceipt?.id ?? '00000000-0000-0000-0000-000000000000') },
+    { enabled: Boolean(selectedReceipt?.id) }
+  );
+  const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+
+  return (
+    <div className="view-stack">
+      <OperatorGrid
+        view="purchaseReceipts"
+        title="Purchase Receipts"
+        rows={(grid.data ?? []) as GridRow[]}
+        columns={columnsByView.purchaseReceipts ?? []}
+        loading={grid.isLoading}
+        isError={grid.isError}
+        onRetry={() => grid.refetch()}
+        onSelectionChange={(rows) => setSelectedRows('purchaseReceipts', rows)}
+      />
+      {selectedReceipt ? (
+        <>
+          <section className="po-header-strip" aria-label="Selected receipt summary">
+            <div>
+              <div className="text-xs font-bold uppercase text-zinc-500">Selected Receipt</div>
+              <div className="text-base font-semibold text-ink">{String(selectedReceipt.receiptNo ?? 'Purchase receipt')}</div>
+            </div>
+            <div className="po-header-facts">
+              <span>{String(selectedReceipt.vendor ?? 'Vendor')}</span>
+              <span>PO {String(selectedReceipt.poNo ?? '-')}</span>
+              <span>{String(selectedReceipt.status ?? 'posted')}</span>
+              <span>${moneyish(selectedReceipt.total)}</span>
+            </div>
+          </section>
+          <OperatorGrid
+            view="purchaseReceipts"
+            title={`Receipt ${String(selectedReceipt.receiptNo ?? '')} Lines`}
+            subtitle="Received line items"
+            rows={(lines.data ?? []) as GridRow[]}
+            columns={purchaseReceiptLineColumns}
+            loading={lines.isLoading}
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export function CloseoutView() {
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [adjustmentAmount, setAdjustmentAmount] = useState('0');
@@ -2907,12 +2997,14 @@ export function SettingsView() {
   const setActiveTab = useUiStore((state) => state.setActiveSettingsTab);
   const me = trpc.auth.me.useQuery();
   const isOwner = me.data?.role === 'owner';
+  const isManager = me.data?.role === 'owner' || me.data?.role === 'manager';
   const tabs: Array<{ key: SettingsTab; label: string }> = [
     { key: 'requests', label: 'Requests' },
     { key: 'actions', label: 'Action log' },
     { key: 'archive', label: 'Archive' },
     { key: 'strain-aliases', label: 'Strain aliases' },
     { key: 'pricing', label: 'Pricing' },
+    ...(isManager ? [{ key: 'system' as SettingsTab, label: 'System' }] : []),
     ...(isOwner ? [{ key: 'credit-engine' as SettingsTab, label: 'Credit Engine' }] : [])
   ];
   const visibleTabKeys = new Set(tabs.map((t) => t.key));
@@ -2945,10 +3037,191 @@ export function SettingsView() {
       {effectiveTab === 'archive' ? <CloseoutView /> : null}
       {effectiveTab === 'strain-aliases' ? <StrainAliasesPanel /> : null}
       {effectiveTab === 'pricing' ? <DefaultPricingPanel /> : null}
+      {effectiveTab === 'system' ? <SystemSettingsPanel /> : null}
       {effectiveTab === 'credit-engine' ? <CreditEngineSettingsPanel /> : null}
     </div>
   );
 }
+
+export function InvoiceDisputesView() {
+  const grid = trpc.queries.grid.useQuery({ view: 'disputes' });
+  const selectedRows = useUiStore((state) => state.selectedRows.disputes);
+  const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+  const selected = selectedRows ?? EMPTY_ROWS;
+  const selectedDispute = selected[0];
+  const { runCommand, isRunning } = useCommandRunner();
+  const me = trpc.auth.me.useQuery();
+  const canWrite = me.data?.role !== 'viewer';
+  const canResolve = me.data?.role === 'owner' || me.data?.role === 'manager';
+
+  // State for resolve/reject dialog (replaces native prompt())
+  const [dialogMode, setDialogMode] = useState<'resolve' | 'reject' | null>(null);
+  const [note, setNote] = useState('');
+  const dialogRef = useFocusTrap<HTMLDivElement>(dialogMode !== null, () => closeDialog());
+
+  function closeDialog() {
+    setDialogMode(null);
+    setNote('');
+  }
+
+  async function handleConfirm() {
+    if (!selectedDispute?.id) return;
+    const trimmed = note.trim();
+    const mode = dialogMode;
+    closeDialog();
+    if (mode === 'resolve') {
+      await runCommand('resolveInvoiceDispute', { disputeId: selectedDispute.id, resolution: trimmed || undefined }, 'Resolve invoice dispute');
+    } else if (mode === 'reject') {
+      await runCommand('rejectInvoiceDispute', { disputeId: selectedDispute.id, reason: trimmed || undefined }, 'Reject invoice dispute');
+    }
+  }
+
+  function handleResolve() {
+    if (!selectedDispute?.id) return;
+    setDialogMode('resolve');
+    setNote('');
+  }
+
+  function handleReject() {
+    if (!selectedDispute?.id) return;
+    setDialogMode('reject');
+    setNote('');
+  }
+
+  const dialogTitle = dialogMode === 'resolve' ? 'Resolve invoice dispute' : 'Reject invoice dispute';
+  const dialogBodyLabel = dialogMode === 'resolve' ? 'Resolution note (optional)' : 'Rejection reason (optional)';
+  const dialogConfirmLabel = dialogMode === 'resolve' ? 'Resolve' : 'Reject';
+
+  return (
+    <>
+      <div className="view-stack">
+      <OperatorGrid
+        view="disputes"
+        title="Invoice disputes"
+        rows={(grid.data ?? []) as GridRow[]}
+        columns={columnsByView.disputes ?? []}
+        loading={grid.isLoading || isRunning}
+        isError={grid.isError}
+        onRetry={() => grid.refetch()}
+        onSelectionChange={(rows) => setSelectedRows('disputes', rows)}
+        actions={
+          canResolve && selectedDispute ? (
+            <>
+              <button
+                className="primary-button compact-action"
+                type="button"
+                disabled={isRunning || String(selectedDispute.status ?? '') !== 'open'}
+                onClick={handleResolve}
+                title={String(selectedDispute.status ?? '') !== 'open' ? 'Only open disputes can be resolved' : 'Resolve this dispute'}
+              >
+                <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                Resolve
+              </button>
+              <button
+                className="secondary-button compact-action"
+                type="button"
+                disabled={isRunning || String(selectedDispute.status ?? '') !== 'open'}
+                onClick={handleReject}
+                title={String(selectedDispute.status ?? '') !== 'open' ? 'Only open disputes can be rejected' : 'Reject this dispute'}
+              >
+                <XCircle className="h-4 w-4" aria-hidden="true" />
+                Reject
+              </button>
+            </>
+          ) : null
+        }
+        emptyTitle="No disputes"
+        emptyChildren="Invoice disputes are created from correction journal entries with an invoice reference."
+      />
+      {selectedDispute ? (
+        <section className="inline-panel" aria-label="Dispute details">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="section-title">Dispute details</h2>
+              <p className="text-xs text-zinc-600">Invoice {String(selectedDispute.invoiceNo ?? '')}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+            <div className="drawer-fact-row"><span>Invoice</span><strong>{String(selectedDispute.invoiceNo ?? '-')}</strong></div>
+            <div className="drawer-fact-row"><span>Customer</span><strong>{String(selectedDispute.customer ?? '-')}</strong></div>
+            <div className="drawer-fact-row"><span>Amount</span><strong>${moneyish(selectedDispute.invoiceAmount)}</strong></div>
+            <div className="drawer-fact-row"><span>Invoice status</span><strong>{String(selectedDispute.invoiceStatus ?? '-')}</strong></div>
+            <div className="drawer-fact-row"><span>Dispute status</span><strong>{String(selectedDispute.status ?? '-')}</strong></div>
+            <div className="drawer-fact-row"><span>Created</span><strong>{dateish(selectedDispute.createdAt)}</strong></div>
+          </div>
+          <div className="mt-3 space-y-2">
+            <div>
+              <span className="text-xs font-bold uppercase text-zinc-500">Reason</span>
+              <p className="text-sm text-ink whitespace-pre-wrap">{String(selectedDispute.reason ?? 'No reason provided.')}</p>
+            </div>
+            {selectedDispute.resolution ? (
+              <div>
+                <span className="text-xs font-bold uppercase text-zinc-500">Resolution</span>
+                <p className="text-sm text-ink whitespace-pre-wrap">{String(selectedDispute.resolution)}</p>
+              </div>
+             ) : null}
+           </div>
+         </section>
+       ) : null}
+     </div>
+       {dialogMode && createPortal(
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeDialog} data-testid="dispute-dialog-backdrop">
+           <div
+             ref={dialogRef}
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="dispute-dialog-title"
+             className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+             onClick={(e) => e.stopPropagation()}
+           >
+             <h2 id="dispute-dialog-title" className="text-lg font-semibold text-zinc-900">{dialogTitle}</h2>
+             <p className="mt-2 text-sm text-zinc-600">
+               {dialogMode === 'resolve'
+                 ? 'Record a resolution note for this dispute.'
+                 : 'Provide a reason for rejecting this dispute.'}
+             </p>
+             <div className="mt-4">
+               <label htmlFor="dispute-dialog-note" className="mb-1 block text-sm font-medium text-zinc-700">
+                 {dialogBodyLabel}
+               </label>
+               <textarea
+                 id="dispute-dialog-note"
+                 value={note}
+                 onChange={(e) => setNote(e.target.value)}
+                 className="w-full rounded border border-zinc-300 px-3 py-2 text-sm resize-y min-h-[80px]"
+                 placeholder={dialogMode === 'resolve' ? 'e.g., Resolved after customer review' : 'e.g., Insufficient evidence'}
+                 rows={3}
+                 autoFocus
+               />
+             </div>
+             <div className="mt-4 flex flex-row-reverse gap-2">
+               <button
+                 type="button"
+                 className={dialogMode === 'reject'
+                   ? 'inline-flex h-8 items-center justify-center gap-2 border border-danger bg-danger px-3 text-sm font-medium text-white transition focus:outline-none focus-visible:shadow-focus hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45'
+                   : 'btn-primary'}
+                 onClick={handleConfirm}
+                 disabled={isRunning}
+                 data-testid="dispute-dialog-confirm"
+               >
+                 {isRunning ? 'Processing...' : dialogConfirmLabel}
+               </button>
+               <button
+                 type="button"
+                 className="secondary-button compact-action"
+                 onClick={closeDialog}
+                 data-testid="dispute-dialog-cancel"
+               >
+                 Cancel
+               </button>
+             </div>
+           </div>
+         </div>,
+         document.body
+       )}
+     </>
+   );
+ }
 
 const strainAliasesColumns: ColDef<GridRow>[] = [
   { field: 'name', headerName: 'Canonical name', pinned: 'left', minWidth: 220 },
@@ -2995,8 +3268,142 @@ function StrainAliasesPanel() {
   );
 }
 
+function SystemSettingsPanel() {
+  const reference = trpc.queries.reference.useQuery(undefined, { refetchOnWindowFocus: false });
+  const { runCommand, isRunning } = useCommandRunner();
+  const settings = reference.data?.systemSettings ?? [];
+  // Per-row editing state: key -> edited value text
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+
+  function startEditing(key: string, currentValue: Record<string, unknown>) {
+    setEditingKey(key);
+    setEditText(JSON.stringify(currentValue, null, 2));
+  }
+
+  function cancelEditing() {
+    setEditingKey(null);
+    setEditText('');
+  }
+
+  async function saveSetting(key: string) {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(editText);
+    } catch (e) {
+      return; // silently reject invalid JSON — validation will catch on blur
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return;
+    }
+    await runCommand('updateSystemSetting', { key, value: parsed }, `Update system setting "${key}"`);
+    await reference.refetch();
+    cancelEditing();
+  }
+
+  return (
+    <section className="inline-panel" data-testid="system-settings-panel">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="section-title">System settings</h2>
+          <p className="text-xs text-zinc-600">
+            Raw key-value configuration stored in the system_settings table. Values are JSON objects. Editing is restricted to managers and above.
+          </p>
+        </div>
+      </div>
+      {reference.isLoading ? (
+        <div className="mt-3 text-sm text-zinc-600">Loading system settings...</div>
+      ) : settings.length === 0 ? (
+        <div className="mt-3 text-sm text-zinc-500">No system settings configured.</div>
+      ) : (
+        <div className="mt-3">
+          <table className="finder-table">
+            <thead>
+              <tr>
+                <th style={{ width: 260 }}>Key</th>
+                <th>Value</th>
+                <th style={{ width: 120 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {settings.map((s) => {
+                const isEditing = editingKey === s.key;
+                const valuePreview = JSON.stringify(s.value);
+                return (
+                  <tr key={s.id}>
+                    <td className="font-mono text-xs">{s.key}</td>
+                    <td>
+                      {isEditing ? (
+                        <textarea
+                          className="input w-full"
+                          rows={Math.max(3, editText.split('\n').length)}
+                          style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                        />
+                      ) : (
+                        <code className="text-xs bg-zinc-100 rounded px-1 py-0.5 block max-w-[400px] truncate" title={valuePreview}>
+                          {valuePreview}
+                        </code>
+                      )}
+                    </td>
+                    <td>
+                      <div className="flex gap-1">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              className="primary-button compact-action"
+                              disabled={isRunning}
+                              onClick={() => saveSetting(s.key)}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary-button compact-action"
+                              onClick={cancelEditing}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="secondary-button compact-action"
+                            onClick={() => startEditing(s.key, s.value)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function changedFieldsSummary(pre: Record<string, unknown>, post: Record<string, unknown>): string {
+  const keys = new Set([...Object.keys(pre), ...Object.keys(post)]);
+  const changed: string[] = [];
+  for (const key of keys) {
+    if (JSON.stringify(pre[key]) !== JSON.stringify(post[key])) {
+      changed.push(key === 'globalDefaultStanceId' ? 'defaultStance' : key);
+    }
+  }
+  return changed.length > 0 ? changed.join(', ') : '(no changes)';
+}
+
 function CreditEngineSettingsPanel() {
   const { data, isLoading } = trpc.credit.creditEngineStances.useQuery();
+  const configHistory = trpc.credit.creditEngineConfigHistory.useQuery();
+  const stanceHistory = trpc.credit.creditEngineStanceHistory.useQuery();
   const { runCommand, isRunning } = useCommandRunner();
   const [stanceId, setStanceId] = useState('');
   const [coldStartInvoices, setColdStartInvoices] = useState('');
@@ -3026,6 +3433,7 @@ function CreditEngineSettingsPanel() {
     if (snoozeCapDays !== '') payload.manualOverrideSnoozeCapDays = Number(snoozeCapDays);
     payload.shadowMode = shadowMode;
     await runCommand('setCreditEngineConfig', payload, 'Update credit engine settings');
+    configHistory.refetch();
   }
 
   return (
@@ -3106,6 +3514,74 @@ function CreditEngineSettingsPanel() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Config Change History — TER-1648 */}
+          <div className="mt-6">
+            <h3 className="section-title">Config Change History</h3>
+            <p className="text-xs text-zinc-600 mb-2">Every config update is appended here (read-only).</p>
+            {configHistory.isLoading ? (
+              <div className="text-sm text-zinc-600">Loading history...</div>
+            ) : configHistory.data && configHistory.data.length > 0 ? (
+              <div className="finder-table-wrap">
+                <table className="finder-table" data-testid="credit-engine-config-history">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Changed by</th>
+                      <th>Changed fields</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {configHistory.data.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{new Date(entry.changedAt).toLocaleString()}</td>
+                        <td>{entry.changedByName || entry.changedByEmail}</td>
+                        <td>{changedFieldsSummary(entry.preState as Record<string, unknown>, entry.postState as Record<string, unknown>)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-sm text-zinc-500">No config changes recorded yet.</div>
+            )}
+          </div>
+
+          {/* Stance Change History — TER-1648 */}
+          <div className="mt-6">
+            <h3 className="section-title">Stance Change History</h3>
+            <p className="text-xs text-zinc-600 mb-2">Every stance create, update, and delete is appended here (read-only).</p>
+            {stanceHistory.isLoading ? (
+              <div className="text-sm text-zinc-600">Loading history...</div>
+            ) : stanceHistory.data && stanceHistory.data.length > 0 ? (
+              <div className="finder-table-wrap">
+                <table className="finder-table" data-testid="credit-engine-stance-history">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Stance</th>
+                      <th>Action</th>
+                      <th>Changed by</th>
+                      <th>Affected customers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stanceHistory.data.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{new Date(entry.changedAt).toLocaleString()}</td>
+                        <td>{entry.stanceName}</td>
+                        <td className="font-mono text-xs">{entry.action}</td>
+                        <td>{entry.changedByName || entry.changedByEmail}</td>
+                        <td>{entry.affectedCustomerCount ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-sm text-zinc-500">No stance changes recorded yet.</div>
+            )}
           </div>
         </>
       )}
