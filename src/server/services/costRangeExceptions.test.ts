@@ -25,7 +25,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { runCommand } from './commandBus';
-import { batches, salesOrders, salesOrderLines, vendorBills } from '../schema';
+import { batches, customers, salesOrders, salesOrderLines, vendorBills } from '../schema';
 import type { SessionUser } from '../../shared/types';
 
 const OPERATOR: SessionUser = {
@@ -127,6 +127,14 @@ function makeMockTx(state: Map<unknown, TableState>) {
     execute: (sql: any) => {
       log.executes.push(sql);
       return Promise.resolve({ rows: [] });
+    },
+    // TER-1659: confirmSalesOrder now calls enqueueCustomerRecompute, which
+    // unwraps session.client from Drizzle ORM tx objects and uses pgClient.query.
+    // The mock must provide a query stub that accepts raw SQL.
+    session: {
+      client: {
+        query: (_sql: string, _params?: any[]) => Promise.resolve({ rowCount: 1, rows: [] })
+      }
     }
   };
 
@@ -433,8 +441,8 @@ describe('Issue #64: editable-order guard', () => {
   }
 });
 
-describe('Issue #64: declined vendor approval blocks confirm/post', () => {
-  it('confirmSalesOrder rejects when any line has vendorApprovalState=declined', async () => {
+describe('Issue #64: declined/pending vendor approval no longer blocks confirm (TER-1659)', () => {
+  it('confirmSalesOrder resolves with warnings when any line has vendorApprovalState=declined', async () => {
     const order = draftOrder();
     const declinedLine = rangeLine({
       unitPrice: '60.00',
@@ -445,17 +453,22 @@ describe('Issue #64: declined vendor approval blocks confirm/post', () => {
       validationIssues: [],
       status: 'draft'
     });
+    const customer = { id: '00000000-0000-0000-0000-0000000000e1', name: 'Test Customer', balance: '0.00', creditLimit: '100000.00', creditLimitSource: 'manual' };
     const state = new Map<unknown, TableState>([
       [salesOrders, { rows: [order] }],
-      [salesOrderLines, { rows: [declinedLine] }]
+      [salesOrderLines, { rows: [declinedLine] }],
+      [customers, { rows: [customer] }]
     ]);
     const { tx, log } = makeMockTx(state);
 
-    await expect(runCommand(tx, 'confirmSalesOrder', {
+    // TER-1659: vendor_approval=declined no longer blocks confirmSalesOrder.
+    // The command resolves with ok:true instead of rejecting.
+    const result = await runCommand(tx, 'confirmSalesOrder', {
       orderId: ORDER_ID
-    }, OPERATOR, 'cmd-confirm-declined')).rejects.toThrow(/declined|reprice|re-request/i);
+    }, OPERATOR, 'cmd-confirm-declined');
+    expect(result.ok).toBe(true);
 
-    // vendorBills must never be touched on a blocked confirm.
+    // vendorBills must never be touched on a confirm that doesn't post.
     expect(log.updates.find((entry) => entry.table === vendorBills)).toBeUndefined();
     expect(log.inserts.find((entry) => entry.table === vendorBills)).toBeUndefined();
   });
@@ -575,7 +588,8 @@ describe('Issue #64: below-floor vendor approval gate', () => {
     expect(log.updates.find((entry) => entry.table === salesOrders)).toBeDefined();
   });
 
-  it('confirmSalesOrder rejects when any line is awaiting vendor approval', async () => {
+  it('confirmSalesOrder resolves with warnings when any line has vendorApprovalState=pending', async () => {
+    const customer = { id: '00000000-0000-0000-0000-0000000000e1', name: 'Test Customer', balance: '0.00', creditLimit: '100000.00', creditLimitSource: 'manual' };
     const order = draftOrder();
     const blockedLine = rangeLine({
       unitPrice: '60.00',
@@ -589,15 +603,19 @@ describe('Issue #64: below-floor vendor approval gate', () => {
     });
     const state = new Map<unknown, TableState>([
       [salesOrders, { rows: [order] }],
-      [salesOrderLines, { rows: [blockedLine] }]
+      [salesOrderLines, { rows: [blockedLine] }],
+      [customers, { rows: [customer] }]
     ]);
     const { tx, log } = makeMockTx(state);
 
-    await expect(runCommand(tx, 'confirmSalesOrder', {
+    // TER-1659: vendor_approval=pending no longer blocks confirmSalesOrder.
+    // The command resolves with ok:true instead of rejecting.
+    const result = await runCommand(tx, 'confirmSalesOrder', {
       orderId: ORDER_ID
-    }, OPERATOR, 'cmd-confirm-blocked')).rejects.toThrow(/vendor approval/i);
+    }, OPERATOR, 'cmd-confirm-blocked');
+    expect(result.ok).toBe(true);
 
-    // vendorBills must never be touched on a blocked confirm.
+    // vendorBills must never be touched on a confirm that doesn't post.
     expect(log.updates.find((entry) => entry.table === vendorBills)).toBeUndefined();
     expect(log.inserts.find((entry) => entry.table === vendorBills)).toBeUndefined();
   });

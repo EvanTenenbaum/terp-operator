@@ -48,7 +48,7 @@ export const commandNames = [
   'allocatePayment',
   'unallocatePayment',
   'refundPayment',
-  'applyEarlyPayDiscount',
+  'applyDiscount',
   'postTransactionLedgerRow',
   'upsertTransactionType',
   'createVendorBill',
@@ -152,6 +152,17 @@ export const internalOnlyCommandNames = [
   'updateCreditEngineStance',
   'deleteCreditEngineStance',
   'bulkRevertCustomersToEngine',
+  // TER-1658: CSV import retired from MVP intake; backend rejects with guidance.
+  'importBatchesCsv',
+  // TER-1660: Label printing deferred to backlog; backend remains for future use.
+  'printLabels',
+  // TER-1664: Connectors and processors removed from MVP nav.
+  'approveConnectorRequest',
+  'rejectConnectorRequest',
+  'createPaymentProcessor',
+  'updateProcessor',
+  'markUserFeeCollected',
+  'updateProcessorFeeStatus',
 ] as const;
 
 // Commands that have been wired to the backend but whose frontend runCommand surface
@@ -200,7 +211,7 @@ export interface ReversalPolicy {
 }
 
 export const commandLabels: Record<CommandName, string> = {
-  createBatch: 'Create batch',
+  createBatch: 'Create batch (requires PO line)',
   updateBatch: 'Update batch',
   deleteBatch: 'Delete batch',
   postPurchaseReceipt: 'Process intake',
@@ -247,7 +258,7 @@ export const commandLabels: Record<CommandName, string> = {
   allocatePayment: 'Allocate payment',
   unallocatePayment: 'Unallocate payment',
   refundPayment: 'Refund payment',
-  applyEarlyPayDiscount: 'Apply early-pay discount',
+  applyDiscount: 'Apply discount',
   postTransactionLedgerRow: 'Post transaction ledger row',
   upsertTransactionType: 'Save transaction type',
   createVendorBill: 'Create vendor bill',
@@ -381,7 +392,7 @@ export const commandMinRole: Record<CommandName, Role> = {
   allocatePayment: 'operator',
   unallocatePayment: 'manager',
   refundPayment: 'manager',
-  applyEarlyPayDiscount: 'manager',
+  applyDiscount: 'manager',
   postTransactionLedgerRow: 'manager',
   upsertTransactionType: 'manager',
   createVendorBill: 'operator',
@@ -515,7 +526,7 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   allocatePayment: { disposition: 'reversible', guidance: 'Deletes payment allocations and restores invoice/payment/customer balances.' },
   unallocatePayment: { disposition: 'terminal', guidance: 'Re-allocate the payment if this was accidental.' },
   refundPayment: { disposition: 'terminal', guidance: 'Refunds are terminal money movement records; use a correction entry for mistakes.' },
-  applyEarlyPayDiscount: { disposition: 'offsettable', guidance: 'Use a correction journal or invoice adjustment to offset the discount.' },
+  applyDiscount: { disposition: 'offsettable', guidance: 'Use a correction journal or invoice adjustment to offset the discount.' },
   postTransactionLedgerRow: { disposition: 'offsettable', guidance: 'Use source-specific reversal, void, or correction depending on the row trace.' },
   upsertTransactionType: { disposition: 'terminal', guidance: 'Edit the transaction type again or deactivate it.' },
   createVendorBill: { disposition: 'reversible', guidance: 'Marks generated vendor bill rows reversed.' },

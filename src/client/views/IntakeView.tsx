@@ -340,56 +340,10 @@ export function IntakeView() {
   return (
     <div className="flex flex-row min-h-0 flex-1">
       <div className="view-stack flex-1 min-w-0">
-        <div className="control-band">
-          <button className="secondary-button" type="button" onClick={() => setCsvOpen((value) => !value)}>
-            CSV import
-          </button>
-        </div>
-        {csvOpen ? (
-          <WorkspacePanel panelId="intake:csv-import" title="Validate-first CSV import" contentClassName="p-3">
-            <div ref={csvImportFocusRef}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    className="secondary-button compact-action"
-                    type="button"
-                    disabled={!csvText.trim() || isRunning || busy}
-                    onClick={() => void importCsv(true)}
-                  >
-                    Validate
-                  </button>
-                  <button
-                    className="primary-button compact-action"
-                    type="button"
-                    disabled={!csvResult?.ok || !csvText.trim() || isRunning || busy}
-                    onClick={() => void importCsv(false)}
-                  >
-                    Import
-                  </button>
-                </div>
-              </div>
-              {/* TER-1627: drop zone wrapper — accepts .csv file drag-and-drop */}
-              <div
-                className={`media-upload-zone mt-2${csvDragActive ? ' media-upload-zone-active' : ''}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setCsvDragActive(true);
-                }}
-                onDragLeave={() => setCsvDragActive(false)}
-                onDrop={handleCsvDrop}
-              >
-                <textarea
-                  className="h-36 w-full resize-y border border-line p-2 font-mono text-xs outline-none focus:shadow-focus"
-                  value={csvText}
-                  onChange={(event) => setCsvText(event.target.value)}
-                />
-              </div>
-              {csvResult ? (
-                <pre className="json-chip mt-2">{JSON.stringify(csvResult.delta ?? { ok: csvResult.ok, toast: csvResult.toast }, null, 2)}</pre>
-              ) : null}
-            </div>
-          </WorkspacePanel>
-        ) : null}
+        {/* TER-1658: CSV import and manual batch creation removed from MVP intake.
+            All batches must originate from a purchase order via Receive PO.
+            Backend (importBatchesCsv, createBatch without purchaseOrderLineId) now
+            rejects these flows with operator-facing guidance. */}
         <WorkspacePanel panelId="intake:queue" title="Intake queue" subtitle={`${orderRows.length} purchase order(s) with batches awaiting verification`}>
           <p className="page-subtitle px-3 pb-1">Yellow = qty differs from expected · Red = discrepancy reason required</p>
           <div className="ag-theme-quartz grid-shell">

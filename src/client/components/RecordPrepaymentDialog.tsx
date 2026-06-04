@@ -15,7 +15,8 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
   const { runCommand, isRunning } = useCommandRunner();
   const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose);
   const [amount, setAmount] = useState(maxAmount > 0 ? maxAmount.toFixed(2) : '');
-  const [method, setMethod] = useState<'cash' | 'check' | 'wire' | 'ach' | 'crypto'>('wire');
+  // TER-1661: payment methods simplified to cash, check, other.
+  const [method, setMethod] = useState<'cash' | 'check' | 'other'>('check');
   const [reference, setReference] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -82,11 +83,9 @@ export function RecordPrepaymentDialog({ purchaseOrderId, poNo, maxAmount, onClo
               onChange={(e) => setMethod(e.target.value as typeof method)}
               className="w-full rounded border border-zinc-300 px-3 py-2"
             >
-              <option value="wire">Wire</option>
-              <option value="check">Check</option>
-              <option value="ach">ACH</option>
               <option value="cash">Cash</option>
-              <option value="crypto">Crypto</option>
+              <option value="check">Check</option>
+              <option value="other">Other</option>
             </select>
           </div>
           <div>

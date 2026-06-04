@@ -620,7 +620,7 @@ describe('Scenario 6: credit underwater — release/pick proceed, confirm blocks
     expect(pack.ok).toBe(true);
   });
 
-  it('confirmSalesOrder blocks when customer would exceed credit limit', async () => {
+  it('confirmSalesOrder warns but does not block when customer exceeds credit limit', async () => {
     seedBaseline(s, [LINE1_ID], {
       customer: {
         balance: '99999.00',     // almost at limit
@@ -632,10 +632,11 @@ describe('Scenario 6: credit underwater — release/pick proceed, confirm blocks
     // Release works fine
     await runCommand(tx, 'releaseLineForPicking', { lineId: LINE1_ID }, salesUser, nextCmd());
 
-    // Confirm must block at the credit gate
-    await expect(
-      runCommand(tx, 'confirmSalesOrder', { orderId: ORDER_ID }, salesUser, nextCmd()),
-    ).rejects.toThrow(/exceed credit limit|credit/i);
+    // Confirm should warn but not block (TER-1659: credit hold → advisory)
+    const result = await runCommand(tx, 'confirmSalesOrder', { orderId: ORDER_ID }, salesUser, nextCmd());
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some(w => /credit/i.test(w))).toBe(true);
   });
 
   it('confirmSalesOrder succeeds when customer has sufficient headroom', async () => {

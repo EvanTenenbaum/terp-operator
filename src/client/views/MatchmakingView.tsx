@@ -71,6 +71,7 @@ export function MatchmakingView() {
   const [customerId, setCustomerId] = useState('');
   const [needProduct, setNeedProduct] = useState('');
   const [needCategory, setNeedCategory] = useState('');
+  const [needSubcategory, setNeedSubcategory] = useState('');
   const [qtyMin, setQtyMin] = useState('0');
   const [targetPrice, setTargetPrice] = useState('');
   const [neededBy, setNeededBy] = useState('');
@@ -78,6 +79,7 @@ export function MatchmakingView() {
   const [vendorId, setVendorId] = useState('');
   const [supplyProduct, setSupplyProduct] = useState('');
   const [supplyCategory, setSupplyCategory] = useState('');
+  const [supplySubcategory, setSupplySubcategory] = useState('');
   const [availableQty, setAvailableQty] = useState('0');
   const [askingPrice, setAskingPrice] = useState('');
   const [availableDate, setAvailableDate] = useState('');
@@ -123,6 +125,7 @@ export function MatchmakingView() {
         customerId,
         productName: needProduct,
         category: needCategory,
+          subcategory: needSubcategory,
         qtyMin: Number(qtyMin),
         targetPrice: targetPrice ? Number(targetPrice) : undefined,
         neededBy: neededBy || undefined,
@@ -143,6 +146,7 @@ export function MatchmakingView() {
         vendorId,
         productName: supplyProduct,
         category: supplyCategory,
+          subcategory: supplySubcategory,
         availableQty: Number(availableQty),
         askingPrice: askingPrice ? Number(askingPrice) : undefined,
         availableDate: availableDate || undefined,

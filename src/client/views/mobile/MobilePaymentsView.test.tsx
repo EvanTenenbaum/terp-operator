@@ -65,7 +65,7 @@ describe('MobilePaymentsView', () => {
   it('shows confirm sheet when receive amount >= 20000', () => {
     renderView();
     fireEvent.click(screen.getByRole('button', { name: /green leaf/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^ach$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^check$/i }));
     fireEvent.click(screen.getByRole('button', { name: /record receipt/i }));
     expect(screen.getByRole('dialog', { name: /confirm action/i })).toBeInTheDocument();
   });
@@ -74,7 +74,7 @@ describe('MobilePaymentsView', () => {
     renderView();
     fireEvent.click(screen.getByRole('button', { name: /pay vendor/i }));
     fireEvent.click(screen.getByRole('button', { name: /green valley/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^ach$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^check$/i }));
     fireEvent.click(screen.getByRole('button', { name: /record payment/i }));
     expect(screen.getByRole('dialog', { name: /confirm action/i })).toBeInTheDocument();
   });
@@ -91,7 +91,7 @@ describe('MobilePaymentsView', () => {
     renderView();
     fireEvent.click(screen.getByRole('button', { name: /harbor house/i }));
     // amount pre-filled to 5000 (unappliedAmount) but total is 15000 → partial → confirm fires
-    fireEvent.click(screen.getByRole('button', { name: /^ach$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^check$/i }));
     fireEvent.click(screen.getByRole('button', { name: /record receipt/i }));
     expect(screen.getByRole('dialog', { name: /confirm action/i })).toBeInTheDocument();
   });

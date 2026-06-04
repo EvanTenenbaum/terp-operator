@@ -6,13 +6,12 @@ import { MobileEmptyState } from '../../components/mobile/MobileEmptyState';
 import { useMobileToast } from '../../components/mobile/MobileToast';
 
 type Tab = 'receive' | 'pay';
-type MethodId = 'cash' | 'check' | 'wire' | 'ach' | 'other';
+// TER-1661: payment methods simplified to cash, check, other.
+type MethodId = 'cash' | 'check' | 'other';
 
 const METHODS: readonly { id: MethodId; label: string }[] = [
   { id: 'cash',  label: 'Cash' },
   { id: 'check', label: 'Check' },
-  { id: 'wire',  label: 'Wire' },
-  { id: 'ach',   label: 'ACH' },
   { id: 'other', label: 'Other' },
 ];
 

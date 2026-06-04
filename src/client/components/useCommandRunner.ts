@@ -61,6 +61,14 @@ export function useCommandRunner() {
   const mutation = trpc.commands.run.useMutation({
     onSuccess: async (result) => {
       pushToast(result.toast ?? (result.ok ? 'Command completed.' : 'Command failed.'), result.ok ? 'success' : 'error');
+      // TER-1659: Advisory warnings (e.g. credit limit exceeded, below-floor
+      // pricing) are surfaced as additional info toasts. The command still
+      // succeeded — these are not errors.
+      if (result.warnings && result.warnings.length > 0) {
+        for (const warning of result.warnings) {
+          pushToast(warning, 'info');
+        }
+      }
       // Targeted invalidation — only queries that reference one of the
       // affected entity ids are refetched. See #44 (and the original UX-03
       // recommendation in #13) for why this matters: the previous

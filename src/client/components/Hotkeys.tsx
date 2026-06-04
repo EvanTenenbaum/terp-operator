@@ -130,8 +130,16 @@ export function Hotkeys() {
       if (key === 'd') {
         event.preventDefault();
         if (activeView !== 'intake' || !rows.length) return pushToast('Select intake rows to duplicate.', 'info');
+        // TER-1658: createBatch now requires a PO line. Skip rows without one
+        // (manual/legacy intake rows that predate the PO-first policy).
         for (const row of rows) {
+          if (!row.purchaseOrderLineId) {
+            pushToast(`${row.name ?? 'Batch'} cannot be duplicated: no PO line. Create batches from a purchase order.`, 'info');
+            continue;
+          }
           await runCommand('createBatch', {
+            purchaseOrderLineId: row.purchaseOrderLineId,
+            purchaseOrderId: row.purchaseOrderId ?? undefined,
             name: `${row.name ?? 'Batch'} copy`,
             category: row.category,
             vendorId: row.vendorId,

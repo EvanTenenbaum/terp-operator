@@ -114,6 +114,12 @@ export interface CommandResult {
   delta?: Record<string, unknown>;
   /** CAP-030 / TER-1518 — orderId for pick-event routing (set by pick commands). */
   orderId?: string;
+  /**
+   * TER-1659: non-blocking advisory warnings the UI should surface alongside
+   * the success toast (e.g. credit limit exceeded, below-floor pricing).
+   * Returning warnings does NOT change `ok` — the command still succeeded.
+   */
+  warnings?: string[];
 }
 
 export interface HealthStatus {

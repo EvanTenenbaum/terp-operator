@@ -1276,8 +1276,8 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
           Discount
           <input id={discountInputId} className="input compact" value={discountAmount} inputMode="decimal" disabled={!canAllocate} onChange={(event) => setDiscountAmount(event.target.value)} />
         </label>
-        <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning || !canAllocate} onClick={() => runCommand('applyEarlyPayDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply early-pay discount from payments surface')}>
-          Apply Early Pay Discount
+        <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning || !canAllocate} onClick={() => runCommand('applyDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply discount from payments surface')}>
+          Apply Discount
         </button>
       </div>
       {/* CAP-004: role-gate note for viewers */}
@@ -2243,6 +2243,10 @@ export function FulfillmentView() {
               <PackageCheck className="h-4 w-4" aria-hidden="true" />
               Fulfilled
             </button> : null}
+            {/* TER-1660: Label printing deferred to backlog. The Print/Labels
+                tray is hidden from the active fulfillment flow; the underlying
+                printLabels command remains in the catalog for future re-enable. */}
+            {/*
             <button className="secondary-button compact-action" disabled={!selectedPick?.id} onClick={() => setPrintTrayOpen((value) => !value)} type="button" aria-expanded={printTrayOpen}>
               {printTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
               Print
@@ -2262,6 +2266,7 @@ export function FulfillmentView() {
                 </button>
               </>
             ) : null}
+            */}
           </>
           : null}
       />

@@ -934,7 +934,7 @@ async function seedSalesAccountingAndFulfillment(
           });
         }
         if (discount > 0) {
-          journalRows.push(commandRow('applyEarlyPayDiscount', actorIds.managerId, 'Maya Manager', 'manager', { invoiceNo: `INV-REAL-${String(orderIndex + 1).padStart(5, '0')}`, amount: money(discount) }, [], saleDate));
+          journalRows.push(commandRow('applyDiscount', actorIds.managerId, 'Maya Manager', 'manager', { invoiceNo: `INV-REAL-${String(orderIndex + 1).padStart(5, '0')}`, amount: money(discount) }, [], saleDate));
         }
       }
       if (rangeResolutions.length) {
