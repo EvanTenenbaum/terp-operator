@@ -2576,7 +2576,7 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
               from payments p left join customers c on c.id = p.customer_id
               order by p.created_at desc`;
     case 'inventory':
-      return `select b.id, b.batch_code as "batchCode", b.name, b.category, v.name as vendor, b.vendor_id as "vendorId",
+      return `select b.id, b.batch_code as "batchCode", b.name, b.category, b.subcategory, v.name as vendor, b.vendor_id as "vendorId",
                      b.item_id as "itemId", i.alias as "itemAlias",
                      coalesce(i.alias, b.name) as "displayName",
                      b.available_qty as "availableQty",
