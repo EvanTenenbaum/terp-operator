@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -14,7 +14,7 @@ function pctish(value: unknown) {
   return Number.isFinite(numberValue) ? `${numberValue.toFixed(1)}%` : '—';
 }
 
-type TabKey = 'context' | 'quickAdds' | 'history';
+type TabKey = 'context' | 'quickAdds' | 'history' | 'brands';
 
 interface VendorContextDrawerProps {
   isOpen: boolean;
@@ -54,11 +54,38 @@ export function VendorContextDrawer({
 }: VendorContextDrawerProps): React.ReactElement | null {
   const [activeTab, setActiveTab] = useState<TabKey>('context');
   const [expandedPoId, setExpandedPoId] = useState<string | null>(null);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [addingBrand, setAddingBrand] = useState(false);
 
   const lineItemsQuery = trpc.queries.purchaseOrderLines.useQuery(
     { purchaseOrderId: expandedPoId ?? '00000000-0000-0000-0000-000000000000' },
     { enabled: Boolean(expandedPoId) }
   );
+
+  const brandsQuery = trpc.vendorBrands.list.useQuery(
+    { vendorId: vendor?.id ?? '00000000-0000-0000-0000-000000000000' },
+    { enabled: isOpen && activeTab === 'brands' && Boolean(vendor?.id) }
+  );
+
+  const addBrand = trpc.vendorBrands.add.useMutation({
+    onSuccess: () => {
+      setNewBrandName('');
+      setAddingBrand(false);
+      brandsQuery.refetch();
+    }
+  });
+
+  const removeBrand = trpc.vendorBrands.remove.useMutation({
+    onSuccess: () => {
+      brandsQuery.refetch();
+    }
+  });
+
+  const renameBrand = trpc.vendorBrands.rename.useMutation({
+    onSuccess: () => {
+      brandsQuery.refetch();
+    }
+  });
 
   // K4 (phase7-keyboard-a11y-audit): Trap focus inside the vendor context drawer.
   const drawerRef = useFocusTrap<HTMLElement>(isOpen, onClose);
@@ -136,6 +163,19 @@ export function VendorContextDrawer({
             type="button"
           >
             Historical POs
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'brands'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('brands')}
+            role="tab"
+            aria-selected={activeTab === 'brands'}
+            type="button"
+          >
+            Brands
           </button>
         </nav>
 
@@ -297,8 +337,144 @@ export function VendorContextDrawer({
               )}
             </div>
           )}
+
+          {activeTab === 'brands' && (
+            <div className="space-y-3">
+              {/* Add brand form */}
+              {addingBrand ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (newBrandName.trim() && vendor?.id) {
+                      addBrand.mutate({ vendorId: vendor.id, name: newBrandName.trim() });
+                    }
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    value={newBrandName}
+                    onChange={(e) => setNewBrandName(e.target.value)}
+                    placeholder="Brand name"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={addBrand.isLoading || !newBrandName.trim()}
+                    className="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAddingBrand(false); setNewBrandName(''); }}
+                    className="px-3 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setAddingBrand(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-colors text-sm text-gray-500 hover:text-blue-600"
+                  type="button"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add brand
+                </button>
+              )}
+
+              {/* Brand list */}
+              {brandsQuery.isLoading ? (
+                <div className="text-center py-4 text-sm text-gray-400">Loading brands…</div>
+              ) : brandsQuery.isError ? (
+                <div className="text-center py-4 text-sm text-red-500">Failed to load brands.</div>
+              ) : brandsQuery.data && brandsQuery.data.length > 0 ? (
+                brandsQuery.data.map((brand) => (
+                  <div
+                    key={brand.id}
+                    className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200"
+                  >
+                    <BrandNameEditor
+                      brand={brand}
+                      onRename={(name) =>
+                        renameBrand.mutate({ brandId: brand.id, name })
+                      }
+                    />
+                    <button
+                      onClick={() => {
+                        if (vendor?.id && confirm(`Remove "${brand.name}" from this vendor?`)) {
+                          removeBrand.mutate({ brandId: brand.id, vendorId: vendor.id });
+                        }
+                      }}
+                      className="p-1 rounded hover:bg-red-50 transition-colors"
+                      aria-label={`Remove ${brand.name}`}
+                      type="button"
+                      title="Remove from vendor"
+                    >
+                      <X className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-sm text-gray-500">
+                  No brands assigned to this vendor yet.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </aside>
     </>
+  );
+}
+
+/** Inline brand name editor: click to edit, enter to save, escape to cancel. */
+function BrandNameEditor({
+  brand,
+  onRename
+}: {
+  brand: { id: string; name: string; alias: string };
+  onRename: (name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(brand.name);
+
+  function commit() {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== brand.name) {
+      onRename(trimmed);
+    } else {
+      setValue(brand.name);
+    }
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') { setValue(brand.name); setEditing(false); }
+        }}
+        onBlur={commit}
+        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        autoFocus
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={() => setEditing(true)}
+      className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 transition-colors"
+      title="Click to rename"
+    >
+      {brand.name}
+    </span>
   );
 }

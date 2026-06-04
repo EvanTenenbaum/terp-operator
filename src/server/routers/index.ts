@@ -6,6 +6,7 @@ import { filtersRouter } from './filters';
 import { mediaRouter } from './media';
 import { queriesRouter } from './queries';
 import { subscriptionsRouter } from './subscriptions';
+import { vendorBrandsRouter } from './vendorBrands';
 
 export const appRouter = router({
   auth: authRouter,
@@ -14,7 +15,8 @@ export const appRouter = router({
   filters: filtersRouter,
   media: mediaRouter,
   queries: queriesRouter,
-  subscriptions: subscriptionsRouter
+  subscriptions: subscriptionsRouter,
+  vendorBrands: vendorBrandsRouter
 });
 
 export type AppRouter = typeof appRouter;
