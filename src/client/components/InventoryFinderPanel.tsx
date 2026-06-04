@@ -200,7 +200,7 @@ export function InventoryFinderPanel({
   const lastInitialSearch = useRef('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const rows = ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
+  const rows = useMemo(() => ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
     ...row,
     tags: Array.isArray(row.tags)
       ? row.tags
@@ -208,7 +208,7 @@ export function InventoryFinderPanel({
           .split(',')
           .map((item) => item.trim())
           .filter(Boolean),
-  }));
+  })), [reference.data?.availableBatches]);
 
   const facets = useMemo(() => {
     return {
