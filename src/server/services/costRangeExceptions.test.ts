@@ -578,6 +578,7 @@ describe('Issue #64: below-floor vendor approval gate', () => {
   });
 
   it('confirmSalesOrder rejects when any line is awaiting vendor approval', async () => {
+    const customer = { id: '00000000-0000-0000-0000-0000000000e1', name: 'Test Customer', balance: '0.00', creditLimit: '100000.00', creditLimitSource: 'manual' };
     const order = draftOrder();
     const blockedLine = rangeLine({
       unitPrice: '60.00',
