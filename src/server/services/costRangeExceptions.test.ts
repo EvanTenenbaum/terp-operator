@@ -441,8 +441,8 @@ describe('Issue #64: editable-order guard', () => {
   }
 });
 
-describe('Issue #64: declined vendor approval blocks confirm/post', () => {
-  it('confirmSalesOrder rejects when any line has vendorApprovalState=declined', async () => {
+describe('Issue #64: declined/pending vendor approval no longer blocks confirm (TER-1659)', () => {
+  it('confirmSalesOrder resolves with warnings when any line has vendorApprovalState=declined', async () => {
     const order = draftOrder();
     const declinedLine = rangeLine({
       unitPrice: '60.00',
@@ -461,11 +461,16 @@ describe('Issue #64: declined vendor approval blocks confirm/post', () => {
     ]);
     const { tx, log } = makeMockTx(state);
 
-    await expect(runCommand(tx, 'confirmSalesOrder', {
+    // TER-1659: vendor_approval=declined no longer blocks confirmSalesOrder.
+    // The command resolves with ok:true and warns about below-floor pricing.
+    const result = await runCommand(tx, 'confirmSalesOrder', {
       orderId: ORDER_ID
-    }, OPERATOR, 'cmd-confirm-declined')).rejects.toThrow(/declined|reprice|re-request/i);
+    }, OPERATOR, 'cmd-confirm-declined');
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w: string) => /below.*floor|floor price/i.test(w))).toBe(true);
 
-    // vendorBills must never be touched on a blocked confirm.
+    // vendorBills must never be touched on a confirm that doesn't post.
     expect(log.updates.find((entry) => entry.table === vendorBills)).toBeUndefined();
     expect(log.inserts.find((entry) => entry.table === vendorBills)).toBeUndefined();
   });
@@ -585,7 +590,7 @@ describe('Issue #64: below-floor vendor approval gate', () => {
     expect(log.updates.find((entry) => entry.table === salesOrders)).toBeDefined();
   });
 
-  it('confirmSalesOrder rejects when any line is awaiting vendor approval', async () => {
+  it('confirmSalesOrder resolves with warnings when any line has vendorApprovalState=pending', async () => {
     const customer = { id: '00000000-0000-0000-0000-0000000000e1', name: 'Test Customer', balance: '0.00', creditLimit: '100000.00', creditLimitSource: 'manual' };
     const order = draftOrder();
     const blockedLine = rangeLine({
@@ -605,11 +610,16 @@ describe('Issue #64: below-floor vendor approval gate', () => {
     ]);
     const { tx, log } = makeMockTx(state);
 
-    await expect(runCommand(tx, 'confirmSalesOrder', {
+    // TER-1659: vendor_approval=pending no longer blocks confirmSalesOrder.
+    // The command resolves with ok:true and warns about below-floor pricing.
+    const result = await runCommand(tx, 'confirmSalesOrder', {
       orderId: ORDER_ID
-    }, OPERATOR, 'cmd-confirm-blocked')).rejects.toThrow(/vendor approval/i);
+    }, OPERATOR, 'cmd-confirm-blocked');
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toBeDefined();
+    expect(result.warnings!.some((w: string) => /below.*floor|floor price/i.test(w))).toBe(true);
 
-    // vendorBills must never be touched on a blocked confirm.
+    // vendorBills must never be touched on a confirm that doesn't post.
     expect(log.updates.find((entry) => entry.table === vendorBills)).toBeUndefined();
     expect(log.inserts.find((entry) => entry.table === vendorBills)).toBeUndefined();
   });
