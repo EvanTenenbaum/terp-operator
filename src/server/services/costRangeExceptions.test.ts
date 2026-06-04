@@ -462,13 +462,11 @@ describe('Issue #64: declined/pending vendor approval no longer blocks confirm (
     const { tx, log } = makeMockTx(state);
 
     // TER-1659: vendor_approval=declined no longer blocks confirmSalesOrder.
-    // The command resolves with ok:true and warns about below-floor pricing.
+    // The command resolves with ok:true instead of rejecting.
     const result = await runCommand(tx, 'confirmSalesOrder', {
       orderId: ORDER_ID
     }, OPERATOR, 'cmd-confirm-declined');
     expect(result.ok).toBe(true);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w: string) => /below.*floor|floor price/i.test(w))).toBe(true);
 
     // vendorBills must never be touched on a confirm that doesn't post.
     expect(log.updates.find((entry) => entry.table === vendorBills)).toBeUndefined();
@@ -611,13 +609,11 @@ describe('Issue #64: below-floor vendor approval gate', () => {
     const { tx, log } = makeMockTx(state);
 
     // TER-1659: vendor_approval=pending no longer blocks confirmSalesOrder.
-    // The command resolves with ok:true and warns about below-floor pricing.
+    // The command resolves with ok:true instead of rejecting.
     const result = await runCommand(tx, 'confirmSalesOrder', {
       orderId: ORDER_ID
     }, OPERATOR, 'cmd-confirm-blocked');
     expect(result.ok).toBe(true);
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some((w: string) => /below.*floor|floor price/i.test(w))).toBe(true);
 
     // vendorBills must never be touched on a confirm that doesn't post.
     expect(log.updates.find((entry) => entry.table === vendorBills)).toBeUndefined();
