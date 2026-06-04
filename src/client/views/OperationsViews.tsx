@@ -1444,6 +1444,7 @@ export function InventoryView() {
 function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricingRule>): ColDef<GridRow>[] {
   return [
     { field: 'batchCode', pinned: 'left', width: 150 },
+    { field: 'subcategory', width: 140 },
     {
       field: 'name',
       minWidth: 200,

@@ -82,6 +82,19 @@ interface OperatorGridProps {
   };
 }
 
+
+const areGridPropsEqual = (prev: OperatorGridProps, next: OperatorGridProps): boolean => {
+  if (prev.rows === next.rows && prev.columns === next.columns && prev.loading === next.loading) return true;
+  if (prev.rows.length !== next.rows.length) return false;
+  if (prev.rows.length > 0) {
+    if (prev.rows[0]?.id !== next.rows[0]?.id) return false;
+    if (prev.rows[prev.rows.length - 1]?.id !== next.rows[next.rows.length - 1]?.id) return false;
+  }
+  if (prev.columns !== next.columns) return false;
+  if (prev.loading !== next.loading) return false;
+  if (prev.isError !== next.isError) return false;
+  return true;
+};
 export const OperatorGrid = memo(function OperatorGrid({
   view,
   title,
@@ -708,7 +721,7 @@ export const OperatorGrid = memo(function OperatorGrid({
       ) : null}
     </WorkspacePanel>
   );
-});
+}, areGridPropsEqual);
 
 function hiddenColumnsByPrefs(prefs: ReturnType<typeof useUiStore.getState>['gridColumnPrefs'][string] | undefined) {
   const hidden = new Set<string>();
