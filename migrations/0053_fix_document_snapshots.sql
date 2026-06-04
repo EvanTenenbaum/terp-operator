@@ -9,7 +9,7 @@
 
 DROP TABLE IF EXISTS document_snapshots CASCADE;
 
-CREATE TABLE document_snapshots (
+CREATE TABLE IF NOT EXISTS document_snapshots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   kind VARCHAR(32) NOT NULL,
   source_entity_type VARCHAR(32) NOT NULL,
@@ -44,15 +44,15 @@ CREATE TABLE document_snapshots (
   )
 );
 
-CREATE INDEX document_snapshots_entity_idx
+CREATE INDEX IF NOT EXISTS document_snapshots_entity_idx
   ON document_snapshots (source_entity_type, source_entity_id, audience, status);
 
-CREATE INDEX document_snapshots_command_idx
+CREATE INDEX IF NOT EXISTS document_snapshots_command_idx
   ON document_snapshots (command_id);
 
-CREATE INDEX document_snapshots_supersedes_idx
+CREATE INDEX IF NOT EXISTS document_snapshots_supersedes_idx
   ON document_snapshots (supersedes_id);
 
-CREATE UNIQUE INDEX document_snapshots_finalized_content_unique
+CREATE UNIQUE INDEX IF NOT EXISTS document_snapshots_finalized_content_unique
   ON document_snapshots (source_entity_type, source_entity_id, audience, content_hash)
   WHERE status = 'finalized';

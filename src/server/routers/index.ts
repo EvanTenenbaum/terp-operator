@@ -3,6 +3,7 @@ import { authRouter } from './auth';
 import { commandsRouter } from './commands';
 import { creditRouter } from './credit';
 import { filtersRouter } from './filters';
+import { mediaRouter } from './media';
 import { queriesRouter } from './queries';
 import { subscriptionsRouter } from './subscriptions';
 
@@ -11,6 +12,7 @@ export const appRouter = router({
   commands: commandsRouter,
   credit: creditRouter,
   filters: filtersRouter,
+  media: mediaRouter,
   queries: queriesRouter,
   subscriptions: subscriptionsRouter
 });

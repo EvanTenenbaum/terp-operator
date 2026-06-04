@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { persist } from 'zustand/middleware';
 import type { DrawerEntityRef, DrawerState, DrawerStateName, GridRow, QuickLaunchMode, RouteHistoryEntry, SettingsTab, ViewKey } from '../../shared/types';
+import type { FilterGroupInput } from '../../shared/filterSchemas';
 
 // CAP-024: Ledger draft shape — kept here so uiStore and QuickLedgerGrid share one definition.
 export type LedgerDirection = 'receiving' | 'paying';
@@ -84,7 +85,6 @@ interface UiState {
   commandPaletteAdvancedOpen: boolean;
   // TER-1633: unified spotlight tab — 'commands' (⌘K) or 'entities' (⌘⇧F)
   commandPaletteTab: 'commands' | 'entities';
-  rightPanelOpen: boolean;
   sideNavCollapsed: boolean;
   drilldownMetric: string | null;
   collapsedPanels: Record<string, boolean>;
@@ -93,6 +93,7 @@ interface UiState {
   drawerByView: Record<string, DrawerState>;
   activeDrawerEntityByView: Partial<Record<ViewKey, DrawerEntityRef>>;
   gridFilters: Partial<Record<ViewKey, string>>;
+  gridAdvancedFilters: Partial<Record<ViewKey, FilterGroupInput>>;
   gridColumnPrefs: Record<string, GridColumnPref[]>;
   routeHistory: RouteHistoryEntry[];
   toasts: Toast[];
@@ -147,6 +148,8 @@ interface UiState {
   // Persisted as a benign UX preference (no PII/UUIDs). Keyed by view name.
   lastUsedDrawerStateByView: Record<string, DrawerStateName>;
   setGridFilter: (view: ViewKey, filter: string) => void;
+  setGridAdvancedFilter: (view: ViewKey, filter: FilterGroupInput) => void;
+  clearGridAdvancedFilter: (view: ViewKey) => void;
   setGridColumnPrefs: (tableKey: string, prefs: GridColumnPref[]) => void;
   resetGridColumnPrefs: (tableKey: string) => void;
   pushRouteHistory: (entry: Omit<RouteHistoryEntry, 'timestamp'>) => void;
@@ -191,7 +194,6 @@ export const useUiStore = create<UiState>()(
     commandPaletteOpen: false,
     commandPaletteAdvancedOpen: false,
     commandPaletteTab: 'commands' as const,
-    rightPanelOpen: false,
     sideNavCollapsed: false,
     drilldownMetric: null,
     collapsedPanels: {},
@@ -201,6 +203,7 @@ export const useUiStore = create<UiState>()(
     activeDrawerEntityByView: {},
     lastUsedDrawerStateByView: {},
     gridFilters: {},
+    gridAdvancedFilters: {},
     gridColumnPrefs: {},
     routeHistory: [],
     toasts: [],
@@ -375,6 +378,16 @@ export const useUiStore = create<UiState>()(
         state.gridFilters[view] = filter;
         state.announcement = filter ? `Filtered ${view}.` : `Cleared ${view} filter.`;
       }),
+    setGridAdvancedFilter: (view, filter) =>
+      set((state) => {
+        state.gridAdvancedFilters[view] = filter;
+        state.announcement = filter.conditions.length ? `Advanced filter applied to ${view}.` : `Cleared ${view} advanced filter.`;
+      }),
+    clearGridAdvancedFilter: (view) =>
+      set((state) => {
+        delete state.gridAdvancedFilters[view];
+        state.announcement = `Cleared ${view} advanced filter.`;
+      }),
     setGridColumnPrefs: (tableKey, prefs) =>
       set((state) => {
         state.gridColumnPrefs[tableKey] = prefs;
@@ -433,6 +446,7 @@ export const useUiStore = create<UiState>()(
         state.activeDrawerEntityByView = {};
         state.drawerByView = {};
         state.gridFilters = {};
+        state.gridAdvancedFilters = {};
         state.drilldownMetric = null;
         state.routeHistory = [];
         state.toasts = [];

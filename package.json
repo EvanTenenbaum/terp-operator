@@ -34,6 +34,7 @@
     "docs:inventory": "tsx scripts/extract-component-inventory.ts",
     "cron:credit-engine-nightly": "tsx scripts/credit-engine-nightly-cron.ts",
     "cron:balance-reconciliation": "tsx scripts/customer-balance-reconciliation-cron.ts",
+    "cron:media-cleanup": "tsx scripts/media-cleanup-cron.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 9999"
   },

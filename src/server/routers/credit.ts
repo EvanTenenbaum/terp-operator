@@ -273,6 +273,40 @@ interface CountRaw {
 }
 
 // ---------------------------------------------------------------------------
+// 7) creditEngineConfigHistory — TER-1648
+// ---------------------------------------------------------------------------
+
+interface ConfigHistoryRowRaw {
+  id: string;
+  changed_at: Date;
+  changed_by: string;
+  changed_by_name: string;
+  changed_by_email: string;
+  command_id: string | null;
+  pre_state: Record<string, unknown>;
+  post_state: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// 8) creditEngineStanceHistory — TER-1648
+// ---------------------------------------------------------------------------
+
+interface StanceHistoryRowRaw {
+  id: string;
+  stance_id: string;
+  stance_name: string;
+  changed_at: Date;
+  changed_by: string;
+  changed_by_name: string;
+  changed_by_email: string;
+  command_id: string | null;
+  action: string;
+  pre_state: Record<string, unknown> | null;
+  post_state: Record<string, unknown> | null;
+  affected_customer_count: number | null;
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -984,7 +1018,80 @@ export const creditRouter = router({
           )
         );
       return { ok: true };
-    })
+    }),
+
+  /**
+   * Credit engine config change history (TER-1648).
+   * Manager+ read-only. Returns config changes in newest-first order
+   * with the changer's name and email joined from the users table.
+   */
+  creditEngineConfigHistory: managerOrOwnerProcedure.query(async () => {
+    const result = await pool.query<ConfigHistoryRowRaw>(
+      `SELECT h.id,
+              h.changed_at,
+              h.changed_by,
+              u.name AS changed_by_name,
+              u.email AS changed_by_email,
+              h.command_id,
+              h.pre_state,
+              h.post_state
+       FROM credit_engine_config_history h
+       JOIN users u ON u.id = h.changed_by
+       ORDER BY h.changed_at DESC`
+    );
+
+    return result.rows.map((r) => ({
+      id: r.id,
+      changedAt: r.changed_at,
+      changedBy: r.changed_by,
+      changedByName: r.changed_by_name,
+      changedByEmail: r.changed_by_email,
+      commandId: r.command_id,
+      preState: r.pre_state,
+      postState: r.post_state
+    }));
+  }),
+
+  /**
+   * Credit engine stance change history (TER-1648).
+   * Manager+ read-only. Returns stance changes in newest-first order
+   * with the changer's name, email, and the stance name joined.
+   */
+  creditEngineStanceHistory: managerOrOwnerProcedure.query(async () => {
+    const result = await pool.query<StanceHistoryRowRaw>(
+      `SELECT h.id,
+              h.stance_id,
+              COALESCE(s.name, '(deleted)') AS stance_name,
+              h.changed_at,
+              h.changed_by,
+              u.name AS changed_by_name,
+              u.email AS changed_by_email,
+              h.command_id,
+              h.action,
+              h.pre_state,
+              h.post_state,
+              h.affected_customer_count
+       FROM credit_engine_stance_history h
+       JOIN users u ON u.id = h.changed_by
+       LEFT JOIN credit_engine_stances s ON s.id = h.stance_id
+       ORDER BY h.changed_at DESC`
+    );
+
+    return result.rows.map((r) => ({
+      id: r.id,
+      stanceId: r.stance_id,
+      stanceName: r.stance_name,
+      changedAt: r.changed_at,
+      changedBy: r.changed_by,
+      changedByName: r.changed_by_name,
+      changedByEmail: r.changed_by_email,
+      commandId: r.command_id,
+      action: r.action,
+      preState: r.pre_state,
+      postState: r.post_state,
+      affectedCustomerCount: r.affected_customer_count
+    }));
+  })
 });
 
 // Exported for unit tests so they can build mock callers without exporting

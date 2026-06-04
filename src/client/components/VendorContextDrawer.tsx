@@ -2,10 +2,16 @@ import { X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { trpc } from '../api/trpc';
 
 function moneyish(value: unknown) {
   const numberValue = Number(value ?? 0);
   return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
+}
+
+function pctish(value: unknown) {
+  const numberValue = Number(value ?? 0);
+  return Number.isFinite(numberValue) ? `${numberValue.toFixed(1)}%` : '—';
 }
 
 type TabKey = 'context' | 'quickAdds' | 'history';
@@ -47,6 +53,12 @@ export function VendorContextDrawer({
   onQuickAdd
 }: VendorContextDrawerProps): React.ReactElement | null {
   const [activeTab, setActiveTab] = useState<TabKey>('context');
+  const [expandedPoId, setExpandedPoId] = useState<string | null>(null);
+
+  const lineItemsQuery = trpc.queries.purchaseOrderLines.useQuery(
+    { purchaseOrderId: expandedPoId ?? '00000000-0000-0000-0000-000000000000' },
+    { enabled: Boolean(expandedPoId) }
+  );
 
   // K4 (phase7-keyboard-a11y-audit): Trap focus inside the vendor context drawer.
   const drawerRef = useFocusTrap<HTMLElement>(isOpen, onClose);
@@ -199,23 +211,85 @@ export function VendorContextDrawer({
           {activeTab === 'history' && (
             <div className="space-y-2">
               {relationshipData?.purchaseOrders && relationshipData.purchaseOrders.length > 0 ? (
-                relationshipData.purchaseOrders.map((po) => (
-                  <div
-                    key={po.id}
-                    className="px-4 py-3 rounded-lg border border-gray-200 text-sm"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-gray-900">{po.poNo}</span>
-                      <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
-                        {po.status}
-                      </span>
+                relationshipData.purchaseOrders.map((po) => {
+                  const isExpanded = expandedPoId === po.id;
+                  const lineItems = isExpanded ? lineItemsQuery.data : null;
+                  const isLoadingLines = isExpanded && lineItemsQuery.isLoading;
+                  return (
+                    <div key={po.id}>
+                      <button
+                        onClick={() => setExpandedPoId(isExpanded ? null : po.id)}
+                        className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-colors ${
+                          isExpanded
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-blue-400 hover:bg-gray-50'
+                        }`}
+                        type="button"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-900">{po.poNo}</span>
+                          <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
+                            {po.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-gray-600">
+                          <span>{new Date(po.createdAt).toLocaleDateString()}</span>
+                          <strong className="text-gray-900">${moneyish(po.total)}</strong>
+                        </div>
+                      </button>
+                      {/* Expanded line items */}
+                      {isExpanded && (
+                        <div className="mt-1 ml-2 border-l-2 border-blue-300 pl-3 space-y-2">
+                          {isLoadingLines ? (
+                            <div className="text-xs text-gray-400 py-2">Loading line items…</div>
+                          ) : lineItemsQuery.isError ? (
+                            <div className="text-xs text-red-500 py-2">Failed to load line items.</div>
+                          ) : lineItems && lineItems.length > 0 ? (
+                            lineItems.map((line: Record<string, unknown>) => {
+                              const qty = Number(line.qty ?? 0);
+                              const unitCost = Number(line.unitCost ?? 0);
+                              const soldRevenue = Number(line.soldRevenue ?? 0);
+                              const soldCost = Number(line.soldCost ?? 0);
+                              const cogs = qty * unitCost;
+                              const marginPct = soldRevenue > 0
+                                ? ((soldRevenue - soldCost) / soldRevenue) * 100
+                                : null;
+                              const currentStock = Number(line.currentStock ?? 0);
+                              return (
+                                <div key={String(line.id)} className="py-2 text-xs border-b border-gray-100 last:border-b-0">
+                                  <div className="flex justify-between mb-1">
+                                    <span className="font-medium text-gray-900 truncate max-w-[160px]">
+                                      {String(line.productName ?? '—')}
+                                    </span>
+                                    <span className="text-gray-500">{moneyish(qty)} {String(line.uom ?? '')}</span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-gray-600">
+                                    <div><span className="text-gray-400">Unit cost</span> ${moneyish(unitCost)}</div>
+                                    <div><span className="text-gray-400">COGS</span> ${moneyish(cogs)}</div>
+                                    <div>
+                                      <span className="text-gray-400">Margin</span>{' '}
+                                      {marginPct !== null ? pctish(marginPct) : <span className="text-gray-400">—</span>}
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-400">Stock</span>{' '}
+                                      {currentStock > 0 ? (
+                                        <span className="font-semibold text-green-700">{moneyish(currentStock)} {String(line.uom ?? '')}</span>
+                                      ) : (
+                                        <span className="text-red-500 font-semibold">OUT</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="text-xs text-gray-400 py-2">No line items found for this PO.</div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between text-gray-600">
-                      <span>{new Date(po.createdAt).toLocaleDateString()}</span>
-                      <strong className="text-gray-900">${moneyish(po.total)}</strong>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-8 text-sm text-gray-500">
                   No historical POs found.

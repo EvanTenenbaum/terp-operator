@@ -24,6 +24,7 @@ vi.mock('../api/trpc', () => ({
       recentCustomerSheets: { useQuery: () => ({ data: [], isLoading: false }) },
       customerSheetSnapshotById: { useQuery: () => ({ data: null, isLoading: false }) }
     },
+    useQueries: () => [],
     filters: {
       listSavedFilters: { useQuery: () => ({ data: [] }) },
       saveFilter: { useMutation: () => ({ mutateAsync: vi.fn() }) }

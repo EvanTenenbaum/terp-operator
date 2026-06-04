@@ -36,7 +36,6 @@ function snapshotDefaults(): void {
     selectedRows: {},
     commandPaletteOpen: false,
     commandPaletteAdvancedOpen: false,
-    rightPanelOpen: false,
     sideNavCollapsed: false,
     drilldownMetric: null,
     collapsedPanels: {},

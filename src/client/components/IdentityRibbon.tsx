@@ -10,6 +10,7 @@ const viewLabels: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
   reports: 'Reports',
   purchaseOrders: 'Purchase Orders',
+  purchaseReceipts: 'Purchase Receipts',
   intake: 'Intake',
   sales: 'Sales',
   matchmaking: 'Matchmaking',
@@ -26,6 +27,8 @@ const viewLabels: Record<ViewKey, string> = {
   processors: 'Payment Processors',
   'credit-review': 'Credit Review',
   photography: 'Photography',
+  items: 'Items',
+  disputes: 'Invoice Disputes',
   contacts: 'Contacts', // CAP-033 / TER-1564
   settings: 'Settings',
   pick: 'Pick Queue', // CAP-030 / TER-1513

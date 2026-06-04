@@ -434,6 +434,7 @@ function buildBatchColumns(
   return [
     { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
     { field: 'name', minWidth: 180 },
+    { field: 'subcategory', width: 120 },
     {
       field: 'itemAlias',
       headerName: 'Market name',

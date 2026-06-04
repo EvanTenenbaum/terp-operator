@@ -11,6 +11,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  pgView,
   primaryKey,
   text,
   timestamp,
@@ -148,6 +149,8 @@ export const items = pgTable('items', {
   category: varchar('category', { length: 80 }).notNull(),
   tags: text('tags').array().notNull().default([]),
   pricingRule: jsonb('pricing_rule').$type<Record<string, unknown>>().notNull().default({}),
+  status: varchar('status', { length: 24 }).notNull().default('active'),
+  description: text('description'),
   createdAt: now(),
   updatedAt: updated()
 });
@@ -226,8 +229,12 @@ export const batches = pgTable(
     itemId: uuid('item_id').references(() => items.id, { onDelete: 'set null' }),
     vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
     brandId: uuid('brand_id').references(() => brands.id, { onDelete: 'restrict' }),
-    purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
-    purchaseOrderLineId: uuid('purchase_order_line_id').references(() => purchaseOrderLines.id, { onDelete: 'set null' }),
+    // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+    // Deleting a purchase order that has batches is now rejected.
+    purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'restrict' }),
+    // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+    // Deleting a purchase order line that has batches is now rejected.
+    purchaseOrderLineId: uuid('purchase_order_line_id').references(() => purchaseOrderLines.id, { onDelete: 'restrict' }),
     batchCode: varchar('batch_code', { length: 80 }).notNull().unique(),
     sourceCode: varchar('source_code', { length: 120 }),
     shorthand: varchar('shorthand', { length: 120 }),
@@ -285,8 +292,12 @@ export const inventoryMovements = pgTable('inventory_movements', {
 export const purchaseReceipts = pgTable('purchase_receipts', {
   id: id(),
   receiptNo: varchar('receipt_no', { length: 80 }).notNull().unique(),
-  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
-  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+  // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+  // Deleting a vendor that has purchase receipts is now rejected.
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'restrict' }),
+  // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+  // Deleting a purchase order that has purchase receipts is now rejected.
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'restrict' }),
   status: varchar('status', { length: 32 }).notNull().default('posted'),
   total: numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
   createdAt: now(),
@@ -372,8 +383,12 @@ export const systemSettings = pgTable('system_settings', {
 export const invoices = pgTable('invoices', {
   id: id(),
   invoiceNo: varchar('invoice_no', { length: 80 }).notNull().unique(),
-  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
-  orderId: uuid('order_id').references(() => salesOrders.id, { onDelete: 'set null' }),
+  // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+  // Deleting a customer that has invoices is now rejected.
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'restrict' }),
+  // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+  // Deleting a sales order that has invoices is now rejected.
+  orderId: uuid('order_id').references(() => salesOrders.id, { onDelete: 'restrict' }),
   status: varchar('status', { length: 32 }).notNull().default('open'),
   total: numeric('total', { precision: 12, scale: 2 }).notNull(),
   amountPaid: numeric('amount_paid', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -384,7 +399,9 @@ export const invoices = pgTable('invoices', {
 
 export const payments = pgTable('payments', {
   id: id(),
-  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+  // Deleting a customer that has payments is now rejected.
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'restrict' }),
   method: varchar('method', { length: 32 }).notNull(),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   unappliedAmount: numeric('unapplied_amount', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -413,9 +430,15 @@ export const paymentAllocations = pgTable('payment_allocations', {
 
 export const vendorBills = pgTable('vendor_bills', {
   id: id(),
-  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
-  purchaseReceiptId: uuid('purchase_receipt_id').references(() => purchaseReceipts.id, { onDelete: 'set null' }),
-  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+  // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+  // Deleting a vendor that has vendor bills is now rejected.
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'restrict' }),
+  // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+  // Deleting a purchase receipt that has vendor bills is now rejected.
+  purchaseReceiptId: uuid('purchase_receipt_id').references(() => purchaseReceipts.id, { onDelete: 'restrict' }),
+  // GH #376: Changed from ON DELETE SET NULL → ON DELETE RESTRICT (migration 0075).
+  // Deleting a purchase order that has vendor bills is now rejected.
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'restrict' }),
   billNo: varchar('bill_no', { length: 80 }).notNull().unique(),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   amountPaid: numeric('amount_paid', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -1040,20 +1063,80 @@ export type NewMediaCleanupLog = typeof mediaCleanupLog.$inferInsert;
 export type DocumentSnapshot = typeof documentSnapshots.$inferSelect;
 export type NewDocumentSnapshot = typeof documentSnapshots.$inferInsert;
 
-// View: batch_media_summary (migration 0036). Queried via raw pool.query() in
-// Phase D tRPC routes; no pgTable definition needed for views. Counts are
-// returned as strings by node-postgres because COUNT() yields bigint in PG.
-export type BatchMediaSummary = {
-  batch_id: string;
-  batch_code: string;
-  name: string;
-  published_media_count: string;
-  draft_media_count: string;
-  total_media_count: string;
-  has_primary_photo: boolean;
-  has_primary_video: boolean;
-  media_updated_at: Date | null;
+// ── Database Views ──────────────────────────────────────────────────────────
+// Typed via Drizzle pgView for column-name visibility. Views are currently
+// queried through raw pool.query() — the pgView types use Drizzle's camelCase
+// column-name convention (which maps to the actual snake_case SQL columns).
+// When querying via raw SQL, note that node-postgres returns bigint/numeric
+// columns as strings; Drizzle-inferred types use number/string respectively.
+
+// View: batch_media_summary (migration 0036)
+export const batchMediaSummaryView = pgView('batch_media_summary', {
+  batchId: uuid('batch_id').notNull(),
+  batchCode: varchar('batch_code', { length: 80 }).notNull(),
+  name: varchar('name', { length: 180 }).notNull(),
+  publishedMediaCount: bigint('published_media_count', { mode: 'number' }).notNull(),
+  draftMediaCount: bigint('draft_media_count', { mode: 'number' }).notNull(),
+  totalMediaCount: bigint('total_media_count', { mode: 'number' }).notNull(),
+  hasPrimaryPhoto: boolean('has_primary_photo').notNull(),
+  hasPrimaryVideo: boolean('has_primary_video').notNull(),
+  mediaUpdatedAt: timestamp('media_updated_at', { withTimezone: true }),
+}).existing();
+
+export type BatchMediaSummary = typeof batchMediaSummaryView.$inferSelect;
+
+// View: batches_customer_safe (migration 0024)
+export const batchesCustomerSafeView = pgView('batches_customer_safe', {
+  id: uuid('id').notNull(),
+  batchCode: varchar('batch_code', { length: 80 }).notNull(),
+  name: varchar('name', { length: 180 }).notNull(),
+  category: varchar('category', { length: 80 }).notNull(),
+  subcategory: varchar('subcategory', { length: 80 }),
+  tags: text('tags').array().notNull(),
+  availableQty: numeric('available_qty', { precision: 12, scale: 3 }).notNull(),
+  unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull(),
+  location: varchar('location', { length: 120 }).notNull(),
+  intakeDate: timestamp('intake_date', { withTimezone: true }),
+  status: varchar('status', { length: 32 }).notNull(),
+  photoUrl: text('photo_url'),
+  mediaStatus: varchar('media_status', { length: 32 }).notNull(),
+  brandName: varchar('brand_name', { length: 80 }),
+  vendorName: varchar('vendor_name', { length: 80 }),
+}).existing();
+
+export type BatchesCustomerSafe = typeof batchesCustomerSafeView.$inferSelect;
+
+// View: batches_operator (migration 0024). Selects b.* (all batches columns)
+// plus joined brand/vendor names. Columns match the batches table exactly.
+// CAUTION: If batches columns are added/renamed, this view picks them up
+// automatically (b.*), but the TypeScript type must be updated manually.
+export type BatchesOperator = Batch & {
+  brandRealName: string | null;
+  brandCurrentAlias: string | null;
+  vendorRealName: string | null;
+  vendorCurrentAlias: string | null;
 };
+
+// View: referee_summary (migration 0014)
+export const refereeSummaryView = pgView('referee_summary', {
+  id: uuid('id').notNull(),
+  name: varchar('name', { length: 180 }).notNull(),
+  email: varchar('email', { length: 240 }),
+  phone: varchar('phone', { length: 80 }),
+  balance: numeric('balance', { precision: 12, scale: 2 }).notNull(),
+  lifetimeEarned: numeric('lifetime_earned', { precision: 12, scale: 2 }).notNull(),
+  paymentMethod: varchar('payment_method', { length: 32 }),
+  active: boolean('active').notNull(),
+  activeRelationships: bigint('active_relationships', { mode: 'number' }).notNull(),
+  unpaidCredits: bigint('unpaid_credits', { mode: 'number' }).notNull(),
+  lastPayoutDate: timestamp('last_payout_date', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+}).existing();
+
+export type RefereeSummary = typeof refereeSummaryView.$inferSelect;
+
+// ── Tables (continued) ──────────────────────────────────────────────────────
 
 export const creditEngineStances = pgTable('credit_engine_stances', {
   id: id(),

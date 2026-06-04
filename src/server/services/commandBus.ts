@@ -29,6 +29,7 @@ import {
   connectorRequests,
   contacts,
   contactLedgerEntries,
+  contactMergeCandidates,
   correctionJournalEntries,
   creditEngineConfig,
   creditEngineConfigHistory,
@@ -90,7 +91,10 @@ import {
   cancelAppointmentPayloadSchema,
   completeAppointmentPayloadSchema,
   updateVendorPayloadSchema,
-  updateProcessorPayloadSchema
+  updateProcessorPayloadSchema,
+  // D2 — merge candidate review (RBAC + audit trail)
+  approveMergeCandidatePayloadSchema,
+  dismissMergeCandidatePayloadSchema
 } from '../../shared/schemas';
 import {
   accrueRefereeCredit,
@@ -110,6 +114,7 @@ import {
 import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
 import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
+import { invalidateReferenceCache } from '../routers/queries';
 import { photoUploadTokens } from '../schema';
 import { emitPickEvent, emitPickOrderAndQueue, emitSalesLineEvent } from '../sockets';
 
@@ -345,6 +350,164 @@ const createCustomerNeedPayloadSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
+// ─── Per-command payload validation schemas (GH #388) ────────────────────────
+// Second tranche: ~20 highest-risk financial, purchase-order, and inventory
+// command handlers that previously validated only via inline guards.
+
+const unallocatePaymentPayloadSchema = z.object({
+  allocationId: z.string().uuid(),
+});
+
+const refundPaymentPayloadSchema = z.object({
+  paymentId: z.string().uuid(),
+});
+
+const applyClientCreditPayloadSchema = z.object({
+  customerId: z.string().uuid(),
+  amount: z.coerce.number(),
+  reason: z.string().optional(),
+});
+
+const createVendorBillPayloadSchema = z.object({
+  vendorId: z.string().uuid(),
+  amount: z.coerce.number(),
+  dueDate: z.string().optional(),
+  dueReason: z.string().optional(),
+});
+
+const scheduleVendorPaymentPayloadSchema = z.object({
+  vendorBillId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  scheduledFor: z.string().optional(),
+});
+
+const recordVendorPaymentPayloadSchema = z.object({
+  vendorBillId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  amount: z.coerce.number().optional(),
+  method: z.string().optional(),
+  reference: z.string().optional(),
+  overrideUnscheduled: z.boolean().optional(),
+  date: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
+const voidVendorPaymentPayloadSchema = z.object({
+  vendorPaymentId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+});
+
+const recordVendorPrepaymentPayloadSchema = z.object({
+  purchaseOrderId: z.string().uuid(),
+  amount: z.coerce.number(),
+  method: z.string().optional(),
+  reference: z.string().optional(),
+});
+
+const postTransactionLedgerRowPayloadSchema = z.object({
+  direction: z.string().min(1),
+  entityType: z.string().min(1),
+  transactionType: z.string().min(1),
+  amount: z.coerce.number(),
+  entityId: z.string().uuid().optional(),
+  entityName: z.string().optional(),
+  kind: z.string().optional(),
+  method: z.string().optional(),
+  reference: z.string().optional(),
+  notes: z.string().optional(),
+  allocationTargetType: z.string().optional(),
+  allocationTargetId: z.string().uuid().optional(),
+  allocationIntent: z.string().optional(),
+  bucket: z.string().optional(),
+  date: z.string().optional(),
+});
+
+const upsertTransactionTypePayloadSchema = z.object({
+  label: z.string().min(1),
+  slug: z.string().optional(),
+  direction: z.string().min(1),
+  allowedEntityTypes: z.union([z.array(z.string()), z.string()]).optional(),
+  entityType: z.string().optional(),
+  defaultMethod: z.string().optional(),
+  defaultBucket: z.string().optional(),
+  defaultAllocationIntent: z.string().optional(),
+  requiresApproval: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+
+const resolveInvoiceDisputePayloadSchema = z.object({
+  disputeId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  resolution: z.string().optional(),
+});
+
+const rejectInvoiceDisputePayloadSchema = z.object({
+  disputeId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  reason: z.string().optional(),
+});
+
+const addPurchaseOrderLinePayloadSchema = z.object({
+  purchaseOrderId: z.string().uuid(),
+  productName: z.string().optional(),
+  name: z.string().optional(),
+  category: z.string().optional(),
+  qty: z.coerce.number(),
+  unitCost: z.coerce.number().optional(),
+  costRangeLow: z.coerce.number().optional(),
+  costRangeHigh: z.coerce.number().optional(),
+  uom: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  shorthand: z.string().optional(),
+  sourceCode: z.string().optional(),
+  subcategory: z.string().optional(),
+  notes: z.string().optional(),
+  internalNotes: z.string().optional(),
+  externalNotes: z.string().optional(),
+  legacyMarker: z.string().optional(),
+  ownershipStatus: z.string().optional(),
+});
+
+const removePurchaseOrderLinePayloadSchema = z.object({
+  lineId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+});
+
+const approvePurchaseOrderPayloadSchema = z.object({
+  purchaseOrderId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+});
+
+const receivePurchaseOrderPayloadSchema = z.object({
+  purchaseOrderId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  lineIds: z.array(z.string().uuid()).optional(),
+});
+
+const cancelPurchaseOrderPayloadSchema = z.object({
+  purchaseOrderId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+});
+
+const postPurchaseReceiptPayloadSchema = z.object({
+  batchIds: z.array(z.string().uuid()).optional(),
+  selectedIds: z.array(z.string().uuid()).optional(),
+  discrepancyNotes: z.record(z.unknown()).optional(),
+});
+
+const verifyAllIntakePayloadSchema = z.object({
+  purchaseOrderId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+});
+
+const adjustBatchQuantityPayloadSchema = z.object({
+  batchId: z.string().uuid().optional(),
+  id: z.string().uuid().optional(),
+  deltaQty: z.coerce.number().optional(),
+  qtyDelta: z.coerce.number().optional(),
+  reason: z.string().optional(),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const moneyScale = (value: unknown): string => {
@@ -555,18 +718,50 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
           affectedIds: [],
           toast: 'Command timed out without completing. Please retry.'
         };
-        await db
+        // Atomic compare-and-swap: only flip to 'failed' if the row is still
+        // 'pending'. Two concurrent sweepers racing on the same stale row will
+        // both try this UPDATE, but only one will actually modify the row
+        // (the second sees status already != 'pending' and gets zero rows back).
+        // If we lost the sweep race, re-read and replay the cached result
+        // (which the winning sweeper just wrote) instead of throwing a second
+        // timeout error.
+        const swept = await db
           .update(commandJournal)
           .set({
             status: 'failed',
             result: orphanResult as unknown as Record<string, unknown>,
             error: 'orphaned: pending claim exceeded stale threshold without completion'
           })
-          .where(eq(commandJournal.id, existing.id));
-        // Surface a retryable error. We do NOT auto-re-execute under the same
-        // idempotency key here: the safer contract is that the caller observes
-        // the timeout and re-submits with a fresh idempotency key.
-        throw new Error('Previous attempt timed out. Please retry with a new request.');
+          .where(and(
+            eq(commandJournal.id, existing.id),
+            eq(commandJournal.status, 'pending')
+          ))
+          .returning();
+
+        if (swept.length > 0) {
+          // We won the sweep — surface a retryable error. We do NOT auto-re-execute
+          // under the same idempotency key: the safer contract is that the caller
+          // observes the timeout and re-submits with a fresh idempotency key.
+          throw new Error('Previous attempt timed out. Please retry with a new request.');
+        }
+
+        // Lost the sweep race — another caller already flipped this row.
+        // Re-read the current state and replay the cached result so we don't
+        // throw a duplicate timeout error.
+        const [sweptByAnother] = await db
+          .select()
+          .from(commandJournal)
+          .where(eq(commandJournal.id, existing.id))
+          .limit(1);
+
+        if (sweptByAnother && sweptByAnother.status !== 'pending') {
+          return sweptByAnother.result as unknown as CommandResult;
+        }
+
+        // Extremely unlikely: still pending after losing the sweep race.
+        // Fall through to the poll loop below so we don't silently hang.
+        // (This path should not be reachable in practice — the winning
+        // sweeper's UPDATE committed before our re-read returns.)
       }
       // Winner still running — poll briefly so truly concurrent callers (e.g.
       // two simultaneous network requests with the same key) can replay the
@@ -1047,6 +1242,8 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return setCustomerPricingRule(tx, payload, commandId);
     case 'setDefaultPricingRule':
       return setDefaultPricingRule(tx, payload, commandId);
+    case 'updateSystemSetting':
+      return updateSystemSetting(tx, payload, commandId);
     case 'mintPhotoUploadToken':
       return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
@@ -1076,6 +1273,21 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return updateVendor(tx, payload, commandId);
     case 'updateProcessor':
       return updateProcessor(tx, payload, commandId);
+    case 'createItem':
+      return createItem(tx, payload, commandId);
+    case 'updateItem':
+      return updateItem(tx, payload, commandId);
+    case 'toggleItemStatus':
+      return toggleItemStatus(tx, payload, commandId);
+    case 'resolveInvoiceDispute':
+      return resolveInvoiceDispute(tx, payload, commandId);
+    case 'rejectInvoiceDispute':
+      return rejectInvoiceDispute(tx, payload, commandId);
+    // D2 — merge candidate review (RBAC + audit trail)
+    case 'approveMergeCandidate':
+      return approveMergeCandidate(tx, payload, commandId);
+    case 'dismissMergeCandidate':
+      return dismissMergeCandidate(tx, payload, commandId);
     default:
       throw new Error(`Command not yet implemented in commandBus: ${name}`);
   }
@@ -1221,6 +1433,7 @@ async function deleteBatch(tx: Tx, payload: Payload, commandId: string): Promise
 }
 
 async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  postPurchaseReceiptPayloadSchema.parse(payload);
   const batchIds = requiredIds(payload.batchIds ?? payload.selectedIds, 'batchIds');
   const rows = await tx.select().from(batches).where(inArray(batches.id, batchIds));
   if (rows.length !== batchIds.length) throw new Error('One or more selected intake rows no longer exist.');
@@ -1482,6 +1695,7 @@ async function updatePurchaseOrder(tx: Tx, payload: Payload, commandId: string):
  * See: migrations/0010_po_cost_range.sql for DB constraint
  */
 async function addPurchaseOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  addPurchaseOrderLinePayloadSchema.parse(payload);
   const purchaseOrderId = requiredId(payload.purchaseOrderId, 'purchaseOrderId');
 
   // Lock PO row to prevent concurrent line addition and total recalc races.
@@ -1644,6 +1858,7 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
 }
 
 async function removePurchaseOrderLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  removePurchaseOrderLinePayloadSchema.parse(payload);
   const lineId = requiredId(payload.lineId ?? payload.id, 'lineId');
   const [line] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, lineId)).limit(1);
   if (!line) throw new Error('Purchase order line not found.');
@@ -1747,6 +1962,7 @@ async function unfinalizePurchaseOrder(tx: Tx, payload: Payload, commandId: stri
 }
 
 async function recordVendorPrepayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  recordVendorPrepaymentPayloadSchema.parse(payload);
   const purchaseOrderId = requiredId(payload.purchaseOrderId, 'purchaseOrderId');
   const amount = requiredNumber(payload.amount, 'amount');
   if (amount <= 0) throw new Error('Prepayment amount must be greater than zero.');
@@ -1785,6 +2001,7 @@ async function recordVendorPrepayment(tx: Tx, payload: Payload, commandId: strin
 }
 
 async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+  approvePurchaseOrderPayloadSchema.parse(payload);
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
 
   // Lock PO row to prevent concurrent approval races.
@@ -1827,19 +2044,12 @@ async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, co
   }
 
   const affected = [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)];
-  let createdCount = 0;
-  if (order['vendor_id']) {
-    const received = await receivePurchaseOrder(tx, { purchaseOrderId }, commandId);
-    affected.push(...received.affectedIds);
-    createdCount = Math.max(received.affectedIds.length - 1 - lines.length, 0);
-  }
-  const toast = createdCount
-    ? `${order['po_no']} approved and ${createdCount} draft intake row(s) created.`
-    : `${order['po_no']} approved and ready to receive when product arrives.`;
+  const toast = `${order['po_no']} approved. Receive this purchase order when product arrives.`;
   return { ok: true, commandId, affectedIds: [...new Set(affected)], toast };
 }
 
 async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  receivePurchaseOrderPayloadSchema.parse(payload);
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
   if (!order) throw new Error('Purchase order not found.');
@@ -1915,11 +2125,20 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
 }
 
 async function cancelPurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  cancelPurchaseOrderPayloadSchema.parse(payload);
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
   if (!order) throw new Error('Purchase order not found.');
   const lines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
   if (lines.some((line: typeof purchaseOrderLines.$inferSelect) => Number(line.receivedQty) > 0)) throw new Error('Purchase orders with received product cannot be cancelled. Use intake reversal/correction.');
+  // Void any referee credits tied to this purchase order
+  const credits = await tx.select().from(refereeCredits).where(
+    and(eq(refereeCredits.transactionId, purchaseOrderId), eq(refereeCredits.transactionType, 'purchase_order'), eq(refereeCredits.status, 'accrued'))
+  );
+  for (const credit of credits) {
+    await tx.update(refereeCredits).set({ status: 'voided', voidedAt: new Date(), voidedReason: 'PO cancelled' }).where(eq(refereeCredits.id, credit.id));
+  }
+
   await tx.update(purchaseOrders).set({ status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
   await tx.update(purchaseOrderLines).set({ status: 'cancelled', updatedAt: new Date() }).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
   return { ok: true, commandId, affectedIds: [purchaseOrderId, ...lines.map((line: typeof purchaseOrderLines.$inferSelect) => line.id)], toast: `${order.poNo} cancelled.` };
@@ -1993,6 +2212,7 @@ async function flagBatch(tx: Tx, payload: Payload, commandId: string): Promise<C
 }
 
 async function verifyAllIntake(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  verifyAllIntakePayloadSchema.parse(payload);
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
   const [order] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
   if (!order) throw new Error('Purchase order not found.');
@@ -2023,6 +2243,7 @@ async function verifyAllIntake(tx: Tx, payload: Payload, commandId: string, reas
 }
 
 async function adjustBatchQuantity(tx: Tx, payload: Payload, commandId: string, reason?: string): Promise<CommandResult> {
+  adjustBatchQuantityPayloadSchema.parse(payload);
   const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
   const delta = requiredNumber(payload.deltaQty ?? payload.qtyDelta, 'deltaQty');
 
@@ -3175,6 +3396,42 @@ export async function setDefaultPricingRule(tx: Tx, payload: Payload, commandId:
   };
 }
 
+export async function updateSystemSetting(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const key = String(payload.key ?? '').trim();
+  if (!key) throw new Error('Setting key is required.');
+  if (key.length > 80) throw new Error('Setting key must be 80 characters or fewer.');
+  // value must be a plain object — reject arrays, primitives, null
+  const value = payload.value;
+  if (value !== undefined && value !== null && (typeof value !== 'object' || Array.isArray(value))) {
+    throw new Error('Setting value must be a JSON object (not an array, primitive, or null).');
+  }
+  const cleanValue = (value && typeof value === 'object' && !Array.isArray(value)) ? value as Record<string, unknown> : {};
+
+  const [existing] = await tx.select().from(systemSettings).where(eq(systemSettings.key, key)).limit(1);
+  let affectedId: string;
+  if (existing) {
+    await tx
+      .update(systemSettings)
+      .set({ value: cleanValue, updatedAt: new Date() })
+      .where(eq(systemSettings.key, key));
+    affectedId = existing.id;
+  } else {
+    const inserted = await tx
+      .insert(systemSettings)
+      .values({ key, value: cleanValue })
+      .returning();
+    affectedId = inserted[0]?.id ?? key;
+  }
+  invalidateReferenceCache();
+  return {
+    ok: true,
+    commandId,
+    affectedIds: [affectedId],
+    toast: `System setting "${key}" updated.`,
+    delta: { key, value: cleanValue, priorValue: existing?.value ?? null }
+  };
+}
+
 function validatePricingRulePayload(value: unknown): Record<string, unknown> {
   // Migrate old flat categories shape { category: { basis, amount } }
   // to new nested shape { category: { rule: { basis, amount } } }
@@ -3628,6 +3885,7 @@ async function allocateOrderToFulfillment(tx: Tx, payload: Payload, userId: stri
 }
 
 async function applyClientCredit(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  applyClientCreditPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
   const amount = requiredNumber(payload.amount, 'amount');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
@@ -3806,6 +4064,7 @@ async function allocatePayment(tx: Tx, payload: Payload, commandId: string): Pro
 }
 
 async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  unallocatePaymentPayloadSchema.parse(payload);
   const allocationId = requiredId(payload.allocationId, 'allocationId');
   const [allocation] = await tx.select().from(paymentAllocations).where(eq(paymentAllocations.id, allocationId)).limit(1);
   if (!allocation) throw new Error('Allocation not found.');
@@ -3834,6 +4093,7 @@ async function unallocatePayment(tx: Tx, payload: Payload, commandId: string): P
 }
 
 async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  refundPaymentPayloadSchema.parse(payload);
   const paymentId = requiredId(payload.paymentId, 'paymentId');
 
   // Lock payment row to prevent concurrent refund races. Raw `SELECT *` returns
@@ -3935,6 +4195,7 @@ async function applyEarlyPayDiscount(tx: Tx, payload: Payload, commandId: string
 }
 
 async function createVendorBill(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  createVendorBillPayloadSchema.parse(payload);
   const vendorId = requiredId(payload.vendorId, 'vendorId');
   const amount = requiredNumber(payload.amount, 'amount');
   const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
@@ -3954,6 +4215,7 @@ async function updateVendorBillStatus(tx: Tx, payload: Payload, status: string, 
 }
 
 async function scheduleVendorPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  scheduleVendorPaymentPayloadSchema.parse(payload);
   const billId = requiredId(payload.vendorBillId ?? payload.id, 'vendorBillId');
   const scheduledFor = dateOrNull(payload.scheduledFor) ?? oneWeek();
   await tx.update(vendorBills).set({ status: 'scheduled', scheduledFor, dueReason: 'Scheduled payment event exists', updatedAt: new Date() }).where(eq(vendorBills.id, billId));
@@ -3961,6 +4223,7 @@ async function scheduleVendorPayment(tx: Tx, payload: Payload, commandId: string
 }
 
 async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  recordVendorPaymentPayloadSchema.parse(payload);
   const billId = requiredId(payload.vendorBillId ?? payload.id, 'vendorBillId');
 
   // Lock vendor bill row to prevent concurrent payment races.
@@ -3992,6 +4255,7 @@ async function recordVendorPayment(tx: Tx, payload: Payload, commandId: string):
 }
 
 async function voidVendorPayment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  voidVendorPaymentPayloadSchema.parse(payload);
   const paymentId = requiredId(payload.vendorPaymentId ?? payload.id, 'vendorPaymentId');
   const [payment] = await tx.select().from(vendorPayments).where(eq(vendorPayments.id, paymentId)).limit(1);
   if (!payment) throw new Error('Vendor payment not found.');
@@ -4372,6 +4636,7 @@ async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId:
 }
 
 async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionUser, commandId: string): Promise<CommandResult> {
+  postTransactionLedgerRowPayloadSchema.parse(payload);
   const direction = requiredString(payload.direction, 'direction');
   const entityType = requiredString(payload.entityType, 'entityType');
   const transactionType = requiredString(payload.transactionType, 'transactionType');
@@ -4581,6 +4846,7 @@ async function postVendorLedgerPayment(tx: Tx, payload: Payload, transactionDate
 }
 
 async function upsertTransactionType(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  upsertTransactionTypePayloadSchema.parse(payload);
   const label = requiredString(payload.label, 'label');
   const slug = stringValue(payload.slug) || slugFromLabel(label);
   const direction = requiredString(payload.direction, 'direction');
@@ -7387,4 +7653,204 @@ function routeFromRequest(requestType: string) {
 
 function copyIfPresent(target: Record<string, unknown>, key: string, value: unknown) {
   if (value !== undefined) target[key] = value;
+}
+
+// ─── Items / SKU Catalog (TER-1651) ─────────────────────────────────────────
+
+async function createItem(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const name = requiredString(payload.name, 'name');
+  if (name.trim().length < 2) throw new Error('Item name must be at least 2 characters.');
+  const category = requiredString(payload.category, 'category');
+  if (!['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape', 'Edible', 'Other'].includes(category)) {
+    throw new Error(`Category must be one of Flower, Infused, Extract, Pre-roll, Vape, Edible, Other.`);
+  }
+  const trimmedName = name.trim();
+  // Reject duplicates by name + category
+  const [existing] = await tx.select().from(items)
+    .where(and(eq(items.name, trimmedName), eq(items.category, category)))
+    .limit(1);
+  if (existing) return { ok: true, commandId, affectedIds: [existing.id], toast: `Item ${trimmedName} already exists in ${category}.` };
+
+  // Generate SKU with a large random suffix (6 hex chars = 16M+ slots)
+  // to avoid collisions that the old 99-slot Math.random() space caused.
+  const skuPrefix = `${trimmedName.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase()}-${category.slice(0, 3).toUpperCase()}`;
+  const tags = tagValue(payload.tags);
+  await ensureTagCatalog(tx, tags);
+
+  // Retry loop for the extremely rare case of a suffix collision (1 in 16M).
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const suffix = randomBytes(3).toString('hex').toUpperCase();
+    const sku = `${skuPrefix}-${suffix}`;
+    try {
+      const [created] = await tx.insert(items).values({
+        sku,
+        name: trimmedName,
+        alias: stringValue(payload.alias) || null,
+        category,
+        tags,
+        description: stringValue(payload.description) || null,
+        status: 'active'
+      }).returning();
+
+      invalidateReferenceCache();
+      return { ok: true, commandId, affectedIds: [created.id], toast: `${trimmedName} created in ${category}.` };
+    } catch (err: unknown) {
+      lastErr = err;
+      // Only retry on unique-constraint violations (collision); rethrow everything else.
+      const msg = scrubDatabaseError(err).safeMessage;
+      if (!/unique|duplicate|already exists/i.test(msg)) throw err;
+      // Otherwise try again with a new suffix.
+    }
+  }
+  throw lastErr;
+}
+
+async function updateItem(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const itemId = requiredId(payload.itemId ?? payload.id, 'itemId');
+  const [item] = await tx.select().from(items).where(eq(items.id, itemId)).limit(1);
+  if (!item) throw new Error('Item not found.');
+
+  const values: Record<string, unknown> = { updatedAt: new Date() };
+  if (payload.name !== undefined) {
+    const name = requiredString(payload.name, 'name');
+    if (name.trim().length < 2) throw new Error('Item name must be at least 2 characters.');
+    values.name = name.trim();
+  }
+  if (payload.alias !== undefined) {
+    const raw = stringValue(payload.alias);
+    values.alias = (raw && raw.trim()) || null;
+  }
+  if (payload.category !== undefined) {
+    const category = requiredString(payload.category, 'category');
+    if (!['Flower', 'Infused', 'Extract', 'Pre-roll', 'Vape', 'Edible', 'Other'].includes(category)) {
+      throw new Error(`Category must be one of Flower, Infused, Extract, Pre-roll, Vape, Edible, Other.`);
+    }
+    values.category = category;
+  }
+  if (payload.tags !== undefined) {
+    const tags = tagValue(payload.tags);
+    await ensureTagCatalog(tx, tags);
+    values.tags = tags;
+  }
+  if (payload.description !== undefined) {
+    values.description = stringValue(payload.description) || null;
+  }
+
+  // Prevent rename into a duplicate (name, category) pair
+  if (payload.name !== undefined || payload.category !== undefined) {
+    const effectiveName = (values.name as string) ?? item.name;
+    const effectiveCategory = (values.category as string) ?? item.category;
+    const [duplicate] = await tx.select().from(items)
+      .where(and(eq(items.name, effectiveName), eq(items.category, effectiveCategory), sql`${items.id} <> ${itemId}`))
+      .limit(1);
+    if (duplicate) throw new Error(`An item named "${effectiveName}" already exists in the ${effectiveCategory} category.`);
+  }
+
+  if (Object.keys(values).length === 1) {
+    return { ok: true, commandId, affectedIds: [itemId], toast: `${item.name}: no changes to make.` };
+  }
+
+  await tx.update(items).set(values).where(eq(items.id, itemId));
+  invalidateReferenceCache();
+  const changedFields = Object.keys(values).filter(k => k !== 'updatedAt').join(', ');
+  return { ok: true, commandId, affectedIds: [itemId], toast: `${values.name || item.name} updated (${changedFields}).` };
+}
+
+async function toggleItemStatus(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  const itemId = requiredId(payload.itemId ?? payload.id, 'itemId');
+  const [item] = await tx.select().from(items).where(eq(items.id, itemId)).for('update').limit(1);
+  if (!item) throw new Error('Item not found.');
+
+  const currentStatus = item.status ?? 'active';
+  const nextStatus = currentStatus === 'active' ? 'inactive' : 'active';
+  await tx.update(items).set({ status: nextStatus, updatedAt: new Date() }).where(eq(items.id, itemId));
+  const action = nextStatus === 'active' ? 'activated' : 'deactivated';
+  return { ok: true, commandId, affectedIds: [itemId], toast: `${item.name} ${action}.`, delta: { previousStatus: currentStatus, status: nextStatus } };
+}
+
+async function resolveInvoiceDispute(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  resolveInvoiceDisputePayloadSchema.parse(payload);
+  const disputeId = requiredId(payload.disputeId ?? payload.id, 'disputeId');
+  const resolution = stringValue(payload.resolution) || 'Resolved by operator.';
+  const [row] = await tx.select().from(invoiceDisputes).where(eq(invoiceDisputes.id, disputeId)).limit(1);
+  if (!row) throw new Error('Dispute not found.');
+  if (row.status !== 'open') throw new Error('Only open disputes can be resolved.');
+  await tx
+    .update(invoiceDisputes)
+    .set({ status: 'resolved', resolution: resolution || null, updatedAt: new Date() })
+    .where(eq(invoiceDisputes.id, disputeId));
+
+  // Enqueue credit recompute for the affected customer
+  const [invoiceRow] = await tx
+    .select({ customerId: invoices.customerId })
+    .from(invoices)
+    .where(eq(invoices.id, row.invoiceId))
+    .limit(1);
+  if (invoiceRow?.customerId) {
+    await enqueueCustomerRecompute(tx, invoiceRow.customerId, 'event:resolveDispute', commandId);
+  }
+
+  return { ok: true, commandId, affectedIds: [disputeId], toast: 'Invoice dispute resolved.' };
+}
+
+async function rejectInvoiceDispute(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  rejectInvoiceDisputePayloadSchema.parse(payload);
+  const disputeId = requiredId(payload.disputeId ?? payload.id, 'disputeId');
+  const reason = stringValue(payload.reason) || 'Rejected by operator.';
+  const [row] = await tx.select().from(invoiceDisputes).where(eq(invoiceDisputes.id, disputeId)).limit(1);
+  if (!row) throw new Error('Dispute not found.');
+  if (row.status !== 'open') throw new Error('Only open disputes can be rejected.');
+  await tx
+    .update(invoiceDisputes)
+    .set({ status: 'rejected', resolution: reason ? `Rejected: ${reason}` : 'Rejected: (no reason given)', updatedAt: new Date() })
+    .where(eq(invoiceDisputes.id, disputeId));
+
+  // Recompute credit for the customer (dispute rejection re-includes invoice in debtAging)
+  const [invoiceRow] = await tx
+    .select({ customerId: invoices.customerId })
+    .from(invoices)
+    .where(eq(invoices.id, row.invoiceId))
+    .limit(1);
+  if (invoiceRow?.customerId) {
+    await enqueueCustomerRecompute(tx, invoiceRow.customerId, 'event:rejectDispute', commandId);
+  }
+
+  return { ok: true, commandId, affectedIds: [disputeId], toast: 'Invoice dispute rejected.' };
+}
+
+// ─── D2 — merge candidate review (RBAC + audit trail) ─────────────────────
+
+/**
+ * Mark a merge candidate as reviewed (manager-gated, command-journaled).
+ * Does NOT actually merge contacts — just records the operator's review.
+ * Merge execution is a separate capability.
+ */
+async function approveMergeCandidate(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  approveMergeCandidatePayloadSchema.parse(payload);
+  const candidateId = requiredId(payload.candidateId ?? payload.id, 'candidateId');
+  const [row] = await tx.select().from(contactMergeCandidates).where(eq(contactMergeCandidates.id, candidateId)).limit(1);
+  if (!row) throw new Error('Merge candidate not found.');
+  if (row.reviewed) throw new Error('Merge candidate has already been reviewed.');
+  await tx
+    .update(contactMergeCandidates)
+    .set({ reviewed: true, dismissed: false })
+    .where(eq(contactMergeCandidates.id, candidateId));
+  return { ok: true, commandId, affectedIds: [candidateId], toast: 'Merge candidate marked as reviewed. Actual contact merging is not yet available.' };
+}
+
+/**
+ * Dismiss (reject) a merge candidate (manager-gated, command-journaled).
+ */
+async function dismissMergeCandidate(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  dismissMergeCandidatePayloadSchema.parse(payload);
+  const candidateId = requiredId(payload.candidateId ?? payload.id, 'candidateId');
+  const [row] = await tx.select().from(contactMergeCandidates).where(eq(contactMergeCandidates.id, candidateId)).limit(1);
+  if (!row) throw new Error('Merge candidate not found.');
+  if (row.reviewed) throw new Error('Merge candidate has already been reviewed.');
+  await tx
+    .update(contactMergeCandidates)
+    .set({ reviewed: true, dismissed: true })
+    .where(eq(contactMergeCandidates.id, candidateId));
+  return { ok: true, commandId, affectedIds: [candidateId], toast: 'Merge candidate dismissed.' };
 }

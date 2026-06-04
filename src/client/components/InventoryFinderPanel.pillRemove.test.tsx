@@ -46,6 +46,7 @@ vi.mock('../api/trpc', () => ({
     queries: {
       reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) },
     },
+    useQueries: () => [],
     filters: {
       listSavedFilters: { useQuery: () => ({ data: SAVED_FILTERS }) },
       saveFilter: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },

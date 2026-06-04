@@ -2,6 +2,7 @@ import type { Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import { env, isProd } from './env';
 import { sessionMiddleware, getSessionUser } from './auth';
+import { ratelimit } from './utils/ratelimit';
 
 let _io: Server | null = null;
 
@@ -50,11 +51,42 @@ export function createSocketServer(httpServer: HttpServer) {
     // order view and socket.emit('order:unsubscribe', { orderId }) when they leave.
     // This allows pick:order:* and sales:order:*:line:changed events to be scoped
     // to only the clients that are actively viewing a given order.
-    socket.on('order:subscribe', ({ orderId }: { orderId: string }) => {
-      if (orderId) socket.join(`order:${orderId}`);
+    //
+    // GH #446: RBAC — only operator-level roles (owner, manager, operator) may
+    // subscribe to order rooms. Viewer role is excluded. Rate limiting prevents
+    // rapid subscribe/unsubscribe abuse via the shared sliding-window ratelimit.
+    socket.on('order:subscribe', async ({ orderId }: { orderId: string }) => {
+      if (!orderId) return;
+
+      const user = socket.data.user;
+      // Role check: viewers cannot subscribe to order-specific rooms
+      if (!user || user.role === 'viewer') {
+        return;
+      }
+
+      // Rate limiting: prevent rapid subscription abuse
+      const { success } = await ratelimit.limit(`order:sub:${user.id}`, { limit: 20, window: '1m' });
+      if (!success) {
+        console.warn(`[sockets] order:subscribe rate limit exceeded for user ${user.id}`);
+        return;
+      }
+
+      socket.join(`order:${orderId}`);
     });
-    socket.on('order:unsubscribe', ({ orderId }: { orderId: string }) => {
-      if (orderId) socket.leave(`order:${orderId}`);
+    socket.on('order:unsubscribe', async ({ orderId }: { orderId: string }) => {
+      if (!orderId) return;
+
+      const user = socket.data.user;
+      // Rate limiting: prevent rapid unsubscription abuse
+      if (user?.id) {
+        const { success } = await ratelimit.limit(`order:unsub:${user.id}`, { limit: 20, window: '1m' });
+        if (!success) {
+          console.warn(`[sockets] order:unsubscribe rate limit exceeded for user ${user.id}`);
+          return;
+        }
+      }
+
+      socket.leave(`order:${orderId}`);
     });
   });
 
