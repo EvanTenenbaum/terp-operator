@@ -1243,35 +1243,7 @@ export function SalesView() {
           </WorkspacePanel>
         </div>
       ) : (
-        <div className="grid min-h-[420px] grid-cols-1 gap-3 xl:grid-cols-[0.9fr_1.1fr]">
-          <OperatorGrid
-            view="sales"
-            title="Sales Orders"
-            rows={salesOrderRows}
-            columns={visibleOrderColumns}
-            loading={orders.isLoading && !customerId}
-            isError={orders.isError}
-            onRetry={() => orders.refetch()}
-            onSelectionChange={(selection) => setSelectedRows('sales', selection)}
-            emptyTitle="No open sales shown"
-            emptyChildren="Choose a customer to start."
-            expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
-            actions={
-              activeCustomerId && !customerFilterDismissed && activeCustomerName ? (
-                <button
-                  type="button"
-                  className="selection-pill success"
-                  data-testid="sales-customer-scope-chip"
-                  title="Clear customer filter — shows all orders"
-                  aria-label={`Filtered to ${activeCustomerName}. Click to show all orders.`}
-                  onClick={() => setCustomerFilterDismissed(true)}
-                >
-                  Filtered to {activeCustomerName}&nbsp;
-                  <X className="inline h-3 w-3" aria-hidden="true" />
-                </button>
-              ) : undefined
-            }
-          />
+        <div className="grid gap-3">
           <SalesSourcePane
             customerId={customerId}
             selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''}
@@ -1279,6 +1251,36 @@ export function SalesView() {
             initialSearch={salesRequestText}
             onAddBatch={addFinderBatch}
           />
+          <div className="min-h-[420px]">
+            <OperatorGrid
+              view="sales"
+              title="Sales Orders"
+              rows={salesOrderRows}
+              columns={visibleOrderColumns}
+              loading={orders.isLoading && !customerId}
+              isError={orders.isError}
+              onRetry={() => orders.refetch()}
+              onSelectionChange={(selection) => setSelectedRows('sales', selection)}
+              emptyTitle="No open sales shown"
+              emptyChildren="Choose a customer to start."
+              expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
+              actions={
+                activeCustomerId && !customerFilterDismissed && activeCustomerName ? (
+                  <button
+                    type="button"
+                    className="selection-pill success"
+                    data-testid="sales-customer-scope-chip"
+                    title="Clear customer filter — shows all orders"
+                    aria-label={`Filtered to ${activeCustomerName}. Click to show all orders.`}
+                    onClick={() => setCustomerFilterDismissed(true)}
+                  >
+                    Filtered to {activeCustomerName}&nbsp;
+                    <X className="inline h-3 w-3" aria-hidden="true" />
+                  </button>
+                ) : undefined
+              }
+            />
+          </div>
         </div>
       )}
 
