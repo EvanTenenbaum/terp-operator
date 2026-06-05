@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
   CellContextMenuEvent,
@@ -83,7 +83,7 @@ interface OperatorGridProps {
 }
 
 
-export const OperatorGrid = memo(function OperatorGrid({
+export function OperatorGrid({
   view,
   title,
   subtitle,
@@ -709,7 +709,7 @@ export const OperatorGrid = memo(function OperatorGrid({
       ) : null}
     </WorkspacePanel>
   );
-});
+}
 
 function hiddenColumnsByPrefs(prefs: ReturnType<typeof useUiStore.getState>['gridColumnPrefs'][string] | undefined) {
   const hidden = new Set<string>();
