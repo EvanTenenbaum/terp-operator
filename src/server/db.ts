@@ -8,10 +8,14 @@ import * as schema from './schema';
  * tests without instantiating a live pg.Pool.
  *
  * Tuning rationale (CODE-09):
- *   - `max: 25` (raised from 12) — handles peak operator concurrency without
- *     starving requests when a few connections are blocked on slow queries.
- *     25 stays well under the typical 100-connection Postgres ceiling once
- *     replicas, migration jobs, and pgBouncer overhead are accounted for.
+ *   - `max: 8` — the production managed Postgres (DigitalOcean db-s-1vcpu-2gb)
+ *     has max_connections=50 with 3 reserved for superuser (~47 usable) and NO
+ *     PgBouncer pooler; the same pool config is reused by the deploy-time seed
+ *     step, so during a zero-downtime deploy the old instance pool plus the new
+ *     instance's migrate/seed pool must both fit under 47. A single 1-vCPU Node
+ *     instance cannot usefully saturate more than a handful of connections;
+ *     max:8 keeps worst-case deploy overlap (8 + 8) well under the ceiling and
+ *     prevents error 53300 (too_many_connections).
  *   - `statement_timeout: 60_000` (ms) — caps any individual server-side
  *     statement at 60s so a runaway query cannot hold a pool slot indefinitely.
  *     The pg driver expects this option in milliseconds. Analytical jobs that
@@ -24,7 +28,7 @@ import * as schema from './schema';
 export const poolConfig = {
   connectionString: databaseConnectionString(),
   ssl: env.DATABASE_SSL ? { rejectUnauthorized: env.DATABASE_SSL_REJECT_UNAUTHORIZED } : undefined,
-  max: 25,
+  max: 8,
   statement_timeout: 60_000,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5000
