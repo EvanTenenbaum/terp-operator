@@ -22,7 +22,6 @@ import {
   RotateCcw,
   Scale,
   Search,
-  ScanSearch,
   ShoppingCart,
   Settings,
   Smartphone,
@@ -195,7 +194,8 @@ export function Keel({ user }: { user: SessionUser }) {
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const activeView = useUiStore((state) => state.activeView);
   const setCommandPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
-  const setFinderOpen = useUiStore((state) => state.setFinderOpen);
+  const setActiveCustomerId = useUiStore((state) => state.setActiveCustomerId);
+  const activeCustomerId = useUiStore((state) => state.activeCustomerId);
   const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
   const utils = trpc.useContext();
   const logout = trpc.auth.logout.useMutation({
@@ -210,6 +210,7 @@ export function Keel({ user }: { user: SessionUser }) {
     }
   });
   const health = trpc.queries.health.useQuery(undefined, { refetchInterval: 30_000 });
+  const reference = trpc.queries.reference.useQuery();
   const visibleChips = keelChips.filter((chip) => viewVisibleForUser(chip.view, user) && startVisibleForUser(chip.launch, user));
 
   useEffect(() => {
@@ -228,17 +229,7 @@ export function Keel({ user }: { user: SessionUser }) {
         <span>Search</span>
         <kbd className="ml-auto">⌘K</kbd>
       </button>
-      <button
-        type="button"
-        className="command-search keel-search"
-        title="Global finder — search across all entities (⌘⇧F)"
-        onClick={() => setFinderOpen(true)}
-      >
-        <ScanSearch className="h-4 w-4 text-zinc-500" aria-hidden="true" />
-        <span>Find</span>
-        <kbd className="ml-auto">⌘⇧F</kbd>
-      </button>
-      <div className="keel-chip-row" aria-label="Start chips">
+      <div className="keel-chip-row" aria-label="Quick actions and tools">
         {visibleChips.length ? (
           <div className="quick-action-menu" ref={actionMenuRef} onKeyDown={(event) => {
             if (event.key === 'Escape') setActionsOpen(false);
@@ -285,6 +276,24 @@ export function Keel({ user }: { user: SessionUser }) {
             <span>Find</span>
           </button>
         )}
+        {activeView === 'sales' ? (
+          <select
+            className="select compact"
+            value={activeCustomerId ?? ''}
+            onChange={(e) => setActiveCustomerId(e.target.value || null)}
+            title="Choose customer"
+            aria-label="Choose customer"
+            style={{ maxWidth: 200 }}
+          >
+            <option value="">Choose customer</option>
+            {reference.data?.customers.map((c) => (
+              <option key={c.id as string} value={c.id as string}>{c.name as string}</option>
+            ))}
+          </select>
+        ) : null}
+        <button type="button" className="text-button" onClick={() => logout.mutate()}>
+          Sign out
+        </button>
       </div>
       <div className="keel-utilities">
         <div className="keel-status-chip">
@@ -292,9 +301,6 @@ export function Keel({ user }: { user: SessionUser }) {
           <span>{health.data?.ok ? 'Healthy' : 'Needs attention'}</span>
         </div>
         <span className="min-w-0 truncate font-medium text-ink">{user.name}</span>
-        <button type="button" className="text-button" onClick={() => logout.mutate()}>
-          Sign out
-        </button>
       </div>
     </header>
   );
