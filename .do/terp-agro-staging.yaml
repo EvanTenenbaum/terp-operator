@@ -32,6 +32,10 @@ services:
         scope: RUN_TIME
         type: SECRET
         value: "__DATABASE_URL__"
+      - key: MIGRATE_DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: "__MIGRATE_DATABASE_URL__"
       - key: DATABASE_SSL
         scope: RUN_TIME
         value: "true"
