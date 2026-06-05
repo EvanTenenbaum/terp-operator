@@ -1303,3 +1303,10 @@ kbd {
   background-image: linear-gradient(180deg, rgba(176, 105, 21, 0.08), rgba(176, 105, 21, 0.08));
   box-shadow: inset 0 -2px 0 rgba(176, 105, 21, 0.55);
 }
+
+/* Force AG Grid to fill its parent container */
+.grid-shell .ag-root-wrapper {
+  height: 100% !important;
+  display: flex;
+  flex-direction: column;
+}
