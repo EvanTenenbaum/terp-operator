@@ -10,6 +10,7 @@ const branch =
   'main';
 const appOrigin = process.env.STAGING_APP_ORIGIN || 'https://terp-agro-staging.ondigitalocean.app';
 const databaseUrl = process.env.TERP_AGRO_STAGING_DATABASE_URL || process.env.DATABASE_URL || '';
+const migrateDatabaseUrl = process.env.TERP_AGRO_STAGING_MIGRATE_DATABASE_URL || process.env.MIGRATE_DATABASE_URL || databaseUrl;
 const sessionSecret = process.env.TERP_AGRO_STAGING_SESSION_SECRET || process.env.SESSION_SECRET || '';
 const agGridLicense = process.env.VITE_AG_GRID_LICENSE_KEY || '';
 
@@ -26,6 +27,7 @@ spec = spec
   .replaceAll('__BRANCH__', branch)
   .replaceAll('__APP_ORIGIN__', appOrigin)
   .replaceAll('__DATABASE_URL__', databaseUrl)
+  .replaceAll('__MIGRATE_DATABASE_URL__', migrateDatabaseUrl)
   .replaceAll('__SESSION_SECRET__', sessionSecret)
   .replaceAll('__AG_GRID_LICENSE_KEY__', agGridLicense || 'not-set-for-staging');
 
