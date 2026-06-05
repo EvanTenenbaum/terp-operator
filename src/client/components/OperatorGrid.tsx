@@ -709,7 +709,7 @@ export const OperatorGrid = memo(function OperatorGrid({
       ) : null}
     </WorkspacePanel>
   );
-}, areGridPropsEqual);
+});
 
 function hiddenColumnsByPrefs(prefs: ReturnType<typeof useUiStore.getState>['gridColumnPrefs'][string] | undefined) {
   const hidden = new Set<string>();
