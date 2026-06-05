@@ -338,11 +338,6 @@ export function SalesView() {
   } | null>(null);
   // GH #323: focus trap for warehouse alert dialog
   const warehouseAlertRef = useFocusTrap<HTMLDivElement>(Boolean(pendingLineEdit), () => setPendingLineEdit(null));
-  const customerInputRef = useRef<HTMLInputElement | null>(null);
-  const customerDropdownRef = useRef<HTMLDivElement | null>(null);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
-  const [highlightedCustomerIndex, setHighlightedCustomerIndex] = useState(0);
   // GH #352: repeat last order loading state
   const [repeatLoading, setRepeatLoading] = useState(false);
   // GH #351: suggestion filter state
@@ -794,17 +789,20 @@ export function SalesView() {
     [isRunning, runCommand, canWrite, showMargin, releaseEligibility.data]
   );
 
+  // Sync customer selection from keel bar (global header) to local state.
+  // Also clears local state when keel bar deselects the customer.
   useEffect(() => {
-    if (activeCustomerId && activeCustomerId !== customerId) setCustomerId(activeCustomerId);
+    if (!activeCustomerId && customerId) {
+      setCustomerId('');
+    } else if (activeCustomerId && activeCustomerId !== customerId) {
+      setCustomerId(activeCustomerId);
+    }
   }, [activeCustomerId, customerId]);
 
   useEffect(() => {
     if (salesRequestText && !draftItem) setDraftItem(salesRequestText);
   }, [draftItem, salesRequestText]);
 
-  useEffect(() => {
-    if (activeQuickLaunch === 'sale' && !customerId) customerInputRef.current?.focus();
-  }, [activeQuickLaunch, customerId]);
 
   useEffect(() => {
     if (!customerId || !canWrite || workspace.isFetching || workspaceOrder || autoStartedCustomerIds.has(customerId)) return;
@@ -996,45 +994,9 @@ export function SalesView() {
     }
   }
 
-  // GH #350: filtered customer list for searchable picker
-  const filteredCustomers = useMemo(() => {
-    if (!reference.data?.customers) return [];
-    const q = customerSearch.toLowerCase().trim();
-    if (!q) return reference.data.customers;
-    return reference.data.customers.filter((c) =>
-      (c.name as string).toLowerCase().includes(q)
-    );
-  }, [reference.data?.customers, customerSearch]);
 
-  // GH #350: close dropdown on outside click
-  useEffect(() => {
-    if (!customerDropdownOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        customerInputRef.current && !customerInputRef.current.contains(e.target as Node) &&
-        customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)
-      ) {
-        setCustomerDropdownOpen(false);
-        setCustomerSearch('');
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [customerDropdownOpen]);
 
-  const selectCustomer = (cust: { id: string; name: string }) => {
-    setCustomerId(cust.id);
-    setActiveCustomerId(cust.id);
-    setCustomerDropdownOpen(false);
-    setCustomerSearch('');
-    setHighlightedCustomerIndex(0);
-  };
 
-  const customerDisplayName = useMemo(() => {
-    if (customerDropdownOpen && customerSearch) return undefined;
-    if (!customerId) return undefined;
-    return reference.data?.customers.find((c) => c.id === customerId)?.name as string | undefined;
-  }, [reference.data, customerId, customerDropdownOpen, customerSearch]);
 
   // Show margin toggle button — rendered as a WorkspacePanel header action
   // when a customer is selected, or in the top control band otherwise.
@@ -1055,111 +1017,6 @@ export function SalesView() {
   return (
     <div className="view-stack">
       {canWrite ? <div className="control-band">
-        <label className="field-inline">
-          Customer
-          <div style={{ position: 'relative', width: 220 }}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Search className="absolute left-2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" aria-hidden="true" style={{ zIndex: 1 }} />
-              <input
-                ref={customerInputRef}
-                className="input"
-                style={{ paddingLeft: 28, paddingRight: customerId && !customerDropdownOpen ? 24 : 8 }}
-                type="text"
-                role="combobox"
-                aria-expanded={customerDropdownOpen}
-                aria-haspopup="listbox"
-                aria-autocomplete="list"
-                aria-controls="customer-dropdown-list"
-                placeholder="Choose customer"
-                value={customerDropdownOpen ? customerSearch : (customerDisplayName ?? '')}
-                onChange={(e) => {
-                  setCustomerSearch(e.target.value);
-                  setCustomerDropdownOpen(true);
-                  setHighlightedCustomerIndex(0);
-                }}
-                onFocus={() => {
-                  setCustomerDropdownOpen(true);
-                  setHighlightedCustomerIndex(0);
-                }}
-                onKeyDown={(e) => {
-                  if (!customerDropdownOpen) {
-                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setCustomerDropdownOpen(true);
-                    }
-                    return;
-                  }
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setHighlightedCustomerIndex((prev) =>
-                      prev >= filteredCustomers.length - 1 ? 0 : prev + 1
-                    );
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setHighlightedCustomerIndex((prev) =>
-                      prev <= 0 ? filteredCustomers.length - 1 : prev - 1
-                    );
-                  } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const cust = filteredCustomers[highlightedCustomerIndex];
-                    if (cust) selectCustomer(cust as { id: string; name: string });
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setCustomerDropdownOpen(false);
-                    setCustomerSearch('');
-                  }
-                }}
-              />
-              {customerId && !customerDropdownOpen ? (
-                <button
-                  type="button"
-                  style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)' }}
-                  className="icon-button"
-                  aria-label="Clear customer selection"
-                  onClick={() => {
-                    setCustomerId('');
-                    setActiveCustomerId(null);
-                    setCustomerSearch('');
-                    customerInputRef.current?.focus();
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              ) : null}
-            </div>
-            {customerDropdownOpen ? (
-              <div
-                ref={customerDropdownRef}
-                id="customer-dropdown-list"
-                role="listbox"
-                className="add-filter-dropdown"
-                style={{ width: '100%', maxHeight: 280, overflowY: 'auto' }}
-              >
-                {filteredCustomers.length === 0 ? (
-                  <div className="add-filter-dropdown-item" style={{ cursor: 'default', opacity: 0.6 }}>
-                    No customers found
-                  </div>
-                ) : (
-                  filteredCustomers.map((customer, idx) => (
-                    <div
-                      key={customer.id as string}
-                      role="option"
-                      aria-selected={idx === highlightedCustomerIndex}
-                      className={`add-filter-dropdown-item${idx === highlightedCustomerIndex ? ' active' : ''}`}
-                      onMouseEnter={() => setHighlightedCustomerIndex(idx)}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        selectCustomer(customer as { id: string; name: string });
-                      }}
-                    >
-                      {customer.name as string}
-                    </div>
-                  ))
-                )}
-              </div>
-            ) : null}
-          </div>
-        </label>
         <button className="primary-button" type="button" title={salesButtonTitle(customerId)} disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
           <Send className="h-4 w-4" aria-hidden="true" />
           {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder), Boolean(orderLines.data?.length))}
