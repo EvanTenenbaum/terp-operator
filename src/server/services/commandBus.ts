@@ -3554,7 +3554,14 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
     }
   }
   await tx.update(salesOrders).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
-  await enqueueCustomerRecompute(tx, order.customerId, 'event:confirmSalesOrder', commandId);
+  // TER-1675: enqueueCustomerRecompute is best-effort. A missing/broken
+  // credit_recompute_queue table (e.g. unrun migration) must not block
+  // order confirmation or roll back the transaction.
+  try {
+    await enqueueCustomerRecompute(tx, order.customerId, 'event:confirmSalesOrder', commandId);
+  } catch (err) {
+    console.warn(`[confirmSalesOrder] credit recompute enqueue failed for customer ${order.customerId} (non-fatal):`, err);
+  }
   return {
     ok: true,
     commandId,
