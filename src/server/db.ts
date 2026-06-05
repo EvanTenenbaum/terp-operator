@@ -16,12 +16,15 @@ import * as schema from './schema';
  *     instance cannot usefully saturate more than a handful of connections;
  *     max:8 keeps worst-case deploy overlap (8 + 8) well under the ceiling and
  *     prevents error 53300 (too_many_connections).
- *   - `statement_timeout: 60_000` (ms) — caps any individual server-side
- *     statement at 60s so a runaway query cannot hold a pool slot indefinitely.
- *     The pg driver expects this option in milliseconds. Analytical jobs that
- *     legitimately run longer (divergenceReport, nightlyCron) should run
- *     `SET LOCAL statement_timeout = 0` inside their transaction to lift the
- *     cap for that one connection.
+ *   - The per-connection `statement_timeout` is intentionally NOT set on the
+ *     client pool because PgBouncer (transaction mode) rejects it as an
+ *     unsupported startup parameter. The 60s runaway-query cap is instead
+ *     enforced server-side as the database role default:
+ *     `ALTER ROLE doadmin IN DATABASE defaultdb SET statement_timeout='60s'`
+ *     This applies to both pooled backend sessions and the direct migrate
+ *     connection. Analytical jobs that legitimately run longer
+ *     (divergenceReport, nightlyCron) should run `SET LOCAL statement_timeout = 0`
+ *     inside their transaction to lift the cap for that one connection.
  *   - `idleTimeoutMillis: 30_000` — preexisting; idle clients are reaped
  *     after 30s so the pool returns to baseline during quiet periods.
  */
@@ -29,7 +32,6 @@ export const poolConfig = {
   connectionString: databaseConnectionString(),
   ssl: env.DATABASE_SSL ? { rejectUnauthorized: env.DATABASE_SSL_REJECT_UNAUTHORIZED } : undefined,
   max: 8,
-  statement_timeout: 60_000,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5000
 } as const;
