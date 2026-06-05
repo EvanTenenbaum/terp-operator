@@ -104,6 +104,22 @@ export function OperatorGrid({
   expansionConfig
 }: OperatorGridProps) {
   const apiRef = useRef<GridApi<GridRow> | null>(null);
+  // Force AG Grid root wrapper to fill the grid-shell container
+  useEffect(() => {
+    const shell = gridShellRef.current;
+    if (!shell) return;
+    const ro = new ResizeObserver(() => {
+      const root = shell.querySelector(".ag-root-wrapper") as HTMLElement | null;
+      if (!root) return;
+      const shellHeight = shell.clientHeight;
+      if (shellHeight > 0) {
+        root.style.height = shellHeight + "px";
+      }
+    });
+    ro.observe(shell);
+    return () => ro.disconnect();
+  }, []);
+  const gridShellRef = useRef<HTMLDivElement>(null);
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const [selectedRows, setSelectedRows] = useState<GridRow[]>([]);
@@ -566,7 +582,7 @@ export function OperatorGrid({
           resultCount={renderedRows.length}
         />
       ) : null}
-      <div className="ag-theme-quartz grid-shell" aria-busy={loading}>
+      <div ref={gridShellRef} className="ag-theme-quartz grid-shell" aria-busy={loading}>
         {isError ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-500 p-8">
             <p className="text-sm font-medium text-red-600">Failed to load data</p>
