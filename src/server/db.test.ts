@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { poolConfig } from './db';
 
 describe('db pool config', () => {
-  it('sets max to 25 (raised from 12 per CODE-09 to handle peak operator load)', () => {
-    expect(poolConfig.max).toBe(25);
+  it('sets max to 8 (capped for pg connection ceiling; see CODE-09)', () => {
+    expect(poolConfig.max).toBe(8);
   });
 
   it('sets a statement_timeout of 60_000 ms to cap runaway queries (CODE-09)', () => {
