@@ -23,6 +23,9 @@ import { PoCommandsTab } from './drawerTabs/PoCommandsTab';
 import { VendorBillDetailsTab } from './drawerTabs/VendorBillDetailsTab';
 import { VendorBillTraceTab } from './drawerTabs/VendorBillTraceTab';
 import { VendorPaymentHistoryTab } from './drawerTabs/VendorPaymentHistoryTab';
+// UX-U01 / UX-N01 — merged chronological entity timeline (support persona).
+import { EntityTimelineTab } from './drawerTabs/EntityTimelineTab';
+import type { TimelineEntityType } from './drawerTabs/EntityTimelineTab';
 
 const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   queue: [
@@ -31,6 +34,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   customer: [
     { key: 'relationship', label: 'Relationship' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'profile', label: 'Profile' },
     { key: 'balance', label: 'Balance' },
     { key: 'purchases', label: 'Purchases' },
@@ -40,6 +44,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   vendor: [
     { key: 'relationship', label: 'Relationship' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'profile', label: 'Profile' },
     { key: 'open-bills', label: 'Open bills' },
     { key: 'pos', label: 'POs' },
@@ -47,6 +52,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   lot: [
     { key: 'relationship', label: 'Relationship' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'movement', label: 'Movement' },
     { key: 'sales', label: 'Sales' },
     { key: 'photos', label: 'Photos' },
@@ -54,6 +60,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   order: [
     { key: 'relationship', label: 'Relationship' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'lines', label: 'Lines' },
     { key: 'customer', label: 'Customer' },
     { key: 'output', label: 'Output' },
@@ -61,6 +68,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   salesOrder: [
     { key: 'balance', label: 'Balance' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'history', label: 'History' },
     { key: 'notes', label: 'Notes' },
     { key: 'pricing', label: 'Pricing' },
@@ -342,6 +350,23 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
         customerId={customerId}
       />
     );
+  }
+
+  // UX-U01 / UX-N01 — merged chronological timeline tab. Present in the tab
+  // maps for customer / vendor / lot / order / salesOrder; both order entity
+  // types map onto the server's 'order' timeline.
+  if (activeTab === 'timeline') {
+    const timelineType: TimelineEntityType =
+      entityType === 'customer' ? 'customer'
+      : entityType === 'vendor' ? 'vendor'
+      : isLotEntity ? 'lot'
+      : 'order';
+    const timelineId =
+      timelineType === 'customer' ? (customerId ?? null)
+      : timelineType === 'vendor' ? (vendorId ?? null)
+      : timelineType === 'lot' ? (lotBatchId || null)
+      : (isSalesOrderEntity ? salesOrderId : (entityId ?? (row?.id ? String(row.id) : null)));
+    return <EntityTimelineTab entityType={timelineType} entityId={timelineId || null} row={row} />;
   }
 
   // CMD-VENDOR / TER-1517 — vendor bill tabs (Phase 3 PR B)
