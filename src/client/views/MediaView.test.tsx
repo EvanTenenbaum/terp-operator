@@ -14,6 +14,21 @@ vi.mock('../api/trpc', () => ({
   }
 }));
 
+// UX-O03/O04 added useCommandRunner and useUiStore to MediaView; mock them
+// so the existing O01 tests continue to pass without a QueryClientProvider.
+vi.mock('../components/useCommandRunner', () => ({
+  useCommandRunner: () => ({
+    runCommand: vi.fn().mockResolvedValue({ ok: true }),
+    isRunning: false,
+    setNextSuccessActions: vi.fn()
+  })
+}));
+
+vi.mock('../store/uiStore', () => ({
+  useUiStore: (selector: (state: { pushToast: (...args: unknown[]) => void }) => unknown) =>
+    selector({ pushToast: vi.fn() })
+}));
+
 vi.mock('../components/OperatorGrid', () => ({
   OperatorGrid: ({ rows, loading, onSelectionChange, selectionActions, columns }: any) => (
     <div data-testid="operator-grid">

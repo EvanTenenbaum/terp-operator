@@ -10,6 +10,7 @@ import { useCommandRunner } from '../../components/useCommandRunner';
 import { useUiStore } from '../../store/uiStore';
 import type { GridRow, ViewKey } from '../../../shared/types';
 import { commandLabelFor } from '../../../shared/commandCatalog';
+import { markerTooltip } from '../../utils/markerLegend';
 
 // Rule map for the Closeout "Why shown" audit column (status field).
 const CLOSEOUT_STATUS_MAP: RuleMap = {
@@ -21,40 +22,51 @@ const CLOSEOUT_STATUS_MAP: RuleMap = {
 };
 
 export const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
+  // UX-I01: ≤8 visible-by-default columns per grid. Lower-value columns carry
+  // hide:true so the experience is clean out-of-the-box; they remain reachable
+  // via the Columns menu. gridColumnPrefs prefs take precedence at render time
+  // (mergeColumnDefsWithPrefs honours pref.hide over column.hide), so operator
+  // customisations are never clobbered.
   purchaseOrders: [
     { field: 'poNo', headerName: 'PO', pinned: 'left', width: 150 },
     { field: 'vendor', width: 190 },
     { field: 'status', width: 135 },
     { field: 'expectedDate', headerName: 'Expected', editable: true, width: 165 },
-    { field: 'paymentTerms', headerName: 'Terms', editable: true, width: 140 },
-    { field: 'prepaymentAmount', headerName: 'Prepay', editable: true, type: 'numericColumn', width: 115 },
+    // UX-H08: original / prepaid / remaining prepay columns visible at the row.
+    { field: 'prepaymentAmount', headerName: 'Prepay (original)', editable: true, type: 'numericColumn', width: 145, headerTooltip: 'The original prepayment amount set on this PO.' },
+    { field: 'prepaidAmount', headerName: 'Prepaid', type: 'numericColumn', width: 110, headerTooltip: 'Amount already paid via recordVendorPrepayment.' },
+    { field: 'remainingPrepay', headerName: 'Prepay remaining', type: 'numericColumn', width: 150, headerTooltip: 'Remaining prepayment not yet paid (original − prepaid).' },
     { field: 'total', type: 'numericColumn', width: 120 },
-    { field: 'lines', width: 95 },
-    { field: 'orderedQty', headerName: 'Ordered', type: 'numericColumn', width: 120 },
-    { field: 'receivedQty', headerName: 'Received', type: 'numericColumn', width: 120 },
-    { field: 'buyerNotes', headerName: 'Internal notes', editable: true, minWidth: 220 },
-    { field: 'internalNotes', headerName: 'Internal notes (ops)', editable: true, minWidth: 220 },
-    { field: 'externalNotes', headerName: 'External (vendor)', editable: true, minWidth: 220 },
-    { field: 'orderedAt', width: 170 },
-    { field: 'receivedAt', width: 170 },
-    { field: 'createdAt', width: 170 }
+    // Below columns hidden by default (≤8 rule); reachable via Columns menu.
+    { field: 'paymentTerms', headerName: 'Terms', editable: true, width: 140, hide: true },
+    { field: 'lines', width: 95, hide: true },
+    { field: 'orderedQty', headerName: 'Ordered', type: 'numericColumn', width: 120, hide: true },
+    { field: 'receivedQty', headerName: 'Received', type: 'numericColumn', width: 120, hide: true },
+    { field: 'buyerNotes', headerName: 'Internal notes', editable: true, minWidth: 220, hide: true },
+    { field: 'internalNotes', headerName: 'Internal notes (ops)', editable: true, minWidth: 220, hide: true },
+    { field: 'externalNotes', headerName: 'External (vendor)', editable: true, minWidth: 220, hide: true },
+    { field: 'orderedAt', width: 170, hide: true },
+    { field: 'receivedAt', width: 170, hide: true },
+    { field: 'createdAt', width: 170, hide: true }
   ],
   orders: [
     { field: 'orderNo', pinned: 'left', width: 150 },
     { field: 'customer', width: 180 },
     { field: 'status', width: 125 },
     { field: 'total', type: 'numericColumn', width: 120 },
-    { field: 'deliveryWindow', editable: true, width: 180 },
-    { field: 'notes', editable: true, minWidth: 180 },
-    { field: 'invoiceNo', width: 150 },
-    { field: 'invoiceStatus', width: 130 },
+    // Wave-2/4 closeout mark columns — visible by default (G01 ships them; owner sorts by them).
     boolCol('packed', { headerName: 'Packed', editable: true, width: 105 }),
     boolCol('inventoryPosted', { headerName: 'Inv Posted', editable: true, width: 125 }),
     boolCol('paymentFollowup', { headerName: 'Pay/F-up', editable: true, width: 125 }),
-    { field: 'legacyStatusMarkers', headerName: 'Markers', width: 115 },
-    { field: 'validationIssues', headerName: 'Fix', minWidth: 200 },
-    { field: 'postedAt', width: 180 },
-    { field: 'fulfilledAt', width: 180 }
+    // Below columns hidden by default (≤8 rule); reachable via Columns menu.
+    { field: 'deliveryWindow', editable: true, width: 180, hide: true },
+    { field: 'notes', editable: true, minWidth: 180, hide: true },
+    { field: 'invoiceNo', width: 150, hide: true },
+    { field: 'invoiceStatus', width: 130, hide: true },
+    { field: 'legacyStatusMarkers', headerName: 'Markers', width: 115, hide: true },
+    { field: 'validationIssues', headerName: 'Fix', minWidth: 200, hide: true },
+    { field: 'postedAt', width: 180, hide: true },
+    { field: 'fulfilledAt', width: 180, hide: true }
   ],
   payments: [
     { field: 'customer', pinned: 'left', width: 180 },
@@ -87,23 +99,39 @@ export const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
         </span>
       )
     },
-    { field: 'itemAlias', headerName: 'Market name', editable: true, minWidth: 180 },
-    { field: 'category', width: 120 },
-    { field: 'tags', editable: true, minWidth: 170 },
-    { field: 'vendor', width: 180 },
     { field: 'availableQty', editable: true, type: 'numericColumn', width: 130 },
-    { field: 'reservedQty', type: 'numericColumn', width: 130 },
-    { field: 'uom', width: 90 },
     { field: 'unitCost', type: 'numericColumn', width: 110 },
     { field: 'unitPrice', editable: true, type: 'numericColumn', width: 110 },
-    { field: 'location', width: 120 },
-    { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
-    { field: 'ownershipStatus', width: 120 },
-    { field: 'arrivalStatus', width: 120 },
+    // UX-H07: marker legend tooltip — distinguishes confirmed vs inferred meanings.
+    {
+      field: 'legacyMarker',
+      headerName: 'Marker',
+      editable: true,
+      width: 105,
+      tooltipValueGetter: (params) => markerTooltip(String(params.value ?? ''), 'legacy') ?? undefined
+    },
+    // UX-I02: mediaStatus visible by default — photographer persona's primary column.
     { field: 'mediaStatus', headerName: 'Media', width: 120 },
-    { field: 'lotCode', editable: true, width: 120 },
-    { field: 'expirationDate', editable: true, width: 140 },
-    { field: 'status', width: 120 }
+    { field: 'status', width: 120 },
+    // Below columns hidden by default (≤8 rule); reachable via Columns menu.
+    { field: 'itemAlias', headerName: 'Market name', editable: true, minWidth: 180, hide: true },
+    { field: 'category', width: 120, hide: true },
+    { field: 'tags', editable: true, minWidth: 170, hide: true },
+    { field: 'vendor', width: 180, hide: true },
+    { field: 'reservedQty', type: 'numericColumn', width: 130, hide: true },
+    { field: 'uom', width: 90, hide: true },
+    { field: 'location', width: 120, hide: true },
+    {
+      field: 'ownershipStatus',
+      width: 120,
+      hide: true,
+      tooltipValueGetter: (params) => markerTooltip(String(params.value ?? ''), 'ownership') ?? undefined
+    },
+    { field: 'arrivalStatus', width: 120, hide: true },
+    // UX-I02: hasPrimaryPhoto column (hidden by default, used by "No photos" preset).
+    { field: 'hasPrimaryPhoto', headerName: 'Photos', width: 100, hide: true },
+    { field: 'lotCode', editable: true, width: 120, hide: true },
+    { field: 'expirationDate', editable: true, width: 140, hide: true },
   ],
   clients: [
     { field: 'name', pinned: 'left', width: 190 },
@@ -155,12 +183,13 @@ export const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'orderNo', width: 150 },
     { field: 'customer', width: 180 },
     { field: 'status', width: 125 },
-    { field: 'unitsPerBag', width: 130 },
-    { field: 'labelFormat', width: 120 },
-    boolCol('labelsPrinted', { headerName: 'Labels Printed', width: 140 }),
-    { field: 'manifestPath', minWidth: 220 },
     { field: 'tracking', minWidth: 160 },
-    { field: 'lines', width: 90 }
+    { field: 'lines', width: 90 },
+    // Below columns hidden by default (≤8 rule); reachable via Columns menu.
+    { field: 'unitsPerBag', width: 130, hide: true },
+    { field: 'labelFormat', width: 120, hide: true },
+    { ...boolCol('labelsPrinted', { headerName: 'Labels Printed', width: 140 }), hide: true },
+    { field: 'manifestPath', minWidth: 220, hide: true },
   ],
   connectors: [
     { field: 'source', headerName: 'From', pinned: 'left', width: 170, valueFormatter: (params) => formatRequestSource(params.value) },

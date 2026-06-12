@@ -5,6 +5,11 @@ import type { GridRow } from '../../../shared/types';
 import { MobileSearchInput } from '../../components/mobile/MobileSearchInput';
 import { MobileFilterChips } from '../../components/mobile/MobileFilterChips';
 import { MobileEmptyState } from '../../components/mobile/MobileEmptyState';
+// UX-R03: "Copy offer" — customer-safe text built via the F01 utility and
+// additionally gated through customerSafeStatus.sanitizeCustomerSafe so no
+// cost/margin/internal field can appear even via future field additions.
+import { buildOfferText, OFFER_FORBIDDEN_FIELDS } from '../SalesView.ux-f01';
+import { isCustomerSafeKey } from '../../../shared/customerSafeStatus';
 
 const FILTER_OPTIONS = ['All', 'Has Photo', 'No Photos', 'Published', 'Draft'];
 
@@ -38,10 +43,49 @@ function hasPhotos(row: GridRow): boolean {
   return Number(row.publishedMediaCount ?? 0) > 0 || Boolean(row.hasPrimaryPhoto);
 }
 
+/**
+ * UX-R03: Build a customer-safe "copy offer" text from a single catalog row.
+ *
+ * Defense-in-depth gating:
+ *   1. buildOfferText (F01 utility) only reads whitelisted catalog fields.
+ *   2. OFFER_FORBIDDEN_FIELDS is checked explicitly before any row field is used.
+ *   3. isCustomerSafeKey (customerSafeStatus.ts) is the primary field gate.
+ *
+ * Verified fields produced: name, category, availableQty, unitPrice, batchCode.
+ * Sentinel fields that must NEVER appear: unitCost, internalMargin,
+ * estimatedMargin, landedCostBasis, reason, notes, vendorApproval.
+ *
+ * Returns the sanitized text and a boolean flag indicating whether the write
+ * succeeded (false = clipboard API unavailable, e.g., in test environments).
+ */
+async function copyOfferForRow(row: GridRow): Promise<boolean> {
+  // Belt-and-suspenders: strip any forbidden fields from the row before
+  // passing to buildOfferText. This is in addition to buildOfferText's own
+  // internal field gating (it only reads explicit allowed keys).
+  const safeRow: GridRow = Object.fromEntries(
+    Object.entries(row).filter(([key]) => {
+      const keyLower = key.toLowerCase();
+      if (!isCustomerSafeKey(key)) return false;
+      if (OFFER_FORBIDDEN_FIELDS.map((f) => f.toLowerCase()).includes(keyLower)) return false;
+      return true;
+    })
+  ) as GridRow;
+
+  const text = buildOfferText([safeRow]);
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function MobileCatalogView() {
   const [search, setSearch]       = useState('');
   const [filter, setFilter]       = useState('All');
   const [activeRow, setActiveRow] = useState<GridRow | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const grid = trpc.queries.grid.useQuery({ view: 'photography' }, { refetchInterval: 60_000 });
   const rows = (grid.data ?? []) as GridRow[];
@@ -192,6 +236,28 @@ export function MobileCatalogView() {
                 >
                   {photoCount > 0 ? 'Replace Photo' : 'Add Photo'}
                 </a>
+                {/* UX-R03: "Copy offer" — customer-safe text (name, qty, price;
+                    NEVER cost/margin/notes). Uses F01 gating + customerSafeStatus
+                    sanitizer as defense in depth. */}
+                <button
+                  type="button"
+                  data-testid="copy-offer-button"
+                  className="mt-3 flex h-11 w-full items-center justify-center rounded-xl text-sm font-medium"
+                  style={{ background: 'var(--m-panel)', color: 'var(--m-accent)' }}
+                  onClick={() => {
+                    void copyOfferForRow(activeRow).then((ok) => {
+                      setCopyFeedback(ok ? 'copied' : 'error');
+                      setTimeout(() => setCopyFeedback('idle'), 2000);
+                    });
+                  }}
+                  aria-label="Copy customer offer to clipboard — internal columns excluded"
+                >
+                  {copyFeedback === 'copied'
+                    ? 'Copied — internal columns excluded'
+                    : copyFeedback === 'error'
+                    ? 'Copy failed — try again'
+                    : 'Copy offer'}
+                </button>
                 {/* View in Inventory */}
                 <Link
                   to={`/mobile/inventory?expand=${id}`}

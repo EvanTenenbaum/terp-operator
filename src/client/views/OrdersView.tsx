@@ -1,5 +1,6 @@
-import { Check, FileDown, ListChecks, PackageCheck, Send, Truck, Undo2 } from 'lucide-react';
+import { Check, FileDown, ListChecks, PackageCheck, Receipt, Send, Truck, Undo2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { crossOrderSourceColumn } from '../components/CrossOrderSourceChip';
@@ -9,6 +10,82 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import { columnsByView, EMPTY_ROWS } from './operations/shared';
+
+// UX-G04: Orders → Invoice cross-link inspector tab.
+// Shows invoice summary from the order row's `invoiceNo` / `invoiceStatus` /
+// `total` / `amountPaid` fields (already present in the orders grid payload)
+// and provides a "View in Payments" deep-link that navigates to PaymentsView
+// with a filter on this customer's payment context.
+function OrderInvoiceTab({ row }: { row: GridRow }) {
+  const navigate = useNavigate();
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const invoiceNo = String(row.invoiceNo ?? '');
+  const invoiceStatus = String(row.invoiceStatus ?? '');
+  const customerId = String(row.customerId ?? '');
+  const total = Number(row.total ?? 0);
+  const amountPaid = Number(row.amountPaid ?? 0);
+  const balance = total - amountPaid;
+
+  if (!invoiceNo) {
+    return (
+      <div className="p-3 text-sm text-zinc-500">
+        No invoice linked yet. Post the order to generate an invoice.
+      </div>
+    );
+  }
+
+  function goToPayments() {
+    if (customerId) {
+      setGridFilter('payments', `customerId:${customerId}`);
+    }
+    setActiveView('payments');
+    navigate('/payments');
+  }
+
+  const statusBadge =
+    invoiceStatus === 'paid'
+      ? 'bg-emerald-100 text-emerald-800'
+      : invoiceStatus === 'partial'
+      ? 'bg-amber-100 text-amber-800'
+      : invoiceStatus === 'open'
+      ? 'bg-blue-100 text-blue-800'
+      : 'bg-zinc-100 text-zinc-600';
+
+  return (
+    <div className="p-3 space-y-3 text-sm">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <dt className="text-zinc-500">Invoice</dt>
+        <dd className="font-mono font-medium">{invoiceNo}</dd>
+        <dt className="text-zinc-500">Status</dt>
+        <dd>
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge}`}>
+            {invoiceStatus || '—'}
+          </span>
+        </dd>
+        <dt className="text-zinc-500">Total</dt>
+        <dd>${total.toLocaleString('en-US', { maximumFractionDigits: 2 })}</dd>
+        <dt className="text-zinc-500">Paid</dt>
+        <dd>${amountPaid.toLocaleString('en-US', { maximumFractionDigits: 2 })}</dd>
+        {balance > 0 ? (
+          <>
+            <dt className="text-zinc-500">Balance due</dt>
+            <dd className="text-amber-700 font-medium">${balance.toLocaleString('en-US', { maximumFractionDigits: 2 })}</dd>
+          </>
+        ) : null}
+      </dl>
+      <button
+        type="button"
+        className="secondary-button compact-action"
+        onClick={goToPayments}
+        title="View all payments for this customer in the Payments view"
+      >
+        <Receipt className="h-4 w-4" aria-hidden="true" />
+        View in Payments
+      </button>
+    </div>
+  );
+}
 
 // UX-D01: deep-link helper — navigate to the orders view filtered to a specific
 // order row and open its drawer. Mirrors the CountPill pattern (TER-1624/E01).
@@ -81,11 +158,33 @@ export function OrdersView() {
   // crossOrderSourceOrders allowlist field (see queries.ts orders case); the
   // chip is informational only and renders solely on open (draft/confirmed)
   // rows — the server's post-time refusals are unchanged.
+  //
+  // UX-G05: add a hidden derived `needsMarks` column whose valueGetter returns
+  // true when the order is posted but has at least one closeout mark missing
+  // (packed, inventoryPosted, or paymentFollowup). The "Needs marks" FilterPresetStrip
+  // preset filters on `needsMarks:true`. The column is hidden by default since the
+  // visual closeout columns (packed/inventoryPosted/paymentFollowup) already convey
+  // the same information per-field; `needsMarks` provides a single compound token
+  // for the preset filter since applyGridFilter only handles AND between fields.
   const ordersColumns = useMemo<ColDef<GridRow>[]>(() => {
     const base = columnsByView.orders ?? [];
     const statusIndex = base.findIndex((col) => col.field === 'status');
-    if (statusIndex === -1) return [...base, crossOrderSourceColumn];
-    return [...base.slice(0, statusIndex + 1), crossOrderSourceColumn, ...base.slice(statusIndex + 1)];
+    const withSource = statusIndex === -1
+      ? [...base, crossOrderSourceColumn]
+      : [...base.slice(0, statusIndex + 1), crossOrderSourceColumn, ...base.slice(statusIndex + 1)];
+    const needsMarksCol: ColDef<GridRow> = {
+      field: 'needsMarks',
+      headerName: 'Needs marks',
+      hide: true,
+      width: 120,
+      valueGetter: (params) => {
+        const d = params.data;
+        if (!d || d.status !== 'posted') return false;
+        const flag = (v: unknown) => v === true || v === 'true' || v === 1 || v === '1';
+        return !flag(d.packed) || !flag(d.inventoryPosted) || !flag(d.paymentFollowup);
+      }
+    };
+    return [...withSource, needsMarksCol];
   }, []);
 
   // Spec §10.4 — status-aware primary decision table for Orders. Every verb
@@ -154,6 +253,21 @@ export function OrdersView() {
         onRetry={() => grid.refetch()}
         onSelectionChange={(rows) => setSelectedRows('orders', rows)}
         onCellCommit={canWrite ? onCellCommit : undefined}
+        // UX-G04: invoice context tab in the row inspector (orders→payments direction).
+        // Uses invoiceNo/invoiceStatus/total/amountPaid from the grid row payload
+        // (already included in the orders grid query). No new tRPC procedure needed.
+        inspectorTabs={(row) =>
+          row.invoiceNo
+            ? [
+                {
+                  key: 'invoice',
+                  label: 'Invoice',
+                  icon: <Receipt className="h-3.5 w-3.5" aria-hidden="true" />,
+                  render: () => <OrderInvoiceTab row={row} />
+                }
+              ]
+            : []
+        }
         // UX-D03: tailored empty state names the producing verb + surface.
         emptyTitle="No orders — post a sale to create an order"
         emptyChildren="Confirmed sales orders appear here. Go to Sales to create a sale and confirm it."
@@ -165,7 +279,11 @@ export function OrdersView() {
             presets={[
               { label: 'All Open', filter: 'status:draft,confirmed' },
               { label: 'Confirmed', filter: 'status:confirmed' },
-              { key: 'today', label: 'Today', filter: () => `createdAt:${new Date().toISOString().slice(0, 10)}` }
+              { key: 'today', label: 'Today', filter: () => `createdAt:${new Date().toISOString().slice(0, 10)}` },
+              // UX-G05: "Needs marks" — posted orders with any closeout mark missing.
+              // Uses the derived `needsMarks` column (hidden, valueGetter) so the
+              // single-token applyGridFilter matches correctly.
+              { label: 'Needs marks', filter: 'needsMarks:true', title: 'Posted orders with packed / inv-posted / pay-followup not yet marked' }
             ]}
           />
         ) : null}
