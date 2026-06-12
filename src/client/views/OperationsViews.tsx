@@ -371,6 +371,12 @@ export function PurchaseOrdersView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite || !['approved', 'ordered', 'partially_received'].includes(String(row.status ?? ''))}
+            title={
+              !canWrite ? 'Write access required' :
+              !['approved', 'ordered', 'partially_received'].includes(String(row.status ?? ''))
+                ? 'PO must be approved or ordered before drafting intake'
+                : 'Draft intake batches from this PO'
+            }
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('receivePurchaseOrder', { purchaseOrderId: row.id }, 'Receive selected purchase order to draft intake');
@@ -383,6 +389,12 @@ export function PurchaseOrdersView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite || String(row.status ?? '') !== 'finalized'}
+            title={
+              !canWrite ? 'Write access required' :
+              String(row.status ?? '') !== 'finalized'
+                ? 'PO must be finalized before unfinalization'
+                : 'Return finalized PO to draft for editing'
+            }
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('unfinalizePurchaseOrder', { purchaseOrderId: row.id }, 'Return finalized PO to draft for editing');
@@ -395,6 +407,7 @@ export function PurchaseOrdersView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite}
+            title={!canWrite ? 'Write access required to cancel a PO' : undefined}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('cancelPurchaseOrder', { purchaseOrderId: row.id }, 'Cancel selected purchase order');
@@ -437,6 +450,7 @@ export function PurchaseOrdersView() {
           <button
             className="primary-button compact-action"
             disabled={isRunning || !canWrite}
+            title={!canWrite ? 'Write access required to draft a line' : undefined}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo?.id ?? '', lineIds: [row.id] }, 'Receive selected PO line to intake');
@@ -449,6 +463,7 @@ export function PurchaseOrdersView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite}
+            title={!canWrite ? 'Write access required to remove a line' : undefined}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('removePurchaseOrderLine', { lineId: row.id }, 'Remove purchase order line');
@@ -778,7 +793,7 @@ export function PurchaseOrdersView() {
                     <Plus className="h-4 w-4" aria-hidden="true" />
                     Add line row
                   </button>
-                  <button className="secondary-button compact-action" type="button" disabled={!defaultVendorId || isRunning} onClick={() => void saveDraftPo()}>
+                  <button className="secondary-button compact-action" type="button" disabled={!defaultVendorId || isRunning} title={!defaultVendorId ? 'Select a vendor before saving the draft PO' : undefined} onClick={() => void saveDraftPo()}>
                     Save draft
                   </button>
                   <button className="primary-button compact-action" type="button" disabled={isRunning || !canApproveDraft} title={approvalLineIssues.length ? 'Every filled PO line needs units and either unit cost or valid cost range before approval.' : undefined} onClick={() => void saveDraftPo({ approve: true })}>
@@ -887,7 +902,7 @@ export function PurchaseOrdersView() {
             />
             {canWrite ? (
               <>
-                <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
+                <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} title={!selected.length ? 'Select a purchase order first' : purchaseOrderPrimaryDisabled(selectedPoStatus) ? 'This PO status does not support the current action' : undefined} onClick={runPurchaseOrderPrimary} type="button">
                   {['approved', 'ordered', 'partially_received'].includes(selectedPoStatus) ? <PackagePlus className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
                   {purchaseOrderPrimaryLabel(selectedPoStatus)}
                 </button>
@@ -920,7 +935,7 @@ export function PurchaseOrdersView() {
               <span>${moneyish(selectedPo.total)}</span>
             </div>
             {canWrite ? (
-              <button className="primary-button compact-action" disabled={isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
+              <button className="primary-button compact-action" disabled={isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} title={purchaseOrderPrimaryDisabled(selectedPoStatus) ? 'This PO status does not support the current action' : undefined} onClick={runPurchaseOrderPrimary} type="button">
                 {purchaseOrderPrimaryLabel(selectedPoStatus)}
               </button>
             ) : null}
@@ -958,6 +973,7 @@ export function PurchaseOrdersView() {
                   <button
                     className="primary-button"
                     disabled={!selectedLines.length || isRunning}
+                    title={!selectedLines.length ? 'Select one or more PO lines first' : undefined}
                     onClick={() => runCommand('receivePurchaseOrder', { purchaseOrderId: selectedPo?.id ?? '', lineIds: selectedLines.map((line) => line.id) }, 'Receive selected PO lines to intake')}
                     type="button"
                   >
@@ -1312,7 +1328,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
             ))}
           </select>
         </label>
-        <button className="secondary-button" type="button" disabled={!chosenAllocationId || isRunning || !canAllocate} onClick={() => runCommand('unallocatePayment', { allocationId: chosenAllocationId }, 'Unallocate selected payment allocation')}>
+        <button className="secondary-button" type="button" disabled={!chosenAllocationId || isRunning || !canAllocate} title={!canAllocate ? 'Manager or owner required to unallocate' : !chosenAllocationId ? 'Select an allocation to unallocate' : undefined} onClick={() => runCommand('unallocatePayment', { allocationId: chosenAllocationId }, 'Unallocate selected payment allocation')}>
           Unallocate
         </button>
         <label htmlFor={invoiceSelectId} className="field-inline">
@@ -1330,7 +1346,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
           Discount
           <input id={discountInputId} className="input compact" value={discountAmount} inputMode="decimal" disabled={!canAllocate} onChange={(event) => setDiscountAmount(event.target.value)} />
         </label>
-        <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning || !canAllocate} onClick={() => runCommand('applyDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply discount from payments surface')}>
+        <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning || !canAllocate} title={!canAllocate ? 'Manager or owner required to apply discount' : !invoiceId ? 'Select an order first' : !discountAmount ? 'Enter a discount amount' : undefined} onClick={() => runCommand('applyDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply discount from payments surface')}>
           Apply Discount
         </button>
       </div>
@@ -1617,6 +1633,7 @@ function InventoryRowActions({
               className="secondary-button compact-action"
               type="button"
               disabled={!reason.trim()}
+              title={!reason.trim() ? 'Enter a reason before changing status' : undefined}
               onClick={() =>
                 void confirmAction(`Set inventory status to ${status}`, () =>
                   runCommand('setInventoryStatus', { batchId, status }, reason || `Set inventory status to ${status}`)
@@ -1634,6 +1651,7 @@ function InventoryRowActions({
               className="secondary-button compact-action"
               type="button"
               disabled={!location.trim() || !reason.trim()}
+              title={!location.trim() ? 'Enter a destination location' : !reason.trim() ? 'Enter a reason for the move' : undefined}
               onClick={() =>
                 void confirmAction(`Move location to ${location}`, () =>
                   runCommand('transferInventoryLocation', { batchId, location: location.trim() }, reason || `Move inventory to ${location}`)
@@ -1670,6 +1688,7 @@ function InventoryRowActions({
               className="secondary-button compact-action"
               type="button"
               disabled={!reason.trim() || (ownershipStatus === 'C' && !consignedVendorId)}
+              title={!reason.trim() ? 'Enter a reason for the ownership change' : (ownershipStatus === 'C' && !consignedVendorId) ? 'Select a consignment vendor first' : undefined}
               onClick={() =>
                 void confirmAction(`Move ownership to ${ownershipStatus}`, () =>
                   runCommand(
@@ -2026,7 +2045,7 @@ function VendorMoneyOutStrip({ selectedBill }: { selectedBill?: GridRow }) {
       </label>
       <span className="selection-pill">{impact}</span>
       <span className="selection-pill">{trace}</span>
-      <button className="primary-button compact-action" type="button" disabled={!selectedBill?.id || payoutAmount <= 0 || isRunning} onClick={commit}>
+      <button className="primary-button compact-action" type="button" disabled={!selectedBill?.id || payoutAmount <= 0 || isRunning} title={!selectedBill?.id ? 'Select a vendor bill first' : payoutAmount <= 0 ? 'Enter a payout amount greater than zero' : undefined} onClick={commit}>
         Commit payout
       </button>
     </section>
@@ -2108,7 +2127,7 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
             ))}
           </select>
         </label>
-        <button className="secondary-button" type="button" disabled={!chosenPaymentId || isRunning} onClick={() => runCommand('voidVendorPayment', { vendorPaymentId: chosenPaymentId }, 'Void selected vendor payout')}>
+        <button className="secondary-button" type="button" disabled={!chosenPaymentId || isRunning} title={!chosenPaymentId ? 'Select a payout to void' : undefined} onClick={() => runCommand('voidVendorPayment', { vendorPaymentId: chosenPaymentId }, 'Void selected vendor payout')}>
           Void payout
         </button>
       </div>
@@ -2169,6 +2188,16 @@ export function FulfillmentView() {
   const pickQueueFilters = useUiStore((state) => state.pickQueueFilters);
   const setPickQueueFilter = useUiStore((state) => state.setPickQueueFilter);
   const clearPickQueueFilters = useUiStore((state) => state.clearPickQueueFilters);
+  // UX-L03: default to 'Open picks' so fulfilled rows are excluded on first load.
+  // gridFilters is not persisted across sessions (uiStore.ts partialize list), so
+  // we seed status:open on every mount unless the operator has already chosen a filter.
+  const fulfillmentGridFilter = useUiStore((state) => state.gridFilters?.fulfillment ?? '');
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  useEffect(() => {
+    if (!fulfillmentGridFilter) {
+      setGridFilter('fulfillment', 'status:open');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // GH #354: grid-filter presets now rendered via FilterPresetStrip template
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
   const [alertsPickListId, setAlertsPickListId] = useState<string | null>(null);
@@ -2269,13 +2298,16 @@ export function FulfillmentView() {
         }}
         actions={canWrite ?
           <>
-            {/* GH #354 presets, now via the shared template */}
+            {/* UX-L03: correct DB statuses are 'open' and 'fulfilled' (verified
+                in schema.ts and commandBus). Previous presets used wrong values
+                ('in_progress', 'needs_picking') that never matched any rows.
+                'Open picks' is the default-active preset (seeded by useEffect above). */}
             <FilterPresetStrip
               view="fulfillment"
               ariaLabel="Filter fulfillment"
               presets={[
-                { label: 'Active', filter: 'status:in_progress' },
-                { label: 'Pending', filter: 'status:needs_picking' }
+                { label: 'Open picks', filter: 'status:open', title: 'Show only open (active) pick lists' },
+                { label: 'Fulfilled', filter: 'status:fulfilled', title: 'Show fulfilled pick lists' }
               ]}
             />
             <span className={selectedPick ? 'selection-pill' : 'selection-pill warning'}>{selectedPick ? `Showing ${String(selectedPick.pickNo ?? 'pick')}` : 'Select a pick row'}</span>
@@ -2354,6 +2386,7 @@ export function FulfillmentView() {
             className="primary-button"
             type="button"
             disabled={!actualQty || !bagCode}
+            title={!actualQty ? 'Enter actual quantity before packing' : !bagCode ? 'Enter a bag code before packing' : undefined}
             onClick={() =>
               runCommand(
                 'recordWeighAndPack',
