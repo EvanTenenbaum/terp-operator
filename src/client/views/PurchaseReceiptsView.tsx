@@ -26,6 +26,7 @@ export function PurchaseReceiptsView() {
 
   return (
     <div className="view-stack">
+      {/* UX-D03: tailored empty state names the producing verb + surface. */}
       <OperatorGrid
         view="purchaseReceipts"
         title="Purchase Receipts"
@@ -35,6 +36,8 @@ export function PurchaseReceiptsView() {
         isError={grid.isError}
         onRetry={() => grid.refetch()}
         onSelectionChange={(rows) => setSelectedRows('purchaseReceipts', rows)}
+        emptyTitle="No purchase receipts — post an intake batch to create a receipt"
+        emptyChildren="Receipts are created when you post an intake batch in the Intake view. Each posted batch generates a receipt linked to its purchase order."
       />
       {selectedReceipt ? (
         <>

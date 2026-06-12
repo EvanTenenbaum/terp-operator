@@ -97,6 +97,11 @@ export function MediaView() {
             columns={columns}
             loading={grid.isLoading}
             onSelectionChange={handleSelectionChange}
+            // UX-D03: empty state differentiates "none yet" from "all done".
+            // When there are rows but the filter is hiding them, OperatorGrid
+            // shows the neutral default — this copy targets the genuinely empty case.
+            emptyTitle={rowCount === 0 ? 'All batches have media — nothing in the queue' : 'No batches match the current filter'}
+            emptyChildren={rowCount === 0 ? 'When batches need photography, they appear here. Post an intake batch or update a batch\'s media status to queue it.' : 'Clear the filter to see all batches.'}
           />
         </div>
         <MediaBatchDrawer
