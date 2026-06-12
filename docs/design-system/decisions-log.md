@@ -2,6 +2,19 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — UX audit Waves 5+6: support & relationship + mobile (UX-U01/N01/N02, B03/B04/N03, Q04–Q07, M01/M02/M04, F01/F06, L01/L02/L04/L05, R01/R02/R04)
+
+Gate green: typecheck, 1315/1315 vitest (client + server routers), build.
+
+- **UX-N01/N02 (U01 epic):** ContextDrawer Timeline tab for customer/vendor/order/lot backed by ONE sanctioned read-only `queries.entityTimeline` (command journal + payments/allocations + fulfillment marks + media publishes; existing tables only; limit≤100, offset≤900). "Copy status summary (customer-safe)" via new shared `src/shared/customerSafeStatus.ts` sanitizer (whitelist + denylist; 17 forbidden-field sentinels tested); RelationshipDrawer converged onto it with byte-identical output.
+- **UX-B03:** customer/vendor name cells link to contact profiles; "Link contact" surfaces `linkContactToExistingEntity`; dual-role rows (server-computed `isDualRole`) default to the Relationship drawer tab. **UX-N03:** AR/AP shown directionally, no silent netting. **UX-B04:** palette entity navigation now also filters the grid so the selected row is visible under virtualization.
+- **UX-Q04:** pending-frontend commands surfaced — updateContact/archiveContact (profile header, FormDialog, danger tone), addContactRole/linkContactToUser (Settings panel), updateVendor (vendor row edit); each removed from `pendingFrontendCommandNames`. **UX-Q07:** Issue tab gains "View dispute" for invoices with existing disputes.
+- **UX-Q05 (Decision 6b):** owner-gated credit-engine admin shipped — stance CRUD with sum-to-100 + extreme-weight acknowledgement mirroring server rules, per-customer stance/disable, `bulkRevertCustomersToEngine` behind typed confirmation; 6 commands moved out of internal-only (all owner-gated); `setCustomerEngineMax` deliberately remains internal.
+- **UX-M01:** posted intake batches and pick lines get row-origin "History / Reverse" deep-links into prefiltered Recovery. **UX-M02:** "Export support packet for selection" on the RowInspector Issue tab (shared with Recovery's packet machinery). **UX-M04:** Recovery journal gains entity-id + command-family filter chips.
+- **UX-F01:** "Copy offer" in the sheet preview — customer-safe text block, forbidden-field tests. **UX-F06:** referee pill at confirm ("credit will accrue ▸ change/none") wiring the existing logRefereeCredit path. **UX-Q06:** referee totals strip + deactivated-history visibility; bulk "Pay accrued credits" ships disabled-with-reason — no payout command exists in the catalog (CAP-039 tracked; none invented).
+- **UX-L01/R01:** PickView mounted at /mobile/pick; **UX-R02 (Decision 7):** minimal /mobile/intake (verify + flag only). Mobile nav now 7 tabs — orchestrator restored Catalog/Contacts after the unit dropped them (zero-functionality-loss rule); tab-inventory test strengthened to assert labels.
+- **UX-R04:** <768px deep links map to mobile equivalents before falling back to dashboard. **UX-L05:** pick-line Enter confirms pack and advances. **UX-L02:** out-of-tolerance weights prompt a discrepancy note (never blocks packing). **UX-L04:** Labels/Manifest status chips on pick rows (display only; printLabels stays deferred per TER-1660).
+
 ## 2026-06-12 — UX audit Wave 4: pre-post confidence & money trust (UX-A04/A15, F02/F04/G02, J01–J07, K01–K04, H04)
 
 Gate green: typecheck, 1023/1023 vitest (client + new DB-free server suites), build.
