@@ -199,6 +199,9 @@ export function InventoryFinderPanel({
 
   const lastInitialSearch = useRef('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // UX-C06: ref on the results table so we can advance focus to the next row
+  // after Enter-add without a document-wide querySelector.
+  const resultsTableRef = useRef<HTMLTableElement>(null);
 
   const rows = useMemo(() => ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
     ...row,
@@ -363,6 +366,36 @@ export function InventoryFinderPanel({
     await onAddBatch(batch, Math.min(requested, available || requested));
     // Reset to smart default so repeat-add remains UOM-aware
     setQuantities((current) => ({ ...current, [batch.id]: defaultQtyFor(batch, lastOrderedQtyMap) }));
+  }
+
+  // UX-C06: after Enter-add, advance keyboard focus to the next result row's
+  // qty input. The criteria for "next" is the first row after the current one
+  // in the filtered list that is (a) not already added, (b) has available stock,
+  // and (c) has a selectable order. We use a data attribute to target the inputs
+  // without a global querySelector.
+  function advanceFocusAfterAdd(currentRowId: string) {
+    const table = resultsTableRef.current;
+    if (!table) return;
+    const inputs = Array.from(
+      table.querySelectorAll<HTMLInputElement>('[data-qty-input]')
+    );
+    const currentIdx = inputs.findIndex((el) => el.dataset.qtyInput === currentRowId);
+    // Find next enabled input after the current row
+    for (let i = currentIdx + 1; i < inputs.length; i++) {
+      if (!inputs[i].disabled) {
+        inputs[i].focus();
+        inputs[i].select();
+        return;
+      }
+    }
+    // Wrap around to first enabled input before current
+    for (let i = 0; i < currentIdx; i++) {
+      if (!inputs[i].disabled) {
+        inputs[i].focus();
+        inputs[i].select();
+        return;
+      }
+    }
   }
 
   async function saveCurrentFilter() {
@@ -803,7 +836,7 @@ export function InventoryFinderPanel({
 
         {/* Results table — kept exactly from original */}
         <div className="finder-table-wrap">
-          <table className="finder-table">
+          <table className="finder-table" ref={resultsTableRef}>
             <caption className="sr-only">Filtered inventory batches</caption>
             <thead>
               <tr>
@@ -837,6 +870,7 @@ export function InventoryFinderPanel({
                             inputMode="decimal"
                             disabled={!selectedOrderId || added || available <= 0}
                             title={!selectedOrderId ? 'Select an order first' : added ? 'Already in order' : available <= 0 ? 'No available stock' : undefined}
+                            data-qty-input={row.id}
                             onChange={(event) =>
                               setQuantities((current) => ({
                                 ...current,
@@ -844,7 +878,12 @@ export function InventoryFinderPanel({
                               }))
                             }
                             onKeyDown={(event) => {
-                              if (event.key === 'Enter') void add(row);
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                // UX-C06: add the row then advance focus to the next
+                                // result row's qty input for keyboard-only workflow.
+                                void add(row).then(() => advanceFocusAfterAdd(row.id));
+                              }
                             }}
                           />
                           {hint && (
