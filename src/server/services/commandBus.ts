@@ -486,6 +486,11 @@ const receivePurchaseOrderPayloadSchema = z.object({
   purchaseOrderId: z.string().uuid().optional(),
   id: z.string().uuid().optional(),
   lineIds: z.array(z.string().uuid()).optional(),
+  // UX-H04 / BE-009 lineage — Execution Decision 5 (2026-06-12): optional
+  // per-line receive quantities for PARTIAL PO receiving. Keys are purchase
+  // order line ids, values are the qty to receive now. Absent → the legacy
+  // full-receive behavior is unchanged (backward compatible).
+  lineQuantities: z.record(z.coerce.number().positive()).optional(),
 });
 
 const cancelPurchaseOrderPayloadSchema = z.object({
@@ -1514,35 +1519,73 @@ async function postPurchaseReceipt(tx: Tx, payload: Payload, commandId: string, 
     if (row.purchaseOrderLineId) {
       const [poLine] = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.id, row.purchaseOrderLineId)).limit(1);
       if (poLine) {
-        const isMismatch = Number(poLine.qty) !== Number(row.intakeQty);
+        // UX-H04 / BE-009 (Execution Decision 5): partial-receive lineage is
+        // marked on the line at receive time (status 'partially_received').
+        // Partial lines ACCUMULATE receivedQty across receipts and only flip
+        // to 'received' once cumulative received covers the ordered qty.
+        // Full-receive lines keep the legacy single-batch overwrite semantics
+        // exactly (prev receivedQty is always 0 on that path).
+        const isPartialLineage = poLine.status === 'partially_received';
+        const nextReceived = isPartialLineage
+          ? new Decimal(String(poLine.receivedQty ?? 0)).plus(String(row.intakeQty))
+          : new Decimal(String(row.intakeQty));
+        const lineComplete =
+          !isPartialLineage ||
+          nextReceived.toDecimalPlaces(3).greaterThanOrEqualTo(new Decimal(String(poLine.qty ?? 0)).toDecimalPlaces(3));
+        const isMismatch = isPartialLineage
+          ? nextReceived.toDecimalPlaces(3).greaterThan(new Decimal(String(poLine.qty ?? 0)).toDecimalPlaces(3))
+          : Number(poLine.qty) !== Number(row.intakeQty);
         if (isMismatch) {
-          const detail = `Intake discrepancy: expected ${Number(poLine.qty)} ${poLine.uom}, received ${Number(row.intakeQty)} ${row.uom} on ${stamp} (${row.name})`;
+          const detail = isPartialLineage
+            ? `Intake discrepancy: cumulative received ${nextReceived.toFixed(3)} ${poLine.uom} exceeds ordered ${Number(poLine.qty)} ${poLine.uom} on ${stamp} (${row.name})`
+            : `Intake discrepancy: expected ${Number(poLine.qty)} ${poLine.uom}, received ${Number(row.intakeQty)} ${row.uom} on ${stamp} (${row.name})`;
           discrepancyNotes.push(operatorReason ? `${detail} — ${operatorReason}.` : `${detail}.`);
         } else if (operatorReason) {
           discrepancyNotes.push(`Intake note on ${stamp} (${row.name}): ${operatorReason}.`);
         }
-        await tx.update(purchaseOrderLines).set({ receivedQty: qtyScale(row.intakeQty), status: 'received', updatedAt: new Date() }).where(eq(purchaseOrderLines.id, poLine.id));
+        await tx
+          .update(purchaseOrderLines)
+          .set({
+            receivedQty: qtyScale(nextReceived.toNumber()),
+            status: lineComplete ? 'received' : 'partially_received',
+            updatedAt: new Date()
+          })
+          .where(eq(purchaseOrderLines.id, poLine.id));
       }
     }
   }
   if (purchaseOrderId) {
-    await tx.update(purchaseOrders).set({ status: 'received', receivedAt: new Date(), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
     if (discrepancyNotes.length) {
       const [poRow] = await tx.select().from(purchaseOrders).where(eq(purchaseOrders.id, purchaseOrderId)).limit(1);
       const merged = [stringValue(poRow?.internalNotes), ...discrepancyNotes].filter(Boolean).join('\n');
       await tx.update(purchaseOrders).set({ internalNotes: merged, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
     }
     const poLineRows = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
-    // Decimal-precise PO total: same drift concern as receipt total above.
-    const actualPoTotal = (poLineRows as Array<typeof purchaseOrderLines.$inferSelect>)
-      .reduce(
-        (sum: Decimal, line) =>
-          sum.plus(new Decimal(String(line.receivedQty)).times(String(line.unitCost))),
-        new Decimal(0)
-      )
-      .toDecimalPlaces(2)
-      .toFixed(2);
-    await tx.update(purchaseOrders).set({ total: actualPoTotal, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+    // UX-H04 / BE-009 (Execution Decision 5): while any line is mid-partial
+    // (status 'partially_received' after the per-line updates above), the PO
+    // stays open as 'partially_received' — no receivedAt stamp and the PO
+    // total keeps the ordered value until receiving completes. Receipts with
+    // no open partial lines preserve the legacy unconditional 'received'
+    // transition + received-value total recompute byte-for-byte (partial line
+    // statuses are only ever produced by the UX-H04 receive path).
+    const hasOpenPartialLine = (poLineRows as Array<typeof purchaseOrderLines.$inferSelect>).some(
+      (line) => line.status === 'partially_received'
+    );
+    if (hasOpenPartialLine) {
+      await tx.update(purchaseOrders).set({ status: 'partially_received', updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+    } else {
+      await tx.update(purchaseOrders).set({ status: 'received', receivedAt: new Date(), updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+      // Decimal-precise PO total: same drift concern as receipt total above.
+      const actualPoTotal = (poLineRows as Array<typeof purchaseOrderLines.$inferSelect>)
+        .reduce(
+          (sum: Decimal, line) =>
+            sum.plus(new Decimal(String(line.receivedQty)).times(String(line.unitCost))),
+          new Decimal(0)
+        )
+        .toDecimalPlaces(2)
+        .toFixed(2);
+      await tx.update(purchaseOrders).set({ total: actualPoTotal, updatedAt: new Date() }).where(eq(purchaseOrders.id, purchaseOrderId));
+    }
   }
 
   const grouped = new Map<string, Decimal>();
@@ -1860,7 +1903,18 @@ async function updatePurchaseOrderLine(tx: Tx, payload: Payload, commandId: stri
 
   const nextLine = { ...line, ...values } as Record<string, unknown>;
   const hasValidCost = Number(nextLine.unitCost ?? 0) > 0 || (nextLine.costRangeLow != null && nextLine.costRangeHigh != null);
-  values.status = Number(nextLine.receivedQty ?? 0) >= Number(nextLine.qty ?? 0) ? 'received' : hasValidCost ? 'planned' : 'needs_fix';
+  // UX-H04 / BE-009: a mid-partial line (status 'partially_received', set by
+  // the partial receive path) keeps its lineage marker on edits — flipping it
+  // back to 'planned' would make the next posted receipt overwrite (instead
+  // of accumulate) receivedQty. Legacy lines never carry this status.
+  values.status =
+    Number(nextLine.receivedQty ?? 0) >= Number(nextLine.qty ?? 0)
+      ? 'received'
+      : line.status === 'partially_received'
+        ? 'partially_received'
+        : hasValidCost
+          ? 'planned'
+          : 'needs_fix';
   await tx.update(purchaseOrderLines).set(values).where(eq(purchaseOrderLines.id, lineId));
   await recalcPurchaseOrder(tx, line.purchaseOrderId);
   return { ok: true, commandId, affectedIds: [line.purchaseOrderId, lineId], toast: 'Purchase order line updated.' };
@@ -2057,6 +2111,60 @@ async function approvePurchaseOrder(tx: Tx, payload: Payload, userId: string, co
   return { ok: true, commandId, affectedIds: [...new Set(affected)], toast };
 }
 
+/**
+ * Shared draft-intake batch payload for receiving a PO line. Extracted from
+ * the original receivePurchaseOrder inline literal so the UX-H04 partial path
+ * materializes batches with byte-identical semantics to the full path
+ * (ownership inference, arrival flags, location, draft status).
+ */
+function receiveBatchPayloadForLine(
+  order: typeof purchaseOrders.$inferSelect,
+  line: typeof purchaseOrderLines.$inferSelect,
+  intakeQty: number,
+  notes: string
+): Payload {
+  return {
+    vendorId: order.vendorId,
+    purchaseOrderId: order.id,
+    purchaseOrderLineId: line.id,
+    itemId: line.itemId,
+    sourceCode: line.sourceCode || order.poNo,
+    shorthand: line.shorthand,
+    name: line.productName,
+    category: line.category,
+    subcategory: line.subcategory,
+    tags: line.tags,
+    intakeQty,
+    availableQty: 0,
+    uom: line.uom,
+    unitCost: line.unitCost,
+    unitPrice: line.unitPrice,
+    legacyMarker: line.legacyMarker || line.ownershipStatus,
+    ownershipStatus: (() => {
+      // Respect an explicit line-level override if it's already classified
+      if (line.ownershipStatus !== 'UNKNOWN') {
+        return line.ownershipStatus;
+      }
+      // Infer from payment terms: operator-pays terms → office owns
+      const terms = order.paymentTerms ?? '';
+      if (terms === 'cod' || terms === 'prepay' || terms.startsWith('net_')) {
+        return 'OFC';
+      }
+      // Consignment: vendor retains ownership
+      if (terms === 'consignment') {
+        return 'C';
+      }
+      // vendor_terms or unknown: leave as-is
+      return line.ownershipStatus;
+    })(),
+    arrivalConfirmed: true,
+    arrivalStatus: 'arrived',
+    location: 'Receiving',
+    status: 'draft',
+    notes
+  };
+}
+
 async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   receivePurchaseOrderPayloadSchema.parse(payload);
   const purchaseOrderId = requiredId(payload.purchaseOrderId ?? payload.id, 'purchaseOrderId');
@@ -2066,7 +2174,35 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
   if (!order.vendorId) throw new Error('Choose a vendor before receiving this purchase order.');
   const selectedLineIds = Array.isArray(payload.lineIds) ? requiredIds(payload.lineIds, 'lineIds') : [];
   const allLines = await tx.select().from(purchaseOrderLines).where(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId));
-  const lines = selectedLineIds.length ? allLines.filter((line: typeof purchaseOrderLines.$inferSelect) => selectedLineIds.includes(line.id)) : allLines;
+
+  // UX-H04 / BE-009 — Execution Decision 5 (2026-06-12): partial PO receiving.
+  // When payload.lineQuantities is present, the receive set is its keys and
+  // each line materializes a draft intake batch for the REQUESTED qty (capped
+  // by validation at the line's outstanding qty). When absent, the legacy
+  // full-receive path below runs unchanged.
+  const rawLineQuantities =
+    payload.lineQuantities && typeof payload.lineQuantities === 'object' && !Array.isArray(payload.lineQuantities)
+      ? (payload.lineQuantities as Record<string, unknown>)
+      : null;
+  const partialQtyByLine = new Map<string, number>();
+  if (rawLineQuantities) {
+    for (const [lineId, rawQty] of Object.entries(rawLineQuantities)) {
+      requiredId(lineId, 'lineQuantities key');
+      const qty = Number(rawQty);
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error('Partial receive quantities must be positive numbers.');
+      partialQtyByLine.set(lineId, qty);
+    }
+  }
+  const isPartialReceive = partialQtyByLine.size > 0;
+
+  const lines = isPartialReceive
+    ? allLines.filter((line: typeof purchaseOrderLines.$inferSelect) => partialQtyByLine.has(line.id))
+    : selectedLineIds.length
+      ? allLines.filter((line: typeof purchaseOrderLines.$inferSelect) => selectedLineIds.includes(line.id))
+      : allLines;
+  if (isPartialReceive && lines.length !== partialQtyByLine.size) {
+    throw new Error('One or more lines in the partial receive no longer exist on this purchase order.');
+  }
   if (!lines.length) throw new Error('No purchase order lines are available to receive.');
   const existingBatches = await tx.select().from(batches).where(eq(batches.purchaseOrderId, purchaseOrderId));
   const linesWithBatches = new Set(
@@ -2074,61 +2210,68 @@ async function receivePurchaseOrder(tx: Tx, payload: Payload, commandId: string)
       .filter((b) => b.archivedAt == null && b.purchaseOrderLineId)
       .map((b) => b.purchaseOrderLineId as string)
   );
+  // UX-H04: unposted (draft/ready) intake already drafted against a line
+  // claims outstanding qty — partial receives may not double-draft it.
+  // Posted intake is accounted via purchaseOrderLines.receivedQty.
+  const pendingQtyByLine = new Map<string, Decimal>();
+  for (const b of existingBatches as Array<typeof batches.$inferSelect>) {
+    if (b.archivedAt != null || !b.purchaseOrderLineId) continue;
+    if (!['draft', 'ready'].includes(b.status)) continue;
+    pendingQtyByLine.set(
+      b.purchaseOrderLineId,
+      (pendingQtyByLine.get(b.purchaseOrderLineId) ?? new Decimal(0)).plus(String(b.intakeQty ?? 0))
+    );
+  }
   const affected = [purchaseOrderId];
   let createdCount = 0;
   for (const line of lines as Array<typeof purchaseOrderLines.$inferSelect>) {
+    if (isPartialReceive) {
+      // UX-H04 partial path: cap at outstanding (ordered − posted − pending
+      // drafts), conservative — over-asks are rejected, never silently capped.
+      const requested = partialQtyByLine.get(line.id) as number;
+      const ordered = new Decimal(String(line.qty ?? 0));
+      const alreadyReceived = new Decimal(String(line.receivedQty ?? 0));
+      const pending = pendingQtyByLine.get(line.id) ?? new Decimal(0);
+      const outstanding = Decimal.max(ordered.minus(alreadyReceived).minus(pending), new Decimal(0));
+      if (new Decimal(requested).toDecimalPlaces(3).greaterThan(outstanding.toDecimalPlaces(3))) {
+        throw new Error(
+          `Receive qty ${requested} exceeds outstanding ${outstanding.toFixed(3)} ${line.uom} for ${line.productName} ` +
+            `(${Number(line.qty)} ordered, ${Number(line.receivedQty)} received, ${pending.toFixed(3)} already drafted).`
+        );
+      }
+      const created = await createBatch(
+        tx,
+        receiveBatchPayloadForLine(
+          order,
+          line,
+          requested,
+          [`Partial receive (${requested} of ${Number(line.qty)} ${line.uom}) from ${order.poNo}.`, line.notes].filter(Boolean).join(' ')
+        ),
+        commandId
+      );
+      // Mark partial lineage on the line so postPurchaseReceipt ACCUMULATES
+      // receivedQty for it instead of the legacy single-batch overwrite.
+      // Reversal restores the prior line status from beforeSnapshot.
+      await tx.update(purchaseOrderLines).set({ status: 'partially_received', updatedAt: new Date() }).where(eq(purchaseOrderLines.id, line.id));
+      affected.push(...created.affectedIds, line.id);
+      createdCount += created.affectedIds.length;
+      continue;
+    }
     if (linesWithBatches.has(line.id)) continue;
     const remainingQty = Number(line.qty);
     if (remainingQty <= 0) continue;
     const created = await createBatch(
       tx,
-      {
-        vendorId: order.vendorId,
-        purchaseOrderId,
-        purchaseOrderLineId: line.id,
-        itemId: line.itemId,
-        sourceCode: line.sourceCode || order.poNo,
-        shorthand: line.shorthand,
-        name: line.productName,
-        category: line.category,
-        subcategory: line.subcategory,
-        tags: line.tags,
-        intakeQty: remainingQty,
-        availableQty: 0,
-        uom: line.uom,
-        unitCost: line.unitCost,
-        unitPrice: line.unitPrice,
-        legacyMarker: line.legacyMarker || line.ownershipStatus,
-        ownershipStatus: (() => {
-          // Respect an explicit line-level override if it's already classified
-          if (line.ownershipStatus !== 'UNKNOWN') {
-            return line.ownershipStatus;
-          }
-          // Infer from payment terms: operator-pays terms → office owns
-          const terms = order.paymentTerms ?? '';
-          if (terms === 'cod' || terms === 'prepay' || terms.startsWith('net_')) {
-            return 'OFC';
-          }
-          // Consignment: vendor retains ownership
-          if (terms === 'consignment') {
-            return 'C';
-          }
-          // vendor_terms or unknown: leave as-is
-          return line.ownershipStatus;
-        })(),
-        arrivalConfirmed: true,
-        arrivalStatus: 'arrived',
-        location: 'Receiving',
-        status: 'draft',
-        notes: [`Received from ${order.poNo}.`, line.notes].filter(Boolean).join(' ')
-      },
+      receiveBatchPayloadForLine(order, line, remainingQty, [`Received from ${order.poNo}.`, line.notes].filter(Boolean).join(' ')),
       commandId
     );
     affected.push(...created.affectedIds, line.id);
     createdCount += created.affectedIds.length;
   }
   const toast = createdCount
-    ? `Materialized ${createdCount} draft intake row(s). Verify actual counts and discrepancy reasons before posting.`
+    ? isPartialReceive
+      ? `Materialized ${createdCount} draft intake row(s) for the requested partial quantities. Verify actual counts and discrepancy reasons before posting.`
+      : `Materialized ${createdCount} draft intake row(s). Verify actual counts and discrepancy reasons before posting.`
     : 'No new draft intake rows materialized — existing rows are ready for verification.';
   return { ok: true, commandId, affectedIds: [...new Set(affected)], toast };
 }
@@ -5027,12 +5170,41 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
       await tx.update(batches).set({ status: 'reversed', availableQty: '0.000', updatedAt: new Date() }).where(eq(batches.id, batch.id));
       affected.push(batch.id);
     }
+    // UX-H04 / BE-009 (Execution Decision 5): restore the PRIOR per-line
+    // receive state from beforeSnapshot when available. A partial receive on
+    // a line that already has posted receipts must not wipe receivedQty back
+    // to zero — only the drafted (unposted) progress from THIS command is
+    // undone. Legacy full receives (no before-rows captured for lines) keep
+    // the original zero/planned reset.
+    const beforeReceiveLines = new Map<string, Record<string, unknown>>(
+      ((beforeSnapshot.purchaseOrderLines ?? []) as Array<Record<string, unknown>>).map((l) => [String(l.id), l])
+    );
     for (const line of snapshot.purchaseOrderLines ?? []) {
-      await tx.update(purchaseOrderLines).set({ receivedQty: '0.000', status: 'planned', updatedAt: new Date() }).where(eq(purchaseOrderLines.id, line.id));
+      const prior = beforeReceiveLines.get(String(line.id));
+      await tx
+        .update(purchaseOrderLines)
+        .set({
+          receivedQty: prior ? qtyScale(prior.receivedQty ?? 0) : '0.000',
+          status: prior ? stringValue(prior.status) || 'planned' : 'planned',
+          updatedAt: new Date()
+        })
+        .where(eq(purchaseOrderLines.id, line.id));
       affected.push(line.id);
     }
+    const beforeReceiveOrders = new Map<string, Record<string, unknown>>(
+      ((beforeSnapshot.purchaseOrders ?? []) as Array<Record<string, unknown>>).map((o) => [String(o.id), o])
+    );
     for (const order of snapshot.purchaseOrders ?? []) {
-      await tx.update(purchaseOrders).set({ status: 'approved', receivedAt: null, updatedAt: new Date() }).where(eq(purchaseOrders.id, order.id));
+      const prior = beforeReceiveOrders.get(String(order.id));
+      await tx
+        .update(purchaseOrders)
+        .set({
+          status: prior ? stringValue(prior.status) || 'approved' : 'approved',
+          // beforeSnapshot round-trips through jsonb — rehydrate timestamps.
+          receivedAt: prior?.receivedAt ? new Date(String(prior.receivedAt)) : null,
+          updatedAt: new Date()
+        })
+        .where(eq(purchaseOrders.id, order.id));
       affected.push(order.id);
     }
   } else if (original.commandName === 'postPurchaseReceipt') {
@@ -6939,7 +7111,12 @@ function collectIds(payload: Payload) {
     payload.itemId,
     ...(Array.isArray(payload.batchIds) ? payload.batchIds : []),
     ...(Array.isArray(payload.lineIds) ? payload.lineIds : []),
-    ...(Array.isArray(payload.selectedIds) ? payload.selectedIds : [])
+    ...(Array.isArray(payload.selectedIds) ? payload.selectedIds : []),
+    // UX-H04 / BE-009: partial-receive line ids — captures the lines' prior
+    // receive state in beforeSnapshot so reversal can restore (not zero) it.
+    ...(payload.lineQuantities && typeof payload.lineQuantities === 'object' && !Array.isArray(payload.lineQuantities)
+      ? Object.keys(payload.lineQuantities as Record<string, unknown>)
+      : [])
   ];
   return values.filter((value): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value));
 }
