@@ -9,10 +9,12 @@ import './styles-mobile.css';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 import 'ag-grid-enterprise';
-import { ClipboardModule, LicenseManager, ModuleRegistry } from 'ag-grid-enterprise';
+import { LicenseManager } from 'ag-grid-enterprise';
 
-// GH #355: explicitly register ClipboardModule so copy/paste works in all grids
-ModuleRegistry.registerModules([ClipboardModule]);
+// GH #355 follow-up: with the AG Grid *packages* flavor (ag-grid-enterprise),
+// importing the package registers every module — including ClipboardModule.
+// Calling ModuleRegistry.registerModules() here flipped AG Grid into "modules
+// mechanism" mode and logged the "mixing modules and packages" error on boot.
 
 type ClientConfig = {
   agGridLicenseKey?: string;
