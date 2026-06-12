@@ -57,6 +57,9 @@ import { MobileCatalogView } from './views/mobile/MobileCatalogView';
 import { MobilePaymentsView } from './views/mobile/MobilePaymentsView';
 import { MobileContactsView } from './views/mobile/MobileContactsView';
 import { MobileContactProfileView } from './views/mobile/MobileContactProfileView';
+// UX-L01/R01: PickView mounts inside the mobile shell at /mobile/pick
+// UX-R02: minimal /mobile/intake — verify + flag only
+import { MobileIntakeView } from './views/mobile/MobileIntakeView';
 
 // Phase 0b — CAP-007 / CAP-008 canvas grammar feature flag.
 // Default: enabled. Set VITE_CANVAS_GRAMMAR_ENABLED=false to revert to pre-canvas shell.
@@ -98,15 +101,33 @@ function AppContent() {
   const focusMode = useUiStore((state) => state.focusMode);
   const navigate = useNavigate();
 
-  // Auto-redirect mobile viewports to the mobile shell
-  // Skipped if user has explicitly chosen desktop (localStorage flag)
+  // UX-R04: Auto-redirect mobile viewports to the mobile shell.
+  // Maps desktop routes to mobile equivalents before falling back to /mobile/dashboard.
+  // Skipped if user has explicitly chosen desktop (localStorage flag).
   useEffect(() => {
     if (
       typeof window !== 'undefined' &&
       window.innerWidth < 768 &&
       !localStorage.getItem('terp-prefer-desktop')
     ) {
-      navigate('/mobile/dashboard');
+      // UX-R04: map desktop → mobile equivalents where they exist
+      const DESKTOP_TO_MOBILE: Record<string, string> = {
+        payments: '/mobile/payments',
+        inventory: '/mobile/inventory',
+        pick: '/mobile/pick',
+        intake: '/mobile/intake',
+        catalog: '/mobile/catalog',
+      };
+      const currentPath = window.location.pathname;
+      const firstSegment = currentPath.slice(1).split('/')[0] ?? '';
+      // contacts/:id → /mobile/contacts/:id
+      if (firstSegment === 'contacts') {
+        const rest = currentPath.slice('/contacts'.length);
+        navigate('/mobile/contacts' + rest, { replace: true });
+        return;
+      }
+      const mobileTarget = DESKTOP_TO_MOBILE[firstSegment];
+      navigate(mobileTarget ?? '/mobile/dashboard', { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -188,6 +209,10 @@ export function App() {
             <Route path="payments"  element={<MobilePaymentsView />} />
             <Route path="contacts"  element={<MobileContactsView />} />
             <Route path="contacts/:id" element={<MobileContactProfileView />} />
+            {/* UX-L01/R01: pick flow mounted in mobile shell — warehouse operator tab */}
+            <Route path="pick"      element={<PickView />} />
+            {/* UX-R02: minimal intake verify + flag only */}
+            <Route path="intake"    element={<MobileIntakeView />} />
             <Route index element={<Navigate to="dashboard" replace />} />
           </Route>
           {/* Desktop layout route — AppContent wraps all desktop views via Outlet */}
