@@ -3,18 +3,31 @@ import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { MediaBatchDrawer } from '../components/MediaBatchDrawer';
+import { StatusPill } from '../components/StatusPill';
 import type { GridRow } from '../../shared/types';
 
 const columns: ColDef<GridRow>[] = [
   { field: 'batchCode', headerName: 'Batch Code', pinned: 'left', width: 160 },
   { field: 'name', headerName: 'Batch Name', width: 200 },
   { field: 'subcategory', headerName: 'Subcategory', width: 120 },
-  { field: 'mediaUpdatedAt', headerName: 'Media Updated', width: 160 },
-  { field: 'publishedMediaCount', headerName: 'Published', type: 'numericColumn', width: 100 },
-  { field: 'draftMediaCount', headerName: 'Drafts', type: 'numericColumn', width: 100 },
+  // UX-O01: canonical batch mediaStatus field (open | in_progress | done) — same
+  // field the customer-sheet gate (Journey-13) checks. This is the single truth for
+  // "is this batch ready for catalog export?" Rendered as StatusPill for consistency
+  // with every other status column in the app.
   {
-    colId: 'mediaStatus',
-    headerName: 'Media status',
+    field: 'mediaStatus',
+    headerName: 'Media Status',
+    width: 140,
+    cellRenderer: (params: { value?: string }) => <StatusPill status={params.value} />,
+    filter: 'agSetColumnFilter'
+  },
+  // UX-O01 (secondary): count-derived activity summary for the photographer's
+  // in-session progress view. Intentionally secondary; does NOT gate catalog export
+  // (that gate is mediaStatus === 'done' on the batch — see Journey-13 customer-sheet
+  // logic and the <3 threshold here is a heuristic, not an official gate).
+  {
+    colId: 'mediaActivitySummary',
+    headerName: 'Activity',
     width: 130,
     valueGetter: (params) => {
       const published = Number(params.data?.publishedMediaCount ?? 0);
@@ -22,10 +35,13 @@ const columns: ColDef<GridRow>[] = [
       const total = published + drafts;
       if (total === 0) return 'No media';
       if (total < 3) return 'Has media';
-      return 'Complete';
+      return 'Has media (3+)';
     },
     filter: 'agSetColumnFilter'
   },
+  { field: 'mediaUpdatedAt', headerName: 'Media Updated', width: 160 },
+  { field: 'publishedMediaCount', headerName: 'Published', type: 'numericColumn', width: 100 },
+  { field: 'draftMediaCount', headerName: 'Drafts', type: 'numericColumn', width: 100 },
   {
     field: 'hasPrimaryPhoto',
     headerName: 'Photo?',
