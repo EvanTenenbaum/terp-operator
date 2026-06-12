@@ -3,16 +3,45 @@ import { trpc } from '../api/trpc';
 import { viewVisibleForUser } from '../accessPolicy';
 import { drawerStateNameForState, useUiStore } from '../store/uiStore';
 import { useCommandRunner } from './useCommandRunner';
+import { navShortcuts, requireShortcut } from '../shortcuts/registry';
+import { ShortcutsOverlay } from '../shortcuts/ShortcutsOverlay';
 import type { ViewKey } from '../../shared/types';
 
-const numberViews: Record<string, ViewKey> = {
-  '1': 'dashboard',
-  '2': 'intake',
-  '3': 'sales',
-  '4': 'payments',
-  '5': 'inventory',
-  '6': 'clients'
-};
+// UX-T07: ⌘1–⌘6 lane bindings are derived from the shortcuts registry —
+// the registry's Navigation entries are the single source of truth shared
+// with the SideNav badges (Shell.tsx) and the '?' overlay.
+const NAV_SHORTCUTS = navShortcuts();
+const numberViews: Record<string, ViewKey> = Object.fromEntries(
+  NAV_SHORTCUTS.map((shortcut) => [shortcut.combo.replace('⌘', ''), shortcut.view as ViewKey])
+);
+
+/**
+ * UX-T07: every combo this handler implements, pinned to its registry row.
+ * requireShortcut() throws at import time if a row is missing, and the
+ * registry-sync test (src/client/shortcuts/registry.sync.test.tsx) asserts
+ * this list and the registry are a bijection — a binding added on either
+ * side without the other fails fast.
+ */
+export const HOTKEYS_HANDLED_SHORTCUT_IDS: readonly string[] = [
+  ...NAV_SHORTCUTS.map((shortcut) => shortcut.id),
+  requireShortcut('palette.commands').id,
+  requireShortcut('palette.entities').id,
+  requireShortcut('palette.advanced').id,
+  requireShortcut('grid.quickFilter').id,
+  requireShortcut('drawer.toggle').id,
+  requireShortcut('drawer.cycleWidth').id,
+  requireShortcut('drawer.tabs').id,
+  requireShortcut('workspace.focusMode').id,
+  requireShortcut('action.commitPrimary').id,
+  requireShortcut('workspace.escape').id,
+  requireShortcut('intake.duplicate').id,
+  requireShortcut('intake.markReady').id,
+  requireShortcut('intake.process').id,
+  requireShortcut('sales.toggleMargin').id,
+  requireShortcut('system.healthCheck').id,
+  requireShortcut('system.validateAll').id,
+  requireShortcut('help.shortcuts').id
+];
 
 /**
  * Views served by `queries.grid` (mirrors the server's `viewSchema` enum in
@@ -69,6 +98,9 @@ export function Hotkeys() {
   const cycleDrawer = useUiStore((state) => state.cycleDrawer);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
   const setDrawerTab = useUiStore((state) => state.setDrawerTab);
+  const shortcutsOverlayOpen = useUiStore((state) => state.shortcutsOverlayOpen);
+  const setShortcutsOverlayOpen = useUiStore((state) => state.setShortcutsOverlayOpen);
+  const setShowMargin = useUiStore((state) => state.setShowMargin);
   const pushToast = useUiStore((state) => state.pushToast);
   const { runCommand } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
@@ -106,6 +138,12 @@ export function Hotkeys() {
 
       if (event.key === 'Escape') {
         event.preventDefault();
+        // UX-C01: the shortcuts overlay closes first — it sits above the
+        // drawer/palette, so Escape must not also collapse what is beneath it.
+        if (shortcutsOverlayOpen) {
+          setShortcutsOverlayOpen(false);
+          return;
+        }
         if (drawerState !== 'closed') {
           setDrawerState(activeView, 'closed');
           return;
@@ -123,6 +161,31 @@ export function Hotkeys() {
       }
 
       if (editingText) return;
+
+      // UX-C01: '?' (Shift+/ outside text fields) toggles the keyboard
+      // shortcuts overlay, generated from the UX-T07 registry.
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key === '?') {
+        event.preventDefault();
+        setShortcutsOverlayOpen(!shortcutsOverlayOpen);
+        return;
+      }
+
+      // UX-F10: ⌥M toggles Sales workspace margin/cost column visibility
+      // (uiStore.showMargin, persisted per #63). Truthful toast — the flag
+      // only gates margin/cost columns and the internal sheet's cost line in
+      // the Sales workspace; customer-facing exports are gated independently.
+      if (event.altKey && !event.metaKey && !event.ctrlKey && (event.code === 'KeyM' || key === 'm')) {
+        event.preventDefault();
+        const next = !useUiStore.getState().showMargin;
+        setShowMargin(next);
+        pushToast(
+          next
+            ? 'Margin shown — cost & margin columns are visible in the Sales workspace.'
+            : 'Margin hidden — cost & margin columns are hidden in the Sales workspace.',
+          'info'
+        );
+        return;
+      }
 
       if (event.code === 'BracketRight') {
         event.preventDefault();
@@ -303,13 +366,18 @@ export function Hotkeys() {
     setDrawerTab,
     setFocusedPanel,
     setFocusMode,
+    setShortcutsOverlayOpen,
+    setShowMargin,
+    shortcutsOverlayOpen,
     toggleDrawer,
     toggleFocusMode,
     me.data,
     utils
   ]);
 
-  return null;
+  // UX-C01: the shortcuts overlay is mounted alongside the global key handler
+  // so every shell that binds hotkeys also gets the '?' help surface.
+  return <ShortcutsOverlay />;
 }
 
 function isEditingText(target: HTMLElement | null) {
