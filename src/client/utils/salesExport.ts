@@ -41,7 +41,11 @@ const INTERNAL_HEADERS: readonly string[] = [
   'unitCost',
   'estimatedMargin',
   'tags',
-  'reason'
+  'reason',
+  // UX-F12 — below-floor exception annotation (OPEN-04/JY-06). The captured
+  // reason rides the INTERNAL sheet only; it must NEVER join CATALOG_HEADERS
+  // (customer-facing). Regression-pinned in salesExport.ux-f12.test.ts.
+  'belowFloorReason'
 ];
 
 /** Returns the customer-safe catalog export headers. */

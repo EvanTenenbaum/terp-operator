@@ -23,6 +23,8 @@ interface SalesSourcePaneProps {
   selectedOrderId: string;
   addedBatchIds?: Set<string>;
   initialSearch?: string;
+  /** UX-F07 — purchase-history chips passed through to the finder. */
+  historyChips?: ReadonlyArray<{ label: string; search: string }>;
   onAddBatch: (batch: InventoryFinderBatch, qty: number) => Promise<void>;
 }
 
@@ -31,6 +33,7 @@ export function SalesSourcePane({
   selectedOrderId,
   addedBatchIds,
   initialSearch,
+  historyChips,
   onAddBatch
 }: SalesSourcePaneProps) {
   const [activeTab, setActiveTab] = useState<SalesSourceTab>('finder');
@@ -109,6 +112,7 @@ export function SalesSourcePane({
           focusKey={customerId}
           addedBatchIds={addedBatchIds}
           initialSearch={initialSearch}
+          historyChips={historyChips}
           onAddBatch={onAddBatch}
         />
       </div>

@@ -23,6 +23,8 @@ export const OFFER_FORBIDDEN_FIELDS: readonly string[] = [
   'vendor',
   'vendorApproval',
   'unitCostWithLanded',
+  // UX-F12 — below-floor annotation is internal-only; never in customer text.
+  'belowFloorReason',
 ] as const;
 
 /**
