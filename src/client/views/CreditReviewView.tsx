@@ -4,6 +4,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { ShadowModeBanner } from '../components/credit/ShadowModeBanner';
 import { CreditQueueHealthWidget } from '../components/credit/CreditQueueHealthWidget';
 import { CreditDivergencePanel } from '../components/credit/CreditDivergencePanel';
+import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useUiStore } from '../store/uiStore';
 import type { ViewKey } from '../../shared/types';
 
@@ -25,7 +26,6 @@ const sortOptions: { key: SortOption; label: string }[] = [
 export function CreditReviewView() {
   const [filterTab, setFilterTab] = useState<FilterTab>('stale_manual');
   const [sort, setSort] = useState<SortOption>('days_since_review');
-  const [divergenceOpen, setDivergenceOpen] = useState(false);
   const { runCommand, isRunning } = useCommandRunner();
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
@@ -77,17 +77,6 @@ export function CreditReviewView() {
             </select>
           </div>
           {isManagerOrOwner && <CreditQueueHealthWidget />}
-          {isOwner && (
-            <button
-              type="button"
-              className="secondary-button compact-action"
-              onClick={() => setDivergenceOpen((v) => !v)}
-              aria-label="Divergence report"
-              aria-expanded={divergenceOpen}
-            >
-              Divergence report
-            </button>
-          )}
         </div>
       </div>
 
@@ -115,10 +104,10 @@ export function CreditReviewView() {
         ))}
       </div>
 
-      {isOwner && divergenceOpen && (
-        <div className="border-b border-zinc-200">
+      {isOwner && (
+        <WorkspacePanel panelId="credit-divergence" title="Divergence report" headingLevel={2}>
           <CreditDivergencePanel />
-        </div>
+        </WorkspacePanel>
       )}
 
       <div className="flex-1 overflow-auto p-4">
