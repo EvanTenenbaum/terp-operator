@@ -466,6 +466,7 @@ export function OperatorGrid({
               aria-label={`Filter ${title} grid`}
               className="h-full w-44 bg-transparent outline-none"
               placeholder="Filter grid (field:value)"
+              data-grid-quick-filter
               value={quickFilter}
               onChange={(event) => writeQuickFilter(event.target.value)}
             />
@@ -659,7 +660,7 @@ export function OperatorGrid({
             onCellContextMenu={onCellContextMenuHandler}
           />
         ) : (
-          <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'Create or import rows, then mark them Ready when they can be posted.'}</EmptyState>
+          <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'No rows match the current view.'}</EmptyState>
         )}
       </div>
       <SelectionSummary rows={selectedRows} view={view} onOpenHistory={(row) => setInspector({ row, tab: 'history' })} onOpenRelationship={(row) => setInspector({ row, tab: 'relationship' })} onOpenIssue={canWrite ? (row) => setInspector({ row, tab: 'issue' }) : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} cellRangeStats={cellRangeStats} />
