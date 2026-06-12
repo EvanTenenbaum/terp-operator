@@ -59,10 +59,21 @@ function makeLedgerRow(direction: LedgerDirection): LedgerDraft {
   };
 }
 
-interface Toast {
+// UX-T06: Toast action — an optional secondary CTA rendered beside the dismiss
+// button. Distinct from dismiss (which always stays). Supports UX-D01/D02.
+export interface ToastAction {
+  label: string;
+  onAction: () => void;
+}
+
+export interface Toast {
   id: string;
   message: string;
   tone: 'success' | 'error' | 'info';
+  // UX-T06: optional ordered action buttons (first = primary action, subsequent
+  // rendered inline). Kept as an array so UX-D02 can provide both "Copy details"
+  // and "Open in Recovery" without a separate shape.
+  actions?: ToastAction[];
 }
 
 export interface GridColumnPref {
@@ -95,6 +106,11 @@ interface UiState {
   gridFilters: Partial<Record<ViewKey, string>>;
   gridAdvancedFilters: Partial<Record<ViewKey, FilterGroupInput>>;
   gridColumnPrefs: Record<string, GridColumnPref[]>;
+  // UX-C04: per-user grid density preference. 'standard' = default AG Grid
+  // row/header heights; 'compact' = tighter rows for operators scanning dense
+  // data. Persisted as a benign UX preference (no PII).
+  gridDensity: 'standard' | 'compact';
+  setGridDensity: (density: 'standard' | 'compact') => void;
   routeHistory: RouteHistoryEntry[];
   toasts: Toast[];
   announcement: string;
@@ -133,6 +149,10 @@ interface UiState {
   // TER-1633: open unified palette on a specific tab
   openPalette: (tab: 'commands' | 'entities') => void;
   setCommandPaletteTab: (tab: 'commands' | 'entities') => void;
+  // UX-C01: '?' keyboard-shortcuts help overlay. NOT persisted — ephemeral
+  // session state only (a help surface should never reopen itself on reload).
+  shortcutsOverlayOpen: boolean;
+  setShortcutsOverlayOpen: (open: boolean) => void;
   toggleSideNav: () => void;
   setDrilldownMetric: (metric: string | null) => void;
   togglePanelCollapsed: (panelId: string) => void;
@@ -154,7 +174,9 @@ interface UiState {
   resetGridColumnPrefs: (tableKey: string) => void;
   pushRouteHistory: (entry: Omit<RouteHistoryEntry, 'timestamp'>) => void;
   goBackRouteHistory: () => void;
-  pushToast: (message: string, tone?: Toast['tone']) => void;
+  // UX-T06: backward-compatible signature — existing callers pass (message) or
+  // (message, tone) and compile unchanged; new callers can pass opts.actions.
+  pushToast: (message: string, tone?: Toast['tone'], opts?: { actions?: ToastAction[] }) => void;
   dismissToast: (id: string) => void;
   setDismissedShadowBanner: (dismissed: boolean) => void;
   setShowMargin: (show: boolean) => void;
@@ -194,6 +216,7 @@ export const useUiStore = create<UiState>()(
     commandPaletteOpen: false,
     commandPaletteAdvancedOpen: false,
     commandPaletteTab: 'commands' as const,
+    shortcutsOverlayOpen: false,
     sideNavCollapsed: false,
     drilldownMetric: null,
     collapsedPanels: {},
@@ -205,6 +228,7 @@ export const useUiStore = create<UiState>()(
     gridFilters: {},
     gridAdvancedFilters: {},
     gridColumnPrefs: {},
+    gridDensity: 'standard',
     routeHistory: [],
     toasts: [],
     announcement: '',
@@ -282,6 +306,11 @@ export const useUiStore = create<UiState>()(
     setCommandPaletteTab: (tab) =>
       set((state) => {
         state.commandPaletteTab = tab;
+      }),
+    setShortcutsOverlayOpen: (open) =>
+      set((state) => {
+        state.shortcutsOverlayOpen = open;
+        state.announcement = open ? 'Keyboard shortcuts overlay opened.' : 'Keyboard shortcuts overlay closed.';
       }),
     toggleSideNav: () =>
       set((state) => {
@@ -397,6 +426,11 @@ export const useUiStore = create<UiState>()(
         delete state.gridColumnPrefs[tableKey];
         state.announcement = 'Column layout reset.';
       }),
+    setGridDensity: (density) =>
+      set((state) => {
+        state.gridDensity = density;
+        state.announcement = density === 'compact' ? 'Compact grid density.' : 'Standard grid density.';
+      }),
     pushRouteHistory: (entry) =>
       set((state) => {
         pushRouteEntry(state, entry);
@@ -419,10 +453,14 @@ export const useUiStore = create<UiState>()(
         state.focusMode = false;
         state.announcement = `Returned to ${entry.view}.`;
       }),
-    pushToast: (message, tone = 'info') =>
+    // UX-T06: opts.actions adds optional CTA buttons to the toast. Existing call
+    // sites pass (message) or (message, tone) and compile unchanged.
+    pushToast: (message, tone = 'info', opts) =>
       set((state) => {
         const id = crypto.randomUUID();
-        state.toasts.push({ id, message, tone });
+        const toast: Toast = { id, message, tone };
+        if (opts?.actions?.length) toast.actions = opts.actions;
+        state.toasts.push(toast);
         state.announcement = message;
       }),
     dismissToast: (id) =>
@@ -507,6 +545,8 @@ export const useUiStore = create<UiState>()(
       activeSettingsTab: state.activeSettingsTab,
       drawerByView: state.drawerByView,
       gridColumnPrefs: state.gridColumnPrefs,
+      // UX-C04: grid density preference — benign UX preference, no PII.
+      gridDensity: state.gridDensity,
       dismissedShadowBanner: state.dismissedShadowBanner,
       // #63: persist operator margin visibility — see comment on UiState.showMargin.
       showMargin: state.showMargin,
