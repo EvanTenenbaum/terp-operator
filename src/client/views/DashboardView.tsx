@@ -22,9 +22,30 @@ const QUEUE_FILTER: Partial<Record<string, string>> = {
   payments: '',  // count is from invoices; payments view shows payment records — no direct filter
 };
 
+/** Maps a Today-Focus tile key to its navigation target and pre-apply filter.
+ *  UX-E02: tiles now use the same filter semantics as the pending-queue buttons. */
+const TODAY_TILE_NAV: Record<string, { route: string; filterView?: ViewKey; filter?: string }> = {
+  'open-orders': { route: '/orders', filterView: 'orders', filter: 'status:confirmed' },
+  'intake-ready': { route: '/intake', filterView: 'intake', filter: 'status:ready' },
+};
+
+/** Inline error+retry banner for a single dashboard panel. UX-E04. */
+function PanelError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex items-center gap-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+      <span>Failed to load.</span>
+      <button type="button" className="ml-auto text-xs underline hover:no-underline" onClick={onRetry}>
+        Retry
+      </button>
+    </div>
+  );
+}
+
 export function DashboardView() {
   const setDrilldownMetric = useUiStore((state) => state.setDrilldownMetric);
   const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
   const navigate = useNavigate();
   const drilldownMetric = useUiStore((state) => state.drilldownMetric);
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 15_000 });
@@ -35,6 +56,14 @@ export function DashboardView() {
   const myDrafts = trpc.queries.myDrafts.useQuery(undefined, { refetchInterval: 15_000 });
   // GH #359: Credit watch watchlist — top customers by credit risk
   const creditWatchlist = trpc.queries.creditWatchlist.useQuery({ limit: 10 }, { refetchInterval: 30_000 });
+
+  /** UX-E09: Refresh all dashboard-page queries, not just the dashboard query. */
+  function handleRefresh() {
+    void dashboard.refetch();
+    void workQueue.refetch();
+    void myDrafts.refetch();
+    void creditWatchlist.refetch();
+  }
 
   const workQueueExpansionConfig = useMemo(() => ({
     enabled: true,
@@ -108,16 +137,8 @@ export function DashboardView() {
     { field: 'createdAt', width: 180 }
   ];
 
-  if (dashboard.isError || workQueue.isError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-500">
-        <p className="text-sm">Unable to load dashboard. Check your connection.</p>
-        <button className="btn-secondary text-xs" onClick={() => { dashboard.refetch(); workQueue.refetch(); }}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  // UX-E04: removed the all-or-nothing error gate — each panel renders its own
+  // PanelError+retry so healthy panels stay live when only one query fails.
 
   return (
     <div className="view-stack">
@@ -126,24 +147,33 @@ export function DashboardView() {
           <h1 className="page-title">Owner Daily Decision View</h1>
           <p className="page-subtitle">Today’s money, inventory, open work, and recent activity.</p>
         </div>
-        <button type="button" className="secondary-button" onClick={() => dashboard.refetch()}>
+        {/* UX-E09: Refresh refetches all dashboard-page queries. */}
+        <button type="button" className="secondary-button" onClick={handleRefresh}>
           <RefreshCcw className="h-4 w-4" aria-hidden="true" />
           Refresh
         </button>
       </div>
+      {/* UX-E04: KPI panel shows its own error+retry; dashboard error does not
+          replace the whole page. */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-4" aria-busy={dashboard.isLoading}>
         {/* EXT-REVIEW 2026-06 finding #2 ("the dashboard is empty"): the KPI row
             previously rendered nothing while loading and nothing on an empty
             response — indistinguishable from a data failure. Loading now shows
             skeleton tiles; a loaded-but-empty response shows an explicit state. */}
-        {dashboard.isLoading
+        {dashboard.isError
+          ? (
+            <div className="col-span-full">
+              <PanelError onRetry={() => void dashboard.refetch()} />
+            </div>
+          )
+          : dashboard.isLoading
           ? Array.from({ length: 4 }, (_, i) => (
               <div key={i} className="h-24 animate-pulse rounded-lg border border-line bg-zinc-100" data-testid="kpi-skeleton" />
             ))
           : (dashboard.data?.metrics ?? []).map((metric) => (
               <KpiCard key={metric.key} metric={metric} onOpen={setDrilldownMetric} />
             ))}
-        {!dashboard.isLoading && (dashboard.data?.metrics ?? []).length === 0 ? (
+        {!dashboard.isError && !dashboard.isLoading && (dashboard.data?.metrics ?? []).length === 0 ? (
           <div className="col-span-full">
             <EmptyState title="No dashboard data yet." role="status">
               KPIs appear here once orders, payments, and inventory are posted. If you expected data, check the server health indicator.
@@ -162,10 +192,12 @@ export function DashboardView() {
           contentClassName="p-3"
         >
           <div aria-live="polite">
-            {/* Today's Top Decisions */}
+            {/* Today's Top Decisions — UX-E04: workQueue error shown inline */}
             <div className="mb-4">
               <h3 className="mb-2 text-sm font-semibold text-ink">Today's Top Decisions</h3>
-              {rankedWorkRows.length === 0 && !workQueue.isLoading ? (
+              {workQueue.isError ? (
+                <PanelError onRetry={() => void workQueue.refetch()} />
+              ) : rankedWorkRows.length === 0 && !workQueue.isLoading ? (
                 <EmptyState title="Nothing needs your attention right now." role="status" />
               ) : (
                 <div className="flex flex-col gap-1">
@@ -186,7 +218,8 @@ export function DashboardView() {
                 </div>
               )}
             </div>
-            {/* 5 KPI Tiles */}
+            {/* 5 KPI Tiles — UX-E02: "Open Orders" lands on /orders?status:confirmed,
+                "Intake ready" lands on /intake?status:ready (same as QUEUE_FILTER). */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <TodayFocusTile
                 label="Cash Position"
@@ -206,12 +239,20 @@ export function DashboardView() {
               <TodayFocusTile
                 label="Open Orders"
                 value={dashboard.data?.pendingQueues.find((q) => q.key === 'sales')?.count}
-                onClick={() => navigate('/sales')}
+                onClick={() => {
+                  const { route, filterView, filter } = TODAY_TILE_NAV['open-orders'];
+                  if (filterView && filter) setGridFilter(filterView, filter);
+                  navigate(route);
+                }}
               />
               <TodayFocusTile
                 label="Intake ready"
                 value={dashboard.data?.pendingQueues.find((q) => q.key === 'intake')?.count}
-                onClick={() => navigate('/intake')}
+                onClick={() => {
+                  const { route, filterView, filter } = TODAY_TILE_NAV['intake-ready'];
+                  if (filterView && filter) setGridFilter(filterView, filter);
+                  navigate(route);
+                }}
               />
             </div>
           </div>
@@ -219,6 +260,9 @@ export function DashboardView() {
       </div>
       {/* ── End Today Focus ──────────────────────────────────────────────────── */}
 
+      {/* UX-E03: "Bills due / scheduled" and "Customer balances due" now render the
+          actual payables/receivables totals from the KPI metrics (already on the
+          wire) instead of placeholder text. Click-through uses the same drilldown. */}
       <WorkspacePanel panelId="dashboard:money-buckets" title="Money Buckets" headingLevel={2} contentClassName="p-3">
         <div className="definition-list">
           {(dashboard.data?.moneyBuckets ?? []).map((bucket) => (
@@ -229,16 +273,25 @@ export function DashboardView() {
           ))}
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('payables')}>
             <strong>Bills due / scheduled</strong>
-            <div className="mt-1 text-sm text-ink">Open vendor bills</div>
+            <div className="mt-1 text-sm text-ink">
+              {dashboard.data?.metrics.find((m) => m.key === 'payables')?.value != null
+                ? String(dashboard.data.metrics.find((m) => m.key === 'payables')!.value)
+                : 'Open vendor bills'}
+            </div>
           </button>
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('receivables')}>
             <strong>Customer balances due</strong>
-            <div className="mt-1 text-sm text-ink">Open customer orders</div>
+            <div className="mt-1 text-sm text-ink">
+              {dashboard.data?.metrics.find((m) => m.key === 'receivables')?.value != null
+                ? String(dashboard.data.metrics.find((m) => m.key === 'receivables')!.value)
+                : 'Open customer orders'}
+            </div>
           </button>
         </div>
       </WorkspacePanel>
       {/* ── Credit Watch (GH #359) ──────────────────────────────────────────────── */}
-      {creditWatchlist.data && creditWatchlist.data.length > 0 && (
+      {/* UX-E04: creditWatchlist error renders inline so other panels stay live. */}
+      {(creditWatchlist.isError || (creditWatchlist.data && creditWatchlist.data.length > 0)) && (
         <WorkspacePanel
           panelId="dashboard:credit-watch"
           title="Credit Watch"
@@ -247,65 +300,82 @@ export function DashboardView() {
           contentClassName="p-3"
         >
           <div aria-busy={creditWatchlist.isLoading}>
-            <div className="credit-watch-list">
-              {creditWatchlist.data.map((item) => {
-                const riskClass =
-                  item.risk === 'at-risk' ? 'credit-risk-bad' :
-                  item.risk === 'watch' ? 'credit-risk-watch' :
-                  'credit-risk-good';
-                return (
-                  <button
-                    key={item.customerId}
-                    type="button"
-                    className="queue-row"
-                    onClick={() => navigate('/clients')}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${riskClass}`}
-                        title={item.risk === 'at-risk' ? 'At risk' : item.risk === 'watch' ? 'Watch' : 'Good'}
-                      />
-                      <span className="font-medium truncate">{item.customerName}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-zinc-500">
-                      <span title="Outstanding balance">
-                        ${Number(item.balance).toLocaleString('en-US')}
-                      </span>
-                      <span title={`Credit limit: $${Number(item.creditLimit).toLocaleString('en-US')}`}>
-                        limit ${Number(item.creditLimit).toLocaleString('en-US')}
-                      </span>
-                      {item.overallScore !== null && (
-                        <span title="Credit score">{item.overallScore}</span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            {creditWatchlist.isError ? (
+              <PanelError onRetry={() => void creditWatchlist.refetch()} />
+            ) : (
+              <div className="credit-watch-list">
+                {/* UX-E01: each row deep-links — setGridFilter('clients', 'name:<customer>')
+                    + setDrawerEntity + setDrawerState('standard') — mirrors the CountPill
+                    pattern (TER-1624 lineage). */}
+                {(creditWatchlist.data ?? []).map((item) => {
+                  const riskClass =
+                    item.risk === 'at-risk' ? 'credit-risk-bad' :
+                    item.risk === 'watch' ? 'credit-risk-watch' :
+                    'credit-risk-good';
+                  return (
+                    <button
+                      key={item.customerId}
+                      type="button"
+                      className="queue-row"
+                      onClick={() => {
+                        setGridFilter('clients', `name:${item.customerName}`);
+                        setDrawerEntity('clients', 'customer', String(item.customerId));
+                        setDrawerState('clients', 'standard');
+                        navigate('/clients');
+                      }}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${riskClass}`}
+                          title={item.risk === 'at-risk' ? 'At risk' : item.risk === 'watch' ? 'Watch' : 'Good'}
+                        />
+                        <span className="font-medium truncate">{item.customerName}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-zinc-500">
+                        <span title="Outstanding balance">
+                          ${Number(item.balance).toLocaleString('en-US')}
+                        </span>
+                        <span title={`Credit limit: $${Number(item.creditLimit).toLocaleString('en-US')}`}>
+                          limit ${Number(item.creditLimit).toLocaleString('en-US')}
+                        </span>
+                        {item.overallScore !== null && (
+                          <span title="Credit score">{item.overallScore}</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </WorkspacePanel>
       )}
       {/* ── Your Drafts (TER-1632) ────────────────────────────────────────────── */}
-      {(myDrafts.data?.length ?? 0) > 0 && (
+      {/* UX-E04: myDrafts error renders inline so other panels stay live. */}
+      {(myDrafts.isError || (myDrafts.data?.length ?? 0) > 0) && (
         <WorkspacePanel
           panelId="dashboard:my-drafts"
           title={`Your drafts (${myDrafts.data?.length ?? 0})`}
           headingLevel={2}
           contentClassName="p-3"
         >
-          <div className="grid gap-2">
-            {(myDrafts.data ?? []).map((draft) => (
-              <button
-                key={String(draft.id)}
-                className="queue-row"
-                type="button"
-                onClick={() => navigate('/' + String(draft.route))}
-              >
-                <span>{String(draft.lane)}: {String(draft.title)}</span>
-                <StatusPill status={String(draft.status ?? '')} />
-              </button>
-            ))}
-          </div>
+          {myDrafts.isError ? (
+            <PanelError onRetry={() => void myDrafts.refetch()} />
+          ) : (
+            <div className="grid gap-2">
+              {(myDrafts.data ?? []).map((draft) => (
+                <button
+                  key={String(draft.id)}
+                  className="queue-row"
+                  type="button"
+                  onClick={() => navigate('/' + String(draft.route))}
+                >
+                  <span>{String(draft.lane)}: {String(draft.title)}</span>
+                  <StatusPill status={String(draft.status ?? '')} />
+                </button>
+              ))}
+            </div>
+          )}
         </WorkspacePanel>
       )}
       {/* ── End Your Drafts ─────────────────────────────────────────────────── */}
