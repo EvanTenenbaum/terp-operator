@@ -222,7 +222,12 @@ export function GridJourney({
   expansionConfig,
   columns,
   selectionActions,
-  inspectorTabs
+  inspectorTabs,
+  // UX-D03: per-view empty-state copy. Views that don't pass these fall back to
+  // the OperatorGrid neutral default ("No rows match the current view") which
+  // replaced the old intake-specific text in Wave 1 UX-A05.
+  emptyTitle,
+  emptyChildren
 }: {
   view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings' | 'credit-review' | 'pick' | 'contacts' | 'contacts-customer-orders'>;
   title: string;
@@ -237,14 +242,16 @@ export function GridJourney({
     isRowMaster?: (row: GridRow) => boolean;
   };
   columns?: ColDef<GridRow>[];
-  selectionActions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
+  selectionActions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand'], setNextSuccessActions?: ReturnType<typeof useCommandRunner>['setNextSuccessActions']) => React.ReactNode;
   inspectorTabs?: (row: GridRow) => InspectorTab[];
+  emptyTitle?: string;
+  emptyChildren?: React.ReactNode;
 }) {
   const grid = trpc.queries.grid.useQuery({ view });
   const selectedRows = useUiStore((state) => state.selectedRows[view]);
   const selected = selectedRows ?? EMPTY_ROWS;
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
-  const { runCommand } = useCommandRunner();
+  const { runCommand, setNextSuccessActions } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   return (
@@ -261,9 +268,11 @@ export function GridJourney({
         onSelectionChange={(rows) => setSelectedRows(view, rows)}
         onCellCommit={(event) => onCellCommit?.(event, runCommand)}
         actions={canWrite ? actions?.(selected, runCommand) : null}
-        selectionActions={canWrite && selectionActions ? (rows) => selectionActions(rows, runCommand) : undefined}
+        selectionActions={canWrite && selectionActions ? (rows) => selectionActions(rows, runCommand, setNextSuccessActions) : undefined}
         inspectorTabs={inspectorTabs}
         expansionConfig={canWrite ? expansionConfig : undefined}
+        emptyTitle={emptyTitle}
+        emptyChildren={emptyChildren}
       />
     </div>
   );

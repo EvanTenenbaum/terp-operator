@@ -10,6 +10,21 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import type { GridRow } from '../../shared/types';
 import { columnsByView, EMPTY_ROWS } from './operations/shared';
 
+// UX-D01: navigate to orders view filtered to a specific order after fulfillment.
+function useOrderDeepLink() {
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
+  return (orderId: string | undefined) => {
+    if (!orderId) return;
+    setGridFilter('orders', `id:${orderId}`);
+    setDrawerEntity('orders', 'order', orderId);
+    setDrawerState('orders', 'standard');
+    setActiveView('orders');
+  };
+}
+
 // CAP-030 / TER-1510 — WarehouseAlert interface matches warehouseAlerts JSONB shape in fulfillment_lines
 interface WarehouseAlert {
   id: string;
@@ -95,10 +110,12 @@ export function FulfillmentView() {
           }));
       })
     : [];
-  const { runCommand, isRunning } = useCommandRunner();
+  const { runCommand, setNextSuccessActions, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const line = selectedLines[0];
+  // UX-D01: deep-link for "View order" after fulfillment
+  const openOrderDeepLink = useOrderDeepLink();
   const fulfillmentComplete = Boolean(
     selectedPick?.id &&
       lines.data?.length &&
@@ -166,6 +183,9 @@ export function FulfillmentView() {
         loading={grid.isLoading || isRunning}
         isError={grid.isError}
         onRetry={() => grid.refetch()}
+        // UX-D03: tailored empty state names the verb + producing surface.
+        emptyTitle="No open picks — post an order to create work"
+        emptyChildren="Pick lists are created when a confirmed sales order is allocated to fulfillment or a pick list is requested from the Orders view."
         onSelectionChange={(rows) => {
           setSelectedRows('fulfillment', rows);
           setSelectedLines([]);
@@ -219,13 +239,18 @@ export function FulfillmentView() {
           // not exist — pack progress is derived from the line grid
           // (fulfillmentComplete). printLabels stays out of the bar per the
           // TER-1660 deferral.
+          // UX-D01: success toast for fulfillment deep-links to the order.
           const fulfillAct = {
             key: 'fulfilled',
             label: 'Mark fulfilled',
             icon: <PackageCheck className="h-4 w-4" aria-hidden="true" />,
             disabled: !fulfillmentComplete,
             disabledReason: 'Pack every line (qty + bag code) below before fulfilling',
-            run: (r: GridRow[]) => runCommand('markOrderFulfilled', { orderId: r[0]?.orderId, tracking }, 'Mark order fulfilled')
+            run: (r: GridRow[]) => {
+              const orderId = String(r[0]?.orderId ?? '');
+              setNextSuccessActions?.([{ label: 'View order', onAction: () => openOrderDeepLink(orderId) }]);
+              return runCommand('markOrderFulfilled', { orderId: r[0]?.orderId, tracking }, 'Mark order fulfilled');
+            }
           };
           const pickTable: StatusActionTable = {
             rules: [
