@@ -2,6 +2,21 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — UX audit Wave 7: defaults, density & remaining P1/P2 (B01/B06/B08, E07/E08, F03/F07–F12, G03–G05, H03/H05/H07–H09, I01–I06, O02–O04, P02, R03, S01/S03/S05, C02/C09 follow-ups, D06)
+
+Gate green: typecheck, 1608/1608 vitest, build.
+
+- **UX-F03:** sale-line item entry is a finder-resolver typeahead (same query/semantics as the finder pane); unique-match commits auto-bind, ambiguous/zero persist `needs_resolution` into the validation panel and Wave-4 pre-post check. In-grid popup editor deferred (needs async-editor OperatorGrid API).
+- **UX-G03:** found + fixed a silent data-loss bug — SalesView's editable `deliveryWindow` column had no commit handler (edits dropped); now commits `setDeliveryWindow`. `applyClientCredit` gains a manager-gated Sale-tray home.
+- **UX-F07/F08/F09/F11/F12:** purchase-history finder chips; "Repeat last order" relocated to customer workspace header; tray=order verbs with output verbs consolidated in sheet-preview panel; suggestions adopt "Why shown" finder chips (row-level convergence deferred — data-flow restructure); `belowFloorReason` on internal export only, catalog/offer regression-pinned to exclude it.
+- **UX-B01:** low-frequency lanes (Receipts, Photography, Credit Review, Disputes, Referees) behind per-group "More" disclosure with persisted expansion; ⌘1–6 still navigate collapsed lanes. **UX-B06:** drawer state-cycle button + one-time coachmark. **UX-B08:** route-change ribbon clearing for stale cases.
+- **UX-E07 (minimal):** truthfully-local per-lane work-queue snooze (persisted, labeled snooze). **UX-E08:** "View all (N)" ranked expansion. **UX-E06:** TRACKED — no warning payload exists server-side and new procedures are out of guardrails. **UX-J07 dashboard half:** TRACKED (drilldown payload lacks bucket).
+- **UX-H03/H05/H07/H08/H09/S03/C09/C02-intake:** intake selection totals strip; arrival select editor; shared marker legend tooltips; PO prepaid columns; pinned PO header; warning glyphs beside tinted cells; registry keystrokes on intake actions; TSV paste on intake detail grid. **UX-H06:** TRACKED — row placement is server-ordering controlled.
+- **UX-I01:** defaults re-derived against today's columns — all named grids ≤8 visible (hidden stay in Columns menu; prefs precedence verified). **UX-I02/I03/I05/I06:** media columns + "No photos" preset; adjustment before/after preview; finder identity line; per-grid default saved view. **UX-G04/G05/P02:** order↔invoice link parity; "Needs marks" preset; accepted-match "Next: create PO / create Sale" links.
+- **UX-O02/O03/O04/R03:** PhotographyQueuePanel mounted in Inventory + Sales (orchestrator applied the SalesView one-liner); bulk publish on selection; upload-complete badges; mobile catalog "Copy offer" via the shared sanitizer.
+- **UX-S01:** 42-test a11y contract extension (StatusActionBar menus, InspectorDrawer tabs, FilterPresetStrip aria-pressed, ToastCenter live regions, landmarks). **UX-S05:** ExpansionPanel native buttons. **UX-D06:** optimistic patch shipped for the safe flips only, rollback on error.
+- **Deliberate deferrals recorded:** T05/H02 full IntakeView→OperatorGrid convergence (H02's audit-stated minimum-viable shipped Wave 5 via M01; re-platforming the core intake grid at run-end judged riskier than the residual value), F11 full row convergence, K03 sellout-trigger linkage, E06/J07-dashboard server payloads, H06.
+
 ## 2026-06-12 — UX audit Waves 5+6: support & relationship + mobile (UX-U01/N01/N02, B03/B04/N03, Q04–Q07, M01/M02/M04, F01/F06, L01/L02/L04/L05, R01/R02/R04)
 
 Gate green: typecheck, 1315/1315 vitest (client + server routers), build.
