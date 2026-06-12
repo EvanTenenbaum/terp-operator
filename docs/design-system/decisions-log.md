@@ -2,6 +2,17 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — UX audit closure reconciliation (post-closure-audit corrections)
+
+A closure audit cross-checked all 127 VALID triage items against the wave entries. Corrections it required:
+
+- **UX-U02 (keyboard parity epic): CLOSED** — all sub-items shipped (A03/A07 Wave 1, C01–C06 + T07 Wave 3, intake/QuickLedger paste wiring Wave 7). The epic's "before/after keystroke benchmark on X1" was not run as a scripted flow; the keyboard wins are individually tested (registry bijection, ⌘↵ decision-table tests, paste/fill-down/density/Enter-advance suites). Formal X1 benchmark: tracked as optional follow-up.
+- **UX-U03 (pre-post confidence epic): CLOSED** — sub-items F02/F04/G02/K02 all shipped Wave 4.
+- **UX-U04 (mobile warehouse epic): CLOSED for in-scope deliverable** — L01/R01 shipped Waves 5+6; CAP-040/041/042 follow-ons out of scope per Execution Decision 1.
+- **UX-C02 QuickLedger paste:** Wave 3 deferred it; it subsequently SHIPPED in Wave 7 commit `c7dcb9f` (QuickLedgerGrid.tsx onPaste + 247-line test file) but the Wave 7 entry credited only the intake wiring. Both intake and QuickLedger paste are now delivered; only PO-line paste remains on the exported-helper follow-up.
+- **UX-L05 finding REFUTED with evidence:** the auditor cited PickLineScreen.tsx:179 `onBack()` — that call is in `handleHold` (hold/recall path). The Enter→pack path runs `handleMarkPicked → submitPack → onPicked()` → `PickView.handleLinePicked` (GH #345), which auto-advances to the next unpacked line and only returns to the list when all lines are packed. The Wave 5+6 claim stands as written.
+- **UX-L02 caveat added for honesty:** the discrepancy note is captured client-side (toast) only; server-side Issue-tab persistence requires a new command accepting fulfillmentLineId + note — tracked, per the code's own comment.
+
 ## 2026-06-12 — UX audit Wave 7: defaults, density & remaining P1/P2 (B01/B06/B08, E07/E08, F03/F07–F12, G03–G05, H03/H05/H07–H09, I01–I06, O02–O04, P02, R03, S01/S03/S05, C02/C09 follow-ups, D06)
 
 Gate green: typecheck, 1608/1608 vitest, build.
