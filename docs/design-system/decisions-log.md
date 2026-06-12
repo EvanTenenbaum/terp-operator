@@ -2,6 +2,27 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — UX audit Wave 4: pre-post confidence & money trust (UX-A04/A15, F02/F04/G02, J01–J07, K01–K04, H04)
+
+Gate green: typecheck, 1023/1023 vitest (client + new DB-free server suites), build.
+
+- **UX-F02:** Sale Builder pre-post strip (`SalePrePostStrip.tsx`) mirrors commandBus confirm/post preconditions exactly — credit is labeled advisory per TER-1659 ("will NOT refuse"), duplicates/priced/inventory as refusals — with ✗ deep-links; informational only, no disabled-logic changes.
+- **UX-F04:** "Already in order" chip on sale-line Source cells using the server's `sourceRowKey||batchId` key space.
+- **UX-G02:** orders grid gains allowlist field `crossOrderSourceOrders` (no new procedure); OrdersView shows "Shared source" chip on open rows with may-be-refused copy (the server's hard refusal is within-order; cross-order risk is availability-at-post).
+- **UX-A15:** snapshot partial-failure pill gains "Retry snapshot" replaying the exact captured payload; pill clears on success.
+- **UX-A04 (CAP-024, Decision 2):** Quick Ledger drafts persist server-side per-user — migration `0082_user_view_drafts.sql`, `userViewDrafts` schema, `quickLedgerDrafts`/`saveQuickLedgerDrafts` endpoints, debounced `useQuickLedgerDraftSync` hook with truthful "Drafts not synced" failure pill. localStorage partialize untouched — shared-workstation PII rationale intact; server is the only persistence.
+- **UX-J01:** verified fixed in backend (commandBus FIFO auto-allocation) — no UI fallback needed.
+- **UX-J02:** buyer-credit label confirmed; balance-effect preview (`balance → $Z`) added from on-wire data.
+- **UX-J04:** estimated FIFO allocation preview per draft row mirroring the server's allocation ordering.
+- **UX-J03:** Payments "Unapplied" preset + live count pill (no extra query; tRPC dedupe).
+- **UX-J06:** payment inspector "Linked orders" tab — allocation rows cross-link to orders (TER-1624 pattern).
+- **UX-J07:** bucket column verified on posted payment rows; dashboard drilldown bucket-grouping reported as follow-up (not edited this wave).
+- **UX-K01:** due-reason + scheduled-date badge columns (data already in grid SQL; no server change).
+- **UX-K02:** Pay on open/pending bills now confirms "This will schedule an immediate payout event, then record payment." — copy verified against commandBus schedule→record sequence.
+- **UX-K03:** Trace tab gains linked-receipt section via LATERAL join fields on the existing vendors query; sellout-trigger linkage remains tracked (needs a real procedure).
+- **UX-K04:** `voidVendorPayment` as tray verb with reversal-policy guidance in confirm.
+- **UX-H04 (BE-009, Decision 5):** partial PO receiving — `receivePurchaseOrder` accepts optional per-line `lineQuantities` (over-asks rejected, never capped); `postPurchaseReceipt` ACCUMULATES `receivedQty` for partial-lineage lines (was overwrite — would have corrupted partial progress) and flips line/PO status only when cumulative ≥ ordered; reversal restores from beforeSnapshot. Receive-qty column + "Receive selected qty" tray action on PO lines. DB-free server tests via the repo's inMemoryDbMock.
+
 ## 2026-06-12 — UX audit Wave 3: keyboard parity & feedback (UX-T07/C01/S02/B02/C08/C09/F10, C05/C07, T06/D01/D02/D03/M05/D05, C02/C03/C04/C06)
 
 Gate green: typecheck, 910/910 client vitest, build.
