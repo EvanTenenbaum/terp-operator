@@ -503,7 +503,12 @@ export const queriesRouter = router({
       [gapFloor, lookback, repeatThreshold]
     );
 
-    return { toMove: toMoveResult.rows, toSource: toSourceResult.rows };
+    // Opportunity rows are aggregates with no table id. OperatorGrid's getRowId
+    // is String(row.id) — without a stable synthetic id every row became node id
+    // "undefined" (AG Grid duplicate-node-id warning, broken selection identity).
+    const toMove = toMoveResult.rows.map((row, i) => ({ id: row.batchId ? `move:${row.batchId}` : `move:${i}`, ...row }));
+    const toSource = toSourceResult.rows.map((row, i) => ({ id: `source:${row.vendorId ?? 'none'}:${row.category ?? 'unknown'}:${i}`, ...row }));
+    return { toMove, toSource };
   }),
   matchmakingEntityCounts: protectedProcedure.query(async () => {
     const [settings] = (await pool.query(
