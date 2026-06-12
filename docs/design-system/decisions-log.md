@@ -2,6 +2,26 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — UX audit Wave 1: truth & trust (UX-A01/A02/A03/A05/A06/A07/A11, E01–E04/E09, O01, D04 top surfaces, L03)
+
+Backlog + triage: `docs/ux-audit-2026-06-12.md`, `docs/ux-audit-2026-06-12-triage.json`. Gate green: typecheck, 760/760 client vitest, build.
+
+- **UX-A01:** ⌘⌥H now performs a real uncached `auth.me` round-trip via the tRPC proxy client and toasts pass/fail truthfully; fake "top status indicator" copy removed (`Hotkeys.tsx`).
+- **UX-A02:** ⌘⌥V awaits a view-scoped `queries.grid` invalidation (plus `intakeQueue` on intake) and toasts only after the refetch settles. `verifyAllIntake` not chained — it is per-PO and not cleanly reachable from a global hotkey.
+- **UX-A03:** ⌘↵ rewired to commit the visible StatusActionBar primary (new `data-status-action-primary` hook on the bar's resolved button) for the full selection, toasting the decision-table disabled/mixed reason. Hardcoded rows[0] confirm/post/allocate commands deleted.
+- **UX-A05:** OperatorGrid default empty-state children changed to neutral "No rows match the current view."; per-view tailored empties deferred to UX-D03.
+- **UX-A06:** `mergeCandidateCount` query + merge banner removed from ContactsView; `/contacts/merge-candidates` redirects to `/contacts`. MergeCandidatesView component preserved for when BE-014 ships (Execution Decision 5: defer detection job).
+- **UX-A07:** `/` focuses the active OperatorGrid quick-filter via `data-grid-quick-filter`, skipped while editing text or while the palette is open.
+- **UX-A11:** VendorContextDrawer brand removal routed through `useConfirm()` (tone danger); native `confirm()` removed.
+- **UX-E01:** Credit Watch rows deep-link: clients grid filter `name:<customer>` + customer drawer opened (CountPill pattern, TER-1624 lineage).
+- **UX-E02:** Today-Focus tiles navigate filtered; "Open Orders" lands on `/orders` `status:confirmed` (was unfiltered `/sales`).
+- **UX-E03:** Money Buckets pseudo-tiles render real payables/receivables totals from KPI metrics already on the wire; click-through opens the matching drilldown.
+- **UX-E04:** Dashboard error state is per-panel with retry; healthy panels stay live.
+- **UX-E09:** Refresh refetches all dashboard-page queries (dashboard, workQueue, myDrafts, creditWatch).
+- **UX-O01:** MediaView renders the canonical batch `mediaStatus` as the primary status column (StatusPill); count-derived heuristic demoted to a secondary "Activity" column with the `<3` threshold documented against the Journey-13 gate. `mediaStatus` added to the photography grid query field allowlist (existing query extended, no new procedures).
+- **UX-D04 (top surfaces):** 32 disabled controls across OperationsViews (17), SalesView tray/expansion (12), InventoryFinderPanel (3) now carry conditional `title` disabled-reasons. Full-app sweep continues in later waves.
+- **UX-L03:** Fulfillment FilterPresetStrip presets were dead (`status:in_progress`/`status:needs_picking` don't exist in the DB — real statuses are `open`/`fulfilled`); replaced with "Open picks"/"Fulfilled" and `status:open` seeded as the default grid filter on mount when no filter is stored.
+
 ## 2026-06-12 — External review remediation (findings #1–#10)
 
 Full point-by-point response: `docs/architecture/external-review-response-2026-06.md`.
