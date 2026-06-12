@@ -26,7 +26,7 @@ export function ContactHistoryPanel({ contactId }: Props) {
             )}
             {(commands as Record<string, unknown>[]).map((cmd) => (
               <tr key={String(cmd.id)} className="border-t border-line">
-                <td className="px-3 py-2 text-xs text-zinc-500">{new Date(String(cmd.createdAt)).toLocaleString()}</td>
+                <td className="px-3 py-2 text-xs text-zinc-500">{new Date(String(cmd.createdAt)).toLocaleString('en-US')}</td>
                 <td className="px-3 py-2">{String(cmd.commandName ?? '—')}</td>
                 <td className="px-3 py-2">{String(cmd.actorName ?? '—')}</td>
                 <td className="px-3 py-2">{String(cmd.toast ?? '—')}</td>

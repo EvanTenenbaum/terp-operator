@@ -131,10 +131,25 @@ export function DashboardView() {
           Refresh
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-        {(dashboard.data?.metrics ?? []).map((metric) => (
-          <KpiCard key={metric.key} metric={metric} onOpen={setDrilldownMetric} />
-        ))}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-4" aria-busy={dashboard.isLoading}>
+        {/* EXT-REVIEW 2026-06 finding #2 ("the dashboard is empty"): the KPI row
+            previously rendered nothing while loading and nothing on an empty
+            response — indistinguishable from a data failure. Loading now shows
+            skeleton tiles; a loaded-but-empty response shows an explicit state. */}
+        {dashboard.isLoading
+          ? Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="h-24 animate-pulse rounded-lg border border-line bg-zinc-100" data-testid="kpi-skeleton" />
+            ))
+          : (dashboard.data?.metrics ?? []).map((metric) => (
+              <KpiCard key={metric.key} metric={metric} onOpen={setDrilldownMetric} />
+            ))}
+        {!dashboard.isLoading && (dashboard.data?.metrics ?? []).length === 0 ? (
+          <div className="col-span-full">
+            <EmptyState title="No dashboard data yet." role="status">
+              KPIs appear here once orders, payments, and inventory are posted. If you expected data, check the server health indicator.
+            </EmptyState>
+          </div>
+        ) : null}
       </div>
 
       {/* ── Today Focus ─────────────────────────────────────────────────────── */}
@@ -209,7 +224,7 @@ export function DashboardView() {
           {(dashboard.data?.moneyBuckets ?? []).map((bucket) => (
             <button key={bucket.bucket} className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('cash')}>
               <strong>{bucket.bucket}</strong>
-              <div className="mt-1 text-sm text-ink">${Number(bucket.amount ?? 0).toLocaleString()}</div>
+              <div className="mt-1 text-sm text-ink">${Number(bucket.amount ?? 0).toLocaleString('en-US')}</div>
             </button>
           ))}
           <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('payables')}>
@@ -254,10 +269,10 @@ export function DashboardView() {
                     </div>
                     <div className="flex items-center gap-3 text-xs text-zinc-500">
                       <span title="Outstanding balance">
-                        ${Number(item.balance).toLocaleString()}
+                        ${Number(item.balance).toLocaleString('en-US')}
                       </span>
-                      <span title={`Credit limit: $${Number(item.creditLimit).toLocaleString()}`}>
-                        limit ${Number(item.creditLimit).toLocaleString()}
+                      <span title={`Credit limit: $${Number(item.creditLimit).toLocaleString('en-US')}`}>
+                        limit ${Number(item.creditLimit).toLocaleString('en-US')}
                       </span>
                       {item.overallScore !== null && (
                         <span title="Credit score">{item.overallScore}</span>

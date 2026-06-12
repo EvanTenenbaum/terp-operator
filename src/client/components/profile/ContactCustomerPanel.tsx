@@ -22,7 +22,7 @@ export function ContactCustomerPanel({ data }: Props) {
   const orderColumns: ColDef<GridRow>[] = [
     { field: 'orderNo',    headerName: 'Order #', width: 110 },
     { field: 'createdAt',  headerName: 'Date',    width: 120,
-      valueFormatter: (p) => p.value ? new Date(String(p.value)).toLocaleDateString() : '—' },
+      valueFormatter: (p) => p.value ? new Date(String(p.value)).toLocaleDateString('en-US') : '—' },
     { field: 'line_count', headerName: 'Lines',   width: 80 },
     moneyCol('total', { headerName: 'Total', width: 100 }),
     { field: 'status',     headerName: 'Status',  width: 120 },

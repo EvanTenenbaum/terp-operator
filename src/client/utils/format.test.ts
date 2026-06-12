@@ -277,3 +277,86 @@ describe('moneyCol — ColDef factory', () => {
     expect(fmt({ value: null })).toBe('$0');
   });
 });
+
+// ── EXT-REVIEW 2026-06: formatBool / boolCol / formatDate / dateCol / formatNumber ──
+import { formatBool, boolCol, formatDate, formatDateTime, dateCol, formatNumber, APP_LOCALE } from './format';
+
+describe('formatBool (external review finding #5 — never render literal "false")', () => {
+  it('renders real booleans as Yes/No', () => {
+    expect(formatBool(true)).toBe('Yes');
+    expect(formatBool(false)).toBe('No');
+  });
+  it('renders SQL/string boolean shapes', () => {
+    expect(formatBool('true')).toBe('Yes');
+    expect(formatBool('false')).toBe('No');
+    expect(formatBool('t')).toBe('Yes');
+    expect(formatBool('f')).toBe('No');
+    expect(formatBool(1)).toBe('Yes');
+    expect(formatBool(0)).toBe('No');
+  });
+  it('renders absent values as em-dash, distinct from No', () => {
+    expect(formatBool(null)).toBe('—');
+    expect(formatBool(undefined)).toBe('—');
+    expect(formatBool('')).toBe('—');
+  });
+  it('never outputs the literal strings "true"/"false"', () => {
+    for (const v of [true, false, 'true', 'false', 1, 0, null, undefined]) {
+      const out = formatBool(v);
+      expect(out).not.toBe('true');
+      expect(out).not.toBe('false');
+    }
+  });
+});
+
+describe('boolCol', () => {
+  it('produces a ColDef whose formatter yields Yes/No', () => {
+    const col = boolCol('packed', { headerName: 'Packed', width: 105 });
+    expect(col.field).toBe('packed');
+    expect(col.headerName).toBe('Packed');
+    const fmt = col.valueFormatter as (p: { value: unknown }) => string;
+    expect(fmt({ value: true })).toBe('Yes');
+    expect(fmt({ value: false })).toBe('No');
+  });
+  it('passes through editable', () => {
+    const col = boolCol('packed', { editable: true });
+    expect(col.editable).toBe(true);
+  });
+});
+
+describe('formatDate / formatDateTime (pinned en-US, finding #6)', () => {
+  it('formats a known date in en-US order regardless of device locale', () => {
+    expect(formatDate('2026-06-12T12:00:00Z')).toMatch(/^6\/1[12]\/2026$/);
+  });
+  it('returns empty string for null/invalid', () => {
+    expect(formatDate(null)).toBe('');
+    expect(formatDate('not-a-date')).toBe('');
+    expect(formatDateTime(null)).toBe('');
+  });
+});
+
+describe('dateCol', () => {
+  it('formats values and sorts by underlying timestamp', () => {
+    const col = dateCol('createdAt', { variant: 'date' });
+    const fmt = col.valueFormatter as (p: { value: unknown }) => string;
+    expect(fmt({ value: '2026-01-15T00:00:00Z' })).toContain('2026');
+    const cmp = col.comparator as (a: unknown, b: unknown) => number;
+    expect(cmp('2026-01-01', '2026-02-01')).toBeLessThan(0);
+    expect(cmp('2026-02-01', '2026-01-01')).toBeGreaterThan(0);
+    expect(cmp(null, null)).toBe(0);
+  });
+});
+
+describe('formatNumber (pinned en-US grouping)', () => {
+  it('groups thousands with commas and uses period decimal separator', () => {
+    expect(formatNumber(1234567.89)).toBe('1,234,567.89');
+  });
+  it('treats null as zero', () => {
+    expect(formatNumber(null)).toBe('0');
+  });
+});
+
+describe('APP_LOCALE pin', () => {
+  it('is en-US', () => {
+    expect(APP_LOCALE).toBe('en-US');
+  });
+});

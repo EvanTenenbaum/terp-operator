@@ -21,7 +21,7 @@ interface PoHistoryTabProps {
 function dateish(value: unknown): string {
   if (!value) return '-';
   const d = new Date(String(value));
-  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('en-US');
 }
 
 function statusTone(status: unknown): string {

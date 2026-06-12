@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import { FormDialog, FormField } from './templates';
 
 interface RefereeRelationshipDialogProps {
   refereeId: string;
@@ -19,9 +18,6 @@ interface ValidationErrors {
 export function RefereeRelationshipDialog({ refereeId, refereeName, onClose }: RefereeRelationshipDialogProps) {
   const reference = trpc.queries.reference.useQuery();
   const { runCommand, isRunning } = useCommandRunner();
-  const dialogRef = useFocusTrap<HTMLDivElement>(true, () => {
-    if (!isRunning) onClose();
-  });
 
   const [entityType, setEntityType] = useState<'customer' | 'vendor'>('customer');
   const [entityId, setEntityId] = useState('');
@@ -85,178 +81,128 @@ export function RefereeRelationshipDialog({ refereeId, refereeName, onClose }: R
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rrd-title"
-        className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="rrd-title" className="text-lg font-semibold text-zinc-900">
-            Add Referee Relationship
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded p-1 hover:bg-zinc-100"
-            aria-label="Close"
-            type="button"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <p className="mb-4 text-sm text-zinc-600">
+    <FormDialog
+      title="Add Referee Relationship"
+      titleId="rrd-title"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      submitLabel="Create Relationship"
+      pendingLabel="Creating..."
+      pending={isRunning}
+      submitDisabled={hasErrors}
+      description={
+        <>
           Link <strong>{refereeName}</strong> to a customer or vendor
-        </p>
+        </>
+      }
+    >
+      <FormField id="rrd-entity-type" label="Entity Type">
+        <select
+          id="rrd-entity-type"
+          value={entityType}
+          onChange={(e) => {
+            setEntityType(e.target.value as 'customer' | 'vendor');
+            setEntityId('');
+          }}
+          className="w-full rounded border border-zinc-300 px-3 py-2"
+        >
+          <option value="customer">Customer</option>
+          <option value="vendor">Vendor</option>
+        </select>
+      </FormField>
 
-        <form noValidate onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rrd-entity-type">
-              Entity Type
-            </label>
-            <select
-              id="rrd-entity-type"
-              value={entityType}
-              onChange={(e) => {
-                setEntityType(e.target.value as 'customer' | 'vendor');
-                setEntityId('');
-              }}
-              className="w-full rounded border border-zinc-300 px-3 py-2"
-            >
-              <option value="customer">Customer</option>
-              <option value="vendor">Vendor</option>
-            </select>
-          </div>
+      <FormField id="rrd-entity" label={entityType === 'customer' ? 'Customer' : 'Vendor'}>
+        <select
+          id="rrd-entity"
+          value={entityId}
+          onChange={(e) => setEntityId(e.target.value)}
+          className="w-full rounded border border-zinc-300 px-3 py-2"
+        >
+          <option value="">Choose {entityType}</option>
+          {entities.map((entity: { id: string; name: string }) => (
+            <option key={entity.id} value={entity.id}>
+              {entity.name}
+            </option>
+          ))}
+        </select>
+        {errors.entity && (
+          <p className="mt-1 text-sm text-red-600">{errors.entity}</p>
+        )}
+      </FormField>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rrd-entity">
-              {entityType === 'customer' ? 'Customer' : 'Vendor'}
-            </label>
-            <select
-              id="rrd-entity"
-              value={entityId}
-              onChange={(e) => setEntityId(e.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2"
-            >
-              <option value="">Choose {entityType}</option>
-              {entities.map((entity: { id: string; name: string }) => (
-                <option key={entity.id} value={entity.id}>
-                  {entity.name}
-                </option>
-              ))}
-            </select>
-            {errors.entity && (
-              <p className="mt-1 text-sm text-red-600">{errors.entity}</p>
-            )}
-          </div>
+      <FormField id="rrd-fee-type" label="Fee Structure">
+        <select
+          id="rrd-fee-type"
+          value={feeType}
+          onChange={(e) => setFeeType(e.target.value as 'percentage' | 'fixed' | 'hybrid')}
+          className="w-full rounded border border-zinc-300 px-3 py-2"
+        >
+          <option value="percentage">Percentage of transaction</option>
+          <option value="fixed">Fixed amount per transaction</option>
+          <option value="hybrid">Both percentage + fixed</option>
+        </select>
+      </FormField>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rrd-fee-type">
-              Fee Structure
-            </label>
-            <select
-              id="rrd-fee-type"
-              value={feeType}
-              onChange={(e) => setFeeType(e.target.value as 'percentage' | 'fixed' | 'hybrid')}
-              className="w-full rounded border border-zinc-300 px-3 py-2"
-            >
-              <option value="percentage">Percentage of transaction</option>
-              <option value="fixed">Fixed amount per transaction</option>
-              <option value="hybrid">Both percentage + fixed</option>
-            </select>
-          </div>
-
-          {(feeType === 'percentage' || feeType === 'hybrid') && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rrd-percentage">
-                Percentage (%)
-              </label>
-              <input
-                id="rrd-percentage"
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={feePercentage}
-                onChange={(e) => setFeePercentage(e.target.value)}
-                className="w-full rounded border border-zinc-300 px-3 py-2"
-                placeholder="5.0"
-              />
-              {errors.percentage && (
-                <p className="mt-1 text-sm text-red-600">{errors.percentage}</p>
-              )}
-            </div>
+      {(feeType === 'percentage' || feeType === 'hybrid') && (
+        <FormField id="rrd-percentage" label="Percentage (%)">
+          <input
+            id="rrd-percentage"
+            type="number"
+            step="0.1"
+            min="0"
+            max="100"
+            value={feePercentage}
+            onChange={(e) => setFeePercentage(e.target.value)}
+            className="w-full rounded border border-zinc-300 px-3 py-2"
+            placeholder="5.0"
+          />
+          {errors.percentage && (
+            <p className="mt-1 text-sm text-red-600">{errors.percentage}</p>
           )}
+        </FormField>
+      )}
 
-          {(feeType === 'fixed' || feeType === 'hybrid') && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rrd-fixed-amount">
-                Fixed Amount ($)
-              </label>
-              <input
-                id="rrd-fixed-amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={feeFixedAmount}
-                onChange={(e) => setFeeFixedAmount(e.target.value)}
-                className="w-full rounded border border-zinc-300 px-3 py-2"
-                placeholder="25.00"
-              />
-              {errors.fixedAmount && (
-                <p className="mt-1 text-sm text-red-600">{errors.fixedAmount}</p>
-              )}
-            </div>
+      {(feeType === 'fixed' || feeType === 'hybrid') && (
+        <FormField id="rrd-fixed-amount" label="Fixed Amount ($)">
+          <input
+            id="rrd-fixed-amount"
+            type="number"
+            step="0.01"
+            min="0"
+            value={feeFixedAmount}
+            onChange={(e) => setFeeFixedAmount(e.target.value)}
+            className="w-full rounded border border-zinc-300 px-3 py-2"
+            placeholder="25.00"
+          />
+          {errors.fixedAmount && (
+            <p className="mt-1 text-sm text-red-600">{errors.fixedAmount}</p>
           )}
+        </FormField>
+      )}
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="rrd-apply-by-default"
-              checked={applyByDefault}
-              onChange={(e) => setApplyByDefault(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300"
-            />
-            <label htmlFor="rrd-apply-by-default" className="text-sm text-zinc-700">
-              Apply by default to transactions
-            </label>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700" htmlFor="rrd-notes">
-              Notes (optional)
-            </label>
-            <textarea
-              id="rrd-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full rounded border border-zinc-300 px-3 py-2"
-              rows={2}
-              placeholder="Additional notes about this relationship"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="secondary-button compact-action"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isRunning || hasErrors}
-              className="primary-button compact-action"
-            >
-              {isRunning ? 'Creating...' : 'Create Relationship'}
-            </button>
-          </div>
-        </form>
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="rrd-apply-by-default"
+          checked={applyByDefault}
+          onChange={(e) => setApplyByDefault(e.target.checked)}
+          className="h-4 w-4 rounded border-zinc-300"
+        />
+        <label htmlFor="rrd-apply-by-default" className="text-sm text-zinc-700">
+          Apply by default to transactions
+        </label>
       </div>
-    </div>
+
+      <FormField id="rrd-notes" label="Notes (optional)">
+        <textarea
+          id="rrd-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="w-full rounded border border-zinc-300 px-3 py-2"
+          rows={2}
+          placeholder="Additional notes about this relationship"
+        />
+      </FormField>
+    </FormDialog>
   );
 }

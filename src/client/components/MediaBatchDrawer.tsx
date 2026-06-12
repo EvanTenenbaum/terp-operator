@@ -3,6 +3,7 @@ import { trpc } from '../api/trpc';
 import { useCommandRunner } from './useCommandRunner';
 import { Copy, ExternalLink } from 'lucide-react';
 import { MediaList } from './MediaList';
+import { InspectorDrawer } from './templates';
 
 interface MediaBatchDrawerProps {
   batchId: string | null;
@@ -178,135 +179,127 @@ export function MediaBatchDrawer({ batchId, batchCode, batchName, onClose }: Med
     void handleFiles(Array.from(e.target.files ?? []));
   }
 
-  return (
-    <aside className={`media-batch-drawer${batchId ? ' media-batch-drawer-open' : ''}`}>
-      {batchId && (
-        <>
-          <div className="media-batch-drawer-header">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">{batchCode}</span>
-              <span className="text-zinc-600">{batchName}</span>
-            </div>
-            <button
-              type="button"
-              aria-label="Close"
-              className="secondary-button compact-action"
-              onClick={onClose}
-            >
-              ✕
+  const drawerBody = (
+    <>
+      {/* Mobile upload section */}
+      <div className="flex flex-wrap gap-2 border-b border-line p-3">
+        {navigator.clipboard ? (
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            onClick={copyMobileLink}
+          >
+            <Copy className="h-4 w-4" aria-hidden="true" />
+            Copy mobile upload link
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            onClick={openMobileUpload}
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            Open mobile upload
+          </button>
+        )}
+        {canMintShareLink && (
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            onClick={handleMintShareLink}
+          >
+            <Copy className="h-4 w-4" aria-hidden="true" />
+            Mint share link (2h)
+          </button>
+        )}
+      </div>
+
+      {shareLink && (
+        <div className="border-b border-line bg-amber-50 p-3 text-sm">
+          <div className="font-medium text-amber-900">
+            Share link minted — copy now, it will not be shown again.
+          </div>
+          <div className="mt-1 break-all font-mono text-xs text-amber-800">{shareLink.url}</div>
+          <div className="mt-1 text-xs text-amber-700">
+            Expires {new Date(shareLink.expiresAt).toLocaleString('en-US')}.{' '}
+            <button type="button" className="underline" onClick={handleRevokeShareLink}>
+              Revoke now
             </button>
           </div>
+        </div>
+      )}
 
-          <div className="media-batch-drawer-body">
-            {/* Mobile upload section */}
-            <div className="flex flex-wrap gap-2 border-b border-line p-3">
-              {navigator.clipboard ? (
-                <button
-                  type="button"
-                  className="secondary-button compact-action"
-                  onClick={copyMobileLink}
-                >
-                  <Copy className="h-4 w-4" aria-hidden="true" />
-                  Copy mobile upload link
-                </button>
+      {/* Media list */}
+      <MediaList
+        query={query}
+        canWrite={canWrite}
+        runCommand={runCommand}
+        confirmDeleteId={confirmDeleteId}
+        setConfirmDeleteId={setConfirmDeleteId}
+      />
+
+      {/* Fix 2: per-file upload progress bars — only visible when canWrite */}
+      {canWrite && uploads.length > 0 && (
+        <div className="space-y-1">
+          {uploads.map((u, i) => (
+            <div key={`${u.filename}-${i}`} className="media-upload-progress">
+              <span className="flex-1 truncate text-xs">{u.filename}</span>
+              {u.error ? (
+                <span className="text-xs text-red-600">{u.error}</span>
+              ) : u.done ? (
+                <span className="text-xs text-emerald-600">✓</span>
               ) : (
-                <button
-                  type="button"
-                  className="secondary-button compact-action"
-                  onClick={openMobileUpload}
-                >
-                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                  Open mobile upload
-                </button>
-              )}
-              {canMintShareLink && (
-                <button
-                  type="button"
-                  className="secondary-button compact-action"
-                  onClick={handleMintShareLink}
-                >
-                  <Copy className="h-4 w-4" aria-hidden="true" />
-                  Mint share link (2h)
-                </button>
+                <div className="media-upload-progress-bar-track">
+                  <div
+                    className="media-upload-progress-bar-fill"
+                    style={{ width: `${u.percent}%` }}
+                  />
+                </div>
               )}
             </div>
-
-            {shareLink && (
-              <div className="border-b border-line bg-amber-50 p-3 text-sm">
-                <div className="font-medium text-amber-900">
-                  Share link minted — copy now, it will not be shown again.
-                </div>
-                <div className="mt-1 break-all font-mono text-xs text-amber-800">{shareLink.url}</div>
-                <div className="mt-1 text-xs text-amber-700">
-                  Expires {new Date(shareLink.expiresAt).toLocaleString()}.{' '}
-                  <button type="button" className="underline" onClick={handleRevokeShareLink}>
-                    Revoke now
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Media list */}
-            <MediaList
-              query={query}
-              canWrite={canWrite}
-              runCommand={runCommand}
-              confirmDeleteId={confirmDeleteId}
-              setConfirmDeleteId={setConfirmDeleteId}
-            />
-
-            {/* Fix 2: per-file upload progress bars — only visible when canWrite */}
-            {canWrite && uploads.length > 0 && (
-              <div className="space-y-1">
-                {uploads.map((u, i) => (
-                  <div key={`${u.filename}-${i}`} className="media-upload-progress">
-                    <span className="flex-1 truncate text-xs">{u.filename}</span>
-                    {u.error ? (
-                      <span className="text-xs text-red-600">{u.error}</span>
-                    ) : u.done ? (
-                      <span className="text-xs text-emerald-600">✓</span>
-                    ) : (
-                      <div className="media-upload-progress-bar-track">
-                        <div
-                          className="media-upload-progress-bar-fill"
-                          style={{ width: `${u.percent}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Fix 4: <label> so clicking anywhere opens the file picker; input is sr-only */}
-            {/* Fix 2: gated by canWrite — viewers should not see the upload zone */}
-            {canWrite && (
-              <label
-                className={`media-upload-zone${isDragActive ? ' media-upload-zone-active' : ''}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragActive(true);
-                }}
-                onDragLeave={() => setIsDragActive(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragActive(false);
-                  void handleFiles(Array.from(e.dataTransfer.files));
-                }}
-              >
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  className="sr-only"
-                  onChange={handleInputChange}
-                />
-                <span>Drop files here or click to upload</span>
-              </label>
-            )}
-          </div>
-        </>
+          ))}
+        </div>
       )}
-    </aside>
+
+      {/* Fix 4: <label> so clicking anywhere opens the file picker; input is sr-only */}
+      {/* Fix 2: gated by canWrite — viewers should not see the upload zone */}
+      {canWrite && (
+        <label
+          className={`media-upload-zone${isDragActive ? ' media-upload-zone-active' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragActive(true);
+          }}
+          onDragLeave={() => setIsDragActive(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragActive(false);
+            void handleFiles(Array.from(e.dataTransfer.files));
+          }}
+        >
+          <input aria-label="Choose files"
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            className="sr-only"
+            onChange={handleInputChange}
+          />
+          <span>Drop files here or click to upload</span>
+        </label>
+      )}
+    </>
+  );
+
+  return (
+    <InspectorDrawer
+      open={!!batchId}
+      title={batchCode}
+      subtitle={batchName}
+      ariaLabel={`Media for ${batchCode}`}
+      tabs={[{ key: 'media', label: 'Media', render: () => drawerBody }]}
+      activeTab="media"
+      onTabChange={() => {}}
+      onClose={onClose}
+    />
   );
 }

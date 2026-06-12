@@ -208,7 +208,7 @@ export function MediaUploadMobile({ batchId, uploadToken }: MediaUploadMobilePro
 
   return (
     <div className="border border-line bg-white p-3">
-      <input
+      <input aria-label="Choose files"
         ref={fileInputRef}
         type="file"
         accept="image/*,video/*"

@@ -7,7 +7,7 @@ import { OperatorGrid } from '../components/OperatorGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { ProcessorDetailPanel } from '../components/ProcessorDetailPanel';
 import type { GridRow } from '../../shared/types';
-import { formatMoney } from '../utils/format';
+import { boolCol, formatMoney } from '../utils/format';
 
 export function ProcessorsView() {
   const navigate = useNavigate();
@@ -62,7 +62,7 @@ export function ProcessorsView() {
     { field: 'userFeesCollectible', headerName: 'User Collectible', type: 'numericColumn', width: 150 },
     { field: 'userFeesCollected', headerName: 'User Collected', type: 'numericColumn', width: 150 },
     { field: 'processorFeesUnpaid', headerName: 'Proc Unpaid', type: 'numericColumn', width: 130 },
-    { field: 'active', width: 100 },
+    boolCol('active', { headerName: 'Active', width: 100 }),
     { field: 'createdAt', width: 180 }
   ];
 

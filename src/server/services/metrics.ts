@@ -3,6 +3,7 @@ import { db, pingDatabase, pool } from '../db';
 import { getSocketHealth } from '../sockets';
 import { batches, commandJournal, invoices, salesOrders, vendorBills } from '../schema';
 import { checkJournalWritable } from './journal';
+import { backgroundWorkersEnabled, getWorkerStatus } from './backgroundWorkers';
 import type { DashboardData, HealthStatus, KpiMetric, Role } from '../../shared/types';
 import { canRole } from '../rbac';
 
@@ -32,11 +33,33 @@ export async function getHealth(): Promise<HealthStatus> {
     warnings.push('WebSocket server is not initialized.');
   }
 
+  // EXT-REVIEW 2026-06 #4: surface background-worker liveness so a stuck
+  // credit queue is a visible, monitorable condition instead of a silent one.
+  const w = getWorkerStatus();
+  if (backgroundWorkersEnabled() && w.enabled && w.startedAt) {
+    const lastDrainMs = w.lastDrainAt ? Date.now() - new Date(w.lastDrainAt).getTime() : Number.POSITIVE_INFINITY;
+    const sinceStartMs = Date.now() - new Date(w.startedAt).getTime();
+    if (sinceStartMs > 120_000 && lastDrainMs > 120_000) {
+      warnings.push('Background credit-queue drain has not run in over 2 minutes.');
+    }
+    if ((w.pendingQueueDepth ?? 0) > 500) {
+      warnings.push(`Credit recompute queue depth is high (${w.pendingQueueDepth} pending).`);
+    }
+  }
+
   return {
     ok: database === 'ok' && journal === 'ok',
     database,
     journal,
     websocket,
+    workers: {
+      enabled: w.enabled,
+      lastDrainAt: w.lastDrainAt,
+      lastReaperAt: w.lastReaperAt,
+      lastNightlyDay: w.lastNightlyDay,
+      pendingQueueDepth: w.pendingQueueDepth,
+      lastError: w.lastError
+    },
     checkedAt: new Date().toISOString(),
     warnings
   };

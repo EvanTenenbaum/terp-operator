@@ -46,6 +46,11 @@ vi.mock('../store/uiStore', () => ({
       selectedRows: { recovery: undefined },
       setSelectedRows: mockSetSelectedRows,
       setActiveSettingsTab: mockSetActiveSettingsTab,
+      // WorkspacePanel needs these
+      collapsedPanels: {},
+      focusedPanelId: null,
+      togglePanelCollapsed: vi.fn(),
+      setFocusedPanel: vi.fn(),
     };
     return selector(store);
   },

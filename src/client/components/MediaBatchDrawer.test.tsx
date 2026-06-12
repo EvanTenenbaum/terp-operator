@@ -86,25 +86,25 @@ describe('MediaBatchDrawer', () => {
       expect(screen.getByText('Rose Lot')).toBeInTheDocument();
     });
 
-    it('calls onClose when ✕ button is clicked', async () => {
+    it('calls onClose when the close button is clicked', async () => {
+      // InspectorDrawer chrome renders a backdrop close + header close, both
+      // accessibly named; clicking either must call onClose.
       const user = userEvent.setup();
       const { onClose } = renderDrawer();
-      await user.click(screen.getByRole('button', { name: /close/i }));
+      const closeButtons = screen.getAllByRole('button', { name: /close/i });
+      await user.click(closeButtons[closeButtons.length - 1]!);
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('does not have open class and shows no content when batchId is null', () => {
+    it('renders nothing when batchId is null (drawer closed)', () => {
       render(<MediaBatchDrawer batchId={null} batchCode="BC-001" batchName="Rose Lot" onClose={vi.fn()} />);
-      const aside = document.querySelector('aside');
-      expect(aside).toHaveClass('media-batch-drawer');
-      expect(aside).not.toHaveClass('media-batch-drawer-open');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(screen.queryByText('BC-001')).not.toBeInTheDocument();
     });
 
-    it('has media-batch-drawer-open class when batchId is provided', () => {
+    it('renders the inspector drawer dialog when batchId is provided', () => {
       renderDrawer();
-      const aside = document.querySelector('aside');
-      expect(aside).toHaveClass('media-batch-drawer-open');
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
   });
 

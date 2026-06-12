@@ -12,7 +12,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, type ReactNo
 import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { trpc } from '../api/trpc';
-import { invalidateAffectedQueries } from '../components/useCommandRunner';
+import { invalidateAffectedQueries, invalidateCommandScopedQueries } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 
 // ---------------------------------------------------------------------------
@@ -63,6 +63,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         pendingPeerIds.current = [];
         peerToastShownRef.current = false;
         void invalidateAffectedQueries(queryClient, ids);
+        void invalidateCommandScopedQueries(queryClient);
       }
       prevEditing = nowEditing;
     });
@@ -103,6 +104,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         }
       } else {
         void invalidateAffectedQueries(queryClient, ids);
+        // EXT-REVIEW 2026-06 #3: peer commands must refresh this client's
+        // list/aggregate views too — their query keys contain no entity ids.
+        void invalidateCommandScopedQueries(queryClient);
       }
       // GH #408: debounce peer completion toasts.
       if (event.toast && event.actorId !== currentUserId) {
@@ -116,6 +120,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket.on('command:failed', (event: { toast?: string; actorId?: string; affectedIds?: string[] }) => {
       if (event.toast && event.actorId !== currentUserId) pushToast(event.toast, 'error');
       void invalidateAffectedQueries(queryClient, event.affectedIds ?? []);
+      void invalidateCommandScopedQueries(queryClient);
     });
 
     // pick:queue — server emits to 'authenticated' room (GH #329).

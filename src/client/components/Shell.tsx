@@ -106,6 +106,24 @@ export function SideNav({ user }: { user: SessionUser }) {
   const activeView = useUiStore((state) => state.activeView);
   const sideNavCollapsed = useUiStore((state) => state.sideNavCollapsed);
   const toggleSideNav = useUiStore((state) => state.toggleSideNav);
+
+  // EXT-REVIEW 2026-06 finding #8 (responsive): on narrow viewports the
+  // expanded 240px rail consumed a third of the screen and forced grids into
+  // horizontal crush. Auto-collapse when crossing below 1024px (downward only —
+  // an operator who re-expands on a small screen is respected until the next
+  // downward crossing). Dedicated phone UX lives at /mobile.
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return; // jsdom / non-browser
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches && !useUiStore.getState().sideNavCollapsed) {
+        useUiStore.getState().toggleSideNav();
+      }
+    };
+    onChange(mq);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   const isManagerOrOwner = user.role === 'manager' || user.role === 'owner';
   const badgeQuery = trpc.credit.creditReviewQueue.useQuery(undefined, {
     enabled: isManagerOrOwner,

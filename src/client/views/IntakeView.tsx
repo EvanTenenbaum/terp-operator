@@ -599,7 +599,7 @@ function BatchRowActions({
     const submitValue = rejectReason === 'other' ? rejectReasonOther.trim() : rejectReason;
     return (
       <div className="flex h-full items-center gap-1">
-        <select
+        <select aria-label="Reject reason"
           className="input compact"
           autoFocus
           value={rejectReason}
@@ -612,7 +612,7 @@ function BatchRowActions({
           ))}
         </select>
         {rejectReason === 'other' && (
-          <textarea
+          <textarea aria-label="Describe the reason..."
             className="input compact"
             placeholder="Describe the reason..."
             value={rejectReasonOther}
@@ -650,7 +650,7 @@ function BatchRowActions({
 
   return (
     <div className="flex h-full items-center gap-1">
-      <input
+      <input aria-label="Input value"
         className="input compact"
         autoFocus
         placeholder={placeholder}

@@ -44,7 +44,17 @@ async function loadClientConfig(): Promise<ClientConfig> {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      // EXT-REVIEW 2026-06 finding #3 ("pages must be constantly refreshed"):
+      // three layers keep data live without manual refresh —
+      //   1. command-scoped invalidation (useCommandRunner / SocketContext)
+      //   2. refetch on tab focus + network reconnect (below)
+      //   3. a 60s active-only polling safety net so data still converges even
+      //      when the websocket is blocked by a proxy (observed on some PaaS
+      //      ingress configs). Only mounted queries poll; background tabs do not.
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      refetchInterval: 60_000,
+      refetchIntervalInBackground: false,
       staleTime: 10_000,
       retry: 1
     }

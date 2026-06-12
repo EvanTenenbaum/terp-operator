@@ -49,7 +49,7 @@ function dateLabel(iso: string): string {
 
 function moneyish(value: unknown): string {
   const n = Number(value ?? 0);
-  return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }) : '0.00';
+  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 }) : '0.00';
 }
 
 interface CustomerLedgerPanelProps {

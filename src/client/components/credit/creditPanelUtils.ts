@@ -42,7 +42,7 @@ export function formatDateish(
     return String(value);
   }
 
-  return date.toLocaleDateString();
+  return date.toLocaleDateString('en-US');
 }
 
 export function progressGlyph(

@@ -1,4 +1,5 @@
 import { FolderOpen, Pencil, Plus, UserPlus } from 'lucide-react';
+import { boolCol } from '../utils/format';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColDef } from 'ag-grid-community';
@@ -40,7 +41,7 @@ export function RefereesView() {
     { field: 'lifetimeEarned', type: 'numericColumn', width: 150, headerName: 'Lifetime Earned' },
     { field: 'relationshipsCount', headerName: 'Relationships', type: 'numericColumn', width: 140 },
     { field: 'paymentMethod', headerName: 'Payment Method', width: 150 },
-    { field: 'active', width: 100 },
+    boolCol('active', { headerName: 'Active', width: 100 }),
     { field: 'notes', editable: true, minWidth: 250 },
     { field: 'createdAt', width: 180 }
   ];

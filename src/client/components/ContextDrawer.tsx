@@ -558,7 +558,7 @@ function moneyish(value: unknown) {
 function dateish(value: unknown) {
   if (!value) return '-';
   const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US');
 }
 
 function labelFromKey(value: string) {
