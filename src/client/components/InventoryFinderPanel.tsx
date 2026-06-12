@@ -792,6 +792,7 @@ export function InventoryFinderPanel({
                 className="secondary-button compact-action"
                 type="button"
                 disabled={!compared.some((row) => customerShareReady(row.mediaStatus))}
+                title={!compared.some((row) => customerShareReady(row.mediaStatus)) ? 'None of the selected rows are ready to share — media must be published first' : undefined}
                 onClick={() => copyFinderOffer(compared)}
               >
                 Copy {compared.length} rows as offer
@@ -835,6 +836,7 @@ export function InventoryFinderPanel({
                             value={quantities[row.id] ?? defaultQtyFor(row, lastOrderedQtyMap)}
                             inputMode="decimal"
                             disabled={!selectedOrderId || added || available <= 0}
+                            title={!selectedOrderId ? 'Select an order first' : added ? 'Already in order' : available <= 0 ? 'No available stock' : undefined}
                             onChange={(event) =>
                               setQuantities((current) => ({
                                 ...current,
@@ -855,7 +857,7 @@ export function InventoryFinderPanel({
                             type="button"
                             disabled={!selectedOrderId || added || available <= 0}
                             onClick={() => void add(row)}
-                            title={selectedOrderId ? 'Add to selected order' : 'Select an order first'}
+                            title={!selectedOrderId ? 'Select an order first' : added ? 'Already in order' : available <= 0 ? 'No available stock' : 'Add to selected order'}
                           >
                             <PackagePlus className="h-4 w-4" aria-hidden="true" />
                             Add
