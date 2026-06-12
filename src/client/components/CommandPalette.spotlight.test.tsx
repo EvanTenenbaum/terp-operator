@@ -12,6 +12,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('./useCommandRunner', () => ({
   useCommandRunner: () => ({ runCommand: vi.fn(), isRunning: false })
@@ -43,7 +44,7 @@ describe('CommandPalette — unified spotlight tabs (TER-1633)', () => {
 
   it('shows Commands tab as active when opened via openPalette("commands")', () => {
     useUiStore.getState().openPalette('commands');
-    render(<CommandPalette />);
+    render(<MemoryRouter><CommandPalette /></MemoryRouter>);
 
     const commandsTab = screen.getByRole('tab', { name: /commands/i });
     const entitiesTab = screen.getByRole('tab', { name: /entities/i });
@@ -55,7 +56,7 @@ describe('CommandPalette — unified spotlight tabs (TER-1633)', () => {
 
   it('shows Entities tab as active when opened via openPalette("entities")', () => {
     useUiStore.getState().openPalette('entities');
-    render(<CommandPalette />);
+    render(<MemoryRouter><CommandPalette /></MemoryRouter>);
 
     const commandsTab = screen.getByRole('tab', { name: /commands/i });
     const entitiesTab = screen.getByRole('tab', { name: /entities/i });
@@ -68,7 +69,7 @@ describe('CommandPalette — unified spotlight tabs (TER-1633)', () => {
   it('clicking the Entities tab while on Commands tab switches the active tab', async () => {
     const user = userEvent.setup();
     useUiStore.getState().openPalette('commands');
-    render(<CommandPalette />);
+    render(<MemoryRouter><CommandPalette /></MemoryRouter>);
 
     await user.click(screen.getByRole('tab', { name: /entities/i }));
 
@@ -79,7 +80,7 @@ describe('CommandPalette — unified spotlight tabs (TER-1633)', () => {
   it('clicking Commands tab while on Entities tab switches back', async () => {
     const user = userEvent.setup();
     useUiStore.getState().openPalette('entities');
-    render(<CommandPalette />);
+    render(<MemoryRouter><CommandPalette /></MemoryRouter>);
 
     await user.click(screen.getByRole('tab', { name: /commands/i }));
 

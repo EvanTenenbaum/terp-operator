@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('./useCommandRunner', () => ({
   useCommandRunner: () => ({ runCommand: vi.fn(), isRunning: false })
@@ -39,7 +40,7 @@ describe('CommandPalette advanced-payload toggle a11y (#34)', () => {
 
   it('Advanced payload button exposes aria-expanded reflecting advancedOpen state', async () => {
     const user = userEvent.setup();
-    render(<CommandPalette />);
+    render(<MemoryRouter><CommandPalette /></MemoryRouter>);
 
     const advanced = screen.getByRole('button', { name: /advanced payload/i });
     expect(advanced.getAttribute('aria-expanded')).toBe('false');
