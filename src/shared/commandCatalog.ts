@@ -506,7 +506,10 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   finalizePurchaseOrder: { disposition: 'reversible', guidance: 'Returns the purchase order to draft state when it has not been approved.' },
   unfinalizePurchaseOrder: { disposition: 'reversible', guidance: 'Returns the finalized purchase order to draft state for editing.' },
   approvePurchaseOrder: { disposition: 'reversible', guidance: 'Returns the purchase order to finalized state when no receipt depends on it.' },
-  receivePurchaseOrder: { disposition: 'reversible', guidance: 'Reverses unposted draft intake rows and restores the purchase order to approved.' },
+  // UX-H04 / BE-009 (Execution Decision 5): partial receives are reversed the
+  // same way — only THIS command's unposted drafts are undone; previously
+  // posted receive progress on the lines is restored, not zeroed.
+  receivePurchaseOrder: { disposition: 'reversible', guidance: 'Reverses unposted draft intake rows and restores the purchase order and its lines to their prior receiving state.' },
   cancelPurchaseOrder: { disposition: 'terminal', guidance: 'Cancelled purchase orders require a new order or explicit correction.' },
   recordVendorPrepayment: { disposition: 'reversible', guidance: 'Reverses the vendor payment record and restores prepayment availability.' },
   rejectBatch: { disposition: 'terminal', guidance: 'Rejected intake lots stay terminal; create a new intake row or correction if needed.' },

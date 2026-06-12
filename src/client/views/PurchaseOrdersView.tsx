@@ -41,6 +41,63 @@ const purchaseOrderLineColumns: ColDef<GridRow>[] = [
   { field: 'status', width: 120 }
 ];
 
+// UX-H04 / BE-009 (Execution Decision 5) — partial PO receiving helpers.
+// Exported for behavior tests (OperationsViews.statusTables.test.tsx).
+
+/** PO statuses the server's receivePurchaseOrder command accepts. */
+export const PO_RECEIVABLE_STATUSES = ['approved', 'ordered', 'partially_received'];
+
+export function isPoReceivableStatus(status: unknown): boolean {
+  return PO_RECEIVABLE_STATUSES.includes(String(status ?? ''));
+}
+
+/** Outstanding (not-yet-received) qty on a PO line: ordered − received, floored at 0. */
+export function poLineOutstandingQty(row: GridRow): number {
+  const outstanding = Number(row.qty ?? 0) - Number(row.receivedQty ?? 0);
+  return outstanding > 0 ? Number(outstanding.toFixed(3)) : 0;
+}
+
+/**
+ * Build the receivePurchaseOrder `lineQuantities` payload from the selected
+ * lines + per-line operator overrides. Default = outstanding qty; overrides
+ * are clamped to outstanding (the server rejects over-asks outright); lines
+ * with nothing outstanding are skipped.
+ */
+export function buildReceiveLineQuantities(lines: GridRow[], overrides: Record<string, number>): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const line of lines) {
+    const id = String(line.id ?? '');
+    if (!id) continue;
+    const outstanding = poLineOutstandingQty(line);
+    if (outstanding <= 0) continue;
+    const override = overrides[id];
+    const qty = Number.isFinite(override) && override > 0 ? Math.min(override, outstanding) : outstanding;
+    result[id] = Number(qty.toFixed(3));
+  }
+  return result;
+}
+
+/**
+ * Line-grid columns for a selected PO: when the PO is receivable the editable
+ * "Receive qty" column (UX-H04) is inserted ahead of the read-only Received
+ * column. Authoring (draft workspace) keeps the base columns unchanged.
+ */
+export function purchaseOrderLineColumnsFor(poStatus: unknown): ColDef<GridRow>[] {
+  if (!isPoReceivableStatus(poStatus)) return purchaseOrderLineColumns;
+  const receiveQtyColumn: ColDef<GridRow> = {
+    field: 'receiveQty',
+    headerName: 'Receive qty',
+    editable: true,
+    type: 'numericColumn',
+    width: 125,
+    headerTooltip: 'Qty to receive now (defaults to outstanding). Used by "Receive selected qty".'
+  };
+  const columns = [...purchaseOrderLineColumns];
+  const receivedIndex = columns.findIndex((column) => column.field === 'receivedQty');
+  columns.splice(receivedIndex === -1 ? columns.length : receivedIndex, 0, receiveQtyColumn);
+  return columns;
+}
+
 export function PurchaseOrdersView() {
   const grid = trpc.queries.grid.useQuery({ view: 'purchaseOrders' });
   const reference = trpc.queries.reference.useQuery();
@@ -74,6 +131,9 @@ export function PurchaseOrdersView() {
   const [newVendorContact, setNewVendorContact] = useState('');
   const [newVendorNotes, setNewVendorNotes] = useState('');
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
+  // UX-H04: per-line receive-qty overrides (keyed by PO line uuid). Defaults
+  // to the line's outstanding qty when no override has been entered.
+  const [receiveQtyByLine, setReceiveQtyByLine] = useState<Record<string, number>>({});
   const [vendorDrawerOpen, setVendorDrawerOpen] = useState(false);
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
@@ -349,6 +409,23 @@ export function PurchaseOrdersView() {
   async function updateLineCell(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
     const field = String(event.colDef.field);
+    if (field === 'receiveQty') {
+      // UX-H04: local-only edit — feeds the "Receive selected qty" payload;
+      // no server command runs until the operator commits the receive action.
+      const lineId = String(event.data.id);
+      const requested = Number(event.newValue);
+      const outstanding = poLineOutstandingQty(event.data);
+      if (!Number.isFinite(requested) || requested <= 0) {
+        pushToast('Receive qty must be a positive number.', 'error');
+        return;
+      }
+      if (requested > outstanding) {
+        pushToast(`Receive qty ${requested} exceeds the line's outstanding ${outstanding}.`, 'error');
+        return;
+      }
+      setReceiveQtyByLine((current) => ({ ...current, [lineId]: requested }));
+      return;
+    }
     const supported = ['productName', 'category', 'subcategory', 'tags', 'qty', 'uom', 'unitCost', 'costRangeLow', 'costRangeHigh', 'notes', 'internalNotes', 'externalNotes'];
     if (!supported.includes(field)) return;
     let value: string | string[] | number = event.newValue;
@@ -369,6 +446,9 @@ export function PurchaseOrdersView() {
   // receivePurchaseOrder accepts approved | ordered | partially_received;
   // recordVendorPrepayment requires status 'approved' AND prepaymentAmount > 0
   // on the PO (the tray action opens RecordPrepaymentDialog).
+  // UX-H04 / BE-009 (Execution Decision 5): receivable statuses additionally
+  // expose "Receive selected qty" in the tray — partial receiving driven by
+  // the editable Receive-qty column on the selected PO's lines grid.
   function purchaseOrderSelectionActions(rows: GridRow[]) {
     const first = rows[0];
     const poAct = {
@@ -389,6 +469,29 @@ export function PurchaseOrdersView() {
         label: 'Receive PO',
         icon: <PackagePlus className="h-4 w-4" aria-hidden="true" />,
         run: (r: GridRow[]) => runCommand('receivePurchaseOrder', { purchaseOrderId: r[0].id }, 'Receive selected purchase order to draft intake')
+      },
+      // UX-H04 / BE-009 (Execution Decision 5): partial receiving — drafts
+      // intake rows for the per-line "Receive qty" values entered on the
+      // selected PO lines (default = each line's outstanding qty). The full
+      // "Receive PO" primary above is unchanged.
+      receivePartial: {
+        key: 'receivePartial',
+        label: 'Receive selected qty',
+        icon: <PackagePlus className="h-4 w-4" aria-hidden="true" />,
+        disabled: !selectedLines.length,
+        disabledReason: 'Select PO lines in the lines table and set Receive qty first',
+        run: (r: GridRow[]) => {
+          const lineQuantities = buildReceiveLineQuantities(selectedLines, receiveQtyByLine);
+          if (!Object.keys(lineQuantities).length) {
+            pushToast('Selected lines have no outstanding quantity to receive.', 'error');
+            return;
+          }
+          return runCommand(
+            'receivePurchaseOrder',
+            { purchaseOrderId: r[0].id, lineQuantities },
+            'Partial receive: draft intake rows for the entered per-line quantities'
+          );
+        }
       },
       unfinalize: {
         key: 'unfinalize',
@@ -418,13 +521,13 @@ export function PurchaseOrdersView() {
       rules: [
         { when: 'draft', primary: poAct.finalize, tray: [poAct.cancel] },
         { when: 'finalized', primary: poAct.approve, tray: [poAct.unfinalize, poAct.cancel] },
-        { when: 'approved', primary: poAct.receive, tray: [poAct.prepayment, poAct.cancel] },
-        { when: ['ordered', 'partially_received'], primary: poAct.receive, tray: [poAct.cancel] },
+        { when: 'approved', primary: poAct.receive, tray: [poAct.receivePartial, poAct.prepayment, poAct.cancel] },
+        { when: ['ordered', 'partially_received'], primary: poAct.receive, tray: [poAct.receivePartial, poAct.cancel] },
         // Terminal statuses: no primary, no tray (server rejects cancel once
         // product has been received; cancelled is final).
         { when: ['received', 'cancelled'], primary: null, tray: [] },
         // Catch-all — full verb set stays reachable on mixed/unknown selections.
-        { when: () => true, primary: null, tray: [poAct.finalize, poAct.approve, poAct.receive, poAct.unfinalize, poAct.prepayment, poAct.cancel] }
+        { when: () => true, primary: null, tray: [poAct.finalize, poAct.approve, poAct.receive, poAct.receivePartial, poAct.unfinalize, poAct.prepayment, poAct.cancel] }
       ]
     };
     return <StatusActionBar rows={rows} table={purchaseOrderTable} busy={isRunning} />;
@@ -743,8 +846,18 @@ export function PurchaseOrdersView() {
             view="purchaseOrders"
             title={`${String(selectedPo.poNo ?? 'Selected PO')} Lines`}
             subtitle="Procurement cost lines"
-            rows={(lines.data ?? []) as GridRow[]}
-            columns={purchaseOrderLineColumns}
+            rows={
+              // UX-H04: on receivable POs each line carries an editable
+              // receiveQty (override or outstanding default) for the
+              // "Receive selected qty" tray action.
+              isPoReceivableStatus(selectedPoStatus)
+                ? ((lines.data ?? []) as GridRow[]).map((row) => ({
+                    ...row,
+                    receiveQty: receiveQtyByLine[String(row.id)] ?? poLineOutstandingQty(row)
+                  }))
+                : ((lines.data ?? []) as GridRow[])
+            }
+            columns={purchaseOrderLineColumnsFor(selectedPoStatus)}
             loading={lines.isLoading || isRunning}
             onSelectionChange={setSelectedLines}
             onCellCommit={canWrite ? updateLineCell : undefined}
