@@ -1,5 +1,5 @@
 import { Check, ChevronDown, ChevronRight, Plus, RotateCcw, SlidersHorizontal } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 // UX-A04 / CAP-024 / Execution Decision 2: server-side per-user draft sync.
 import { useQuickLedgerDraftSync } from '../hooks/useQuickLedgerDraftSync';
@@ -10,6 +10,8 @@ import type { GridRow } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
 import { WorkspacePanel } from './WorkspacePanel';
 import { formatMoney } from '../utils/format';
+// UX-C02: TSV clipboard paste utilities.
+import { parseTsv, mapTsvToFields, pasteSummary } from '../utils/clipboardPaste';
 
 interface PostedLedgerRow {
   id: string;
@@ -127,6 +129,7 @@ export function QuickLedgerGrid() {
   const setLedgerDrafts = useUiStore((state) => state.setLedgerDrafts);
   const upsertLedgerDraft = useUiStore((state) => state.upsertLedgerDraft);
   const removeLedgerDraft = useUiStore((state) => state.removeLedgerDraft);
+  const pushToast = useUiStore((state) => state.pushToast);
   // Alias for ergonomics inside this file — same reference.
   const drafts = ledgerDrafts;
   // UX-A04 / CAP-024 / Execution Decision 2: load server drafts on mount,
@@ -273,6 +276,100 @@ export function QuickLedgerGrid() {
     setLedgerDrafts(drafts.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
+  // UX-C02: TSV paste — map clipboard rows onto LedgerDraft objects.
+  // Column order: counterparty, amount, method/bucket, memo.
+  // A row with a header-matching first row is automatically skipped.
+  // Amount must be a positive finite number; method must be in the allowed
+  // list or recognised as a bucket alias. Invalid cells set status=needs_fix.
+  // Pasted rows are prepended to existing drafts (additive, never auto-post).
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent<HTMLDivElement>) => {
+      const raw = event.clipboardData.getData('text/plain');
+      if (!raw.includes('\t')) return; // not a TSV paste — let browser handle it
+      event.preventDefault();
+
+      const FIELD_NAMES = ['counterparty', 'amount', 'method', 'memo'];
+      const rawRows = parseTsv(raw);
+      if (rawRows.length === 0) return;
+
+      const mapped = mapTsvToFields(rawRows, FIELD_NAMES, {
+        amount: (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) && n > 0;
+        },
+        method: (v) => {
+          // Valid if it's a known method OR a known bucket token.
+          return methods.includes(v) || buckets.includes(v);
+        }
+      });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const newDrafts: LedgerDraft[] = mapped.map((pastedRow) => {
+        const get = (key: string) =>
+          pastedRow.fields.find((f) => f.key === key)?.value ?? '';
+
+        const counterparty = get('counterparty');
+        const amountStr = get('amount');
+        const methodOrBucket = get('method');
+        const memo = get('memo');
+
+        // Determine method/bucket split: prefer method, fall back to bucket.
+        let method = 'cash';
+        let bucket = 'cash-file-a';
+        if (methods.includes(methodOrBucket)) {
+          method = methodOrBucket;
+        } else if (buckets.includes(methodOrBucket)) {
+          bucket = methodOrBucket;
+          // method stays 'cash' (default)
+        }
+
+        const amountField = pastedRow.fields.find((f) => f.key === 'amount');
+        const methodField = pastedRow.fields.find((f) => f.key === 'method');
+        const hasError = pastedRow.hasErrors;
+        const status: LedgerDraft['status'] = hasError ? 'needs_fix' : 'draft';
+
+        // Build the issue string for needs_fix rows so the operator knows why.
+        let issue: string | undefined;
+        if (amountField?.invalid) {
+          issue = 'Pasted amount is not a positive number — edit before posting.';
+        } else if (methodField?.invalid) {
+          issue = `Unrecognised method/bucket "${methodOrBucket}" — edit before posting.`;
+        }
+
+        return {
+          id: crypto.randomUUID(),
+          date: today,
+          direction: 'receiving' as LedgerDirection,
+          entityType: 'other' as LedgerEntityType,
+          entityId: '',
+          entityName: counterparty,
+          transactionType: 'other_receipt',
+          allocationTargetType: 'unapplied',
+          allocationTargetId: '',
+          amount: amountStr,
+          method,
+          bucket,
+          reference: '',
+          notes: memo,
+          status,
+          issue,
+          processorId: '',
+          grossAmount: '',
+          processingFeeTotal: '',
+          userSplitPercent: ''
+        };
+      });
+
+      const summary = pasteSummary(mapped);
+      const tone = mapped.some((r) => r.hasErrors) ? 'info' : 'success';
+      // Prepend so the newest pasted rows appear at the top of the receiving section.
+      setLedgerDrafts([...newDrafts, ...drafts]);
+      pushToast(summary, tone);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [drafts, setLedgerDrafts, pushToast]
+  );
+
   function section(direction: LedgerDirection) {
     const draftRows = drafts.filter((row) => row.direction === direction);
     const postedRows = direction === 'receiving' ? posted.receiving : posted.paying;
@@ -389,7 +486,8 @@ export function QuickLedgerGrid() {
         </>
       }
     >
-      <div className="transaction-ledger-workbench">
+      {/* UX-C02: onPaste scoped to the workbench — TSV rows become drafts. */}
+      <div className="transaction-ledger-workbench" onPaste={handlePaste}>
         {section('receiving')}
         {section('paying')}
       </div>

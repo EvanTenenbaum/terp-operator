@@ -8,6 +8,7 @@ import {
   Boxes,
   Camera,
   ChevronDown,
+  ChevronRight,
   ClipboardList,
   Gauge,
   Inbox,
@@ -43,6 +44,21 @@ type NavItem = { view: ViewKey; label: string; icon: typeof Gauge };
 // looked up from the shortcuts registry (navShortcutForView), so the badge and
 // the actual Hotkeys binding can never disagree. ⌘1–⌘6 assignments are kept
 // as-is this run; per-loop hotkey maps remain tracked under UX-B02.
+
+// UX-B01: low-frequency lanes that are collapsed into a per-group "More"
+// disclosure. These never include sales/warehouse/intake loop lanes. Keyboard
+// shortcuts (⌘1–⌘6 + aria-keyshortcuts) continue to work for any lane that
+// has a registry binding even when the group is visually collapsed — navigation
+// still functions, only the button is visually hidden behind the disclosure.
+const LOW_FREQUENCY_VIEWS = new Set<string>([
+  'purchaseReceipts',
+  'photography',
+  'items',
+  'credit-review',
+  'disputes',
+  'referees'
+]);
+
 const navGroups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: 'Decide',
@@ -116,6 +132,9 @@ export function SideNav({ user }: { user: SessionUser }) {
   const activeView = useUiStore((state) => state.activeView);
   const sideNavCollapsed = useUiStore((state) => state.sideNavCollapsed);
   const toggleSideNav = useUiStore((state) => state.toggleSideNav);
+  // UX-B01: per-group "More" expansion state from persisted store.
+  const navGroupExpansion = useUiStore((state) => state.navGroupExpansion);
+  const setNavGroupExpanded = useUiStore((state) => state.setNavGroupExpanded);
 
   // EXT-REVIEW 2026-06 finding #8 (responsive): on narrow viewports the
   // expanded 240px rail consumed a third of the screen and forced grids into
@@ -157,50 +176,102 @@ export function SideNav({ user }: { user: SessionUser }) {
         {navGroups.map((group) => {
           const visibleItems = group.items.filter((item) => viewVisibleForUser(item.view, user));
           if (!visibleItems.length) return null;
+
+          // UX-B01: split visible items into primary (always shown) and secondary
+          // (collapsed behind "More"). An item is secondary only when it is
+          // low-frequency AND NOT the currently active view AND NOT the current
+          // view's active item. Items with ⌘N shortcuts always stay primary so
+          // the badge is discoverable.
+          const primaryItems = visibleItems.filter(
+            (item) =>
+              !LOW_FREQUENCY_VIEWS.has(item.view) ||
+              activeView === item.view ||
+              Boolean(navShortcutForView(item.view))
+          );
+          const secondaryItems = visibleItems.filter(
+            (item) =>
+              LOW_FREQUENCY_VIEWS.has(item.view) &&
+              activeView !== item.view &&
+              !navShortcutForView(item.view)
+          );
+          const hasMore = secondaryItems.length > 0;
+          const isExpanded = Boolean(navGroupExpansion[group.label]);
+
+          function renderNavItem(item: NavItem) {
+            const Icon = item.icon;
+            const showBadge = item.view === 'credit-review' && badgeTotal > 0 && !sideNavCollapsed;
+            // UX-T07: badge content comes from the shortcuts registry, not
+            // a per-item literal — single source of truth with Hotkeys.tsx.
+            const navShortcut = navShortcutForView(item.view);
+            // #34 FE-L4 — defence-in-depth: only treat the lane as bound
+            // when it is actually enterable for this operator.
+            const hotkeyBound = Boolean(navShortcut && viewVisibleForUser(item.view, user));
+            // The visual chip hides when the rail is collapsed, but the
+            // aria-keyshortcuts contract (UX-S02/B02) stays on the control
+            // whenever the binding is live — collapsing the rail does not
+            // unbind ⌘1–⌘6.
+            const showHotkey = hotkeyBound && !sideNavCollapsed;
+            return (
+              <button
+                type="button"
+                key={item.view}
+                data-testid={`sidenav-item-${item.view}`}
+                aria-label={item.label}
+                aria-current={activeView === item.view ? 'page' : undefined}
+                aria-keyshortcuts={hotkeyBound && navShortcut ? navShortcut.ariaKeyshortcuts : undefined}
+                onClick={() => navigate(`/${item.view}`)}
+                className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>{item.label}</span>
+                {showBadge ? (
+                  <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+                    {badgeTotal > 99 ? '99+' : badgeTotal}
+                  </span>
+                ) : null}
+                {showHotkey && navShortcut ? <kbd>{navShortcut.combo}</kbd> : null}
+              </button>
+            );
+          }
+
           return (
             <div key={group.label} className="nav-group">
               <div className={clsx('nav-group-label', sideNavCollapsed && 'sr-only')}>{group.label}</div>
-              {visibleItems.map((item) => {
-                const Icon = item.icon;
-                const showBadge = item.view === 'credit-review' && badgeTotal > 0 && !sideNavCollapsed;
-                // UX-T07: badge content comes from the shortcuts registry, not
-                // a per-item literal — single source of truth with Hotkeys.tsx.
-                const navShortcut = navShortcutForView(item.view);
-                // #34 FE-L4 — defence-in-depth: only treat the lane as bound
-                // when it is actually enterable for this operator.
-                // visibleItems already filters by viewVisibleForUser, but
-                // gating the chip directly here means a future refactor that
-                // loosens visibleItems can't silently leak a chip for a lane
-                // that fires the "lane not part of this operator workspace"
-                // toast when hit.
-                const hotkeyBound = Boolean(navShortcut && viewVisibleForUser(item.view, user));
-                // The visual chip hides when the rail is collapsed, but the
-                // aria-keyshortcuts contract (UX-S02/B02) stays on the control
-                // whenever the binding is live — collapsing the rail does not
-                // unbind ⌘1–⌘6.
-                const showHotkey = hotkeyBound && !sideNavCollapsed;
-                return (
+              {primaryItems.map(renderNavItem)}
+              {hasMore && (
+                <>
+                  {/* UX-B01: "More" disclosure button. Keyboard accessible via
+                      button role; aria-expanded communicates current state to
+                      assistive tech. When collapsed, secondary items remain in
+                      the DOM as sr-only so ⌘1-6 navigation still fires. */}
                   <button
                     type="button"
-                    key={item.view}
-                    data-testid={`sidenav-item-${item.view}`}
-                    aria-label={item.label}
-                    aria-current={activeView === item.view ? 'page' : undefined}
-                    aria-keyshortcuts={hotkeyBound && navShortcut ? navShortcut.ariaKeyshortcuts : undefined}
-                    onClick={() => navigate(`/${item.view}`)}
-                    className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
+                    data-testid={`sidenav-more-${group.label}`}
+                    className="nav-button text-zinc-400 hover:text-ink"
+                    aria-expanded={isExpanded}
+                    aria-controls={`sidenav-more-panel-${group.label}`}
+                    onClick={() => setNavGroupExpanded(group.label, !isExpanded)}
                   >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                    <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>{item.label}</span>
-                    {showBadge ? (
-                      <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
-                        {badgeTotal > 99 ? '99+' : badgeTotal}
-                      </span>
-                    ) : null}
-                    {showHotkey && navShortcut ? <kbd>{navShortcut.combo}</kbd> : null}
+                    {isExpanded
+                      ? <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                      : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+                    <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>
+                      {isExpanded ? 'Less' : 'More'}
+                    </span>
                   </button>
-                );
-              })}
+                  {/* Secondary items: visually shown when expanded; rendered
+                      sr-only when collapsed so keyboard shortcuts (⌘N) still
+                      navigate even when the group is visually collapsed. */}
+                  <div
+                    id={`sidenav-more-panel-${group.label}`}
+                    role="group"
+                    aria-label={`More ${group.label} items`}
+                    className={clsx(!isExpanded && !sideNavCollapsed && 'sr-only')}
+                  >
+                    {secondaryItems.map(renderNavItem)}
+                  </div>
+                </>
+              )}
             </div>
           );
         })}

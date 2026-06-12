@@ -10,6 +10,13 @@ interface ExpansionPanelProps {
   childrenRenderer?: (row: GridRow) => ReactNode;
 }
 
+// UX-S05: ExpansionPanel collapsible headers are now native <button> elements
+// instead of div+role=button. Native buttons receive focus automatically in the
+// tab order, receive Enter/Space activation from the browser without a custom
+// onKeyDown handler, and carry implicit button semantics for screen readers.
+// The K12 leftover (div+role=button + custom keyDown) is eliminated here.
+// Styling classes (expansion-section-header) are preserved unchanged so the
+// visual appearance is unaffected.
 export function ExpansionPanel({ row, view, actionsRenderer, historyRenderer, childrenRenderer }: ExpansionPanelProps) {
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
@@ -29,22 +36,15 @@ export function ExpansionPanel({ row, view, actionsRenderer, historyRenderer, ch
       {/* History Section - Collapsible */}
       {historyRenderer ? (
         <div className="expansion-section">
-          <div
+          <button
+            type="button"
             className="expansion-section-header"
-            onClick={() => setHistoryExpanded(!historyExpanded)}
-            role="button"
             aria-expanded={historyExpanded}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setHistoryExpanded(!historyExpanded);
-              }
-            }}
+            onClick={() => setHistoryExpanded((prev) => !prev)}
           >
-            {historyExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            {historyExpanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
             <span>History</span>
-          </div>
+          </button>
           {historyExpanded ? (
             <div className="expansion-section-content">
               {historyRenderer(row)}
@@ -56,22 +56,15 @@ export function ExpansionPanel({ row, view, actionsRenderer, historyRenderer, ch
       {/* Children Section - Collapsible */}
       {childrenRenderer ? (
         <div className="expansion-section">
-          <div
+          <button
+            type="button"
             className="expansion-section-header"
-            onClick={() => setChildrenExpanded(!childrenExpanded)}
-            role="button"
             aria-expanded={childrenExpanded}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setChildrenExpanded(!childrenExpanded);
-              }
-            }}
+            onClick={() => setChildrenExpanded((prev) => !prev)}
           >
-            {childrenExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            {childrenExpanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
             <span>Child Items</span>
-          </div>
+          </button>
           {childrenExpanded ? (
             <div className="expansion-section-content">
               {childrenRenderer(row)}

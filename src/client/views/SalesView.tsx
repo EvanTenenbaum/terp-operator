@@ -10,6 +10,7 @@ import { FilterPresetStrip, StatusActionBar, resolveStatusActions, type StatusAc
 import { buildSalesOrderPrimaryTable, newSalePrimary } from './SalesView.orderPrimary';
 import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHistoryPanel';
 import { SalesSourcePane } from '../components/SalesSourcePane';
+import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 import { type CustomerSheetSnapshotRow, type CustomerSheetSnapshotSummary } from '../components/RecentSheetsPanel';
 import { SaleLineExceptionControls } from '../components/SaleLineExceptionControls';
 import { AlreadyInOrderChip, SalePrePostStrip, buildSalePrePostChecks, duplicateSourceLineIds, prePostIssuesByLineId, type SalePrePostCheck, type SalePrePostLine } from '../components/SalePrePostStrip';
@@ -29,9 +30,12 @@ import { buildCustomerOfferCsv } from './SalesView.csvExport';
 import { resolvePricingRuleEntry, markupDollarsFromPrice, applyPricingRule } from '../../shared/inventoryPricingShared';
 import { parsePriceRange } from '../../shared/priceRange';
 
-import { filterSalesOrdersByCustomer, salesButtonTitle, selectionPillText, selectVisibleSalesColumns } from './SalesView.columns';
+import { filterSalesOrdersByCustomer, salesButtonTitle, selectionPillText, selectVisibleSalesColumns, whyShownChips } from './SalesView.columns';
 import { buildOfferText } from './SalesView.ux-f01';
 import { deriveCustomerRefereeRelationships, buildConfirmPayload } from './SalesView.ux-f06';
+import { SaleLineItemTypeahead, buildBindLinePayload, resolveUniqueBatch } from './SalesView.ux-f03';
+import { applyCreditDisabledReason, buildApplyCreditPayload, salesOrderCellCommand } from './SalesView.ux-g03';
+import { buildPurchaseHistoryChips, type PurchaseHistoryChipRow } from '../components/InventoryFinderPanel.historyChips';
 
 // CAP-030 / TER-1508 — types matching live releaseEligibility API shape (backend now merged)
 
@@ -97,7 +101,24 @@ const suggestionColumns: ColDef<GridRow>[] = [
   { field: 'unitCost', type: 'numericColumn', width: 110 },
   { field: 'estimatedMargin', type: 'numericColumn', width: 150 },
   { field: 'tags', minWidth: 140 },
-  { field: 'reason', minWidth: 260 }
+  {
+    field: 'reason',
+    // UX-F11 (subset) — converge the suggestions grid onto the finder's
+    // visual language: the reason renders as finder-style "why" chips under
+    // the same "Why shown" header the finder pane uses, so both result
+    // surfaces read identically. (Full convergence — suggestions as
+    // pre-filtered finder ROWS — would restructure the salesSuggestions
+    // data flow into the finder pipeline; deviation reported.)
+    headerName: 'Why shown',
+    minWidth: 260,
+    cellRenderer: (params: { value: unknown }) => (
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>
+        {whyShownChips(params.value).map((chip) => (
+          <span key={chip} className="finder-chip">{chip}</span>
+        ))}
+      </span>
+    )
+  }
 ];
 
 // Issue #64: surface cost-range / COGS / below-floor / vendor-approval state.
@@ -378,6 +399,9 @@ export function SalesView() {
   const warehouseAlertRef = useFocusTrap<HTMLDivElement>(Boolean(pendingLineEdit), () => setPendingLineEdit(null));
   // GH #352: repeat last order loading state
   const [repeatLoading, setRepeatLoading] = useState(false);
+  // UX-G03 — Sale tray "Apply credit" inputs (manager-gated applyClientCredit).
+  const [creditAmount, setCreditAmount] = useState('');
+  const [creditReason, setCreditReason] = useState('');
   // UX-F06 — referee relationship selected for credit accrual at confirm time.
   // Cleared when the order is posted or the customer changes.
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
@@ -422,6 +446,17 @@ export function SalesView() {
     { enabled: Boolean(customerId) }
   );
   const lastSheet = (recentSheetList.data?.[0] ?? null) as CustomerSheetSnapshotSummary | null;
+  // UX-F07 — same procedure + input CustomerPurchaseHistoryPanel uses, so
+  // React Query shares one cache entry (no new procedures, no extra fetch
+  // once the disclosure has loaded). Feeds the finder's history chips.
+  const purchaseHistory = trpc.queries.customerPurchaseHistory.useQuery(
+    { customerId: customerId || '00000000-0000-0000-0000-000000000000', limit: 200 },
+    { enabled: Boolean(customerId), staleTime: 60_000, refetchOnWindowFocus: false }
+  );
+  const historyChips = useMemo(
+    () => buildPurchaseHistoryChips((purchaseHistory.data ?? []) as PurchaseHistoryChipRow[]),
+    [purchaseHistory.data]
+  );
   const utils = trpc.useUtils();
   const { runCommand, isRunning } = useCommandRunner();
   const workspaceOrder = workspace.data?.orders.find((order) => ['draft', 'confirmed'].includes(String(order.status))) ?? workspace.data?.orders[0];
@@ -596,6 +631,13 @@ export function SalesView() {
       customerId
     ),
     [reference.data?.refereeRelationships, customerId]
+  );
+
+  // UX-F03 — the typeahead and commit-time resolver search the SAME batch
+  // list the finder pane searches (queries.reference availableBatches).
+  const finderBatches = useMemo(
+    () => (reference.data?.availableBatches ?? []) as InventoryFinderBatch[],
+    [reference.data?.availableBatches]
   );
 
   // GH #352: live inventory map for matching snapshot rows to current batches
@@ -1037,8 +1079,50 @@ export function SalesView() {
     await orderLines.refetch();
   }
 
+  // UX-F03 — typeahead pick on the line-entry input: binds inventory through
+  // the SAME addSalesOrderLine path the finder pane uses (qty capped to
+  // available, sourceRowKey duplicate guard included via addFinderBatch).
+  async function pickDraftBatch(batch: InventoryFinderBatch) {
+    if (!selectedOrder) return;
+    const requested = Math.max(1, Number(draftQty) || 1);
+    const available = Number(batch.availableQty ?? 0);
+    await addFinderBatch(batch, Math.min(requested, available || requested));
+    setDraftItem('');
+    setDraftQty('1');
+    await orderLines.refetch();
+  }
+
+  // UX-G03 — Sales Orders grid inline commit. The deliveryWindow column was
+  // editable here but had NO commit handler (edits silently went nowhere);
+  // it now runs the same setDeliveryWindow command OrdersView uses.
+  async function onOrderCellCommit(event: CellValueChangedEvent<GridRow>) {
+    if (!event.data?.id || event.oldValue === event.newValue) return;
+    const command = salesOrderCellCommand(event.colDef.field, event.data.id, event.newValue);
+    if (!command) return;
+    await runCommand(command.name, command.payload, command.description);
+    await orders.refetch();
+  }
+
   async function onLineCommit(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
+
+    // UX-F03 — committed item-cell shorthand resolves to inventory when the
+    // finder search yields a UNIQUE match; zero/ambiguous matches fall
+    // through and persist as unresolved text (needs_resolution — feeds the
+    // validation panel and the pre-post strip's "inventory resolved" check).
+    if (event.colDef.field === 'unresolvedSourceText') {
+      const match = resolveUniqueBatch(finderBatches, String(event.newValue ?? ''));
+      if (match) {
+        await runCommand(
+          'updateSalesOrderLine',
+          buildBindLinePayload(String(event.data.id), match, Number(event.data.unitPrice ?? 0)),
+          'Resolve sale line to inventory (item-cell shorthand)'
+        );
+        setAddedBatchIds((current) => new Set(current).add(String(match.id)));
+        await orderLines.refetch();
+        return;
+      }
+    }
 
     // CAP-030 / TER-1508: intercept qty changes on released/picking lines
     const lineStatus = String(event.data.pickStatus ?? 'unreleased');
@@ -1228,26 +1312,19 @@ export function SalesView() {
         </button>
         {selectionPillText(selectedOrder?.orderNo, customerId, selectedOrderStatus) && <span className="selection-pill">{selectionPillText(selectedOrder?.orderNo, customerId, selectedOrderStatus)}</span>}
         {!customerId ? showMarginToggle : null}
-        {/* GH #352: surface "Repeat last order" as a visible action in the control band */}
-        {canWrite && customerId && lastSheet ? (
-          <button
-            className="secondary-button compact-action"
-            type="button"
-            disabled={!selectedOrder || isRunning || repeatLoading}
-            onClick={repeatLastOrder}
-            title={!selectedOrder ? 'Select an order first' : 'Add all items from the most recent sheet to the current order'}
-            data-testid="repeat-last-order"
-          >
-            <RotateCcw className="h-4 w-4" aria-hidden="true" />
-            Repeat last order
-          </button>
-        ) : null}
+        {/* UX-F08 — "Repeat last order" relocated from this global control
+            band to the customer workspace (Sale Builder) header, where the
+            repeat-customer moment actually happens. Behavior unchanged. */}
         <button className="secondary-button compact-action" type="button" onClick={() => setSaleToolsOpen((value) => !value)} aria-expanded={saleToolsOpen}>
           {saleToolsOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
           Sale tray
         </button>
       </div> : null}
       {canWrite && saleToolsOpen ? (
+        /* UX-F09 — the Sale tray now carries ORDER verbs only (suggestion
+           add, reserve, client credit). Output verbs (sheet/catalog toggle,
+           Export, Copy offer, privacy pill, snapshot-retry pill) consolidated
+           into the sheet-preview panel header below — one output surface. */
         <div className="control-band subtle-band">
           <button className="secondary-button compact-action" type="button" disabled={!selectedOrder || !selectedSuggestions.length} title={!selectedOrder ? 'Select an order first' : !selectedSuggestions.length ? 'Select one or more suggestions to add' : undefined} onClick={addSuggestion}>
             <PackagePlus className="h-4 w-4" aria-hidden="true" />
@@ -1256,35 +1333,53 @@ export function SalesView() {
           <button className="secondary-button compact-action" type="button" disabled={!selectedOrder} title={!selectedOrder ? 'Select an order first' : undefined} onClick={reserveOrder}>
             Reserve
           </button>
-          <button className="secondary-button compact-action" type="button" onClick={() => setSheetMode(sheetMode === 'internal' ? 'catalog' : 'internal')}>
-            <FileText className="h-4 w-4" aria-hidden="true" />
-            {sheetMode === 'internal' ? 'Sales Sheet' : 'Sales Catalog'}
-          </button>
-          <button
-            className="secondary-button compact-action"
-            type="button"
-            disabled={!sheetRows.length}
-            title={!sheetRows.length ? 'Add lines to the sheet before exporting' : undefined}
-            onClick={() => {
-              void exportSheet().catch((err) => {
-                console.error('exportSheet failed', err);
-                setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
-              });
-            }}
-          >
-            <FileText className="h-4 w-4" aria-hidden="true" />
-            Export
-          </button>
-          <span className="selection-pill success">Customer catalog hides cost, margin, and internal notes.</span>
-          {/* UX-A15 — partial-failure pill now carries a "Retry snapshot"
-              action wired to the existing snapshot call path (attemptSnapshot
-              re-runs createCustomerSheetSnapshot with the captured payload). */}
-          <SnapshotRetryPill
-            error={exportError}
-            canRetry={Boolean(lastSnapshotPayload)}
-            busy={isRunning}
-            onRetry={() => void retrySnapshot()}
-          />
+          {/* UX-G03 — applyClientCredit daily-surface home (was reachable
+              only from the RowInspector Issue sidecar). Manager-gated to
+              match the command's commandMinRole. */}
+          {isManagerOrOwner ? (
+            <>
+              <label className="field-inline">
+                Credit $
+                <input
+                  className="input compact"
+                  inputMode="decimal"
+                  aria-label="Client credit amount"
+                  value={creditAmount}
+                  onChange={(event) => setCreditAmount(event.target.value)}
+                />
+              </label>
+              <label className="field-inline">
+                Reason
+                <input
+                  className="input compact"
+                  aria-label="Client credit reason"
+                  value={creditReason}
+                  onChange={(event) => setCreditReason(event.target.value)}
+                />
+              </label>
+              <button
+                className="secondary-button compact-action"
+                type="button"
+                data-testid="apply-client-credit"
+                disabled={isRunning || Boolean(applyCreditDisabledReason(me.data?.role, customerId, creditAmount))}
+                title={applyCreditDisabledReason(me.data?.role, customerId, creditAmount) ?? 'Post a client ledger credit for this customer'}
+                onClick={async () => {
+                  const result = await runCommand(
+                    'applyClientCredit',
+                    buildApplyCreditPayload(customerId, creditAmount, creditReason),
+                    'Apply client credit from sale workspace'
+                  );
+                  if (result.ok) {
+                    setCreditAmount('');
+                    setCreditReason('');
+                    await workspace.refetch();
+                  }
+                }}
+              >
+                Apply credit
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
       {customerId ? (
@@ -1294,6 +1389,9 @@ export function SalesView() {
         />
       ) : null}
 
+      {/* UX-O02: photographer->sales blocker surfacing — media-readiness counts where catalog decisions happen */}
+      {customerId ? <PhotographyQueuePanel /> : null}
+
       {customerId ? (
         <div className="grid min-h-[520px] grid-cols-1 gap-3 xl:grid-cols-2">
           <SalesSourcePane
@@ -1301,6 +1399,7 @@ export function SalesView() {
             selectedOrderId={canWrite ? String(selectedOrder?.id ?? '') : ''}
             addedBatchIds={addedBatchIds}
             initialSearch={salesRequestText}
+            historyChips={historyChips}
             onAddBatch={addFinderBatch}
           />
           <WorkspacePanel
@@ -1309,6 +1408,22 @@ export function SalesView() {
             contentClassName="p-3"
             actions={canWrite ? (
               <>
+                {/* UX-F08 — "Repeat last order" lives on the customer
+                    workspace header (relocated from the global control band,
+                    GH #352 placement fix). Same behavior and testid. */}
+                {customerId && lastSheet ? (
+                  <button
+                    className="secondary-button compact-action"
+                    type="button"
+                    disabled={!selectedOrder || isRunning || repeatLoading}
+                    onClick={repeatLastOrder}
+                    title={!selectedOrder ? 'Select an order first' : 'Add all items from the most recent sheet to the current order'}
+                    data-testid="repeat-last-order"
+                  >
+                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                    Repeat last order
+                  </button>
+                ) : null}
                 {selectedOrder?.id ? (
                   <button
                     type="button"
@@ -1403,11 +1518,22 @@ export function SalesView() {
               />
             ) : null}
             {canWrite ? <div className="control-band subtle-band mt-3">
+              {/* UX-F03 — the item cell is an async typeahead over the finder
+                  resolver: shorthand ("m15") lists matching posted batches;
+                  picking one binds inventory. Enter with no pick keeps the
+                  prior behavior — an unresolved (needs_resolution) line that
+                  feeds the validation panel and pre-post strip. */}
               <label className="field-inline grow">
                 Request / item
-                <input className="input" value={draftItem} placeholder="Type item, source code, note, or shorthand" onChange={(event) => setDraftItem(event.target.value)} onKeyDown={(event) => {
-                  if (event.key === 'Enter') void addDraftLine();
-                }} />
+                <SaleLineItemTypeahead
+                  value={draftItem}
+                  onChange={setDraftItem}
+                  batches={finderBatches}
+                  onPickBatch={(batch) => void pickDraftBatch(batch)}
+                  onSubmitUnresolved={() => void addDraftLine()}
+                  placeholder="Type item, source code, note, or shorthand"
+                  disabled={false}
+                />
               </label>
               <label className="field-inline">
                 Qty
@@ -1578,6 +1704,7 @@ export function SalesView() {
               isError={orders.isError}
               onRetry={() => orders.refetch()}
               onSelectionChange={(selection) => setSelectedRows('sales', selection)}
+              onCellCommit={canWrite ? onOrderCellCommit : undefined}
               emptyTitle="No open sales shown"
               emptyChildren="Choose a customer to start."
               expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
@@ -1680,33 +1807,85 @@ export function SalesView() {
           onSelectionChange={setSelectedSuggestions}
         />
       </div> : null}
-      {sheetRows.length ? (
+      {sheetRows.length || customerId ? (
         <WorkspacePanel
           panelId="sales:sheet-preview"
           title={sheetMode === 'internal' ? 'Internal Sales Sheet' : 'Customer Sales Catalog'}
           contentClassName="p-3"
           actions={
-            /* UX-F01 — "Copy offer" beside Export: writes a customer-safe text
-               block (name, qty, price; NEVER cost/margin/notes) to the clipboard.
-               Reuses catalog-mode column gating (buildOfferText / getCatalogHeaders). */
-            <button
-              type="button"
-              className="secondary-button compact-action"
-              data-testid="copy-offer-button"
-              onClick={() => {
-                const text = buildOfferText(sheetRows);
-                navigator.clipboard.writeText(text).then(() => {
-                  pushToast('Copied — internal columns excluded.', 'success');
-                }).catch(() => {
-                  pushToast('Copy failed — please try again.', 'error');
-                });
-              }}
-            >
-              <Clipboard className="h-4 w-4" aria-hidden="true" />
-              Copy offer
-            </button>
+            /* UX-F09 — ALL output verbs live here now: sheet/catalog mode
+               toggle + Export (relocated from the Sale tray) beside the
+               existing UX-F01 "Copy offer". The privacy pill and the UX-A15
+               snapshot-retry pill render at the top of the panel content. */
+            <>
+              {canWrite ? (
+                <button
+                  className="secondary-button compact-action"
+                  type="button"
+                  onClick={() => setSheetMode(sheetMode === 'internal' ? 'catalog' : 'internal')}
+                >
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                  {sheetMode === 'internal' ? 'Sales Sheet' : 'Sales Catalog'}
+                </button>
+              ) : null}
+              {canWrite ? (
+                <button
+                  className="secondary-button compact-action"
+                  type="button"
+                  disabled={!sheetRows.length}
+                  title={!sheetRows.length ? 'Add lines to the sheet before exporting' : undefined}
+                  onClick={() => {
+                    void exportSheet().catch((err) => {
+                      console.error('exportSheet failed', err);
+                      setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
+                    });
+                  }}
+                >
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                  Export
+                </button>
+              ) : null}
+              {/* UX-F01 — "Copy offer" beside Export: writes a customer-safe text
+                 block (name, qty, price; NEVER cost/margin/notes) to the clipboard.
+                 Reuses catalog-mode column gating (buildOfferText / getCatalogHeaders). */}
+              <button
+                type="button"
+                className="secondary-button compact-action"
+                data-testid="copy-offer-button"
+                disabled={!sheetRows.length}
+                title={!sheetRows.length ? 'Select suggestions to build a sheet first' : undefined}
+                onClick={() => {
+                  const text = buildOfferText(sheetRows);
+                  navigator.clipboard.writeText(text).then(() => {
+                    pushToast('Copied — internal columns excluded.', 'success');
+                  }).catch(() => {
+                    pushToast('Copy failed — please try again.', 'error');
+                  });
+                }}
+              >
+                <Clipboard className="h-4 w-4" aria-hidden="true" />
+                Copy offer
+              </button>
+            </>
           }
         >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="selection-pill success">Customer catalog hides cost, margin, and internal notes.</span>
+            {/* UX-A15 — partial-failure pill carries "Retry snapshot" wired to
+                the existing snapshot call path (attemptSnapshot re-runs
+                createCustomerSheetSnapshot with the captured payload). */}
+            <SnapshotRetryPill
+              error={exportError}
+              canRetry={Boolean(lastSnapshotPayload)}
+              busy={isRunning}
+              onRetry={() => void retrySnapshot()}
+            />
+          </div>
+          {!sheetRows.length ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              Select suggestions below to build a sheet, then export or copy the offer from here.
+            </p>
+          ) : null}
           <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
             {sheetRows.map((row) => (
               <div key={row.id} className="border border-line p-3 text-sm">
