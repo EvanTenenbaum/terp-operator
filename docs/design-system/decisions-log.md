@@ -2,6 +2,26 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — UX audit Wave 3: keyboard parity & feedback (UX-T07/C01/S02/B02/C08/C09/F10, C05/C07, T06/D01/D02/D03/M05/D05, C02/C03/C04/C06)
+
+Gate green: typecheck, 910/910 client vitest, build.
+
+- **UX-T07:** `src/client/shortcuts/registry.ts` is the single source of truth for all 23 bindings; Hotkeys derives ⌘1–6 from it; a bijection test blocks registry/handler drift.
+- **UX-C01:** `?` opens a registry-generated, focus-trapped ShortcutsOverlay; store key `shortcutsOverlayOpen` (unpersisted); palette entry "Keyboard shortcuts" opens it too.
+- **UX-S02/B02:** SideNav badges + `aria-keyshortcuts` and Keel ⌘K sourced from the registry; badges only where bound. ⌘1–6 assignments unchanged — per-loop maps still tracked under B02.
+- **UX-C08/C09:** drawer-tab and intake hotkeys registered + listed in the overlay. Audit shorthand corrected: intake combos are ⌘⌥⇧R/⌘⌥I (code requires ⌘).
+- **UX-F10:** ⌥M toggles showMargin with a truthful toast (handles Mac ⌥M→µ).
+- **UX-C05:** workbook vocabulary ("Files", "OFC", "25 flex", "Inv Posted", "Pay/F-up", "ticket", "sub", "iv", "vendor receipt", "rich") wired into launch + command aliases; marker-term entity search already covered by existing server SQL (legacy_marker/shorthand/price_range ilike) — no server change needed.
+- **UX-C07:** Advanced palette (⌘⌥K) gated manager+; relabeled "Advanced (typed payload)" with danger hint.
+- **UX-T06:** Toast gains optional `actions`; `pushToast(message, tone?, opts?)` backward-compatible; ToastCenter renders action buttons a11y-correctly.
+- **UX-D01:** action toasts on high-frequency commands (post/confirm order → View order, fulfill → View order, allocate → View payment, lock → Open closeout, archive → View artifacts (M05), schedule/record vendor payment → View bill) via a `setNextSuccessActions` staging pattern on useCommandRunner — 3-arg runCommand signature preserved so existing test contracts hold.
+- **UX-D02:** command-failure toasts always offer "Copy details" (name/key/message) and "Open in Recovery" prefiltered.
+- **UX-D03:** tailored empty states on Orders/Payments/Fulfillment/Closeout/Recovery/VendorPayables/Disputes/Receipts/Media naming the producing verb+surface.
+- **UX-C02:** AG Grid Enterprise ClipboardModule wired via `processDataFromClipboard` on all OperatorGrids with paste-summary toast; drafts only. QuickLedgerGrid + intake detail grid wiring deferred (custom tables) — `clipboardPaste.ts` helper exported for follow-up.
+- **UX-C03:** fill handle enabled (y-direction) + ⌘D fill-down on cell-focused ranges, editable columns only; capture-phase stopPropagation disambiguates from intake's document-level ⌘D duplicate.
+- **UX-C04:** per-user density toggle (compact/standard) in the Columns menu; `gridDensity` persisted beside gridColumnPrefs.
+- **UX-C06:** finder qty-input Enter adds the row AND advances focus to the next result's qty input.
+
 ## 2026-06-12 — UX audit Wave 2: one-system completion (UX-T01/H01/T03/A12/A13, Q01–Q03, A08/A09/A10/A14/T02/T04)
 
 Gate green: typecheck, 817/817 client vitest, build.
