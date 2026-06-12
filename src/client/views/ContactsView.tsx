@@ -22,7 +22,14 @@ export function ContactsView() {
     query: searchQuery || undefined,
   });
 
-  const { data: mergeCount } = trpc.queries.mergeCandidateCount.useQuery();
+  // BE-014 / TER-1591 DEFERRED: The contact deduplication detection job that
+  // populates contact_merge_candidates has not shipped yet.  Nothing ever
+  // inserts rows into that table, so mergeCandidateCount is permanently zero
+  // and can never surface a real signal.  Querying it wastes a round-trip and
+  // would produce a live-looking (but permanently-inactive) badge if the gate
+  // were ever relaxed.  Remove the query entirely until the detection job
+  // ships; see UX-A06 / Execution Decision 5.  When BE-014 lands, restore this
+  // query and the banner below, and remove the route redirect in App.tsx.
 
   const columnDefs: ColDef<GridRow>[] = [
     {
@@ -109,24 +116,9 @@ export function ContactsView() {
         </div>
       </div>
 
-      {mergeCount && mergeCount.count > 0 ? (
-        <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2">
-          <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-amber-200 px-1.5 text-xs font-bold text-amber-800">
-            {mergeCount.count}
-          </span>
-          <span className="text-sm text-amber-800">
-            Possible duplicate contacts found.{' '}
-            Review and merge.
-          </span>
-          <button
-            type="button"
-            className="btn-primary text-xs h-7 ml-auto"
-            onClick={() => navigate('/contacts/merge-candidates')}
-          >
-            Review Merge Candidates
-          </button>
-        </div>
-      ) : null}
+      {/* BE-014 / TER-1591 DEFERRED: merge-candidates banner removed.
+          The detection job that populates contact_merge_candidates has not
+          shipped; restore this banner when BE-014 lands.  See UX-A06. */}
 
       <div className="flex-1">
         <OperatorGrid

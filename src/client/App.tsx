@@ -44,6 +44,10 @@ import { PickView } from './views/PickView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 import { ContactsView } from './views/ContactsView';
 import { ContactProfileView } from './views/ContactProfileView';
+// BE-014 / TER-1591 DEFERRED: MergeCandidatesView is imported but its route
+// is temporarily redirected to /contacts (see route table below).  Keep the
+// import so the component is wired and ready when BE-014 ships.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { MergeCandidatesView } from './views/MergeCandidatesView';
 import { MobileShell } from './components/mobile/MobileShell';
 import { MobileDashboardView } from './views/mobile/MobileDashboardView';
@@ -199,7 +203,16 @@ export function App() {
             <Route path="photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
             <Route path="pick" element={<PickView />} />
             <Route path="contacts" element={<ContactsView />} />
-            <Route path="contacts/merge-candidates" element={<MergeCandidatesView />} />
+            {/*
+              BE-014 / TER-1591 DEFERRED: The contact deduplication detection
+              job that populates contact_merge_candidates has not shipped.
+              Redirect direct URL visits back to /contacts so the surface
+              is not reachable while the signal can never fire.  When BE-014
+              lands, replace this Navigate with the real MergeCandidatesView
+              route (component is preserved and ready — see MergeCandidatesView.tsx).
+              See UX-A06 / Execution Decision 5.
+            */}
+            <Route path="contacts/merge-candidates" element={<Navigate to="/contacts" replace />} />
             <Route path="contacts/:id" element={<ContactProfileView />} />
             <Route path="settings" element={<SettingsView />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
