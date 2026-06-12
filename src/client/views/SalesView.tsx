@@ -6,7 +6,8 @@ import { trpc } from '../api/trpc';
 import { type InventoryFinderBatch } from '../components/InventoryFinderPanel';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { WorkspacePanel } from '../components/WorkspacePanel';
-import { FilterPresetStrip, StatusActionBar, type StatusActionTable } from '../components/templates';
+import { FilterPresetStrip, StatusActionBar, resolveStatusActions, type StatusActionTable } from '../components/templates';
+import { buildSalesOrderPrimaryTable, newSalePrimary } from './SalesView.orderPrimary';
 import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHistoryPanel';
 import { SalesSourcePane } from '../components/SalesSourcePane';
 import { type CustomerSheetSnapshotRow, type CustomerSheetSnapshotSummary } from '../components/RecentSheetsPanel';
@@ -890,18 +891,6 @@ export function SalesView() {
     await runCommand('confirmSalesOrder', { orderId: selectedOrder.id }, 'Confirm sales order');
   }
 
-  async function runSalesPrimary() {
-    if (!selectedOrder) {
-      await createOrder();
-      return;
-    }
-    if (selectedOrderStatus === 'confirmed') {
-      await reserveOrder();
-      return;
-    }
-    await priceAndConfirm();
-  }
-
   async function reserveOrder() {
     if (!selectedOrder) return;
     await runCommand('reserveInventoryForOrder', { orderId: selectedOrder.id }, 'Reserve exact inventory for order');
@@ -1078,6 +1067,21 @@ export function SalesView() {
 
 
 
+  // UX-T03 — order-level primary resolved through the same §10 decision-table
+  // engine as the line-level StatusActionBar (see SalesView.orderPrimary.ts).
+  // No data-status-action-primary attribute here: the ⌘↵ hotkey targets the
+  // line-level bar's rendered primary, and this button must not double-fire.
+  const orderPrimary = selectedOrder
+    ? resolveStatusActions(
+        [selectedOrder as GridRow],
+        buildSalesOrderPrimaryTable({
+          hasLines: Boolean(orderLines.data?.length),
+          reserve: reserveOrder,
+          priceConfirm: priceAndConfirm
+        })
+      ).primary
+    : newSalePrimary(customerId, createOrder);
+
   // Show margin toggle button — rendered as a WorkspacePanel header action
   // when a customer is selected, or in the top control band otherwise.
   const showMarginToggle = (
@@ -1097,9 +1101,17 @@ export function SalesView() {
   return (
     <div className="view-stack">
       {canWrite ? <div className="control-band">
-        <button className="primary-button" type="button" title={salesButtonTitle(customerId)} disabled={(!selectedOrder && !customerId) || isOrderTerminal(selectedOrderStatus)} onClick={runSalesPrimary}>
+        <button
+          className="primary-button"
+          type="button"
+          title={salesButtonTitle(customerId)}
+          disabled={!orderPrimary || Boolean(orderPrimary.disabled)}
+          onClick={() => {
+            void orderPrimary?.run(selectedOrder ? [selectedOrder as GridRow] : []);
+          }}
+        >
           <Send className="h-4 w-4" aria-hidden="true" />
-          {salesPrimaryLabel(selectedOrderStatus, Boolean(selectedOrder), Boolean(orderLines.data?.length))}
+          {orderPrimary?.label ?? 'New Sale'}
         </button>
         {selectionPillText(selectedOrder?.orderNo, customerId, selectedOrderStatus) && <span className="selection-pill">{selectionPillText(selectedOrder?.orderNo, customerId, selectedOrderStatus)}</span>}
         {!customerId ? showMarginToggle : null}
@@ -1583,15 +1595,3 @@ function PickStatusChip({ status }: { status: string | undefined }) {
   );
 }
 
-function salesPrimaryLabel(status: string, hasOrder: boolean, hasLines: boolean) {
-  if (!hasOrder) return 'New Sale';
-  if (status === 'confirmed') return 'Reserve';
-  if (status === 'posted') return 'Posted';
-  if (status === 'cancelled') return 'Cancelled';
-  if (!hasLines) return 'Add first line';
-  return 'Price + Confirm';
-}
-
-function isOrderTerminal(status: string) {
-  return ['posted', 'cancelled', 'fulfilled'].includes(status);
-}

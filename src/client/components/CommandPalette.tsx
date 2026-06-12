@@ -10,6 +10,7 @@
  * lives here.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Braces, Play, Search, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
@@ -73,6 +74,9 @@ export function CommandPalette() {
   const setDrawerTab = useUiStore((state) => state.setDrawerTab);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
   const me = trpc.auth.me.useQuery();
+  // UX-A13: connector/command deep-links navigate the router to their
+  // canonical homes (/settings → Requests, /recovery) so URL and store agree.
+  const navigate = useNavigate();
 
   // Commands tab state
   const [query, setQuery] = useState('');
@@ -148,18 +152,23 @@ export function CommandPalette() {
   function openEntity(row: GridRow) {
     const type = String(row.type);
     if (type === 'connector') {
+      // TER-1664 / UX-A12 + UX-A13: Settings → Requests is the canonical home
+      // for connector requests while the standalone lane is flagged off.
       setActiveSettingsTab('requests');
       setActiveView('settings');
       setSelectedRows('connectors', [{ id: row.id } as GridRow]);
       setDrawerEntity('settings', 'connector', row.id);
+      navigate('/settings');
       setOpen(false);
       return;
     }
     if (type === 'command') {
-      setActiveSettingsTab('actions');
-      setActiveView('settings');
+      // UX-A13: /recovery is the canonical Action Log home — the Settings
+      // "Action log" tab is now a redirect, so deep-link straight there.
+      setActiveView('recovery');
       setSelectedRows('recovery', [{ id: row.id } as GridRow]);
-      setDrawerEntity('settings', 'recovery', row.id);
+      setDrawerEntity('recovery', 'recovery', row.id);
+      navigate('/recovery');
       setOpen(false);
       return;
     }
@@ -190,18 +199,21 @@ export function CommandPalette() {
   function navigateEntity(row: GridRow) {
     const type = String(row.type ?? '');
     if (type === 'connector') {
+      // TER-1664 / UX-A12 + UX-A13: canonical home is Settings → Requests.
       setActiveSettingsTab('requests');
       setActiveView('settings');
       setSelectedRows('connectors', [{ id: row.id } as GridRow]);
       setDrawerEntity('settings', 'connector', row.id);
+      navigate('/settings');
       setOpen(false);
       return;
     }
     if (type === 'command') {
-      setActiveSettingsTab('actions');
-      setActiveView('settings');
+      // UX-A13: canonical home for the Action Log is the /recovery route.
+      setActiveView('recovery');
       setSelectedRows('recovery', [{ id: row.id } as GridRow]);
-      setDrawerEntity('settings', 'recovery', row.id);
+      setDrawerEntity('recovery', 'recovery', row.id);
+      navigate('/recovery');
       setOpen(false);
       return;
     }
@@ -474,8 +486,11 @@ function viewForEntity(type: string): ViewKey | null {
     customerNeed: 'matchmaking',
     vendorSupply: 'matchmaking',
     pick: 'fulfillment',
+    // TER-1664 / UX-A12: connector requests live under Settings → Requests
+    // while the standalone /connectors lane is flagged off.
     connector: 'settings',
-    command: 'settings'
+    // UX-A13: the Action Log's canonical home is the /recovery nav route.
+    command: 'recovery'
   };
   return map[type] ?? null;
 }

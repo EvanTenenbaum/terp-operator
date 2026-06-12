@@ -1,8 +1,15 @@
 import type { QuickLaunchMode, SessionUser, ViewKey } from '../shared/types';
+import { CONNECTOR_SURFACES_ENABLED } from './featureFlags';
 
 type WorkLoop = 'owner' | 'manager' | 'sales' | 'intake' | 'warehouse' | 'operator' | 'viewer';
 
-const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'purchaseReceipts', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'disputes', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'contacts', 'processors', 'photography', 'connectors', 'recovery'];
+// TER-1664 / UX-A12: the standalone connector/processor lanes are MVP-out.
+// They are gated behind CONNECTOR_SURFACES_ENABLED (src/client/featureFlags.ts)
+// so re-enabling restores lane visibility in one place. Connector-request
+// review remains available via Settings → Requests (manager+).
+const connectorSurfaceViews: readonly ViewKey[] = CONNECTOR_SURFACES_ENABLED ? ['processors', 'connectors'] : [];
+
+const defaultOperatorViews: readonly ViewKey[] = ['dashboard', 'reports', 'purchaseOrders', 'purchaseReceipts', 'intake', 'sales', 'matchmaking', 'orders', 'payments', 'disputes', 'inventory', 'clients', 'vendors', 'fulfillment', 'referees', 'contacts', 'photography', 'recovery', ...connectorSurfaceViews];
 
 const managerPlusViews: readonly ViewKey[] = [...defaultOperatorViews, 'settings', 'credit-review', 'closeout'];
 
