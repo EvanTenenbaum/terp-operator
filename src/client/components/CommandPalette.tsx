@@ -38,20 +38,44 @@ const FRAME_GROUPS: Record<Frame, string[]> = {
 };
 
 // ─── Commands tab: launch actions ──────────────────────────────────────────
+// UX-C05: Workbook vocabulary terms from north-stars.md are woven into aliases
+// so operators can type "Files", "OFC", "25 flex", "Inv Posted", "Pay/F-up",
+// "ticket", "sub", "iv", "vendor receipt", or "rich" and land on the right workflow.
 const launchActions: Array<{
   label: string;
   detail: string;
   aliases: string;
   view: ViewKey;
   launch: QuickLaunchMode;
+  action?: () => void; // optional override handler for static palette entries
 }> = [
-  { label: 'New sale', detail: 'Open Sales with the customer-first workspace and inventory finder ready.', aliases: 'sale order customer sell quote catalog', view: 'sales', launch: 'sale' },
-  { label: 'New purchase order', detail: 'Open Purchase Orders with vendor and line-entry controls ready.', aliases: 'purchase po procure buy vendor order', view: 'purchaseOrders', launch: 'purchaseOrder' },
-  { label: 'Receive product', detail: 'Open Intake for receiving rows, Ready marking, and receipt posting.', aliases: 'receive receiving intake inventory batch vendor receipt', view: 'intake', launch: 'receiving' },
-  { label: 'Money in', detail: 'Open Payments with Quick Ledger in Money In mode.', aliases: 'receive money payment cash crypto check wire paid', view: 'payments', launch: 'moneyIn' },
-  { label: 'Money out', detail: 'Open Vendor Payouts with a payout row ready.', aliases: 'pay vendor payout payable bill pay money out', view: 'vendors', launch: 'moneyOut' },
-  { label: 'Add customer need', detail: 'Open Matchmaking and focus the customer need row entry.', aliases: 'matchmaking customer need demand wanted looking for', view: 'matchmaking', launch: 'customerNeed' },
-  { label: 'Add vendor stock', detail: 'Open Matchmaking and focus vendor stock row entry.', aliases: 'matchmaking vendor stock supply available offered inventory', view: 'matchmaking', launch: 'vendorSupply' }
+  { label: 'New sale', detail: 'Open Sales with the customer-first workspace and inventory finder ready.', aliases: 'sale order customer sell quote catalog files ticket sub 25 flex rich', view: 'sales', launch: 'sale' },
+  { label: 'New purchase order', detail: 'Open Purchase Orders with vendor and line-entry controls ready.', aliases: 'purchase po procure buy vendor order sub', view: 'purchaseOrders', launch: 'purchaseOrder' },
+  { label: 'Receive against PO', detail: 'Open Intake for receiving rows, Ready marking, and receipt posting.', aliases: 'receive receiving intake inventory batch vendor receipt inv posted ofc rich sub', view: 'intake', launch: 'receiving' },
+  { label: 'Money in', detail: 'Open Payments with Quick Ledger in Money In mode.', aliases: 'receive money payment cash crypto check wire paid iv invoice pay f-up pay/f-up', view: 'payments', launch: 'moneyIn' },
+  { label: 'Money out', detail: 'Open Vendor Payouts with a payout row ready.', aliases: 'pay vendor payout payable bill pay money out iv invoice', view: 'vendors', launch: 'moneyOut' },
+  { label: 'Add customer need', detail: 'Open Matchmaking and focus the customer need row entry.', aliases: 'matchmaking customer need demand wanted looking for files', view: 'matchmaking', launch: 'customerNeed' },
+  { label: 'Add vendor stock', detail: 'Open Matchmaking and focus vendor stock row entry.', aliases: 'matchmaking vendor stock supply available offered inventory files ofc rich', view: 'matchmaking', launch: 'vendorSupply' }
+];
+
+// ─── Static utility actions (always shown regardless of view/role visibility)
+// C01 tie-in: "Keyboard shortcuts" dispatches to the shortcuts overlay.
+// UX-C05: aliases include the full workbook shorthand vocabulary.
+const STATIC_PALETTE_ACTIONS: Array<{
+  label: string;
+  detail: string;
+  aliases: string;
+  handler: (deps: { setOpen: (v: boolean) => void; setShortcutsOverlayOpen?: ((v: boolean) => void) | undefined }) => void;
+}> = [
+  {
+    label: 'Keyboard shortcuts',
+    detail: 'View all keyboard shortcuts and hotkeys.',
+    aliases: 'keyboard shortcuts hotkeys bindings help ?',
+    handler: ({ setOpen, setShortcutsOverlayOpen }) => {
+      setShortcutsOverlayOpen?.(true);
+      setOpen(false);
+    }
+  }
 ];
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -77,6 +101,14 @@ export function CommandPalette() {
   // UX-A13: connector/command deep-links navigate the router to their
   // canonical homes (/settings → Requests, /recovery) so URL and store agree.
   const navigate = useNavigate();
+  // C01 tie-in: subscribe to the shortcuts overlay action added by the C01 agent.
+  // Using getState() call pattern so this compiles even before the parallel agent
+  // adds the key; the action is called only if present at click time.
+  const setShortcutsOverlayOpen = useUiStore(
+    (state) => (state as unknown as Record<string, unknown>)['setShortcutsOverlayOpen'] as ((v: boolean) => void) | undefined
+  );
+  // UX-C07: Advanced palette (⌘⌥K raw JSON payload runner) is gated to manager+.
+  const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
 
   // Commands tab state
   const [query, setQuery] = useState('');
@@ -130,6 +162,14 @@ export function CommandPalette() {
     if (!normalizedQuery) return allowed;
     return allowed.filter((action) => `${action.label} ${action.detail} ${action.aliases}`.toLowerCase().includes(normalizedQuery));
   }, [me.data, normalizedQuery]);
+
+  // C01 tie-in + UX-C05: Static utility actions (Keyboard shortcuts) always shown.
+  const matchingStaticActions = useMemo(() => {
+    if (!normalizedQuery) return STATIC_PALETTE_ACTIONS;
+    return STATIC_PALETTE_ACTIONS.filter((action) =>
+      `${action.label} ${action.detail} ${action.aliases}`.toLowerCase().includes(normalizedQuery)
+    );
+  }, [normalizedQuery]);
 
   if (!open) return null;
 
@@ -292,7 +332,7 @@ export function CommandPalette() {
                 <span className="sr-only">Close</span>
               </button>
             </div>
-            <div className={advancedOpen ? 'grid min-h-0 flex-1 grid-cols-[1.2fr_0.8fr] overflow-hidden' : 'min-h-0 flex-1 overflow-hidden'}>
+            <div className={advancedOpen && isManagerOrOwner ? 'grid min-h-0 flex-1 grid-cols-[1.2fr_0.8fr] overflow-hidden' : 'min-h-0 flex-1 overflow-hidden'}>
               <div className="overflow-y-auto p-2">
                 {matchingLaunches.length ? (
                   <div className="mb-2">
@@ -300,6 +340,26 @@ export function CommandPalette() {
                     {matchingLaunches.map((action) => (
                       <button type="button" key={action.launch} className="entity-result" onClick={() => launchWorkflow(action)}>
                         <span className="entity-type">open</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-ink">{action.label}</span>
+                          <span className="block truncate text-xs text-zinc-500">{action.detail}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {/* C01 tie-in: static utility actions (Keyboard shortcuts) */}
+                {matchingStaticActions.length ? (
+                  <div className="mb-2">
+                    <div className="px-3 py-1 text-[11px] font-bold uppercase text-zinc-500">Tools</div>
+                    {matchingStaticActions.map((action) => (
+                      <button
+                        type="button"
+                        key={action.label}
+                        className="entity-result"
+                        onClick={() => action.handler({ setOpen, setShortcutsOverlayOpen })}
+                      >
+                        <span className="entity-type">help</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium text-ink">{action.label}</span>
                           <span className="block truncate text-xs text-zinc-500">{action.detail}</span>
@@ -344,17 +404,19 @@ export function CommandPalette() {
                     ))}
                   </div>
                 ) : null}
-                {!commands.length && !matchingLaunches.length && !Object.values(commandsGroups).some((rows) => Array.isArray(rows) && rows.length) ? (
+                {!commands.length && !matchingLaunches.length && !matchingStaticActions.length && !Object.values(commandsGroups).some((rows) => Array.isArray(rows) && rows.length) ? (
                   <div className="px-3 py-8 text-center text-sm text-zinc-600">No commands or rows matched.</div>
                 ) : null}
               </div>
-              {advancedOpen ? (
+              {/* UX-C07: Advanced panel only renders for manager+ */}
+              {advancedOpen && isManagerOrOwner ? (
                 <div className="border-l border-line bg-panel p-3">
                   <div className="text-xs font-semibold uppercase text-zinc-600">Current context</div>
                   <pre className="mt-2 max-h-24 overflow-auto bg-white p-2 text-xs">{JSON.stringify(contextPayload, null, 2)}</pre>
                   <label className="mt-3 block text-xs font-semibold uppercase text-zinc-600" htmlFor="payload-json">
-                    Advanced JSON
+                    Advanced (typed payload)
                   </label>
+                  <p className="mt-0.5 text-[11px] text-red-600">Danger — raw JSON is sent directly to the command bus. Manager-only tool for recovery and debugging.</p>
                   <textarea
                     id="payload-json"
                     className="mt-2 h-44 w-full resize-none border border-line bg-white p-2 font-mono text-xs outline-none focus:shadow-focus"
@@ -366,9 +428,19 @@ export function CommandPalette() {
             </div>
             <div className="flex items-center justify-between border-t border-line bg-panel px-3 py-2 text-xs text-zinc-600">
               <span>{selectedRows[activeView]?.length ? `${selectedRows[activeView]?.length} selected on ${activeView}` : activeView}</span>
-              <button type="button" className="icon-button h-7" aria-label="Advanced payload" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen(!advancedOpen)}>
-                <Braces className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
+              {/* UX-C07: Advanced payload toggle only shown to manager+ */}
+              {isManagerOrOwner ? (
+                <button
+                  type="button"
+                  className="icon-button h-7"
+                  aria-label="Advanced payload"
+                  aria-expanded={advancedOpen}
+                  title="Advanced (typed payload) — manager+ only"
+                  onClick={() => setAdvancedOpen(!advancedOpen)}
+                >
+                  <Braces className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
           </>
         )}
@@ -506,26 +578,44 @@ function safeDetail(value: unknown) {
   return String(value);
 }
 
+// UX-C05: Extended with full workbook vocabulary from north-stars.md §6.
+// Term → meaning map:
+//   Files         → inventory batches / sales items (used in sales + intake context)
+//   OFC           → batch marker shorthand (ofc = in-office candy flavor code)
+//   25 flex       → product/variety vocabulary (sale line or batch)
+//   Inv Posted    → inventory receipt posted (postPurchaseReceipt)
+//   Pay/F-up      → payment follow-up (logPayment + allocatePayment)
+//   ticket        → sale ticket = sales order
+//   sub           → sublot / submission (createBatch + addPurchaseOrderLine)
+//   iv            → invoice (createVendorBill + allocatePayment)
+//   vendor receipt → vendor receipt posting (postPurchaseReceipt)
+//   rich          → rich product quality marker (batch/inventory)
 function commandAliasText(name: CommandName) {
   const aliases: Partial<Record<CommandName, string>> = {
-    logPayment: 'receive money files cash crypto buyer credit down payment',
-    allocatePayment: 'fifo invoice apply money',
-    createVendorBill: 'payable vendor due bill',
+    logPayment: 'receive money files cash crypto buyer credit down payment pay f-up pay/f-up payment follow-up',
+    allocatePayment: 'fifo invoice iv apply money pay f-up pay/f-up payment follow-up',
+    createVendorBill: 'payable vendor due bill iv invoice',
     createPurchaseOrder: 'new po procurement purchase before receiving',
-    addPurchaseOrderLine: 'planned buy product line procurement',
+    addPurchaseOrderLine: 'planned buy product line procurement sub sublot',
     approvePurchaseOrder: 'order approve purchase send vendor',
-    receivePurchaseOrder: 'receive po into intake draft rows',
+    receivePurchaseOrder: 'receive po into intake draft rows vendor receipt',
     recordVendorPayment: 'pay vendor payout money out',
-    postPurchaseReceipt: 'process intake receiving receipt po',
-    createBatch: 'new receiving intake row Ins candy ofc cv marker',
+    postPurchaseReceipt: 'process intake receiving receipt po inv posted vendor receipt inventory posted',
+    createBatch: 'new receiving intake row Ins candy ofc cv marker files sub sublot rich 25 flex',
     applyTags: 'tag tags tagged product slice filter catalog',
-    createCustomerNeed: 'matchmaking customer need demand wanted',
-    createVendorSupply: 'matchmaking vendor stock supply available',
+    createCustomerNeed: 'matchmaking customer need demand wanted ticket files',
+    createVendorSupply: 'matchmaking vendor stock supply available offered files ofc rich',
     acceptMatchmakingMatch: 'matchmaking accept fit',
     dismissMatchmakingMatch: 'matchmaking dismiss hide',
     attachBatchPhoto: 'photo catalog media',
     reverseCommandById: 'undo reversal mistake',
-    archivePeriod: 'closeout archive period'
+    archivePeriod: 'closeout archive period',
+    confirmSalesOrder: 'confirm sale ticket order files sub',
+    postSalesOrder: 'post sale invoice ticket order files',
+    priceSalesOrder: 'price sale 25 flex ticket order files rich ofc'
   };
   return aliases[name] ?? '';
 }
+
+/** Exported for unit tests only — do not call from application code. */
+export { commandAliasText as commandAliasTextExport };
