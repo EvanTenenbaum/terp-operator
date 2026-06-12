@@ -2,6 +2,17 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — Pre-existing bug fixes: grid collapse root cause, AG Grid module mixing, fill handle, opportunity row identity
+
+Live QA on the running app (all 22 routes, browser-verified): zero collapsed grids, zero console errors, zero warnings after these fixes.
+
+- **Grids invisible in many views (the "2px collapse" saga, root-caused):** two prior fixes on main fought each other. Commit 58dbb69 added `.grid-shell .ag-root-wrapper { height: 100% !important }` — but the view-stack flex chain is indefinite (`flex: 0 1 auto` + `min-height: 100%`), so the percentage resolves to auto and the grid collapses to its 2px border. Commit 69fc8d0's ResizeObserver then wrote the correct inline pixel height — which the earlier rule's `!important` overrode. Fix: removed the `!important` rule (comment left explaining why it must not return) and made the ResizeObserver fix deterministic — it fired once before AG Grid created `.ag-root-wrapper` and never again on layout-stable views (why `/referees` stayed 2px), so `syncRootHeight` is now also called from `onGridReady`.
+- **AG Grid "mixing modules and packages" boot errors:** GH #355's explicit `ModuleRegistry.registerModules([ClipboardModule])` flipped AG Grid into modules mode while the app uses the packages flavor (`import 'ag-grid-enterprise'` auto-registers everything). Call removed; stray `@ag-grid-community/client-side-row-model` dependency (the modules flavor, never imported) removed from package.json.
+- **UX-C03 fill handle was silently dead:** OperatorGrid passed deprecated `enableFillHandle`/`fillHandleDirection` alongside the v32.2 `cellSelection` prop — AG Grid ignored them ("requires enableRangeSelection") and the cellSelection handle was `mode: 'range'`, so no fill handle ever rendered. Migrated to `cellSelection: { handle: { mode: 'fill', direction: 'y' } }` + `onCellSelectionChanged`; all four deprecation warnings gone.
+- **Matchmaking opportunity grids had broken row identity:** `matchmakingOpportunities` toMove/toSource rows are SQL aggregates with no `id`; OperatorGrid's `getRowId` made every row node id `"undefined"` (AG Grid duplicate-node-id warning, selection targeting wrong rows). Server now assigns stable synthetic ids (`move:<batchId>`, `source:<vendorId>:<category>:<i>`).
+
+Gate: typecheck, 1463/1463 client vitest, build.
+
 ## 2026-06-12 — UX audit closure reconciliation (post-closure-audit corrections)
 
 A closure audit cross-checked all 127 VALID triage items against the wave entries. Corrections it required:
