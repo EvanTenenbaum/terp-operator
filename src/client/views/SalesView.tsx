@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackageCheck, PackagePlus, RotateCcw, Search, Send, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Clipboard, Eye, EyeOff, FileText, PackageCheck, PackagePlus, RotateCcw, Search, Send, X } from 'lucide-react';
 import { boolCol } from '../utils/format';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
@@ -30,6 +30,8 @@ import { resolvePricingRuleEntry, markupDollarsFromPrice, applyPricingRule } fro
 import { parsePriceRange } from '../../shared/priceRange';
 
 import { filterSalesOrdersByCustomer, salesButtonTitle, selectionPillText, selectVisibleSalesColumns } from './SalesView.columns';
+import { buildOfferText } from './SalesView.ux-f01';
+import { deriveCustomerRefereeRelationships, buildConfirmPayload } from './SalesView.ux-f06';
 
 // CAP-030 / TER-1508 — types matching live releaseEligibility API shape (backend now merged)
 
@@ -376,6 +378,9 @@ export function SalesView() {
   const warehouseAlertRef = useFocusTrap<HTMLDivElement>(Boolean(pendingLineEdit), () => setPendingLineEdit(null));
   // GH #352: repeat last order loading state
   const [repeatLoading, setRepeatLoading] = useState(false);
+  // UX-F06 — referee relationship selected for credit accrual at confirm time.
+  // Cleared when the order is posted or the customer changes.
+  const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   // GH #351: suggestion filter state
   const [suggestionCategory, setSuggestionCategory] = useState('');
   const [suggestionPriceBracket, setSuggestionPriceBracket] = useState('');
@@ -459,9 +464,12 @@ export function SalesView() {
   // 'sales' grid-filter slot but render in mutually exclusive branches.
   // Clear the slot (and any validation focus) on mode switch so an order-
   // status preset set in orders mode cannot silently filter line rows.
+  // UX-F06: also clear referee selection when customer changes so stale
+  // relationships from a previous customer don't carry over.
   useEffect(() => {
     setGridFilter('sales', '');
     setValidationFocusIds([]);
+    setRefereeRelationshipId('');
   }, [customerId, setGridFilter]);
 
   const lineRowsWithRule = useMemo(() => {
@@ -576,6 +584,18 @@ export function SalesView() {
   const activeCustomerName = useMemo(
     () => reference.data?.customers.find((c) => c.id === activeCustomerId)?.name ?? null,
     [reference.data, activeCustomerId]
+  );
+
+  // UX-F06 — derive active referee relationships for the current customer so
+  // the confirm-time pill can show "Referee: <name> — credit will accrue".
+  // Reference query already loaded (staleTime 60s). Uses
+  // deriveCustomerRefereeRelationships helper from SalesView.ux-f06.ts.
+  const customerRefereeRelationships = useMemo(
+    () => deriveCustomerRefereeRelationships(
+      (reference.data?.refereeRelationships ?? []) as any[],
+      customerId
+    ),
+    [reference.data?.refereeRelationships, customerId]
   );
 
   // GH #352: live inventory map for matching snapshot rows to current batches
@@ -954,7 +974,11 @@ export function SalesView() {
   async function priceAndConfirm() {
     if (!selectedOrder) return;
     await runCommand('priceSalesOrder', { orderId: selectedOrder.id, strategy: 'standard' }, 'Sales view pricing preview');
-    await runCommand('confirmSalesOrder', { orderId: selectedOrder.id }, 'Confirm sales order');
+    // UX-F06: wire referee relationship into confirm when operator selected one.
+    // Uses buildConfirmPayload helper (SalesView.ux-f06.ts) for testability.
+    const confirmPayload = buildConfirmPayload(String(selectedOrder.id), refereeRelationshipId);
+    await runCommand('confirmSalesOrder', confirmPayload, 'Confirm sales order');
+    setRefereeRelationshipId('');
   }
 
   async function reserveOrder() {
@@ -1339,6 +1363,37 @@ export function SalesView() {
                 </button>
               </div>
             ) : null}
+            {/* UX-F06 — referee inline prompt: when the customer has an active
+                referee relationship, show a one-line pill at confirm time so
+                credit accrual is never silently missed. The pill appears when
+                the order is in draft (confirm primary is active) and at least
+                one customer-type relationship exists. The operator can select
+                a different relationship or clear it ("None"). The selected id
+                is wired into priceAndConfirm → confirmSalesOrder. */}
+            {canWrite && customerId && selectedOrderStatus === 'draft' && customerRefereeRelationships.length > 0 ? (
+              <div className="mt-2 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-900" data-testid="referee-credit-pill">
+                <span className="font-medium">Referee credit:</span>
+                <select
+                  className="select text-xs"
+                  value={refereeRelationshipId}
+                  onChange={(e) => setRefereeRelationshipId(e.target.value)}
+                  data-testid="referee-credit-select"
+                >
+                  <option value="">None — no credit will accrue</option>
+                  {customerRefereeRelationships.map((rel: any) => (
+                    <option key={rel.id} value={rel.id}>
+                      {rel.refereeName} — credit will accrue
+                      {' ▸ '}
+                      {rel.feeType === 'percentage'
+                        ? `${rel.feePercentage}%`
+                        : rel.feeType === 'fixed'
+                        ? `$${rel.feeFixedAmount}`
+                        : `${rel.feePercentage}% + $${rel.feeFixedAmount}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             {showPrePostStrip ? (
               <SalePrePostStrip
                 orderStatus={selectedOrderStatus}
@@ -1625,19 +1680,46 @@ export function SalesView() {
           onSelectionChange={setSelectedSuggestions}
         />
       </div> : null}
-      {sheetRows.length ? <WorkspacePanel panelId="sales:sheet-preview" title={sheetMode === 'internal' ? 'Internal Sales Sheet' : 'Customer Sales Catalog'} contentClassName="p-3">
-        <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-          {sheetRows.map((row) => (
-            <div key={row.id} className="border border-line p-3 text-sm">
-              <div className="font-semibold text-ink">{String(row.name)}</div>
-              <div className="text-zinc-600">{String(row.category)} · {String(row.availableQty)} available</div>
-              <div className="mt-2 font-medium">${String(row.unitPrice)}</div>
-              {showMargin && sheetMode === 'internal' ? <div className="text-xs text-zinc-500" data-testid="sheet-cost-margin">Cost ${String(row.unitCost)} · margin ${String(row.estimatedMargin)}</div> : null}
-              {sheetMode === 'internal' ? <div className="text-xs text-zinc-500">{String(row.reason)}</div> : null}
-            </div>
-          ))}
-        </div>
-      </WorkspacePanel> : null}
+      {sheetRows.length ? (
+        <WorkspacePanel
+          panelId="sales:sheet-preview"
+          title={sheetMode === 'internal' ? 'Internal Sales Sheet' : 'Customer Sales Catalog'}
+          contentClassName="p-3"
+          actions={
+            /* UX-F01 — "Copy offer" beside Export: writes a customer-safe text
+               block (name, qty, price; NEVER cost/margin/notes) to the clipboard.
+               Reuses catalog-mode column gating (buildOfferText / getCatalogHeaders). */
+            <button
+              type="button"
+              className="secondary-button compact-action"
+              data-testid="copy-offer-button"
+              onClick={() => {
+                const text = buildOfferText(sheetRows);
+                navigator.clipboard.writeText(text).then(() => {
+                  pushToast('Copied — internal columns excluded.', 'success');
+                }).catch(() => {
+                  pushToast('Copy failed — please try again.', 'error');
+                });
+              }}
+            >
+              <Clipboard className="h-4 w-4" aria-hidden="true" />
+              Copy offer
+            </button>
+          }
+        >
+          <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {sheetRows.map((row) => (
+              <div key={row.id} className="border border-line p-3 text-sm">
+                <div className="font-semibold text-ink">{String(row.name)}</div>
+                <div className="text-zinc-600">{String(row.category)} · {String(row.availableQty)} available</div>
+                <div className="mt-2 font-medium">${String(row.unitPrice)}</div>
+                {showMargin && sheetMode === 'internal' ? <div className="text-xs text-zinc-500" data-testid="sheet-cost-margin">Cost ${String(row.unitCost)} · margin ${String(row.estimatedMargin)}</div> : null}
+                {sheetMode === 'internal' ? <div className="text-xs text-zinc-500">{String(row.reason)}</div> : null}
+              </div>
+            ))}
+          </div>
+        </WorkspacePanel>
+      ) : null}
       {pendingLineEdit ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"

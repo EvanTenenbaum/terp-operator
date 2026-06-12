@@ -97,6 +97,10 @@ export function CommandPalette() {
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerTab = useUiStore((state) => state.setDrawerTab);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
+  // UX-B04: grid filter for entity navigation — ensures the selected row is
+  // visible in a virtualized AG Grid. 'id:' is a supported field-filter token
+  // in gridFilterUtils.applyGridFilter (filters on row.id field).
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
   const me = trpc.auth.me.useQuery();
   // UX-A13: connector/command deep-links navigate the router to their
   // canonical homes (/settings → Requests, /recovery) so URL and store agree.
@@ -263,6 +267,13 @@ export function CommandPalette() {
     setSelectedRows(view, [row]);
     setDrawerEntity(view, drawerTypeForEntity(type), row.id);
     setDrawerState(view, 'standard');
+    // UX-B04: filter the grid to the single selected row so it is visible when
+    // AG Grid has 500+ virtualized rows. 'id:<id>' is a supported field-filter
+    // token (gridFilterUtils.applyGridFilter matches row[field] via includes).
+    // Chosen over ensureIndexVisible because setGridFilter works purely through
+    // existing store semantics and survives view transitions; ensureIndexVisible
+    // would require an imperative GridApi ref that is not exposed from OperatorGrid.
+    if (row.id) setGridFilter(view, `id:${String(row.id)}`);
     setOpen(false);
   }
 

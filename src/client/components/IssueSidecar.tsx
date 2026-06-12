@@ -1,7 +1,9 @@
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { GridRow, ViewKey } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
+import { useUiStore } from '../store/uiStore';
 import { InspectorDrawer } from './templates';
 
 /**
@@ -15,6 +17,19 @@ export function IssueActionsBody({ row, view, onDone }: { row: GridRow; view: Vi
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const { runCommand, isRunning } = useCommandRunner();
+  const navigate = useNavigate();
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+
+  // UX-Q07: "View dispute" — navigate to disputes view filtered to the open dispute.
+  const openDisputeId = row.openDisputeId ? String(row.openDisputeId) : null;
+  function viewDispute() {
+    if (!openDisputeId) return;
+    setGridFilter('disputes', `id:${openDisputeId}`);
+    setActiveView('disputes');
+    navigate('/disputes');
+    onDone();
+  }
 
   async function submit() {
     if (!reason.trim()) return;
@@ -54,6 +69,20 @@ export function IssueActionsBody({ row, view, onDone }: { row: GridRow; view: Vi
         <AlertTriangle className="h-4 w-4" aria-hidden="true" />
         Selected row: {issueRowLabel(row)}
       </div>
+      {openDisputeId && (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="selection-pill danger text-xs">Open dispute</span>
+          <button
+            type="button"
+            className="compact-action text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+            onClick={viewDispute}
+            data-testid="view-dispute-link"
+          >
+            <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            View dispute
+          </button>
+        </div>
+      )}
       <div className="mt-4 grid gap-3">
         <label className="field-inline">
           Action

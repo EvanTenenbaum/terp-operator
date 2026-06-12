@@ -287,7 +287,13 @@ export const useUiStore = create<UiState>()(
         const entity = rows[0] ? inferDrawerEntity(view, rows[0]) : { entityType: 'queue', entityId: null };
         state.activeDrawerEntityByView[view] = entity;
         const key = drawerStorageKey(view, entity);
-        state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
+        // UX-B03 (part 3): dual-role entities (same contact is both customer and
+        // vendor) default to the 'relationship' tab so the directional AR/AP
+        // summary is immediately visible. isDualRole is set server-side on clients
+        // and vendors grid rows when the row's contact_id is linked to both roles.
+        const isDualRoleRow = rows[0] ? Boolean((rows[0] as Record<string, unknown>).isDualRole) : false;
+        const defaultTab = isDualRoleRow ? 'relationship' : defaultTabForEntity(entity.entityType);
+        state.drawerByView[key] ??= defaultDrawerState(defaultTab);
         if (rows.length && state.drawerByView[key].state === 'peek') state.drawerByView[key].state = 'standard';
       }),
     setCommandPaletteOpen: (open) =>

@@ -1,9 +1,9 @@
-import { Ban, CalendarClock, Landmark, ShieldCheck } from 'lucide-react';
+import { Ban, CalendarClock, Landmark, Pencil, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
-import { StatusActionBar, type StatusActionTable } from '../components/templates';
+import { StatusActionBar, type StatusActionTable, FormDialog, FormField } from '../components/templates';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
@@ -11,6 +11,120 @@ import { useConfirm } from '../hooks/useConfirm';
 import { ReceiptPanel } from '../components/ReceiptPanel';
 import type { GridRow } from '../../shared/types';
 import { GridJourney, labelFromToken, moneyish } from './operations/shared';
+
+// ─── UX-Q04: UpdateVendorDialog ─────────────────────────────────────────────
+// Edit affordance for vendor rows: name, alias, terms, consignment default,
+// contact info, notes.  Payload matches updateVendorPayloadSchema.
+interface UpdateVendorDialogProps {
+  vendorId: string;
+  initialName: string;
+  initialTermsDays: number;
+  onClose: () => void;
+}
+
+function UpdateVendorDialog({ vendorId, initialName, initialTermsDays, onClose }: UpdateVendorDialogProps) {
+  const { runCommand, isRunning } = useCommandRunner();
+  const [name, setName] = useState(initialName);
+  const [alias, setAlias] = useState('');
+  const [termsDays, setTermsDays] = useState(String(initialTermsDays ?? 14));
+  const [consignmentDefault, setConsignmentDefault] = useState(false);
+  const [contact, setContact] = useState('');
+  const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setFormError(null);
+    if (!name.trim()) { setFormError('Vendor name is required.'); return; }
+    const result = await runCommand(
+      'updateVendor',
+      {
+        vendorId,
+        name: name.trim(),
+        alias: alias.trim() || null,
+        termsDays: termsDays ? Number(termsDays) : undefined,
+        consignmentDefault,
+        contact: contact.trim() || null,
+        notes: notes.trim() || null,
+      },
+      'Edit vendor details'
+    );
+    if (result.ok) onClose();
+  }
+
+  return (
+    <FormDialog
+      title="Edit Vendor"
+      titleId="update-vendor-title"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      submitLabel="Save"
+      pendingLabel="Saving…"
+      pending={isRunning}
+      submitDisabled={!name.trim()}
+      error={formError}
+      maxWidthClass="max-w-lg"
+    >
+      <FormField id="uv-name" label="Vendor name *">
+        <input
+          id="uv-name"
+          required
+          className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </FormField>
+      <FormField id="uv-alias" label="Alias (short name)">
+        <input
+          id="uv-alias"
+          className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          value={alias}
+          onChange={(e) => setAlias(e.target.value)}
+          placeholder="Optional short name used in summaries"
+        />
+      </FormField>
+      <FormField id="uv-terms" label="Payment terms (days)">
+        <input
+          id="uv-terms"
+          type="number"
+          min="0"
+          step="1"
+          className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          value={termsDays}
+          onChange={(e) => setTermsDays(e.target.value)}
+        />
+      </FormField>
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input
+          id="uv-consignment"
+          type="checkbox"
+          checked={consignmentDefault}
+          onChange={(e) => setConsignmentDefault(e.target.checked)}
+        />
+        <span className="font-medium text-zinc-700">Consignment default</span>
+      </label>
+      <FormField id="uv-contact" label="Contact info">
+        <textarea
+          id="uv-contact"
+          rows={2}
+          className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent resize-none"
+          value={contact}
+          onChange={(e) => setContact(e.target.value)}
+          placeholder="Phone, email, or other contact details"
+        />
+      </FormField>
+      <FormField id="uv-notes" label="Notes">
+        <textarea
+          id="uv-notes"
+          rows={3}
+          className="w-full rounded border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent resize-y"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </FormField>
+    </FormDialog>
+  );
+}
 
 // UX-D01: deep-link helper — navigate to the vendors (payables) view filtered
 // and drawered to a specific bill row. Mirrors the CountPill pattern (E01).
@@ -51,7 +165,48 @@ export function VendorPayablesView() {
     // dueReason badge: amber for consignment signals, zinc for standard reasons.
     // scheduledFor badge: indigo when a payout event exists, zinc dash otherwise.
     const base: ColDef<GridRow>[] = [
-      { field: 'vendor', pinned: 'left', width: 190 },
+      {
+        field: 'vendor',
+        pinned: 'left',
+        width: 190,
+        // UX-B03: (1) when linked, vendor name links to the contact profile;
+        // (2) when unlinked, show a compact "Link contact" action that dispatches
+        // linkContactToExistingEntity with entityType='vendor'.
+        cellRenderer: (params: { data?: GridRow; value: string }) => {
+          if (params.data?.contactId) {
+            return (
+              <button
+                className="text-button font-medium text-left"
+                onClick={() => navigate(`/contacts/${String(params.data!.contactId)}`)}
+                type="button"
+              >
+                {params.value}
+              </button>
+            );
+          }
+          return (
+            <span className="flex items-center gap-2">
+              <span>{params.value}</span>
+              <button
+                type="button"
+                className="compact-action text-xs text-blue-600 hover:text-blue-800"
+                title="Link this vendor to a contact profile"
+                onClick={() => {
+                  const vendorId = String(params.data?.vendorId ?? params.data?.id ?? '');
+                  if (!vendorId) return;
+                  void runCommand(
+                    'linkContactToExistingEntity',
+                    { contactId: '', entityType: 'vendor', entityId: vendorId },
+                    'Link vendor to contact'
+                  );
+                }}
+              >
+                Link contact
+              </button>
+            </span>
+          );
+        }
+      },
       { field: 'billNo', width: 150 },
       { field: 'amount', type: 'numericColumn', width: 120 },
       { field: 'amountPaid', type: 'numericColumn', width: 130 },
@@ -114,7 +269,7 @@ export function VendorPayablesView() {
         },
       },
     ];
-  }, [matchSettings.data?.showVendorsColumn, matchCounts.data, navigate]);
+  }, [matchSettings.data?.showVendorsColumn, matchCounts.data, navigate, runCommand]);
 
   const confirm = useConfirm();
 
@@ -393,6 +548,13 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
   const [dueReason, setDueReason] = useState('Manual vendor payable');
   const [receiptPaymentId, setReceiptPaymentId] = useState('');
 
+  // UX-Q04: edit vendor dialog state
+  const [showEditVendor, setShowEditVendor] = useState(false);
+  const activeVendorId = selectedBill?.vendorId ? String(selectedBill.vendorId) : (vendorId || '');
+  const activeVendorRef = reference.data?.vendors.find(
+    (v: { id: string; name: string; termsDays: number }) => v.id === activeVendorId
+  );
+
   // UX-K04: void is a per-payment-row tray verb (TER-1517 expansion), not a
   // top-band button. The confirm dialog states the reversal policy: voiding
   // restores the bill to 'approved' and reverses amountPaid so the bill
@@ -454,6 +616,32 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
         <span className="selection-pill">Open ${moneyish(Number(selectedBill?.amount ?? 0) - Number(selectedBill?.amountPaid ?? 0))}</span>
         <span className="selection-pill success">{selectedBill ? String(selectedBill.dueReason ?? 'Due reason not recorded') : 'Select bill to see due reason'}</span>
       </div>
+
+      {/* UX-Q04: Edit vendor affordance — opens UpdateVendorDialog for the vendor
+          associated with the selected bill (or the vendor chosen in the dropdown). */}
+      {activeVendorId && activeVendorRef && (
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            className="secondary-button compact-action text-xs"
+            onClick={() => setShowEditVendor(true)}
+            disabled={isRunning}
+            data-testid="edit-vendor-button"
+            title={`Edit vendor "${String(activeVendorRef.name)}"`}
+          >
+            <Pencil className="inline h-3 w-3 mr-1" aria-hidden="true" />
+            Edit vendor
+          </button>
+        </div>
+      )}
+      {showEditVendor && activeVendorRef && (
+        <UpdateVendorDialog
+          vendorId={activeVendorId}
+          initialName={String(activeVendorRef.name)}
+          initialTermsDays={Number(activeVendorRef.termsDays ?? 14)}
+          onClose={() => setShowEditVendor(false)}
+        />
+      )}
       {/* UX-K04: payment rows are the primary surface for voidVendorPayment.
           Each non-void payment row exposes a "Void" tray-verb button inline.
           The top-band payout selector + void button is removed — operators

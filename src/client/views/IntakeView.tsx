@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
+import { useNavigate } from 'react-router-dom';
 import { formatMoney, moneyCol } from '../utils/format';
 import type {
   ColDef,
@@ -29,6 +30,8 @@ export function IntakeView() {
   const { runCommand, isRunning } = useCommandRunner();
   const utils = trpc.useUtils();
   const pushToast = useUiStore((state) => state.pushToast);
+  const navigate = useNavigate();
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
   // CAP-003 / CAP-011 — TER-1476 / TER-1486: surface PO and batch context in
   // the shared ContextDrawer when an intake row is selected. The outer master
   // row is a PO (drawer → po tabs: lines, linked-intake, vendor); inner detail
@@ -137,6 +140,16 @@ export function IntakeView() {
     [setSelectedRows, setDrawerEntity]
   );
 
+  // UX-M01: deep-link from a posted intake batch to Recovery prefiltered by the
+  // batch's UUID so the operator can view or reverse the postPurchaseReceipt command.
+  const handleBatchHistory = useCallback(
+    (batchId: string) => {
+      setGridFilter('recovery', batchId);
+      navigate('/recovery');
+    },
+    [setGridFilter, navigate]
+  );
+
   const detailCellRendererParams = useMemo(
     () => ({
       detailGridOptions: {
@@ -169,7 +182,8 @@ export function IntakeView() {
           },
           async (batchId) => {
             await deleteDraftBatch(batchId);
-          }
+          },
+          handleBatchHistory
         ),
         defaultColDef: { resizable: true, sortable: true, wrapHeaderText: true, autoHeaderHeight: true } as ColDef<IntakeBatchRow>,
         domLayout: 'autoHeight' as const,
@@ -184,7 +198,7 @@ export function IntakeView() {
       }
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canWrite, runCommand, me.data?.name, onBatchRowClicked]
+    [canWrite, runCommand, me.data?.name, onBatchRowClicked, handleBatchHistory]
   );
 
   const columnDefs = useMemo<ColDef<IntakeOrderRow>[]>(
@@ -355,7 +369,9 @@ function buildBatchColumns(
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
   onSetMarketName: (itemId: string, alias: string) => Promise<void>,
-  onDeleteDraft: (batchId: string) => Promise<void>
+  onDeleteDraft: (batchId: string) => Promise<void>,
+  /** UX-M01: deep-link to Recovery prefiltered by batchId for posted batches */
+  onHistory: (batchId: string) => void
 ): ColDef<IntakeBatchRow>[] {
   return [
     { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
@@ -439,6 +455,7 @@ function buildBatchColumns(
             onAppendNote={onAppendNote}
             onSetMarketName={onSetMarketName}
             onDeleteDraft={onDeleteDraft}
+            onHistory={onHistory}
           />
         );
       }
@@ -464,6 +481,7 @@ function BatchRowActions({
   onAppendNote,
   onSetMarketName,
   onDeleteDraft,
+  onHistory,
 }: {
   row: IntakeBatchRow;
   busy: boolean;
@@ -473,6 +491,8 @@ function BatchRowActions({
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>;
   onSetMarketName: (itemId: string, alias: string) => Promise<void>;
   onDeleteDraft: (batchId: string) => Promise<void>;
+  /** UX-M01: navigate to Recovery prefiltered by batchId */
+  onHistory: (batchId: string) => void;
 }) {
   const [mode, setMode] = useState<'idle' | 'reject' | 'note' | 'marketName' | 'confirmDelete'>('idle');
   const [inputValue, setInputValue] = useState('');
@@ -539,6 +559,20 @@ function BatchRowActions({
             onClick={() => setMode('confirmDelete')}
           >
             Delete
+          </button>
+        ) : null}
+        {/* UX-M01 / UX-H02: posted batches get a History / Reverse receipt
+            affordance that deep-links Recovery pre-filtered to this batch's
+            commands. Minimum-viable path — no full RowInspector on intake. */}
+        {row.status === 'posted' ? (
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            title="View command history or reverse this receipt in Recovery"
+            onClick={() => onHistory(row.id)}
+            data-testid="batch-history-link"
+          >
+            History / Reverse receipt
           </button>
         ) : null}
       </div>

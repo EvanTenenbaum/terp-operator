@@ -65,11 +65,12 @@ describe('MobileShell', () => {
     expect(screen.getByText('Dashboard content')).toBeInTheDocument();
   });
 
-  it('shows all 5 nav tabs', () => {
+  it('shows all 7 nav tabs (original 5 + Pick/Intake per UX-L01/R01/R02)', () => {
     mockMe.mockReturnValue({ data: { id: '1', name: 'Evan', role: 'owner' }, isLoading: false });
     render(<Wrapper />);
     const nav = screen.getByRole('navigation', { name: /main mobile navigation/i });
-    expect(nav.querySelectorAll('a')).toHaveLength(5);
+    const labels = Array.from(nav.querySelectorAll('a')).map((a) => a.textContent);
+    expect(labels).toEqual(['Dashboard', 'Inventory', 'Catalog', 'Payments', 'Contacts', 'Pick', 'Intake']);
   });
 
   it('shows loading state when query is loading', () => {

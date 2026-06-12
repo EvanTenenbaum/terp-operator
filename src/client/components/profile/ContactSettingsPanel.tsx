@@ -1,6 +1,8 @@
+import { trpc } from '../../api/trpc';
 import { WorkspacePanel } from '../WorkspacePanel';
 import type { ContactProfileData } from './types';
 import { formatMoney } from '../../utils/format';
+import { AddContactRoleForm, LinkContactToUserForm } from './ContactSettingsActions';
 
 interface Props { data: ContactProfileData; }
 
@@ -9,6 +11,9 @@ export function ContactSettingsPanel({ data }: Props) {
   const referee = data.referee as Record<string, unknown> | null;
   const processor = data.processor as Record<string, unknown> | null;
   const linkedUser = data.user as Record<string, unknown> | null;
+  const me = trpc.auth.me.useQuery();
+  const canWrite = me.data?.role !== 'viewer';
+  const contactId = String(contact.id ?? '');
 
   return (
     <div className="space-y-4">
@@ -49,6 +54,17 @@ export function ContactSettingsPanel({ data }: Props) {
             )}
           </div>
         </WorkspacePanel>
+      )}
+
+      {/* UX-Q04: Add role + link-to-user forms — writer-only */}
+      {canWrite && (
+        <>
+          <AddContactRoleForm contactId={contactId} />
+          <LinkContactToUserForm
+            contactId={contactId}
+            currentUserId={linkedUser ? String(linkedUser.id ?? '') : null}
+          />
+        </>
       )}
     </div>
   );

@@ -147,20 +147,15 @@ export const commandNames = [
 // audit allows these to exist in commandNames without a runCommand call in
 // src/client/. Each entry MUST link to a tracking issue.
 //
-// - setCustomerEngineMax / setCustomerStance / disableCreditEngineForCustomer
-//   / createCreditEngineStance / updateCreditEngineStance / deleteCreditEngineStance
-//   / bulkRevertCustomersToEngine: filed at #111 (Credit Engine admin surfaces
-//   missing from PR #50's Settings → Credit Engine panel — only the global
-//   config form landed; per-stance + per-customer admin actions deferred).
+// - setCustomerEngineMax: filed at #111 — still no admin surface for the
+//   per-customer engine cap. UX-Q05 (Execution Decision 6b, 2026-06-12)
+//   shipped the rest of the #111 set (stance CRUD, setCustomerStance,
+//   disableCreditEngineForCustomer, bulkRevertCustomersToEngine) in the
+//   owner-gated Settings → Credit Engine panel, so those are no longer
+//   internal-only.
 export const internalOnlyCommandNames = [
   'routeConnectorRequest',
   'setCustomerEngineMax',
-  'setCustomerStance',
-  'disableCreditEngineForCustomer',
-  'createCreditEngineStance',
-  'updateCreditEngineStance',
-  'deleteCreditEngineStance',
-  'bulkRevertCustomersToEngine',
   // TER-1658: CSV import retired from MVP intake; backend rejects with guidance.
   'importBatchesCsv',
   // TER-1660: Label printing deferred to backlog; backend remains for future use.
@@ -187,13 +182,13 @@ export const internalOnlyCommandNames = [
 //   updateAppointment (AppointmentModal), cancelAppointment/completeAppointment
 //   (ContactAppointmentsPanel)
 export const pendingFrontendCommandNames = [
-  // TER-1564 / CAP-033 — contacts/entity profiles not yet surfaced
-  'updateContact',
-  'archiveContact',
-  'addContactRole',
-  'linkContactToExistingEntity',
-  'linkContactToUser',
-  'updateVendor',
+  // TER-1564 / CAP-033 — contacts/entity profiles not yet surfaced.
+  // Removed by UX-Q04 wave: updateContact (ContactProfileHeader Edit button),
+  // archiveContact (ContactProfileHeader Archive button, tone:danger),
+  // addContactRole (ContactSettingsPanel Add Role form),
+  // linkContactToUser (ContactSettingsPanel Link System Account form),
+  // updateVendor (VendorPayablesView Edit vendor button).
+  // linkContactToExistingEntity already removed by UX-B03 wave.
   'updateProcessor',
 ] as const;
 
@@ -447,7 +442,9 @@ export const commandMinRole: Record<CommandName, Role> = {
   revertCustomerCreditToEngine: 'manager',
   snoozeCustomerCreditReminder: 'manager',
   setCustomerEngineMax: 'manager',
-  setCustomerStance: 'manager',
+  // UX-Q05: surfaced in the owner-gated Settings → Credit Engine panel.
+  // Conservative exposure — owner-only, matching the rest of the admin set.
+  setCustomerStance: 'owner',
   disableCreditEngineForCustomer: 'owner',
   enableCreditEngineForCustomer: 'owner',
   createCreditEngineStance: 'owner',
@@ -651,4 +648,60 @@ export function commandLabelFor(name: unknown) {
     .replace(/[_-]+/g, ' ')
     .trim()
     .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+// UX-M04: command-family map for Recovery filter chips.
+// Each entry groups related command names under a short label the operator
+// recognises from the workbook vocabulary (Intake, PO, Sales, etc.).
+// Additive-insertion-only per wave protocol — append families at end.
+export const commandFamilies: Record<string, CommandName[]> = {
+  Intake: [
+    'createBatch', 'updateBatch', 'deleteBatch', 'rejectBatch', 'flagBatch',
+    'verifyAllIntake', 'postPurchaseReceipt', 'adjustBatchQuantity',
+    'setInventoryStatus', 'transferInventoryLocation', 'transferInventoryOwnership',
+    'setBatchLotInfo', 'attachBatchPhoto', 'uploadBatchMedia', 'setBatchMediaRole',
+    'publishBatchMedia', 'deleteBatchMedia', 'importBatchesCsv', 'applyTags',
+    'setItemAlias', 'setLineLandedCost', 'mintPhotoUploadToken', 'revokePhotoUploadToken',
+  ],
+  PO: [
+    'createPurchaseOrder', 'updatePurchaseOrder', 'addPurchaseOrderLine',
+    'updatePurchaseOrderLine', 'removePurchaseOrderLine', 'finalizePurchaseOrder',
+    'unfinalizePurchaseOrder', 'approvePurchaseOrder', 'receivePurchaseOrder',
+    'cancelPurchaseOrder', 'recordVendorPrepayment',
+  ],
+  Sales: [
+    'createSalesOrder', 'addSalesOrderLine', 'updateSalesOrderLine',
+    'removeSalesOrderLine', 'reserveInventoryForOrder', 'priceSalesOrder',
+    'confirmSalesOrder', 'cancelSalesOrder', 'postSalesOrder',
+    'applyClientCredit', 'setDeliveryWindow', 'setBatchPrice', 'repriceOrder',
+    'setLineBelowFloorReason', 'resolveVendorApproval', 'setCustomerPricingRule',
+    'setDefaultPricingRule', 'createCustomerSheetSnapshot', 'setLineLandedCost',
+  ],
+  Payments: [
+    'logPayment', 'allocatePayment', 'unallocatePayment', 'refundPayment',
+    'applyDiscount', 'postTransactionLedgerRow', 'upsertTransactionType',
+  ],
+  Vendor: [
+    'createVendorBill', 'approveVendorBill', 'scheduleVendorPayment',
+    'recordVendorPayment', 'voidVendorPayment', 'createVendor', 'updateVendor',
+  ],
+  Fulfillment: [
+    'createPickList', 'recordWeighAndPack', 'markOrderFulfilled',
+    'printLabels', 'adjustFulfillmentLine', 'allocateOrderToFulfillment',
+    'releaseLineForPicking', 'releaseLinesForPicking', 'recallLineFromPicking',
+    'acknowledgeWarehouseAlert', 'returnPickedUnits', 'cancelFulfillmentLine',
+  ],
+  Recovery: [
+    'createCorrectionJournalEntry', 'reverseCommandById', 'documentCommandFailure',
+    'restoreFromBackupPoint', 'postPeriodAdjustments', 'lockPeriod', 'archivePeriod',
+  ],
+};
+
+/** Returns the family label for a command name, or undefined if unmapped. */
+export function commandFamilyFor(name: unknown): string | undefined {
+  if (typeof name !== 'string') return undefined;
+  for (const [family, names] of Object.entries(commandFamilies)) {
+    if ((names as string[]).includes(name)) return family;
+  }
+  return undefined;
 }
