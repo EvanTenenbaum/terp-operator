@@ -62,4 +62,27 @@ describe('FormDialog (templates)', () => {
     expect(screen.getByRole('dialog').getAttribute('aria-labelledby')).toBe('custom-title');
     expect(document.getElementById('custom-title')?.tagName).toBe('H2');
   });
+
+  // UX-Q03: tone prop tests
+  it('applies btn-primary class to submit button when tone is omitted', () => {
+    renderDialog();
+    const submit = screen.getByRole('button', { name: 'Save' });
+    expect(submit.className).toContain('btn-primary');
+    expect(submit.className).not.toContain('btn-danger');
+    expect(submit.className).not.toContain('btn-warning');
+  });
+
+  it('applies btn-danger class to submit button when tone="danger"', () => {
+    renderDialog({ tone: 'danger' });
+    const submit = screen.getByRole('button', { name: 'Save' });
+    expect(submit.className).toContain('btn-danger');
+    expect(submit.className).not.toContain('btn-primary');
+  });
+
+  it('applies btn-warning class to submit button when tone="warning"', () => {
+    renderDialog({ tone: 'warning' });
+    const submit = screen.getByRole('button', { name: 'Save' });
+    expect(submit.className).toContain('btn-warning');
+    expect(submit.className).not.toContain('btn-primary');
+  });
 });

@@ -245,7 +245,9 @@ kbd {
 .text-button,
 .icon-button,
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-danger,
+.btn-warning {
   @apply inline-flex h-8 items-center justify-center gap-2 border text-sm font-medium transition focus:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:opacity-45;
 }
 
@@ -268,6 +270,23 @@ kbd {
 
 .btn-secondary:disabled {
   @apply border-zinc-300 bg-zinc-200 text-zinc-500 hover:bg-zinc-200;
+}
+
+/* UX-Q03: destructive submit variants for FormDialog tone prop */
+.btn-danger {
+  @apply border-danger bg-danger px-3 text-white hover:opacity-90;
+}
+
+.btn-danger:disabled {
+  @apply border-zinc-300 bg-zinc-200 text-zinc-500 hover:opacity-100;
+}
+
+.btn-warning {
+  @apply border-amber bg-amber px-3 text-white hover:opacity-90;
+}
+
+.btn-warning:disabled {
+  @apply border-zinc-300 bg-zinc-200 text-zinc-500 hover:opacity-100;
 }
 
 .text-button {
@@ -1136,27 +1155,6 @@ kbd {
     border-radius: 0 !important;
     letter-spacing: 0.05em !important;
   }
-}
-
-/* ─── Media batch drawer ───────────────────────────────────────────────────── */
-
-.media-batch-drawer {
-  @apply flex flex-col flex-shrink-0 overflow-hidden border-l border-line bg-white transition-all duration-200;
-  width: 0;
-  opacity: 0;
-}
-
-.media-batch-drawer-open {
-  width: 480px;
-  opacity: 1;
-}
-
-.media-batch-drawer-header {
-  @apply flex items-center justify-between border-b border-line px-4 py-3 flex-shrink-0;
-}
-
-.media-batch-drawer-body {
-  @apply flex flex-col gap-4 overflow-y-auto p-4;
 }
 
 .media-upload-zone {
