@@ -2859,9 +2859,14 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
               where b.archived_at is null
               order by b.created_at desc`;
     case 'purchaseOrders':
+      // UX-H08: prepaid + remaining columns derived from vendor_payments linked
+      // to this PO (additive — no new procedure, subquery on the existing grid
+      // query per the ADDITIVE-INSERTION-ONLY protocol on queries.ts).
       return `select po.id, po.po_no as "poNo", v.name as vendor, po.vendor_id as "vendorId", po.status,
                      po.expected_date as "expectedDate", po.ordered_at as "orderedAt", po.received_at as "receivedAt",
                      po.cancelled_at as "cancelledAt", po.total, po.prepayment_amount as "prepaymentAmount",
+                     coalesce((select sum(vp.amount) from vendor_payments vp where vp.purchase_order_id = po.id and vp.status = 'posted'), 0) as "prepaidAmount",
+                     greatest(0, po.prepayment_amount - coalesce((select sum(vp.amount) from vendor_payments vp where vp.purchase_order_id = po.id and vp.status = 'posted'), 0)) as "remainingPrepay",
                      count(pol.id)::int as lines,
                      coalesce(sum(pol.qty), 0) as "orderedQty", coalesce(sum(pol.received_qty), 0) as "receivedQty",
                      po.buyer_notes as "buyerNotes", po.internal_notes as "internalNotes", po.created_at as "createdAt"

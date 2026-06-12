@@ -761,7 +761,10 @@ kbd {
 }
 
 .po-header-strip {
-  @apply justify-between;
+  /* UX-H09: sticky so the vendor/status/date/total header stays visible
+     while the operator edits PO lines below it. z-index 10 keeps it above
+     the AG Grid header row (z-index 1 by default in ag-theme-quartz). */
+  @apply justify-between sticky top-0 z-10;
 }
 
 .po-header-facts {

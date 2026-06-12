@@ -1,5 +1,6 @@
-import { Check, Plus, RotateCcw, X } from 'lucide-react';
+import { Check, ExternalLink, Plus, RotateCcw, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -65,7 +66,10 @@ export function MatchmakingView() {
     workQueueEnabled: true,
   };
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
   const { runCommand, isRunning } = useCommandRunner();
+  const navigate = useNavigate();
   const needProductRef = useRef<HTMLInputElement | null>(null);
   const supplyProductRef = useRef<HTMLInputElement | null>(null);
   const [selectedMatches, setSelectedMatches] = useState<GridRow[]>([]);
@@ -243,7 +247,8 @@ export function MatchmakingView() {
       actionsRenderer: (row: GridRow) => {
         const status = typeof row.status === 'string' ? row.status : '';
         const isOpen = status === 'open';
-        const isClosed = status === 'accepted' || status === 'dismissed';
+        const isAccepted = status === 'accepted';
+        const isClosed = isAccepted || status === 'dismissed';
         return (
           <>
             {isOpen ? (
@@ -276,6 +281,42 @@ export function MatchmakingView() {
                 </button>
               </>
             ) : null}
+            {/* UX-P02: accepted rows show "Next:" workflow links to follow through.
+                "Create PO" → Purchasing with quick-launch prefilled from this match.
+                "Create Sale" → Sales with quick-launch prefilled from this match.
+                Vendor side (supply) → create a PO to source the stock.
+                Customer side (need) → create a sale to fulfill the demand. */}
+            {isAccepted && canWrite ? (
+              <span className="flex items-center gap-2 text-sm">
+                <span className="text-zinc-400 font-medium">Next:</span>
+                <button
+                  className="secondary-button compact-action"
+                  type="button"
+                  title={`Create a PO for ${String(row.vendor ?? 'vendor')} — stock for this match`}
+                  onClick={() => {
+                    setActiveQuickLaunch('purchaseOrder');
+                    setActiveView('purchaseOrders');
+                    navigate('/purchase-orders');
+                  }}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  Create PO
+                </button>
+                <button
+                  className="secondary-button compact-action"
+                  type="button"
+                  title={`Create a sale for ${String(row.customer ?? 'customer')} — fulfill this match`}
+                  onClick={() => {
+                    setActiveQuickLaunch('sale');
+                    setActiveView('sales');
+                    navigate('/sales');
+                  }}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  Create Sale
+                </button>
+              </span>
+            ) : null}
             {isClosed ? (
               <button
                 className="secondary-button compact-action"
@@ -301,7 +342,7 @@ export function MatchmakingView() {
         </div>
       )
     }),
-    [isRunning, runCommand, canWrite]
+    [isRunning, runCommand, canWrite, navigate, setActiveView, setActiveQuickLaunch]
   );
 
   const toMoveColumns = useMemo<ColDef<GridRow>[]>(() => [

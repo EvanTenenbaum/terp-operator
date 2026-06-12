@@ -14,6 +14,10 @@ import {
   inventoryUnitCostSortValue
 } from '../../shared/inventoryPricing';
 import { GridJourney } from './operations/shared';
+// UX-O02: PhotographyQueuePanel surfaces media-readiness CountPills in the
+// Inventory lane so catalog decisions (blocking batches needing photos) are
+// visible without switching to the Photography lane.
+import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 
 export function InventoryView() {
   const reference = trpc.queries.reference.useQuery();
@@ -34,16 +38,22 @@ export function InventoryView() {
       title="Inventory Batches"
       columns={inventoryColumns}
       actions={() => (
-        /* GH #354 presets, now via the shared template */
+        /* GH #354 presets, now via the shared template.
+           UX-I02: "No photos" preset surfaces batches lacking any published media. */
         <FilterPresetStrip
           view="inventory"
           ariaLabel="Filter inventory"
           presets={[
             { label: 'Available', filter: 'arrivalStatus:arrived' },
-            { label: 'Office Stock', filter: 'ownershipStatus:OFC', title: 'Office-owned batches (ownershipStatus:OFC)' }
+            { label: 'Office Stock', filter: 'ownershipStatus:OFC', title: 'Office-owned batches (ownershipStatus:OFC)' },
+            { label: 'No photos', filter: 'mediaStatus:open', title: 'Batches with no published media (mediaStatus:open)' }
           ]}
         />
       )}
+      // UX-O02: PhotographyQueuePanel in the Inventory lane surfaces CountPills
+      // (needs-media / ready counts) so catalog decisions are informed without
+      // navigating away to the Photography view.
+      prelude={() => <PhotographyQueuePanel />}
       selectionActions={(rows, runCommand) => (
         <InventoryRowActions rows={rows} vendors={vendors} runCommand={runCommand} />
       )}
@@ -60,6 +70,10 @@ export function InventoryView() {
           runCommand('setBatchPrice', { batchId: event.data?.id, unitPrice: next }, 'Inline inventory price edit');
         }
         if (event.colDef.field === 'availableQty') {
+          // UX-I03: quantity edits are handled in InventoryRowActions with
+          // before/after preview. The inline cell edit path is kept for parity
+          // but uses a hardcoded reason; operators who want the preview should
+          // use Row Actions → Adjust Qty which surfaces the full before/after strip.
           runCommand(
             'adjustBatchQuantity',
             { batchId: event.data?.id, deltaQty: Number(event.newValue) - Number(event.oldValue), reason: 'Inline inventory adjustment from grid' },
@@ -85,10 +99,15 @@ export function InventoryView() {
   );
 }
 
+// UX-I01: ≤8 default-visible columns. The inventory grid has grown to 20+
+// columns; hide lower-value ones so operators see a clean default view.
+// All hidden columns remain reachable via the Columns menu. gridColumnPrefs
+// override defaults (mergeColumnDefsWithPrefs honours pref.hide), so
+// existing operator customisations are preserved.
 function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricingRule>): ColDef<GridRow>[] {
   return [
+    // --- Visible by default (8 columns) ---
     { field: 'batchCode', pinned: 'left', width: 150 },
-    { field: 'subcategory', width: 140 },
     {
       field: 'name',
       minWidth: 200,
@@ -103,13 +122,7 @@ function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricing
         </span>
       )
     },
-    { field: 'itemAlias', headerName: 'Market name', editable: true, minWidth: 180 },
-    { field: 'category', width: 120 },
-    { field: 'tags', editable: true, minWidth: 170 },
-    { field: 'vendor', width: 180 },
     { field: 'availableQty', editable: true, type: 'numericColumn', width: 130 },
-    { field: 'reservedQty', type: 'numericColumn', width: 130 },
-    { field: 'uom', width: 90 },
     {
       field: 'unitCost',
       headerName: 'Unit cost',
@@ -181,14 +194,25 @@ function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricing
         );
       }
     },
-    { field: 'location', width: 120 },
     { field: 'legacyMarker', headerName: 'Marker', editable: true, width: 105 },
-    { field: 'ownershipStatus', width: 120 },
-    { field: 'arrivalStatus', width: 120 },
+    // UX-I02: mediaStatus visible by default — photographer persona's primary column.
     { field: 'mediaStatus', headerName: 'Media', width: 120 },
-    { field: 'lotCode', editable: true, width: 120 },
-    { field: 'expirationDate', editable: true, width: 140 },
-    { field: 'status', width: 120 }
+    { field: 'status', width: 120 },
+    // --- Hidden by default (≤8 rule); reachable via Columns menu ---
+    { field: 'subcategory', width: 140, hide: true },
+    { field: 'itemAlias', headerName: 'Market name', editable: true, minWidth: 180, hide: true },
+    { field: 'category', width: 120, hide: true },
+    { field: 'tags', editable: true, minWidth: 170, hide: true },
+    { field: 'vendor', width: 180, hide: true },
+    { field: 'reservedQty', type: 'numericColumn', width: 130, hide: true },
+    { field: 'uom', width: 90, hide: true },
+    { field: 'location', width: 120, hide: true },
+    { field: 'ownershipStatus', width: 120, hide: true },
+    { field: 'arrivalStatus', width: 120, hide: true },
+    // UX-I02: hasPrimaryPhoto column hidden by default; used by "No photos" filter preset.
+    { field: 'hasPrimaryPhoto', headerName: 'Photos', width: 100, hide: true },
+    { field: 'lotCode', editable: true, width: 120, hide: true },
+    { field: 'expirationDate', editable: true, width: 140, hide: true }
   ];
 }
 
@@ -206,16 +230,27 @@ function InventoryRowActions({
   const [location, setLocation] = useState('');
   const [ownershipStatus, setOwnershipStatus] = useState('OFC');
   const [vendorId, setVendorId] = useState('');
-  const [reason, setReason] = useState('Operator inventory correction');
+  const [reason, setReason] = useState('');
   const [tagText, setTagText] = useState('');
+
+  // UX-I03: qty adjustment state — tracks before/after for the preview strip.
+  const [adjustQty, setAdjustQty] = useState('');
+
   const selectedBatch = rows[0];
   const batchId = selectedBatch?.id;
   const noSelection = !batchId;
   const consignedVendorId = vendorId || String(selectedBatch?.vendorId ?? '');
 
+  // UX-I03: before/after qty preview values.
+  const beforeQty = Number(selectedBatch?.availableQty ?? 0);
+  const deltaQty = Number(adjustQty) || 0;
+  const afterQty = beforeQty + deltaQty;
+
   useEffect(() => {
     const currentTags = selectedBatch?.tags;
     setTagText(Array.isArray(currentTags) ? currentTags.join(', ') : String(currentTags ?? ''));
+    // Reset adjustment when selection changes.
+    setAdjustQty('');
   }, [selectedBatch?.id, selectedBatch?.tags]);
 
   const confirm = useConfirm();
@@ -241,6 +276,57 @@ function InventoryRowActions({
       {open && !noSelection ? (
         <div id="inventory-row-actions-menu" role="menu" className="inline-panel" style={{ width: '100%' }}>
           <div className="flex flex-wrap items-center gap-2">
+
+            {/* UX-I03: Qty adjustment with before/after preview + required reason */}
+            <fieldset className="field-inline" style={{ border: 'none', padding: 0, margin: 0 }}>
+              <legend className="text-xs font-medium text-zinc-600 mb-1">Adjust qty</legend>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-zinc-500">
+                  Before: <strong>{beforeQty}</strong>
+                </span>
+                <input
+                  className="input compact"
+                  type="number"
+                  step="any"
+                  value={adjustQty}
+                  placeholder="±delta"
+                  aria-label="Quantity delta (positive to add, negative to remove)"
+                  onChange={(e) => setAdjustQty(e.target.value)}
+                  style={{ width: 90 }}
+                />
+                {adjustQty !== '' && Number.isFinite(deltaQty) ? (
+                  <span className="text-xs text-zinc-500">
+                    After: <strong>{afterQty}</strong>
+                    {deltaQty !== 0 ? (
+                      <em className={`ml-1 ${deltaQty > 0 ? 'text-emerald-600' : 'text-red-600'}`} style={{ fontStyle: 'normal' }}>
+                        ({deltaQty > 0 ? '+' : ''}{deltaQty})
+                      </em>
+                    ) : null}
+                  </span>
+                ) : null}
+                <button
+                  className="secondary-button compact-action"
+                  type="button"
+                  disabled={!reason.trim() || !adjustQty || deltaQty === 0}
+                  title={
+                    !reason.trim()
+                      ? 'Enter a reason before adjusting quantity'
+                      : !adjustQty || deltaQty === 0
+                      ? 'Enter a non-zero quantity delta'
+                      : `Adjust qty by ${deltaQty > 0 ? '+' : ''}${deltaQty}`
+                  }
+                  onClick={() =>
+                    void confirmAction(`Adjust qty by ${deltaQty > 0 ? '+' : ''}${deltaQty}`, () => {
+                      runCommand('adjustBatchQuantity', { batchId, deltaQty, reason }, `Adjust qty: ${reason}`);
+                      setAdjustQty('');
+                    })
+                  }
+                >
+                  Apply adjustment
+                </button>
+              </div>
+            </fieldset>
+
             <label className="field-inline">
               Status
               <select className="select compact" value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -324,9 +410,17 @@ function InventoryRowActions({
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               Move ownership
             </button>
-            <label className="field-inline grow">
-              Reason
-              <input className="input" value={reason} onChange={(event) => setReason(event.target.value)} />
+            <label className="field-inline grow" style={{ flex: '1 1 200px' }}>
+              Reason <span className="text-red-500" aria-hidden="true">*</span>
+              <input
+                className="input"
+                value={reason}
+                required
+                placeholder="Required — e.g. cycle count correction"
+                onChange={(event) => setReason(event.target.value)}
+                aria-describedby="reason-help"
+              />
+              <span id="reason-help" className="sr-only">Required for all inventory actions</span>
             </label>
             <label className="field-inline grow">
               Tags
