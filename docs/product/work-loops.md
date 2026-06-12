@@ -42,6 +42,7 @@ Operator moment: product physically arrives and must become inventory only after
 
 Core entities:
 
+- Purchase orders (required starting point — see TER-1658)
 - Batches / inventory lots
 - Purchase receipts
 - Purchase receipt lines
@@ -50,11 +51,11 @@ Core entities:
 
 Primary surface:
 
-- Intake
+- Purchase Orders → Intake (PO-first path)
 
 Canonical path:
 
-1. Add draft receiving rows or receive from PO.
+1. Select an approved Purchase Order and choose "Receive against PO" to create draft intake rows from PO lines.
 2. Preserve shorthand, source code, raw marker, ownership, arrival, qty, cost, notes.
 3. Mark rows Ready.
 4. Preview receipt totals from selection.
@@ -66,7 +67,9 @@ Non-negotiables:
 - `intake_qty` is immutable after posting.
 - `available_qty` is live and derived by movement.
 - Ownership is separate from arrival.
-- Vendor receipt can be generated from selected rows without requiring a formal PO.
+- **Receiving requires a formal PO (TER-1658, 2026-06-12).** Ad-hoc batch creation without a PO is rejected by the backend. The "Receive Inventory" Keel chip launches the PO-first picker flow ("Receive against PO").
+
+> **Doc sync note (UX-A09, 2026-06-12):** The pre-TER-1658 non-negotiable "Vendor receipt can be generated from selected rows without requiring a formal PO" has been removed. PO-first intake is now official policy per Execution Decision 3 (ext-review-remediated branch). The Keel chip is renamed "Receive against PO" and targets the purchase-orders/intake PO-picker flow.
 
 ## Loop 3: Sell
 

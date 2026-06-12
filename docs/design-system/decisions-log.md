@@ -2,6 +2,24 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — UX audit Wave 2: one-system completion (UX-T01/H01/T03/A12/A13, Q01–Q03, A08/A09/A10/A14/T02/T04)
+
+Gate green: typecheck, 817/817 client vitest, build.
+
+- **UX-T01:** `OperationsViews.tsx` (3,892 lines) split into 13 per-view files + `operations/shared.tsx` (GridJourney, columnsByView, cross-view helpers); barrel re-export keeps every existing import working. Verbatim mechanical move.
+- **UX-H01:** PurchaseOrdersView adopts the StatusActionBar decision-table engine over the REAL PO state machine (`draft→finalized→approved→ordered→partially_received→received`, plus `cancelled`; spec/audit vocabulary was wrong — no `prepaid` status, prepayment = approved + prepaymentAmount>0). Record-prepayment in tray with disabled-reason; terminal statuses expose no primary; 11 behavior tests added; exactly one `data-status-action-primary` so Wave 1's ⌘↵ cannot double-fire.
+- **UX-T03:** `purchaseOrderPrimaryLabel/Disabled` deleted; grep sweep found `salesPrimaryLabel` (SalesView order-level primary) — migrated to shared status-decision data in `SalesView.orderPrimary.ts`; zero pre-template `*Primary*` remnants remain.
+- **UX-A12:** connectors/processors gated behind `CONNECTOR_SURFACES_ENABLED=false` (`featureFlags.ts`, TER-1664); routes redirect to Settings→Requests; removed from `defaultOperatorViews` while flagged; components kept for re-enable.
+- **UX-A13:** nav routes canonical for Recovery/Closeout — Settings Actions/Archive tabs became link chips to `/recovery`/`/closeout` (stale persisted tab state self-heals); palette command deep-links retarget the `recovery` ViewKey, ending the settings/recovery drawer-state divergence; Closeout `blockerTarget` failedCommands → `/recovery` filtered. **Q08-partial:** Settings h1 retitled.
+- **UX-Q03:** FormDialog gains `tone: 'danger'|'warning'` submit variant (`btn-danger`/`btn-warning` from existing palette colors); applied to Deactivate/Void referee dialogs — restores destructive styling lost in the A1/A2 convergence.
+- **UX-Q01:** ItemsView bespoke create/edit bands → FormDialog with inline field errors; deactivate uses tone danger.
+- **UX-Q02:** CreditReviewView divergence disclosure → WorkspacePanel; creditOps behavior tests preserved.
+- **UX-A08:** IntakeView dead CSV-import machinery deleted (state, handlers, focus trap, imports) with a TER-1658 comment.
+- **UX-A09:** work-loops/north-stars updated to PO-first intake; Keel chip renamed "Receive against PO" and re-pointed at the purchase-orders launch (also fixed a duplicate React key on Keel menu items).
+- **UX-A10/T04:** spec §10 status tables corrected/stamped against real enums (incl. fulfillment open/fulfilled); MR/UF closures marked; GRID_COLUMN_AUDIT staleness note added.
+- **UX-A14:** registry keeps CAP-030 = Pricing Rules Chain Manager; release-for-picking lineage assigned a new CAP row with collision note.
+- **UX-T02:** orphaned `media-batch-drawer*` CSS deleted (grep-verified zero references).
+
 ## 2026-06-12 — UX audit Wave 1: truth & trust (UX-A01/A02/A03/A05/A06/A07/A11, E01–E04/E09, O01, D04 top surfaces, L03)
 
 Backlog + triage: `docs/ux-audit-2026-06-12.md`, `docs/ux-audit-2026-06-12-triage.json`. Gate green: typecheck, 760/760 client vitest, build.

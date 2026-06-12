@@ -3,6 +3,8 @@
 **Issue**: [#31] Numbers-native ≤8-columns rule violated on 7/13 grids  
 **Status**: Audit complete, fixes deferred
 
+> **⚠️ Counts stale — pending UX-I01 re-reconciliation (UX-T04, 2026-06-12):** Column counts in this audit are from 2026-05-18 and are stale. Subsequent template waves (A1–A8, StatusActionBar adoption, fulfillment/closeout/marks, photography, media columns) added columns to multiple grids. Triage 2026-06-12 confirms: Inventory has grown from 10 to ~20 columns; PO from 11 to ~16; orders gained 3 closeout-mark columns. The per-grid keep/hide lists below should NOT be applied directly — they require a fresh reconciliation pass (UX-I01) before implementation. The findings are preserved for historical context. Re-reconcile against live `OperationsViews.tsx` column definitions before acting on any specific recommendation.
+
 ---
 
 ## Background

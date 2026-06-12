@@ -1,7 +1,34 @@
 # TERP Agro Master UI/UX Recommendations From Recording Paradigm Review
 
 Date: 2026-05-11
-Status: master synthesis after Codex first-pass audit plus Claude Opus second-pass review
+Status: master synthesis after Codex first-pass audit plus Claude Opus second-pass review — see audit-status table below for items closed by template waves
+
+---
+
+## Audit Status: MR Items Closed by Template Waves (UX-T04, 2026-06-12)
+
+Items below are **closed** (shipped in the template-wave PRs, workflow-gap pass, or Wave 1 of the UX audit). Future agents should not re-report them as open gaps. Open MR items remain tracked in `docs/ux-audit-2026-06-12.md`.
+
+| ID | Closed by | Date | Evidence |
+| --- | --- | --- | --- |
+| MR-001 | Workflow gap pass + template waves | 2026-05-xx | `draft`/`ready`/`needs_fix` row states exist across intake, sales lines, payment drafts. |
+| MR-002 | Workflow gap pass | 2026-05-xx | `legacy_marker` column on batches; raw marker cells preserved in intake and inventory grids. |
+| MR-003 | Workflow gap pass | 2026-05-xx | `ownership_status`, `arrival_status`, `legacy_marker`, and `due_reason` modeled and displayed separately. |
+| MR-004 | Template waves A1–A8 (SalesView customer workspace) | 2026-06-12 | Customer workspace ships in SalesView with customer header, editable draft order grid, finder, balance, and recent purchases. |
+| MR-005 | Template waves A1–A8 | 2026-06-12 | First sale line is focused and editable on customer workspace open. |
+| MR-007 | UX-G01 ALREADY_FIXED (triage 2026-06-12) | 2026-06-12 | `packed`, `inventoryPosted`, `paymentFollowup` columns visible by default with agSetColumnFilter in OrdersView (OperationsViews.tsx:102-104). |
+| MR-008 | Finder redesign (2026-05-27) | 2026-05-27 | Single search input across source code, intake date, vendor, item, category, notes, price range, marker, tag, alias. |
+| MR-010 | Template waves (finder side) | 2026-06-xx | `Already in order` chip in InventoryFinderPanel (InventoryFinderPanel.tsx:875). Order-row chip still open (UX-F04). |
+| MR-012 | Workflow gap pass (CAP-011) | 2026-05-xx | `receiptPreview` + `postPurchaseReceipt` from selected rows. |
+| MR-013 | Template waves A1–A8 (QuickLedgerGrid) | 2026-06-12 | QuickLedgerGrid ships as default money-entry surface on Payments with date, method, bucket, category, counterparty, amount, reference, notes. |
+| MR-015 | Workflow gap pass | 2026-05-xx | Posted `intake_qty` immutable; `available_qty` derived by movement; `adjustBatchQuantity` for corrections. |
+| MR-016 | Template waves (RowInspector) | 2026-06-xx | RowInspector History tab on every OperatorGrid view shows command history and reversal preview. |
+| MR-017 | ALREADY_FIXED per triage (UX-E05) | 2026-06-12 | KpiCard renders `metric.definition`; server populates definitions for all 7 KPIs. |
+| MR-023 | Template waves + UX-A09 (2026-06-12) | 2026-06-12 | Keel has separate "New PO" and "Receive against PO" chips; PO-first intake official per TER-1658. |
+
+**Note:** MR items not in this table remain open. They are tracked under `UX-§§` IDs in `docs/ux-audit-2026-06-12.md` (e.g., MR-019 → UX-C02, MR-039 → UX-C04, MR-047 → UX-E07, MR-048 → UX-E06, MR-050 → UX-L04, MR-051 → UX-M02).
+
+---
 
 ## What This Is
 

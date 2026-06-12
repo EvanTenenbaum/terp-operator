@@ -1,7 +1,32 @@
 # TERP Agro Unactioned Findings Atomic Proposal
 
 Date: 2026-05-11
-Status: master synthesis of unactioned findings from workflow, recording-paradigm, frontend-surface, adversarial-QA, and persona-journey audits
+Status: master synthesis of unactioned findings — see audit-status table below for items closed by template waves
+
+---
+
+## Audit Status: UF Items Closed by Template Waves (UX-T04, 2026-06-12)
+
+Items below are **closed** (shipped in the template-wave PRs, workflow-gap pass, or Wave 1 of the UX audit). Future agents should not re-report them as open gaps. Open UF items remain tracked in `docs/ux-audit-2026-06-12.md`.
+
+| ID | Closed by | Date | Evidence |
+| --- | --- | --- | --- |
+| UF-001 | Workflow gap pass + template waves | 2026-05-xx | `draft`/`needs_resolution`/`ready` row states exist; `validationIssues` projection in sale lines; command failures annotate rows as `needs_fix`. |
+| UF-002 | Workflow gap pass (MR-002) | 2026-05-xx | `legacy_marker` preserved; raw marker cells visible in intake and inventory grids. |
+| UF-003 | Workflow gap pass (MR-003) | 2026-05-xx | `ownership_status`, `arrival_status`, `legacy_marker` modeled separately; `due_reason` column on payables. |
+| UF-004 | Template waves A1–A8 (SalesView customer workspace) | 2026-06-12 | Customer workspace with customer header, editable draft order grid, finder, balance, and recent purchases. CAP-001 fulfilled. |
+| UF-005 | Finder redesign (2026-05-27) + template waves | 2026-05-27 | Full-text search across source code, intake date, vendor, item, category, notes, marker, alias; saved filter slices (CAP-031). |
+| UF-006 | Template waves A8 + UX-G01 ALREADY_FIXED | 2026-06-12 | Three independent closeout columns (`packed`, `inventoryPosted`, `paymentFollowup`) in OrdersView. |
+| UF-007 | Workflow gap pass + template waves | 2026-05-xx | Receipt preview from selected rows (ReceiptPreviewDrawer); `postPurchaseReceipt` with selection totals. |
+| UF-008 | Template waves A1–A8 (QuickLedgerGrid) | 2026-06-12 | QuickLedgerGrid ships as default money-entry surface on Payments. |
+| UF-009 | Template waves (RowInspector) | 2026-06-xx | RowInspector with History/Relationship/Issue tabs on all OperatorGrid views. |
+| UF-016 | Template waves (Fulfillment StatusActionBar) + workflow gap pass | 2026-06-xx | Fulfillment line grid with pack controls; StatusActionBar on FulfillmentView; pick queue and `createPickList`/`recordWeighAndPack`/`markOrderFulfilled`. |
+| UF-017 | Photography wave (CAP-023) | 2026-05-xx | Photography route, MediaView, batch media tabs, `mediaStatus` column in inventory. |
+| UF-019 | Template waves (CloseoutView StatusActionBar) | 2026-06-11 | CloseoutView uses StatusActionBar engine; blocker drilldown ships (CAP-025, ALREADY_FIXED per triage UX-M03). |
+
+**Note:** UF items not in this table remain open. They are tracked under `UX-§§` IDs in `docs/ux-audit-2026-06-12.md` (e.g., UF-006 partial → UX-F02, UF-010 → UX-B03, UF-011 → UX-B01, UF-012 → UX-E05/K02, UF-013 → UX-H02/H03, UF-014 → UX-N01/U01, UF-015 → UX-A12, UF-018 → UX-Q07, UF-020 → UX-C04).
+
+---
 
 ## What This Document Is
 
