@@ -1347,9 +1347,10 @@ kbd {
   box-shadow: inset 0 -2px 0 rgba(176, 105, 21, 0.55);
 }
 
-/* Force AG Grid to fill its parent container */
-.grid-shell .ag-root-wrapper {
-  height: 100% !important;
-  display: flex;
-  flex-direction: column;
-}
+/* AG Grid root height is set as an inline pixel value by OperatorGrid's
+   ResizeObserver (it measures .grid-shell, which always has a definite laid-out
+   height). Do NOT add a percentage height rule here: the view-stack flex chain
+   is indefinite (flex: 0 1 auto + min-height: 100%), so `height: 100%` resolves
+   to auto and collapses the grid to its 2px border — and `!important` would
+   override the ResizeObserver's inline fix (the original cause of the
+   "grids collapsed to 2px" bug). */

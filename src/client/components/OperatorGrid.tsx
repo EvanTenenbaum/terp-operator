@@ -13,7 +13,7 @@ import type {
   GridReadyEvent,
   ICellRendererParams,
   ProcessDataFromClipboardParams,
-  RangeSelectionChangedEvent,
+  CellSelectionChangedEvent,
   SideBarDef,
   SortChangedEvent,
   TabToNextCellParams,
@@ -108,21 +108,31 @@ export function OperatorGrid({
   expansionConfig
 }: OperatorGridProps) {
   const apiRef = useRef<GridApi<GridRow> | null>(null);
-  // Force AG Grid root wrapper to fill the grid-shell container
+  // Force AG Grid root wrapper to fill the grid-shell container.
+  // The flex chain above .grid-shell is indefinite, so percentage heights
+  // collapse — the root needs an explicit pixel height. The ResizeObserver
+  // keeps it in sync on resize, but it fires its initial callback BEFORE
+  // AG Grid has created .ag-root-wrapper; on layout-stable views it never
+  // fires again (the "grid collapsed to 2px" bug on /referees). syncRootHeight
+  // is therefore ALSO called from onGridReady, when the root is guaranteed
+  // to exist.
+  const syncRootHeight = useCallback(() => {
+    const shell = gridShellRef.current;
+    if (!shell) return;
+    const root = shell.querySelector('.ag-root-wrapper') as HTMLElement | null;
+    if (!root) return;
+    const shellHeight = shell.clientHeight;
+    if (shellHeight > 0) {
+      root.style.height = shellHeight + 'px';
+    }
+  }, []);
   useEffect(() => {
     const shell = gridShellRef.current;
     if (!shell) return;
-    const ro = new ResizeObserver(() => {
-      const root = shell.querySelector(".ag-root-wrapper") as HTMLElement | null;
-      if (!root) return;
-      const shellHeight = shell.clientHeight;
-      if (shellHeight > 0) {
-        root.style.height = shellHeight + "px";
-      }
-    });
+    const ro = new ResizeObserver(syncRootHeight);
     ro.observe(shell);
     return () => ro.disconnect();
-  }, []);
+  }, [syncRootHeight]);
   const gridShellRef = useRef<HTMLDivElement>(null);
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
@@ -228,7 +238,11 @@ export function OperatorGrid({
     }),
     []
   );
-  const cellSelection = useMemo(() => ({ handle: { mode: 'range' as const } }), []);
+  // UX-C03: v32.2 unified cell-selection API — the fill handle lives here.
+  // Do not add the deprecated enableFillHandle/fillHandleDirection props back:
+  // they conflict with cellSelection and AG Grid ignores them ("'enableFillHandle'
+  // requires 'enableRangeSelection'") so the fill handle silently never rendered.
+  const cellSelection = useMemo(() => ({ handle: { mode: 'fill' as const, direction: 'y' as const } }), []);
   const sideBar = useMemo<SideBarDef>(() => ({ toolPanels: ['columns', 'filters'], hiddenByDefault: true }), []);
 
   const tabToNextCell = useCallback((params: TabToNextCellParams<GridRow>): CellPosition | null => {
@@ -350,7 +364,7 @@ export function OperatorGrid({
     [parsedFilter, writeQuickFilter]
   );
 
-  const onRangeSelectionChanged = useCallback((event: RangeSelectionChangedEvent<GridRow>) => {
+  const onCellSelectionChanged = useCallback((event: CellSelectionChangedEvent<GridRow>) => {
     const api = event.api;
     const ranges = api.getCellRanges();
     if (!ranges?.length) {
@@ -713,8 +727,6 @@ export function OperatorGrid({
             rowHeight={rowHeight}
             headerHeight={headerHeight}
             processDataFromClipboard={processDataFromClipboard}
-            enableFillHandle={true}
-            fillHandleDirection="y"
             getRowId={(params) => String(params.data.id)}
             masterDetail={expansionConfig?.enabled ?? false}
             detailRowAutoHeight={true}
@@ -741,6 +753,7 @@ export function OperatorGrid({
             }}
             onGridReady={(event: GridReadyEvent<GridRow>) => {
               apiRef.current = event.api;
+              syncRootHeight();
               event.api.setGridOption('quickFilterText', parsedFilter.freeText);
               if (storedColumnPrefs?.length) {
                 event.api.applyColumnState({ state: storedColumnPrefs as Parameters<typeof event.api.applyColumnState>[0]['state'], applyOrder: true });
@@ -755,7 +768,7 @@ export function OperatorGrid({
             onColumnVisible={(_event: ColumnVisibleEvent<GridRow>) => persistColumnState()}
             onColumnPinned={(_event: ColumnPinnedEvent<GridRow>) => persistColumnState()}
             onSortChanged={(_event: SortChangedEvent<GridRow>) => persistColumnState()}
-            onRangeSelectionChanged={onRangeSelectionChanged}
+            onCellSelectionChanged={onCellSelectionChanged}
             onSelectionChanged={() => {
               const selected = apiRef.current?.getSelectedRows() ?? [];
               setSelectedRows(selected);
