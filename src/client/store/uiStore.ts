@@ -193,6 +193,12 @@ interface UiState {
   clearPickQueueFilters: () => void;
   // CAP-024: Ledger drafts lifted from QuickLedgerGrid local state so they
   // survive route changes. NOT persisted (ephemeral session state).
+  // UX-A04 / Execution Decision 2 (docs/ux-audit-2026-06-12.md): durable
+  // persistence is SERVER-SIDE per user (queries.quickLedgerDrafts /
+  // saveQuickLedgerDrafts via useQuickLedgerDraftSync). ledgerDrafts must
+  // NEVER be added to the localStorage partialize below — drafts carry
+  // counterparty names, the PII class the shared-workstation rationale
+  // (PR #80/#89) keeps out of localStorage.
   ledgerDrafts: LedgerDraft[];
   setLedgerDrafts: (drafts: LedgerDraft[]) => void;
   upsertLedgerDraft: (draft: LedgerDraft) => void;
