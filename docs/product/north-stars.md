@@ -18,7 +18,8 @@ The goal is not to expose every capability. The goal is to make the next correct
 3. Status first. Rows advertise Draft, Ready, Posted, Needs Fix, Reversed, Archived, or the closest canonical state before the operator has to inspect details.
 4. Ledger safe. Connectors, reports, suggestions, previews, and exports never mutate committed truth directly.
 5. Reversible by design. Posted consequences need a first-class reversal or a documented reason they are intentionally irreversible.
-6. Familiar vocabulary. Operator words win: Files, OFC, 25 flex, Inv Posted, Pay/F-up, New PO, Receive Inventory, Buyer credit.
+6. Familiar vocabulary. Operator words win: Files, OFC, 25 flex, Inv Posted, Pay/F-up, New PO, Receive against PO, Buyer credit.
+   > **Doc sync note (UX-A09, 2026-06-12):** "Receive Inventory" renamed to "Receive against PO" to reflect TER-1658 PO-first intake policy. The Keel quick-launch chip uses this label and targets the purchase-orders/intake PO-picker flow.
 7. Quiet power. Advanced actions exist through row actions, drawers, recovery, or command palette; they do not crowd the daily grid.
 8. Customer safe by default. Customer-facing outputs must not leak cost, margin, floors, pricing rules, internal notes, or approval logic.
 9. Self-hosted privacy. Operational data stays inside infrastructure controlled by the owner.
