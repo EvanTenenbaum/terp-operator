@@ -1,6 +1,8 @@
 // CAP-030 / TER-1513 — Pick list detail mobile screen
 // TODO: depends on CAP-030 backend merge (TER-1498)
+import { useNavigate } from 'react-router-dom';
 import type { PickLine, PickListWithLines } from './pickTypes';
+import { useUiStore } from '../../store/uiStore';
 
 interface Props {
   pickList: PickListWithLines | null;
@@ -21,6 +23,16 @@ function statusColor(status: string) {
 }
 
 export function PickListScreen({ pickList, loading, onBack, onSelectLine, onCompleteOrder, isCompletingOrder }: Props) {
+  const navigate = useNavigate();
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+
+  // UX-M01: deep-link to Recovery prefiltered by the pick list id
+  function handlePickListHistory() {
+    if (!pickList?.pickListId) return;
+    setGridFilter('recovery', pickList.pickListId);
+    navigate('/recovery');
+  }
+
   // GH #347: show 'Complete Order' when all lines are packed or cancelled
   const lines = pickList?.lines ?? [];
   const allPacked = !loading && lines.length > 0 && lines.every((l) => l.status === 'packed' || l.status === 'cancelled');
@@ -53,6 +65,19 @@ export function PickListScreen({ pickList, loading, onBack, onSelectLine, onComp
         <span className="ml-auto text-sm text-zinc-500">
           {pickList ? `${lines.filter((l) => l.status === 'packed').length}/${lines.length} packed` : ''}
         </span>
+        {/* UX-M01: recovery affordance for pick list */}
+        {pickList ? (
+          <button
+            type="button"
+            className="secondary-button ml-2 text-xs"
+            style={{ minHeight: 32, padding: '0 8px' }}
+            data-testid="pick-list-recovery-link"
+            onClick={handlePickListHistory}
+            title="View command history for this pick list in Recovery"
+          >
+            History
+          </button>
+        ) : null}
       </header>
 
       {loading ? (

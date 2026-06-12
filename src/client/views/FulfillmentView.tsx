@@ -10,6 +10,83 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 import type { GridRow } from '../../shared/types';
 import { columnsByView, EMPTY_ROWS } from './operations/shared';
 
+// UX-L04: chip cellRenderers for labelsPrinted and manifestPath.
+// labelsPrinted is a boolean on pick_lists; manifest is derivable as
+// "exists" when manifestPath is a non-empty string. Both signals are
+// already on the wire (queries.ts fulfillment row projection).
+// printLabels stays deferred (TER-1660) — chips display state only.
+
+/** "Labels ✓" chip when printed; muted dash otherwise. */
+const labelsPrintedChipCol: ColDef<GridRow> = {
+  field: 'labelsPrinted',
+  headerName: 'Labels',
+  width: 115,
+  filter: 'agSetColumnFilter',
+  cellClass: 'text-center',
+  filterParams: {
+    valueFormatter: (params: { value: unknown }) =>
+      params.value ? 'Printed' : 'Not printed',
+  },
+  cellRenderer: (params: { value: unknown }) => {
+    if (params.value) {
+      return (
+        <span
+          className="finder-chip success text-xs"
+          title="Labels have been printed for this pick list"
+        >
+          Labels ✓
+        </span>
+      );
+    }
+    return <span className="text-xs text-zinc-400" title="Labels not yet printed">Labels —</span>;
+  },
+};
+
+/** "Manifest ✓" chip when manifestPath is set; muted dash otherwise. */
+const manifestChipCol: ColDef<GridRow> = {
+  field: 'manifestPath',
+  headerName: 'Manifest',
+  width: 120,
+  filter: 'agSetColumnFilter',
+  cellClass: 'text-center',
+  filterParams: {
+    valueFormatter: (params: { value: unknown }) =>
+      params.value ? 'Generated' : 'Not generated',
+  },
+  cellRenderer: (params: { value: unknown }) => {
+    const hasManifest = Boolean(params.value) && String(params.value ?? '').trim() !== '';
+    if (hasManifest) {
+      return (
+        <span
+          className="finder-chip success text-xs"
+          title="Manifest CSV has been generated for this pick list"
+        >
+          Manifest ✓
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-zinc-400" title="Manifest not yet generated">
+        Manifest —
+      </span>
+    );
+  },
+};
+
+/**
+ * Fulfillment pick-queue column set. Identical to columnsByView.fulfillment
+ * except labelsPrinted and manifestPath are replaced with chip renderers
+ * (UX-L04) so closeout-readiness is visible at a glance without opening the
+ * drawer.
+ */
+export const fulfillmentPickColumns: ColDef<GridRow>[] = (columnsByView.fulfillment ?? []).map(
+  (col) => {
+    if (col.field === 'labelsPrinted') return labelsPrintedChipCol;
+    if (col.field === 'manifestPath') return manifestChipCol;
+    return col;
+  }
+);
+
 // UX-D01: navigate to orders view filtered to a specific order after fulfillment.
 function useOrderDeepLink() {
   const setActiveView = useUiStore((state) => state.setActiveView);
@@ -179,7 +256,7 @@ export function FulfillmentView() {
         view="fulfillment"
         title="Fulfillment"
         rows={filteredPickRows}
-        columns={columnsByView.fulfillment ?? []}
+        columns={fulfillmentPickColumns}
         loading={grid.isLoading || isRunning}
         isError={grid.isError}
         onRetry={() => grid.refetch()}

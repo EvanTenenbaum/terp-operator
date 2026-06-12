@@ -10,6 +10,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import type { CommandName } from '../../shared/commandCatalog';
+import { commandFamilies } from '../../shared/commandCatalog';
 import { columnsByView, EMPTY_ROWS } from './operations/shared';
 
 export function RecoveryView() {
@@ -25,6 +26,9 @@ export function RecoveryView() {
   // redirect window and any legacy entry path.
   const isStandaloneRecovery = !location.pathname.startsWith('/settings');
   const [q, setQ] = useState('');
+  // UX-M04: entity-id and command-family filter chips above the command journal.
+  const [entityIdFilter, setEntityIdFilter] = useState('');
+  const [familyFilter, setFamilyFilter] = useState<string>('');
   const [adminTab, setAdminTab] = useState<'backup' | 'correction' | 'findreplace'>('backup');
   const [backupId, setBackupId] = useState('');
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
@@ -34,7 +38,21 @@ export function RecoveryView() {
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
   const [replaceConfirm, setReplaceConfirm] = useState('');
+  // UX-M04: client-side filtering on top of the full recoverySearch result set.
+  // Entity-id chip: filters rows whose affectedIds includes the given UUID.
+  // Family chip: filters rows whose commandName belongs to the selected family.
   const search = trpc.queries.recoverySearch.useQuery({ q });
+  const familyCommandSet = familyFilter ? new Set<string>(commandFamilies[familyFilter] ?? []) : null;
+  const filteredSearchRows = (search.data ?? []).filter((row) => {
+    if (entityIdFilter.trim()) {
+      const ids: string[] = Array.isArray(row.affectedIds) ? row.affectedIds : [];
+      if (!ids.some((id) => String(id).toLowerCase().includes(entityIdFilter.toLowerCase()))) return false;
+    }
+    if (familyCommandSet) {
+      if (!familyCommandSet.has(String(row.commandName ?? ''))) return false;
+    }
+    return true;
+  });
   const reference = trpc.queries.reference.useQuery();
   const support = trpc.queries.supportPacket.useQuery(undefined, { enabled: false });
   const diff = trpc.queries.snapshotDiff.useQuery({ backupId: backupId || '00000000-0000-0000-0000-000000000000' }, { enabled: Boolean(backupId) });
@@ -67,7 +85,42 @@ export function RecoveryView() {
           Search
           <input className="input" value={q} onChange={(event) => setQ(event.target.value)} />
         </label>
-
+        {/* UX-M04: entity-id filter — paste a UUID to narrow to commands affecting that entity */}
+        <label className="field-inline">
+          Entity ID
+          <input
+            className="input compact"
+            placeholder="Paste entity UUID…"
+            value={entityIdFilter}
+            onChange={(event) => setEntityIdFilter(event.target.value)}
+            title="Filter command journal to rows whose affected IDs contain this entity UUID"
+          />
+        </label>
+      </div>
+      {/* UX-M04: command-family filter chips — compact row above the grid */}
+      <div role="group" aria-label="Filter by command family" className="flex flex-wrap gap-1 px-1 pb-1">
+        {Object.keys(commandFamilies).map((family) => (
+          <button
+            key={family}
+            type="button"
+            className="secondary-button compact-action"
+            aria-pressed={familyFilter === family}
+            onClick={() => setFamilyFilter(familyFilter === family ? '' : family)}
+            title={`Show only ${family} commands`}
+          >
+            {family}
+          </button>
+        ))}
+        {familyFilter ? (
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            onClick={() => setFamilyFilter('')}
+            title="Clear family filter"
+          >
+            ✕ Clear
+          </button>
+        ) : null}
       </div>
       <WorkspacePanel panelId="recovery-admin-tools" title="Admin tools" headingLevel={2}>
         {/* Tab nav */}
@@ -222,7 +275,7 @@ export function RecoveryView() {
       <OperatorGrid
         view="recovery"
         title="Action Log"
-        rows={(search.data ?? []) as GridRow[]}
+        rows={filteredSearchRows as GridRow[]}
         columns={columnsByView.recovery ?? []}
         loading={search.isLoading}
         onSelectionChange={(selection) => setSelectedRows('recovery', selection)}

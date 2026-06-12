@@ -10,6 +10,9 @@ const VIEW_TITLES: Record<string, string> = {
   catalog: 'Catalog',
   payments: 'Payments',
   contacts: 'Contacts',
+  // UX-L01/R01: pick tab; UX-R02: intake tab
+  pick: 'Pick',
+  intake: 'Intake',
 };
 
 function IconDashboard() {
@@ -48,12 +51,37 @@ function IconContacts() {
   );
 }
 
+// UX-L01/R01: Pick tab icon (box with checkmark)
+function IconPick() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+      <rect x="3" y="7" width="14" height="10" rx="1.5" />
+      <path d="M7 7V5a3 3 0 016 0v2" />
+      <path d="M7 12l2 2 4-4" />
+    </svg>
+  );
+}
+
+// UX-R02: Intake tab icon (inbound arrow with box)
+function IconIntake() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+      <rect x="3" y="9" width="14" height="8" rx="1.5" />
+      <path d="M10 3v10M7 10l3 3 3-3" />
+    </svg>
+  );
+}
+
 const NAV_TABS = [
   { to: '/mobile/dashboard', label: 'Dashboard', Icon: IconDashboard },
   { to: '/mobile/inventory', label: 'Inventory',  Icon: IconInventory },
   { to: '/mobile/catalog',   label: 'Catalog',    Icon: IconCatalog   },
   { to: '/mobile/payments',  label: 'Payments',   Icon: IconPayments  },
   { to: '/mobile/contacts',  label: 'Contacts',   Icon: IconContacts  },
+  // UX-L01/R01: warehouse pick flow
+  { to: '/mobile/pick',      label: 'Pick',       Icon: IconPick      },
+  // UX-R02: minimal intake verification
+  { to: '/mobile/intake',    label: 'Intake',     Icon: IconIntake    },
 ] as const;
 
 export function MobileShell() {

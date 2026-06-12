@@ -5,6 +5,7 @@ import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { DefaultPricingPanel } from '../components/DefaultPricingPanel';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { useConfirm } from '../hooks/useConfirm';
 import { formatWeightsSummary } from '../components/credit/creditPanelUtils';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow, SettingsTab } from '../../shared/types';
@@ -274,10 +275,14 @@ function changedFieldsSummary(pre: Record<string, unknown>, post: Record<string,
 }
 
 function CreditEngineSettingsPanel() {
-  const { data, isLoading } = trpc.credit.creditEngineStances.useQuery();
+  const { data, isLoading, refetch: refetchStances } = trpc.credit.creditEngineStances.useQuery();
   const configHistory = trpc.credit.creditEngineConfigHistory.useQuery();
   const stanceHistory = trpc.credit.creditEngineStanceHistory.useQuery();
   const { runCommand, isRunning } = useCommandRunner();
+  const confirm = useConfirm();
+  // UX-Q05: stance CRUD editor state. 'new' opens an empty create form;
+  // a stance object opens the edit form prefilled with that stance.
+  const [stanceEditor, setStanceEditor] = useState<'new' | StanceEditorInitial | null>(null);
   const [stanceId, setStanceId] = useState('');
   const [coldStartInvoices, setColdStartInvoices] = useState('');
   const [coldStartTenure, setColdStartTenure] = useState('');
@@ -307,6 +312,22 @@ function CreditEngineSettingsPanel() {
     payload.shadowMode = shadowMode;
     await runCommand('setCreditEngineConfig', payload, 'Update credit engine settings');
     configHistory.refetch();
+  }
+
+  // UX-Q05: stance delete. Server-side guards: cannot delete the global
+  // default stance or a stance with assigned customers; deletion is terminal.
+  async function handleDeleteStance(stance: { id: string; name: string }) {
+    const ok = await confirm({
+      title: `Delete stance "${stance.name}"?`,
+      body:
+        'Deleting a stance is permanent — it cannot be reconstructed. The delete is only allowed because no customers are assigned to this stance and it is not the global default.',
+      tone: 'danger',
+      primaryLabel: 'Delete stance'
+    });
+    if (!ok) return;
+    await runCommand('deleteCreditEngineStance', { stanceId: stance.id }, `Delete credit engine stance "${stance.name}"`);
+    refetchStances();
+    stanceHistory.refetch();
   }
 
   return (
@@ -360,9 +381,23 @@ function CreditEngineSettingsPanel() {
               Save settings
             </button>
           </div>
-          <div className="mt-6">
-            <h3 className="section-title">Stances</h3>
-            <p className="text-xs text-zinc-600 mb-2">Stance create/edit is command-backed follow-up work.</p>
+          {/* UX-Q05 (Execution Decision 6b): owner-gated stance CRUD. */}
+          <div className="mt-6" data-testid="credit-engine-stance-admin">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="section-title">Stances</h3>
+                <p className="text-xs text-zinc-600 mb-2">
+                  Create, edit, and delete engine stances. Weights are integers that must sum to 100. A stance can only be deleted when no customers are assigned to it and it is not the global default.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button compact-action"
+                onClick={() => setStanceEditor('new')}
+              >
+                New stance
+              </button>
+            </div>
             <div className="finder-table-wrap">
               <table className="finder-table">
                 <thead>
@@ -372,22 +407,77 @@ function CreditEngineSettingsPanel() {
                     <th>Weights</th>
                     <th>Customers</th>
                     <th>Source</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data?.stances.map((stance) => (
-                    <tr key={stance.id}>
-                      <td>{stance.name}</td>
-                      <td>{stance.description ?? '-'}</td>
-                      <td>{formatWeightsSummary(stance.weights)}</td>
-                      <td>{stance.customerCount}</td>
-                      <td>{stance.isSeeded ? 'Seeded' : 'Custom'}</td>
-                    </tr>
-                  ))}
+                  {data?.stances.map((stance) => {
+                    const isGlobalDefault = stance.id === data.config.globalDefaultStanceId;
+                    const deleteBlockedReason = isGlobalDefault
+                      ? 'Cannot delete the global default stance.'
+                      : stance.customerCount > 0
+                        ? 'Cannot delete a stance that is still assigned to customers.'
+                        : null;
+                    return (
+                      <tr key={stance.id}>
+                        <td>{stance.name}</td>
+                        <td>{stance.description ?? '-'}</td>
+                        <td>{formatWeightsSummary(stance.weights)}</td>
+                        <td>{stance.customerCount}</td>
+                        <td>{stance.isSeeded ? 'Seeded' : 'Custom'}</td>
+                        <td>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              className="secondary-button compact-action"
+                              aria-label={`Edit stance ${stance.name}`}
+                              onClick={() =>
+                                setStanceEditor({
+                                  id: stance.id,
+                                  name: stance.name,
+                                  description: stance.description,
+                                  weights: stance.weights
+                                })
+                              }
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary-button compact-action"
+                              aria-label={`Delete stance ${stance.name}`}
+                              disabled={isRunning || Boolean(deleteBlockedReason)}
+                              title={deleteBlockedReason ?? 'Delete this stance (permanent)'}
+                              onClick={() => handleDeleteStance(stance)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            {stanceEditor ? (
+              <StanceEditorForm
+                key={stanceEditor === 'new' ? 'new' : stanceEditor.id}
+                initial={stanceEditor === 'new' ? null : stanceEditor}
+                onClose={() => setStanceEditor(null)}
+                onSaved={() => {
+                  refetchStances();
+                  stanceHistory.refetch();
+                }}
+              />
+            ) : null}
           </div>
+
+          {/* UX-Q05: per-customer engine overrides (owner-only commands). */}
+          <CreditEngineCustomerOverrides stances={data?.stances ?? []} />
+
+          {/* UX-Q05: bulk revert — terminal bulk mutation, typed confirmation. */}
+          <CreditEngineBulkRevert />
 
           {/* Config Change History — TER-1648 */}
           <div className="mt-6">
@@ -459,5 +549,319 @@ function CreditEngineSettingsPanel() {
         </>
       )}
     </section>
+  );
+}
+
+// ─── UX-Q05 — Credit Engine admin (owner-gated) ────────────────────────────
+//
+// Ships the #111 admin set in Settings → Credit Engine: stance CRUD
+// (createCreditEngineStance / updateCreditEngineStance / deleteCreditEngineStance),
+// per-customer overrides (setCustomerStance / disableCreditEngineForCustomer),
+// and bulkRevertCustomersToEngine behind a typed confirmation. All six
+// commands carry commandMinRole 'owner'; the Credit Engine tab itself is only
+// rendered for owners (see SettingsView tabs above), so managers never see
+// this section.
+
+const STANCE_WEIGHT_FIELDS = [
+  { key: 'revenueMomentum', label: 'Revenue momentum' },
+  { key: 'cashCollection', label: 'Cash collection' },
+  { key: 'profitability', label: 'Profitability' },
+  { key: 'debtAging', label: 'Debt aging' },
+  { key: 'repaymentVelocity', label: 'Repayment velocity' },
+  { key: 'tenureDepth', label: 'Tenure depth' }
+] as const;
+
+type StanceWeightKey = (typeof STANCE_WEIGHT_FIELDS)[number]['key'];
+
+interface StanceEditorInitial {
+  id: string;
+  name: string;
+  description: string | null;
+  weights: Record<StanceWeightKey, number>;
+}
+
+function StanceEditorForm({
+  initial,
+  onClose,
+  onSaved
+}: {
+  initial: StanceEditorInitial | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { runCommand, isRunning } = useCommandRunner();
+  const [name, setName] = useState(initial?.name ?? '');
+  const [description, setDescription] = useState(initial?.description ?? '');
+  const [weightText, setWeightText] = useState<Record<StanceWeightKey, string>>(() => {
+    const next = {} as Record<StanceWeightKey, string>;
+    for (const field of STANCE_WEIGHT_FIELDS) {
+      next[field.key] = String(initial?.weights[field.key] ?? 0);
+    }
+    return next;
+  });
+  const [ackExtreme, setAckExtreme] = useState(false);
+  const [extremeJustification, setExtremeJustification] = useState('');
+
+  const weightValues = STANCE_WEIGHT_FIELDS.map((field) => Number(weightText[field.key]));
+  const weightsValid = weightValues.every((value) => Number.isInteger(value) && value >= 0 && value <= 100);
+  const weightSum = weightValues.reduce((acc, value) => acc + value, 0);
+  const maxWeight = Math.max(...weightValues);
+  // Server rule: any single weight above 50 requires an explicit acknowledgement
+  // plus a justification of at least 12 characters (assertExtremeWeightsAcknowledged).
+  const needsExtremeAck = weightsValid && maxWeight > 50;
+  const extremeAckSatisfied = !needsExtremeAck || (ackExtreme && extremeJustification.trim().length >= 12);
+  const canSave = name.trim().length > 0 && weightsValid && weightSum === 100 && extremeAckSatisfied && !isRunning;
+
+  async function handleSave() {
+    if (!canSave) return;
+    const weights = {} as Record<StanceWeightKey, number>;
+    for (const field of STANCE_WEIGHT_FIELDS) {
+      weights[field.key] = Number(weightText[field.key]);
+    }
+    const payload: Record<string, unknown> = {
+      name: name.trim(),
+      description: description.trim() || null,
+      weights
+    };
+    if (needsExtremeAck) {
+      payload.acknowledgeExtremeWeights = true;
+      payload.extremeWeightJustification = extremeJustification.trim();
+    }
+    if (initial) {
+      payload.stanceId = initial.id;
+      await runCommand('updateCreditEngineStance', payload, `Update credit engine stance "${name.trim()}"`);
+    } else {
+      await runCommand('createCreditEngineStance', payload, `Create credit engine stance "${name.trim()}"`);
+    }
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <div className="mt-3 border border-line bg-panel p-3" data-testid="stance-editor-form">
+      <h4 className="text-sm font-semibold">{initial ? `Edit stance — ${initial.name}` : 'New stance'}</h4>
+      <p className="text-xs text-zinc-600">
+        {initial
+          ? 'Saving recomputes every customer assigned to this stance when weights change.'
+          : 'Creates a new stance. Customers are only affected once the stance is assigned (per customer or as the global default).'}
+      </p>
+      <div className="mt-2 grid gap-2 md:grid-cols-3">
+        <label className="field-inline">
+          Stance name
+          <input className="input compact" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="field-inline md:col-span-2">
+          Stance description
+          <input className="input compact" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </label>
+        {STANCE_WEIGHT_FIELDS.map((field) => (
+          <label key={field.key} className="field-inline">
+            {field.label}
+            <input
+              className="input compact"
+              type="number"
+              min="0"
+              max="100"
+              value={weightText[field.key]}
+              onChange={(e) => setWeightText((prev) => ({ ...prev, [field.key]: e.target.value }))}
+            />
+          </label>
+        ))}
+      </div>
+      <p className={weightSum === 100 ? 'mt-2 text-xs text-zinc-600' : 'mt-2 text-xs text-danger'}>
+        Weights must sum to 100 (currently {Number.isFinite(weightSum) ? weightSum : '—'}).
+      </p>
+      {needsExtremeAck ? (
+        <div className="mt-2 border border-line bg-white p-2" data-testid="stance-extreme-ack">
+          <label className="field-inline flex items-center gap-2">
+            <input type="checkbox" checked={ackExtreme} onChange={(e) => setAckExtreme(e.target.checked)} />
+            <span>A single weight exceeds 50 — I acknowledge this extreme weighting.</span>
+          </label>
+          <label className="field-inline mt-1">
+            Extreme weight justification (min 12 characters)
+            <input
+              className="input compact"
+              value={extremeJustification}
+              onChange={(e) => setExtremeJustification(e.target.value)}
+            />
+          </label>
+        </div>
+      ) : null}
+      <div className="mt-3 flex gap-2">
+        <button type="button" className="primary-button compact-action" disabled={!canSave} onClick={handleSave}>
+          {initial ? 'Save stance' : 'Create stance'}
+        </button>
+        <button type="button" className="secondary-button compact-action" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CreditEngineCustomerOverrides({
+  stances
+}: {
+  stances: Array<{ id: string; name: string }>;
+}) {
+  const reference = trpc.queries.reference.useQuery();
+  const { runCommand, isRunning } = useCommandRunner();
+  const [customerId, setCustomerId] = useState('');
+  const [stanceId, setStanceId] = useState('');
+  const [disableReason, setDisableReason] = useState('');
+  const customers = (reference.data?.customers ?? []) as Array<{ id: string; name: string }>;
+
+  const customerName = customers.find((c) => c.id === customerId)?.name ?? 'customer';
+
+  async function handleSetStance() {
+    if (!customerId) return;
+    await runCommand(
+      'setCustomerStance',
+      { customerId, stanceId: stanceId === '' ? null : stanceId },
+      stanceId === ''
+        ? `Revert ${customerName} to the engine default stance`
+        : `Pin ${customerName} to a specific credit stance`
+    );
+  }
+
+  async function handleDisableEngine() {
+    const reason = disableReason.trim();
+    if (!customerId || reason.length < 4) return;
+    await runCommand(
+      'disableCreditEngineForCustomer',
+      { customerId, reason },
+      `Disable credit engine for ${customerName}`
+    );
+    setDisableReason('');
+  }
+
+  return (
+    <div className="mt-6" data-testid="credit-engine-customer-overrides">
+      <h3 className="section-title">Per-customer overrides</h3>
+      <p className="text-xs text-zinc-600 mb-2">
+        Pin one customer to a specific stance (or back to the engine default) — this queues an immediate engine recompute for that customer. Disabling the engine stops assessments from changing the customer&apos;s credit limit; their current limit is kept as a manual override, and the engine can be re-enabled later from the Credit Review queue.
+      </p>
+      <div className="grid gap-2 md:grid-cols-3">
+        <label className="field-inline">
+          Customer
+          <select
+            className="select"
+            aria-label="Override customer"
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
+          >
+            <option value="">Select customer</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field-inline">
+          Stance
+          <select
+            className="select"
+            aria-label="Override stance"
+            value={stanceId}
+            onChange={(e) => setStanceId(e.target.value)}
+          >
+            <option value="">Engine default</option>
+            {stances.map((stance) => (
+              <option key={stance.id} value={stance.id}>
+                {stance.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="field-inline">
+          <span aria-hidden="true">&nbsp;</span>
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            disabled={isRunning || !customerId}
+            onClick={handleSetStance}
+          >
+            Set stance
+          </button>
+        </div>
+        <label className="field-inline md:col-span-2">
+          Disable reason (min 4 characters)
+          <input
+            className="input compact"
+            aria-label="Disable reason"
+            value={disableReason}
+            onChange={(e) => setDisableReason(e.target.value)}
+          />
+        </label>
+        <div className="field-inline">
+          <span aria-hidden="true">&nbsp;</span>
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            disabled={isRunning || !customerId || disableReason.trim().length < 4}
+            onClick={handleDisableEngine}
+          >
+            Disable engine for customer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Typed-confirmation phrase for the bulk revert. Kept exported-by-test via
+// literal duplication in the test file on purpose — changing the phrase is a
+// deliberate UX decision, not an incidental refactor.
+const BULK_REVERT_PHRASE = 'REVERT TO ENGINE';
+
+function CreditEngineBulkRevert() {
+  const { runCommand, isRunning } = useCommandRunner();
+  const [confirmText, setConfirmText] = useState('');
+  const armed = confirmText.trim() === BULK_REVERT_PHRASE;
+
+  async function handleBulkRevert() {
+    if (!armed) return;
+    await runCommand(
+      'bulkRevertCustomersToEngine',
+      // Explicit payload mirrors the server defaults so the journal records
+      // intent: skip engine-disabled customers, and flip shadow mode off
+      // (rollout intent — the engine goes live).
+      { filter: { skipEngineDisabled: true }, flipShadowMode: true },
+      'Bulk revert all manual credit overrides to the engine'
+    );
+    setConfirmText('');
+  }
+
+  return (
+    <div className="mt-6 border border-danger p-3" data-testid="credit-engine-bulk-revert">
+      <h3 className="section-title text-danger">Danger zone — bulk revert to engine</h3>
+      <p className="text-xs text-zinc-600 mb-2">
+        Reverts <strong>every</strong> customer whose credit limit is a manual override back to the engine-computed limit, and clears their manual review state (who set it, the reason, review date, and snooze count). Customers with the engine disabled are skipped, and customers without an engine assessment yet are skipped and reported. If shadow mode is still on, it is turned <strong>off</strong> — the engine goes live. This bulk action is terminal: it cannot be reversed in one step; individual customers must be restored manually afterward.
+      </p>
+      <div className="grid gap-2 md:grid-cols-3">
+        <label className="field-inline md:col-span-2">
+          Type {BULK_REVERT_PHRASE} to confirm
+          <input
+            className="input compact"
+            aria-label="Bulk revert confirmation"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={BULK_REVERT_PHRASE}
+          />
+        </label>
+        <div className="field-inline">
+          <span aria-hidden="true">&nbsp;</span>
+          <button
+            type="button"
+            className="inline-flex h-8 items-center justify-center gap-2 border border-danger bg-danger px-3 text-sm font-medium text-white transition focus:outline-none focus-visible:shadow-focus hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={isRunning || !armed}
+            onClick={handleBulkRevert}
+          >
+            Bulk revert customers to engine
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

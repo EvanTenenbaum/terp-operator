@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCommandRunner } from '../useCommandRunner';
 import { trpc } from '../../api/trpc';
 import type { ContactProfileData } from './types';
 import { formatMoney } from '../../utils/format';
+import { UpdateContactDialog, ArchiveContactDialog } from './ContactEditDialogs';
 
 interface Props { data: ContactProfileData; }
 
@@ -10,6 +12,8 @@ export function ContactProfileHeader({ data }: Props) {
   const navigate = useNavigate();
   const me = trpc.auth.me.useQuery();
   const { isRunning } = useCommandRunner();
+  const [showEdit, setShowEdit] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
   if (!data) return null;
 
   const { contact, customer, vendor } = data;
@@ -96,8 +100,34 @@ export function ContactProfileHeader({ data }: Props) {
             </button>
           )}
           <button className="secondary-button compact-action">Add Appointment</button>
-          <button className="icon-button" aria-label="Edit contact">✎</button>
+          <button
+            className="secondary-button compact-action"
+            aria-label="Edit contact"
+            onClick={() => setShowEdit(true)}
+            disabled={isRunning}
+          >
+            Edit
+          </button>
+          <button
+            className="secondary-button compact-action text-red-600 hover:border-red-300"
+            aria-label="Archive contact"
+            onClick={() => setShowArchive(true)}
+            disabled={isRunning}
+            title="Archive this contact (irreversible while open work exists)"
+          >
+            Archive
+          </button>
         </div>
+      )}
+      {showEdit && (
+        <UpdateContactDialog data={data} onClose={() => setShowEdit(false)} />
+      )}
+      {showArchive && (
+        <ArchiveContactDialog
+          contactId={String(contact.id ?? '')}
+          contactName={String(contact.name ?? '')}
+          onClose={() => setShowArchive(false)}
+        />
       )}
     </div>
   );
