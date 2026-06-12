@@ -2,6 +2,7 @@ import { Clipboard } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { CustomerPricingPanel } from './PricingPanel';
 import { commandLabelFor } from '../../shared/commandCatalog';
+import { buildCustomerSafeRelationshipStatus, buildVendorSafeRelationshipStatus } from '../../shared/customerSafeStatus';
 import type { GridRow, ViewKey } from '../../shared/types';
 import { InspectorDrawer } from './templates';
 
@@ -24,23 +25,26 @@ export function RelationshipSummaryBody({ row, view }: { row: GridRow; view: Vie
   const customerOpen = (data?.invoices ?? []).reduce((sum, invoice) => sum + Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0), 0);
   const vendorOpen = (data?.bills ?? []).reduce((sum, bill) => sum + Number(bill.amount ?? 0) - Number(bill.amountPaid ?? 0), 0);
   const isDualRole = Boolean(data?.customer && data?.vendor);
-  const netPosition = customerOpen - vendorOpen;
+  // UX-N03: netPosition intentionally removed — see JY-07 "do not net" comment below.
 
+  // UX-N02 convergence: the external-safe text is built by the shared
+  // customerSafeStatus util (same gating used by the order Timeline tab's
+  // "Copy status summary (customer-safe)"). Output format is unchanged.
   function copySafeStatus() {
     const isVendorOnly = Boolean(data?.vendor) && !data?.customer;
     const text = isVendorOnly
-      ? [
-          data?.vendor?.name || String(row?.vendor ?? 'Vendor'),
-          `Open payables: $${money(vendorOpen)}`,
-          `Scheduled payouts: ${(data?.vendorPayments ?? []).filter((payment) => payment.status === 'scheduled').length}`,
-          `Recent bills: ${(data?.bills ?? []).slice(0, 3).map((bill) => `${bill.billNo} ${bill.status}`).join(', ') || 'none'}`
-        ].join('\n')
-      : [
-          data?.customer?.name || String(row?.customer ?? 'Customer'),
-          `Open balance: $${money(customerOpen)}`,
-          `Recent orders: ${(data?.orders ?? []).slice(0, 3).map((order) => `${order.orderNo} ${order.status}`).join(', ') || 'none'}`,
-          `Recent invoices: ${(data?.invoices ?? []).slice(0, 3).map((invoice) => `${invoice.invoiceNo} ${invoice.status}`).join(', ') || 'none'}`
-        ].join('\n');
+      ? buildVendorSafeRelationshipStatus({
+          name: String(data?.vendor?.name || String(row?.vendor ?? 'Vendor')),
+          openPayables: vendorOpen,
+          scheduledPayoutCount: (data?.vendorPayments ?? []).filter((payment) => payment.status === 'scheduled').length,
+          bills: (data?.bills ?? []).map((bill) => ({ refNo: String(bill.billNo), status: String(bill.status) }))
+        })
+      : buildCustomerSafeRelationshipStatus({
+          name: String(data?.customer?.name || String(row?.customer ?? 'Customer')),
+          openBalance: customerOpen,
+          orders: (data?.orders ?? []).map((order) => ({ refNo: String(order.orderNo), status: String(order.status) })),
+          invoices: (data?.invoices ?? []).map((invoice) => ({ refNo: String(invoice.invoiceNo), status: String(invoice.status) }))
+        });
     void navigator.clipboard?.writeText(text);
   }
 
@@ -60,14 +64,11 @@ export function RelationshipSummaryBody({ row, view }: { row: GridRow; view: Vie
           <strong>We owe them</strong>
           <div>${money(vendorOpen)}</div>
         </div>
-        {isDualRole ? (
-          <div className="definition-item">
-            <strong>Net position</strong>
-            <div style={{ color: netPosition >= 0 ? '#15803d' : '#b91c1c' }}>
-              {netPosition >= 0 ? '+' : '−'}${money(Math.abs(netPosition))}
-            </div>
-          </div>
-        ) : null}
+        {/* UX-N03 / JY-07 "do not net": Net position row is intentionally
+            removed for dual-role counterparties. Showing a single netted number
+            silently conceals the gross AR and AP obligations on each side.
+            AR ("Owes us") and AP ("We owe them") are already rendered above as
+            separate directional figures — that is the correct presentation. */}
         <div className="definition-item">
           <strong>Scheduled payables</strong>
           <div>{(data?.bills ?? []).filter((bill) => bill.status === 'scheduled').length}</div>

@@ -1132,6 +1132,237 @@ export const queriesRouter = router({
       commands: commands.rows
     };
   }),
+  // UX-U01 (UX-N01 / UF-014 / JY-16) — entity timeline.
+  // Sanctioned new read-only query (docs/ux-audit-2026-06-12.md §N + §U01,
+  // execution decisions header): merges one chronological event list per
+  // entity (customer / vendor / order / lot) from EXISTING tables only —
+  // command_journal (commands), payments + payment_allocations (money),
+  // vendor_payments (vendor money), pick_lists + fulfillment_lines
+  // (fulfillment marks), batch_media (media publishes). No writes, no new
+  // schema; operator-auth via protectedProcedure like sibling queries.
+  // Paginated limit+offset with limit capped at 100.
+  entityTimeline: protectedProcedure
+    .input(
+      z.object({
+        entityType: z.enum(['customer', 'vendor', 'order', 'lot']),
+        entityId: z.string().uuid(),
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).max(900).default(0)
+      })
+    )
+    .query(async ({ input }) => {
+      // Fetch enough rows from each source to satisfy the requested page even
+      // when a single source dominates the merged ordering (cap 100/source).
+      const perSource = Math.min(input.offset + input.limit, 100);
+      const none = Promise.resolve({ rows: [] as Record<string, unknown>[] });
+      const commandsQ = pool.query(
+        `select id, command_name as "commandName", actor_name as "actorName", status,
+                reversed_by_command_id as "reversedByCommandId", created_at as "occurredAt"
+         from command_journal
+         where $1 = any(affected_ids)
+         order by created_at desc
+         limit $2`,
+        [input.entityId, perSource]
+      );
+      const paymentsQ =
+        input.entityType === 'customer'
+          ? pool.query(
+              `select id, method, amount, direction, status, created_at as "occurredAt"
+               from payments
+               where customer_id = $1
+               order by created_at desc
+               limit $2`,
+              [input.entityId, perSource]
+            )
+          : input.entityType === 'vendor'
+            ? pool.query(
+                `select vp.id, vp.method, vp.amount, vp.status,
+                        vb.id as "vendorBillId", vb.bill_no as "billNo",
+                        vp.created_at as "occurredAt"
+                 from vendor_payments vp
+                 join vendor_bills vb on vb.id = vp.vendor_bill_id
+                 where vb.vendor_id = $1
+                 order by vp.created_at desc
+                 limit $2`,
+                [input.entityId, perSource]
+              )
+            : none;
+      const allocationsQ =
+        input.entityType === 'customer' || input.entityType === 'order'
+          ? pool.query(
+              `select pa.id, pa.amount, pa.created_at as "occurredAt",
+                      i.invoice_no as "invoiceNo", i.order_id as "orderId",
+                      pa.payment_id as "paymentId"
+               from payment_allocations pa
+               join payments p on p.id = pa.payment_id
+               left join invoices i on i.id = pa.invoice_id
+               where ${input.entityType === 'order' ? 'i.order_id = $1' : 'p.customer_id = $1'}
+               order by pa.created_at desc
+               limit $2`,
+              [input.entityId, perSource]
+            )
+          : none;
+      const picksQ =
+        input.entityType === 'customer' || input.entityType === 'order'
+          ? pool.query(
+              `select pl.id, pl.pick_no as "pickNo", pl.status,
+                      pl.order_id as "orderId", so.order_no as "orderNo",
+                      pl.updated_at as "occurredAt"
+               from pick_lists pl
+               join sales_orders so on so.id = pl.order_id
+               where ${input.entityType === 'order' ? 'pl.order_id = $1' : 'so.customer_id = $1'}
+               order by pl.updated_at desc
+               limit $2`,
+              [input.entityId, perSource]
+            )
+          : none;
+      const fulfillmentQ =
+        input.entityType === 'order' || input.entityType === 'lot'
+          ? pool.query(
+              `select fl.id, fl.status, fl.bag_code as "bagCode", fl.actual_qty as "actualQty",
+                      pl.pick_no as "pickNo", pl.id as "pickListId", pl.order_id as "orderId",
+                      fl.updated_at as "occurredAt"
+               from fulfillment_lines fl
+               join pick_lists pl on pl.id = fl.pick_list_id
+               where ${input.entityType === 'order' ? 'pl.order_id = $1' : 'fl.batch_id = $1'}
+                 and fl.status <> 'open'
+               order by fl.updated_at desc
+               limit $2`,
+              [input.entityId, perSource]
+            )
+          : none;
+      const mediaQ =
+        input.entityType === 'lot'
+          ? pool.query(
+              `select id, original_filename as "originalFilename", role, status,
+                      coalesce(published_at, created_at) as "occurredAt"
+               from batch_media
+               where batch_id = $1 and status = 'published'
+               order by coalesce(published_at, created_at) desc
+               limit $2`,
+              [input.entityId, perSource]
+            )
+          : none;
+      const [commandRows, paymentRows, allocationRows, pickRows, fulfillmentRows, mediaRows] = await Promise.all([
+        commandsQ,
+        paymentsQ,
+        allocationsQ,
+        picksQ,
+        fulfillmentQ,
+        mediaQ
+      ]);
+      interface TimelineEvent {
+        id: string;
+        eventType: 'command' | 'payment' | 'vendor_payment' | 'allocation' | 'pick' | 'fulfillment' | 'media';
+        label: string;
+        actor: string | null;
+        status: string | null;
+        amount: string | null;
+        refNo: string | null;
+        targetType: string | null;
+        targetId: string | null;
+        occurredAt: Date | string;
+      }
+      const text = (value: unknown) => (value == null ? null : String(value));
+      const events: TimelineEvent[] = [
+        ...commandRows.rows.map((row): TimelineEvent => ({
+          id: `command:${String(row.id)}`,
+          eventType: 'command',
+          // Raw command name — the client humanizes via commandLabelFor so the
+          // shared commandCatalog stays the single label source.
+          label: String(row.commandName ?? ''),
+          actor: text(row.actorName),
+          status: row.reversedByCommandId ? 'reversed' : text(row.status),
+          amount: null,
+          refNo: null,
+          targetType: null,
+          targetId: null,
+          occurredAt: row.occurredAt as Date
+        })),
+        ...paymentRows.rows.map((row): TimelineEvent =>
+          input.entityType === 'vendor'
+            ? {
+                id: `vendor_payment:${String(row.id)}`,
+                eventType: 'vendor_payment',
+                label: `Vendor payment (${String(row.method ?? 'cash')})${row.billNo ? ` on ${String(row.billNo)}` : ''}`,
+                actor: null,
+                status: text(row.status),
+                amount: text(row.amount),
+                refNo: text(row.billNo),
+                targetType: row.vendorBillId ? 'vendorBill' : null,
+                targetId: text(row.vendorBillId),
+                occurredAt: row.occurredAt as Date
+              }
+            : {
+                id: `payment:${String(row.id)}`,
+                eventType: 'payment',
+                label: `${String(row.direction ?? 'money_in') === 'money_in' ? 'Payment received' : 'Payment out'} (${String(row.method ?? '')})`,
+                actor: null,
+                status: text(row.status),
+                amount: text(row.amount),
+                refNo: null,
+                targetType: 'payment',
+                targetId: text(row.id),
+                occurredAt: row.occurredAt as Date
+              }
+        ),
+        ...allocationRows.rows.map((row): TimelineEvent => ({
+          id: `allocation:${String(row.id)}`,
+          eventType: 'allocation',
+          label: `Payment applied${row.invoiceNo ? ` to ${String(row.invoiceNo)}` : ''}`,
+          actor: null,
+          status: null,
+          amount: text(row.amount),
+          refNo: text(row.invoiceNo),
+          targetType: row.orderId ? 'order' : 'payment',
+          targetId: text(row.orderId) ?? text(row.paymentId),
+          occurredAt: row.occurredAt as Date
+        })),
+        ...pickRows.rows.map((row): TimelineEvent => ({
+          id: `pick:${String(row.id)}`,
+          eventType: 'pick',
+          label: `Pick ${String(row.pickNo ?? '')} ${String(row.status ?? '')}`.trim(),
+          actor: null,
+          status: text(row.status),
+          amount: null,
+          refNo: text(row.pickNo),
+          targetType: 'pick',
+          targetId: text(row.id),
+          occurredAt: row.occurredAt as Date
+        })),
+        ...fulfillmentRows.rows.map((row): TimelineEvent => ({
+          id: `fulfillment:${String(row.id)}`,
+          eventType: 'fulfillment',
+          label: `Line ${String(row.status ?? '')}${row.bagCode ? ` (bag ${String(row.bagCode)})` : ''} on pick ${String(row.pickNo ?? '')}`,
+          actor: null,
+          status: text(row.status),
+          amount: null,
+          refNo: text(row.pickNo),
+          targetType: row.pickListId ? 'pick' : null,
+          targetId: text(row.pickListId),
+          occurredAt: row.occurredAt as Date
+        })),
+        ...mediaRows.rows.map((row): TimelineEvent => ({
+          id: `media:${String(row.id)}`,
+          eventType: 'media',
+          label: `Media published (${String(row.role ?? 'additional')}): ${String(row.originalFilename ?? '')}`,
+          actor: null,
+          status: text(row.status),
+          amount: null,
+          refNo: null,
+          targetType: null,
+          targetId: null,
+          occurredAt: row.occurredAt as Date
+        }))
+      ];
+      const occurredMs = (value: Date | string) => (value instanceof Date ? value.getTime() : new Date(value).getTime());
+      events.sort((a, b) => occurredMs(b.occurredAt) - occurredMs(a.occurredAt));
+      const page = events.slice(input.offset, input.offset + input.limit);
+      return {
+        events: page,
+        nextOffset: events.length > input.offset + input.limit ? input.offset + input.limit : null
+      };
+    }),
   globalSearch: protectedProcedure.input(z.object({ q: z.string().trim().min(1).max(200) })).query(async ({ input }) => {
     const q = `%${input.q.trim()}%`;
     const [customerRows, vendorRows, purchaseOrderRows, orderRows, invoiceRows, paymentRows, batchRows, needRows, supplyRows, pickRows, connectorRows, commandRows] = await Promise.all([
@@ -1330,6 +1561,40 @@ export const queriesRouter = router({
     ]);
     return { generatedAt: new Date().toISOString(), health, counts: counts.rows[0], errors: errors.rows, recentCommands: recent.rows };
   }),
+  // UX-M02: per-selection support packet — selected grid rows + their related
+  // command journal entries + validation issues. Exported as JSON from the
+  // RowInspector Issue tab. Narrow scope: max 50 rows × 20 commands each.
+  selectionSupportPacket: protectedProcedure
+    .input(z.object({
+      rowIds: z.array(z.string()).max(50),
+    }))
+    .query(async ({ input }) => {
+      const validIds = input.rowIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+      if (validIds.length === 0) return { generatedAt: new Date().toISOString(), rows: [], commands: [] };
+      const [rowsResult, commandsResult] = await Promise.all([
+        pool.query(
+          `select id, command_name as "commandName", actor_name as "actorName", status, error,
+                  affected_ids as "affectedIds", created_at as "createdAt"
+           from command_journal
+           where affected_ids && $1::uuid[]
+           order by created_at desc
+           limit 200`,
+          [validIds]
+        ),
+        pool.query(
+          `select id, status, error, result, created_at as "createdAt"
+           from command_journal
+           where id = any($1::uuid[])`,
+          [validIds]
+        ),
+      ]);
+      return {
+        generatedAt: new Date().toISOString(),
+        selectedRowIds: validIds,
+        rows: rowsResult.rows,
+        commands: commandsResult.rows,
+      };
+    }),
   snapshotDiff: protectedProcedure.input(z.object({ backupId: z.string().uuid() })).query(async ({ input }) => {
     const backup = (await pool.query('select id, label, snapshot from backup_snapshots where id = $1', [input.backupId])).rows[0];
     if (!backup) return null;
@@ -2636,6 +2901,7 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                      so.packed, so.inventory_posted as "inventoryPosted", so.payment_followup as "paymentFollowup",
                      so.legacy_status_markers as "legacyStatusMarkers", so.validation_issues as "validationIssues",
                      i.id as "invoiceId", i.invoice_no as "invoiceNo", i.status as "invoiceStatus", so.posted_at as "postedAt", so.fulfilled_at as "fulfilledAt",
+                     (select d.id from invoice_disputes d where d.invoice_id = i.id and d.status = 'open' limit 1) as "openDisputeId",
                      (select string_agg(distinct so2.order_no, ', ')
                         from sales_order_lines sol
                         join sales_order_lines sol2
@@ -2678,7 +2944,10 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                      count(case when i.status in ('open','partial') then 1 end)::int as "openInvoiceCount",
                      coalesce(round(dp."avgDaysToPay"::numeric, 1), null) as "avgDaysToPay",
                      coalesce(floor(extract(epoch from (now() - min(case when i.status in ('open','partial') then i.due_date end))) / 86400)::int, 0) as "daysPastDue",
-                     coalesce(sum(case when i.status in ('open','partial') then i.total - i.amount_paid end), 0) as "unpaidBalance"
+                     coalesce(sum(case when i.status in ('open','partial') then i.total - i.amount_paid end), 0) as "unpaidBalance",
+                     -- UX-B03 (part 3): dual-role flag — true when this customer's contact_id
+                     -- is also linked to a vendor, making them both AR and AP counterparties.
+                     (c.contact_id is not null and vdr.id is not null) as "isDualRole"
               from customers c
               left join invoices i on i.customer_id = c.id
               left join lateral (
@@ -2688,7 +2957,10 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                 join invoices invp on invp.id = pa.invoice_id
                 where invp.customer_id = c.id
               ) dp on true
-              group by c.id, dp."avgDaysToPay"
+              left join lateral (
+                select id from vendors where contact_id = c.contact_id limit 1
+              ) vdr on c.contact_id is not null
+              group by c.id, dp."avgDaysToPay", vdr.id
               order by c.balance desc, c.name`;
     case 'vendors':
       // UX-K03: extend with receiptNo + receiptId for Trace tab source links.
@@ -2699,7 +2971,10 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                      vb.amount, vb.amount_paid as "amountPaid", vb.status, vb.due_date as "dueDate", vb.scheduled_for as "scheduledFor",
                      vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered",
                      v.contact_id AS "contactId",
-                     pr.id AS "receiptId", pr.receipt_no AS "receiptNo"
+                     pr.id AS "receiptId", pr.receipt_no AS "receiptNo",
+                     -- UX-B03 (part 3): dual-role flag — true when this vendor's contact_id
+                     -- is also linked to a customer, making them both AP and AR counterparties.
+                     (v.contact_id is not null and cust.id is not null) as "isDualRole"
               from vendor_bills vb
               left join vendors v on v.id = vb.vendor_id
               left join purchase_orders po on po.id = vb.purchase_order_id
@@ -2710,6 +2985,9 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
                 order by created_at
                 limit 1
               ) pr on vb.purchase_order_id is not null
+              left join lateral (
+                select id from customers where contact_id = v.contact_id limit 1
+              ) cust on v.contact_id is not null
               order by vb.due_date, v.name`;
     case 'fulfillment':
       return `select pl.id, pl.order_id as "orderId", pl.pick_no as "pickNo", so.order_no as "orderNo", c.name as customer, pl.status,
@@ -2843,7 +3121,7 @@ export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     purchaseOrders: ['id', 'poNo', 'vendor', 'status', 'expectedDate', 'orderedAt', 'receivedAt', 'total', 'lines', 'orderedQty', 'receivedQty', 'buyerNotes', 'internalNotes', 'createdAt'],
     sales: ['id', 'orderNo', 'customer', 'status', 'pricingStrategy', 'total', 'internalMargin', 'lines', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes'],
     matchmaking: ['id', 'needCode', 'customer', 'needProduct', 'category', 'needTags', 'qtyMin', 'qtyMax', 'targetPrice', 'neededBy', 'urgency', 'supplyCode', 'vendor', 'vendorProduct', 'supplyTags', 'availableQty', 'askingPrice', 'availableDate', 'score', 'reasons', 'status', 'createdAt'],
-    orders: ['id', 'orderNo', 'customer', 'status', 'total', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes', 'invoiceNo', 'invoiceStatus'],
+    orders: ['id', 'orderNo', 'customer', 'status', 'total', 'packed', 'inventoryPosted', 'paymentFollowup', 'legacyStatusMarkers', 'deliveryWindow', 'notes', 'invoiceNo', 'invoiceStatus', 'openDisputeId'],
     payments: ['id', 'customer', 'direction', 'category', 'method', 'amount', 'unappliedAmount', 'allocationIntent', 'impactPreview', 'reference', 'locationBucket', 'notes', 'status', 'createdAt'],
     inventory: ['id', 'batchCode', 'name', 'category', 'tags', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'priceRange', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
     clients: ['id', 'name', 'creditLimit', 'balance', 'headroom', 'tags', 'notes', 'invoiceCount', 'openInvoiceCount', 'daysPastDue', 'unpaidBalance', 'avgDaysToPay'],
