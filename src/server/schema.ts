@@ -123,6 +123,26 @@ export const savedFilters = pgTable('saved_filters', {
   updatedAt: updated()
 });
 
+// UX-A04 / CAP-024 / Execution Decision 2 (docs/ux-audit-2026-06-12.md):
+// Server-side per-user draft persistence for UI working sets. Quick Ledger
+// drafts (viewKey 'quickLedger') are stored here — NEVER in localStorage —
+// per the shared-workstation PII rationale (drafts carry counterparty names).
+// See migrations/0082_user_view_drafts.sql.
+export const userViewDrafts = pgTable(
+  'user_view_drafts',
+  {
+    id: id(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    viewKey: varchar('view_key', { length: 32 }).notNull().default('quickLedger'),
+    drafts: jsonb('drafts').notNull().default(sql`'[]'::jsonb`),
+    createdAt: now(),
+    updatedAt: updated()
+  },
+  (table) => ({
+    userViewIdx: uniqueIndex('user_view_drafts_user_view_uniq').on(table.userId, table.viewKey)
+  })
+);
+
 export const tagCatalog = pgTable(
   'tag_catalog',
   {
