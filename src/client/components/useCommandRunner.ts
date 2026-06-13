@@ -109,6 +109,24 @@ export interface RunCommandOpts {
   successActions?: ToastAction[];
 }
 
+/**
+ * SX-I04: Humanize raw command errors (often Zod JSON) into operator-friendly
+ * one-liners. Preserves the original `errorMessage` for "Copy details" so the
+ * full raw JSON is still available in the clipboard.
+ */
+function humanizeCommandError(errorMessage: string): string {
+  try {
+    const parsed = JSON.parse(errorMessage);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = parsed[0];
+      const field = String(first.path?.join('.') ?? 'value');
+      const issues = parsed.length > 1 ? ` (+${parsed.length - 1} more)` : '';
+      return `Invalid ${field}: ${first.message ?? 'check input'}${issues}`;
+    }
+  } catch {}
+  return errorMessage;
+}
+
 export function useCommandRunner() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -181,11 +199,14 @@ export function useCommandRunner() {
     },
     onError: (error) => {
       const ctx = _pendingCallContextRef.current;
+      // SX-I04: humanize the toast message; keep buildErrorActions using the
+      // original raw message so "Copy details" preserves the full JSON.
+      const humanized = humanizeCommandError(error.message);
       if (ctx) {
         const errorActions = buildErrorActions(ctx.name, ctx.idempotencyKey, error.message);
-        pushToast(error.message, 'error', { actions: errorActions });
+        pushToast(humanized, 'error', { actions: errorActions });
       } else {
-        pushToast(error.message, 'error');
+        pushToast(humanized, 'error');
       }
     }
   });

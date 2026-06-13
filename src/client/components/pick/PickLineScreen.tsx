@@ -171,9 +171,12 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, recalled, re
 
   async function handleHold() {
     if (!line || !holdReason.trim()) return;
+    // SX-K04: recallLineFromPicking expects a sales order line ID, not a
+    // fulfillment line ID. The fulfillment line's orderLineId is the correct
+    // cross-reference.
     await runCommand(
       'recallLineFromPicking',
-      { lineId: line.id, reason: holdReason },
+      { lineId: line.orderLineId, reason: holdReason },
       'Hold pick line from PickView'
     );
     onBack();

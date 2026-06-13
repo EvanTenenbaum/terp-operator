@@ -33,6 +33,8 @@ const viewLabels: Record<ViewKey, string> = {
   settings: 'Settings',
   pick: 'Pick Queue', // CAP-030 / TER-1513
   'contacts-customer-orders': 'Customer Orders', // CAP-029 / TER-1564: sub-grid in ContactCustomerPanel
+  'fulfillment-picks': 'Fulfillment', // SX-K06 — filter-slot key (not navigable)
+  'fulfillment-lines': 'Fulfillment Lines', // SX-K06 — filter-slot key (not navigable)
 };
 
 // UX-B08: views that neither set their own ribbon entity (via row selection or
