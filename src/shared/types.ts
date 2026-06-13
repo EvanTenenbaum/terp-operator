@@ -87,6 +87,8 @@ export type ViewKey =
   | 'contacts-customer-orders' // CAP-029 / TER-1564: order history sub-grid in ContactCustomerPanel
   | 'settings'
   | 'pick' // CAP-030 / TER-1513
+  | 'fulfillment-picks' // SX-K06 — split picks filter slot from lines
+  | 'fulfillment-lines' // SX-K06 — split lines filter slot from picks
   | 'purchaseReceipts' // TER-1656 — operator view for purchase receipts and line items
   | 'items' // TER-1651 — items/SKU catalog management
   | 'disputes'; // TER-1649 — invoice disputes management

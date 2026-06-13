@@ -7,10 +7,10 @@ export interface PickQueueItem {
   pickNo: string;
   orderId: string;
   customer: string;
-  status: 'needs_picking' | 'in_progress' | 'has_alerts' | 'ready_to_close' | 'closed';
+  status: 'open' | 'needs_picking' | 'in_progress' | 'has_alerts' | 'ready_to_close' | 'closed';
   alertCount: number;
-  lineCount: number;
-  linesPicked: number;
+  openLines: number;
+  totalLines: number;
   oldestReleasedAt?: string; // for sorting
 }
 
@@ -18,6 +18,7 @@ export interface PickLine {
   id: string;
   pickListId: string;
   orderId: string;
+  orderLineId?: string;
   itemName: string;
   batchCode: string;
   expectedQty: number;

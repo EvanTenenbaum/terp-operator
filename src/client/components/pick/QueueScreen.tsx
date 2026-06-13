@@ -64,12 +64,13 @@ export function QueueScreen({ items, loading, onRefresh, onSelect }: Props) {
                 <div className="flex items-center gap-3 text-sm text-zinc-500">
                   <span>{item.pickNo}</span>
                   <span>
-                    {item.linesPicked}/{item.lineCount} to pick
+                    {item.openLines}/{item.totalLines} to pick
                   </span>
                   <span className={
                     item.status === 'ready_to_close' ? 'text-green-700 font-medium' :
                     item.status === 'has_alerts' ? 'text-amber-700 font-medium' :
                     item.status === 'in_progress' ? 'text-blue-700 font-medium' :
+                    item.status === 'open' ? 'text-blue-600 font-medium' :
                     'text-zinc-400'
                   }>
                     {item.status.replace(/_/g, ' ')}

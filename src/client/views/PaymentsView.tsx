@@ -111,19 +111,36 @@ export function PaymentsView() {
           <FilterPresetStrip
             view="payments"
             ariaLabel="Filter payments"
-            presets={[
-              { label: 'Unpaid', filter: 'status:active' },
-              { label: 'Overdue', filter: 'category:overdue' },
-              {
-                key: 'unapplied',
-                // UX-J03: live count pill is rendered inline after the label via
-                // a sibling element, not inside FilterPresetStrip, to keep the
-                // template's label: string contract intact.
-                label: 'Unapplied',
-                filter: 'unappliedAmount:>0',
-                title: 'Show payments with unapplied balance'
-              }
-            ]}
+             presets={[
+               // SX-J04: Presets updated to use field values the grid filter can
+               // evaluate (simple string matching via applyGridFilter). The filter
+               // cannot do numeric comparisons (>, <, etc.) or range queries.
+               //
+               // "Unpaid" shows posted (active) payments not yet reversed/refunded.
+               { label: 'Unpaid', filter: 'status:posted' },
+               // "Overdue" is not directly evaluable — payments are point-in-time
+               // events without due dates (due-date tracking lives on vendor_bills
+               // and invoices). A server-side filter on vendor_bill due dates would
+               // be needed for true overdue detection.
+               //
+               // Server-side filter needed: category-based overdue detection.
+               { label: 'Overdue', filter: 'direction:paying', title: 'Payment direction:paying (proxy for outgoing/bill payments; true overdue requires vendor_bill due-date filter — server-side filter needed)' },
+               {
+                 key: 'unapplied',
+                 // UX-J03: live count pill is rendered inline after the label via
+                 // a sibling element, not inside FilterPresetStrip, to keep the
+                 // template's label: string contract intact.
+                 //
+                 // SX-J04: Grid filter can only do string matching on field values,
+                 // so allocationIntent:unapplied catches explicitly-unapplied
+                 // payments but misses partially-applied ones (those have fifo
+                 // intent but unappliedAmount > 0). A server-side numeric filter
+                 // on unappliedAmount > 0 would be needed for full coverage.
+                 label: 'Unapplied',
+                 filter: 'allocationIntent:unapplied',
+                 title: 'Payment allocationIntent:unapplied (explicitly-unapplied only; partially-applied payments not covered — server-side numeric filter needed)'
+               }
+             ]}
           />
           {/* UX-J03: standing count pill — always visible next to the preset strip
               so the accounting operator sees the unapplied queue size at a glance.
