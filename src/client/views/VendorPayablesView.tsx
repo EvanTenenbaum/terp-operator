@@ -133,11 +133,13 @@ function useVendorBillDeepLink() {
   const setGridFilter = useUiStore((state) => state.setGridFilter);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const navigate = useNavigate();
   return (billId: string | undefined) => {
     if (!billId) return;
     setGridFilter('vendors', `id:${billId}`);
     setDrawerEntity('vendors', 'vendorBill', billId);
     setDrawerState('vendors', 'standard');
+    navigate('/vendors');
     setActiveView('vendors');
   };
 }

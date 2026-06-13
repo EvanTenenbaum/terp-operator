@@ -94,11 +94,13 @@ function useOrderDeepLink() {
   const setGridFilter = useUiStore((state) => state.setGridFilter);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const navigate = useNavigate();
   return (orderId: string | undefined) => {
     if (!orderId) return;
     setGridFilter('orders', `id:${orderId}`);
     setDrawerEntity('orders', 'order', orderId);
     setDrawerState('orders', 'standard');
+    navigate('/orders');
     setActiveView('orders');
   };
 }
