@@ -2,6 +2,7 @@ import { Plus, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { trpc } from '../api/trpc';
+import { useConfirm } from '../hooks/useConfirm';
 import { InspectorDrawer } from './templates';
 
 function moneyish(value: unknown) {
@@ -255,6 +256,7 @@ function VendorHistoryTab({
 function VendorBrandsTab({ vendorId }: { vendorId?: string }) {
   const [newBrandName, setNewBrandName] = useState('');
   const [addingBrand, setAddingBrand] = useState(false);
+  const confirm = useConfirm();
 
   const brandsQuery = trpc.vendorBrands.list.useQuery(
     { vendorId: vendorId ?? '00000000-0000-0000-0000-000000000000' },
@@ -336,9 +338,15 @@ function VendorBrandsTab({ vendorId }: { vendorId?: string }) {
             <BrandNameEditor brand={brand} onRename={(name) => renameBrand.mutate({ brandId: brand.id, name })} />
             <button
               onClick={() => {
-                if (vendorId && confirm(`Remove "${brand.name}" from this vendor?`)) {
-                  removeBrand.mutate({ brandId: brand.id, vendorId });
-                }
+                if (!vendorId) return;
+                void confirm({
+                  title: `Remove "${brand.name}" from this vendor?`,
+                  body: 'This will permanently unlink the brand from the vendor. This action cannot be undone.',
+                  tone: 'danger',
+                  primaryLabel: 'Remove brand',
+                }).then((ok) => {
+                  if (ok) removeBrand.mutate({ brandId: brand.id, vendorId });
+                });
               }}
               className="icon-button"
               aria-label={`Remove ${brand.name}`}

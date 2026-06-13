@@ -39,6 +39,7 @@ export function DeactivateRefereeRelationshipDialog({
       pending={isRunning}
       error={errorMsg}
       maxWidthClass="max-w-md"
+      tone="danger"
       description={
         <>
           Deactivate referee relationship with <strong>{entityName}</strong>? This will prevent new fees from accruing under this relationship.

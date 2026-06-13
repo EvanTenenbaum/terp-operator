@@ -3,8 +3,8 @@ import { useState } from 'react';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
+import { FormDialog, FormField } from '../components/templates/FormDialog';
 import { useCommandRunner } from '../components/useCommandRunner';
-import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import { parseTagInput } from '../../shared/tags';
 
@@ -19,13 +19,14 @@ export function ItemsView() {
   const grid = trpc.queries.grid.useQuery({ view: 'items' }, { refetchInterval: 120_000 });
   const reference = trpc.queries.reference.useQuery();
   const { runCommand, isRunning } = useCommandRunner();
-  const pushToast = useUiStore((state) => state.pushToast);
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const canManage = me.data?.role === 'manager' || me.data?.role === 'owner';
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingRow, setEditingRow] = useState<GridRow | null>(null);
+  /** Row staged for deactivation — opens the danger-tone confirmation dialog. */
+  const [deactivatingRow, setDeactivatingRow] = useState<GridRow | null>(null);
 
   // Create form state
   const [createName, setCreateName] = useState('');
@@ -33,6 +34,7 @@ export function ItemsView() {
   const [createAlias, setCreateAlias] = useState('');
   const [createTags, setCreateTags] = useState('');
   const [createDescription, setCreateDescription] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // Edit form state
   const [editName, setEditName] = useState('');
@@ -94,6 +96,7 @@ export function ItemsView() {
     setCreateAlias('');
     setCreateTags('');
     setCreateDescription('');
+    setCreateError(null);
     setShowCreate(false);
   }
 
@@ -101,11 +104,13 @@ export function ItemsView() {
     setEditingRow(null);
   }
 
-  async function handleCreate() {
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
     if (!createName.trim()) {
-      pushToast('Item name is required.', 'error');
+      setCreateError('Item name is required.');
       return;
     }
+    setCreateError(null);
     await runCommand('createItem', {
       name: createName.trim(),
       category: createCategory,
@@ -116,7 +121,8 @@ export function ItemsView() {
     resetCreate();
   }
 
-  async function handleUpdate() {
+  async function handleUpdate(e: React.FormEvent) {
+    e.preventDefault();
     if (!editingRow?.id) return;
     const current = editingRow;
     await runCommand('updateItem', {
@@ -133,10 +139,20 @@ export function ItemsView() {
     resetEdit();
   }
 
-  async function handleToggleStatus(row: GridRow) {
+  async function handleConfirmDeactivate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!deactivatingRow) return;
+    const row = deactivatingRow;
+    setDeactivatingRow(null);
     await runCommand('toggleItemStatus', {
       itemId: row.id
-    }, `${String(row.status) === 'inactive' ? 'Activate' : 'Deactivate'} item: ${String(row.name ?? '')}`);
+    }, `Deactivate item: ${String(row.name ?? '')}`);
+  }
+
+  async function handleActivate(row: GridRow) {
+    await runCommand('toggleItemStatus', {
+      itemId: row.id
+    }, `Activate item: ${String(row.name ?? '')}`);
   }
 
   return (
@@ -165,132 +181,6 @@ export function ItemsView() {
           ) : null}
         </div>
       </div>
-
-      {/* Create form panel */}
-      {showCreate ? (
-        <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-4" role="region" aria-label="Create new item">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-700">New Item / SKU</h2>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="field-inline">
-              Name *
-              <input
-                className="input compact"
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder="Item name"
-                autoFocus
-              />
-            </label>
-            <label className="field-inline">
-              Category
-              <select className="select" value={createCategory} onChange={(e) => setCreateCategory(e.target.value)}>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field-inline">
-              Alias (customer-facing)
-              <input
-                className="input compact"
-                value={createAlias}
-                onChange={(e) => setCreateAlias(e.target.value)}
-                placeholder="e.g. Sunset OG"
-              />
-            </label>
-            <label className="field-inline">
-              Tags
-              <input
-                className="input compact"
-                value={createTags}
-                onChange={(e) => setCreateTags(e.target.value)}
-                placeholder="indoor, premium"
-              />
-            </label>
-            <label className="field-inline grow">
-              Description
-              <input
-                className="input compact"
-                value={createDescription}
-                onChange={(e) => setCreateDescription(e.target.value)}
-                placeholder="Brief description"
-              />
-            </label>
-            <div className="flex gap-2">
-              <button className="primary-button" type="button" disabled={!createName.trim() || isRunning} onClick={handleCreate}>
-                Create item
-              </button>
-              <button className="secondary-button" type="button" onClick={resetCreate}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Edit form panel */}
-      {editingRow ? (
-        <div className="border-b border-zinc-200 bg-amber-50 px-4 py-4" role="region" aria-label="Edit item">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-700">
-            Edit: {String(editingRow.name ?? 'Item')}
-            <span className="ml-2 font-mono text-xs font-normal text-zinc-400">{String(editingRow.sku ?? '')}</span>
-          </h2>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="field-inline">
-              Name
-              <input
-                className="input compact"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Item name"
-              />
-            </label>
-            <label className="field-inline">
-              Category
-              <select className="select" value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field-inline">
-              Alias
-              <input
-                className="input compact"
-                value={editAlias}
-                onChange={(e) => setEditAlias(e.target.value)}
-                placeholder="Customer-facing alias"
-              />
-            </label>
-            <label className="field-inline">
-              Tags
-              <input
-                className="input compact"
-                value={editTags}
-                onChange={(e) => setEditTags(e.target.value)}
-                placeholder="indoor, premium"
-              />
-            </label>
-            <label className="field-inline grow">
-              Description
-              <input
-                className="input compact"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                placeholder="Brief description"
-              />
-            </label>
-            <div className="flex gap-2">
-              <button className="primary-button" type="button" disabled={isRunning} onClick={handleUpdate}>
-                Save changes
-              </button>
-              <button className="secondary-button" type="button" onClick={resetEdit}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <div className="flex-1">
         <OperatorGrid
@@ -321,7 +211,13 @@ export function ItemsView() {
                   <button
                     className="secondary-button compact-action"
                     disabled={!first}
-                    onClick={() => handleToggleStatus(first)}
+                    onClick={() => {
+                      if (String(first.status) === 'inactive') {
+                        void handleActivate(first);
+                      } else {
+                        setDeactivatingRow(first);
+                      }
+                    }}
                     type="button"
                     title={String(first.status) === 'inactive' ? 'Activate this item' : 'Deactivate this item'}
                   >
@@ -338,6 +234,154 @@ export function ItemsView() {
           }}
         />
       </div>
+
+      {/* Create Item dialog — UX-Q01 */}
+      {showCreate ? (
+        <FormDialog
+          title="New Item / SKU"
+          onClose={resetCreate}
+          onSubmit={handleCreate}
+          submitLabel="Create item"
+          pending={isRunning}
+          submitDisabled={!createName.trim()}
+          error={createError}
+        >
+          <FormField id="ci-name" label="Name *">
+            <input
+              id="ci-name"
+              className="input"
+              value={createName}
+              onChange={(e) => { setCreateName(e.target.value); if (createError) setCreateError(null); }}
+              placeholder="Item name"
+              autoFocus
+            />
+          </FormField>
+          <FormField id="ci-category" label="Category">
+            <select
+              id="ci-category"
+              className="select"
+              value={createCategory}
+              onChange={(e) => setCreateCategory(e.target.value)}
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField id="ci-alias" label="Alias (customer-facing)">
+            <input
+              id="ci-alias"
+              className="input"
+              value={createAlias}
+              onChange={(e) => setCreateAlias(e.target.value)}
+              placeholder="e.g. Sunset OG"
+            />
+          </FormField>
+          <FormField id="ci-tags" label="Tags">
+            <input
+              id="ci-tags"
+              className="input"
+              value={createTags}
+              onChange={(e) => setCreateTags(e.target.value)}
+              placeholder="indoor, premium"
+            />
+          </FormField>
+          <FormField id="ci-description" label="Description">
+            <input
+              id="ci-description"
+              className="input"
+              value={createDescription}
+              onChange={(e) => setCreateDescription(e.target.value)}
+              placeholder="Brief description"
+            />
+          </FormField>
+        </FormDialog>
+      ) : null}
+
+      {/* Edit Item dialog — UX-Q01 */}
+      {editingRow ? (
+        <FormDialog
+          title={`Edit: ${String(editingRow.name ?? 'Item')}`}
+          onClose={resetEdit}
+          onSubmit={handleUpdate}
+          submitLabel="Save changes"
+          pending={isRunning}
+          description={
+            editingRow.sku ? (
+              <span className="font-mono text-xs text-zinc-400">{String(editingRow.sku)}</span>
+            ) : undefined
+          }
+        >
+          <FormField id="ei-name" label="Name">
+            <input
+              id="ei-name"
+              className="input"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Item name"
+            />
+          </FormField>
+          <FormField id="ei-category" label="Category">
+            <select
+              id="ei-category"
+              className="select"
+              value={editCategory}
+              onChange={(e) => setEditCategory(e.target.value)}
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField id="ei-alias" label="Alias">
+            <input
+              id="ei-alias"
+              className="input"
+              value={editAlias}
+              onChange={(e) => setEditAlias(e.target.value)}
+              placeholder="Customer-facing alias"
+            />
+          </FormField>
+          <FormField id="ei-tags" label="Tags">
+            <input
+              id="ei-tags"
+              className="input"
+              value={editTags}
+              onChange={(e) => setEditTags(e.target.value)}
+              placeholder="indoor, premium"
+            />
+          </FormField>
+          <FormField id="ei-description" label="Description">
+            <input
+              id="ei-description"
+              className="input"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Brief description"
+            />
+          </FormField>
+        </FormDialog>
+      ) : null}
+
+      {/* Deactivate confirmation dialog — UX-Q01 (tone='danger') */}
+      {deactivatingRow ? (
+        <FormDialog
+          title="Deactivate Item"
+          onClose={() => setDeactivatingRow(null)}
+          onSubmit={handleConfirmDeactivate}
+          submitLabel="Deactivate"
+          pending={isRunning}
+          tone="danger"
+          description={
+            <>
+              Deactivate <strong>{String(deactivatingRow.name ?? 'this item')}</strong>? It will be hidden from new sales and finder results but will remain in historical records.
+            </>
+          }
+        >
+          {/* No extra fields — description + danger tone convey the consequence */}
+          <span />
+        </FormDialog>
+      ) : null}
     </div>
   );
 }

@@ -38,11 +38,27 @@ export function RefereeRelationshipsList({ refereeId }: RefereeRelationshipsList
     return <div className="p-4 text-sm text-zinc-500">Loading relationships...</div>;
   }
   if (rows.length === 0) {
-    return <div className="p-4 text-sm text-zinc-500">No relationships yet.</div>;
+    return (
+      <div className="p-4 text-sm text-zinc-500">
+        No relationships yet.
+        {/* UX-Q06(b): deactivated history — the reference query returns only
+            active relationships (WHERE rr.active). Deactivated relationships
+            are not shown here. Tracked: CAP-039. */}
+        <p className="mt-1 text-xs text-zinc-400">
+          Deactivated relationships are not shown — historical visibility tracked (CAP-039).
+        </p>
+      </div>
+    );
   }
 
   return (
     <div className="overflow-auto">
+      {/* UX-Q06(b): note that deactivated relationships are not visible here.
+          The reference query filters to active only (WHERE rr.active).
+          Historical visibility is tracked as CAP-039. */}
+      <div className="border-b border-zinc-100 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-400" data-testid="relationships-active-note">
+        Showing active relationships only. Deactivated history: tracked CAP-039.
+      </div>
       <table className="w-full text-sm">
         <thead className="bg-zinc-50 text-left text-xs font-medium uppercase text-zinc-500">
           <tr>

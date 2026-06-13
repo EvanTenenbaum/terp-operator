@@ -59,10 +59,21 @@ function makeLedgerRow(direction: LedgerDirection): LedgerDraft {
   };
 }
 
-interface Toast {
+// UX-T06: Toast action — an optional secondary CTA rendered beside the dismiss
+// button. Distinct from dismiss (which always stays). Supports UX-D01/D02.
+export interface ToastAction {
+  label: string;
+  onAction: () => void;
+}
+
+export interface Toast {
   id: string;
   message: string;
   tone: 'success' | 'error' | 'info';
+  // UX-T06: optional ordered action buttons (first = primary action, subsequent
+  // rendered inline). Kept as an array so UX-D02 can provide both "Copy details"
+  // and "Open in Recovery" without a separate shape.
+  actions?: ToastAction[];
 }
 
 export interface GridColumnPref {
@@ -95,6 +106,11 @@ interface UiState {
   gridFilters: Partial<Record<ViewKey, string>>;
   gridAdvancedFilters: Partial<Record<ViewKey, FilterGroupInput>>;
   gridColumnPrefs: Record<string, GridColumnPref[]>;
+  // UX-C04: per-user grid density preference. 'standard' = default AG Grid
+  // row/header heights; 'compact' = tighter rows for operators scanning dense
+  // data. Persisted as a benign UX preference (no PII).
+  gridDensity: 'standard' | 'compact';
+  setGridDensity: (density: 'standard' | 'compact') => void;
   routeHistory: RouteHistoryEntry[];
   toasts: Toast[];
   announcement: string;
@@ -133,6 +149,10 @@ interface UiState {
   // TER-1633: open unified palette on a specific tab
   openPalette: (tab: 'commands' | 'entities') => void;
   setCommandPaletteTab: (tab: 'commands' | 'entities') => void;
+  // UX-C01: '?' keyboard-shortcuts help overlay. NOT persisted — ephemeral
+  // session state only (a help surface should never reopen itself on reload).
+  shortcutsOverlayOpen: boolean;
+  setShortcutsOverlayOpen: (open: boolean) => void;
   toggleSideNav: () => void;
   setDrilldownMetric: (metric: string | null) => void;
   togglePanelCollapsed: (panelId: string) => void;
@@ -154,7 +174,9 @@ interface UiState {
   resetGridColumnPrefs: (tableKey: string) => void;
   pushRouteHistory: (entry: Omit<RouteHistoryEntry, 'timestamp'>) => void;
   goBackRouteHistory: () => void;
-  pushToast: (message: string, tone?: Toast['tone']) => void;
+  // UX-T06: backward-compatible signature — existing callers pass (message) or
+  // (message, tone) and compile unchanged; new callers can pass opts.actions.
+  pushToast: (message: string, tone?: Toast['tone'], opts?: { actions?: ToastAction[] }) => void;
   dismissToast: (id: string) => void;
   setDismissedShadowBanner: (dismissed: boolean) => void;
   setShowMargin: (show: boolean) => void;
@@ -171,6 +193,12 @@ interface UiState {
   clearPickQueueFilters: () => void;
   // CAP-024: Ledger drafts lifted from QuickLedgerGrid local state so they
   // survive route changes. NOT persisted (ephemeral session state).
+  // UX-A04 / Execution Decision 2 (docs/ux-audit-2026-06-12.md): durable
+  // persistence is SERVER-SIDE per user (queries.quickLedgerDrafts /
+  // saveQuickLedgerDrafts via useQuickLedgerDraftSync). ledgerDrafts must
+  // NEVER be added to the localStorage partialize below — drafts carry
+  // counterparty names, the PII class the shared-workstation rationale
+  // (PR #80/#89) keeps out of localStorage.
   ledgerDrafts: LedgerDraft[];
   setLedgerDrafts: (drafts: LedgerDraft[]) => void;
   upsertLedgerDraft: (draft: LedgerDraft) => void;
@@ -180,6 +208,32 @@ interface UiState {
   // NOT persisted — ephemeral session state only.
   isCellEditing: boolean;
   setCellEditing: (v: boolean) => void;
+
+  // UX-B01: per-group "More" disclosure — persisted as a benign UX preference
+  // (same class as lastUsedDrawerStateByView). Keyed by nav group label.
+  // Default empty = all groups collapsed (More hidden). Operators who expand
+  // a group have their preference restored on next load.
+  navGroupExpansion: Record<string, boolean>;
+  setNavGroupExpanded: (groupLabel: string, expanded: boolean) => void;
+
+  // UX-B06: one-time coachmark on first drawer open — dismissed flag is
+  // persisted as a benign preference so it never re-appears after the first
+  // interaction. Follows the dismissedShadowBanner precedent.
+  dismissedDrawerCoachmark: boolean;
+  setDismissedDrawerCoachmark: (dismissed: boolean) => void;
+
+  // UX-E07: per-lane work-queue snooze. Client-side only (no backend assignment
+  // system). Maps work-queue item id → ISO-8601 "snoozed until" timestamp.
+  // Persisted as a benign UX preference (item ids are opaque UUIDs — no PII).
+  snoozedWorkQueueItems: Record<string, string>;
+  snoozeWorkQueueItem: (itemId: string, untilIso: string) => void;
+  unsnoozeWorkQueueItem: (itemId: string) => void;
+
+  // UX-I06: per-user per-grid default saved-filter. Maps ViewKey → savedFilterId.
+  // Applied on grid mount when no session filter is active (i.e., gridFilters[view]
+  // is empty). Persisted as a benign UX preference (savedFilterIds are opaque UUIDs).
+  gridDefaultSavedFilter: Partial<Record<ViewKey, string>>;
+  setGridDefaultSavedFilter: (view: ViewKey, savedFilterId: string | null) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -194,6 +248,7 @@ export const useUiStore = create<UiState>()(
     commandPaletteOpen: false,
     commandPaletteAdvancedOpen: false,
     commandPaletteTab: 'commands' as const,
+    shortcutsOverlayOpen: false,
     sideNavCollapsed: false,
     drilldownMetric: null,
     collapsedPanels: {},
@@ -205,6 +260,7 @@ export const useUiStore = create<UiState>()(
     gridFilters: {},
     gridAdvancedFilters: {},
     gridColumnPrefs: {},
+    gridDensity: 'standard',
     routeHistory: [],
     toasts: [],
     announcement: '',
@@ -257,7 +313,13 @@ export const useUiStore = create<UiState>()(
         const entity = rows[0] ? inferDrawerEntity(view, rows[0]) : { entityType: 'queue', entityId: null };
         state.activeDrawerEntityByView[view] = entity;
         const key = drawerStorageKey(view, entity);
-        state.drawerByView[key] ??= defaultDrawerState(defaultTabForEntity(entity.entityType));
+        // UX-B03 (part 3): dual-role entities (same contact is both customer and
+        // vendor) default to the 'relationship' tab so the directional AR/AP
+        // summary is immediately visible. isDualRole is set server-side on clients
+        // and vendors grid rows when the row's contact_id is linked to both roles.
+        const isDualRoleRow = rows[0] ? Boolean((rows[0] as Record<string, unknown>).isDualRole) : false;
+        const defaultTab = isDualRoleRow ? 'relationship' : defaultTabForEntity(entity.entityType);
+        state.drawerByView[key] ??= defaultDrawerState(defaultTab);
         if (rows.length && state.drawerByView[key].state === 'peek') state.drawerByView[key].state = 'standard';
       }),
     setCommandPaletteOpen: (open) =>
@@ -282,6 +344,11 @@ export const useUiStore = create<UiState>()(
     setCommandPaletteTab: (tab) =>
       set((state) => {
         state.commandPaletteTab = tab;
+      }),
+    setShortcutsOverlayOpen: (open) =>
+      set((state) => {
+        state.shortcutsOverlayOpen = open;
+        state.announcement = open ? 'Keyboard shortcuts overlay opened.' : 'Keyboard shortcuts overlay closed.';
       }),
     toggleSideNav: () =>
       set((state) => {
@@ -397,6 +464,11 @@ export const useUiStore = create<UiState>()(
         delete state.gridColumnPrefs[tableKey];
         state.announcement = 'Column layout reset.';
       }),
+    setGridDensity: (density) =>
+      set((state) => {
+        state.gridDensity = density;
+        state.announcement = density === 'compact' ? 'Compact grid density.' : 'Standard grid density.';
+      }),
     pushRouteHistory: (entry) =>
       set((state) => {
         pushRouteEntry(state, entry);
@@ -419,10 +491,14 @@ export const useUiStore = create<UiState>()(
         state.focusMode = false;
         state.announcement = `Returned to ${entry.view}.`;
       }),
-    pushToast: (message, tone = 'info') =>
+    // UX-T06: opts.actions adds optional CTA buttons to the toast. Existing call
+    // sites pass (message) or (message, tone) and compile unchanged.
+    pushToast: (message, tone = 'info', opts) =>
       set((state) => {
         const id = crypto.randomUUID();
-        state.toasts.push({ id, message, tone });
+        const toast: Toast = { id, message, tone };
+        if (opts?.actions?.length) toast.actions = opts.actions;
+        state.toasts.push(toast);
         state.announcement = message;
       }),
     dismissToast: (id) =>
@@ -489,7 +565,46 @@ export const useUiStore = create<UiState>()(
     removeLedgerDraft: (id) =>
       set((state) => { state.ledgerDrafts = state.ledgerDrafts.filter((d) => d.id !== id); }),
     setCellEditing: (v) =>
-      set((state) => { state.isCellEditing = v; })
+      set((state) => { state.isCellEditing = v; }),
+
+    // UX-B01: nav group expansion persistence.
+    navGroupExpansion: {},
+    setNavGroupExpanded: (groupLabel, expanded) =>
+      set((state) => {
+        state.navGroupExpansion[groupLabel] = expanded;
+        state.announcement = expanded ? `${groupLabel} expanded.` : `${groupLabel} collapsed.`;
+      }),
+
+    // UX-B06: drawer coachmark dismissal.
+    dismissedDrawerCoachmark: false,
+    setDismissedDrawerCoachmark: (dismissed) =>
+      set((state) => {
+        state.dismissedDrawerCoachmark = dismissed;
+      }),
+
+    // UX-I06: per-user per-grid default saved-filter mapping (view → savedFilterId).
+    gridDefaultSavedFilter: {} as Partial<Record<ViewKey, string>>,
+    setGridDefaultSavedFilter: (view: ViewKey, savedFilterId: string | null) =>
+      set((state) => {
+        if (savedFilterId == null) {
+          delete (state.gridDefaultSavedFilter as Partial<Record<ViewKey, string>>)[view];
+        } else {
+          (state.gridDefaultSavedFilter as Partial<Record<ViewKey, string>>)[view] = savedFilterId;
+        }
+      }),
+
+    // UX-E07: per-lane work-queue snooze (client-side, no backend).
+    snoozedWorkQueueItems: {},
+    snoozeWorkQueueItem: (itemId, untilIso) =>
+      set((state) => {
+        state.snoozedWorkQueueItems[itemId] = untilIso;
+        state.announcement = 'Item snoozed.';
+      }),
+    unsnoozeWorkQueueItem: (itemId) =>
+      set((state) => {
+        delete state.snoozedWorkQueueItems[itemId];
+        state.announcement = 'Item un-snoozed.';
+      })
   })),
   {
     // Persist key intentionally retains legacy 'terp-agro-ui' name (see PR #66)
@@ -507,11 +622,22 @@ export const useUiStore = create<UiState>()(
       activeSettingsTab: state.activeSettingsTab,
       drawerByView: state.drawerByView,
       gridColumnPrefs: state.gridColumnPrefs,
+      // UX-C04: grid density preference — benign UX preference, no PII.
+      gridDensity: state.gridDensity,
       dismissedShadowBanner: state.dismissedShadowBanner,
       // #63: persist operator margin visibility — see comment on UiState.showMargin.
       showMargin: state.showMargin,
       // TER-1630: last-used open width per view — benign UX preference, no PII.
-      lastUsedDrawerStateByView: state.lastUsedDrawerStateByView
+      lastUsedDrawerStateByView: state.lastUsedDrawerStateByView,
+      // UX-B01: nav group "More" expansion state — benign UX preference, no PII.
+      navGroupExpansion: state.navGroupExpansion,
+      // UX-B06: one-time drawer coachmark dismissal — benign UX preference, no PII.
+      dismissedDrawerCoachmark: state.dismissedDrawerCoachmark,
+      // UX-E07: work-queue snooze map (opaque UUIDs → ISO timestamps, no PII).
+      snoozedWorkQueueItems: state.snoozedWorkQueueItems,
+      // UX-I06: per-user per-grid default saved-filter mapping (view → savedFilterId).
+      // Benign UX preference (no PII), applied on grid mount when no session filter is active.
+      gridDefaultSavedFilter: state.gridDefaultSavedFilter
     })
   }
   )

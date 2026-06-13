@@ -12,13 +12,14 @@ import type {
   GridApi,
   GridReadyEvent,
   ICellRendererParams,
+  ProcessDataFromClipboardParams,
   RangeSelectionChangedEvent,
   SideBarDef,
   SortChangedEvent,
   TabToNextCellParams,
   ValueGetterParams
 } from 'ag-grid-community';
-import { Columns3, Download, Filter, RotateCcw, Search, X } from 'lucide-react';
+import { AlignJustify, Columns3, Download, Filter, RotateCcw, Search, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { EmptyState } from './EmptyState';
 import { RowInspector, type RowInspectorTab } from './RowInspector';
@@ -46,6 +47,7 @@ import {
 } from './gridFilterUtils';
 import { buildCsvExportOptions } from './OperatorGrid.csvExport';
 import { formatBool, formatTs } from '../utils/format';
+import { pasteSummary, parseTsv } from '../utils/clipboardPaste';
 
 export interface ContextMenuItem {
   label: string;
@@ -134,6 +136,12 @@ export function OperatorGrid({
     x: number;
     y: number;
   } | null>(null);
+  // UX-C04: density preference — drives rowHeight/headerHeight on the grid
+  const gridDensity = useUiStore((state) => state.gridDensity);
+  const setGridDensity = useUiStore((state) => state.setGridDensity);
+  const rowHeight = gridDensity === 'compact' ? 28 : 42;
+  const headerHeight = gridDensity === 'compact' ? 28 : 42;
+  const pushToast = useUiStore((state) => state.pushToast);
   const storedGridFilter = useUiStore((state) => state.gridFilters[view] ?? '');
   const setStoredGridFilter = useUiStore((state) => state.setGridFilter);
   const storedAdvancedFilter = useUiStore((state) => state.gridAdvancedFilters[view]);
@@ -302,6 +310,30 @@ export function OperatorGrid({
     setGridColumnPrefs(resolvedTableKey, columnStateToPrefs(state));
   }, [resolvedTableKey, setGridColumnPrefs]);
 
+  // UX-C02: TSV clipboard paste — AG Grid Enterprise ClipboardModule is already
+  // registered globally (main.tsx). processDataFromClipboard receives the raw 2-D
+  // array of pasted cells and returns it for AG Grid to apply to selected range.
+  // Rows land as editable-cell updates only (no auto-post); a summary toast tells
+  // the operator how many rows were pasted. Non-editable cells are skipped by AG Grid.
+  const processDataFromClipboard = useCallback(
+    (params: ProcessDataFromClipboardParams): string[][] | null => {
+      const data = params.data;
+      if (!data?.length) return null;
+      // Count how many rows have at least one non-empty cell
+      const rowCount = data.filter((row) => row.some((cell) => cell.trim() !== '')).length;
+      if (rowCount > 0) {
+        // Use parseTsv-based summary (re-join to count via pasteSummary utility)
+        const raw = data.map((row) => row.join('\t')).join('\n');
+        const parsed = parseTsv(raw);
+        // pasteSummary needs PastedRow[], build minimal ones for count
+        const summary = pasteSummary(parsed.map(() => ({ fields: [], hasErrors: false })));
+        pushToast(summary, 'info');
+      }
+      return data;
+    },
+    [pushToast]
+  );
+
   const setColumnHidden = useCallback(
     (colId: string, hide: boolean) => {
       apiRef.current?.setColumnsVisible([colId], !hide);
@@ -425,6 +457,76 @@ export function OperatorGrid({
     return () => document.removeEventListener('keydown', handler);
   }, [contextMenu, closeContextMenu]);
 
+  // UX-C03: ⌘D fill-down — fills the focused cell's value down across the
+  // selected range for editable columns only.
+  //
+  // Disambiguation from Intake ⌘D (duplicate-row):
+  //   • Hotkeys.tsx fires at document level, guarded by activeView === 'intake'.
+  //   • This handler fires on the grid-shell div (capture phase, scoped to this
+  //     component's DOM subtree) and only when a cell IS focused
+  //     (getFocusedCell() !== null). When a cell is focused, the active element
+  //     is inside the AG Grid — so the Hotkeys handler's `editingText` guard
+  //     at Hotkeys.tsx:124 (`editingText = isEditingText(event.target)`) is
+  //     false but the handler also checks `activeView === 'intake'` at line 183
+  //     before the duplicate path, so in Intake the duplicate will still fire.
+  //     Fill-down captures in the grid shell and calls preventDefault() so the
+  //     duplicate path's document-level listener never reaches its command.
+  //   • On non-intake views there is no ⌘D command binding, so no collision.
+  const onGridKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!e.metaKey || e.key.toLowerCase() !== 'd') return;
+      const api = apiRef.current;
+      if (!api) return;
+      const focused = api.getFocusedCell();
+      if (!focused) return; // only fill-down when a cell is focused
+      e.preventDefault();
+      e.stopPropagation(); // prevent Intake duplicate from also running
+      const ranges = api.getCellRanges();
+      if (!ranges?.length) return;
+      for (const range of ranges) {
+        if (!range.startRow || !range.endRow) continue;
+        const startIdx = Math.min(range.startRow.rowIndex, range.endRow.rowIndex);
+        const endIdx = Math.max(range.startRow.rowIndex, range.endRow.rowIndex);
+        if (startIdx === endIdx) continue; // nothing to fill
+        for (const col of range.columns) {
+          const colDef = col.getColDef() as ColDef<GridRow>;
+          if (colDef.editable !== true) continue; // respect editable-columns-only rule
+          const sourceRow = api.getDisplayedRowAtIndex(startIdx);
+          if (!sourceRow?.data) continue;
+          const field = colDef.field;
+          if (!field) continue;
+          const fillValue = sourceRow.data[field as keyof GridRow];
+          for (let idx = startIdx + 1; idx <= endIdx; idx++) {
+            const targetRow = api.getDisplayedRowAtIndex(idx);
+            if (!targetRow?.data) continue;
+            const update = { ...targetRow.data, [field]: fillValue };
+            api.applyTransaction({ update: [update] });
+            // Fire the onCellCommit prop so the parent view can persist the edit
+            if (onCellCommit) {
+              onCellCommit({
+                api,
+                node: targetRow,
+                data: update,
+                colDef,
+                column: col,
+                oldValue: targetRow.data[field as keyof GridRow],
+                newValue: fillValue,
+                rowIndex: idx,
+                type: 'cellValueChanged',
+                source: 'paste',
+                context: undefined,
+                rowPinned: null,
+                value: fillValue,
+                valueFormatted: null
+              } as unknown as CellValueChangedEvent<GridRow>);
+            }
+          }
+        }
+      }
+    },
+    [onCellCommit]
+  );
+
   // Close context menu on click outside
   useEffect(() => {
     if (!contextMenu) return;
@@ -466,6 +568,7 @@ export function OperatorGrid({
               aria-label={`Filter ${title} grid`}
               className="h-full w-44 bg-transparent outline-none"
               placeholder="Filter grid (field:value)"
+              data-grid-quick-filter
               value={quickFilter}
               onChange={(event) => writeQuickFilter(event.target.value)}
             />
@@ -495,6 +598,8 @@ export function OperatorGrid({
                 }}
                 onClose={() => setColumnsMenuOpen(false)}
                 triggerRef={columnsMenuTriggerRef}
+                density={gridDensity}
+                onDensityChange={setGridDensity}
               />
             ) : null}
           </div>
@@ -584,7 +689,7 @@ export function OperatorGrid({
           resultCount={renderedRows.length}
         />
       ) : null}
-      <div ref={gridShellRef} className="ag-theme-quartz grid-shell" aria-busy={loading}>
+      <div ref={gridShellRef} className="ag-theme-quartz grid-shell" aria-busy={loading} onKeyDown={onGridKeyDown}>
         {isError ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-500 p-8">
             <p className="text-sm font-medium text-red-600">Failed to load data</p>
@@ -605,6 +710,11 @@ export function OperatorGrid({
             loading={loading}
             localeText={localeText}
             rowClassRules={rowClassRules}
+            rowHeight={rowHeight}
+            headerHeight={headerHeight}
+            processDataFromClipboard={processDataFromClipboard}
+            enableFillHandle={true}
+            fillHandleDirection="y"
             getRowId={(params) => String(params.data.id)}
             masterDetail={expansionConfig?.enabled ?? false}
             detailRowAutoHeight={true}
@@ -659,7 +769,7 @@ export function OperatorGrid({
             onCellContextMenu={onCellContextMenuHandler}
           />
         ) : (
-          <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'Create or import rows, then mark them Ready when they can be posted.'}</EmptyState>
+          <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'No rows match the current view.'}</EmptyState>
         )}
       </div>
       <SelectionSummary rows={selectedRows} view={view} onOpenHistory={(row) => setInspector({ row, tab: 'history' })} onOpenRelationship={(row) => setInspector({ row, tab: 'relationship' })} onOpenIssue={canWrite ? (row) => setInspector({ row, tab: 'issue' }) : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} cellRangeStats={cellRangeStats} />
@@ -741,7 +851,9 @@ function ColumnsMenu({
   onToggle,
   onReset,
   onClose,
-  triggerRef
+  triggerRef,
+  density,
+  onDensityChange
 }: {
   identities: Array<{ id: string; label: string }>;
   hiddenById: Set<string>;
@@ -749,6 +861,8 @@ function ColumnsMenu({
   onReset: () => void;
   onClose: () => void;
   triggerRef: RefObject<HTMLButtonElement | null>;
+  density: 'standard' | 'compact';
+  onDensityChange: (d: 'standard' | 'compact') => void;
 }) {
   // GH #326: close on click-outside; exclude trigger button so toggle-click doesn't re-open
   const menuRef = useRef<HTMLDivElement>(null);
@@ -789,6 +903,33 @@ function ColumnsMenu({
           <RotateCcw className="h-3 w-3" aria-hidden="true" />
           <span className="sr-only">Reset</span>
         </button>
+      </div>
+      {/* UX-C04: density toggle — compact vs standard row/header height */}
+      <div className="mb-2 pb-2 border-b border-zinc-100">
+        <div className="flex items-center gap-1 text-xs text-zinc-500 mb-1">
+          <AlignJustify className="h-3 w-3" aria-hidden="true" />
+          <span>Row density</span>
+        </div>
+        <div className="flex gap-1" role="radiogroup" aria-label="Row density">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={density === 'standard'}
+            className={`flex-1 rounded px-2 py-0.5 text-xs border ${density === 'standard' ? 'border-blue-400 bg-blue-50 text-blue-700 font-medium' : 'border-zinc-200 text-zinc-600'}`}
+            onClick={() => onDensityChange('standard')}
+          >
+            Standard
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={density === 'compact'}
+            className={`flex-1 rounded px-2 py-0.5 text-xs border ${density === 'compact' ? 'border-blue-400 bg-blue-50 text-blue-700 font-medium' : 'border-zinc-200 text-zinc-600'}`}
+            onClick={() => onDensityChange('compact')}
+          >
+            Compact
+          </button>
+        </div>
       </div>
       <ul className="text-sm">
         {identities.map((col) => {

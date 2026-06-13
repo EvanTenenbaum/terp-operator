@@ -1,4 +1,4 @@
-import { ChevronRight, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
+import { ChevronRight, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, PanelRight, AlignRight, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
@@ -23,6 +23,9 @@ import { PoCommandsTab } from './drawerTabs/PoCommandsTab';
 import { VendorBillDetailsTab } from './drawerTabs/VendorBillDetailsTab';
 import { VendorBillTraceTab } from './drawerTabs/VendorBillTraceTab';
 import { VendorPaymentHistoryTab } from './drawerTabs/VendorPaymentHistoryTab';
+// UX-U01 / UX-N01 — merged chronological entity timeline (support persona).
+import { EntityTimelineTab } from './drawerTabs/EntityTimelineTab';
+import type { TimelineEntityType } from './drawerTabs/EntityTimelineTab';
 
 const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   queue: [
@@ -31,6 +34,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   customer: [
     { key: 'relationship', label: 'Relationship' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'profile', label: 'Profile' },
     { key: 'balance', label: 'Balance' },
     { key: 'purchases', label: 'Purchases' },
@@ -40,6 +44,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   vendor: [
     { key: 'relationship', label: 'Relationship' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'profile', label: 'Profile' },
     { key: 'open-bills', label: 'Open bills' },
     { key: 'pos', label: 'POs' },
@@ -47,6 +52,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   lot: [
     { key: 'relationship', label: 'Relationship' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'movement', label: 'Movement' },
     { key: 'sales', label: 'Sales' },
     { key: 'photos', label: 'Photos' },
@@ -54,6 +60,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   order: [
     { key: 'relationship', label: 'Relationship' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'lines', label: 'Lines' },
     { key: 'customer', label: 'Customer' },
     { key: 'output', label: 'Output' },
@@ -61,6 +68,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   salesOrder: [
     { key: 'balance', label: 'Balance' },
+    { key: 'timeline', label: 'Timeline' },
     { key: 'history', label: 'History' },
     { key: 'notes', label: 'Notes' },
     { key: 'pricing', label: 'Pricing' },
@@ -132,6 +140,20 @@ const stateLabel: Record<DrawerStateName, string> = {
   focus: 'Focus'
 };
 
+// UX-B06: glyph map for each drawer state — displayed on the cycle button.
+const DRAWER_STATE_GLYPH: Record<DrawerStateName, string> = {
+  closed: '▷',
+  peek: '◁',
+  standard: '▤',
+  wide: '▥',
+  focus: '▦'
+};
+
+// UX-B06: ordered cycle sequence for the explicit cycle button.
+// peek is included so the button can leave a peeked state; closed is never
+// reachable from the cycle button (the close button exists for that).
+const DRAWER_CYCLE_ORDER: ReadonlyArray<DrawerStateName> = ['peek', 'standard', 'wide', 'focus'];
+
 export function ContextDrawer() {
   const activeView = useUiStore((state) => state.activeView);
   const selectedRows = useUiStore((state) => state.selectedRows);
@@ -143,10 +165,20 @@ export function ContextDrawer() {
   const setDrawerTab = useUiStore((state) => state.setDrawerTab);
   const toggleDrawer = useUiStore((state) => state.toggleDrawer);
   const cycleDrawer = useUiStore((state) => state.cycleDrawer);
+  // UX-B06: coachmark dismissal state from persisted store.
+  const dismissedDrawerCoachmark = useUiStore((state) => state.dismissedDrawerCoachmark);
+  const setDismissedDrawerCoachmark = useUiStore((state) => state.setDismissedDrawerCoachmark);
   const row = selectedRows[activeView]?.[0];
   const tabs = tabsFor(activeEntity.entityType);
   const activeTab = tabs.some((tab) => tab.key === drawer.activeTab) ? drawer.activeTab : defaultTabForEntity(activeEntity.entityType);
   const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label ?? 'Context';
+
+  // UX-B06: step the cycle button through the ordered states.
+  function handleCycleState() {
+    const currentIndex = DRAWER_CYCLE_ORDER.indexOf(drawer.state as DrawerStateName);
+    const nextState = DRAWER_CYCLE_ORDER[(currentIndex + 1) % DRAWER_CYCLE_ORDER.length];
+    setDrawerState(activeView, nextState);
+  }
 
   // TER-1601: Sync drawer open state + entity to URL query params for navigation persistence.
   useDrawerUrlSync(activeView);
@@ -189,6 +221,20 @@ export function ContextDrawer() {
             {entitySubline(activeEntity.entityType, row)}
           </div>
         </div>
+        {/* UX-B06: explicit state-cycle button — shows current state glyph,
+            cycles peek → standard → wide → focus → peek on each click.
+            aria-label names both the current state and the action so screen
+            readers understand what will happen on activation. */}
+        <button
+          type="button"
+          data-testid="drawer-cycle-btn"
+          className="icon-button font-mono text-xs"
+          onClick={handleCycleState}
+          title={`Drawer: ${stateLabel[drawer.state as DrawerStateName] ?? drawer.state} — click to cycle (⇧] also cycles)`}
+          aria-label={`Context drawer is ${stateLabel[drawer.state as DrawerStateName] ?? drawer.state}. Click to cycle width.`}
+        >
+          <span aria-hidden="true">{DRAWER_STATE_GLYPH[drawer.state as DrawerStateName] ?? '▤'}</span>
+        </button>
         <button
           type="button"
           className="icon-button"
@@ -199,6 +245,29 @@ export function ContextDrawer() {
           <PanelRightClose className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
+      {/* UX-B06: one-time coachmark shown on first drawer open. Dismissed by
+          clicking "Got it" or any drawer interaction. The flag is persisted so
+          it never re-appears after the first session. */}
+      {!dismissedDrawerCoachmark ? (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="drawer-coachmark"
+          className="flex items-start gap-2 border-b border-line bg-zinc-50 px-3 py-2 text-xs text-zinc-600"
+        >
+          <span className="flex-1">
+            Tip: click <kbd>]</kbd> or the glyph button to resize this panel (peek / standard / wide / focus).
+          </span>
+          <button
+            type="button"
+            className="shrink-0 font-medium text-accent underline"
+            onClick={() => setDismissedDrawerCoachmark(true)}
+            aria-label="Dismiss drawer tip"
+          >
+            Got it
+          </button>
+        </div>
+      ) : null}
       <div className="drawer-tabs" role="tablist" aria-label="Context tabs">
         {tabs.map((tab, index) => (
           <button
@@ -342,6 +411,23 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
         customerId={customerId}
       />
     );
+  }
+
+  // UX-U01 / UX-N01 — merged chronological timeline tab. Present in the tab
+  // maps for customer / vendor / lot / order / salesOrder; both order entity
+  // types map onto the server's 'order' timeline.
+  if (activeTab === 'timeline') {
+    const timelineType: TimelineEntityType =
+      entityType === 'customer' ? 'customer'
+      : entityType === 'vendor' ? 'vendor'
+      : isLotEntity ? 'lot'
+      : 'order';
+    const timelineId =
+      timelineType === 'customer' ? (customerId ?? null)
+      : timelineType === 'vendor' ? (vendorId ?? null)
+      : timelineType === 'lot' ? (lotBatchId || null)
+      : (isSalesOrderEntity ? salesOrderId : (entityId ?? (row?.id ? String(row.id) : null)));
+    return <EntityTimelineTab entityType={timelineType} entityId={timelineId || null} row={row} />;
   }
 
   // CMD-VENDOR / TER-1517 — vendor bill tabs (Phase 3 PR B)

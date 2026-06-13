@@ -108,3 +108,15 @@ export function filterSalesOrdersByCustomer(
   if (!activeCustomerId) return rows;
   return rows.filter((row) => String(row.customerId ?? '') === activeCustomerId);
 }
+
+// UX-F11 (visual-convergence subset) — the Smart Suggestions grid renders its
+// "reason" text as finder-style "why" chips so suggestions read as
+// pre-filtered finder rows (same chip vocabulary as the finder pane's
+// "Why shown" column) instead of a separate mental model. Splits a server
+// reason string into individual chip labels.
+export function whyShownChips(value: unknown): string[] {
+  return String(value ?? '')
+    .split(/[;·]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}

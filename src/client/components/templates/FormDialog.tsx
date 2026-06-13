@@ -33,6 +33,13 @@ export interface FormDialogProps {
   description?: ReactNode;
   /** Tailwind max-width class. Default max-w-lg. */
   maxWidthClass?: string;
+  /**
+   * UX-Q03: submit button variant for destructive actions.
+   * 'danger' → red (irreversible destructive, e.g. deactivate/void).
+   * 'warning' → amber (cautionary, e.g. force-override).
+   * Omit for standard primary (green).
+   */
+  tone?: 'danger' | 'warning';
   children: ReactNode;
 }
 
@@ -48,6 +55,7 @@ export function FormDialog({
   error,
   description,
   maxWidthClass = 'max-w-lg',
+  tone,
   children
 }: FormDialogProps) {
   const autoId = useId();
@@ -88,7 +96,11 @@ export function FormDialog({
             >
               Cancel
             </button>
-            <button type="submit" disabled={pending || submitDisabled} className="btn-primary">
+            <button
+              type="submit"
+              disabled={pending || submitDisabled}
+              className={tone === 'danger' ? 'btn-danger' : tone === 'warning' ? 'btn-warning' : 'btn-primary'}
+            >
               {pending ? pendingLabel ?? submitLabel : submitLabel}
             </button>
           </div>

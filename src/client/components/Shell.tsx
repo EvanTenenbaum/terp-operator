@@ -8,6 +8,7 @@ import {
   Boxes,
   Camera,
   ChevronDown,
+  ChevronRight,
   ClipboardList,
   Gauge,
   Inbox,
@@ -34,15 +35,35 @@ import clsx from 'clsx';
 import { trpc } from '../api/trpc';
 import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
 import { useUiStore } from '../store/uiStore';
+import { navShortcutForView, requireShortcut } from '../shortcuts/registry';
 import type { SessionUser, ViewKey } from '../../shared/types';
 
-type NavItem = { view: ViewKey; label: string; hotkey?: string; icon: typeof Gauge };
+type NavItem = { view: ViewKey; label: string; icon: typeof Gauge };
+
+// UX-T07/UX-B02: nav hotkey badges are no longer hardcoded per item — they are
+// looked up from the shortcuts registry (navShortcutForView), so the badge and
+// the actual Hotkeys binding can never disagree. ⌘1–⌘6 assignments are kept
+// as-is this run; per-loop hotkey maps remain tracked under UX-B02.
+
+// UX-B01: low-frequency lanes that are collapsed into a per-group "More"
+// disclosure. These never include sales/warehouse/intake loop lanes. Keyboard
+// shortcuts (⌘1–⌘6 + aria-keyshortcuts) continue to work for any lane that
+// has a registry binding even when the group is visually collapsed — navigation
+// still functions, only the button is visually hidden behind the disclosure.
+const LOW_FREQUENCY_VIEWS = new Set<string>([
+  'purchaseReceipts',
+  'photography',
+  'items',
+  'credit-review',
+  'disputes',
+  'referees'
+]);
 
 const navGroups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: 'Decide',
     items: [
-      { view: 'dashboard', label: 'Dashboard', hotkey: '⌘1', icon: Gauge },
+      { view: 'dashboard', label: 'Dashboard', icon: Gauge },
       { view: 'reports', label: 'Reports', icon: BarChart3 }
     ]
   },
@@ -51,8 +72,8 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { view: 'purchaseOrders', label: 'Purchase Orders', icon: PackagePlus },
       { view: 'purchaseReceipts', label: 'Receipts', icon: ReceiptText },
-      { view: 'intake', label: 'Intake', hotkey: '⌘2', icon: ClipboardList },
-      { view: 'inventory', label: 'Inventory', hotkey: '⌘5', icon: Boxes },
+      { view: 'intake', label: 'Intake', icon: ClipboardList },
+      { view: 'inventory', label: 'Inventory', icon: Boxes },
       { view: 'photography', label: 'Photography', icon: Camera },
       { view: 'items', label: 'Items / SKUs', icon: Tags }
     ]
@@ -60,19 +81,19 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: 'Sell',
     items: [
-      { view: 'sales', label: 'Sales', hotkey: '⌘3', icon: ShoppingCart },
+      { view: 'sales', label: 'Sales', icon: ShoppingCart },
       { view: 'matchmaking', label: 'Matchmaking', icon: Search },
       { view: 'orders', label: 'Orders', icon: Inbox },
       { view: 'fulfillment', label: 'Fulfillment', icon: PackageCheck },
       { view: 'pick', label: 'Pick Queue', icon: ListChecks },  // CAP-030 / TER-1563
-      { view: 'clients', label: 'Client Balances', hotkey: '⌘6', icon: ReceiptText },
+      { view: 'clients', label: 'Client Balances', icon: ReceiptText },
       { view: 'credit-review', label: 'Credit Review', icon: Scale }
     ]
   },
   {
     label: 'Money',
     items: [
-      { view: 'payments', label: 'Payments', hotkey: '⌘4', icon: BadgeDollarSign },
+      { view: 'payments', label: 'Payments', icon: BadgeDollarSign },
       { view: 'vendors', label: 'Vendor Payouts', icon: Landmark },
       { view: 'disputes', label: 'Disputes', icon: AlertTriangle },
       { view: 'referees', label: 'Referees', icon: Users },
@@ -96,7 +117,12 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
 const keelChips: Array<{ label: string; view: ViewKey; launch: 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut'; icon: typeof Gauge; title: string }> = [
   { label: 'New Sale', view: 'sales', launch: 'sale', icon: ShoppingCart, title: 'Start a new sale' },
   { label: 'New PO', view: 'purchaseOrders', launch: 'purchaseOrder', icon: ClipboardList, title: 'Start a new purchase order' },
-  { label: 'Receive', view: 'intake', launch: 'receiving', icon: PackagePlus, title: 'Receive product into intake' },
+  // UX-A09 (2026-06-12): PO-first intake is official (TER-1658). Renamed to
+  // "Receive against PO" and re-pointed to purchaseOrders view so the operator
+  // lands on the PO list to select an approved PO for receiving. The old
+  // 'intake'/'receiving' path is rejected by the backend (importBatchesCsv /
+  // createBatch without purchaseOrderLineId no longer accepted).
+  { label: 'Receive against PO', view: 'purchaseOrders', launch: 'purchaseOrder', icon: PackagePlus, title: 'Receive product — select an approved PO to draft intake rows' },
   { label: 'Money in', view: 'payments', launch: 'moneyIn', icon: ArrowDown, title: 'Open money in' },
   { label: 'Money out', view: 'vendors', launch: 'moneyOut', icon: ArrowUp, title: 'Open money out' }
 ];
@@ -106,6 +132,9 @@ export function SideNav({ user }: { user: SessionUser }) {
   const activeView = useUiStore((state) => state.activeView);
   const sideNavCollapsed = useUiStore((state) => state.sideNavCollapsed);
   const toggleSideNav = useUiStore((state) => state.toggleSideNav);
+  // UX-B01: per-group "More" expansion state from persisted store.
+  const navGroupExpansion = useUiStore((state) => state.navGroupExpansion);
+  const setNavGroupExpanded = useUiStore((state) => state.setNavGroupExpanded);
 
   // EXT-REVIEW 2026-06 finding #8 (responsive): on narrow viewports the
   // expanded 240px rail consumed a third of the screen and forced grids into
@@ -147,43 +176,102 @@ export function SideNav({ user }: { user: SessionUser }) {
         {navGroups.map((group) => {
           const visibleItems = group.items.filter((item) => viewVisibleForUser(item.view, user));
           if (!visibleItems.length) return null;
+
+          // UX-B01: split visible items into primary (always shown) and secondary
+          // (collapsed behind "More"). An item is secondary only when it is
+          // low-frequency AND NOT the currently active view AND NOT the current
+          // view's active item. Items with ⌘N shortcuts always stay primary so
+          // the badge is discoverable.
+          const primaryItems = visibleItems.filter(
+            (item) =>
+              !LOW_FREQUENCY_VIEWS.has(item.view) ||
+              activeView === item.view ||
+              Boolean(navShortcutForView(item.view))
+          );
+          const secondaryItems = visibleItems.filter(
+            (item) =>
+              LOW_FREQUENCY_VIEWS.has(item.view) &&
+              activeView !== item.view &&
+              !navShortcutForView(item.view)
+          );
+          const hasMore = secondaryItems.length > 0;
+          const isExpanded = Boolean(navGroupExpansion[group.label]);
+
+          function renderNavItem(item: NavItem) {
+            const Icon = item.icon;
+            const showBadge = item.view === 'credit-review' && badgeTotal > 0 && !sideNavCollapsed;
+            // UX-T07: badge content comes from the shortcuts registry, not
+            // a per-item literal — single source of truth with Hotkeys.tsx.
+            const navShortcut = navShortcutForView(item.view);
+            // #34 FE-L4 — defence-in-depth: only treat the lane as bound
+            // when it is actually enterable for this operator.
+            const hotkeyBound = Boolean(navShortcut && viewVisibleForUser(item.view, user));
+            // The visual chip hides when the rail is collapsed, but the
+            // aria-keyshortcuts contract (UX-S02/B02) stays on the control
+            // whenever the binding is live — collapsing the rail does not
+            // unbind ⌘1–⌘6.
+            const showHotkey = hotkeyBound && !sideNavCollapsed;
+            return (
+              <button
+                type="button"
+                key={item.view}
+                data-testid={`sidenav-item-${item.view}`}
+                aria-label={item.label}
+                aria-current={activeView === item.view ? 'page' : undefined}
+                aria-keyshortcuts={hotkeyBound && navShortcut ? navShortcut.ariaKeyshortcuts : undefined}
+                onClick={() => navigate(`/${item.view}`)}
+                className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>{item.label}</span>
+                {showBadge ? (
+                  <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+                    {badgeTotal > 99 ? '99+' : badgeTotal}
+                  </span>
+                ) : null}
+                {showHotkey && navShortcut ? <kbd>{navShortcut.combo}</kbd> : null}
+              </button>
+            );
+          }
+
           return (
             <div key={group.label} className="nav-group">
               <div className={clsx('nav-group-label', sideNavCollapsed && 'sr-only')}>{group.label}</div>
-              {visibleItems.map((item) => {
-                const Icon = item.icon;
-                const showBadge = item.view === 'credit-review' && badgeTotal > 0 && !sideNavCollapsed;
-                // #34 FE-L4 — defence-in-depth: only render the Cmd+N hotkey
-                // chip when the lane is actually enterable for this operator.
-                // visibleItems already filters by viewVisibleForUser, but
-                // gating the chip directly here means a future refactor that
-                // loosens visibleItems can't silently leak a chip for a lane
-                // that fires the "lane not part of this operator workspace"
-                // toast when hit.
-                const showHotkey = Boolean(
-                  item.hotkey && !sideNavCollapsed && viewVisibleForUser(item.view, user)
-                );
-                return (
+              {primaryItems.map(renderNavItem)}
+              {hasMore && (
+                <>
+                  {/* UX-B01: "More" disclosure button. Keyboard accessible via
+                      button role; aria-expanded communicates current state to
+                      assistive tech. When collapsed, secondary items remain in
+                      the DOM as sr-only so ⌘1-6 navigation still fires. */}
                   <button
                     type="button"
-                    key={item.view}
-                    data-testid={`sidenav-item-${item.view}`}
-                    aria-label={item.label}
-                    aria-current={activeView === item.view ? 'page' : undefined}
-                    onClick={() => navigate(`/${item.view}`)}
-                    className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
+                    data-testid={`sidenav-more-${group.label}`}
+                    className="nav-button text-zinc-400 hover:text-ink"
+                    aria-expanded={isExpanded}
+                    aria-controls={`sidenav-more-panel-${group.label}`}
+                    onClick={() => setNavGroupExpanded(group.label, !isExpanded)}
                   >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                    <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>{item.label}</span>
-                    {showBadge ? (
-                      <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
-                        {badgeTotal > 99 ? '99+' : badgeTotal}
-                      </span>
-                    ) : null}
-                    {showHotkey ? <kbd>{item.hotkey}</kbd> : null}
+                    {isExpanded
+                      ? <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                      : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+                    <span className={clsx('min-w-0 flex-1 truncate text-left', sideNavCollapsed && 'sr-only')}>
+                      {isExpanded ? 'Less' : 'More'}
+                    </span>
                   </button>
-                );
-              })}
+                  {/* Secondary items: visually shown when expanded; rendered
+                      sr-only when collapsed so keyboard shortcuts (⌘N) still
+                      navigate even when the group is visually collapsed. */}
+                  <div
+                    id={`sidenav-more-panel-${group.label}`}
+                    role="group"
+                    aria-label={`More ${group.label} items`}
+                    className={clsx(!isExpanded && !sideNavCollapsed && 'sr-only')}
+                  >
+                    {secondaryItems.map(renderNavItem)}
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
@@ -240,12 +328,21 @@ export function Keel({ user }: { user: SessionUser }) {
     return () => document.removeEventListener('mousedown', closeOnOutside);
   }, [actionsOpen]);
 
+  // UX-S02: the keel search button is the visible control for the ⌘K binding —
+  // surface that on the control itself, sourced from the shortcuts registry.
+  const paletteShortcut = requireShortcut('palette.commands');
+
   return (
     <header className="keel" aria-label="Global workspace keel">
-      <button type="button" className="command-search keel-search" onClick={() => setCommandPaletteOpen(true)}>
+      <button
+        type="button"
+        className="command-search keel-search"
+        aria-keyshortcuts={paletteShortcut.ariaKeyshortcuts}
+        onClick={() => setCommandPaletteOpen(true)}
+      >
         <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
         <span>Search</span>
-        <kbd className="ml-auto">⌘K</kbd>
+        <kbd className="ml-auto">{paletteShortcut.combo}</kbd>
       </button>
       <div className="keel-chip-row" aria-label="Quick actions and tools">
         {visibleChips.length ? (
@@ -269,7 +366,7 @@ export function Keel({ user }: { user: SessionUser }) {
                   const Icon = chip.icon;
                   return (
                     <button
-                      key={chip.launch}
+                      key={chip.label}
                       type="button"
                       role="menuitem"
                       className={clsx('quick-action-item', activeView === chip.view && 'quick-action-item-active')}

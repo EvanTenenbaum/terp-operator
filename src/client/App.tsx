@@ -14,6 +14,7 @@ import { ReportsRouteShell } from './components/ReportsRouteShell';
 import { Keel, SideNav } from './components/Shell';
 import { ToastCenter } from './components/ToastCenter';
 import { useUiStore } from './store/uiStore';
+import { CONNECTOR_SURFACES_ENABLED } from './featureFlags';
 import { SocketProvider } from './context/SocketContext';
 import { DashboardView } from './views/DashboardView';
 import { IntakeView } from './views/IntakeView';
@@ -44,6 +45,10 @@ import { PickView } from './views/PickView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 import { ContactsView } from './views/ContactsView';
 import { ContactProfileView } from './views/ContactProfileView';
+// BE-014 / TER-1591 DEFERRED: MergeCandidatesView is imported but its route
+// is temporarily redirected to /contacts (see route table below).  Keep the
+// import so the component is wired and ready when BE-014 ships.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { MergeCandidatesView } from './views/MergeCandidatesView';
 import { MobileShell } from './components/mobile/MobileShell';
 import { MobileDashboardView } from './views/mobile/MobileDashboardView';
@@ -52,10 +57,28 @@ import { MobileCatalogView } from './views/mobile/MobileCatalogView';
 import { MobilePaymentsView } from './views/mobile/MobilePaymentsView';
 import { MobileContactsView } from './views/mobile/MobileContactsView';
 import { MobileContactProfileView } from './views/mobile/MobileContactProfileView';
+// UX-L01/R01: PickView mounts inside the mobile shell at /mobile/pick
+// UX-R02: minimal /mobile/intake — verify + flag only
+import { MobileIntakeView } from './views/mobile/MobileIntakeView';
 
 // Phase 0b — CAP-007 / CAP-008 canvas grammar feature flag.
 // Default: enabled. Set VITE_CANVAS_GRAMMAR_ENABLED=false to revert to pre-canvas shell.
 const CANVAS_GRAMMAR_ENABLED = import.meta.env.VITE_CANVAS_GRAMMAR_ENABLED !== 'false';
+
+// TER-1664 / UX-A12 (Execution Decision 4): connector/processor surfaces are
+// MVP-out. While CONNECTOR_SURFACES_ENABLED is false, direct visits to
+// /connectors and /processors land on Settings → Requests — the canonical
+// home for connector-request review. ConnectorsView / ProcessorsView stay
+// imported and route-ready so flipping the flag restores both lanes.
+function SettingsRequestsRedirect() {
+  const navigate = useNavigate();
+  const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
+  useEffect(() => {
+    setActiveSettingsTab('requests');
+    navigate('/settings', { replace: true });
+  }, [navigate, setActiveSettingsTab]);
+  return null;
+}
 
 // Sync URL with activeView state.
 // Nested routes intentionally use the first path segment as activeView
@@ -78,15 +101,33 @@ function AppContent() {
   const focusMode = useUiStore((state) => state.focusMode);
   const navigate = useNavigate();
 
-  // Auto-redirect mobile viewports to the mobile shell
-  // Skipped if user has explicitly chosen desktop (localStorage flag)
+  // UX-R04: Auto-redirect mobile viewports to the mobile shell.
+  // Maps desktop routes to mobile equivalents before falling back to /mobile/dashboard.
+  // Skipped if user has explicitly chosen desktop (localStorage flag).
   useEffect(() => {
     if (
       typeof window !== 'undefined' &&
       window.innerWidth < 768 &&
       !localStorage.getItem('terp-prefer-desktop')
     ) {
-      navigate('/mobile/dashboard');
+      // UX-R04: map desktop → mobile equivalents where they exist
+      const DESKTOP_TO_MOBILE: Record<string, string> = {
+        payments: '/mobile/payments',
+        inventory: '/mobile/inventory',
+        pick: '/mobile/pick',
+        intake: '/mobile/intake',
+        catalog: '/mobile/catalog',
+      };
+      const currentPath = window.location.pathname;
+      const firstSegment = currentPath.slice(1).split('/')[0] ?? '';
+      // contacts/:id → /mobile/contacts/:id
+      if (firstSegment === 'contacts') {
+        const rest = currentPath.slice('/contacts'.length);
+        navigate('/mobile/contacts' + rest, { replace: true });
+        return;
+      }
+      const mobileTarget = DESKTOP_TO_MOBILE[firstSegment];
+      navigate(mobileTarget ?? '/mobile/dashboard', { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -168,6 +209,10 @@ export function App() {
             <Route path="payments"  element={<MobilePaymentsView />} />
             <Route path="contacts"  element={<MobileContactsView />} />
             <Route path="contacts/:id" element={<MobileContactProfileView />} />
+            {/* UX-L01/R01: pick flow mounted in mobile shell — warehouse operator tab */}
+            <Route path="pick"      element={<PickView />} />
+            {/* UX-R02: minimal intake verify + flag only */}
+            <Route path="intake"    element={<MobileIntakeView />} />
             <Route index element={<Navigate to="dashboard" replace />} />
           </Route>
           {/* Desktop layout route — AppContent wraps all desktop views via Outlet */}
@@ -187,11 +232,13 @@ export function App() {
             <Route path="clients" element={<ClientLedgerView />} />
             <Route path="vendors" element={<VendorPayablesView />} />
             <Route path="fulfillment" element={<FulfillmentView />} />
-            <Route path="connectors" element={<ConnectorsView />} />
+            {/* TER-1664 / UX-A12: flagged-off connector surface → Settings → Requests */}
+            <Route path="connectors" element={CONNECTOR_SURFACES_ENABLED ? <ConnectorsView /> : <SettingsRequestsRedirect />} />
             <Route path="recovery" element={<RecoveryView />} />
             <Route path="closeout" element={<CloseoutView />} />
             <Route path="referees" element={<RefereesView />} />
-            <Route path="processors" element={<ProcessorsView />} />
+            {/* TER-1664 / UX-A12: flagged-off processor surface → Settings → Requests */}
+            <Route path="processors" element={CONNECTOR_SURFACES_ENABLED ? <ProcessorsView /> : <SettingsRequestsRedirect />} />
             <Route path="items" element={<ItemsView />} />
             <Route path="disputes" element={<InvoiceDisputesView />} />
             <Route path="credit-review" element={<CreditReviewView />} />
@@ -199,7 +246,16 @@ export function App() {
             <Route path="photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
             <Route path="pick" element={<PickView />} />
             <Route path="contacts" element={<ContactsView />} />
-            <Route path="contacts/merge-candidates" element={<MergeCandidatesView />} />
+            {/*
+              BE-014 / TER-1591 DEFERRED: The contact deduplication detection
+              job that populates contact_merge_candidates has not shipped.
+              Redirect direct URL visits back to /contacts so the surface
+              is not reachable while the signal can never fire.  When BE-014
+              lands, replace this Navigate with the real MergeCandidatesView
+              route (component is preserved and ready — see MergeCandidatesView.tsx).
+              See UX-A06 / Execution Decision 5.
+            */}
+            <Route path="contacts/merge-candidates" element={<Navigate to="/contacts" replace />} />
             <Route path="contacts/:id" element={<ContactProfileView />} />
             <Route path="settings" element={<SettingsView />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

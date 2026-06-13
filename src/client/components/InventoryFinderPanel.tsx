@@ -56,6 +56,17 @@ export interface InventoryFinderBatch extends GridRow {
    * availability before committing the line.
    */
   draftReservedQty?: string | number | null;
+  /**
+   * UX-I05: intake/receive qty from the original PO receiving event.
+   * DEVIATION: not yet returned by the `availableBatches` reference query
+   * (queries.ts `availableBatches` SELECT does not include `b.intake_qty`).
+   * The field is typed optional here so the UI renders gracefully with a
+   * dash fallback when absent. A queries.ts owner must add
+   *   `b.intake_qty as "intakeQty"`
+   * to the availableBatches SELECT (ADDITIVE; no schema change required —
+   * `intake_qty` already exists on the `batches` table per schema.ts:267).
+   */
+  intakeQty?: string | number | null;
 }
 
 interface InventoryFinderPanelProps {
@@ -70,6 +81,14 @@ interface InventoryFinderPanelProps {
   focusKey?: string;
   addedBatchIds?: Set<string>;
   initialSearch?: string;
+  /**
+   * UX-F07 — suggested filter chips seeded from the customer's purchase
+   * history ("Bought Flower ×4 this month"). Clicking a chip places its
+   * search term in the finder search box, pre-filtering results. Computed by
+   * the caller from the existing customerPurchaseHistory query data (see
+   * InventoryFinderPanel.historyChips.ts) — the finder adds no new fetches.
+   */
+  historyChips?: ReadonlyArray<{ label: string; search: string }>;
   onAddBatch: (batch: InventoryFinderBatch, qty: number) => Promise<void>;
 }
 
@@ -161,6 +180,7 @@ export function InventoryFinderPanel({
   focusKey = '',
   addedBatchIds = new Set(),
   initialSearch = '',
+  historyChips = [],
   onAddBatch,
 }: InventoryFinderPanelProps) {
   const reference = trpc.queries.reference.useQuery();
@@ -199,6 +219,9 @@ export function InventoryFinderPanel({
 
   const lastInitialSearch = useRef('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // UX-C06: ref on the results table so we can advance focus to the next row
+  // after Enter-add without a document-wide querySelector.
+  const resultsTableRef = useRef<HTMLTableElement>(null);
 
   const rows = useMemo(() => ((reference.data?.availableBatches ?? []) as InventoryFinderBatch[]).map((row) => ({
     ...row,
@@ -363,6 +386,36 @@ export function InventoryFinderPanel({
     await onAddBatch(batch, Math.min(requested, available || requested));
     // Reset to smart default so repeat-add remains UOM-aware
     setQuantities((current) => ({ ...current, [batch.id]: defaultQtyFor(batch, lastOrderedQtyMap) }));
+  }
+
+  // UX-C06: after Enter-add, advance keyboard focus to the next result row's
+  // qty input. The criteria for "next" is the first row after the current one
+  // in the filtered list that is (a) not already added, (b) has available stock,
+  // and (c) has a selectable order. We use a data attribute to target the inputs
+  // without a global querySelector.
+  function advanceFocusAfterAdd(currentRowId: string) {
+    const table = resultsTableRef.current;
+    if (!table) return;
+    const inputs = Array.from(
+      table.querySelectorAll<HTMLInputElement>('[data-qty-input]')
+    );
+    const currentIdx = inputs.findIndex((el) => el.dataset.qtyInput === currentRowId);
+    // Find next enabled input after the current row
+    for (let i = currentIdx + 1; i < inputs.length; i++) {
+      if (!inputs[i].disabled) {
+        inputs[i].focus();
+        inputs[i].select();
+        return;
+      }
+    }
+    // Wrap around to first enabled input before current
+    for (let i = 0; i < currentIdx; i++) {
+      if (!inputs[i].disabled) {
+        inputs[i].focus();
+        inputs[i].select();
+        return;
+      }
+    }
   }
 
   async function saveCurrentFilter() {
@@ -689,6 +742,26 @@ export function InventoryFinderPanel({
           </button>
         </div>
 
+        {/* UX-F07 — purchase-history suggested chips. Reason is inline in the
+            label; clicking seeds the search box (toggles off when active). */}
+        {historyChips.length ? (
+          <div className="presets-strip" aria-label="Suggested from purchase history" data-testid="finder-history-chips">
+            <span className="presets-label">From history</span>
+            {historyChips.map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                className={search === chip.search ? 'finder-chip success' : 'finder-chip'}
+                aria-pressed={search === chip.search}
+                title="Suggested from this customer's purchase history — click to pre-filter results"
+                onClick={() => setSearch(search === chip.search ? '' : chip.search)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {/* Presets strip — DB-driven saved views */}
         <div className="presets-strip" aria-label="Saved inventory views">
           <span className="presets-label">Views</span>
@@ -792,6 +865,7 @@ export function InventoryFinderPanel({
                 className="secondary-button compact-action"
                 type="button"
                 disabled={!compared.some((row) => customerShareReady(row.mediaStatus))}
+                title={!compared.some((row) => customerShareReady(row.mediaStatus)) ? 'None of the selected rows are ready to share — media must be published first' : undefined}
                 onClick={() => copyFinderOffer(compared)}
               >
                 Copy {compared.length} rows as offer
@@ -802,7 +876,7 @@ export function InventoryFinderPanel({
 
         {/* Results table — kept exactly from original */}
         <div className="finder-table-wrap">
-          <table className="finder-table">
+          <table className="finder-table" ref={resultsTableRef}>
             <caption className="sr-only">Filtered inventory batches</caption>
             <thead>
               <tr>
@@ -835,6 +909,8 @@ export function InventoryFinderPanel({
                             value={quantities[row.id] ?? defaultQtyFor(row, lastOrderedQtyMap)}
                             inputMode="decimal"
                             disabled={!selectedOrderId || added || available <= 0}
+                            title={!selectedOrderId ? 'Select an order first' : added ? 'Already in order' : available <= 0 ? 'No available stock' : undefined}
+                            data-qty-input={row.id}
                             onChange={(event) =>
                               setQuantities((current) => ({
                                 ...current,
@@ -842,7 +918,12 @@ export function InventoryFinderPanel({
                               }))
                             }
                             onKeyDown={(event) => {
-                              if (event.key === 'Enter') void add(row);
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                // UX-C06: add the row then advance focus to the next
+                                // result row's qty input for keyboard-only workflow.
+                                void add(row).then(() => advanceFocusAfterAdd(row.id));
+                              }
                             }}
                           />
                           {hint && (
@@ -855,7 +936,7 @@ export function InventoryFinderPanel({
                             type="button"
                             disabled={!selectedOrderId || added || available <= 0}
                             onClick={() => void add(row)}
-                            title={selectedOrderId ? 'Add to selected order' : 'Select an order first'}
+                            title={!selectedOrderId ? 'Select an order first' : added ? 'Already in order' : available <= 0 ? 'No available stock' : 'Add to selected order'}
                           >
                             <PackagePlus className="h-4 w-4" aria-hidden="true" />
                             Add
@@ -875,8 +956,18 @@ export function InventoryFinderPanel({
                         {added ? <span className="finder-chip success">Already in order</span> : null}
                       </td>
                       <td>
-                        <div>{row.sourceCode ?? '-'}</div>
-                        <div className="text-[11px] text-zinc-500">{dateish(row.intakeDate)}</div>
+                        {/* UX-I05: compact identity line — code/date · source · avail/intake · marker.
+                            intakeQty is typed optional (server query deviation — see InventoryFinderBatch
+                            interface comment). Falls back to '—' when absent. */}
+                        <div className="font-medium">{row.sourceCode ?? '-'}</div>
+                        <div className="text-[11px] text-zinc-500 leading-tight">
+                          {dateish(row.intakeDate)}
+                          {row.intakeQty != null ? (
+                            <span title="Intake qty from receiving">
+                              {' · '}{moneyish(row.intakeQty)}{row.uom ? ` ${row.uom}` : ''} in
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td>
                         {row.itemAlias ? (
@@ -1032,7 +1123,10 @@ function moneyish(value: unknown) {
     : '0';
 }
 
-function buildFinderHaystack(row: InventoryFinderBatch, tags: string[]) {
+// UX-F03 — exported so the SalesView line-cell typeahead reuses the EXACT
+// search semantics of the finder pane (same haystack, same shorthand/price
+// parsing). The finder pane's own filtering path is unchanged.
+export function buildFinderHaystack(row: InventoryFinderBatch, tags: string[]) {
   return [
     row.batchCode,
     row.sourceCode,
@@ -1056,7 +1150,8 @@ function buildFinderHaystack(row: InventoryFinderBatch, tags: string[]) {
     .toLowerCase();
 }
 
-function parseFinderSearch(value: string) {
+// UX-F03 — exported (see buildFinderHaystack note above).
+export function parseFinderSearch(value: string) {
   let normalized = value.toLowerCase();
   const maxMatch = normalized.match(
     /(?:under|below|less than|<=)\s*\$?\s*(\d+(?:\.\d+)?)/,

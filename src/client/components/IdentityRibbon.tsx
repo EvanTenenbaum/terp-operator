@@ -1,5 +1,5 @@
 import { ArrowLeft, X } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import { StatusPill } from './StatusPill';
@@ -35,6 +35,19 @@ const viewLabels: Record<ViewKey, string> = {
   'contacts-customer-orders': 'Customer Orders', // CAP-029 / TER-1564: sub-grid in ContactCustomerPanel
 };
 
+// UX-B08: views that neither set their own ribbon entity (via row selection or
+// activeCustomerId) nor intend to show a stale entity from a prior route. When
+// navigating to one of these views, the ribbon entity for the incoming view
+// is cleared so a stale entity from the previous route cannot bleed through.
+// Scope: route-change clearing only — no edits to individual view files.
+//
+// - 'reports' / 'matchmaking': never expose a per-row entity; any carried-over
+//   entity would be from a completely different workflow.
+// - 'sales' in orders-mode: handled separately — activeCustomerId is cleared
+//   when transitioning to 'sales' if no customer is explicitly chosen by the
+//   view (i.e. the operator opened Sales without a customer workspace intent).
+const STALE_ENTITY_VIEWS = new Set<ViewKey>(['reports', 'matchmaking']);
+
 export function IdentityRibbon() {
   const activeView = useUiStore((state) => state.activeView);
   const selectedRows = useUiStore((state) => state.selectedRows);
@@ -45,6 +58,24 @@ export function IdentityRibbon() {
   const goBackRouteHistory = useUiStore((state) => state.goBackRouteHistory);
   const reference = trpc.queries.reference.useQuery(undefined, { enabled: Boolean(activeCustomerId) });
   const activeCustomerName = reference.data?.customers.find((customer) => customer.id === activeCustomerId)?.name;
+
+  // UX-B08: clear stale ribbon entity on route changes to views that do not
+  // own an entity context. Fires once per activeView change. The setSelectedRows
+  // drain is safe because any view that DOES own a row will call setSelectedRows
+  // again before the ribbon renders with the cleared state.
+  useEffect(() => {
+    if (STALE_ENTITY_VIEWS.has(activeView)) {
+      setSelectedRows(activeView, []);
+      setDrawerEntity(activeView, 'queue', null);
+    }
+    // Sales orders-mode: clear the activeCustomerId if the user navigates to
+    // Sales without selecting a customer (the Sales view will set it explicitly
+    // when a customer is chosen via the Keel chip or workspace).
+    if (activeView === 'sales' && !selectedRows['sales']?.length) {
+      setActiveCustomerId(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
 
   const row = selectedRows[activeView]?.[0];
   const identity = useMemo(() => buildIdentity(activeView, row, activeCustomerId, activeCustomerName), [activeCustomerId, activeCustomerName, activeView, row]);

@@ -38,7 +38,9 @@ export function ContactProfileView() {
     { key: 'vendor',       label: 'Vendor',       show: Boolean(c.is_vendor) },
     { key: 'money',        label: 'Money',        show: Boolean(c.is_customer || c.is_vendor || c.is_referee || c.is_contractor || c.is_employee) },
     { key: 'appointments', label: 'Appointments', show: true },
-    { key: 'settings',     label: 'Settings',     show: Boolean(c.is_referee || c.is_processor || c.is_employee) },
+    // UX-Q04: show Settings for all contacts — it now hosts Add Role + Link User
+    // actions in addition to the existing referee/processor/employee config panels.
+    { key: 'settings',     label: 'Settings',     show: true },
     { key: 'history',      label: 'History',      show: true },
   ];
 

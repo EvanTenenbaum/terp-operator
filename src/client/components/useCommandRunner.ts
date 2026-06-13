@@ -1,6 +1,7 @@
 import { useQueryClient, type Query, type QueryClient } from '@tanstack/react-query';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
+import type { ToastAction } from '../store/uiStore';
 import type { CommandName } from '../../shared/commandCatalog';
 
 /**
@@ -93,12 +94,63 @@ export function invalidateCommandScopedQueries(queryClient: QueryClient): Promis
   ).then(() => undefined);
 }
 
+// UX-D01: Per-call success action registration. Callers invoke
+// `setNextSuccessActions(actions)` immediately before `runCommand(...)` in the
+// same synchronous block. The hook captures the actions in a mutable variable
+// (the same pattern used for _pendingCallContext below) and attaches them to
+// the success toast. This keeps the runCommand call signature at 3 args so
+// all existing call sites and tests compile and pass unchanged.
+//
+// Note: RunCommandOpts is kept for external type consumers and possible future
+// use, but successActions are now registered via setNextSuccessActions.
+export interface RunCommandOpts {
+  successActions?: ToastAction[];
+}
+
 export function useCommandRunner() {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((state) => state.pushToast);
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+
+  // UX-D02: Build error toast actions — "Copy details" copies the command name,
+  // idempotency key, and message to the clipboard; "Open in Recovery" navigates
+  // to the recovery view filtered to the failed command.
+  function buildErrorActions(commandName: string, idempotencyKey: string, errorMessage: string): ToastAction[] {
+    return [
+      {
+        label: 'Copy details',
+        onAction: () => {
+          const text = `Command: ${commandName}\nKey: ${idempotencyKey}\nError: ${errorMessage}`;
+          void navigator.clipboard.writeText(text);
+        }
+      },
+      {
+        label: 'Open in Recovery',
+        onAction: () => {
+          setGridFilter('recovery', commandName);
+          setActiveView('recovery');
+        }
+      }
+    ];
+  }
+
+  // Capture current call context for the onError/onSuccess closures. We use a
+  // mutable object so the mutation callbacks can access the latest per-call
+  // opts without stale closures. UX-D01: successActions are staged here by
+  // setNextSuccessActions (called just before runCommand) then consumed in
+  // onSuccess and cleared.
+  let _pendingCallContext: { name: CommandName; idempotencyKey: string; successActions?: ToastAction[] } | null = null;
+
   const mutation = trpc.commands.run.useMutation({
     onSuccess: async (result) => {
-      pushToast(result.toast ?? (result.ok ? 'Command completed.' : 'Command failed.'), result.ok ? 'success' : 'error');
+      const successActions = _pendingCallContext?.successActions;
+      const toastOpts = result.ok && successActions?.length ? { actions: successActions } : undefined;
+      if (toastOpts) {
+        pushToast(result.toast ?? (result.ok ? 'Command completed.' : 'Command failed.'), result.ok ? 'success' : 'error', toastOpts);
+      } else {
+        pushToast(result.toast ?? (result.ok ? 'Command completed.' : 'Command failed.'), result.ok ? 'success' : 'error');
+      }
       // TER-1659: Advisory warnings (e.g. credit limit exceeded, below-floor
       // pricing) are surfaced as additional info toasts. The command still
       // succeeded — these are not errors.
@@ -117,7 +169,15 @@ export function useCommandRunner() {
       // id predicate (their keys contain no entity UUIDs) — refresh them too.
       await invalidateCommandScopedQueries(queryClient);
     },
-    onError: (error) => pushToast(error.message, 'error')
+    onError: (error) => {
+      const ctx = _pendingCallContext;
+      if (ctx) {
+        const errorActions = buildErrorActions(ctx.name, ctx.idempotencyKey, error.message);
+        pushToast(error.message, 'error', { actions: errorActions });
+      } else {
+        pushToast(error.message, 'error');
+      }
+    }
   });
 
   return {
@@ -125,13 +185,29 @@ export function useCommandRunner() {
     // idempotency key + reason (issue #25). Callers that legitimately lack
     // a user-supplied reason MUST still pass an explicit internal default
     // (e.g. `Internal: ${commandName}`) so the audit row is never NULL.
-    runCommand: (name: CommandName, payload: Record<string, unknown> = {}, reason?: string) =>
-      mutation.mutateAsync({
+    runCommand: (name: CommandName, payload: Record<string, unknown> = {}, reason?: string) => {
+      const idempotencyKey = `${name}-${crypto.randomUUID()}`;
+      // Preserve any successActions staged by the most recent setNextSuccessActions call.
+      const prevActions = _pendingCallContext?.successActions;
+      _pendingCallContext = { name, idempotencyKey, successActions: prevActions };
+      return mutation.mutateAsync({
         name,
         payload,
         reason: reason && reason.trim().length >= 3 ? reason : `Internal: ${name}`,
-        idempotencyKey: `${name}-${crypto.randomUUID()}`
-      }),
+        idempotencyKey
+      });
+    },
+    // UX-D01: stage success actions for the next runCommand call. Call this
+    // immediately before runCommand in the same synchronous block. The actions
+    // are attached to the success toast by onSuccess and then cleared.
+    // This keeps runCommand at 3 args — all existing call sites are unaffected.
+    setNextSuccessActions: (actions: ToastAction[]) => {
+      if (_pendingCallContext) {
+        _pendingCallContext.successActions = actions;
+      } else {
+        _pendingCallContext = { name: '' as CommandName, idempotencyKey: '', successActions: actions };
+      }
+    },
     isRunning: mutation.isLoading
   };
 }

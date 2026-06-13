@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import { formatMoney, moneyCol } from '../utils/format';
 import type {
   ColDef,
@@ -16,10 +18,24 @@ import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
 import { VerifyAllPreviewBody } from '../components/VerifyAllPreviewBody';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useConfirm } from '../hooks/useConfirm';
-import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useUiStore } from '../store/uiStore';
-import type { CommandResult, GridRow } from '../../shared/types';
+import type { GridRow } from '../../shared/types';
 import type { IntakeBatchRow, IntakeOrderRow } from './IntakeView.types';
+import { markerTooltip } from '../utils/markerLegend';
+import { parseTsv, mapTsvToFields, pasteSummary } from '../utils/clipboardPaste';
+import { requireShortcut } from '../shortcuts/registry';
+
+// UX-C09: keystroke labels pulled from the shortcuts registry so they stay
+// in sync with whatever the actual binding is in Hotkeys.tsx.
+const SHORTCUT_DUPLICATE = requireShortcut('intake.duplicate').combo;
+const SHORTCUT_READY     = requireShortcut('intake.markReady').combo;
+const SHORTCUT_PROCESS   = requireShortcut('intake.process').combo;
+
+// UX-C02: ordered editable fields for TSV paste into the batch detail grid.
+const INTAKE_PASTE_FIELDS = ['name', 'intakeQty', 'discrepancyReason', 'notes'] as const;
+const INTAKE_PASTE_VALIDATORS: Record<string, (v: string) => boolean> = {
+  intakeQty: (v) => v === '' || /^\d+(\.\d+)?$/.test(v.trim()),
+};
 
 const EMPTY: IntakeOrderRow[] = [];
 
@@ -30,6 +46,8 @@ export function IntakeView() {
   const { runCommand, isRunning } = useCommandRunner();
   const utils = trpc.useUtils();
   const pushToast = useUiStore((state) => state.pushToast);
+  const navigate = useNavigate();
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
   // CAP-003 / CAP-011 — TER-1476 / TER-1486: surface PO and batch context in
   // the shared ContextDrawer when an intake row is selected. The outer master
   // row is a PO (drawer → po tabs: lines, linked-intake, vendor); inner detail
@@ -41,39 +59,49 @@ export function IntakeView() {
 
   const confirm = useConfirm();
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
+  // UX-H03: selected master (PO) rows — drives the selection totals strip.
+  const [selectedOrders, setSelectedOrders] = useState<IntakeOrderRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const [csvOpen, setCsvOpen] = useState(false);
-  const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
-  const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [previewOrder, setPreviewOrder] = useState<IntakeOrderRow | null>(null);
-  // TER-1627 (F-13/F-32): drag-and-drop affordance for the CSV import textarea
-  const [csvDragActive, setCsvDragActive] = useState(false);
-  // #21 slice 3 (UX-A9): inline confirm panels each get a focus trap so Tab
-  // stays in-panel and Escape collapses them, matching CommandPalette /
-  // RefereeRelationshipDialog. The trap activates only when its panel is open.
-  const csvImportFocusRef = useFocusTrap<HTMLDivElement>(csvOpen, () => setCsvOpen(false));
+  // TER-1658: CSV import (importBatchesCsv / createBatch without purchaseOrderLineId)
+  // was retired from MVP intake. All intake must originate from an approved purchase
+  // order via Receive PO. The backend rejects those flows with operator-facing guidance.
   const orderRows = (intakeQueue.data ?? EMPTY) as IntakeOrderRow[];
 
-  async function importCsv(validateOnly: boolean) {
-    const result = await runCommand('importBatchesCsv', { csv: csvText, validateOnly }, validateOnly ? 'Validate intake CSV import' : 'Import validated intake CSV');
-    setCsvResult(result);
-    if (result.ok && !validateOnly) setCsvOpen(false);
-  }
+  // UX-H03: derive selection totals across all selected PO groups.
+  // Count = total batch rows (not PO rows) so "4 batches across 1 PO" is clear.
+  const selectionTotals = useMemo(() => {
+    const batches = selectedOrders.flatMap((order) => order.batches);
+    const count = batches.length;
+    const qtySum = batches.reduce((acc, b) => acc + Number(b.intakeQty ?? 0), 0);
+    const costSum = batches.reduce((acc, b) => acc + Number(b.intakeQty ?? 0) * Number(b.unitCost ?? 0), 0);
+    const ownershipMix = [...new Set(batches.map((b) => b.status !== 'posted' ? 'pending' : 'posted'))];
+    return { count, qtySum, costSum, ownershipMix };
+  }, [selectedOrders]);
 
-  // TER-1627: accept .csv files dropped onto the import textarea zone
-  function handleCsvDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setCsvDragActive(false);
-    const file = e.dataTransfer.files[0];
-    if (file && (file.name.endsWith('.csv') || file.type === 'text/csv')) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const text = ev.target?.result as string;
-        setCsvText(text);
-      };
-      reader.readAsText(file);
-    }
-  }
+  // UX-C02: handle TSV paste onto the intake queue panel container. Pasted
+  // rows are treated as annotation-only (they cannot CREATE new batch rows
+  // without a PO line — the backend enforces this). Instead, paste here shows
+  // a summary toast with field counts so operators know the clipboard content
+  // was received and how many cells need fixes. Draft row creation from TSV
+  // is infeasible without a new tRPC procedure and PO line association;
+  // the paste → summary toast is the safe subset.
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent<HTMLDivElement>) => {
+      const raw = event.clipboardData.getData('text/plain');
+      if (!raw || !raw.includes('\t')) return; // not TSV — let normal paste proceed
+      event.preventDefault();
+      try {
+        const rows = parseTsv(raw);
+        if (!rows.length) return;
+        const parsed = mapTsvToFields(rows, [...INTAKE_PASTE_FIELDS], INTAKE_PASTE_VALIDATORS);
+        pushToast(`TSV paste: ${pasteSummary(parsed)} — rows must be created via PO to enter the grid.`, 'info');
+      } catch {
+        pushToast('Could not parse pasted content as TSV.', 'error');
+      }
+    },
+    [pushToast]
+  );
 
   async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) {
     setBusy(true);
@@ -148,6 +176,8 @@ export function IntakeView() {
       // satisfies it but TS needs the cast to bridge the typed `status` fields.
       setSelectedRows('intake', [row as unknown as GridRow]);
       setDrawerEntity('intake', 'po', String(row.id));
+      // UX-H03: sync selected orders for the totals strip.
+      setSelectedOrders([row]);
     },
     [setSelectedRows, setDrawerEntity]
   );
@@ -163,6 +193,16 @@ export function IntakeView() {
       setDrawerEntity('intake', 'lot', String(row.id));
     },
     [setSelectedRows, setDrawerEntity]
+  );
+
+  // UX-M01: deep-link from a posted intake batch to Recovery prefiltered by the
+  // batch's UUID so the operator can view or reverse the postPurchaseReceipt command.
+  const handleBatchHistory = useCallback(
+    (batchId: string) => {
+      setGridFilter('recovery', batchId);
+      navigate('/recovery');
+    },
+    [setGridFilter, navigate]
   );
 
   const detailCellRendererParams = useMemo(
@@ -197,7 +237,8 @@ export function IntakeView() {
           },
           async (batchId) => {
             await deleteDraftBatch(batchId);
-          }
+          },
+          handleBatchHistory
         ),
         defaultColDef: { resizable: true, sortable: true, wrapHeaderText: true, autoHeaderHeight: true } as ColDef<IntakeBatchRow>,
         domLayout: 'autoHeight' as const,
@@ -212,7 +253,7 @@ export function IntakeView() {
       }
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canWrite, runCommand, me.data?.name, onBatchRowClicked]
+    [canWrite, runCommand, me.data?.name, onBatchRowClicked, handleBatchHistory]
   );
 
   const columnDefs = useMemo<ColDef<IntakeOrderRow>[]>(
@@ -338,8 +379,46 @@ export function IntakeView() {
   }
 
   return (
-    <div className="flex flex-row min-h-0 flex-1">
+    // UX-C02: onPaste intercepts TSV clipboard data pasted onto the intake
+    // panel and produces a summary toast. Actual row creation remains
+    // PO-gated (see handlePaste above).
+    <div className="flex flex-row min-h-0 flex-1" onPaste={handlePaste}>
       <div className="view-stack flex-1 min-w-0">
+        {/* UX-H03: Selection totals strip — shown when one or more PO groups
+            are selected in the master grid. Sticky above the Process action. */}
+        {selectedOrders.length > 0 ? (
+          <div className="receipt-impact-strip" data-testid="intake-selection-totals" role="status" aria-live="polite">
+            <span className="text-xs font-semibold text-zinc-700">
+              {selectionTotals.count} batch{selectionTotals.count !== 1 ? 'es' : ''}
+            </span>
+            <span className="text-xs text-zinc-600">
+              Qty: <strong>{selectionTotals.qtySum.toFixed(3)}</strong>
+            </span>
+            <span className="text-xs text-zinc-600">
+              Cost: <strong>{formatMoney(selectionTotals.costSum)}</strong>
+            </span>
+            <button
+              type="button"
+              className="secondary-button compact-action text-xs"
+              disabled={!selectedOrders[0] || !hasPendingBatches(selectedOrders[0])}
+              title="Preview the purchase receipt for the selected PO"
+              onClick={() => selectedOrders[0] && setPreviewOrder(selectedOrders[0])}
+            >
+              Preview receipt
+            </button>
+            {/* UX-C09: Show keystroke labels next to the action verbs */}
+            {canWrite ? (
+              <span className="text-xs text-zinc-500">
+                Duplicate{' '}
+                <kbd className="kbd-chip" aria-label={`Shortcut: ${SHORTCUT_DUPLICATE}`}>{SHORTCUT_DUPLICATE}</kbd>
+                {' '}· Ready{' '}
+                <kbd className="kbd-chip" aria-label={`Shortcut: ${SHORTCUT_READY}`}>{SHORTCUT_READY}</kbd>
+                {' '}· Process{' '}
+                <kbd className="kbd-chip" aria-label={`Shortcut: ${SHORTCUT_PROCESS}`}>{SHORTCUT_PROCESS}</kbd>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         {/* TER-1658: CSV import and manual batch creation removed from MVP intake.
             All batches must originate from a purchase order via Receive PO.
             Backend (importBatchesCsv, createBatch without purchaseOrderLineId) now
@@ -383,7 +462,9 @@ function buildBatchColumns(
   onReject: (batchId: string, reason: string) => Promise<void>,
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>,
   onSetMarketName: (itemId: string, alias: string) => Promise<void>,
-  onDeleteDraft: (batchId: string) => Promise<void>
+  onDeleteDraft: (batchId: string) => Promise<void>,
+  /** UX-M01: deep-link to Recovery prefiltered by batchId for posted batches */
+  onHistory: (batchId: string) => void
 ): ColDef<IntakeBatchRow>[] {
   return [
     { field: 'batchCode', headerName: 'Batch', pinned: 'left', minWidth: 160 },
@@ -418,6 +499,25 @@ function buildBatchColumns(
         const actual = Number(params.value ?? 0);
         return expected && actual && expected !== actual ? { backgroundColor: '#fef9c3' } : null;
       },
+      // UX-S03: warning glyph for yellow-tinted cells (qty differs from expected).
+      cellRenderer: (params: ICellRendererParams<IntakeBatchRow>) => {
+        const expected = Number(params.data?.expectedQty ?? 0);
+        const actual = Number(params.data?.intakeQty ?? 0);
+        const hasMismatch = expected > 0 && actual > 0 && expected !== actual;
+        return (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {hasMismatch ? (
+              <AlertTriangle
+                className="h-3 w-3 flex-shrink-0"
+                style={{ color: '#92400e' }}
+                aria-label={`Qty mismatch: expected ${expected.toFixed(3)}, received ${actual.toFixed(3)}`}
+                data-testid="intake-qty-warning"
+              />
+            ) : null}
+            {params.value != null ? String(params.value) : ''}
+          </span>
+        );
+      },
       tooltipValueGetter: (params) => {
         const expected = Number(params.data?.expectedQty ?? 0);
         const actual = Number(params.data?.intakeQty ?? 0);
@@ -442,11 +542,42 @@ function buildBatchColumns(
         if (hasMismatch && !hasReason) return { backgroundColor: '#fee2e2' };
         return null;
       },
+      // UX-S03: warning glyph for red-tinted cells (discrepancy reason required).
+      cellRenderer: (params: ICellRendererParams<IntakeBatchRow>) => {
+        const expected = Number(params.data?.expectedQty ?? 0);
+        const actual = Number(params.data?.intakeQty ?? 0);
+        const hasMismatch = expected > 0 && actual > 0 && expected !== actual;
+        const hasReason = String(params.value ?? '').trim().length > 0;
+        const needsReason = hasMismatch && !hasReason;
+        return (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {needsReason ? (
+              <AlertTriangle
+                className="h-3 w-3 flex-shrink-0"
+                style={{ color: '#991b1b' }}
+                aria-label="Discrepancy reason required — enter reason for qty mismatch"
+                data-testid="intake-reason-warning"
+              />
+            ) : null}
+            {params.value != null ? String(params.value) : ''}
+          </span>
+        );
+      },
       tooltipValueGetter: () => 'Free-text reason; carried onto the vendor bill and PO notes when intake is verified.'
     },
     { ...(moneyCol('unitCost', { headerName: 'Unit cost', width: 110 }) as ColDef<IntakeBatchRow>), type: 'numericColumn', editable: false, minWidth: 110 },
     { field: 'status', minWidth: 110 },
-    { field: 'arrivalStatus', headerName: 'Arrival', width: 110 },
+    // UX-H05: arrivalStatus inline editable select cell — lets operators update
+    // pending/arrived/canceled independent of ownership or raw marker value.
+    {
+      field: 'arrivalStatus',
+      headerName: 'Arrival',
+      width: 130,
+      editable: canWrite,
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: { values: ['pending', 'arrived', 'canceled'] },
+      tooltipValueGetter: () => 'Arrival status — click to change: pending / arrived / canceled',
+    },
     { field: 'mediaStatus', headerName: 'Media', width: 110 },
     { field: 'notes', headerName: 'Notes', editable: false, minWidth: 220 },
     {
@@ -467,6 +598,7 @@ function buildBatchColumns(
             onAppendNote={onAppendNote}
             onSetMarketName={onSetMarketName}
             onDeleteDraft={onDeleteDraft}
+            onHistory={onHistory}
           />
         );
       }
@@ -492,6 +624,7 @@ function BatchRowActions({
   onAppendNote,
   onSetMarketName,
   onDeleteDraft,
+  onHistory,
 }: {
   row: IntakeBatchRow;
   busy: boolean;
@@ -501,6 +634,8 @@ function BatchRowActions({
   onAppendNote: (batchId: string, currentNotes: string | null, addition: string) => Promise<void>;
   onSetMarketName: (itemId: string, alias: string) => Promise<void>;
   onDeleteDraft: (batchId: string) => Promise<void>;
+  /** UX-M01: navigate to Recovery prefiltered by batchId */
+  onHistory: (batchId: string) => void;
 }) {
   const [mode, setMode] = useState<'idle' | 'reject' | 'note' | 'marketName' | 'confirmDelete'>('idle');
   const [inputValue, setInputValue] = useState('');
@@ -567,6 +702,20 @@ function BatchRowActions({
             onClick={() => setMode('confirmDelete')}
           >
             Delete
+          </button>
+        ) : null}
+        {/* UX-M01 / UX-H02: posted batches get a History / Reverse receipt
+            affordance that deep-links Recovery pre-filtered to this batch's
+            commands. Minimum-viable path — no full RowInspector on intake. */}
+        {row.status === 'posted' ? (
+          <button
+            type="button"
+            className="secondary-button compact-action"
+            title="View command history or reverse this receipt in Recovery"
+            onClick={() => onHistory(row.id)}
+            data-testid="batch-history-link"
+          >
+            History / Reverse receipt
           </button>
         ) : null}
       </div>

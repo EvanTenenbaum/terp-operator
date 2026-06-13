@@ -1,6 +1,8 @@
 import { Check, ChevronDown, ChevronRight, Plus, RotateCcw, SlidersHorizontal } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+// UX-A04 / CAP-024 / Execution Decision 2: server-side per-user draft sync.
+import { useQuickLedgerDraftSync } from '../hooks/useQuickLedgerDraftSync';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import type { LedgerDraft, LedgerDirection, LedgerEntityType } from '../store/uiStore';
@@ -8,6 +10,8 @@ import type { GridRow } from '../../shared/types';
 import { useCommandRunner } from './useCommandRunner';
 import { WorkspacePanel } from './WorkspacePanel';
 import { formatMoney } from '../utils/format';
+// UX-C02: TSV clipboard paste utilities.
+import { parseTsv, mapTsvToFields, pasteSummary } from '../utils/clipboardPaste';
 
 interface PostedLedgerRow {
   id: string;
@@ -29,6 +33,16 @@ interface PostedLedgerRow {
   status: string;
   impactPreview: string | null;
   commandId: string | null;
+}
+
+// UX-J04: shape returned by queries.paymentAllocationPreview — the server's
+// own FIFO walk over open invoices (order by created_at, the exact ordering
+// commandBus.ts allocatePayment uses).
+export interface AllocationPreviewData {
+  kind: string;
+  label: string;
+  rows: Array<{ invoiceId: string; invoiceNo: string; open: string; applied: string }>;
+  unapplied: string;
 }
 
 interface TransactionTypeOption {
@@ -115,8 +129,13 @@ export function QuickLedgerGrid() {
   const setLedgerDrafts = useUiStore((state) => state.setLedgerDrafts);
   const upsertLedgerDraft = useUiStore((state) => state.upsertLedgerDraft);
   const removeLedgerDraft = useUiStore((state) => state.removeLedgerDraft);
+  const pushToast = useUiStore((state) => state.pushToast);
   // Alias for ergonomics inside this file — same reference.
   const drafts = ledgerDrafts;
+  // UX-A04 / CAP-024 / Execution Decision 2: load server drafts on mount,
+  // debounced save on change. Server is the ONLY persistence (drafts stay out
+  // of the localStorage partialize — shared-workstation PII rationale).
+  const draftSync = useQuickLedgerDraftSync();
   // activeRowId remains local — it's ephemeral focus state, not worth persisting.
   const [activeRowId, setActiveRowId] = useState(drafts[0]?.id ?? '');
 
@@ -257,6 +276,100 @@ export function QuickLedgerGrid() {
     setLedgerDrafts(drafts.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
+  // UX-C02: TSV paste — map clipboard rows onto LedgerDraft objects.
+  // Column order: counterparty, amount, method/bucket, memo.
+  // A row with a header-matching first row is automatically skipped.
+  // Amount must be a positive finite number; method must be in the allowed
+  // list or recognised as a bucket alias. Invalid cells set status=needs_fix.
+  // Pasted rows are prepended to existing drafts (additive, never auto-post).
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent<HTMLDivElement>) => {
+      const raw = event.clipboardData.getData('text/plain');
+      if (!raw.includes('\t')) return; // not a TSV paste — let browser handle it
+      event.preventDefault();
+
+      const FIELD_NAMES = ['counterparty', 'amount', 'method', 'memo'];
+      const rawRows = parseTsv(raw);
+      if (rawRows.length === 0) return;
+
+      const mapped = mapTsvToFields(rawRows, FIELD_NAMES, {
+        amount: (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) && n > 0;
+        },
+        method: (v) => {
+          // Valid if it's a known method OR a known bucket token.
+          return methods.includes(v) || buckets.includes(v);
+        }
+      });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const newDrafts: LedgerDraft[] = mapped.map((pastedRow) => {
+        const get = (key: string) =>
+          pastedRow.fields.find((f) => f.key === key)?.value ?? '';
+
+        const counterparty = get('counterparty');
+        const amountStr = get('amount');
+        const methodOrBucket = get('method');
+        const memo = get('memo');
+
+        // Determine method/bucket split: prefer method, fall back to bucket.
+        let method = 'cash';
+        let bucket = 'cash-file-a';
+        if (methods.includes(methodOrBucket)) {
+          method = methodOrBucket;
+        } else if (buckets.includes(methodOrBucket)) {
+          bucket = methodOrBucket;
+          // method stays 'cash' (default)
+        }
+
+        const amountField = pastedRow.fields.find((f) => f.key === 'amount');
+        const methodField = pastedRow.fields.find((f) => f.key === 'method');
+        const hasError = pastedRow.hasErrors;
+        const status: LedgerDraft['status'] = hasError ? 'needs_fix' : 'draft';
+
+        // Build the issue string for needs_fix rows so the operator knows why.
+        let issue: string | undefined;
+        if (amountField?.invalid) {
+          issue = 'Pasted amount is not a positive number — edit before posting.';
+        } else if (methodField?.invalid) {
+          issue = `Unrecognised method/bucket "${methodOrBucket}" — edit before posting.`;
+        }
+
+        return {
+          id: crypto.randomUUID(),
+          date: today,
+          direction: 'receiving' as LedgerDirection,
+          entityType: 'other' as LedgerEntityType,
+          entityId: '',
+          entityName: counterparty,
+          transactionType: 'other_receipt',
+          allocationTargetType: 'unapplied',
+          allocationTargetId: '',
+          amount: amountStr,
+          method,
+          bucket,
+          reference: '',
+          notes: memo,
+          status,
+          issue,
+          processorId: '',
+          grossAmount: '',
+          processingFeeTotal: '',
+          userSplitPercent: ''
+        };
+      });
+
+      const summary = pasteSummary(mapped);
+      const tone = mapped.some((r) => r.hasErrors) ? 'info' : 'success';
+      // Prepend so the newest pasted rows appear at the top of the receiving section.
+      setLedgerDrafts([...newDrafts, ...drafts]);
+      pushToast(summary, tone);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [drafts, setLedgerDrafts, pushToast]
+  );
+
   function section(direction: LedgerDirection) {
     const draftRows = drafts.filter((row) => row.direction === direction);
     const postedRows = direction === 'receiving' ? posted.receiving : posted.paying;
@@ -327,7 +440,7 @@ export function QuickLedgerGrid() {
                     openBills={openBills}
                     typeOptions={typeOptions}
                     reference={reference.data}
-                    allocationPreview={row.id === activeRowId ? preview.data?.label : undefined}
+                    allocationPreview={row.id === activeRowId ? (preview.data as AllocationPreviewData | undefined) : undefined}
                     accessIssue={canPostLedgerRow ? undefined : 'Manager access required to post payment entries'}
                     disabled={isRunning || !canPostLedgerRow}
                     onCommit={commit}
@@ -354,6 +467,14 @@ export function QuickLedgerGrid() {
       contentClassName="p-3"
       actions={
         <>
+          {/* UX-A04: truthful offline/failed-save indicator — drafts are kept
+              in memory only (never localStorage), so a failed server sync
+              means they will not survive a reload. No fake success. */}
+          {draftSync.status === 'error' ? (
+            <span className="selection-pill danger" role="status">
+              Drafts not synced — will not survive reload
+            </span>
+          ) : null}
           <button className="primary-button compact-action" type="button" onClick={() => addRow('receiving')}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             Receiving
@@ -365,7 +486,8 @@ export function QuickLedgerGrid() {
         </>
       }
     >
-      <div className="transaction-ledger-workbench">
+      {/* UX-C02: onPaste scoped to the workbench — TSV rows become drafts. */}
+      <div className="transaction-ledger-workbench" onPaste={handlePaste}>
         {section('receiving')}
         {section('paying')}
       </div>
@@ -468,7 +590,7 @@ function DraftLedgerRow({
   reference: any;
   openBills: GridRow[];
   typeOptions: TransactionTypeOption[];
-  allocationPreview?: string;
+  allocationPreview?: AllocationPreviewData;
   accessIssue?: string;
   disabled: boolean;
   onCommit: (row: LedgerDraft) => void;
@@ -478,7 +600,14 @@ function DraftLedgerRow({
   const entities = entityOptions(row.entityType, reference);
   const transactionTypes = optionsForEntity(typeOptions, row.direction, row.entityType);
   const targetOptions = allocationTargets(row, reference, openBills);
-  const impact = row.issue ?? accessIssue ?? allocationPreview ?? ledgerImpact(row, reference, openBills);
+  // UX-J02/UX-J04: precedence — row issue > access gate > server-computed
+  // allocation preview (active row, exact server FIFO walk) > client-side
+  // estimate from data already on the wire.
+  const impact =
+    row.issue ??
+    accessIssue ??
+    (allocationPreview ? formatServerAllocationPreview(allocationPreview, customerBalance(row, reference)) : undefined) ??
+    ledgerImpact(row, reference, openBills);
 
   // Processor-specific logic
   const isProcessorTransaction = processorTransactionTypes.includes(row.transactionType);
@@ -779,16 +908,100 @@ function validate(row: LedgerDraft, reference: any) {
   return null;
 }
 
-function ledgerImpact(row: LedgerDraft, reference: any, openBills: GridRow[]) {
-  const amount = Number(row.amount || 0);
-  if (!Number.isFinite(amount) || amount <= 0) return 'Enter amount to preview';
-  if (row.direction === 'receiving' && row.entityType === 'customer') {
-    const invoices = (reference?.openInvoices ?? []).filter((invoice: any) => invoice.customerId === row.entityId);
-    const open = invoices.reduce((sum: number, invoice: any) => sum + Math.max(0, Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0)), 0);
-    if (row.allocationTargetType === 'unapplied') return `Leaves $${money(amount)} unapplied`;
-    if (row.allocationTargetType === 'selected_invoice') return `Applies to selected order, then tracks residual`;
-    return `Applies up to $${money(Math.min(open, amount))}; $${money(Math.max(0, amount - open))} remains`;
+// UX-J04: format the server-computed allocation preview (queries.
+// paymentAllocationPreview — the server's own FIFO walk, order by created_at,
+// matching commandBus.ts allocatePayment exactly) into the one-line impact
+// string. Labeled "Estimated" because allocation happens at post time against
+// then-current invoice state. Exported for tests.
+export function formatServerAllocationPreview(preview: AllocationPreviewData, balance: number | null): string | undefined {
+  const unapplied = Number(preview.unapplied || 0);
+  if (preview.kind === 'buyer_credit') {
+    // commandBus.ts logPayment negative branch: balance decreases by the credit.
+    if (unapplied <= 0) return undefined;
+    return `Buyer credit / down payment — no invoice allocation${balance == null ? '' : `; balance → $${money(balance - unapplied)}`}`;
   }
+  const appliedRows = preview.rows.filter((entry) => Number(entry.applied) > 0);
+  const allocated = appliedRows.reduce((sum, entry) => sum + Number(entry.applied), 0);
+  if (allocated <= 0 && unapplied <= 0) return undefined;
+  if (preview.kind === 'unapplied') {
+    // Unapplied money does not touch customer balance (commandBus.ts
+    // allocatePayment only adjusts balance for the allocated total).
+    return `Leaves $${money(unapplied)} unapplied; balance unchanged${balance == null ? '' : ` ($${money(balance)})`}`;
+  }
+  if (appliedRows.length === 0) {
+    return `No open invoices — $${money(unapplied)} unapplied; balance unchanged${balance == null ? '' : ` ($${money(balance)})`}`;
+  }
+  const parts = appliedRows.map((entry) => `$${money(Number(entry.applied))} to ${entry.invoiceNo}`);
+  const shown = parts.slice(0, 3).join(', ') + (parts.length > 3 ? ` (+${parts.length - 3} more)` : '');
+  return `Estimated: allocates ${shown}; $${money(unapplied)} unapplied${balance == null ? '' : `; balance → $${money(balance - allocated)}`}`;
+}
+
+// UX-J02: customer balance from reference data already on the wire — feeds the
+// "balance → $Z" effect preview. Exported for tests.
+export function customerBalance(row: LedgerDraft, reference: any): number | null {
+  if (row.entityType !== 'customer' || !row.entityId) return null;
+  const customer = (reference?.customers ?? []).find((candidate: any) => candidate.id === row.entityId);
+  if (!customer) return null;
+  const balance = Number(customer.balance ?? 0);
+  return Number.isFinite(balance) ? balance : null;
+}
+
+// UX-J02/UX-J04: client-side fallback estimate for customer receiving rows.
+// Mirrors verified commandBus.ts behavior:
+//  - buyer-credit transaction types / negative amounts → server stores a
+//    negative payment and decreases balance by |amount| (logPayment).
+//  - allocation decreases balance by the ALLOCATED total only; unapplied
+//    money leaves balance unchanged (allocatePayment).
+//  - FIFO order = open/partial invoices by created_at ASC; reference.
+//    openInvoices arrives in exactly that order (queries.ts reference query).
+//  - with zero open invoices, postTransactionLedgerRow flips fifo → unapplied.
+function customerReceivingImpact(row: LedgerDraft, amount: number, reference: any): string {
+  const balance = customerBalance(row, reference);
+  // Sign flip mirrors commandBus.ts postTransactionLedgerRow's creditTypes list.
+  const creditTypes = ['buyer_credit', 'down_payment', 'customer_down_payment'];
+  const signed = creditTypes.includes(row.transactionType) ? -Math.abs(amount) : amount;
+  if (signed < 0) {
+    return `Buyer credit / down payment — no invoice allocation${balance == null ? '' : `; balance → $${money(balance - Math.abs(signed))}`}`;
+  }
+  const invoices = (reference?.openInvoices ?? []).filter((invoice: any) => invoice.customerId === row.entityId);
+  if (row.allocationTargetType === 'unapplied') {
+    return `Leaves $${money(amount)} unapplied; balance unchanged${balance == null ? '' : ` ($${money(balance)})`}`;
+  }
+  if (row.allocationTargetType === 'selected_invoice') {
+    const invoice = invoices.find((candidate: any) => candidate.id === row.allocationTargetId);
+    if (!invoice) return 'Applies to selected order, then tracks residual';
+    const open = Math.max(0, Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0));
+    const applied = Math.min(open, amount);
+    return `Estimated: allocates $${money(applied)} to ${invoice.invoiceNo}; $${money(amount - applied)} unapplied${balance == null ? '' : `; balance → $${money(balance - applied)}`}`;
+  }
+  if (invoices.length === 0) {
+    return `No open invoices — $${money(amount)} unapplied; balance unchanged${balance == null ? '' : ` ($${money(balance)})`}`;
+  }
+  let remaining = amount;
+  const parts: string[] = [];
+  for (const invoice of invoices) {
+    if (remaining <= 0) break;
+    const open = Math.max(0, Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0));
+    const applied = Math.min(open, remaining);
+    if (applied <= 0) continue;
+    remaining -= applied;
+    parts.push(`$${money(applied)} to ${invoice.invoiceNo}`);
+  }
+  const allocated = amount - remaining;
+  const shown = parts.slice(0, 3).join(', ') + (parts.length > 3 ? ` (+${parts.length - 3} more)` : '');
+  return `Estimated: allocates ${shown}; $${money(remaining)} unapplied${balance == null ? '' : `; balance → $${money(balance - allocated)}`}`;
+}
+
+// Exported for tests (UX-J02/UX-J04 colocated coverage).
+export function ledgerImpact(row: LedgerDraft, reference: any, openBills: GridRow[]) {
+  const amount = Number(row.amount || 0);
+  if (!Number.isFinite(amount) || amount === 0) return 'Enter amount to preview';
+  if (row.direction === 'receiving' && row.entityType === 'customer') {
+    // UX-J02: negative amounts get the buyer-credit balance preview instead
+    // of the old 'Enter amount to preview' dead end.
+    return customerReceivingImpact(row, amount, reference);
+  }
+  if (amount <= 0) return 'Enter amount to preview';
   if (row.direction === 'paying' && row.entityType === 'referee') {
     const referee = (reference?.referees ?? []).find((r: any) => r.id === row.entityId);
     if (!referee) return 'Choose referee for payout';

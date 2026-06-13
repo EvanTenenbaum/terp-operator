@@ -4,6 +4,7 @@ import { InspectorDrawer, type InspectorTab } from './templates';
 import { RowCommandHistoryBody, historyRowLabel } from './RowCommandHistoryDrawer';
 import { RelationshipSummaryBody, relationshipAvailable } from './RelationshipDrawer';
 import { IssueActionsBody } from './IssueSidecar';
+import { SelectionSupportPacket } from './SelectionSupportPacket';
 
 /**
  * Unified row inspector — ONE right-edge drawer for everything about the
@@ -59,7 +60,15 @@ export function RowInspector({ row, view, tab, onTabChange, onClose, canWrite, e
             key: 'issue',
             label: 'Issue',
             icon: <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />,
-            render: () => <IssueActionsBody row={row} view={view} onDone={onClose} />
+            // UX-M02: SelectionSupportPacket renders below the IssueActionsBody.
+            // IssueSidecar.tsx is owned by another wave agent so the export
+            // affordance is added here at the RowInspector mount layer instead.
+            render: () => (
+              <>
+                <IssueActionsBody row={row} view={view} onDone={onClose} />
+                <SelectionSupportPacket rows={[row]} view={view} />
+              </>
+            )
           }
         ]
       : []),

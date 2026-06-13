@@ -144,6 +144,10 @@ export function StatusActionBar({ rows, table, busy }: StatusActionBarProps) {
         <button
           type="button"
           className={primary.tone === 'warning' ? 'secondary-button compact-action border-amber text-amber' : 'primary-button compact-action'}
+          // UX-A03: the ⌘↵ hotkey (Hotkeys.tsx) commits the visible primary by
+          // locating this button — the rendered output of resolveStatusActions
+          // — so the hotkey and the bar can never disagree.
+          data-status-action-primary
           disabled={busy || primary.disabled}
           title={primary.disabled ? primary.disabledReason : undefined}
           onClick={() => primary.run(rows)}
