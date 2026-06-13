@@ -32,10 +32,12 @@ export const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'vendor', width: 190 },
     { field: 'status', width: 135 },
     { field: 'expectedDate', headerName: 'Expected', editable: true, width: 165 },
-    // UX-H08: original / prepaid / remaining prepay columns visible at the row.
-    { field: 'prepaymentAmount', headerName: 'Prepay (original)', editable: true, type: 'numericColumn', width: 145, headerTooltip: 'The original prepayment amount set on this PO.' },
-    { field: 'prepaidAmount', headerName: 'Prepaid', type: 'numericColumn', width: 110, headerTooltip: 'Amount already paid via recordVendorPrepayment.' },
-    { field: 'remainingPrepay', headerName: 'Prepay remaining', type: 'numericColumn', width: 150, headerTooltip: 'Remaining prepayment not yet paid (original − prepaid).' },
+    // UX-H08: original / prepaid / remaining prepay columns.  Prepay (original)
+    // stays visible as the one prepay indicator; Prepaid and Prepay remaining
+    // are demoted to optional (reachable via Columns menu) per SX-H02.
+    { field: 'prepaymentAmount', headerName: 'Prepay', editable: true, type: 'numericColumn', width: 145, headerTooltip: 'The original prepayment amount set on this PO.' },
+    { field: 'prepaidAmount', headerName: 'Prepaid', type: 'numericColumn', width: 110, hide: true, headerTooltip: 'Amount already paid via recordVendorPrepayment.' },
+    { field: 'remainingPrepay', headerName: 'Prepay remaining', type: 'numericColumn', width: 150, hide: true, headerTooltip: 'Remaining prepayment not yet paid (original − prepaid).' },
     { field: 'total', type: 'numericColumn', width: 120 },
     // Below columns hidden by default (≤8 rule); reachable via Columns menu.
     { field: 'paymentTerms', headerName: 'Terms', editable: true, width: 140, hide: true },
