@@ -372,7 +372,7 @@ export const filtersRouter = router({
       // Single query with json_agg for all facets (eliminates N+1 queries)
       const result = await pool.query(
         `SELECT
-          ${requestedFields.includes('category') ? "json_agg(DISTINCT category) FILTER (WHERE category IS NOT NULL) AS categories," : "NULL AS categories,"}
+          ${requestedFields.includes('category') ? "COALESCE(json_agg(DISTINCT category) FILTER (WHERE category IS NOT NULL), '[]'::json) AS categories," : "NULL AS categories,"}
           ${requestedFields.includes('subcategory') ? `
             (SELECT json_agg(DISTINCT jsonb_build_object('category', category, 'subcategory', subcategory))
              FROM batches
@@ -387,8 +387,8 @@ export const filtersRouter = router({
              FROM vendors
              WHERE active = true
              LIMIT 1000) AS vendors,` : "NULL AS vendors,"}
-          ${requestedFields.includes('location') ? "json_agg(DISTINCT location) FILTER (WHERE location IS NOT NULL) AS locations," : "NULL AS locations,"}
-          ${requestedFields.includes('status') ? "json_agg(DISTINCT status) FILTER (WHERE status IS NOT NULL) AS statuses," : "NULL AS statuses,"}
+          ${requestedFields.includes('location') ? "COALESCE(json_agg(DISTINCT location) FILTER (WHERE location IS NOT NULL), '[]'::json) AS locations," : "NULL AS locations,"}
+          ${requestedFields.includes('status') ? "COALESCE(json_agg(DISTINCT status) FILTER (WHERE status IS NOT NULL), '[]'::json) AS statuses," : "NULL AS statuses,"}
           ${requestedFields.includes('tags') ? `
             (SELECT json_agg(tag_with_count ORDER BY count DESC)
              FROM (
@@ -403,15 +403,16 @@ export const filtersRouter = router({
                ) tag_counts
              ) tags_subquery) AS tags` : "NULL AS tags"}
         FROM batches
-        WHERE archived_at IS NULL`
+        WHERE archived_at IS NULL
+        LIMIT 1`
       );
 
-      const facets = result.rows[0];
+      const facets = result.rows[0] ?? {};
 
-      // Clean up nulls and ensure arrays
+      // Clean up nulls and ensure arrays (coerce JSON null/empty to [])
       return {
-        categories: facets.categories ?? [],
-        subcategories: facets.subcategories ?? [],
+        categories: Array.isArray(facets.categories) ? facets.categories : [],
+        subcategories: Array.isArray(facets.subcategories) ? facets.subcategories : [],
         brands: facets.brands ?? [],
         vendors: facets.vendors ?? [],
         locations: facets.locations ?? [],

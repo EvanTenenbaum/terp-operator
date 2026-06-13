@@ -1576,7 +1576,7 @@ export const queriesRouter = router({
           `select id, command_name as "commandName", actor_name as "actorName", status, error,
                   affected_ids as "affectedIds", created_at as "createdAt"
            from command_journal
-           where affected_ids && $1::uuid[]
+           where affected_ids && $1::text[]
            order by created_at desc
            limit 200`,
           [validIds]
