@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient, type Query, type QueryClient } from '@tanstack/react-query';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
@@ -109,6 +111,7 @@ export interface RunCommandOpts {
 
 export function useCommandRunner() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const pushToast = useUiStore((state) => state.pushToast);
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setGridFilter = useUiStore((state) => state.setGridFilter);
@@ -129,22 +132,29 @@ export function useCommandRunner() {
         label: 'Open in Recovery',
         onAction: () => {
           setGridFilter('recovery', commandName);
+          navigate('/recovery');
           setActiveView('recovery');
         }
       }
     ];
   }
 
-  // Capture current call context for the onError/onSuccess closures. We use a
-  // mutable object so the mutation callbacks can access the latest per-call
-  // opts without stale closures. UX-D01: successActions are staged here by
-  // setNextSuccessActions (called just before runCommand) then consumed in
-  // onSuccess and cleared.
-  let _pendingCallContext: { name: CommandName; idempotencyKey: string; successActions?: ToastAction[] } | null = null;
+  // Capture current call context for the onError/onSuccess closures.
+  // Uses useRef so the mutation callbacks always see the latest per-call
+  // opts without stale closures and without being cleared by re-renders
+  // (the previous render-scoped let was nulled when isPending flipped,
+  // causing toast action buttons to never render).
+  // UX-D01: successActions are staged here by setNextSuccessActions
+  // (called just before runCommand) then consumed in onSuccess and cleared.
+  const _pendingCallContextRef = useRef<{
+    name: CommandName;
+    idempotencyKey: string;
+    successActions?: ToastAction[];
+  } | null>(null);
 
   const mutation = trpc.commands.run.useMutation({
     onSuccess: async (result) => {
-      const successActions = _pendingCallContext?.successActions;
+      const successActions = _pendingCallContextRef.current?.successActions;
       const toastOpts = result.ok && successActions?.length ? { actions: successActions } : undefined;
       if (toastOpts) {
         pushToast(result.toast ?? (result.ok ? 'Command completed.' : 'Command failed.'), result.ok ? 'success' : 'error', toastOpts);
@@ -170,7 +180,7 @@ export function useCommandRunner() {
       await invalidateCommandScopedQueries(queryClient);
     },
     onError: (error) => {
-      const ctx = _pendingCallContext;
+      const ctx = _pendingCallContextRef.current;
       if (ctx) {
         const errorActions = buildErrorActions(ctx.name, ctx.idempotencyKey, error.message);
         pushToast(error.message, 'error', { actions: errorActions });
@@ -188,8 +198,8 @@ export function useCommandRunner() {
     runCommand: (name: CommandName, payload: Record<string, unknown> = {}, reason?: string) => {
       const idempotencyKey = `${name}-${crypto.randomUUID()}`;
       // Preserve any successActions staged by the most recent setNextSuccessActions call.
-      const prevActions = _pendingCallContext?.successActions;
-      _pendingCallContext = { name, idempotencyKey, successActions: prevActions };
+      const prevActions = _pendingCallContextRef.current?.successActions;
+      _pendingCallContextRef.current = { name, idempotencyKey, successActions: prevActions };
       return mutation.mutateAsync({
         name,
         payload,
@@ -202,10 +212,10 @@ export function useCommandRunner() {
     // are attached to the success toast by onSuccess and then cleared.
     // This keeps runCommand at 3 args — all existing call sites are unaffected.
     setNextSuccessActions: (actions: ToastAction[]) => {
-      if (_pendingCallContext) {
-        _pendingCallContext.successActions = actions;
+      if (_pendingCallContextRef.current) {
+        _pendingCallContextRef.current!.successActions = actions;
       } else {
-        _pendingCallContext = { name: '' as CommandName, idempotencyKey: '', successActions: actions };
+        _pendingCallContextRef.current = { name: '' as CommandName, idempotencyKey: '', successActions: actions };
       }
     },
     isRunning: mutation.isLoading

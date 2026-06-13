@@ -2759,6 +2759,30 @@ export const queriesRouter = router({
       );
       return result.rows[0]?.qty ?? null;
     }),
+
+  // SX-A01: Bulk variant replaces per-row customerLastOrderedQty queries.
+  // A single customer+batchIds query stays within HTTP header limits (the
+  // per-row pattern exceeded them at ~80 rows → HTTP 431).
+  customerLastOrderedQtyBulk: publicProcedure
+    .input(z.object({ customerId: z.string().uuid(), batchIds: z.array(z.string().uuid()).max(200) }))
+    .query(async ({ input }) => {
+      if (!input.batchIds.length) return {};
+      const result = await pool.query<{ batch_id: string; qty: string }>(
+        `select distinct on (sol.batch_id) sol.batch_id, sol.qty
+         from sales_order_lines sol
+         join sales_orders so on so.id = sol.order_id
+         where sol.batch_id = any($1::uuid[])
+           and so.customer_id = $2
+           and sol.status in ('confirmed', 'reserved', 'allocated', 'posted')
+         order by sol.batch_id, sol.created_at desc`,
+        [input.batchIds, input.customerId]
+      );
+      const map: Record<string, string | null> = {};
+      for (const row of result.rows) {
+        map[row.batch_id] = row.qty;
+      }
+      return map;
+    }),
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
