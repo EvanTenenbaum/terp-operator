@@ -16,7 +16,7 @@ const DEFAULT_STATE = {
   activeView: 'dashboard' as const,
   activeCustomerId: null,
   activeQuickLaunch: 'sale' as const,
-  activeSettingsTab: 'requests' as const,
+  activeSettingsTab: 'strain-aliases' as const,
   salesRequestText: '',
   selectedRows: {},
   commandPaletteOpen: false,
@@ -62,7 +62,7 @@ describe('uiStore persist partialize (UX-A1 — shared workstation leakage)', ()
     store.setGridColumnPrefs('view:sales', [{ colId: 'total', width: 200 }]);
     store.toggleSideNav();
     store.setActiveView('inventory');
-    store.setActiveSettingsTab('requests');
+    store.setActiveSettingsTab('strain-aliases');
 
     const persisted = readPersisted();
     expect(persisted).toHaveProperty('gridColumnPrefs');

@@ -1,5 +1,5 @@
 import { RefreshCcw } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
 import { EmptyState } from '../components/EmptyState';
@@ -57,8 +57,8 @@ export function DashboardView() {
   const dashboard = trpc.queries.dashboard.useQuery(undefined, { refetchInterval: 15_000 });
   const workQueue = trpc.queries.workQueue.useQuery(undefined, { refetchInterval: 15_000 });
   const drilldown = trpc.queries.drilldown.useQuery({ metricKey: drilldownMetric ?? 'cash' }, { enabled: Boolean(drilldownMetric) });
-  // UX-E08: expansion state for "Today's Top Decisions" list.
-  const [topDecisionsExpanded, setTopDecisionsExpanded] = useState(false);
+  // UX-E08 / SX-C03: ref for scroll-to "My Open Work" from "View all".
+  const myOpenWorkRef = useRef<HTMLDivElement>(null);
   const now = Date.now();
   // UX-E07: filter out snoozed rows (snooze expires when snoozedUntil < now).
   const rankedWorkRows = useMemo(() => {
@@ -268,8 +268,8 @@ export function DashboardView() {
                 <EmptyState title="Nothing needs your attention right now." role="status" />
               ) : (
                 <div className="flex flex-col gap-1">
-                  {/* UX-E08: show top 3, with "View all (N)" expansion. */}
-                  {(topDecisionsExpanded ? rankedWorkRows : rankedWorkRows.slice(0, 3)).map((item) => (
+                  {/* SX-C03: always show top 3. "View all" scrolls to My Open Work grid. */}
+                  {rankedWorkRows.slice(0, 3).map((item) => (
                     <button
                       key={String(item.id)}
                       type="button"
@@ -283,40 +283,26 @@ export function DashboardView() {
                       ) : null}
                     </button>
                   ))}
-                  {/* UX-E08: show expand/collapse toggle when there are more than 3 items. */}
+                  {/* SX-C03: "View all" scrolls to My Open Work grid. */}
                   {rankedWorkRows.length > 3 && (
                     <button
                       type="button"
                       className="mt-1 text-left text-xs text-accent hover:underline focus:outline-none focus-visible:shadow-focus"
-                      onClick={() => setTopDecisionsExpanded((prev) => !prev)}
+                      onClick={() => {
+                        myOpenWorkRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        myOpenWorkRef.current?.focus();
+                      }}
                       data-testid="top-decisions-toggle"
                     >
-                      {topDecisionsExpanded
-                        ? 'Show less'
-                        : `View all (${rankedWorkRows.length})`}
+                      View all ({rankedWorkRows.length})
                     </button>
                   )}
                 </div>
               )}
             </div>
-            {/* 5 KPI Tiles — UX-E02: "Open Orders" lands on /orders?status:confirmed,
-                "Intake ready" lands on /intake?status:ready (same as QUEUE_FILTER). */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <TodayFocusTile
-                label="Cash Position"
-                value={dashboard.data?.metrics.find((m) => m.key === 'cash')?.value}
-                onClick={() => setDrilldownMetric('cash')}
-              />
-              <TodayFocusTile
-                label="What we owe vendors"
-                value={dashboard.data?.metrics.find((m) => m.key === 'payables')?.value}
-                onClick={() => setDrilldownMetric('payables')}
-              />
-              <TodayFocusTile
-                label="What clients owe"
-                value={dashboard.data?.metrics.find((m) => m.key === 'receivables')?.value}
-                onClick={() => setDrilldownMetric('receivables')}
-              />
+            {/* SX-C02: keep only the 2 non-duplicate tiles (Open Orders, Intake ready).
+                Cash/payables/receivables are covered by KPI cards above. */}
+            <div className="grid grid-cols-2 gap-3">
               <TodayFocusTile
                 label="Open Orders"
                 value={dashboard.data?.pendingQueues.find((q) => q.key === 'sales')?.count}
@@ -341,35 +327,59 @@ export function DashboardView() {
       </div>
       {/* ── End Today Focus ──────────────────────────────────────────────────── */}
 
-      {/* UX-E03: "Bills due / scheduled" and "Customer balances due" now render the
-          actual payables/receivables totals from the KPI metrics (already on the
-          wire) instead of placeholder text. Click-through uses the same drilldown. */}
-      <WorkspacePanel panelId="dashboard:money-buckets" title="Money Buckets" headingLevel={2} contentClassName="p-3">
-        <div className="definition-list">
-          {(dashboard.data?.moneyBuckets ?? []).map((bucket) => (
-            <button key={bucket.bucket} className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('cash')}>
-              <strong>{bucket.bucket}</strong>
-              <div className="mt-1 text-sm text-ink">${Number(bucket.amount ?? 0).toLocaleString('en-US')}</div>
-            </button>
-          ))}
-          <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('payables')}>
-            <strong>Bills due / scheduled</strong>
-            <div className="mt-1 text-sm text-ink">
-              {dashboard.data?.metrics.find((m) => m.key === 'payables')?.value != null
-                ? String(dashboard.data.metrics.find((m) => m.key === 'payables')!.value)
-                : 'Open vendor bills'}
-            </div>
-          </button>
-          <button className="definition-item text-left focus:outline-none focus-visible:shadow-focus" type="button" onClick={() => setDrilldownMetric('receivables')}>
-            <strong>Customer balances due</strong>
-            <div className="mt-1 text-sm text-ink">
-              {dashboard.data?.metrics.find((m) => m.key === 'receivables')?.value != null
-                ? String(dashboard.data.metrics.find((m) => m.key === 'receivables')!.value)
-                : 'Open customer orders'}
-            </div>
-          </button>
+      {/* ── Pending work queues (SX-C02: moved up) ─────────────────────────────── */}
+      <WorkspacePanel panelId="dashboard:pending-work-queues" title="Pending work queues" headingLevel={2} contentClassName="p-3">
+        <div className="grid gap-2">
+        {(dashboard.data?.pendingQueues ?? []).map((queue) => {
+            const filter = QUEUE_FILTER[queue.key] ?? '';
+            // SX-C04: cap queue counts at 99+.
+            const cappedCount = Number(queue.count) > 99 ? '99+' : queue.count;
+            return (
+              <button
+                key={queue.key}
+                className="queue-row"
+                type="button"
+                onClick={() => {
+                  if (filter) setGridFilter(queue.key as ViewKey, filter);
+                  navigate('/' + queue.key);
+                }}
+              >
+                <span>{queue.label}</span>
+                <strong>{cappedCount}</strong>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex items-center gap-2 text-sm">
+          <StatusPill status={dashboard.data?.health.ok ? 'posted' : 'needs_fix'} />
+          <span>{dashboard.data?.health.ok ? 'Health checks are green.' : dashboard.data?.health.warnings.join(' ')}</span>
         </div>
       </WorkspacePanel>
+
+      {/* ── My Open Work (SX-C03: scroll target for "View all") ────────────────── */}
+      <div ref={myOpenWorkRef} tabIndex={-1} aria-label="My Open Work grid">
+        <OperatorGrid
+          view="dashboard"
+          title="My Open Work"
+          rows={rankedWorkRows}
+          columns={queueColumns}
+          loading={workQueue.isLoading}
+          expansionConfig={workQueueExpansionConfig}
+          actions={
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                const first = rankedWorkRows[0] as GridRow | undefined;
+                if (first?.route) navigate('/' + first.route);
+              }}
+            >
+              Open top item
+            </button>
+          }
+        />
+      </div>
+
       {/* ── Credit Watch (GH #359) ──────────────────────────────────────────────── */}
       {/* UX-E04: creditWatchlist error renders inline so other panels stay live. */}
       {(creditWatchlist.isError || (creditWatchlist.data && creditWatchlist.data.length > 0)) && (
@@ -385,10 +395,11 @@ export function DashboardView() {
               <PanelError onRetry={() => void creditWatchlist.refetch()} />
             ) : (
               <div className="credit-watch-list">
-                {/* UX-E01: each row deep-links — setGridFilter('clients', 'name:<customer>')
+                {/* SX-C02: cap visible rows at 5 + "View all (N)" link to /clients.
+                    UX-E01: each row deep-links — setGridFilter('clients', 'name:<customer>')
                     + setDrawerEntity + setDrawerState('standard') — mirrors the CountPill
                     pattern (TER-1624 lineage). */}
-                {(creditWatchlist.data ?? []).map((item) => {
+                {(creditWatchlist.data ?? []).slice(0, 5).map((item) => {
                   const riskClass =
                     item.risk === 'at-risk' ? 'credit-risk-bad' :
                     item.risk === 'watch' ? 'credit-risk-watch' :
@@ -426,6 +437,16 @@ export function DashboardView() {
                     </button>
                   );
                 })}
+                {/* SX-C02: "View all (N)" link when more than 5 items. */}
+                {(creditWatchlist.data ?? []).length > 5 && (
+                  <button
+                    type="button"
+                    className="mt-1 text-left text-xs text-accent hover:underline focus:outline-none focus-visible:shadow-focus"
+                    onClick={() => navigate('/clients')}
+                  >
+                    View all ({(creditWatchlist.data ?? []).length})
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -461,67 +482,21 @@ export function DashboardView() {
       )}
       {/* ── End Your Drafts ─────────────────────────────────────────────────── */}
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.8fr_1.2fr]">
-        <WorkspacePanel panelId="dashboard:pending-work-queues" title="Pending work queues" headingLevel={2} contentClassName="p-3">
-          <div className="grid gap-2">
-          {(dashboard.data?.pendingQueues ?? []).map((queue) => {
-              const filter = QUEUE_FILTER[queue.key] ?? '';
-              return (
-                <button
-                  key={queue.key}
-                  className="queue-row"
-                  type="button"
-                  onClick={() => {
-                    if (filter) setGridFilter(queue.key as ViewKey, filter);
-                    navigate('/' + queue.key);
-                  }}
-                >
-                  <span>{queue.label}</span>
-                  <strong>{queue.count}</strong>
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-4 flex items-center gap-2 text-sm">
-            <StatusPill status={dashboard.data?.health.ok ? 'posted' : 'needs_fix'} />
-            <span>{dashboard.data?.health.ok ? 'Health checks are green.' : dashboard.data?.health.warnings.join(' ')}</span>
-          </div>
-        </WorkspacePanel>
-        <WorkspacePanel panelId="dashboard:recent-activity" title="Recent activity" headingLevel={2} contentClassName="p-3">
-          <div className="mt-2 max-h-64 overflow-auto">
-            {(dashboard.data?.recentActivity ?? []).map((activity) => (
-              <div key={activity.id} className="activity-row">
-                <span className="font-medium">{commandLabelFor(activity.commandName)}</span>
-                <span>{activity.actorName}</span>
-                <span title={formatTs(activity.createdAt, { variant: 'long' })}>
-                  {formatTs(activity.createdAt, { variant: 'relative' })}
-                </span>
-                <span>{activity.toast}</span>
-              </div>
-            ))}
-          </div>
-        </WorkspacePanel>
-      </div>
-      <OperatorGrid
-        view="dashboard"
-        title="My Open Work"
-        rows={rankedWorkRows}
-        columns={queueColumns}
-        loading={workQueue.isLoading}
-        expansionConfig={workQueueExpansionConfig}
-        actions={
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => {
-              const first = rankedWorkRows[0] as GridRow | undefined;
-              if (first?.route) navigate('/' + first.route);
-            }}
-          >
-            Open top item
-          </button>
-        }
-      />
+      {/* ── Recent activity (SX-C02: moved to bottom) ──────────────────────────── */}
+      <WorkspacePanel panelId="dashboard:recent-activity" title="Recent activity" headingLevel={2} contentClassName="p-3">
+        <div className="mt-2 max-h-64 overflow-auto">
+          {(dashboard.data?.recentActivity ?? []).map((activity) => (
+            <div key={activity.id} className="activity-row">
+              <span className="font-medium">{commandLabelFor(activity.commandName)}</span>
+              <span>{activity.actorName}</span>
+              <span title={formatTs(activity.createdAt, { variant: 'long' })}>
+                {formatTs(activity.createdAt, { variant: 'relative' })}
+              </span>
+              <span>{activity.toast}</span>
+            </div>
+          ))}
+        </div>
+      </WorkspacePanel>
       {drilldownMetric ? (
         <>
           {/* UX-J07: cash drilldown groups by locationBucket when the field is on the wire. */}

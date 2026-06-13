@@ -42,14 +42,16 @@ export function SettingsView() {
   }, [activeTab, navigate, setActiveTab]);
 
   const tabs: Array<{ key: SettingsTab; label: string }> = [
-    { key: 'requests', label: 'Requests' },
+    { key: 'requests', label: 'Connector requests' },
     { key: 'strain-aliases', label: 'Strain aliases' },
     { key: 'pricing', label: 'Pricing' },
     ...(isManager ? [{ key: 'system' as SettingsTab, label: 'System' }] : []),
     ...(isOwner ? [{ key: 'credit-engine' as SettingsTab, label: 'Credit Engine' }] : [])
   ];
   const visibleTabKeys = new Set(tabs.map((t) => t.key));
-  const effectiveTab = visibleTabKeys.has(activeTab) ? activeTab : tabs[0].key;
+  // SX-G01: default to System when visible, otherwise Strain aliases.
+  const defaultTab: SettingsTab = visibleTabKeys.has('system') ? 'system' : 'strain-aliases';
+  const effectiveTab = visibleTabKeys.has(activeTab) ? activeTab : defaultTab;
   const activeTabLabel = tabs.find((tab) => tab.key === effectiveTab)?.label ?? 'Settings';
   return (
     <div className="view-stack">
@@ -80,7 +82,7 @@ export function SettingsView() {
           <button
             key={link.tab}
             type="button"
-            className="report-chip"
+            className="selection-pill muted"
             title={`Opens ${link.to}`}
             onClick={() => navigate(link.to)}
           >
