@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, FileDown, PackageCheck } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {  useEffect, useState , useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -202,16 +202,22 @@ export function FulfillmentView() {
       lines.data.every((candidate) => String(candidate.status ?? '') === 'packed' || (Number(candidate.actualQty ?? 0) > 0 && Boolean(candidate.bagCode)))
   );
 
-  // CAP-030 / TER-1510 — apply chip filters to pick rows
-  const filteredPickRows = pickQueueFilters.size === 0 ? pickRows : pickRows.filter((row) => {
-    const status = String(row.status ?? '');
-    const alertCount = Number(row.alertCount ?? 0);
-    if (pickQueueFilters.has('needs_picking') && status !== 'needs_picking') return false;
-    if (pickQueueFilters.has('in_progress') && status !== 'in_progress') return false;
-    if (pickQueueFilters.has('has_alerts') && alertCount === 0) return false;
-    if (pickQueueFilters.has('ready_to_close') && status !== 'ready_to_close') return false;
-    return true;
-  });
+  // CAP-030 / TER-1510 — apply chip filters to pick rows.
+  // SX-I11: Memoized so AG Grid doesn't rebuild its row DOM on every render
+  // (the previous unmemoized .filter() created a new array identity each
+  // time, causing ~2,000 DOM node replacements/sec while idle).
+  const filteredPickRows = useMemo(() => {
+    if (pickQueueFilters.size === 0) return pickRows;
+    return pickRows.filter((row) => {
+      const status = String(row.status ?? '');
+      const alertCount = Number(row.alertCount ?? 0);
+      if (pickQueueFilters.has('needs_picking') && status !== 'needs_picking') return false;
+      if (pickQueueFilters.has('in_progress') && status !== 'in_progress') return false;
+      if (pickQueueFilters.has('has_alerts') && alertCount === 0) return false;
+      if (pickQueueFilters.has('ready_to_close') && status !== 'ready_to_close') return false;
+      return true;
+    });
+  }, [pickRows, pickQueueFilters]);
 
   useEffect(() => {
     if (!line) {
