@@ -726,46 +726,60 @@ Maximum score:                     100`}
         expansionConfig={matchExpansionConfig}
       />
 
-      <OperatorGrid
-        view="matchmaking"
-        title="Inventory to Move"
-        subtitle={`Based on purchase history (last ${s.historyLookbackDays} days)`}
-        rows={(opportunities.data?.toMove ?? []) as GridRow[]}
-        columns={toMoveColumns}
-        loading={opportunities.isLoading}
-        emptyTitle="No opportunities yet"
-        emptyChildren="Inventory opportunities appear once customers have purchase history or posted needs."
-      />
-
-      <OperatorGrid
-        view="matchmaking"
-        title="Gaps to Fill"
-        subtitle={`Based on purchase history (last ${s.historyLookbackDays} days)`}
-        rows={(opportunities.data?.toSource ?? []) as GridRow[]}
-        columns={toSourceColumns}
-        loading={opportunities.isLoading}
-        emptyTitle="No gaps detected"
-        emptyChildren="Sourcing suggestions appear when inventory in a category drops to or below the gap threshold."
-      />
-
-      <div className="grid gap-3 xl:grid-cols-2">
+      <WorkspacePanel
+        panelId="matchmaking:proactive-opportunities"
+        title="Proactive opportunities"
+        defaultCollapsed
+        collapsedSummary={`${(opportunities.data?.toMove ?? []).length} to move · ${(opportunities.data?.toSource ?? []).length} gaps to fill`}
+      >
         <OperatorGrid
           view="matchmaking"
-          title="Customer Needs"
-          rows={filteredNeeds}
-          columns={needColumns}
-          loading={board.isLoading || isRunning}
-          onCellCommit={canWrite ? updateNeedCell : undefined}
+          title="Inventory to Move"
+          subtitle={`Based on purchase history (last ${s.historyLookbackDays} days)`}
+          rows={(opportunities.data?.toMove ?? []) as GridRow[]}
+          columns={toMoveColumns}
+          loading={opportunities.isLoading}
+          emptyTitle="No opportunities yet"
+          emptyChildren="Inventory opportunities appear once customers have purchase history or posted needs."
         />
+
         <OperatorGrid
           view="matchmaking"
-          title="Vendor Stock"
-          rows={filteredSupplies}
-          columns={supplyColumns}
-          loading={board.isLoading || isRunning}
-          onCellCommit={canWrite ? updateSupplyCell : undefined}
+          title="Gaps to Fill"
+          subtitle={`Based on purchase history (last ${s.historyLookbackDays} days)`}
+          rows={(opportunities.data?.toSource ?? []) as GridRow[]}
+          columns={toSourceColumns}
+          loading={opportunities.isLoading}
+          emptyTitle="No gaps detected"
+          emptyChildren="Sourcing suggestions appear when inventory in a category drops to or below the gap threshold."
         />
-      </div>
+      </WorkspacePanel>
+
+      <WorkspacePanel
+        panelId="matchmaking:input-registry"
+        title="Input registry"
+        defaultCollapsed
+        collapsedSummary={`${filteredNeeds.length} need${filteredNeeds.length !== 1 ? 's' : ''} · ${filteredSupplies.length} stock${filteredSupplies.length !== 1 ? 's' : ''}`}
+      >
+        <div className="grid gap-3 xl:grid-cols-2">
+          <OperatorGrid
+            view="matchmaking"
+            title="Customer Needs"
+            rows={filteredNeeds}
+            columns={needColumns}
+            loading={board.isLoading || isRunning}
+            onCellCommit={canWrite ? updateNeedCell : undefined}
+          />
+          <OperatorGrid
+            view="matchmaking"
+            title="Vendor Stock"
+            rows={filteredSupplies}
+            columns={supplyColumns}
+            loading={board.isLoading || isRunning}
+            onCellCommit={canWrite ? updateSupplyCell : undefined}
+          />
+        </div>
+      </WorkspacePanel>
     </div>
   );
 }

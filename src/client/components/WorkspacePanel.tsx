@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
-import { createElement, type ReactNode } from 'react';
+import { createElement, type ReactNode, useEffect } from 'react';
 import clsx from 'clsx';
 import { useUiStore } from '../store/uiStore';
 
@@ -9,6 +9,8 @@ interface WorkspacePanelProps {
   subtitle?: string;
   /** Short summary shown inline next to the title when the panel is collapsed. */
   collapsedSummary?: string;
+  /** When true, the panel starts collapsed unless the operator has explicitly toggled it before. */
+  defaultCollapsed?: boolean;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -22,13 +24,24 @@ interface WorkspacePanelProps {
   headingLevel?: 2 | 3 | 4;
 }
 
-export function WorkspacePanel({ panelId, title, subtitle, collapsedSummary, actions, children, className, contentClassName, testId, headingLevel }: WorkspacePanelProps) {
+export function WorkspacePanel({ panelId, title, subtitle, collapsedSummary, defaultCollapsed, actions, children, className, contentClassName, testId, headingLevel }: WorkspacePanelProps) {
   const collapsed = useUiStore((state) => Boolean(state.collapsedPanels[panelId]));
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
   const togglePanelCollapsed = useUiStore((state) => state.togglePanelCollapsed);
   const setFocusedPanel = useUiStore((state) => state.setFocusedPanel);
   const focused = focusedPanelId === panelId;
   const hiddenByFocus = Boolean(focusedPanelId && !focused);
+
+  // Apply defaultCollapsed only when the operator has never toggled this panel.
+  useEffect(() => {
+    if (defaultCollapsed === undefined) return;
+    const current = useUiStore.getState().collapsedPanels[panelId];
+    if (current === undefined) {
+      useUiStore.setState((state) => ({
+        collapsedPanels: { ...state.collapsedPanels, [panelId]: defaultCollapsed }
+      }));
+    }
+  }, [panelId, defaultCollapsed]);
 
   // Issue #60: sibling panels render a minimized orientation-preserving rail rather
   // than disappearing (old behaviour returned null here).

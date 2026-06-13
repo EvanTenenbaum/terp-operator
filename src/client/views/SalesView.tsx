@@ -1807,7 +1807,7 @@ export function SalesView() {
           onSelectionChange={setSelectedSuggestions}
         />
       </div> : null}
-      {sheetRows.length || customerId ? (
+      {sheetRows.length > 0 ? (
         <WorkspacePanel
           panelId="sales:sheet-preview"
           title={sheetMode === 'internal' ? 'Internal Sales Sheet' : 'Customer Sales Catalog'}

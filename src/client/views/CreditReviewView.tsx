@@ -105,7 +105,7 @@ export function CreditReviewView() {
       </div>
 
       {isOwner && (
-        <WorkspacePanel panelId="credit-divergence" title="Divergence report" headingLevel={2}>
+        <WorkspacePanel panelId="credit-divergence" title="Divergence report" headingLevel={2} defaultCollapsed collapsedSummary="Customers with credit divergence">
           <CreditDivergencePanel />
         </WorkspacePanel>
       )}
