@@ -9,11 +9,14 @@ vi.mock('./useCommandRunner', () => ({
 
 vi.mock('../api/trpc', () => {
   const empty = () => ({ data: undefined, isLoading: false });
+  // UX-A04: the grid now mounts useQuickLedgerDraftSync, which also calls
+  // useMutation (saveQuickLedgerDrafts) — the proxy must support both hooks.
+  const emptyMutation = () => ({ mutate: vi.fn(), isLoading: false });
   const procProxy: unknown = new Proxy(
     {},
     {
       get(_t, _p: string) {
-        return { useQuery: empty };
+        return { useQuery: empty, useMutation: emptyMutation };
       }
     }
   );

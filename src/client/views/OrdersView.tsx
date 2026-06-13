@@ -1,7 +1,8 @@
 import { Check, FileDown, ListChecks, PackageCheck, Send, Truck, Undo2 } from 'lucide-react';
-import { useState } from 'react';
-import type { CellValueChangedEvent } from 'ag-grid-community';
+import { useMemo, useState } from 'react';
+import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
+import { crossOrderSourceColumn } from '../components/CrossOrderSourceChip';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { FilterPresetStrip, StatusActionBar, type StatusActionTable } from '../components/templates';
 import { useCommandRunner } from '../components/useCommandRunner';
@@ -75,6 +76,18 @@ export function OrdersView() {
   const customerRelationships = (reference.data?.refereeRelationships ?? [])
     .filter((rel: any) => rel.entityType === 'customer' && rel.entityId === customerId);
 
+  // UX-G02 — append the shared-source pre-check chip column right after the
+  // status column. Data comes from the orders grid payload's
+  // crossOrderSourceOrders allowlist field (see queries.ts orders case); the
+  // chip is informational only and renders solely on open (draft/confirmed)
+  // rows — the server's post-time refusals are unchanged.
+  const ordersColumns = useMemo<ColDef<GridRow>[]>(() => {
+    const base = columnsByView.orders ?? [];
+    const statusIndex = base.findIndex((col) => col.field === 'status');
+    if (statusIndex === -1) return [...base, crossOrderSourceColumn];
+    return [...base.slice(0, statusIndex + 1), crossOrderSourceColumn, ...base.slice(statusIndex + 1)];
+  }, []);
+
   // Spec §10.4 — status-aware primary decision table for Orders. Every verb
   // from the former always-on cockpit (Ready, Post, Reprice, Fulfillment,
   // Pick list, Cancel) remains reachable: it is either the primary for its
@@ -135,7 +148,7 @@ export function OrdersView() {
         view="orders"
         title="Orders"
         rows={(grid.data ?? []) as GridRow[]}
-        columns={columnsByView.orders ?? []}
+        columns={ordersColumns}
         loading={grid.isLoading}
         isError={grid.isError}
         onRetry={() => grid.refetch()}

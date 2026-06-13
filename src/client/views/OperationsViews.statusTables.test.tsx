@@ -47,6 +47,9 @@ vi.mock('../api/trpc', () => {
 });
 
 // --- uiStore mock ---
+// UX-H04: selectedRows is configurable per test so PurchaseOrdersView can
+// render its selected-PO lines grid (defaults to {} — prior behavior).
+let mockSelectedRows: Record<string, GridRow[]> = {};
 const mockSetSelectedRows = vi.fn();
 const mockSetGridFilter = vi.fn();
 const mockSetActiveView = vi.fn();
@@ -57,7 +60,7 @@ const mockPushToast = vi.fn();
 vi.mock('../store/uiStore', () => ({
   useUiStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
-      selectedRows: {},
+      selectedRows: mockSelectedRows,
       setSelectedRows: mockSetSelectedRows,
       setDrawerState: mockSetDrawerState,
       setDrawerEntity: mockSetDrawerEntity,
@@ -84,16 +87,30 @@ vi.mock('../components/useCommandRunner', () => ({
 }));
 
 // --- OperatorGrid stub: renders selectionActions with controllable rows ---
+// UX-H04 addition: grids with onSelectionChange expose a test-only
+// "select all rows" button that selects the grid's own rows (used to select
+// PO lines in the partial-receiving tests). Existing assertions unaffected.
 let stubRows: GridRow[] = [];
 vi.mock('../components/OperatorGrid', () => ({
   OperatorGrid: (props: {
     title?: string;
+    rows?: GridRow[];
     actions?: React.ReactNode;
     selectionActions?: (rows: GridRow[]) => React.ReactNode;
+    onSelectionChange?: (rows: GridRow[]) => void;
   }) => (
     <div data-testid={`grid-${props.title ?? 'untitled'}`}>
       {typeof props.actions === 'function' ? null : props.actions}
       {props.selectionActions ? props.selectionActions(stubRows) : null}
+      {props.onSelectionChange ? (
+        <button
+          type="button"
+          data-testid={`select-all-${props.title ?? 'untitled'}`}
+          onClick={() => props.onSelectionChange?.(props.rows ?? [])}
+        >
+          select all {props.title ?? 'untitled'} rows
+        </button>
+      ) : null}
     </div>
   )
 }));
@@ -106,11 +123,20 @@ vi.mock('../components/QuickLedgerGrid', () => ({ QuickLedgerGrid: () => null })
 vi.mock('../components/drawerTabs/CommandReversalTab', () => ({
   CommandReversalTab: () => <div data-testid="command-reversal-tab" />
 }));
+// UX-H04: ReceiptPanel mounts whenever a receivable PO is selected — stub it
+// so the partial-receiving tests exercise only the decision table behavior.
+vi.mock('../components/ReceiptPanel', () => ({ ReceiptPanel: () => null }));
 
 import { VendorPayablesView, ConnectorsView, RecoveryView, PaymentsView, CloseoutView, PurchaseOrdersView } from './OperationsViews';
+import {
+  buildReceiveLineQuantities,
+  poLineOutstandingQty,
+  purchaseOrderLineColumnsFor
+} from './PurchaseOrdersView';
 
 beforeEach(() => {
   stubRows = [];
+  mockSelectedRows = {};
   for (const key of Object.keys(queryData)) delete queryData[key];
   mockRunCommand.mockReset().mockResolvedValue({ ok: true });
   mockSetGridFilter.mockReset();
@@ -385,5 +411,95 @@ describe('PurchaseOrdersView UX-H01 status table (real PO statuses: draft → fi
     stubRows = [{ id: 'po1', status: 'draft' } as unknown as GridRow];
     const { container } = render(<PurchaseOrdersView />);
     expect(container.querySelectorAll('[data-status-action-primary]').length).toBe(1);
+  });
+});
+
+describe('PurchaseOrdersView UX-H04 partial receiving (BE-009 lineage, Execution Decision 5)', () => {
+  const approvedPo = { id: 'po3', poNo: 'PO-9', status: 'approved' } as unknown as GridRow;
+
+  function selectApprovedPoWithLines(lines: Array<Record<string, unknown>>) {
+    stubRows = [approvedPo];
+    mockSelectedRows = { purchaseOrders: [approvedPo] };
+    queryData.purchaseOrderLines = lines;
+  }
+
+  it('selected lines → tray "Receive selected qty" sends per-line outstanding quantities (default = qty − receivedQty)', () => {
+    selectApprovedPoWithLines([
+      { id: 'l1', qty: 10, receivedQty: 4, status: 'partially_received' },
+      { id: 'l2', qty: 5, receivedQty: 0, status: 'planned' }
+    ]);
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByTestId('select-all-PO-9 Lines'));
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Receive selected qty$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith(
+      'receivePurchaseOrder',
+      { purchaseOrderId: 'po3', lineQuantities: { l1: 6, l2: 5 } },
+      expect.any(String)
+    );
+  });
+
+  it('no lines selected → "Receive selected qty" is disabled with a reason; full Receive PO primary unchanged', () => {
+    selectApprovedPoWithLines([{ id: 'l1', qty: 10, receivedQty: 0, status: 'planned' }]);
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    const partial = screen.getByRole('menuitem', { name: /^Receive selected qty$/ });
+    expect(partial.hasAttribute('disabled')).toBe(true);
+    expect(partial.getAttribute('title')).toMatch(/Select PO lines/);
+    // The full receive primary still fires the legacy payload (no lineQuantities key).
+    fireEvent.click(screen.getByRole('button', { name: /^Receive PO$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith('receivePurchaseOrder', { purchaseOrderId: 'po3' }, expect.any(String));
+  });
+
+  it('lines with nothing outstanding are skipped from the partial payload', () => {
+    selectApprovedPoWithLines([
+      { id: 'l1', qty: 10, receivedQty: 10, status: 'received' },
+      { id: 'l2', qty: 3, receivedQty: 1, status: 'partially_received' }
+    ]);
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByTestId('select-all-PO-9 Lines'));
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Receive selected qty$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith(
+      'receivePurchaseOrder',
+      { purchaseOrderId: 'po3', lineQuantities: { l2: 2 } },
+      expect.any(String)
+    );
+  });
+
+  it('"Receive selected qty" lives in the tray for ordered/partially_received POs too', () => {
+    stubRows = [{ id: 'po5', status: 'partially_received' } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    expect(screen.getByRole('menuitem', { name: /^Receive selected qty$/ })).toBeTruthy();
+  });
+
+  describe('helpers', () => {
+    it('poLineOutstandingQty: ordered − received, floored at 0, 3dp', () => {
+      expect(poLineOutstandingQty({ id: 'x', qty: 10, receivedQty: 4 } as unknown as GridRow)).toBe(6);
+      expect(poLineOutstandingQty({ id: 'x', qty: 2, receivedQty: 5 } as unknown as GridRow)).toBe(0);
+      expect(poLineOutstandingQty({ id: 'x', qty: '1.500', receivedQty: '0.250' } as unknown as GridRow)).toBe(1.25);
+    });
+
+    it('buildReceiveLineQuantities: respects positive overrides, clamps to outstanding, skips zero-outstanding lines', () => {
+      const lines = [
+        { id: 'a', qty: 10, receivedQty: 0 },
+        { id: 'b', qty: 8, receivedQty: 5 },
+        { id: 'c', qty: 4, receivedQty: 4 }
+      ] as unknown as GridRow[];
+      expect(buildReceiveLineQuantities(lines, { a: 2.5, b: 99 })).toEqual({ a: 2.5, b: 3 });
+      expect(buildReceiveLineQuantities(lines, {})).toEqual({ a: 10, b: 3 });
+    });
+
+    it('purchaseOrderLineColumnsFor: editable Receive qty column only on receivable PO statuses', () => {
+      for (const status of ['approved', 'ordered', 'partially_received']) {
+        const col = purchaseOrderLineColumnsFor(status).find((c) => c.field === 'receiveQty');
+        expect(col, `expected receiveQty column for ${status}`).toBeTruthy();
+        expect(col?.editable).toBe(true);
+      }
+      for (const status of ['draft', 'finalized', 'received', 'cancelled']) {
+        expect(purchaseOrderLineColumnsFor(status).some((c) => c.field === 'receiveQty')).toBe(false);
+      }
+    });
   });
 });

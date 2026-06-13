@@ -1009,11 +1009,73 @@ export const queriesRouter = router({
       });
       return { kind: input.allocationIntent || 'fifo', label: input.allocationIntent === 'unapplied' ? 'Leave unapplied' : 'Auto-apply to oldest invoices', rows, unapplied: Math.max(0, remaining).toFixed(2) };
     }),
+  // UX-A04 / CAP-024 / Execution Decision 2 (docs/ux-audit-2026-06-12.md):
+  // server-side per-user Quick Ledger draft persistence. Drafts carry
+  // counterparty names + amounts, so they are deliberately excluded from the
+  // client localStorage partialize (shared-workstation PII rationale,
+  // uiStore.ts) — this pair of endpoints is the only durable home for them.
+  // Lives in the queries router because it is the namespace the Quick Ledger
+  // client already uses for ledger work (transactionLedger,
+  // paymentAllocationPreview above).
+  quickLedgerDrafts: protectedProcedure.query(async ({ ctx }) => {
+    const result = await pool.query(
+      'select drafts, updated_at as "updatedAt" from user_view_drafts where user_id = $1 and view_key = $2',
+      [ctx.user.id, 'quickLedger']
+    );
+    const row = result.rows[0] as { drafts: unknown; updatedAt: Date } | undefined;
+    return { drafts: Array.isArray(row?.drafts) ? (row?.drafts as Record<string, unknown>[]) : null, updatedAt: row?.updatedAt ?? null };
+  }),
+  saveQuickLedgerDrafts: protectedProcedure
+    .input(
+      z.object({
+        // Mirrors the client LedgerDraft shape (uiStore.ts) loosely — strict on
+        // the discriminants, permissive on free-text fields — so future draft
+        // fields don't strand saved work. `.strip()` drops unknown keys.
+        drafts: z
+          .array(
+            z
+              .object({
+                id: z.string().min(1).max(64),
+                date: z.string().max(32),
+                direction: z.enum(['receiving', 'paying']),
+                entityType: z.string().max(32),
+                entityId: z.string().max(64),
+                entityName: z.string().max(240),
+                transactionType: z.string().max(64),
+                allocationTargetType: z.string().max(64),
+                allocationTargetId: z.string().max(64),
+                amount: z.string().max(32),
+                method: z.string().max(32),
+                bucket: z.string().max(64),
+                reference: z.string().max(240),
+                notes: z.string().max(2000),
+                status: z.enum(['draft', 'posted', 'needs_fix']),
+                issue: z.string().max(500).optional(),
+                processorId: z.string().max(64).optional(),
+                grossAmount: z.string().max(32).optional(),
+                processingFeeTotal: z.string().max(32).optional(),
+                userSplitPercent: z.string().max(32).optional()
+              })
+              .strip()
+          )
+          .max(50)
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await pool.query(
+        `insert into user_view_drafts (user_id, view_key, drafts)
+         values ($1, 'quickLedger', $2::jsonb)
+         on conflict (user_id, view_key)
+         do update set drafts = excluded.drafts, updated_at = now()`,
+        [ctx.user.id, JSON.stringify(input.drafts)]
+      );
+      return { ok: true as const };
+    }),
   paymentAllocations: protectedProcedure.input(z.object({ paymentId: z.string().uuid().optional(), customerId: z.string().uuid().optional() })).query(async ({ input }) => {
     return (
       await pool.query(
         `select pa.id, pa.payment_id as "paymentId", pa.invoice_id as "invoiceId", i.invoice_no as "invoiceNo",
-                pa.amount, pa.created_at as "createdAt", p.customer_id as "customerId"
+                i.order_id as "orderId", pa.amount, pa.created_at as "createdAt", p.customer_id as "customerId"
          from payment_allocations pa
          join payments p on p.id = pa.payment_id
          left join invoices i on i.id = pa.invoice_id
@@ -2561,10 +2623,28 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
     case 'matchmaking':
       return matchmakingSql();
     case 'orders':
+      // UX-G02 — allowlist field extension on the EXISTING orders grid query
+      // (same pattern as the UX-O01 media_status extension; no new procedure).
+      // "crossOrderSourceOrders": other OPEN orders (draft/confirmed — the
+      // Orders "All Open" preset set) sharing a source key with this order,
+      // where the source key mirrors the server's duplicate-source guard key
+      // `sourceRowKey || batchId` (commandBus.ts postSalesOrder, sourceKey at
+      // ~line 3638). Surfaced as a row chip so the operator sees the
+      // shared-source risk BEFORE post-time availability refusals
+      // (commandBus.ts ~3646-3650: availableQty < qty → refuse).
       return `select so.id, so.order_no as "orderNo", c.name as customer, so.status, so.total, so.delivery_window as "deliveryWindow", so.notes,
                      so.packed, so.inventory_posted as "inventoryPosted", so.payment_followup as "paymentFollowup",
                      so.legacy_status_markers as "legacyStatusMarkers", so.validation_issues as "validationIssues",
-                     i.id as "invoiceId", i.invoice_no as "invoiceNo", i.status as "invoiceStatus", so.posted_at as "postedAt", so.fulfilled_at as "fulfilledAt"
+                     i.id as "invoiceId", i.invoice_no as "invoiceNo", i.status as "invoiceStatus", so.posted_at as "postedAt", so.fulfilled_at as "fulfilledAt",
+                     (select string_agg(distinct so2.order_no, ', ')
+                        from sales_order_lines sol
+                        join sales_order_lines sol2
+                          on coalesce(sol2.source_row_key, sol2.batch_id::text) = coalesce(sol.source_row_key, sol.batch_id::text)
+                         and sol2.order_id <> sol.order_id
+                        join sales_orders so2 on so2.id = sol2.order_id
+                       where sol.order_id = so.id
+                         and coalesce(sol.source_row_key, sol.batch_id::text) is not null
+                         and so2.status in ('draft', 'confirmed')) as "crossOrderSourceOrders"
               from sales_orders so
               left join customers c on c.id = so.customer_id
               left join invoices i on i.order_id = so.id
@@ -2611,13 +2691,20 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
               group by c.id, dp."avgDaysToPay"
               order by c.balance desc, c.name`;
     case 'vendors':
+      // UX-K03: extend with receiptNo + receiptId for Trace tab source links.
+      // Uses vendor_bills.purchase_receipt_id (direct FK) for a precise 1:1
+      // link — each bill is linked to exactly the receipt that produced it.
+      // This is correct even under UX-H04 partial receiving where a single PO
+      // produces multiple receipts. No new procedure — extends existing query fields.
       return `select vb.id, v.name as vendor, vb.vendor_id as "vendorId", vb.bill_no as "billNo", po.po_no as "poNo", vb.purchase_order_id as "purchaseOrderId",
                      vb.amount, vb.amount_paid as "amountPaid", vb.status, vb.due_date as "dueDate", vb.scheduled_for as "scheduledFor",
                      vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered",
-                     v.contact_id AS "contactId"
+                     v.contact_id AS "contactId",
+                     pr.id AS "receiptId", pr.receipt_no AS "receiptNo"
               from vendor_bills vb
               left join vendors v on v.id = vb.vendor_id
               left join purchase_orders po on po.id = vb.purchase_order_id
+              left join purchase_receipts pr on pr.id = vb.purchase_receipt_id
               order by vb.due_date, v.name`;
     case 'fulfillment':
       return `select pl.id, pl.order_id as "orderId", pl.pick_no as "pickNo", so.order_no as "orderNo", c.name as customer, pl.status,
@@ -2755,7 +2842,7 @@ export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     payments: ['id', 'customer', 'direction', 'category', 'method', 'amount', 'unappliedAmount', 'allocationIntent', 'impactPreview', 'reference', 'locationBucket', 'notes', 'status', 'createdAt'],
     inventory: ['id', 'batchCode', 'name', 'category', 'tags', 'vendor', 'availableQty', 'reservedQty', 'uom', 'unitCost', 'unitPrice', 'priceRange', 'location', 'ownershipStatus', 'legacyMarker', 'arrivalStatus', 'mediaStatus', 'lotCode', 'expirationDate', 'ageDays', 'status'],
     clients: ['id', 'name', 'creditLimit', 'balance', 'headroom', 'tags', 'notes', 'invoiceCount', 'openInvoiceCount', 'daysPastDue', 'unpaidBalance', 'avgDaysToPay'],
-    vendors: ['id', 'vendor', 'billNo', 'poNo', 'purchaseOrderId', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered'],
+    vendors: ['id', 'vendor', 'billNo', 'poNo', 'purchaseOrderId', 'amount', 'amountPaid', 'status', 'dueDate', 'scheduledFor', 'dueReason', 'consignmentTriggered', 'receiptId', 'receiptNo'],
     fulfillment: ['id', 'pickNo', 'orderNo', 'customer', 'status', 'unitsPerBag', 'labelFormat', 'labelsPrinted', 'manifestPath', 'tracking', 'lines'],
     connectors: ['id', 'source', 'requestType', 'customer', 'status', 'operatorNotes', 'createdAt'],
     recovery: ['id', 'commandName', 'actorName', 'status', 'error', 'affectedIds', 'reversedByCommandId', 'createdAt'],

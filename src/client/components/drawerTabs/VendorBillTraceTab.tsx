@@ -4,21 +4,21 @@ import { trpc } from '../../api/trpc';
  * VendorBillTraceTab — linked chain trace for a vendor bill.
  *
  * CMD-VENDOR / TER-1517 (Phase 3 PR B): Shows the full lineage of a vendor
- * bill: linked PO, linked intake batches (from the PO's receipts), consignment
- * trigger indicator, and payment events.
+ * bill: linked PO, linked purchase receipt, consignment trigger indicator,
+ * and payment events.
  *
  * Data strategy:
- * - Linked PO / intake receipts: from grid row (poNo, purchaseOrderId) +
- *   `queries.vendorPayments` for payment events.
- * - Intake batches: TODO — no dedicated tRPC query exists yet. Shows stub UI
- *   with a "No data" fallback.
- * - Consignment trigger: from grid row `consignmentTriggered` field.
+ * - Linked PO: grid row fields (poNo, purchaseOrderId).
+ * - Linked receipt (UX-K03): grid row fields (receiptNo, receiptId) — derived
+ *   by extending the vendors grid SQL to join purchase_receipts on the bill's
+ *   purchase_order_id. Extends an existing query field set (no new procedure).
+ * - Consignment trigger: grid row `consignmentTriggered` field.
  * - Payment events: `queries.vendorPayments({ vendorBillId })`.
  *
- * TODO: add tRPC query `queries.vendorBillIntakeBatches` to return intake
- * batches linked to this bill's purchaseOrderId. Would join:
- *   purchase_receipts → batches → items for batch_code, item name,
- *   arrived_at, qty. When that query exists, replace the stub section below.
+ * Tracked deviation: intake-batch detail (per-batch received items joining
+ * purchase_receipt_lines → batches) requires a new tRPC procedure
+ * (vendorBillIntakeBatches). Shipping the partial (PO + receipt links) now;
+ * the intake-batch section is stubbed with a tracked TODO.
  */
 
 interface VendorBillTraceTabProps {
@@ -47,6 +47,9 @@ export function VendorBillTraceTab({ vendorBillId, row }: VendorBillTraceTabProp
   const payments = paymentsQuery.data ?? [];
 
   const hasLinkedPo = Boolean(row?.poNo || row?.purchaseOrderId);
+  // UX-K03: receiptNo / receiptId are now returned by the vendors grid query
+  // (lateral join on purchase_receipts.purchase_order_id — no new procedure).
+  const hasLinkedReceipt = Boolean(row?.receiptNo || row?.receiptId);
   const isConsignment = Boolean(row?.consignmentTriggered);
 
   return (
@@ -75,6 +78,30 @@ export function VendorBillTraceTab({ vendorBillId, row }: VendorBillTraceTabProp
         )}
       </section>
 
+      {/* Linked purchase receipt (UX-K03): receiptNo + receiptId derived from
+          the vendors grid query's lateral join on purchase_receipts.purchase_order_id.
+          Shows the first receipt posted against this bill's PO. */}
+      <section className="mt-4">
+        <h3 className="section-title">Linked receipt</h3>
+        {hasLinkedReceipt ? (
+          <div className="mt-2 grid gap-1 text-xs">
+            <div className="activity-row">
+              <span className="font-medium text-ink">{String(row?.receiptNo ?? '-')}</span>
+              <span className="text-zinc-500">purchase receipt</span>
+              <span className="font-mono text-zinc-400">
+                {row?.receiptId ? String(row.receiptId).slice(0, 8) + '…' : ''}
+              </span>
+            </div>
+          </div>
+        ) : hasLinkedPo ? (
+          <p className="mt-2 text-xs text-zinc-400">
+            No receipt posted against this PO yet.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-zinc-400">No linked PO — no receipt to trace.</p>
+        )}
+      </section>
+
       {/* Consignment trigger */}
       {isConsignment ? (
         <section className="mt-4">
@@ -87,18 +114,17 @@ export function VendorBillTraceTab({ vendorBillId, row }: VendorBillTraceTabProp
         </section>
       ) : null}
 
-      {/* Intake batches — stub (no query exists yet) */}
+      {/* Intake batches — stub (new procedure required, shipping partial).
+          UX-K03 deviation: intake-batch detail (joining purchase_receipt_lines
+          → batches → items for batch_code, item name, qty) requires a new tRPC
+          procedure `queries.vendorBillIntakeBatches`. Tracked as remainder;
+          PO + receipt source links above are derivable from existing query fields. */}
       <section className="mt-4">
-        <h3 className="section-title">Linked intake batches</h3>
-        {/* TODO: add tRPC query `queries.vendorBillIntakeBatches({ purchaseOrderId })`
-            joining purchase_receipts → batches → items. When that query exists,
-            fetch it here and replace this stub. */}
+        <h3 className="section-title">Intake batches</h3>
         {hasLinkedPo ? (
           <p className="mt-2 text-xs text-zinc-400">
-            No data — intake batch detail query not yet available.{' '}
-            <span className="text-zinc-300">
-              (Stub: vendorBillIntakeBatches query pending.)
-            </span>
+            Batch-level detail pending (requires{' '}
+            <span className="font-mono">vendorBillIntakeBatches</span> query).
           </p>
         ) : (
           <p className="mt-2 text-xs text-zinc-400">No linked PO — no intake batches to trace.</p>

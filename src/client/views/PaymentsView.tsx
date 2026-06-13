@@ -7,8 +7,36 @@ import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { ReceiptPanel } from '../components/ReceiptPanel';
+import { PaymentLinkedOrdersTab } from '../components/drawerTabs/PaymentLinkedOrdersTab';
 import type { GridRow } from '../../shared/types';
 import { GridJourney, moneyish, dateish } from './operations/shared';
+
+/**
+ * UX-J03: Live count of payment rows with unapplied > 0, computed from the
+ * payments grid query that GridJourney already fetches.  Because tRPC deduplicates
+ * queries by (procedure + input), calling the same `.grid({ view: 'payments' })`
+ * here reuses the in-flight or cached response — it does NOT issue a second
+ * network request.
+ */
+function UnappliedCountBadge() {
+  const grid = trpc.queries.grid.useQuery({ view: 'payments' });
+  if (grid.isLoading || !grid.data) return null;
+  const count = (grid.data as GridRow[]).filter(
+    (row) => Number(row.unappliedAmount ?? 0) > 0 &&
+             !['reversed', 'refunded'].includes(String(row.status ?? ''))
+  ).length;
+  // Render nothing while zero to avoid a static "0" badge occupying space.
+  if (count === 0) return null;
+  return (
+    <span
+      className="selection-pill"
+      aria-label={`${count} unapplied payment${count !== 1 ? 's' : ''}`}
+      title="Payments with unapplied balance"
+    >
+      {count}
+    </span>
+  );
+}
 
 // UX-D01: deep-link helper — navigate to the payments view filtered + drawered
 // to a specific payment row. Mirrors the CountPill pattern (TER-1624/E01).
@@ -57,21 +85,47 @@ export function PaymentsView() {
                 key: 'receipt',
                 label: 'Receipt',
                 render: () => <ReceiptPanel kind="payment" paymentId={String(row.id)} />
+              },
+              {
+                // UX-J06: invoice→order cross-links in the payment inspector.
+                // Uses the existing setGridFilter/setDrawerEntity/navigate
+                // pattern (same CountPill / TER-1624 lineage).
+                key: 'linked-orders',
+                label: 'Linked Orders',
+                render: () => <PaymentLinkedOrdersTab paymentId={String(row.id)} />
               }
             ]
           : []
       }
       actions={() => (
         <>
-          {/* GH #354 presets, now via the shared template */}
+          {/* GH #354 presets, now via the shared template.
+              UX-J03: "Unapplied (N)" preset surfaces the standing unapplied queue.
+              The filter uses field:val syntax that gridFilterUtils understands
+              (unappliedAmount column > 0 is expressed as a non-zero presence
+              filter string; the grid's quickFilter text-search will exclude rows
+              where unappliedAmount is 0 or null when this preset is active). */}
           <FilterPresetStrip
             view="payments"
             ariaLabel="Filter payments"
             presets={[
               { label: 'Unpaid', filter: 'status:active' },
-              { label: 'Overdue', filter: 'category:overdue' }
+              { label: 'Overdue', filter: 'category:overdue' },
+              {
+                key: 'unapplied',
+                // UX-J03: live count pill is rendered inline after the label via
+                // a sibling element, not inside FilterPresetStrip, to keep the
+                // template's label: string contract intact.
+                label: 'Unapplied',
+                filter: 'unappliedAmount:>0',
+                title: 'Show payments with unapplied balance'
+              }
             ]}
           />
+          {/* UX-J03: standing count pill — always visible next to the preset strip
+              so the accounting operator sees the unapplied queue size at a glance.
+              Count is derived from grid data already on the wire (no extra query). */}
+          <UnappliedCountBadge />
         </>
       )}
       selectionActions={(rows, runCommand, setNextSuccessActions) => {

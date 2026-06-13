@@ -12,6 +12,8 @@ import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHist
 import { SalesSourcePane } from '../components/SalesSourcePane';
 import { type CustomerSheetSnapshotRow, type CustomerSheetSnapshotSummary } from '../components/RecentSheetsPanel';
 import { SaleLineExceptionControls } from '../components/SaleLineExceptionControls';
+import { AlreadyInOrderChip, SalePrePostStrip, buildSalePrePostChecks, duplicateSourceLineIds, prePostIssuesByLineId, type SalePrePostCheck, type SalePrePostLine } from '../components/SalePrePostStrip';
+import { SnapshotRetryPill } from '../components/SnapshotRetryPill';
 import { ReceiptPanel } from '../components/ReceiptPanel';
 import { LandedCostExceptionCellRenderer } from '../components/LandedCostExceptionChip';
 import { useCommandRunner } from '../components/useCommandRunner';
@@ -180,7 +182,21 @@ const lineColumns: ColDef<GridRow>[] = [
   },
   { field: 'itemName', headerName: 'Canonical', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
   { field: 'subcategory', headerName: 'Subcategory', width: 120 },
-  { field: 'batchCode', headerName: 'Source', width: 140 },
+  {
+    field: 'batchCode',
+    headerName: 'Source',
+    width: 180,
+    // UX-F04 — "Already in order" chip when this line's source key
+    // (sourceRowKey || batchId, same key the postSalesOrder duplicate-source
+    // guard uses) appears on another line of the same order. The __dupSource
+    // flag is computed in lineRowsWithRule via duplicateSourceLineIds().
+    cellRenderer: (params: { value: unknown; data?: GridRow }) => (
+      <span>
+        {String(params.value ?? '')}
+        <AlreadyInOrderChip isDuplicate={Boolean((params.data as Record<string, unknown> | undefined)?.__dupSource)} />
+      </span>
+    )
+  },
   { field: 'unresolvedSourceText', headerName: 'Unresolved source', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
   { field: 'qty', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 95 },
   { field: 'unitPrice', editable: (params) => !isRowEditLocked(params), type: 'numericColumn', width: 115 },
@@ -304,6 +320,14 @@ const lineColumns: ColDef<GridRow>[] = [
 
 const EMPTY_ROWS: GridRow[] = [];
 
+// UX-A15 — exact shape sent to createCustomerSheetSnapshot, captured at
+// export time so "Retry snapshot" replays the identical call.
+type SnapshotPayload = {
+  customerId: string;
+  mode: 'internal' | 'catalog';
+  rows: ReturnType<typeof buildCustomerSheetSnapshotRows>;
+};
+
 function moneyish(value: unknown) {
   const numberValue = Number(value ?? 0);
   return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
@@ -328,6 +352,11 @@ export function SalesView() {
   const [autoStartedCustomerIds, setAutoStartedCustomerIds] = useState<Set<string>>(new Set());
   const [dismissedCreditIndicators, setDismissedCreditIndicators] = useState<Set<string>>(new Set());
   const [exportError, setExportError] = useState<string | null>(null);
+  // UX-A15 — exact createCustomerSheetSnapshot payload captured at export
+  // time, so "Retry snapshot" re-runs the EXISTING snapshot call path with
+  // the same rows the downloaded file contained (never re-derived rows that
+  // may have changed since the export).
+  const [lastSnapshotPayload, setLastSnapshotPayload] = useState<SnapshotPayload | null>(null);
   // TER-1617 F-23: track whether the operator dismissed the customer-scope chip
   // for the Sales Orders pane. Resets automatically when the active customer changes.
   const [customerFilterDismissed, setCustomerFilterDismissed] = useState(false);
@@ -441,6 +470,9 @@ export function SalesView() {
       ?.find((c) => c['id'] === customerId);
     const customerRule = asRule(customerObj?.['pricingRule']);
     const defaultsRule = asRule(reference.data?.defaultPricingRule);
+    // UX-F04 — flag lines whose source key duplicates another line of the
+    // same order (mirrors the postSalesOrder duplicate-source refusal).
+    const dupIds = duplicateSourceLineIds(orderLines.data as SalePrePostLine[]);
     return (orderLines.data as GridRow[]).map((row) => {
       const rule = resolvePricingRuleEntry(
         customerRule,
@@ -449,7 +481,7 @@ export function SalesView() {
         row.batchSubcategory as string | null
       );
       const { markupDollars } = computeLineMarkup(row, rule);
-      return { ...row, __rule: rule, markup: Number.isFinite(markupDollars) ? markupDollars : 0 };
+      return { ...row, __rule: rule, markup: Number.isFinite(markupDollars) ? markupDollars : 0, __dupSource: dupIds.has(String(row.id ?? '')) };
     });
   }, [orderLines.data, reference.data, customerId]);
 
@@ -580,6 +612,40 @@ export function SalesView() {
   });
   const indicatorKey = `${customerId}:${String(selectedOrder?.id ?? '')}`;
   const isIndicatorDismissed = dismissedCreditIndicators.has(indicatorKey);
+
+  // UX-F02 — pre-post checklist data. Reads the SAME inputs the server gates
+  // read: customers.balance / customers.creditLimit + sales_orders.total for
+  // the advisory credit warning (commandBus.ts confirm ~3542 / post ~3665),
+  // and the order's own line rows for the duplicate-source, pricing/COGS, and
+  // inventory-resolution refusals (see SalePrePostStrip.tsx for the exact
+  // commandBus line citations). Purely informational — the strip never
+  // changes any button's disabled logic.
+  const prePostChecks = useMemo<SalePrePostCheck[]>(() => {
+    if (!selectedOrder || !workspace.data?.customer || !lineRowsWithRule.length) return [];
+    return buildSalePrePostChecks({
+      orderTotal: Number(selectedOrder.total ?? 0),
+      customerBalance: Number(workspace.data.customer.balance ?? 0),
+      creditLimit: Number(workspace.data.customer.creditLimit ?? 0),
+      lines: lineRowsWithRule as SalePrePostLine[]
+    });
+  }, [selectedOrder, workspace.data, lineRowsWithRule]);
+  const prePostLineIssues = useMemo(() => prePostIssuesByLineId(prePostChecks), [prePostChecks]);
+  // Shown for pre-post statuses only: draft (Confirm ahead) and confirmed
+  // (Post ahead — Post itself lives on the Orders §10.4 primary).
+  const showPrePostStrip = Boolean(
+    customerId && selectedOrder && ['draft', 'confirmed'].includes(selectedOrderStatus) && prePostChecks.length
+  );
+  // ✗ deep-links: failing lines focus the Line validation panel; the credit
+  // advisory opens the customer drawer (balance tab is the default for
+  // customer entities).
+  function focusPrePostCheck(check: SalePrePostCheck) {
+    if (check.failingLineIds.length) setValidationFocusIds(check.failingLineIds);
+  }
+  function openCreditPanel() {
+    if (!customerId) return;
+    setDrawerEntity('sales', 'customer', customerId);
+    setDrawerState('sales', 'standard');
+  }
 
   // GH #352: repeat last order — fetch the most recent customer sheet
   // snapshot and add all available items to the current draft order.
@@ -1042,25 +1108,48 @@ export function SalesView() {
     // Sales > Recent Sheets tab and add items back to a future draft.
     // Sanitization is also enforced server-side in createCustomerSheetSnapshot.
     if (customerId && sheetRows.length) {
-      try {
-        const sanitized = buildCustomerSheetSnapshotRows(
-          sheetRows as unknown as Array<Record<string, unknown>>,
-          mode
-        );
-        const result = await runCommand(
-          'createCustomerSheetSnapshot',
-          { customerId, mode, rows: sanitized },
-          `Snapshot ${mode} sales sheet for customer`
-        );
-        if (!result.ok) {
-          setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
-          setSalesSheetState({ exportError: 'Sheet downloaded, but Recent Sheets snapshot failed.' });
-        }
-      } catch {
-        setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
-        setSalesSheetState({ exportError: 'Sheet downloaded, but Recent Sheets snapshot failed.' });
-      }
+      const sanitized = buildCustomerSheetSnapshotRows(
+        sheetRows as unknown as Array<Record<string, unknown>>,
+        mode
+      );
+      const payload: SnapshotPayload = { customerId, mode, rows: sanitized };
+      // UX-A15: capture the payload before attempting, so a failure can be
+      // retried with the exact same snapshot call.
+      setLastSnapshotPayload(payload);
+      await attemptSnapshot(payload);
     }
+  }
+
+  // UX-A15 — single snapshot call path shared by export and "Retry snapshot".
+  // Runs the existing createCustomerSheetSnapshot command; on success clears
+  // the partial-failure pill, on failure (re)sets it.
+  async function attemptSnapshot(payload: SnapshotPayload): Promise<boolean> {
+    let ok = false;
+    try {
+      const result = await runCommand(
+        'createCustomerSheetSnapshot',
+        payload,
+        `Snapshot ${payload.mode} sales sheet for customer`
+      );
+      ok = result.ok;
+    } catch {
+      ok = false;
+    }
+    if (ok) {
+      setExportError(null);
+      setSalesSheetState({ exportError: null });
+    } else {
+      setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
+      setSalesSheetState({ exportError: 'Sheet downloaded, but Recent Sheets snapshot failed.' });
+    }
+    return ok;
+  }
+
+  async function retrySnapshot() {
+    if (!lastSnapshotPayload) return;
+    // Success feedback rides the existing command-runner toast ("Saved N item
+    // sheet snapshot…"); the pill clears (or persists) via attemptSnapshot.
+    await attemptSnapshot(lastSnapshotPayload);
   }
 
 
@@ -1163,7 +1252,15 @@ export function SalesView() {
             Export
           </button>
           <span className="selection-pill success">Customer catalog hides cost, margin, and internal notes.</span>
-          {exportError ? <span className="selection-pill danger">{exportError}</span> : null}
+          {/* UX-A15 — partial-failure pill now carries a "Retry snapshot"
+              action wired to the existing snapshot call path (attemptSnapshot
+              re-runs createCustomerSheetSnapshot with the captured payload). */}
+          <SnapshotRetryPill
+            error={exportError}
+            canRetry={Boolean(lastSnapshotPayload)}
+            busy={isRunning}
+            onRetry={() => void retrySnapshot()}
+          />
         </div>
       ) : null}
       {customerId ? (
@@ -1241,6 +1338,14 @@ export function SalesView() {
                   Dismiss
                 </button>
               </div>
+            ) : null}
+            {showPrePostStrip ? (
+              <SalePrePostStrip
+                orderStatus={selectedOrderStatus}
+                checks={prePostChecks}
+                onFocusLines={focusPrePostCheck}
+                onOpenCredit={openCreditPanel}
+              />
             ) : null}
             {canWrite ? <div className="control-band subtle-band mt-3">
               <label className="field-inline grow">
@@ -1369,6 +1474,17 @@ export function SalesView() {
                       ) : (
                         <p className="mt-1 text-xs text-zinc-500">No outstanding validation issues.</p>
                       )}
+                      {/* UX-F02 — surface the pre-post check reason(s) for this
+                          line when a ✗ deep-linked here (e.g. duplicate source,
+                          availability), so the panel explains why the line was
+                          focused even when server validationIssues is empty. */}
+                      {prePostLineIssues.get(String(row.id))?.length ? (
+                        <ul className="mt-1 list-disc pl-5 text-xs text-amber-700" data-testid="pre-post-line-issues">
+                          {(prePostLineIssues.get(String(row.id)) ?? []).map((issue, index) => (
+                            <li key={`pre-post-${index}`}>{issue}</li>
+                          ))}
+                        </ul>
+                      ) : null}
                       <div className="mt-2">
                         <SaleLineExceptionControls
                           row={row}
