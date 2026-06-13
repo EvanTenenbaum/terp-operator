@@ -1,0 +1,1772 @@
+[
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.reference,queries.grid,queries.photographyQueue,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrde",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:21:15.109Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:21:15.142Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:21:16.384Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:21:16.385Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:22:21.035Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:22:21.036Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:22:21.388Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:22:21.388Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:23:12.923Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:23:12.924Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:23:13.439Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:23:13.439Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:04.162Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:04.194Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:04.658Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:04.659Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:19.682Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:19.683Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:20.047Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:20.049Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:30.639Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:30.641Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:30.992Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:24:30.993Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:18.536Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:18.540Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:18.961Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:18.962Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:42.221Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:42.222Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:42.737Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:42.754Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:46.765Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:46.766Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:47.298Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:25:47.300Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:26:18.397Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:26:18.405Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:26:18.888Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:26:18.889Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:26:44.199Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:26:44.200Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:26:44.835Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:26:44.836Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:27:02.049Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:27:02.050Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:27:02.533Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:27:02.534Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:03.296Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:03.301Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:05.270Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:05.271Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:05.650Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:05.651Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:52.345Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:52.346Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:52.684Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:52.684Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:59.204Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:59.205Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:59.543Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:28:59.544Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:29:40.310Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:29:40.311Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:29:40.724Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:29:40.725Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:29:43.983Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:29:43.984Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:29:44.432Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:29:44.432Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:30:05.460Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:30:05.466Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:30:05.904Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:30:05.908Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:30:12.841Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:30:12.842Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:30:13.289Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:30:13.289Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:31:13.901Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:31:13.902Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:31:16.028Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:31:16.029Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:31:16.446Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:31:16.447Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:34:16.879Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:34:16.885Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:34:17.112Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:34:17.112Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:35:17.570Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:35:17.571Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:35:19.362Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:35:19.363Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:35:19.638Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:35:19.639Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:36:20.717Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:36:20.726Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:36:22.765Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:36:22.766Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:36:23.168Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:36:23.170Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:03.591Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:03.592Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:04.160Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:04.161Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:09.957Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:09.958Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:12.767Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:12.772Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:13.126Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:37:13.126Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:38:11.373Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:38:11.374Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:38:11.637Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:38:11.638Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:39:00.850Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:39:00.852Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:39:01.198Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:39:01.199Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:01.994Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:02.019Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:04.018Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:04.019Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:04.398Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:04.425Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:15.215Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:15.217Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:15.531Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:40:15.532Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:41:02.033Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:41:02.035Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:41:02.462Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:41:02.466Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:41:46.643Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:41:46.644Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:41:47.042Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:41:47.042Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:42:34.090Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:42:34.094Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:42:34.509Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:42:34.510Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:42:45.367Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:42:45.388Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:42:45.915Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:42:46.044Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:18.757Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:18.762Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:19.129Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:19.129Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:27.721Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:27.722Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:28.089Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:28.090Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:43.099Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:43.100Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:43.618Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:43:43.619Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:01.968Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:01.985Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:02.325Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:02.326Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:37.760Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:37.762Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:38.194Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:38.196Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:42.985Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:42.985Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:43.420Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:43.420Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:53.923Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:53.927Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:54.305Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:44:54.306Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:45:48.188Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:45:48.189Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:45:49.598Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:45:49.624Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:46:50.353Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:46:50.356Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:46:52.516Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:46:52.518Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:46:52.931Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:46:52.931Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:47:11.562Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:47:11.563Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:47:11.967Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:47:11.968Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:47:40.174Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:47:40.228Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:47:40.669Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:47:40.674Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:48:20.123Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:48:20.125Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:48:20.567Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:48:20.568Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:21.137Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:21.140Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:23.601Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:23.606Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:24.051Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:24.052Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:57.401Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:57.403Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:57.833Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:49:57.834Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:50:56.446Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:50:56.494Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:50:56.883Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:50:56.884Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:51:31.269Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:51:31.277Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:51:31.731Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:51:31.757Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:52:17.492Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:52:17.496Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:52:17.877Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:52:17.879Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:18.523Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:18.525Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:20.544Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:20.549Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:21.068Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:21.069Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:27.739Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:27.745Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:28.242Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:28.243Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLa",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:29.359Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:53:29.360Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:04.688Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:04.688Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:04.911Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:04.913Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLa",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:46.808Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:46.810Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:49.429Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:49.430Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:49.431Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T00:54:49.432Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:55:49.451Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:55:49.455Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:55:50.471Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:55:50.472Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:55:50.475Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:55:50.476Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:56:41.356Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:56:41.358Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:56:41.685Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:56:41.686Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:30.200Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:30.201Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:30.390Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:30.390Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLa",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:51.553Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:51.556Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:54.487Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:54.488Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:54.490Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=2e3dbb21-9057-456b-a6c6-010624b3fb26",
+    "ts": "2026-06-13T00:57:54.491Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:57:58.500Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:57:58.501Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:57:58.504Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:57:58.505Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:58:13.920Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:58:13.923Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:58:13.924Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:58:13.925Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:58:30.763Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:58:30.765Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:58:30.767Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:58:30.768Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:59:04.072Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:59:04.074Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:59:04.349Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T00:59:04.350Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:00:04.876Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:00:04.882Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:00:07.150Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:00:07.160Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:00:07.477Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:00:07.492Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:01:07.951Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:01:07.953Z"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/credit.creditEngineStances,credit.isBannerDismissed?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:01:09.723Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:01:09.724Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:01:10.062Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=salesOrder&entityId=b010dbed-e847-466b-8090-d5d2d444b37f",
+    "ts": "2026-06-13T01:01:10.063Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.grid,queries.photographyQueue,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.cus",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:01:36.950Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:01:36.957Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.reference,queries.grid,queries.photographyQueue,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrde",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:02:44.025Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:02:44.026Z"
+  },
+  {
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.relatedCommands?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22entityId%22%3A%22b010dbed-e847-466b-8090-d5d2d444b37f%22%7D%7D%7D",
+    "page": "http://localhost:5173/orders",
+    "ts": "2026-06-13T01:07:08.709Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/orders",
+    "ts": "2026-06-13T01:07:08.711Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Database error (request id: 96500177-1d82-4f75-9c6c-89cf6d39d8b1)\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/orders",
+    "ts": "2026-06-13T01:07:08.713Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.grid,queries.photographyQueue,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.cus",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:08:57.109Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:08:57.110Z"
+  }
+]

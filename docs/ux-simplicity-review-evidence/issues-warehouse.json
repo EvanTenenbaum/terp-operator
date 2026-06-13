@@ -1,0 +1,77 @@
+[
+  {
+    "type": "pageerror",
+    "text": "Error: [Immer] The plugin for 'MapSet' has not been loaded into Immer. To enable the plugin, import and call `enableMapSet()` when initializing your application.",
+    "url": "http://localhost:5173/fulfillment"
+  },
+  {
+    "type": "pageerror",
+    "text": "Error: [Immer] The plugin for 'MapSet' has not been loaded into Immer. To enable the plugin, import and call `enableMapSet()` when initializing your application.",
+    "url": "http://localhost:5173/fulfillment"
+  },
+  {
+    "type": "pageerror",
+    "text": "Error: [Immer] The plugin for 'MapSet' has not been loaded into Immer. To enable the plugin, import and call `enableMapSet()` when initializing your application.",
+    "url": "http://localhost:5173/fulfillment"
+  },
+  {
+    "type": "pageerror",
+    "text": "Error: [Immer] The plugin for 'MapSet' has not been loaded into Immer. To enable the plugin, import and call `enableMapSet()` when initializing your application.",
+    "url": "http://localhost:5173/fulfillment"
+  },
+  {
+    "type": "pageerror",
+    "text": "Error: [Immer] The plugin for 'MapSet' has not been loaded into Immer. To enable the plugin, import and call `enableMapSet()` when initializing your application.",
+    "url": "http://localhost:5173/fulfillment"
+  },
+  {
+    "type": "pageerror",
+    "text": "Error: [Immer] The plugin for 'MapSet' has not been loaded into Immer. To enable the plugin, import and call `enableMapSet()` when initializing your application.",
+    "url": "http://localhost:5173/fulfillment"
+  },
+  {
+    "type": "pageerror",
+    "text": "Error: [Immer] The plugin for 'MapSet' has not been loaded into Immer. To enable the plugin, import and call `enableMapSet()` when initializing your application.",
+    "url": "http://localhost:5173/fulfillment"
+  },
+  {
+    "type": "pageerror",
+    "text": "Error: [Immer] The plugin for 'MapSet' has not been loaded into Immer. To enable the plugin, import and call `enableMapSet()` when initializing your application.",
+    "url": "http://localhost:5173/fulfillment"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.grid,queries.photographyQueue,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.cus",
+    "page": "http://localhost:5173/sales"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.grid,queries.photographyQueue,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.cus",
+    "page": "http://localhost:5173/sales"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales"
+  },
+  {
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.relatedCommands?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22contactId%22%3A%22441fc077-3c4b-4cfd-aca7-ccdd20712557%22%7D%7D%7D",
+    "page": "http://localhost:5173/mobile/contacts/441fc077-3c4b-4cfd-aca7-ccdd20712557"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/mobile/contacts/441fc077-3c4b-4cfd-aca7-ccdd20712557"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Database error (request id: d49af04c-f8c4-417e-8352-cf4616f7cbd8)\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/mobile/contacts/441fc077-3c4b-4cfd-aca7-ccdd20712557"
+  }
+]

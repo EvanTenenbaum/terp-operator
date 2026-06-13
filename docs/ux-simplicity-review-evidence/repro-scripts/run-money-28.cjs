@@ -1,0 +1,24 @@
+const { start } = require('./lib-money.cjs');
+(async () => {
+  const d = await start('owner@terpagro.local');
+  const { page } = d;
+  await page.goto('http://localhost:5173/payments');
+  await page.waitForTimeout(3500);
+  const filterBox = page.locator('input[placeholder*="filter" i]');
+  await filterBox.first().fill('SO-REAL-00444');
+  await page.waitForTimeout(1500);
+  await page.locator('.ag-center-cols-container .ag-row').first().click({ button: 'right' });
+  await page.waitForTimeout(1000);
+  await page.getByText('History', { exact: true }).last().click();
+  await page.waitForTimeout(1500);
+  const dlg = page.locator('[role=dialog]').last();
+  await dlg.getByRole('tab', { name: 'Linked Orders' }).or(dlg.getByRole('button', { name: 'Linked Orders' })).first().click();
+  await page.waitForTimeout(1500);
+  await dlg.getByRole('button', { name: 'Open order' }).first().click();
+  await page.waitForTimeout(3000);
+  console.log('url after Open order:', page.url());
+  await d.shot('28-after-open-order');
+  const crumb = await page.evaluate(() => (document.body.innerText.split('\n').filter(Boolean).slice(0, 12)).join(' | '));
+  console.log('page top text:', crumb.slice(0, 400));
+  await d.finish();
+})().catch(e => { console.error(e); process.exit(1); });

@@ -1,0 +1,14 @@
+[
+  {
+    "ts": "2026-06-13T00:21:50.954Z",
+    "type": "console",
+    "text": "TRPCClientError: Failed to fetch\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:23:26.025Z",
+    "type": "console",
+    "text": "TRPCClientError: Failed to fetch\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/"
+  }
+]

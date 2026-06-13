@@ -1,0 +1,52 @@
+[
+  {
+    "type": "http 404",
+    "url": "http://localhost:5173/api/purchase-orders?limit=5",
+    "page": "http://localhost:5173/purchaseOrders"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "url": "http://localhost:5173/purchaseOrders"
+  },
+  {
+    "type": "http 404",
+    "url": "http://localhost:5173/api/purchaseOrders?limit=5",
+    "page": "http://localhost:5173/purchaseOrders"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "url": "http://localhost:5173/purchaseOrders"
+  },
+  {
+    "type": "console",
+    "text": "Access to fetch at 'http://localhost:8787/api/purchase-orders?limit=5' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+    "url": "http://localhost:5173/purchaseOrders"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: net::ERR_FAILED",
+    "url": "http://localhost:5173/purchaseOrders"
+  },
+  {
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/commands.run?batch=1",
+    "page": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=7ba411d7-a8b9-48e7-90f5-c13a4cca0aa6"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=7ba411d7-a8b9-48e7-90f5-c13a4cca0aa6"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: approvePurchaseOrder requires manager access. Your role is operator.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=7ba411d7-a8b9-48e7-90f5-c13a4cca0aa6"
+  },
+  {
+    "type": "pageerror",
+    "text": "TRPCClientError: approvePurchaseOrder requires manager access. Your role is operator.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=7ba411d7-a8b9-48e7-90f5-c13a4cca0aa6"
+  }
+]

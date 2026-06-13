@@ -1,0 +1,21 @@
+const { start } = require('./lib-longtail.cjs');
+(async () => {
+  const d = await start();
+  const { page } = d;
+  await page.goto('http://localhost:5173/matchmaking');
+  await page.waitForTimeout(3500);
+  const floor = page.getByLabel(/Show matches scoring at least/).first();
+  await floor.fill('70'); await floor.blur();
+  await page.waitForTimeout(2500);
+  console.log('faded pre-reload:', await page.evaluate(() => document.querySelectorAll('.ag-root-wrapper .ag-row.opacity-40').length));
+  await page.reload(); await page.waitForTimeout(4000);
+  console.log('faded post-reload:', await page.evaluate(() => document.querySelectorAll('.ag-root-wrapper .ag-row.opacity-40').length));
+  const scores = await page.evaluate(() => Array.from(document.querySelectorAll('.ag-root-wrapper .ag-center-cols-container .ag-row')).slice(0,8).map(r => ({s:(r.innerText||'').slice(0,20), faded:r.className.includes('opacity-40')})));
+  console.log(JSON.stringify(scores));
+  await d.shot('02p-mm-floor70-reloaded');
+  const f2 = page.getByLabel(/Show matches scoring at least/).first();
+  await f2.fill('10'); await f2.blur();
+  await page.waitForTimeout(2000);
+  console.log('restored:', await f2.inputValue());
+  await d.finish();
+})().catch(e => { console.error(e); process.exit(1); });

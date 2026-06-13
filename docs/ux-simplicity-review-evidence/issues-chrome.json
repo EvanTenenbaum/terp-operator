@@ -1,0 +1,1216 @@
+[
+  {
+    "ts": "2026-06-13T00:27:14.439Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Warning: React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks\n\n   Previous render            Next render\n   ----------------------------------------------",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:27:14.444Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:27:14.445Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:27:14.446Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:27:17.741Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:27:17.741Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:27:17.747Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:17.886Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Warning: React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks\n\n   Previous render            Next render\n   ----------------------------------------------",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:17.888Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:17.888Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:17.890Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:20.821Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:20.826Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:20.827Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:22.990Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:22.991Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:22.992Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:25.769Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:25.774Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:25.775Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:27.951Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:27.951Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:27.953Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:30.694Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:30.695Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:30.697Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:32.081Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:32.082Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:32.083Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:34.882Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:34.888Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:34.888Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:36.274Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:36.277Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:36.278Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:39.274Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:39.277Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:39.278Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:41.534Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:41.534Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:41.535Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:44.204Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:44.223Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:44.223Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:46.476Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:46.476Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:46.477Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:49.341Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:49.348Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:49.349Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:51.564Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:51.564Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:51.564Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:54.239Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:54.239Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:28:54.240Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:08.973Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Warning: React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks\n\n   Previous render            Next render\n   ----------------------------------------------",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:08.975Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:08.975Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:08.981Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:12.330Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:12.335Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:12.337Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:44.869Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:44.869Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:44.885Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:48.216Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:48.221Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:30:48.231Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:20.774Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:20.775Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:20.785Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:23.921Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:23.926Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:23.928Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:56.559Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:56.560Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:31:56.574Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:32:02.684Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:32:02.684Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:32:02.685Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/"
+  },
+  {
+    "ts": "2026-06-13T00:33:20.332Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "Meta+2 nav landed on /inventory, expected /intake"
+  },
+  {
+    "ts": "2026-06-13T00:33:21.237Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "Meta+3 nav landed on /inventory, expected /sales"
+  },
+  {
+    "ts": "2026-06-13T00:33:22.141Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "Meta+4 nav landed on /inventory, expected /payments"
+  },
+  {
+    "ts": "2026-06-13T00:33:23.949Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "Meta+6 nav landed on /inventory, expected /clients"
+  },
+  {
+    "ts": "2026-06-13T00:33:24.854Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "Meta+1 nav landed on /inventory, expected /dashboard"
+  },
+  {
+    "ts": "2026-06-13T00:33:37.923Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Warning: React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks\n\n   Previous render            Next render\n   ----------------------------------------------",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T00:33:37.923Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T00:33:37.924Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T00:33:37.926Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T00:33:40.059Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T00:33:40.059Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T00:33:40.063Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T00:52:08.773Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.relatedCommands?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22entityId%22%3A%220ea93771-f86f-437e-b550-ecfa846984b4%22%2C%22contactId%22%3Anull%7D%2C%22meta%22%3A",
+    "page": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=0ea93771-f86f-437e-b550-ecfa846984b4"
+  },
+  {
+    "ts": "2026-06-13T00:52:08.774Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=0ea93771-f86f-437e-b550-ecfa846984b4"
+  },
+  {
+    "ts": "2026-06-13T00:52:16.851Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.relatedCommands?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22entityId%22%3A%22e22f61e3-5514-4ba5-bf18-476c73b5e0a5%22%2C%22contactId%22%3Anull%7D%2C%22meta%22%3A",
+    "page": "http://localhost:5173/inventory?drawer=standard&entityType=lot&entityId=e22f61e3-5514-4ba5-bf18-476c73b5e0a5"
+  },
+  {
+    "ts": "2026-06-13T00:52:16.853Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/inventory?drawer=standard&entityType=lot&entityId=e22f61e3-5514-4ba5-bf18-476c73b5e0a5"
+  },
+  {
+    "ts": "2026-06-13T01:04:26.971Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.relatedCommands?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22entityId%22%3A%22e22f61e3-5514-4ba5-bf18-476c73b5e0a5%22%2C%22contactId%22%3Anull%7D%2C%22meta%22%3A",
+    "page": "http://localhost:5173/inventory?drawer=standard&entityType=lot&entityId=e22f61e3-5514-4ba5-bf18-476c73b5e0a5"
+  },
+  {
+    "ts": "2026-06-13T01:04:26.972Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/inventory?drawer=standard&entityType=lot&entityId=e22f61e3-5514-4ba5-bf18-476c73b5e0a5"
+  },
+  {
+    "ts": "2026-06-13T01:04:27.991Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.relatedCommands?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22entityId%22%3A%22e22f61e3-5514-4ba5-bf18-476c73b5e0a5%22%2C%22contactId%22%3Anull%7D%2C%22meta%22%3A",
+    "page": "http://localhost:5173/inventory?drawer=standard&entityType=lot&entityId=e22f61e3-5514-4ba5-bf18-476c73b5e0a5"
+  },
+  {
+    "ts": "2026-06-13T01:04:27.991Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/inventory?drawer=standard&entityType=lot&entityId=e22f61e3-5514-4ba5-bf18-476c73b5e0a5"
+  },
+  {
+    "ts": "2026-06-13T01:04:27.995Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "TRPCClientError: Database error (request id: 447bd7a9-8bb0-4915-bff8-dfaae6a093c3)\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/inventory?drawer=standard&entityType=lot&entityId=e22f61e3-5514-4ba5-bf18-476c73b5e0a5"
+  },
+  {
+    "ts": "2026-06-13T01:12:40.825Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/filters.getFacets?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%7D",
+    "page": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:12:40.826Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:12:41.840Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/filters.getFacets?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%7D",
+    "page": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:12:41.840Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:12:41.842Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "TRPCClientError: Database error (request id: 622e62c1-42f8-4ee8-9557-13cc367c70c9)\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:15:25.922Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "TypeError: Cannot assign to read only property 'availableQty' of object '#<Object>'",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:15:28.329Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "TypeError: Cannot assign to read only property 'availableQty' of object '#<Object>'",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:15:34.358Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.relatedCommands?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22entityId%22%3A%2220c80a9d-faaf-4e20-92c5-469ae773ae17%22%7D%7D%7D",
+    "page": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:15:34.359Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:15:34.359Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "TRPCClientError: Database error (request id: cdd7c464-d1cf-41eb-9254-18dc590493e9)\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:18:44.950Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "inventory availableQty: double-click does not open a cell editor (editable:true in code)"
+  },
+  {
+    "ts": "2026-06-13T01:18:50.620Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.selectionSupportPacket?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22rowIds%22%3A%5B%222e3dbb21-9057-456b-a6c6-010624b3fb26%22%5D%7D%7D%7D",
+    "page": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:18:50.620Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:18:51.648Z",
+    "lane": "chrome",
+    "type": "http 500",
+    "url": "http://localhost:5173/trpc/queries.selectionSupportPacket?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22rowIds%22%3A%5B%222e3dbb21-9057-456b-a6c6-010624b3fb26%22%5D%7D%7D%7D",
+    "page": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:18:51.649Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:18:51.655Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "TRPCClientError: Database error (request id: 99e54091-72ea-4ba4-8aa7-97efdc446905)\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:01.832Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Warning: React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks\n\n   Previous render            Next render\n   ----------------------------------------------",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:01.832Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:01.833Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:01.843Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:05.777Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:05.778Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:05.787Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:07.824Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:07.830Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:07.832Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:11.240Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:11.240Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:19:11.247Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/orders"
+  },
+  {
+    "ts": "2026-06-13T01:23:48.565Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Warning: React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks\n\n   Previous render            Next render\n   ----------------------------------------------",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:23:48.568Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:23:48.568Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:23:48.574Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:23:51.503Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:23:51.504Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:23:51.515Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/inventory"
+  },
+  {
+    "ts": "2026-06-13T01:27:59.271Z",
+    "lane": "chrome",
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/queries.creditWatchlist?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22limit%22%3A10%7D%7D%7D",
+    "page": "http://localhost:5173/dashboard"
+  },
+  {
+    "ts": "2026-06-13T01:27:59.273Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/dashboard"
+  },
+  {
+    "ts": "2026-06-13T01:27:59.274Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "TRPCClientError: This action requires manager access.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/dashboard"
+  },
+  {
+    "ts": "2026-06-13T01:28:27.369Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Warning: React has detected a change in the order of Hooks called by %s. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks\n\n   Previous render            Next render\n   ----------------------------------------------",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:27.369Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:27.370Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:27.385Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:30.354Z",
+    "lane": "chrome",
+    "type": "http 403",
+    "url": "http://localhost:5173/trpc/commands.run?batch=1",
+    "page": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:30.354Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:30.357Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "TRPCClientError: postPurchaseReceipt requires operator access. Your role is viewer.\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:420:14)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:760:46",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:30.365Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "TRPCClientError: postPurchaseReceipt requires operator access. Your role is viewer.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:33.226Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:33.227Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:33.250Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:34.697Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:34.697Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered more hooks than during the previous render.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:34.704Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:36.697Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:36.718Z",
+    "lane": "chrome",
+    "type": "pageerror",
+    "text": "Error: Rendered fewer hooks than expected. This may be caused by an accidental early return statement.",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:28:36.718Z",
+    "lane": "chrome",
+    "type": "console",
+    "text": "The above error occurred in the <CommandPalette> component:\n\n    at CommandPalette (http://localhost:5173/src/client/components/CommandPalette.tsx:60:16)\n    at div\n    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)\n    at AppContent (http://localhost:5173/src/c",
+    "url": "http://localhost:5173/purchaseOrders?drawer=standard&entityType=po&entityId=c144ed06-a68e-4d84-a99b-e7f99107256b"
+  },
+  {
+    "ts": "2026-06-13T01:29:21.871Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "']' drawer toggle fires behind an open modal dialog (not inert)"
+  },
+  {
+    "ts": "2026-06-13T01:31:28.833Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-01 S3: CommandPalette crashes app to error boundary on EVERY open and close (Rendered more/fewer hooks — useCommandRunner() called after early return at CommandPalette.tsx:178/280). Try again recovers but leaves blank main pane and swallows palette-initiated navigation."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.834Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-02 S3: Cmd+1..6 nav hotkeys do not navigate — setActiveView is store-only, router URL never changes (no store→URL sync; LocationSync is one-way). Sidenav highlight moves while content stays. Same root cause kills palette quick-start launches, entity Go-to nav, Open-in-Recovery and View-order deep links."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.834Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-03 S3: Toast actions (Copy details / Open in Recovery / View order / View bill) never render — _pendingCallContext in useCommandRunner.ts is a render-scoped local; the isPending re-render nulls it before onSuccess/onError. Verified missing in success, thrown-error and refusal toasts."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.834Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-04 S2: raw zod JSON dumped into error toast (run Log payment from palette with no payload)."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.834Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-05 S2: queries.relatedCommands 500s — drawer History tabs (PO, lot) and RowInspector related-commands show Database error."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-06 S2: queries.selectionSupportPacket 500s — Export support packet button silently does nothing (no download, no error UI)."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-07 S2: filters.getFacets 500s every time the Advanced filters builder opens — enum value dropdowns (Select category…) have no options."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-08 S2: inventory inline editing dead — dblclick/Enter never opens editor; pageerror TypeError: Cannot assign to read only property availableQty (frozen row objects). Paste toasts 2 rows pasted and Cmd+D fill-down toasts Adjusted … by 0 while cell values never change; fill-handle drag silently no-ops."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-09 S2: drawer digit hotkeys mismatch numbered tabs — tabForIndex (Hotkeys.tsx) uses stale per-view lists: clients digit2→Profile(labelled 3), digit5→Notes(labelled 7); vendors digits 2-4 all land on Details; Timeline unreachable by key on clients/orders/inventory."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-10 S2: drawer tabs without dedicated renderers fall back to identical generic body — orders Lines/Customer/Output/History identical; payments Allocations/Customer/Impact/History identical; clients Profile/Balance/Purchases/Notes/History identical."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-11 S1: one Esc closes two layers — shortcuts overlay focus-trap AND global handler both consume the same Esc, collapsing overlay and drawer together."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-12 S1: ] and ? hotkeys fire behind open modal dialogs (drawer toggles, overlay opens); only command hotkeys are dialog-guarded. Cmd+3 during a dialog closes the dialog without navigating."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-13 S2: /fulfillment pick grid re-renders continuously — row DOM replaced 10/10 half-second probes with zero network traffic; clicks land on detached elements."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-14 S1: inventory grid subtitle row count ignores free-text quick filter (NF-002 filters grid to 1 row, subtitle still 173 row(s)); token filters update it."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-15 S1: orders mixed-status selection renders no reason chip (catch-all rule), only generic toast on Cmd+Enter; catch-all More tray itself works with full verb set."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-16 S1: viewer dashboard fires manager-only queries.creditWatchlist → 403 noise; palette lists operator+ commands to viewer (clickable, cleanly refused server-side)."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-17 S1: F focus-mode toggle produces no visible layout change on sales/inventory — only the SR announcement Focus mode on."
+  },
+  {
+    "ts": "2026-06-13T01:31:28.835Z",
+    "lane": "chrome",
+    "type": "finding",
+    "text": "F-chrome-18 S0: registry drift — drawer cycle has 4th Peek state (overlay says standard→wide→focus); Alt+M works on all views but listed under Sales; Cmd+D fill-down works in grids but listed only under Intake."
+  }
+]

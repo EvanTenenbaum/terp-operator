@@ -1,0 +1,578 @@
+[
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.grid,queries.photographyQueue,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.cus",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:13:49.826Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:13:49.827Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.customerWorkspace,queries.salesSuggestions,credit.customerCreditStatus,queries.recentCustomerSheets,queries.customerPurchaseHistory,queries.customerLastOrderedQty,qu",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:47.265Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:47.265Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.customerWorkspace,queries.salesSuggestions,credit.customerCreditStatus,queries.recentCustomerSheets,queries.customerPurchaseHistory,queries.customerLastOrderedQty,qu",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:47.698Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:47.700Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.customerWorkspace,queries.salesSuggestions,credit.customerCreditStatus,queries.recentCustomerSheets,queries.customerPurchaseHistory,queries.customerLastOrderedQty,qu",
+    "page": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.604Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.605Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.605Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.605Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.606Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.606Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.606Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.610Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.613Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.616Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.616Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.617Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.621Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.621Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.623Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.623Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.624Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.625Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.626Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.626Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.626Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.627Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.627Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.628Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.628Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.629Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.629Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.630Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.631Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.632Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.633Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.634Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.634Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.635Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.635Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.635Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.636Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.636Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.637Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.637Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.637Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.638Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.641Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.645Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.645Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.645Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.647Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.648Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.649Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.649Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.650Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.650Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.654Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.655Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.656Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.656Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.657Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.658Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.659Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.661Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.661Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.662Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.662Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.663Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.664Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.665Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.667Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.668Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.668Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.669Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.669Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.670Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.670Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.670Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.671Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.671Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.676Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.678Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.681Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.682Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.683Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.684Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.684Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.685Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.687Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.694Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.696Z"
+  },
+  {
+    "type": "console",
+    "text": "TRPCClientError: Failed to execute 'json' on 'Response': Unexpected end of JSON input\n    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:431:12)\n    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=ccb8b28f:572:30",
+    "url": "http://localhost:5173/sales",
+    "ts": "2026-06-13T01:14:49.697Z"
+  },
+  {
+    "type": "http 431",
+    "url": "http://localhost:5173/trpc/queries.customerPurchaseHistory,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerLastOrderedQty,queries.customerL",
+    "page": "http://localhost:5173/sales?drawer=standard&entityType=customer&entityId=7111bb2b-18d0-46d9-a854-e7780844f734",
+    "ts": "2026-06-13T01:18:18.150Z"
+  },
+  {
+    "type": "console",
+    "text": "Failed to load resource: the server responded with a status of 431 (Request Header Fields Too Large)",
+    "url": "http://localhost:5173/sales?drawer=standard&entityType=customer&entityId=7111bb2b-18d0-46d9-a854-e7780844f734",
+    "ts": "2026-06-13T01:18:18.151Z"
+  }
+]
