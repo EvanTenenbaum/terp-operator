@@ -14,6 +14,43 @@ const numberViews: Record<string, ViewKey> = {
   '6': 'clients'
 };
 
+/**
+ * Views served by `queries.grid` (mirrors the server's `viewSchema` enum in
+ * src/server/routers/queries.ts). Used by the Validate All hotkey (UX-A02) to
+ * scope the refetch to the active view instead of nuking the whole cache.
+ */
+const GRID_QUERY_VIEWS = [
+  'reports',
+  'intake',
+  'purchaseOrders',
+  'sales',
+  'matchmaking',
+  'orders',
+  'payments',
+  'inventory',
+  'clients',
+  'vendors',
+  'fulfillment',
+  'connectors',
+  'recovery',
+  'closeout',
+  'referees',
+  'processors',
+  'photography',
+  'purchaseReceipts',
+  'items',
+  'disputes'
+] as const;
+type GridQueryView = (typeof GRID_QUERY_VIEWS)[number];
+
+function gridQueryViewFor(view: ViewKey): GridQueryView | null {
+  return (GRID_QUERY_VIEWS as readonly string[]).includes(view) ? (view as GridQueryView) : null;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : 'server unreachable';
+}
+
 export function Hotkeys() {
   const activeView = useUiStore((state) => state.activeView);
   const selectedRows = useUiStore((state) => state.selectedRows);
@@ -35,6 +72,7 @@ export function Hotkeys() {
   const pushToast = useUiStore((state) => state.pushToast);
   const { runCommand } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     async function onKeyDown(event: KeyboardEvent) {
@@ -109,6 +147,19 @@ export function Hotkeys() {
         return;
       }
 
+      // UX-A07: '/' focuses the active OperatorGrid quick-filter input.
+      // Typing contexts are already excluded by the editingText guard above;
+      // the palette gets its own search box, so skip while it is open.
+      if (!event.metaKey && !event.altKey && !event.ctrlKey && event.key === '/') {
+        if (commandPaletteOpen) return;
+        const filterInput = document.querySelector<HTMLInputElement>('[data-grid-quick-filter]');
+        if (!filterInput) return;
+        event.preventDefault();
+        filterInput.focus();
+        filterInput.select();
+        return;
+      }
+
       if (!event.metaKey) return;
 
       const view = numberViews[event.key];
@@ -166,19 +217,69 @@ export function Hotkeys() {
       }
       if (event.altKey && event.key.toLowerCase() === 'h') {
         event.preventDefault();
-        pushToast('Health check requested. Watch the top status indicator.', 'info');
+        // UX-A01: real server health check — a fresh, uncached round-trip to
+        // the existing auth.me query. Pass/fail is reported truthfully.
+        try {
+          const user = await utils.client.auth.me.query();
+          if (user) {
+            pushToast(`Server reachable — signed in as ${user.name} (${user.email}).`, 'success');
+          } else {
+            pushToast('Server reachable, but no active session. Sign in again.', 'error');
+          }
+        } catch (error) {
+          pushToast(`Health check failed: ${errorMessage(error)}.`, 'error');
+        }
+        return;
       }
       if (event.altKey && event.key.toLowerCase() === 'v') {
         event.preventDefault();
-        pushToast('Validate All complete: visible grids are loaded from server state.', 'success');
+        // UX-A02: genuine revalidation — invalidate (and await the refetch of)
+        // the active view's grid query via tRPC utils. The toast fires only
+        // after the refetch settles, with a truthful message.
+        try {
+          const gridView = gridQueryViewFor(activeView);
+          if (gridView) {
+            await utils.queries.grid.invalidate({ view: gridView });
+            if (activeView === 'intake') await utils.queries.intakeQueue.invalidate();
+            pushToast(`Validate All: refetched the ${activeView} grid from the server.`, 'success');
+          } else {
+            // Views without a queries.grid projection (dashboard, contacts,
+            // settings, pick, credit-review): refresh their query family.
+            await utils.queries.invalidate();
+            pushToast('Validate All: refetched server data for the active view.', 'success');
+          }
+        } catch (error) {
+          pushToast(`Validate All failed: ${errorMessage(error)}.`, 'error');
+        }
+        return;
       }
       if (event.key === 'Enter') {
         event.preventDefault();
-        const first = rows[0];
-        if (!first) return pushToast('Select a row before confirm/post.', 'info');
-        if (activeView === 'sales') await runCommand('confirmSalesOrder', { orderId: first.id }, 'Hotkey confirm order');
-        if (activeView === 'orders') await runCommand('postSalesOrder', { orderId: first.id }, 'Hotkey post order');
-        if (activeView === 'payments') await runCommand('allocatePayment', { paymentId: first.id }, 'Hotkey allocate payment');
+        // UX-A03: ⌘↵ commits the visible StatusActionBar primary for the
+        // current selection. The bar's button is the rendered output of the
+        // view's status decision table (resolveStatusActions), so this routes
+        // through the exact same rules — across the full selection — instead
+        // of firing a hardcoded command on rows[0].
+        const primaryButton = document.querySelector<HTMLButtonElement>('[data-status-action-primary]');
+        if (primaryButton) {
+          if (primaryButton.disabled) {
+            pushToast(primaryButton.title || 'The primary action is unavailable for this selection.', 'info');
+            return;
+          }
+          primaryButton.click();
+          return;
+        }
+        const reasonPill = document.querySelector<HTMLElement>('[data-status-action-reason]');
+        if (reasonPill?.textContent) {
+          pushToast(reasonPill.textContent, 'info');
+          return;
+        }
+        if (!rows.length) {
+          pushToast('Select rows first — ⌘↵ commits the primary action for the selection.', 'info');
+          return;
+        }
+        pushToast('No primary action applies to the current selection in this view.', 'info');
+        return;
       }
     }
 
@@ -204,7 +305,8 @@ export function Hotkeys() {
     setFocusMode,
     toggleDrawer,
     toggleFocusMode,
-    me.data
+    me.data,
+    utils
   ]);
 
   return null;

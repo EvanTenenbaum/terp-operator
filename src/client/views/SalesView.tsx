@@ -647,6 +647,11 @@ export function SalesView() {
           <button
             className="primary-button compact-action"
             disabled={isRunning || !canWrite || String(row.status ?? '') !== 'draft'}
+            title={
+              !canWrite ? 'Write access required' :
+              String(row.status ?? '') !== 'draft' ? 'Order must be in draft status to confirm' :
+              undefined
+            }
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('confirmSalesOrder', { orderId: row.id }, 'Confirm sales order');
@@ -659,6 +664,11 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite || String(row.status ?? '') !== 'confirmed'}
+            title={
+              !canWrite ? 'Write access required' :
+              String(row.status ?? '') !== 'confirmed' ? 'Order must be confirmed before reserving inventory' :
+              undefined
+            }
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('reserveInventoryForOrder', { orderId: row.id }, 'Reserve exact inventory for order');
@@ -671,6 +681,11 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite || ['fulfilled', 'shipped', 'cancelled'].includes(String(row.status ?? ''))}
+            title={
+              !canWrite ? 'Write access required' :
+              ['fulfilled', 'shipped', 'cancelled'].includes(String(row.status ?? '')) ? 'Cannot cancel a fulfilled, shipped, or already-cancelled order' :
+              undefined
+            }
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('cancelSalesOrder', { orderId: row.id }, 'Cancel sales order');
@@ -741,6 +756,7 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite}
+            title={!canWrite ? 'Write access required' : undefined}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('updateSalesOrderLine', { lineId: row.id, packed: true }, 'Pack line');
@@ -753,6 +769,7 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite}
+            title={!canWrite ? 'Write access required' : undefined}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('updateSalesOrderLine', { lineId: row.id, inventoryPosted: true }, 'Post to inventory');
@@ -765,6 +782,7 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite}
+            title={!canWrite ? 'Write access required' : undefined}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               runCommand('updateSalesOrderLine', { lineId: row.id, paymentFollowup: true }, 'Payment follow-up');
@@ -777,6 +795,7 @@ export function SalesView() {
           <button
             className="secondary-button compact-action"
             disabled={isRunning || !canWrite}
+            title={!canWrite ? 'Write access required' : undefined}
             onClick={() => {
               if (!row.id || row.id.trim() === '') return;
               const lineStatus = String(row.pickStatus ?? 'unreleased');
@@ -1091,7 +1110,7 @@ export function SalesView() {
             type="button"
             disabled={!selectedOrder || isRunning || repeatLoading}
             onClick={repeatLastOrder}
-            title="Add all items from the most recent sheet to the current order"
+            title={!selectedOrder ? 'Select an order first' : 'Add all items from the most recent sheet to the current order'}
             data-testid="repeat-last-order"
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -1105,11 +1124,11 @@ export function SalesView() {
       </div> : null}
       {canWrite && saleToolsOpen ? (
         <div className="control-band subtle-band">
-          <button className="secondary-button compact-action" type="button" disabled={!selectedOrder || !selectedSuggestions.length} onClick={addSuggestion}>
+          <button className="secondary-button compact-action" type="button" disabled={!selectedOrder || !selectedSuggestions.length} title={!selectedOrder ? 'Select an order first' : !selectedSuggestions.length ? 'Select one or more suggestions to add' : undefined} onClick={addSuggestion}>
             <PackagePlus className="h-4 w-4" aria-hidden="true" />
             Add suggestion
           </button>
-          <button className="secondary-button compact-action" type="button" disabled={!selectedOrder} onClick={reserveOrder}>
+          <button className="secondary-button compact-action" type="button" disabled={!selectedOrder} title={!selectedOrder ? 'Select an order first' : undefined} onClick={reserveOrder}>
             Reserve
           </button>
           <button className="secondary-button compact-action" type="button" onClick={() => setSheetMode(sheetMode === 'internal' ? 'catalog' : 'internal')}>
@@ -1120,6 +1139,7 @@ export function SalesView() {
             className="secondary-button compact-action"
             type="button"
             disabled={!sheetRows.length}
+            title={!sheetRows.length ? 'Add lines to the sheet before exporting' : undefined}
             onClick={() => {
               void exportSheet().catch((err) => {
                 console.error('exportSheet failed', err);
@@ -1161,6 +1181,7 @@ export function SalesView() {
                     type="button"
                     className="secondary-button compact-action"
                     disabled={isRunning || !canWrite}
+                    title={!canWrite ? 'Write access required' : undefined}
                     onClick={() => void runCommand('priceSalesOrder', { orderId: String(selectedOrder.id), strategy: 'customer-rule' }, 'Re-apply pricing rule')}
                     data-testid="reapply-pricing-rule"
                   >

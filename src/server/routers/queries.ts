@@ -2670,11 +2670,14 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
       // Batches needing photos surface first (no primary photo, oldest first),
       // then batches that already have a primary photo trail behind. Uses the
       // batch_media_summary view (migration 0036) for aggregate counts.
+      // UX-O01: include b.media_status (canonical gate field used by customer-sheet
+      // export) so MediaView can render it as the primary status column.
       return `select
                 b.id,
                 b.id as "batchId",
                 b.batch_code as "batchCode",
                 b.name,
+                b.media_status as "mediaStatus",
                 bms.media_updated_at as "mediaUpdatedAt",
                 bms.published_media_count as "publishedMediaCount",
                 bms.draft_media_count as "draftMediaCount",
@@ -2759,7 +2762,7 @@ export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     closeout: ['id', 'period', 'status', 'controlTotals', 'csvPath', 'jsonlPath', 'pdfPath', 'createdAt'],
     referees: ['id', 'name', 'email', 'phone', 'balance', 'lifetimeEarned', 'paymentMethod', 'paymentDetails', 'notes', 'active', 'relationshipsCount', 'createdAt'],
     processors: ['id', 'name', 'processorType', 'feeType', 'feePercentage', 'feeFixedAmount', 'defaultUserSplit', 'defaultProcessorSplit', 'notes', 'active', 'totalFeesProcessed', 'userFeesCollectible', 'userFeesCollected', 'processorFeesUnpaid', 'relationshipsCount', 'createdAt'],
-    photography: ['id', 'batchId', 'batchCode', 'name', 'mediaUpdatedAt', 'publishedMediaCount', 'draftMediaCount', 'hasPrimaryPhoto', 'hasPrimaryVideo', 'createdAt'],
+    photography: ['id', 'batchId', 'batchCode', 'name', 'mediaStatus', 'mediaUpdatedAt', 'publishedMediaCount', 'draftMediaCount', 'hasPrimaryPhoto', 'hasPrimaryVideo', 'createdAt'],
     purchaseReceipts: ['id', 'receiptNo', 'vendor', 'poNo', 'purchaseOrderId', 'total', 'status', 'lines', 'createdAt'],
     items: ['id', 'sku', 'name', 'alias', 'category', 'tags', 'pricingRule', 'status', 'description', 'batchCount', 'totalAvailableQty', 'createdAt', 'updatedAt'],
     disputes: ['id', 'invoiceId', 'invoiceNo', 'customer', 'customerId', 'invoiceAmount', 'invoiceStatus', 'status', 'reason', 'resolution', 'createdAt', 'updatedAt'],
