@@ -42,11 +42,12 @@ export function PaymentLinkedOrdersTab({ paymentId }: PaymentLinkedOrdersTabProp
     { enabled: Boolean(paymentId) }
   );
 
-  function openOrder(invoiceId: string, invoiceNo: string) {
-    // Navigate to Orders view, pre-filter to the invoice row, and open its drawer.
-    // invoiceId is the invoice primary key; Orders rows include invoiceId/invoiceNo.
-    setGridFilter('orders', `invoiceId:${invoiceId}`);
-    setDrawerEntity('orders', 'order', invoiceId);
+  function openOrder(orderId: string, invoiceNo: string) {
+    // Navigate to Orders view, pre-filter to the order row, and open its drawer.
+    // Uses orderId (sales_order.id) for the canonical deep-link pattern so the
+    // drawer state key resolves correctly when the row is selected (UX-B03/J06 fix).
+    setGridFilter('orders', `id:${orderId}`);
+    setDrawerEntity('orders', 'order', orderId);
     setDrawerState('orders', 'standard');
     setActiveView('orders');
     navigate('/orders');
@@ -71,19 +72,19 @@ export function PaymentLinkedOrdersTab({ paymentId }: PaymentLinkedOrdersTabProp
       ) : (
         <div className="mt-2 grid gap-1 text-xs">
           {rows.map((row) => {
-            const invoiceId = String(row.invoiceId ?? '');
+            const orderId = String(row.orderId ?? '');
             const invoiceNo = String(row.invoiceNo ?? '—');
             const amount = moneyish(row.amount);
             return (
               <div key={String(row.id)} className="activity-row">
                 <span className="font-medium text-ink">{invoiceNo}</span>
                 <span className="text-zinc-500">${amount} applied</span>
-                {invoiceId ? (
+                {orderId ? (
                   <button
                     type="button"
                     className="secondary-button compact-action"
                     title={`Open order for invoice ${invoiceNo}`}
-                    onClick={() => openOrder(invoiceId, invoiceNo)}
+                    onClick={() => openOrder(orderId, invoiceNo)}
                   >
                     Open order
                   </button>

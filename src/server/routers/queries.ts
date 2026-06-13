@@ -1075,7 +1075,7 @@ export const queriesRouter = router({
     return (
       await pool.query(
         `select pa.id, pa.payment_id as "paymentId", pa.invoice_id as "invoiceId", i.invoice_no as "invoiceNo",
-                pa.amount, pa.created_at as "createdAt", p.customer_id as "customerId"
+                i.order_id as "orderId", pa.amount, pa.created_at as "createdAt", p.customer_id as "customerId"
          from payment_allocations pa
          join payments p on p.id = pa.payment_id
          left join invoices i on i.id = pa.invoice_id
@@ -2692,9 +2692,10 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
               order by c.balance desc, c.name`;
     case 'vendors':
       // UX-K03: extend with receiptNo + receiptId for Trace tab source links.
-      // purchase_receipts.purchase_order_id links the receipt to the bill's PO.
-      // Uses the FIRST receipt against that PO (ordered by created_at) as the
-      // primary source document. No new procedure — extends existing query fields.
+      // Uses vendor_bills.purchase_receipt_id (direct FK) for a precise 1:1
+      // link — each bill is linked to exactly the receipt that produced it.
+      // This is correct even under UX-H04 partial receiving where a single PO
+      // produces multiple receipts. No new procedure — extends existing query fields.
       return `select vb.id, v.name as vendor, vb.vendor_id as "vendorId", vb.bill_no as "billNo", po.po_no as "poNo", vb.purchase_order_id as "purchaseOrderId",
                      vb.amount, vb.amount_paid as "amountPaid", vb.status, vb.due_date as "dueDate", vb.scheduled_for as "scheduledFor",
                      vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered",
@@ -2703,13 +2704,7 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
               from vendor_bills vb
               left join vendors v on v.id = vb.vendor_id
               left join purchase_orders po on po.id = vb.purchase_order_id
-              left join lateral (
-                select id, receipt_no
-                from purchase_receipts
-                where purchase_order_id = vb.purchase_order_id
-                order by created_at
-                limit 1
-              ) pr on vb.purchase_order_id is not null
+              left join purchase_receipts pr on pr.id = vb.purchase_receipt_id
               order by vb.due_date, v.name`;
     case 'fulfillment':
       return `select pl.id, pl.order_id as "orderId", pl.pick_no as "pickNo", so.order_no as "orderNo", c.name as customer, pl.status,
