@@ -327,7 +327,7 @@ export function MatchmakingView() {
       field: 'lastActivity',
       headerName: 'Last activity',
       width: 140,
-      valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString() : '—',
+      valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString('en-US') : '—',
     },
     // Why shown audit column — hidden by default (Signal already shows the key visually).
     // Unhide via column menu to see plain-language descriptions with tooltip context.
@@ -396,7 +396,7 @@ export function MatchmakingView() {
       field: 'lastActivity',
       headerName: 'Last activity',
       width: 140,
-      valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString() : '—',
+      valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString('en-US') : '—',
     },
     { field: 'postedQty', headerName: 'Posted qty', type: 'numericColumn', width: 110 },
     // Why shown audit column — hidden by default (already at 8 visible cols).

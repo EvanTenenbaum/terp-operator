@@ -1,20 +1,25 @@
-import { Clipboard, X } from 'lucide-react';
+import { Clipboard } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { CustomerPricingPanel } from './PricingPanel';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import type { GridRow, ViewKey } from '../../shared/types';
+import { InspectorDrawer } from './templates';
 
-interface RelationshipDrawerProps {
-  row: GridRow | null;
-  view: ViewKey;
-  onClose: () => void;
+/**
+ * Relationship summary — money position, recent activity, and pricing for
+ * the customer/vendor behind a selected row.
+ *
+ * The body is exported separately so it can render as a tab of the unified
+ * RowInspector; the standalone drawer wrapper is kept for any direct callers.
+ */
+export function relationshipAvailable(row: GridRow | null, view: ViewKey) {
+  return Boolean(inferCustomerId(row, view) || inferVendorId(row, view));
 }
 
-export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerProps) {
+export function RelationshipSummaryBody({ row, view }: { row: GridRow; view: ViewKey }) {
   const customerId = inferCustomerId(row, view);
   const vendorId = inferVendorId(row, view);
-  const summary = trpc.queries.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(row && (customerId || vendorId)) });
-  if (!row || (!customerId && !vendorId)) return null;
+  const summary = trpc.queries.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
   const data = summary.data;
   const customerOpen = (data?.invoices ?? []).reduce((sum, invoice) => sum + Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0), 0);
   const vendorOpen = (data?.bills ?? []).reduce((sum, bill) => sum + Number(bill.amount ?? 0) - Number(bill.amountPaid ?? 0), 0);
@@ -41,66 +46,75 @@ export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerPro
 
   return (
     <>
-      <button className="row-history-backdrop" type="button" aria-label="Close relationship drawer" onClick={onClose} />
-      <aside className="row-history-drawer" role="dialog" aria-modal="true" aria-label="Relationship summary">
-        <div className="row-history-header">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">
-              Relationship Summary
-              {isDualRole ? (
-                <span className="ml-2 selection-pill" title="Both a customer and a vendor">Dual-role</span>
-              ) : null}
-            </h2>
-          </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close relationship summary">
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
+      {isDualRole ? (
+        <div className="mb-2">
+          <span className="selection-pill" title="Both a customer and a vendor">Dual-role</span>
         </div>
-        <div className="row-history-list">
-          <div className="definition-list">
-            <div className="definition-item">
-              <strong>Owes us</strong>
-              <div>${money(customerOpen)}</div>
-            </div>
-            <div className="definition-item">
-              <strong>We owe them</strong>
-              <div>${money(vendorOpen)}</div>
-            </div>
-            {isDualRole ? (
-              <div className="definition-item">
-                <strong>Net position</strong>
-                <div style={{ color: netPosition >= 0 ? '#15803d' : '#b91c1c' }}>
-                  {netPosition >= 0 ? '+' : '−'}${money(Math.abs(netPosition))}
-                </div>
-              </div>
-            ) : null}
-            <div className="definition-item">
-              <strong>Scheduled payables</strong>
-              <div>{(data?.bills ?? []).filter((bill) => bill.status === 'scheduled').length}</div>
-            </div>
-            <div className="definition-item">
-              <strong>Recent commands</strong>
-              <div>{data?.commands?.length ?? 0}</div>
+      ) : null}
+      <div className="definition-list">
+        <div className="definition-item">
+          <strong>Owes us</strong>
+          <div>${money(customerOpen)}</div>
+        </div>
+        <div className="definition-item">
+          <strong>We owe them</strong>
+          <div>${money(vendorOpen)}</div>
+        </div>
+        {isDualRole ? (
+          <div className="definition-item">
+            <strong>Net position</strong>
+            <div style={{ color: netPosition >= 0 ? '#15803d' : '#b91c1c' }}>
+              {netPosition >= 0 ? '+' : '−'}${money(Math.abs(netPosition))}
             </div>
           </div>
-          <button className="secondary-button mt-3" type="button" onClick={copySafeStatus}>
-            <Clipboard className="h-4 w-4" aria-hidden="true" />
-            Copy external-safe status
-          </button>
-          <RelationshipSection title="Orders" rows={data?.invoices ?? []} columns={['invoiceNo', 'status', 'total', 'amountPaid']} />
-          <RelationshipSection title="Client balances" rows={data?.ledger ?? []} columns={['kind', 'amount', 'balanceAfter', 'note']} />
-          <RelationshipSection title="Credit overrides" rows={data?.creditOverrides ?? []} columns={['status', 'amount', 'reason', 'createdAt']} />
-          <RelationshipSection title="Disputes" rows={data?.disputes ?? []} columns={['invoiceNo', 'status', 'reason', 'resolution']} />
-          <RelationshipSection title="Payments" rows={data?.payments ?? []} columns={['method', 'amount', 'unappliedAmount', 'category']} />
-          <RelationshipSection title="Orders" rows={data?.orders ?? []} columns={['orderNo', 'status', 'total', 'createdAt']} />
-          <RelationshipSection title="Purchase receipts" rows={data?.receipts ?? []} columns={['receiptNo', 'status', 'total', 'createdAt']} />
-          <RelationshipSection title="Vendor bills" rows={data?.bills ?? []} columns={['billNo', 'status', 'amount', 'amountPaid', 'dueReason']} />
-          <RelationshipSection title="Vendor payments" rows={data?.vendorPayments ?? []} columns={['billNo', 'amount', 'method', 'reference']} />
-          <RelationshipSection title="Recent commands" rows={data?.commands ?? []} columns={['commandName', 'actorName', 'status', 'createdAt']} />
-          {customerId ? <CustomerPricingPanel customerId={customerId} /> : null}
+        ) : null}
+        <div className="definition-item">
+          <strong>Scheduled payables</strong>
+          <div>{(data?.bills ?? []).filter((bill) => bill.status === 'scheduled').length}</div>
         </div>
-      </aside>
+        <div className="definition-item">
+          <strong>Recent commands</strong>
+          <div>{data?.commands?.length ?? 0}</div>
+        </div>
+      </div>
+      <button className="secondary-button mt-3" type="button" onClick={copySafeStatus}>
+        <Clipboard className="h-4 w-4" aria-hidden="true" />
+        Copy external-safe status
+      </button>
+      <RelationshipSection title="Orders" rows={data?.invoices ?? []} columns={['invoiceNo', 'status', 'total', 'amountPaid']} />
+      <RelationshipSection title="Client balances" rows={data?.ledger ?? []} columns={['kind', 'amount', 'balanceAfter', 'note']} />
+      <RelationshipSection title="Credit overrides" rows={data?.creditOverrides ?? []} columns={['status', 'amount', 'reason', 'createdAt']} />
+      <RelationshipSection title="Disputes" rows={data?.disputes ?? []} columns={['invoiceNo', 'status', 'reason', 'resolution']} />
+      <RelationshipSection title="Payments" rows={data?.payments ?? []} columns={['method', 'amount', 'unappliedAmount', 'category']} />
+      <RelationshipSection title="Orders" rows={data?.orders ?? []} columns={['orderNo', 'status', 'total', 'createdAt']} />
+      <RelationshipSection title="Purchase receipts" rows={data?.receipts ?? []} columns={['receiptNo', 'status', 'total', 'createdAt']} />
+      <RelationshipSection title="Vendor bills" rows={data?.bills ?? []} columns={['billNo', 'status', 'amount', 'amountPaid', 'dueReason']} />
+      <RelationshipSection title="Vendor payments" rows={data?.vendorPayments ?? []} columns={['billNo', 'amount', 'method', 'reference']} />
+      <RelationshipSection title="Recent commands" rows={data?.commands ?? []} columns={['commandName', 'actorName', 'status', 'createdAt']} />
+      {customerId ? <CustomerPricingPanel customerId={customerId} /> : null}
     </>
+  );
+}
+
+interface RelationshipDrawerProps {
+  row: GridRow | null;
+  view: ViewKey;
+  onClose: () => void;
+}
+
+/** Standalone wrapper (legacy callers) — single-tab inspector. */
+export function RelationshipDrawer({ row, view, onClose }: RelationshipDrawerProps) {
+  if (!row || !relationshipAvailable(row, view)) return null;
+  return (
+    <InspectorDrawer
+      open
+      title="Relationship Summary"
+      ariaLabel="Relationship summary"
+      tabs={[{ key: 'relationship', label: 'Relationship', render: () => <RelationshipSummaryBody row={row} view={view} /> }]}
+      activeTab="relationship"
+      onTabChange={() => {}}
+      onClose={onClose}
+    />
   );
 }
 

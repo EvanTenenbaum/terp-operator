@@ -55,6 +55,44 @@ export function invalidateAffectedQueries(queryClient: QueryClient, affectedIds:
   return queryClient.invalidateQueries({ predicate });
 }
 
+/**
+ * EXT-REVIEW 2026-06 finding #3 ("pages must be constantly refreshed").
+ *
+ * The id-substring predicate above only reaches queries whose KEY contains an
+ * affected entity UUID. The main list/aggregate surfaces — `queries.grid`
+ * (every operator view), the dashboard KPIs, the work queue, the credit-review
+ * queue — are keyed by view name or by nothing, so they were NEVER invalidated
+ * after a command. Operators had to hard-refresh the page to see their own
+ * writes reflected in the grid. This is the explicit command-scoped follow-up
+ * promised in #44.
+ *
+ * These families are list/aggregate projections that any successful command
+ * can change. Invalidation marks them stale; React Query only refetches the
+ * ones that are actively mounted (default refetchType 'active'), so the cost
+ * per command is one refetch of the current view's list — bounded and cheap.
+ *
+ * `queries.reference` (static catalog data) is deliberately excluded.
+ */
+export const COMMAND_SCOPED_QUERY_FAMILIES: readonly string[][] = [
+  ['queries', 'grid'],
+  ['queries', 'dashboard'],
+  ['queries', 'workQueue'],
+  ['queries', 'myDrafts'],
+  ['queries', 'creditWatchlist'],
+  ['queries', 'intakeQueue'],
+  ['queries', 'pickQueue'],
+  ['queries', 'photographyQueue'],
+  ['credit'],
+];
+
+export function invalidateCommandScopedQueries(queryClient: QueryClient): Promise<void> {
+  return Promise.all(
+    COMMAND_SCOPED_QUERY_FAMILIES.map((family) =>
+      queryClient.invalidateQueries({ queryKey: [family] })
+    )
+  ).then(() => undefined);
+}
+
 export function useCommandRunner() {
   const queryClient = useQueryClient();
   const pushToast = useUiStore((state) => state.pushToast);
@@ -75,6 +113,9 @@ export function useCommandRunner() {
       // `invalidateQueries()` call refetched every cached query on every
       // command, by every operator, across every view.
       await invalidateAffectedQueries(queryClient, result.affectedIds ?? []);
+      // EXT-REVIEW 2026-06 #3: list/aggregate families are not reachable by the
+      // id predicate (their keys contain no entity UUIDs) — refresh them too.
+      await invalidateCommandScopedQueries(queryClient);
     },
     onError: (error) => pushToast(error.message, 'error')
   });

@@ -174,7 +174,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
           Default markup
         </div>
         <div className="flex items-center gap-2 mb-1">
-          <select
+          <select aria-label="Basis"
             className="select compact"
             style={{ minWidth: 100 }}
             value={basis}
@@ -187,7 +187,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
             <option value="percent">% markup</option>
             <option value="dollar">$ markup</option>
           </select>
-          <input
+          <input aria-label="Amount text"
             className="input compact"
             style={{ width: 80 }}
             type="number"
@@ -244,7 +244,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
                     ) : null}
                   </td>
                   <td>
-                    <select
+                    <select aria-label="Basis"
                       className="select compact"
                       style={{ minWidth: 56 }}
                       value={draft.basis}
@@ -262,7 +262,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
                     </select>
                   </td>
                   <td>
-                    <input
+                    <input aria-label="Amount"
                       className="input compact"
                       style={{ width: 68 }}
                       type="number"
@@ -296,7 +296,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
                       <span className="text-xs">{sub}</span>
                     </td>
                     <td>
-                      <select
+                      <select aria-label="Basis"
                         className="select compact"
                         style={{ minWidth: 56 }}
                         value={subDraft.basis}
@@ -323,7 +323,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
                       </select>
                     </td>
                     <td>
-                      <input
+                      <input aria-label="Amount"
                         className="input compact"
                         style={{ width: 68 }}
                         type="number"
@@ -364,7 +364,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
                   <tr key={`${cat}::add`} className="pricing-add-sub-row">
                     <td colSpan={4}>
                       <div className="flex items-center gap-1 py-0.5">
-                        <select
+                        <select aria-label="Cat"
                           className="select compact"
                           style={{ minWidth: 120 }}
                           value={newSubcategory[cat] ?? ''}
@@ -397,6 +397,7 @@ export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) 
             <tr className="pricing-add-cat-row">
               <td colSpan={4}>
                 <select
+                  aria-label="Add pricing category"
                   className="select compact"
                   style={{ minWidth: 150 }}
                   value=""

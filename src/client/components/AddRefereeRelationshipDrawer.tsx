@@ -1,8 +1,7 @@
-import { X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useCommandRunner } from './useCommandRunner';
+import { FormDialog } from './templates';
 
 interface AddRefereeRelationshipDrawerProps {
   isOpen: boolean;
@@ -51,8 +50,6 @@ export function AddRefereeRelationshipDrawer({
   const [feePercentage, setFeePercentage] = useState('');
   const [feeFixedAmount, setFeeFixedAmount] = useState('');
 
-  const drawerRef = useFocusTrap<HTMLElement>(isOpen, onClose);
-
   // Sync localReferees when parent refetches and passes a fresh list (e.g.
   // after onSuccess triggers reference.refetch()).
   useEffect(() => {
@@ -68,13 +65,15 @@ export function AddRefereeRelationshipDrawer({
   const showFixed = feeType === 'fixed' || feeType === 'hybrid';
 
   const isSubmitDisabled =
-    isRunning ||
     (mode === 'existing' && !selectedRefereeId) ||
     (mode === 'new' && !name.trim()) ||
     (showPercentage && (!feePercentage || Number(feePercentage) <= 0)) ||
     (showFixed && (!feeFixedAmount || Number(feeFixedAmount) <= 0));
 
-  async function handleSubmit() {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (isSubmitDisabled || isRunning) return;
+
     let refereeId = selectedRefereeId;
 
     if (mode === 'new') {
@@ -132,206 +131,162 @@ export function AddRefereeRelationshipDrawer({
   if (!isOpen) return null;
 
   return (
-    <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/20 z-40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <FormDialog
+      title="Add referee credit"
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      submitLabel={pendingRefereeId ? 'Complete setup' : 'Add referee credit'}
+      pendingLabel="Saving…"
+      pending={isRunning}
+      submitDisabled={isSubmitDisabled}
+      maxWidthClass="max-w-md"
+      description={vendorName ? <>Vendor: {vendorName}</> : undefined}
+    >
+      {/* Mode toggle */}
+      <div className="flex border-b border-gray-200 gap-2 pb-0">
+        <button
+          type="button"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            mode === 'existing'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+          onClick={() => setMode('existing')}
+          disabled={localReferees.length === 0}
+          title={localReferees.length === 0 ? 'No existing referees yet' : undefined}
+        >
+          Use existing referee
+        </button>
+        <button
+          type="button"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            mode === 'new'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
+          onClick={() => setMode('new')}
+          disabled={pendingRefereeId !== null}
+          title={pendingRefereeId ? 'Referee already created — complete the fee setup above and save' : undefined}
+        >
+          Create new referee
+        </button>
+      </div>
 
-      {/* Drawer */}
-      <aside
-        ref={drawerRef}
-        className="fixed top-0 right-0 h-screen w-[440px] bg-white shadow-2xl z-50 flex flex-col overflow-y-auto"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add referee relationship"
-      >
-        {/* Header */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Add referee credit</h2>
-            {vendorName && (
-              <p className="text-sm text-gray-500 mt-0.5">Vendor: {vendorName}</p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-gray-100 transition-colors"
-            aria-label="Close"
-            type="button"
-          >
-            <X className="h-5 w-5 text-gray-500" />
-          </button>
-        </header>
-
-        {/* Mode toggle */}
-        <div className="flex border-b border-gray-200 px-6 pt-4 gap-2 pb-0">
-          <button
-            type="button"
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              mode === 'existing'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-            onClick={() => setMode('existing')}
-            disabled={localReferees.length === 0}
-            title={localReferees.length === 0 ? 'No existing referees yet' : undefined}
-          >
-            Use existing referee
-          </button>
-          <button
-            type="button"
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              mode === 'new'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
-            onClick={() => setMode('new')}
-            disabled={pendingRefereeId !== null}
-            title={pendingRefereeId ? 'Referee already created — complete the fee setup above and save' : undefined}
-          >
-            Create new referee
-          </button>
+      {/* Recovery banner — shown when step 1 succeeded but step 2 failed */}
+      {pendingRefereeId && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+          Referee saved. The fee link step failed — adjust the fee below and try again. No duplicate referee will be created.
         </div>
+      )}
 
-        {/* Form body */}
-        <div className="flex-1 px-6 py-4 space-y-4">
+      {/* Existing referee select */}
+      {mode === 'existing' && (
+        <label className="field-inline">
+          Referee
+          <select
+            className="select"
+            value={selectedRefereeId}
+            onChange={(e) => setSelectedRefereeId(e.target.value)}
+            required
+          >
+            <option value="">Choose referee</option>
+            {localReferees.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
-          {/* Recovery banner — shown when step 1 succeeded but step 2 failed */}
-          {pendingRefereeId && (
-            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
-              Referee saved. The fee link step failed — adjust the fee below and try again. No duplicate referee will be created.
-            </div>
-          )}
+      {/* New referee fields */}
+      {mode === 'new' && (
+        <>
+          <label className="field-inline">
+            Name
+            <input
+              className="input"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Referee name"
+              required
+            />
+          </label>
+          <label className="field-inline">
+            Email (optional)
+            <input
+              className="input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="referee@example.com"
+            />
+          </label>
+          <label className="field-inline">
+            Phone (optional)
+            <input
+              className="input"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="555-000-0000"
+            />
+          </label>
+        </>
+      )}
 
-          {/* Existing referee select */}
-          {mode === 'existing' && (
-            <label className="field-inline">
-              Referee
-              <select
-                className="select"
-                value={selectedRefereeId}
-                onChange={(e) => setSelectedRefereeId(e.target.value)}
-                required
-              >
-                <option value="">Choose referee</option>
-                {localReferees.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+      {/* Fee structure — common to both modes */}
+      <div className="border-t border-gray-200 pt-4 space-y-3">
+        <div className="text-sm font-semibold text-gray-700">Fee structure</div>
+        <p className="text-xs text-gray-500 mt-0.5">Calculated on the total order amount, not per line item.</p>
 
-          {/* New referee fields */}
-          {mode === 'new' && (
-            <>
-              <label className="field-inline">
-                Name
-                <input
-                  className="input"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Referee name"
-                  required
-                />
-              </label>
-              <label className="field-inline">
-                Email (optional)
-                <input
-                  className="input"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="referee@example.com"
-                />
-              </label>
-              <label className="field-inline">
-                Phone (optional)
-                <input
-                  className="input"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="555-000-0000"
-                />
-              </label>
-            </>
-          )}
+        <label className="field-inline">
+          Fee type
+          <select
+            className="select"
+            value={feeType}
+            onChange={(e) => setFeeType(e.target.value as FeeType)}
+          >
+            <option value="percentage">Percentage</option>
+            <option value="fixed">Fixed amount</option>
+            <option value="hybrid">Hybrid (% + fixed)</option>
+          </select>
+        </label>
 
-          {/* Fee structure — common to both modes */}
-          <div className="border-t border-gray-200 pt-4 space-y-3">
-            <div className="text-sm font-semibold text-gray-700">Fee structure</div>
-            <p className="text-xs text-gray-500 mt-0.5">Calculated on the total order amount, not per line item.</p>
+        {showPercentage && (
+          <label className="field-inline">
+            Fee %
+            <input
+              className="input compact"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={feePercentage}
+              onChange={(e) => setFeePercentage(e.target.value)}
+              placeholder="e.g. 5"
+              required
+            />
+          </label>
+        )}
 
-            <label className="field-inline">
-              Fee type
-              <select
-                className="select"
-                value={feeType}
-                onChange={(e) => setFeeType(e.target.value as FeeType)}
-              >
-                <option value="percentage">Percentage</option>
-                <option value="fixed">Fixed amount</option>
-                <option value="hybrid">Hybrid (% + fixed)</option>
-              </select>
-            </label>
-
-            {showPercentage && (
-              <label className="field-inline">
-                Fee %
-                <input
-                  className="input compact"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={feePercentage}
-                  onChange={(e) => setFeePercentage(e.target.value)}
-                  placeholder="e.g. 5"
-                  required
-                />
-              </label>
-            )}
-
-            {showFixed && (
-              <label className="field-inline">
-                Fixed amount $
-                <input
-                  className="input compact"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={feeFixedAmount}
-                  onChange={(e) => setFeeFixedAmount(e.target.value)}
-                  placeholder="e.g. 50"
-                  required
-                />
-              </label>
-            )}
-          </div>
-
-          {/* Submit */}
-          <div className="pt-2">
-            <button
-              type="button"
-              className="primary-button w-full"
-              disabled={isSubmitDisabled}
-              onClick={() => void handleSubmit()}
-            >
-              {isRunning
-                ? 'Saving…'
-                : pendingRefereeId
-                  ? 'Complete setup'
-                  : 'Add referee credit'}
-            </button>
-          </div>
-        </div>
-      </aside>
-    </>
+        {showFixed && (
+          <label className="field-inline">
+            Fixed amount $
+            <input
+              className="input compact"
+              type="number"
+              min="0"
+              step="0.01"
+              value={feeFixedAmount}
+              onChange={(e) => setFeeFixedAmount(e.target.value)}
+              placeholder="e.g. 50"
+              required
+            />
+          </label>
+        )}
+      </div>
+    </FormDialog>
   );
 }

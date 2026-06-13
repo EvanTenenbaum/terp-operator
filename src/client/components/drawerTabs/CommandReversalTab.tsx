@@ -16,7 +16,7 @@ import { commandLabelFor } from '../../../shared/commandCatalog';
 function fmtDate(val: unknown): string {
   if (!val) return '—';
   const d = new Date(String(val));
-  return isNaN(d.getTime()) ? String(val) : d.toLocaleString();
+  return isNaN(d.getTime()) ? String(val) : d.toLocaleString('en-US');
 }
 
 interface CommandReversalTabProps {

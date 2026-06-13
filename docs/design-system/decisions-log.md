@@ -2,6 +2,87 @@
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
+## 2026-06-12 — External review remediation (findings #1–#10)
+
+Full point-by-point response: `docs/architecture/external-review-response-2026-06.md`.
+
+1. **Booleans never render as text** — `formatBool()`/`boolCol()` in `utils/format.ts`; applied to `active`/`packed`/`inventoryPosted`/`paymentFollowup`/`labelsPrinted` columns; defense-in-depth in `OperatorGrid`'s default formatter. Literal "false" in cells is unreachable (tested).
+2. **Locale pinned to en-US** — `APP_LOCALE`; 44 device-locale call sites repointed; `formatDate`/`formatDateTime`/`formatNumber`/`dateCol` added; ESLint `no-restricted-syntax` fails the build on bare `toLocale*()`.
+3. **Command-scoped invalidation** — `COMMAND_SCOPED_QUERY_FAMILIES` invalidated on every command success (local + peer socket events); `refetchOnWindowFocus`/`refetchOnReconnect` on; 60s active-only poll fallback. Grid/dashboard/work-queue keys contain no entity UUIDs and were never reached by the id predicate — the "constant refresh" defect.
+4. **Background workers now run in-process** — `services/backgroundWorkers.ts`: credit queue drain (15s), reaper (5m), nightly audit + balance reconciliation (per UTC day), pg advisory locks for multi-instance safety, `BACKGROUND_WORKERS` env gate, heartbeat + queue depth in `/api/health`.
+5. **Grids no longer compress** — `fitColumnsWithoutCompression()` replaces unconditional `sizeColumnsToFit()`; fit only on underflow.
+6. **Form-control accessibility ratchet** — 70 unlabeled controls given semantic aria-labels; `pnpm audit:form-ids` (in `audit:self`) fails on any new unlabeled control.
+7. **Dashboard states** — skeleton tiles while loading; explicit empty state when a response is genuinely empty.
+8. **Responsive shell** — nav rail auto-collapses <1024px; tablet-width CSS pass; `/mobile` shell remains the phone path.
+
+## 2026-06-12 — Swarm completion wave: dialog/drawer convergence (A1–A5), Recovery admin tabs (A6), e2e specs (A7), SalesView density pass (A8)
+
+**Decision 1 (A1/A2 — six dialogs → FormDialog):** `RefereeDialog`, `UpdateRefereeRelationshipDialog`, `DeactivateRefereeRelationshipDialog`, `VoidRefereeCreditDialog`, `ContactCreateModal`, and `RefereeRelationshipDialog` all re-render through `templates/FormDialog` + `FormField`. Every field, validation message, pending state, and submit payload preserved; pinned heading ids (`rd-title`, `urr-title`, `drr-title`, `vrc-title`, `rrd-title`, `create-contact-title`) carried through via `titleId`. Destructive dialogs (Deactivate, Void) lose their bespoke amber submit styling — FormDialog has no submit-tone variant. **Reported template need:** a `tone?: 'danger' | 'warning'` submit prop on FormDialog for destructive confirms; until then the dialogs use the standard primary.
+
+**Decision 2 (test doctrine applied):** one test case in `RefereeRelationshipDialog.test.tsx` pinned legacy footer chrome classes (`primary-button compact-action` / `secondary-button compact-action`). Per the templates.md testing rule — view tests assert behavior, not template chrome — the assertion was converted to a behavior contract (buttons exist; submit disabled until a valid entity is selected). Same doctrine applied to `MediaBatchDrawer.test.tsx`'s three drawer-shell assertions (aside classes, closed-state aside) which became dialog-role assertions. **No behavior assertion was deleted or weakened anywhere** — 24/27 MediaBatchDrawer tests passed byte-identical through the conversion.
+
+**Decision 3 (A3 — MediaBatchDrawer → InspectorDrawer):** the bespoke 312-line always-mounted `<aside class="media-batch-drawer">` becomes an `InspectorDrawer` with a single Media tab. The drawer is now modal (backdrop + focus trap from the template) — accepted as the intended chrome convergence, matching VendorContextDrawer. `media-batch-drawer*` CSS classes are now orphaned in `styles.css` (left in place per guardrail 4; flagged for cleanup).
+
+**Decision 4 (A4 — AddRefereeRelationshipDrawer → FormDialog):** the two-step resilient flow is preserved verbatim: `createReferee` success + `addRefereeRelationship` failure stores `pendingRefereeId`, locks the "Create new referee" mode, surfaces the recovery banner, and retry skips re-creation (no duplicate referee possible). Mode-toggle raw `blue-600` replaced with `accent` per the 2026-05-25 green-chrome decision. Side-drawer chrome → centered modal accepted (form, not context — per the placement rule).
+
+**Decision 5 (A5 — ReceiptPreviewDrawer LEAVE + audit):** `ReceiptPreviewDrawer` stays on `.context-drawer` chrome — it is already canonical semantic chrome with a focus trap; converging to InspectorDrawer would swap chrome families for zero operator-visible gain and risk IntakeView focus-trap contracts. Bespoke-chrome audit of ContactsView / MatchmakingView / MediaView / ItemsView / CreditReviewView published at `audit-2026-06-bespoke-chrome.md`: three M findings (ItemsView create + edit stacked form bands → FormDialog; CreditReviewView divergence disclosure → WorkspacePanel), zero S, zero L. M findings accepted as tracked debt for follow-up PRs.
+
+**Decision 6 (A6 — Recovery admin tabs):** RecoveryView's three disclosure-gated admin bands (Backup preview / Correction / Find-Replace) converge into ONE `WorkspacePanel` ("Admin tools") with an `.inspector-tabs` tablist. Snapshot-diff and find/replace-preview sections move inside their respective tabs (previously stranded below the grid). Every input, the typed-REPLACE confirmation gate, and the pinned ids `recovery-period`/`recovery-amount`/`recovery-memo` are preserved. The support-packet export lives in the Backup & support tab. The selection-strip StatusActionBar and TER-1521 reversal panel are untouched.
+
+**Decision 7 (A8 — SalesView density pass):** (a) Sales Orders grid gains GH #354 presets via `FilterPresetStrip` (All Open / Confirmed / Posted). Because the orders, line, and suggestions grids share the `'sales'` grid-filter slot in mutually exclusive branches, the slot is cleared on customer-mode switch so an order-status preset cannot silently filter line rows. (b) The line grid's always-on verb strip becomes a spec §10.1 decision table through `StatusActionBar` — built on REAL line statuses (`draft | reserved | allocated | posted | cancelled`; verified in schema + commandBus). The spec's `needs_resolution` is not a status — it is `validationIssues.length > 0`, expressed as a predicate rule that takes precedence; the spec's `confirmed`/`fulfilled` are order statuses and do not exist on lines. Posted lines get the §10.4-style closeout cascade (packed → inv-posted → pay/f-up). The CAP-030 bulk-release logic is extracted verbatim to `releaseSelectedLines` and becomes the primary for `reserved|allocated` (and a tray verb elsewhere). Catch-all ends the table — full verb set on mixed selections, no `mixedReason` (Decision 8, 2026-06-11). (c) **"Open Validation" deviation:** spec §10.1 routes to a "drawer Validation tab"; opening OperatorGrid's internal RowInspector programmatically would require an OperatorGrid API change, so the primary instead opens a selection-bound "Line validation" `WorkspacePanel` (`sales:line-validation`) rendering `SaleLineExceptionControls` + the issue list per focused line — same controls as the row expansion, one click from the bar. (d) Customer Workspace stays a panel inside Sales (spec §9 rejection of Option B). Pricing flows untouched; `SalesView.marginToggle` + `SalesView.pricing` suites green.
+
+**Verification:** full suite 174 files / 1,913 tests green (baseline 173 / 1,895); `tsc --noEmit` + `vite build` green after every unit; merge order A1→A8 with the full gate at integration.
+
+**Files:** `src/client/components/{RefereeDialog,UpdateRefereeRelationshipDialog,DeactivateRefereeRelationshipDialog,VoidRefereeCreditDialog,ContactCreateModal,RefereeRelationshipDialog,MediaBatchDrawer,AddRefereeRelationshipDrawer}.tsx`, `src/client/views/{OperationsViews,SalesView,RecoveryView.test}.tsx`, `tests/e2e/ux-a7-{orders-status-bar,row-inspector}.spec.ts`, `docs/design-system/audit-2026-06-bespoke-chrome.md`, `docs/design-system/components/templates.md`
+**Author:** Claude (Fable 5) via Evan
+**Related:** Design spec §10.1, §10.4, §1.4; CAP-030 / TER-1508 (release for picking); TER-1521 (reversal panel exclusion); GH #354 (presets); GH #403 (batched remove confirm — unchanged); 2026-05-25 green-chrome decision; 2026-06-11 Decisions 1–8.
+
+---
+
+## 2026-06-11 — StatusActionBar full adoption: Vendor Payouts, Fulfillment, Connectors, Recovery, Payments, Closeout (spec §10.5–10.10)
+
+**Decision 1:** Six more surfaces adopt the spec §10 decision-table engine via `StatusActionBar`. Every table's rules were written against the REAL status values verified in `schema.ts` + `commandBus.ts` — the spec's status names are wrong in four of the seven views and must never be trusted blindly: vendor bills run `open → approved → scheduled → (partial →) paid` plus `reversed` (no `void` BILL status — void applies to vendor_payments); pick lists have only `open | fulfilled` (the spec's `draft/in_pack/packed/labeled` do not exist — pack progress is derived from the line grid); connector requests start at `open`, not `pending`; command journal rows are `pending | ok | failed` with reversal expressed as `reversedByCommandId`, not a status; payment applied-ness is derived from `unappliedAmount` vs `amount` (real `payments.status`: `posted | refunded | reversed`), and buyer credit is a direction, not a status.
+
+**Decision 2:** `VendorPayablesView` (§10.6) replaces the `vendorPrimaryLabel/Disabled/Icon` + `runVendorPrimary` helpers with a decision table in the selection strip. Pay actions on unscheduled bills schedule first then record (the Money-out commit sequence), since `recordVendorPayment` requires `scheduled`. The TER-1517 inline expansion actions are untouched.
+
+**Decision 3:** `ConnectorsView` (§10.8) keeps **Route** as the primary per the CAP-017 / Phase 4 decision (which postdates the spec's Approve-primary table); Approve/Reject move to the tray. Route stays disabled-with-reason until a destination is entered.
+
+**Decision 4:** `RecoveryView` (§10.9) makes **Retry** the status-matched primary for `failed` rows (replaying the stored command name + `input_payload`). One-click **Reverse is deliberately NOT in the bar**: `reverseCommandById` is destructive and its designed home is the TER-1521 confirm-flow reversal panel below the grid; spec §10.9 predates TER-1521.
+
+**Decision 5:** `PaymentsView` (§10.5) gets a predicate table: fully-unapplied → "Auto-apply oldest", partially-applied → "Allocate remaining", fully-applied/reversed/refunded → no primary. Unallocate and discounts keep their inputs in the allocations `WorkspacePanel` (in-page work tool per the templates.md decision rule).
+
+**Decision 6:** `CloseoutView` (§10.10) feeds the same engine a synthetic period row (`status: open | locked` from `closeoutPreview`), replacing the Lock/Archive button pair: open work → amber warning-tone "Fix unsafe rows (N)" primary routing to the first blocker, with Lock/Archive kept reachable in the tray disabled-with-reason; clean+open → Lock period; clean+locked → Archive.
+
+**Decision 7:** `InventoryView` (§10.13) is intentionally NOT converted. Its "Row actions" disclosure is a form-bearing work tool (status/location/ownership/vendor/reason/tags inputs) — per the templates.md drawer-vs-panel-vs-dialog rule, repeated work tools with inputs stay in-page; flattening them into a tray would be a functionality regression. Inline cells remain the §10.13 primary; the existing single disclosure button already serves as the tray.
+
+**Decision 8 (engine semantics clarified):** with the mandatory catch-all rule, the mixed-selection reason pill never fires — mixed/unknown selections fall to the catch-all, which exposes the full verb set in the tray (the no-functionality-loss guarantee). `mixedReason` is therefore omitted from tables that end in a catch-all. Behavior contracts for all six adoptions are pinned in `OperationsViews.statusTables.test.tsx` (18 tests asserting which command fires for which real row status).
+
+**Files:** `src/client/views/OperationsViews.tsx`, `src/client/views/OperationsViews.statusTables.test.tsx`, `docs/design-system/components/templates.md`
+**Author:** Claude (Fable 5) via Evan
+**Related:** Design spec §10.5–10.10, §10.13; CAP-017 (Route primary); TER-1521 (reversal confirm flow); TER-1517 (vendor bill inline expansion); TER-1660 (printLabels deferral — kept out of the Fulfillment bar); GH #354 presets (unchanged).
+
+---
+
+## 2026-06-11 — Unified template layer: one system for actions, filters, row context, and dialogs
+
+**Decision 1:** New `src/client/components/templates/` layer hosts the shared chrome for recurring UI jobs: `StatusActionBar` (decision-table-driven status-aware primary + "More ▾" tray, implementing spec §10), `FilterPresetStrip` (declarative GH #354 presets), `InspectorDrawer` (unified right-edge tabbed drawer chrome), `FormDialog`/`FormField` (modal scaffold with locked a11y contract). The six-job placement rule (entity context → ContextDrawer · row context → RowInspector · selection actions → StatusActionBar · pre-selection filters → FilterPresetStrip · repeated work tools → WorkspacePanel · one-shot entry → FormDialog) is documented in `components/templates.md`. New drawers with bespoke backdrop/aside/header chrome are no longer permitted — row-context surfaces become inspector tabs via OperatorGrid `inspectorTabs`.
+
+**Decision 2:** The three mutually-exclusive row drawers (`RowCommandHistoryDrawer`, `RelationshipDrawer`, `IssueSidecar`) are unified into one tabbed `RowInspector` (History · Relationship · Issue) mounted by `OperatorGrid`. The drawer-body content was extracted into `*Body` exports; SelectionSummary icons now deep-link to a tab. `.inspector-tabs` / `.inspector-tab` semantic classes added (accent-green active state per the 2026-05-25 color decision). `.row-history-*` classes are the canonical inspector chrome.
+
+**Decision 3:** `OrdersView` replaces its six always-on sibling buttons with the spec §10.4 status table rendered through `selectionActions` (selection strip). All six verbs remain reachable for every status via primary or tray; a catch-all rule exposes the full verb set on mixed/unknown selections — adopting views must always end their table with a catch-all.
+
+**Decision 4:** Selection-bound work tools move into consistent, collapsible `WorkspacePanel` chrome and are gated on selection (pre/post-selection band swap, spec §1.4 #2): Payments allocations (`payments-allocations`), Vendor payout row (`vendors-money-out`), Vendor bill tools (`vendors-bill-tools`, not gated — bill creation needs no selection). Payment receipts become a RowInspector `receipt` tab instead of a stacked panel. Allocation tools intentionally stay in-page (not in the drawer): operators run them across many rows in sequence and the inspector pins a single row.
+
+**Decision 5:** `VendorContextDrawer` re-rendered through `InspectorDrawer`: chrome converged, raw blue/gray palette replaced with semantic classes (chrome is green-accent; blue reserved for status semantics per 2026-05-25). Public API and all four tabs (Context · Quick Adds · Historical POs · Brands) unchanged.
+
+**Decision 6:** `src/client/test-setup.ts` gains a ResizeObserver polyfill (AG Grid v32 requirement under jsdom), unblocking grid-rendering tests.
+
+**Files:** `src/client/components/templates/*`, `src/client/components/RowInspector.tsx`, `src/client/components/OperatorGrid.tsx`, `src/client/components/RowCommandHistoryDrawer.tsx`, `src/client/components/RelationshipDrawer.tsx`, `src/client/components/IssueSidecar.tsx`, `src/client/components/VendorContextDrawer.tsx`, `src/client/components/RecordPrepaymentDialog.tsx`, `src/client/views/OperationsViews.tsx`, `src/client/styles.css`, `src/client/test-setup.ts`, `docs/design-system/components/templates.md`, `docs/design-system/INDEX.md`
+**Author:** Claude (Fable 5) via Evan
+**Related:** Design spec §1.2 friction points #1/#2/#9, §1.4 principles 1/2/5, §10 decision tables; GH #354 presets; GH #326 click-outside pattern.
+
+---
+
 ## 2026-05-27 — Finder chrome redesign: pill filter bar, Add filter dropdown, presets strip, builder restyle
 
 **Decision 1:** `InventoryFinderPanel` filter chrome restructured from stacked controls to: filter bar (search + active filter pills + "Add filter" two-step dropdown + Advanced toggle) → presets strip (DB-driven saved views + save/manage) → `AdvancedFilterBuilder` slide-down panel. All filter evaluation logic (`evaluateFilterGroup`, `filterEvaluator.ts`, `filterSchemas.ts`) is unchanged.

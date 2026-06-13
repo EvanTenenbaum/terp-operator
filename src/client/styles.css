@@ -582,6 +582,20 @@ kbd {
   @apply min-h-0 flex-1 overflow-auto p-3;
 }
 
+/* Unified row-inspector tab strip (templates/InspectorDrawer). Uses the
+   accent green system for the active tab per the 2026-05-25 color decision. */
+.inspector-tabs {
+  @apply flex items-center gap-1 border-b border-line bg-panel px-2;
+}
+
+.inspector-tab {
+  @apply inline-flex h-9 items-center gap-1.5 border-b-2 border-transparent px-2 text-sm font-medium text-zinc-600 hover:text-ink focus:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:text-zinc-400;
+}
+
+.inspector-tab.active {
+  @apply border-accent text-accent;
+}
+
 .row-history-card {
   @apply mb-3 border border-line bg-panel p-3 text-sm;
 }
@@ -889,6 +903,34 @@ kbd {
   font-weight: 700;
   text-align: right;
   background: #f7f8f5;
+}
+
+/* EXT-REVIEW 2026-06 finding #8 — responsive desktop shell.
+   Below 1024px (tablet / split-screen): tighter chrome, wrapping toolbars,
+   stacked definition lists. The dedicated /mobile shell remains the phone
+   path; these rules make the operator console usable on tablets and narrow
+   windows and lay the CSS groundwork for a future mobile app shell. */
+@media (max-width: 1023px) {
+  .view-stack {
+    @apply gap-3;
+  }
+
+  .page-title {
+    @apply text-base;
+  }
+
+  .definition-list {
+    grid-template-columns: 1fr !important;
+  }
+
+  .nav-button kbd {
+    @apply hidden;
+  }
+
+  .selection-summary,
+  .status-action-bar {
+    @apply flex-wrap;
+  }
 }
 
 @media (max-width: 900px) {

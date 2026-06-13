@@ -18,7 +18,7 @@ export function ContactAppointmentsPanel({ contactId }: Props) {
 
   function formatDateTime(iso: string) {
     const d = new Date(iso);
-    return `${d.toLocaleDateString()} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `${d.toLocaleDateString('en-US')} at ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
   }
 
   async function handleCancel(appointmentId: string) {

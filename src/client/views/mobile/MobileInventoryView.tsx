@@ -174,9 +174,9 @@ export function MobileInventoryView() {
                     <span>{vendor}</span>
                     <span style={{ color: 'var(--m-muted)' }}>
                       {draftReserved > 0
-                        ? `${(availableQty - draftReserved).toLocaleString()} ${uom} free (${draftReserved} reserved)`
-                        : `${availableQty.toLocaleString()} ${uom}`}
-                      {' · '}${unitPrice.toLocaleString()}/lb
+                        ? `${(availableQty - draftReserved).toLocaleString('en-US')} ${uom} free (${draftReserved} reserved)`
+                        : `${availableQty.toLocaleString('en-US')} ${uom}`}
+                      {' · '}${unitPrice.toLocaleString('en-US')}/lb
                     </span>
                   </div>
                   {/* Expiry warning */}
@@ -194,7 +194,7 @@ export function MobileInventoryView() {
                       <div>
                         <p className="font-semibold uppercase" style={{ color: 'var(--m-muted-2)', fontSize: 10, letterSpacing: '0.06em' }}>Cost / Price</p>
                         <p style={{ color: 'var(--m-ink)' }}>
-                          ${unitCost.toLocaleString()} / ${unitPrice.toLocaleString()} per lb
+                          ${unitCost.toLocaleString('en-US')} / ${unitPrice.toLocaleString('en-US')} per lb
                         </p>
                       </div>
                       <div>

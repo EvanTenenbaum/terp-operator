@@ -21,9 +21,8 @@ import type {
 import { Columns3, Download, Filter, RotateCcw, Search, X } from 'lucide-react';
 import { trpc } from '../api/trpc';
 import { EmptyState } from './EmptyState';
-import { IssueSidecar } from './IssueSidecar';
-import { RelationshipDrawer } from './RelationshipDrawer';
-import { RowCommandHistoryDrawer } from './RowCommandHistoryDrawer';
+import { RowInspector, type RowInspectorTab } from './RowInspector';
+import type { InspectorTab } from './templates';
 import { SelectionSummary } from './SelectionSummary';
 import type { CellRangeStat } from './SelectionSummary';
 import { StatusPill } from './StatusPill';
@@ -46,7 +45,7 @@ import {
   serializeGridFilter
 } from './gridFilterUtils';
 import { buildCsvExportOptions } from './OperatorGrid.csvExport';
-import { formatTs } from '../utils/format';
+import { formatBool, formatTs } from '../utils/format';
 
 export interface ContextMenuItem {
   label: string;
@@ -66,6 +65,8 @@ interface OperatorGridProps {
   onRetry?: () => void;
   actions?: ReactNode;
   selectionActions?: (rows: GridRow[]) => ReactNode;
+  /** View-specific row-inspector tabs (e.g. Payments adds a Receipt tab). */
+  inspectorTabs?: (row: GridRow) => InspectorTab[];
   contextMenuItems?: (row: GridRow, canWrite: boolean) => ContextMenuItem[];
   onSelectionChange?: (rows: GridRow[]) => void;
   onCellCommit?: (event: CellValueChangedEvent<GridRow>) => void;
@@ -94,6 +95,7 @@ export function OperatorGrid({
   onRetry,
   actions,
   selectionActions,
+  inspectorTabs,
   contextMenuItems,
   onSelectionChange,
   onCellCommit,
@@ -124,9 +126,9 @@ export function OperatorGrid({
   const canWrite = me.data?.role !== 'viewer';
   const [selectedRows, setSelectedRows] = useState<GridRow[]>([]);
   const [cellRangeStats, setCellRangeStats] = useState<CellRangeStat[]>([]);
-  const [historyRow, setHistoryRow] = useState<GridRow | null>(null);
-  const [relationshipRow, setRelationshipRow] = useState<GridRow | null>(null);
-  const [issueRow, setIssueRow] = useState<GridRow | null>(null);
+  // Unified row inspector: one drawer, tabbed (History · Relationship · Issue),
+  // replacing the three mutually-exclusive drawers previously mounted here.
+  const [inspector, setInspector] = useState<{ row: GridRow; tab: RowInspectorTab | string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     items: ContextMenuItem[];
     x: number;
@@ -380,18 +382,18 @@ export function OperatorGrid({
       // Common actions that match the SelectionSummary bar
       items.push({
         label: 'History',
-        action: () => setHistoryRow(row)
+        action: () => setInspector({ row, tab: 'history' })
       });
       if (canWrite && hasRelationship(row, view)) {
         items.push({
           label: 'Relationship',
-          action: () => setRelationshipRow(row)
+          action: () => setInspector({ row, tab: 'relationship' })
         });
       }
       if (canWrite && hasIssueSurface(row, view)) {
         items.push({
           label: 'Issue',
-          action: () => setIssueRow(row)
+          action: () => setInspector({ row, tab: 'issue' })
         });
       }
 
@@ -633,7 +635,7 @@ export function OperatorGrid({
               if (storedColumnPrefs?.length) {
                 event.api.applyColumnState({ state: storedColumnPrefs as Parameters<typeof event.api.applyColumnState>[0]['state'], applyOrder: true });
               } else {
-                event.api.sizeColumnsToFit();
+                fitColumnsWithoutCompression(event.api, gridShellRef.current);
               }
             }}
             onColumnMoved={(_event: ColumnMovedEvent<GridRow>) => persistColumnState()}
@@ -660,10 +662,8 @@ export function OperatorGrid({
           <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'Create or import rows, then mark them Ready when they can be posted.'}</EmptyState>
         )}
       </div>
-      <SelectionSummary rows={selectedRows} view={view} onOpenHistory={setHistoryRow} onOpenRelationship={setRelationshipRow} onOpenIssue={canWrite ? setIssueRow : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} cellRangeStats={cellRangeStats} />
-      <RowCommandHistoryDrawer row={historyRow} onClose={() => setHistoryRow(null)} />
-      <RelationshipDrawer row={relationshipRow} view={view} onClose={() => setRelationshipRow(null)} />
-      <IssueSidecar row={issueRow} view={view} onClose={() => setIssueRow(null)} />
+      <SelectionSummary rows={selectedRows} view={view} onOpenHistory={(row) => setInspector({ row, tab: 'history' })} onOpenRelationship={(row) => setInspector({ row, tab: 'relationship' })} onOpenIssue={canWrite ? (row) => setInspector({ row, tab: 'issue' }) : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} cellRangeStats={cellRangeStats} />
+      <RowInspector row={inspector?.row ?? null} view={view} tab={inspector?.tab ?? 'history'} onTabChange={(tab) => setInspector((current) => (current ? { ...current, tab } : current))} onClose={() => setInspector(null)} canWrite={canWrite} extraTabs={inspector ? inspectorTabs?.(inspector.row) : undefined} />
       {contextMenu ? (
         <div
           className="operator-context-menu"
@@ -811,8 +811,45 @@ function ColumnsMenu({
   );
 }
 
+// Matches ISO-8601 date / timestamp strings (what SQL projections emit for
+// createdAt/postedAt/etc.). Deliberately strict so order numbers, batch codes
+// and similar identifiers never match.
+const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/**
+ * EXT-REVIEW 2026-06 findings #1/#7 ("tables are compressed"): the previous
+ * unconditional sizeColumnsToFit() squashed 12–14 fixed-width columns into the
+ * viewport, producing unreadably narrow cells that looked like missing data.
+ * New behavior: columns keep their designed widths and the grid scrolls
+ * horizontally; sizeColumnsToFit() runs ONLY when the designed widths underflow
+ * the container (sparse views), so wide screens still fill edge-to-edge.
+ */
+export function fitColumnsWithoutCompression(
+  api: GridApi<GridRow>,
+  container: HTMLElement | null
+): void {
+  const available = container?.clientWidth ?? 0;
+  if (available <= 0) return;
+  const designed = api
+    .getAllDisplayedColumns()
+    .reduce((sum, col) => sum + col.getActualWidth(), 0);
+  if (designed < available) {
+    api.sizeColumnsToFit();
+  }
+}
+
 function formatGridValue(value: unknown) {
   if (value == null) return '';
+  // EXT-REVIEW 2026-06 finding #5: a raw boolean reaching the default
+  // formatter used to render the literal text "false". Defense in depth —
+  // boolean columns should use boolCol(), but no grid cell may ever leak it.
+  if (typeof value === 'boolean') return formatBool(value);
+  // EXT-REVIEW 2026-06 finding #6: ISO timestamp strings render as pinned
+  // en-US date/time instead of raw machine strings.
+  if (typeof value === 'string' && ISO_TS_RE.test(value)) {
+    const formatted = formatTs(value, { variant: 'short' });
+    if (formatted) return formatted;
+  }
   if (Array.isArray(value)) {
     if (!value.length) return '';
     if (value.every((entry) => entry == null || ['string', 'number', 'boolean'].includes(typeof entry))) return value.join(', ');

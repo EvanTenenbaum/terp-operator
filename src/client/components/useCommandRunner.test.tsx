@@ -194,3 +194,43 @@ describe('useCommandRunner', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+// ── EXT-REVIEW 2026-06 finding #3: command-scoped family invalidation ─────────
+import { invalidateCommandScopedQueries, COMMAND_SCOPED_QUERY_FAMILIES } from './useCommandRunner';
+
+describe('invalidateCommandScopedQueries (external review finding #3)', () => {
+  it('invalidates grid/dashboard/workQueue families whose keys contain no entity ids', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const gridKey = [['queries', 'grid'], { input: { view: 'orders' }, type: 'query' }] as const;
+    const dashKey = [['queries', 'dashboard'], { type: 'query' }] as const;
+    const refKey = [['queries', 'reference'], { type: 'query' }] as const;
+    qc.setQueryData(gridKey, []);
+    qc.setQueryData(dashKey, {});
+    qc.setQueryData(refKey, {});
+
+    await invalidateCommandScopedQueries(qc);
+
+    expect(qc.getQueryState(gridKey as never)?.isInvalidated).toBe(true);
+    expect(qc.getQueryState(dashKey as never)?.isInvalidated).toBe(true);
+    // Static catalog data is deliberately NOT in the command-scoped families.
+    expect(qc.getQueryState(refKey as never)?.isInvalidated).toBe(false);
+    qc.clear();
+  });
+
+  it('family list excludes queries.reference', () => {
+    expect(COMMAND_SCOPED_QUERY_FAMILIES.some((f) => f.join('.') === 'queries.reference')).toBe(false);
+  });
+
+  it('runs after a successful command so the active grid refetches without a page refresh', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const gridKey = [['queries', 'grid'], { input: { view: 'sales' }, type: 'query' }] as const;
+    qc.setQueryData(gridKey, []);
+    registeredOnSuccess = null;
+    renderHook(() => useCommandRunner(), { wrapper: wrapperFactory(qc) });
+    await act(async () => {
+      await registeredOnSuccess!({ ok: true, affectedIds: [], commandId: 'cmd-x', toast: 'ok' });
+    });
+    expect(qc.getQueryState(gridKey as never)?.isInvalidated).toBe(true);
+    qc.clear();
+  });
+});

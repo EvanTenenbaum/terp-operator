@@ -130,6 +130,15 @@ export interface HealthStatus {
   database: 'ok' | 'down';
   journal: 'ok' | 'down';
   websocket: 'ok' | 'degraded';
+  /** EXT-REVIEW 2026-06 #4: in-process background worker heartbeat. */
+  workers: {
+    enabled: boolean;
+    lastDrainAt: string | null;
+    lastReaperAt: string | null;
+    lastNightlyDay: string | null;
+    pendingQueueDepth: number | null;
+    lastError: string | null;
+  };
   checkedAt: string;
   warnings: string[];
 }

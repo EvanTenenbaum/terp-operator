@@ -58,6 +58,15 @@ services:
       - key: ARCHIVE_DIR
         scope: RUN_TIME
         value: /workspace/storage/archives
+      # EXT-REVIEW 2026-06 finding #4: in-process background workers (credit
+      # recompute drain / reaper / nightly audit / balance reconciliation) run
+      # inside the web service, guarded by pg advisory locks so instance_count
+      # may be raised without double-processing. Set to "false" only when an
+      # external scheduler (DO scheduled jobs, k8s CronJob) owns the pnpm cron:*
+      # entrypoints instead.
+      - key: BACKGROUND_WORKERS
+        scope: RUN_TIME
+        value: "true"
       - key: VITE_TRPC_URL
         scope: RUN_AND_BUILD_TIME
         value: /trpc

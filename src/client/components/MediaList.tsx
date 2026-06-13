@@ -91,7 +91,7 @@ export function MediaList({
               </td>
               <td>
                 {media.publishedAt
-                  ? new Date(media.publishedAt).toLocaleDateString()
+                  ? new Date(media.publishedAt).toLocaleDateString('en-US')
                   : '—'}
               </td>
               <td>

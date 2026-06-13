@@ -510,24 +510,24 @@ function DraftLedgerRow({
   return (
     <tr className={row.status === 'needs_fix' ? 'transaction-ledger-row-warning' : undefined}>
       <td className="transaction-ledger-row-number">{rowNumber}</td>
-      <td><input type="date" value={row.date} onFocus={onFocus} onChange={(event) => onUpdate({ date: event.target.value })} /></td>
+      <td><input aria-label="Date" type="date" value={row.date} onFocus={onFocus} onChange={(event) => onUpdate({ date: event.target.value })} /></td>
       <td>
-        <select value={row.entityType} onFocus={onFocus} onChange={(event) => onUpdate({ entityType: event.target.value as LedgerEntityType })}>
+        <select aria-label="Entity type" value={row.entityType} onFocus={onFocus} onChange={(event) => onUpdate({ entityType: event.target.value as LedgerEntityType })}>
           {entityTypes.map((entityType) => <option key={entityType} value={entityType}>{labelFromToken(entityType)}</option>)}
         </select>
       </td>
       <td>
         {row.entityType === 'other' ? (
-          <input value={row.entityName} onFocus={onFocus} onChange={(event) => onUpdate({ entityName: event.target.value })} placeholder="Name" />
+          <input aria-label="Entity name" value={row.entityName} onFocus={onFocus} onChange={(event) => onUpdate({ entityName: event.target.value })} placeholder="Name" />
         ) : (
-          <select value={row.entityId} onFocus={onFocus} onChange={(event) => onUpdate({ entityId: event.target.value, allocationTargetId: '' })}>
+          <select aria-label="Entity id" value={row.entityId} onFocus={onFocus} onChange={(event) => onUpdate({ entityId: event.target.value, allocationTargetId: '' })}>
             <option value="">Choose</option>
             {entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
           </select>
         )}
       </td>
       <td>
-        <select value={row.transactionType} onFocus={onFocus} onChange={(event) => onUpdate({ transactionType: event.target.value })}>
+        <select aria-label="Transaction type" value={row.transactionType} onFocus={onFocus} onChange={(event) => onUpdate({ transactionType: event.target.value })}>
           {transactionTypes.map((type) => <option key={type.slug} value={type.slug}>{type.label}</option>)}
         </select>
       </td>
@@ -535,7 +535,7 @@ function DraftLedgerRow({
       {isProcessorTransaction ? (
         <>
           <td>
-            <input
+            <input aria-label="Gross amount"
               type="number"
               value={row.grossAmount || ''}
               onFocus={onFocus}
@@ -545,7 +545,7 @@ function DraftLedgerRow({
             />
           </td>
           <td>
-            <select
+            <select aria-label="Processor id"
               value={row.processorId || ''}
               onFocus={onFocus}
               onChange={(event) => onUpdate({ processorId: event.target.value })}
@@ -555,7 +555,7 @@ function DraftLedgerRow({
             </select>
           </td>
           <td>
-            <input
+            <input aria-label="Processing fee total"
               type="number"
               value={row.processingFeeTotal || calculatedFee.toFixed(2) || ''}
               onFocus={onFocus}
@@ -565,7 +565,7 @@ function DraftLedgerRow({
             />
           </td>
           <td>
-            <input
+            <input aria-label="User split percent"
               type="number"
               value={row.userSplitPercent || (selectedProcessor?.defaultUserSplit ?? '')}
               onFocus={onFocus}
@@ -590,7 +590,7 @@ function DraftLedgerRow({
         </>
       )}
       <td>
-        <select value={`${row.allocationTargetType}:${row.allocationTargetId}`} onFocus={onFocus} onChange={(event) => {
+        <select aria-label="Allocation target type" value={`${row.allocationTargetType}:${row.allocationTargetId}`} onFocus={onFocus} onChange={(event) => {
           const [allocationTargetType, allocationTargetId = ''] = event.target.value.split(':');
           onUpdate({ allocationTargetType, allocationTargetId });
         }}>
@@ -598,23 +598,23 @@ function DraftLedgerRow({
         </select>
       </td>
       <td>
-        <input value={row.amount} inputMode="decimal" onFocus={onFocus} onChange={(event) => onUpdate({ amount: event.target.value })} />
+        <input aria-label="Amount" value={row.amount} inputMode="decimal" onFocus={onFocus} onChange={(event) => onUpdate({ amount: event.target.value })} />
         {/* CAP-004: visual label when operator enters a negative amount (buyer credit / down payment) */}
         {row.amount.startsWith('-') || Number(row.amount) < 0 ? (
           <span className="selection-pill">Buyer credit / Down payment</span>
         ) : null}
       </td>
       <td>
-        <select value={row.method} onChange={(event) => onUpdate({ method: event.target.value })}>
+        <select aria-label="Method" value={row.method} onChange={(event) => onUpdate({ method: event.target.value })}>
           {methods.map((method) => <option key={method} value={method}>{labelFromToken(method)}</option>)}
         </select>
       </td>
       <td>
-        <select value={row.bucket} onChange={(event) => onUpdate({ bucket: event.target.value })}>
+        <select aria-label="Bucket" value={row.bucket} onChange={(event) => onUpdate({ bucket: event.target.value })}>
           {buckets.map((bucket) => <option key={bucket} value={bucket}>{bucketLabel(bucket)}</option>)}
         </select>
       </td>
-      <td><input value={row.notes} onChange={(event) => onUpdate({ notes: event.target.value })} placeholder="Notes" /></td>
+      <td><input aria-label="Notes" value={row.notes} onChange={(event) => onUpdate({ notes: event.target.value })} placeholder="Notes" /></td>
       <td className="transaction-ledger-impact">{impact}</td>
       <td><span className={row.status === 'posted' ? 'finder-chip success' : row.status === 'needs_fix' ? 'finder-chip warning' : 'finder-chip'}>{labelFromToken(row.status)}</span></td>
       <td><span className="transaction-ledger-source">Draft</span></td>

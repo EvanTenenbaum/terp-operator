@@ -175,7 +175,7 @@ export function ContactMoneyPanel({ data }: Props) {
                 {rows.map((row) => (
                   <tr key={row.id} className="border-t border-line">
                     <td className="px-3 py-2 text-xs text-zinc-500 font-mono whitespace-nowrap">
-                      {new Date(row.created_at).toLocaleDateString()}
+                      {new Date(row.created_at).toLocaleDateString('en-US')}
                     </td>
                     <td className="px-3 py-2">
                       <span className="finder-chip">{row.kind}</span>

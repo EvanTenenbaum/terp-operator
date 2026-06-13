@@ -102,7 +102,7 @@ export function ProcessorFeesGrid({ processorId }: ProcessorFeesGridProps) {
             <tbody>
               {rows.map((f) => (
                 <tr key={f.id} className="border-t border-zinc-100">
-                  <td className="px-3 py-2 text-xs text-zinc-600">{new Date(f.createdAt).toLocaleDateString()}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-600">{new Date(f.createdAt).toLocaleDateString('en-US')}</td>
                   <td className="px-3 py-2 tabular-nums">{formatMoney(Number(f.processingFeeTotal))}</td>
                   <td className="px-3 py-2 tabular-nums">{formatMoney(Number(f.userFeeShare))}</td>
                   <td className="px-3 py-2">

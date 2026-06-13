@@ -69,7 +69,7 @@ interface RecentSheetsPanelProps {
 
 function moneyish(value: unknown): string {
   const n = Number(value ?? 0);
-  return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0';
+  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
 }
 
 function formatItemCount(n: number): string {
@@ -79,7 +79,7 @@ function formatItemCount(n: number): string {
 function formatDate(value: string | undefined | null): string {
   if (!value) return '-';
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('en-US');
 }
 
 export function RecentSheetsPanel({ customerId, selectedOrderId, onAddBatch }: RecentSheetsPanelProps) {

@@ -1,10 +1,12 @@
-import { ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackagePlus, RotateCcw, Search, Send, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Eye, EyeOff, FileText, PackageCheck, PackagePlus, RotateCcw, Search, Send, X } from 'lucide-react';
+import { boolCol } from '../utils/format';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { type InventoryFinderBatch } from '../components/InventoryFinderPanel';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { WorkspacePanel } from '../components/WorkspacePanel';
+import { FilterPresetStrip, StatusActionBar, type StatusActionTable } from '../components/templates';
 import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHistoryPanel';
 import { SalesSourcePane } from '../components/SalesSourcePane';
 import { type CustomerSheetSnapshotRow, type CustomerSheetSnapshotSummary } from '../components/RecentSheetsPanel';
@@ -275,9 +277,9 @@ const lineColumns: ColDef<GridRow>[] = [
   },
   exceptionBadgeColumn,
   { field: 'availableQty', headerName: 'Avail', type: 'numericColumn', width: 105 },
-  { field: 'packed', editable: (params) => !isRowEditLocked(params), width: 105 },
-  { field: 'inventoryPosted', headerName: 'Inv Posted', editable: (params) => !isRowEditLocked(params), width: 125 },
-  { field: 'paymentFollowup', headerName: 'Pay/F-up', editable: (params) => !isRowEditLocked(params), width: 125 },
+  boolCol('packed', { headerName: 'Packed', editable: (params) => !isRowEditLocked(params), width: 105 }),
+  boolCol('inventoryPosted', { headerName: 'Inv Posted', editable: (params) => !isRowEditLocked(params), width: 125 }),
+  boolCol('paymentFollowup', { headerName: 'Pay/F-up', editable: (params) => !isRowEditLocked(params), width: 125 }),
   { field: 'validationIssues', headerName: 'Fix', minWidth: 220 },
   {
     field: 'pickStatus',
@@ -294,7 +296,7 @@ const lineColumns: ColDef<GridRow>[] = [
     headerName: 'Released at',
     width: 160,
     hide: true, // hidden by default per spec
-    valueFormatter: (params: { value: unknown }) => params.value ? new Date(String(params.value)).toLocaleString() : '',
+    valueFormatter: (params: { value: unknown }) => params.value ? new Date(String(params.value)).toLocaleString('en-US') : '',
   },
   { field: 'status', width: 115 }
 ];
@@ -303,14 +305,18 @@ const EMPTY_ROWS: GridRow[] = [];
 
 function moneyish(value: unknown) {
   const numberValue = Number(value ?? 0);
-  return Number.isFinite(numberValue) ? numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0';
+  return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
 }
 
 export function SalesView() {
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
   const selectedSalesRows = useUiStore((state) => state.selectedRows.sales);
   const selectedOrders = selectedSalesRows ?? EMPTY_ROWS;
   const [customerId, setCustomerId] = useState('');
+  // A8 spec §10.1 — "Open Validation" focuses the exception controls for the
+  // selected line(s) in a selection-bound WorkspacePanel below the line grid.
+  const [validationFocusIds, setValidationFocusIds] = useState<string[]>([]);
   const [selectedSuggestions, setSelectedSuggestions] = useState<GridRow[]>([]);
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [sheetMode, setSheetMode] = useState<'internal' | 'catalog'>('internal');
@@ -418,6 +424,15 @@ export function SalesView() {
     subscribeOrder(_selectedOrderId);
     return () => { unsubscribeOrder(_selectedOrderId); };
   }, [_selectedOrderId, subscribeOrder, unsubscribeOrder]);
+
+  // A8: the Sales Orders grid, line grid, and suggestions grid all share the
+  // 'sales' grid-filter slot but render in mutually exclusive branches.
+  // Clear the slot (and any validation focus) on mode switch so an order-
+  // status preset set in orders mode cannot silently filter line rows.
+  useEffect(() => {
+    setGridFilter('sales', '');
+    setValidationFocusIds([]);
+  }, [customerId, setGridFilter]);
 
   const lineRowsWithRule = useMemo(() => {
     if (!orderLines.data) return [];
@@ -956,6 +971,52 @@ export function SalesView() {
     await orderLines.refetch();
   }
 
+  // CAP-030 / TER-1508 — bulk release via releaseLinesForPicking (single
+  // transactional command). Extracted verbatim from the former inline
+  // selection-strip button so the StatusActionBar table can reuse it (A8).
+  function releaseEligibleRows(rows: GridRow[]): GridRow[] {
+    return rows.filter((r) => {
+      const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
+      return !elig || (elig.eligible && !elig.alreadyReleased);
+    });
+  }
+
+  async function releaseSelectedLines(rows: GridRow[]) {
+    const total = rows.length;
+    const eligible = rows.filter((r) => {
+      const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
+      return elig ? (elig.eligible && !elig.alreadyReleased) : false;
+    });
+    const skipped = total - eligible.length;
+    if (eligible.length === 0) return;
+    let failed = 0;
+    try {
+      const result = await runCommand(
+        'releaseLinesForPicking',
+        { lineIds: eligible.map((r) => r.id) },
+        'Bulk release lines for picking'
+      );
+      if (!result.ok) {
+        failed = eligible.length;
+      }
+    } catch {
+      // Network/transport failure — treat all lines as failed
+      failed = eligible.length;
+    }
+    const released = eligible.length - failed;
+    const parts = [`${released} of ${total} lines released`];
+    if (skipped > 0) parts.push(`${skipped} skipped (not eligible)`);
+    if (failed > 0) parts.push(`${failed} failed`);
+    if (skipped > 0 || failed > 0) {
+      pushToast(parts.join(' — '), failed > 0 ? 'error' : 'info');
+    }
+    // All released successfully — useCommandRunner already shows the server toast.
+    // No supplemental toast needed for the all-success case.
+  }
+
+  const lineHasValidationIssues = (row: GridRow) =>
+    Array.isArray(row.validationIssues) && (row.validationIssues as unknown[]).length > 0;
+
   async function exportSheet() {
     setExportError(null);
     setSalesSheetState({ exportError: null });
@@ -1177,66 +1238,118 @@ export function SalesView() {
                 onCellCommit={canWrite ? onLineCommit : undefined}
                 emptyTitle="No sale lines yet"
                 emptyChildren="Use Inventory Finder to add posted batches, or type a request above and press Enter."
-                selectionActions={(rows) => (
-                  <>
-                    {/* CAP-030 / TER-1508 — bulk release uses releaseLinesForPicking (single transactional command) */}
-                    {rows.some((r) => {
-                      const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
-                      return !elig || (elig.eligible && !elig.alreadyReleased);
-                    }) ? (
-                      <button
-                        className="primary-button compact-action"
-                        type="button"
-                        disabled={isRunning || !canWrite || !rows.length}
-                        onClick={async () => {
-                          const total = rows.length;
-                          const eligible = rows.filter((r) => {
-                            const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
-                            return elig ? (elig.eligible && !elig.alreadyReleased) : false;
-                          });
-                          const skipped = total - eligible.length;
-                          if (eligible.length === 0) return;
-                          let failed = 0;
-                          try {
-                            const result = await runCommand(
-                              'releaseLinesForPicking',
-                              { lineIds: eligible.map((r) => r.id) },
-                              'Bulk release lines for picking'
-                            );
-                            if (!result.ok) {
-                              failed = eligible.length;
-                            }
-                          } catch {
-                            // Network/transport failure — treat all lines as failed
-                            failed = eligible.length;
-                          }
-                          const released = eligible.length - failed;
-                          const parts = [`${released} of ${total} lines released`];
-                          if (skipped > 0) parts.push(`${skipped} skipped (not eligible)`);
-                          if (failed > 0) parts.push(`${failed} failed`);
-                          if (skipped > 0 || failed > 0) {
-                            pushToast(parts.join(' — '), failed > 0 ? 'error' : 'info');
-                          }
-                          // All released successfully — useCommandRunner already shows the server toast.
-                          // No supplemental toast needed for the all-success case.
-                        }}
-                      >
-                        Release {rows.filter((r) => {
-                          const elig = releaseEligibility.data?.find((e) => e.lineId === r.id);
-                          return !elig || (elig.eligible && !elig.alreadyReleased);
-                        }).length} for picking
-                      </button>
-                    ) : null}
-                    <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('packed', true)}>Packed</button>
-                    <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('inventoryPosted', true)}>Inv posted</button>
-                    <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={() => toggleLine('paymentFollowup', true)}>Pay/F-up</button>
-                    <button className="secondary-button compact-action" type="button" disabled={!rows.length} onClick={removeSelectedLines}>Remove</button>
-                    <button className="secondary-button compact-action" type="button" disabled={!selectedOrder} onClick={reserveOrder}>Reserve</button>
-                  </>
-                )}
+                selectionActions={(rows) => {
+                  /* A8 spec §10.1 — status-aware primary + tray for the line
+                     grid. Real line statuses (schema + commandBus verified):
+                     draft | reserved | allocated | posted | cancelled.
+                     Spec's `needs_resolution` is NOT a status — it is
+                     validationIssues.length > 0 on the line (predicate rule).
+                     Spec's `confirmed`/`fulfilled` are ORDER statuses and do
+                     not exist on lines; the closest real states are mapped
+                     below. Every verb from the former always-on strip
+                     (Release · Packed · Inv posted · Pay/F-up · Remove ·
+                     Reserve) stays reachable — as a primary for its status or
+                     in the tray; the catch-all keeps the full set for mixed
+                     selections (decisions-log Decision 8: no mixedReason). */
+                  const eligibleCount = releaseEligibleRows(rows).length;
+                  const act = {
+                    priceConfirm: {
+                      key: 'price-confirm',
+                      label: 'Price + Confirm',
+                      icon: <Check className="h-4 w-4" aria-hidden="true" />,
+                      disabled: isRunning || !selectedOrder,
+                      disabledReason: 'Select an order first',
+                      run: () => priceAndConfirm()
+                    },
+                    openValidation: {
+                      key: 'open-validation',
+                      label: 'Open Validation',
+                      disabled: isRunning,
+                      run: (r: GridRow[]) => setValidationFocusIds(r.map((row) => String(row.id)))
+                    },
+                    release: {
+                      key: 'release',
+                      label: eligibleCount ? `Release ${eligibleCount} for picking` : 'Release for picking',
+                      icon: <Send className="h-4 w-4" aria-hidden="true" />,
+                      disabled: isRunning || eligibleCount === 0,
+                      disabledReason: 'No selected lines are eligible for release',
+                      run: (r: GridRow[]) => releaseSelectedLines(r)
+                    },
+                    packed: { key: 'packed', label: 'Packed', icon: <PackageCheck className="h-4 w-4" aria-hidden="true" />, disabled: isRunning, run: () => toggleLine('packed', true) },
+                    invPosted: { key: 'inv-posted', label: 'Inv posted', disabled: isRunning, run: () => toggleLine('inventoryPosted', true) },
+                    payFup: { key: 'pay-fup', label: 'Pay/F-up', disabled: isRunning, run: () => toggleLine('paymentFollowup', true) },
+                    remove: { key: 'remove', label: 'Remove', disabled: isRunning, run: () => removeSelectedLines() },
+                    reserve: { key: 'reserve', label: 'Reserve', disabled: isRunning || !selectedOrder, disabledReason: 'Select an order first', run: () => reserveOrder() }
+                  };
+                  const flag = (value: unknown) => value === true || value === 'true' || value === 1 || value === '1';
+                  const lineTable: StatusActionTable = {
+                    rules: [
+                      // Validation issues take precedence over status (predicate rule).
+                      { when: (row) => lineHasValidationIssues(row), primary: act.openValidation, tray: [act.reserve, act.remove] },
+                      { when: 'draft', primary: act.priceConfirm, tray: [act.release, act.reserve, act.packed, act.invPosted, act.payFup, act.remove] },
+                      { when: ['reserved', 'allocated'], primary: act.release, tray: [act.packed, act.invPosted, act.payFup, act.remove, act.reserve] },
+                      // Posted lines: closeout-mark cascade (mirrors OrdersView §10.4).
+                      { when: (row) => row.status === 'posted' && !flag(row.packed), primary: act.packed, tray: [act.invPosted, act.payFup, act.remove] },
+                      { when: (row) => row.status === 'posted' && flag(row.packed) && !flag(row.inventoryPosted), primary: act.invPosted, tray: [act.payFup, act.remove] },
+                      { when: (row) => row.status === 'posted' && flag(row.packed) && flag(row.inventoryPosted) && !flag(row.paymentFollowup), primary: act.payFup, tray: [act.remove] },
+                      { when: 'posted', primary: null, tray: [act.remove] },
+                      { when: 'cancelled', primary: null, tray: [act.remove] },
+                      // Catch-all — full verb set for mixed/unknown selections.
+                      { when: () => true, primary: null, tray: [act.priceConfirm, act.openValidation, act.release, act.reserve, act.packed, act.invPosted, act.payFup, act.remove] }
+                    ]
+                  };
+                  return <StatusActionBar rows={rows} table={lineTable} busy={isRunning} />;
+                }}
                 expansionConfig={canWrite ? salesLineExpansionConfig : undefined}
               />
             </div>
+            {/* A8 spec §10.1 — "Open Validation" target. Selection-bound
+                WorkspacePanel surfacing SaleLineExceptionControls for the
+                focused line(s). The same controls remain available in each
+                row's expansion; this panel makes them one click from the
+                status bar. (The spec's "drawer Validation tab" home would
+                require an OperatorGrid API change to open the internal
+                RowInspector programmatically — deviation logged.) */}
+            {canWrite && validationFocusIds.length ? (
+              <WorkspacePanel
+                panelId="sales:line-validation"
+                title="Line validation"
+                subtitle="Resolve issues on the selected line(s), then re-run Price + Confirm."
+                headingLevel={3}
+                contentClassName="p-3"
+                actions={
+                  <button type="button" className="icon-button" aria-label="Close line validation" onClick={() => setValidationFocusIds([])}>
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                }
+              >
+                <div className="grid gap-3">
+                  {lineRowsWithRule.filter((row) => validationFocusIds.includes(String(row.id))).map((row) => (
+                    <div key={String(row.id)} className="border border-line bg-panel p-2">
+                      <div className="text-sm font-medium text-ink">{String((row as GridRow).itemName ?? row.id)}</div>
+                      {Array.isArray(row.validationIssues) && (row.validationIssues as unknown[]).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-xs text-zinc-600">
+                          {(row.validationIssues as unknown[]).map((issue, index) => (
+                            <li key={index}>{String(issue)}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-xs text-zinc-500">No outstanding validation issues.</p>
+                      )}
+                      <div className="mt-2">
+                        <SaleLineExceptionControls
+                          row={row}
+                          isRunning={isRunning}
+                          canWrite={canWrite}
+                          showMargin={showMargin}
+                          runCommand={runCommand}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </WorkspacePanel>
+            ) : null}
             {selectedOrder?.id && ['confirmed', 'posted', 'fulfilled'].includes(selectedOrderStatus) ? (
               <ReceiptPanel kind="sales_order" salesOrderId={String(selectedOrder.id)} />
             ) : null}
@@ -1265,19 +1378,33 @@ export function SalesView() {
               emptyChildren="Choose a customer to start."
               expansionConfig={canWrite ? salesOrderExpansionConfig : undefined}
               actions={
-                activeCustomerId && !customerFilterDismissed && activeCustomerName ? (
-                  <button
-                    type="button"
-                    className="selection-pill success"
-                    data-testid="sales-customer-scope-chip"
-                    title="Clear customer filter — shows all orders"
-                    aria-label={`Filtered to ${activeCustomerName}. Click to show all orders.`}
-                    onClick={() => setCustomerFilterDismissed(true)}
-                  >
-                    Filtered to {activeCustomerName}&nbsp;
-                    <X className="inline h-3 w-3" aria-hidden="true" />
-                  </button>
-                ) : undefined
+                <>
+                  {/* A8 — GH #354 presets via the shared template (mirrors OrdersView).
+                      The 'sales' filter slot is cleared on customer-mode switch
+                      so these presets cannot leak onto the line grid. */}
+                  <FilterPresetStrip
+                    view="sales"
+                    ariaLabel="Filter by status"
+                    presets={[
+                      { label: 'All Open', filter: 'status:draft,confirmed' },
+                      { label: 'Confirmed', filter: 'status:confirmed' },
+                      { label: 'Posted', filter: 'status:posted' }
+                    ]}
+                  />
+                  {activeCustomerId && !customerFilterDismissed && activeCustomerName ? (
+                    <button
+                      type="button"
+                      className="selection-pill success"
+                      data-testid="sales-customer-scope-chip"
+                      title="Clear customer filter — shows all orders"
+                      aria-label={`Filtered to ${activeCustomerName}. Click to show all orders.`}
+                      onClick={() => setCustomerFilterDismissed(true)}
+                    >
+                      Filtered to {activeCustomerName}&nbsp;
+                      <X className="inline h-3 w-3" aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </>
               }
             />
           </div>

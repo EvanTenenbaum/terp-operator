@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-26T23:47:41.488Z",
-  "componentCount": 99,
+  "generated": "2026-06-12T15:47:08.528Z",
+  "componentCount": 110,
   "byCategory": {
-    "drawer": 29,
-    "form": 8,
+    "drawer": 30,
+    "form": 9,
     "navigation": 7,
-    "other": 43,
+    "other": 52,
     "grid": 11,
     "hook": 1
   },
@@ -35,6 +35,14 @@
       ]
     },
     {
+      "name": "ConfirmRoot",
+      "path": "src/client/components/ConfirmRoot.tsx",
+      "category": "other",
+      "exports": [
+        "ConfirmRoot"
+      ]
+    },
+    {
       "name": "ContactCreateModal",
       "path": "src/client/components/ContactCreateModal.tsx",
       "category": "other",
@@ -49,6 +57,15 @@
       "exports": [
         "ContextDrawer",
         "getActiveDrawerStorageKey"
+      ]
+    },
+    {
+      "name": "CountPill",
+      "path": "src/client/components/CountPill.tsx",
+      "category": "other",
+      "exports": [
+        "CountPill",
+        "CountPillProps"
       ]
     },
     {
@@ -116,14 +133,6 @@
       ]
     },
     {
-      "name": "GlobalFinderPanel",
-      "path": "src/client/components/GlobalFinderPanel.tsx",
-      "category": "drawer",
-      "exports": [
-        "GlobalFinderPanel"
-      ]
-    },
-    {
       "name": "Hotkeys",
       "path": "src/client/components/Hotkeys.tsx",
       "category": "navigation",
@@ -145,7 +154,9 @@
       "category": "drawer",
       "exports": [
         "InventoryFinderBatch",
-        "InventoryFinderPanel"
+        "InventoryFinderPanel",
+        "defaultQtyFor",
+        "qtyHintFor"
       ]
     },
     {
@@ -153,7 +164,9 @@
       "path": "src/client/components/IssueSidecar.tsx",
       "category": "drawer",
       "exports": [
-        "IssueSidecar"
+        "IssueActionsBody",
+        "IssueSidecar",
+        "issueRowLabel"
       ]
     },
     {
@@ -218,6 +231,7 @@
       "path": "src/client/components/OperatorGrid.tsx",
       "category": "grid",
       "exports": [
+        "ContextMenuItem",
         "OperatorGrid"
       ]
     },
@@ -234,8 +248,7 @@
       "path": "src/client/components/PricingPanel.tsx",
       "category": "drawer",
       "exports": [
-        "CustomerPricingPanel",
-        "OrderPricingPanel"
+        "CustomerPricingPanel"
       ]
     },
     {
@@ -292,6 +305,7 @@
       "path": "src/client/components/RecentSheetsPanel.tsx",
       "category": "drawer",
       "exports": [
+        "CustomerSheetSnapshotRow",
         "CustomerSheetSnapshotSummary",
         "RecentSheetsPanel"
       ]
@@ -349,7 +363,9 @@
       "path": "src/client/components/RelationshipDrawer.tsx",
       "category": "drawer",
       "exports": [
-        "RelationshipDrawer"
+        "RelationshipDrawer",
+        "RelationshipSummaryBody",
+        "relationshipAvailable"
       ]
     },
     {
@@ -365,7 +381,19 @@
       "path": "src/client/components/RowCommandHistoryDrawer.tsx",
       "category": "drawer",
       "exports": [
-        "RowCommandHistoryDrawer"
+        "RowCommandHistoryBody",
+        "RowCommandHistoryDrawer",
+        "historyRowLabel"
+      ]
+    },
+    {
+      "name": "RowInspector",
+      "path": "src/client/components/RowInspector.tsx",
+      "category": "other",
+      "exports": [
+        "RowInspector",
+        "RowInspectorProps",
+        "RowInspectorTab"
       ]
     },
     {
@@ -405,6 +433,7 @@
       "path": "src/client/components/SelectionSummary.tsx",
       "category": "other",
       "exports": [
+        "CellRangeStat",
         "SelectionSummary"
       ]
     },
@@ -451,6 +480,14 @@
       ]
     },
     {
+      "name": "VerifyAllPreviewBody",
+      "path": "src/client/components/VerifyAllPreviewBody.tsx",
+      "category": "other",
+      "exports": [
+        "VerifyAllPreviewBody"
+      ]
+    },
+    {
       "name": "VoidRefereeCreditDialog",
       "path": "src/client/components/VoidRefereeCreditDialog.tsx",
       "category": "form",
@@ -464,6 +501,16 @@
       "category": "drawer",
       "exports": [
         "WorkspacePanel"
+      ]
+    },
+    {
+      "name": "columns",
+      "path": "src/client/components/columns.ts",
+      "category": "other",
+      "exports": [
+        "INVENTORY_FINDER_RULE_MAP",
+        "RuleMap",
+        "whyShownCol"
       ]
     },
     {
@@ -520,7 +567,6 @@
         "bucketSignal",
         "classifyDelta",
         "formatDateish",
-        "formatMoney",
         "formatWeightsSummary",
         "progressGlyph",
         "shouldShowSalesCreditIndicator"
@@ -673,6 +719,14 @@
       ]
     },
     {
+      "name": "MobileContactCard",
+      "path": "src/client/components/mobile/MobileContactCard.tsx",
+      "category": "other",
+      "exports": [
+        "MobileContactCard"
+      ]
+    },
+    {
       "name": "MobileEmptyState",
       "path": "src/client/components/mobile/MobileEmptyState.tsx",
       "category": "grid",
@@ -821,6 +875,14 @@
       ]
     },
     {
+      "name": "CustomerLedgerPanel",
+      "path": "src/client/components/profile/CustomerLedgerPanel.tsx",
+      "category": "drawer",
+      "exports": [
+        "CustomerLedgerPanel"
+      ]
+    },
+    {
       "name": "EntityProfileTabs",
       "path": "src/client/components/profile/EntityProfileTabs.tsx",
       "category": "other",
@@ -835,6 +897,56 @@
       "exports": [
         "ContactProfileData"
       ]
+    },
+    {
+      "name": "FilterPresetStrip",
+      "path": "src/client/components/templates/FilterPresetStrip.tsx",
+      "category": "other",
+      "exports": [
+        "FilterPreset",
+        "FilterPresetStrip",
+        "FilterPresetStripProps"
+      ]
+    },
+    {
+      "name": "FormDialog",
+      "path": "src/client/components/templates/FormDialog.tsx",
+      "category": "form",
+      "exports": [
+        "FormDialog",
+        "FormDialogProps",
+        "FormField"
+      ]
+    },
+    {
+      "name": "InspectorDrawer",
+      "path": "src/client/components/templates/InspectorDrawer.tsx",
+      "category": "drawer",
+      "exports": [
+        "InspectorDrawer",
+        "InspectorDrawerProps",
+        "InspectorTab"
+      ]
+    },
+    {
+      "name": "StatusActionBar",
+      "path": "src/client/components/templates/StatusActionBar.tsx",
+      "category": "other",
+      "exports": [
+        "ResolvedStatusActions",
+        "StatusAction",
+        "StatusActionBar",
+        "StatusActionBarProps",
+        "StatusActionRule",
+        "StatusActionTable",
+        "resolveStatusActions"
+      ]
+    },
+    {
+      "name": "index",
+      "path": "src/client/components/templates/index.ts",
+      "category": "other",
+      "exports": []
     },
     {
       "name": "useCommandRunner",

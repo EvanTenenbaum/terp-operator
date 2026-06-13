@@ -548,7 +548,7 @@ export function InventoryFinderPanel({
                   <>
                     <div className="add-filter-dropdown-search">
                       <Search className="h-3 w-3 opacity-50" aria-hidden="true" />
-                      <input
+                      <input aria-label="Add filter search"
                         autoFocus
                         value={addFilterSearch}
                         onChange={(e) => setAddFilterSearch(e.target.value)}
@@ -716,7 +716,7 @@ export function InventoryFinderPanel({
 
           {showSavePopover && (
             <div className="flex items-center gap-1.5 ml-1">
-              <input
+              <input aria-label="Save view name"
                 autoFocus
                 className="input compact"
                 style={{ width: 140 }}
@@ -1118,7 +1118,7 @@ function matchReasons(
 function dateish(value: unknown) {
   if (!value) return '-';
   const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US');
 }
 
 function mediaLabel(value: unknown) {

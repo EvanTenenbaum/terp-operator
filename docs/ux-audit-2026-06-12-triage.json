@@ -1,0 +1,1785 @@
+{
+  "counts": {
+    "VALID": 127,
+    "ALREADY_FIXED": 15,
+    "TRACKED_ONLY": 10,
+    "STALE_EVIDENCE": 1,
+    "OUT_OF_SCOPE": 9
+  },
+  "notes": [
+    {
+      "group": "A",
+      "note": "All 15 §A items are VALID — none are already fixed in the ext-review-remediated tree. Key observations:\\n\\n1. BINDING PRECISION ON A01/A02: The audit says 'Alt+H' and 'Alt+V' but the actual bindings are Cmd+Alt+H / Cmd+Alt+V due to the `if (!event.metaKey) return` guard at Hotkeys.tsx:112. This is a minor audit inaccuracy but does not change the fix — delete or wire to real behavior.\\n\\n2. A06 EVIDENCE DRIFT: The audit describes a 'permanently-zero signal' badge, but the ContactsView banner is conditional on `count > 0` (line 112), so operators never see a misleading '0'. The real problem is the detection job is missing so the badge can never appear at all. The fix per decision 5 is to remove/guard the route and query rather than just hide a badge.\\n\\n3. A15 LINE DRIFT: Audit cites SalesView.tsx:1122-1131 for the Export button; error-setting code is actually at lines 1047-1053 with display at 1134. The cited range still encompasses the Export button onclick wrapper (1119-1132).\\n\\n4. CAP-030 COLLISION (A14) is severe: the same CAP ID is used in the canonical capability registry for Pricing Rules Chain Manager AND throughout the entire production pick/fulfillment system (dozens of references in commandBus.ts, queries.ts, sockets.ts, tests). The fix (assigning a new CAP row to release-for-picking) requires updating all those comments to the new ID.\\n\\n5. HOT FILE RISK: OperationsViews.tsx (3,800+ lines) is touched by A13; Hotkeys.tsx is touched by A01/A02/A03/A07 — these four items should be serialized to avoid merge collisions. CommandPalette.tsx is touched by A12 and A13 — those two items share a collision key and should be coordinated.\"]"
+    },
+    {
+      "group": "BC",
+      "note": "B05/B07/B09 are ALREADY_FIXED in the remediated tree. B05 proof: IdentityRibbon (src/client/components/IdentityRibbon.tsx:62) consumes goBackRouteHistory — the 'lightweight breadcrumb back button fed by routeHistory' is already shipped. B07 proof: ContactsView (src/client/views/ContactsView.tsx:112-129) has a conditional 'Review merge candidates (N)' banner gated on count > 0; the UI element fully exists. B09 proof: MobileShell header (src/client/components/mobile/MobileShell.tsx:92-104) already has a 'Desktop' link with localStorage write. UX-C06 is partially addressed — Enter-to-add exists in InventoryFinderPanel.tsx:844-846, but focus-advance-to-next-result is missing; classified VALID for the remaining gap. No §B or §C items fall under OUT_OF_SCOPE per the decisions header (which only excludes U05-U12, Q09/U11, U04 follow-ons, U13) and B09/P3 is in scope for the verify-and-add-if-missing check. Collision risk: UX-B03, B04, and C04 all touch OperatorGrid.tsx and uiStore.ts; UX-C01/C02/C03 also touch OperatorGrid.tsx — these four items should be serialized or coordinated to avoid merge conflicts on that hot file. UX-C01 (shortcuts overlay) is a prerequisite for C08 and C09 — those items share the same registry/overlay artifact. UX-B01 (Shell.tsx nav disclosure) can proceed independently."
+    },
+    {
+      "group": "DE",
+      "note": "D07 and E05 are already fixed in the remediated tree — these can be closed out immediately. D08 is P3/TRACKED_ONLY and not in scope per the decisions header. The three remaining ALREADY_FIXED items show the remediation wave made genuine progress on accessibility (aria-live channel) and KPI definitions. Key collision risks: D01+D02 both touch ToastCenter.tsx and uiStore.ts and should be batched; D03+D04 both touch OperationsViews.tsx (a known hot file per the audit) and should be serialized or carefully merged. E01+E02+E09 all touch only DashboardView.tsx and can be one PR. E04 and E09 are independent fixes in the same file and should be batched together. No items in §D or §E are OUT_OF_SCOPE — none cite U05-U12, Q09/U11, U04 follow-ons, or U13."
+    },
+    {
+      "group": "FG",
+      "note": "UX-F05 is ALREADY_FIXED — the customer money strip (balance, credit limit, open invoices count/total, last payment) is rendered at SalesView.tsx:1179-1189 using data already fetched by the customerWorkspace query. UX-G01 is ALREADY_FIXED — all three closeout mark columns are present with agSetColumnFilter and visible by default at OperationsViews.tsx:102-104.\\n\\nUX-F08 is tricky: GH #352 implemented the core 'Repeat last order' functionality but placed the button in the global control band, not the customer workspace header as specified. The feature exists but the location does not match the fix description — classified VALID.\\n\\nUX-F12 is a partial fix: the line grid badge and order drawer both show the below-floor reason correctly, but the internal sheet export (salesExport.ts INTERNAL_HEADERS) lacks 'belowFloorReason' — only the export part remains undone.\\n\\nCollision risk: OperationsViews.tsx is touched by G01 (already fixed, no touch needed), G02, G03, G04, G05 — four §G items land in this 3,859-line hot file. The fix waves should serialize changes to OperationsViews.tsx. SalesView.tsx is the hot file for §F — F01, F02, F03, F04, F06, F07, F08, F09, F10, F12 all touch it; F11 spans SalesView+SalesSourcePane. Recommend batching SalesView changes into a single wave unit to avoid merge conflicts.\\n\\nHotkeys.tsx is only touched by F10 (add ⌥M binding). CommandPalette.tsx is touched by G03 (add applyClientCredit alias). No §F or §G items touch ToastCenter.tsx, uiStore.ts, App.tsx, commandBus.ts, MobileShell.tsx, or styles.css directly.\\n\\nNote: UX-F09 is a P2 layout/architecture item — valid as described but low implementation effort and no correctness risk. UX-F11 is P2 and described as M/L effort with a note to 'schedule after F03'.\""
+    },
+    {
+      "group": "HI",
+      "note": "All 15 items (H01-H09, I01-I06) classify as VALID — none are already fixed, stale-evidence, out-of-scope, or tracked-only. Key collision risk: OperationsViews.tsx is touched by H01, H04, H07, H08, H09, I01, I02, I03 — 8 of 15 items land in this 3,858-line file, making it the dominant serialization bottleneck for §H+§I work. Per audit decision, UX-T01 (split OperationsViews.tsx) should ideally precede or co-ship with this wave. H01 (StatusActionBar for PO) and H09 (sticky header) are in the same PurchaseOrdersView function and can be co-authored without collision within the file. UX-H04 carries a backend dependency per decision 5 and should be scheduled with the backend team. UX-I01 column-count numbers in the GRID_COLUMN_AUDIT.md (2026-05-18) are now stale — Inventory has grown from 10 to 20 columns and PO from 11 to 16 — so the 'per-grid keep/hide lists' from that doc need a fresh reconciliation pass before applying. UX-H05 is partially present (arrivalStatus column renders) but lacks the editable inline control; the fix scope is adding a select/dropdown cellEditor, not a new column."
+    },
+    {
+      "group": "JK",
+      "note": "J01 is fully resolved by the backend fix at commandBus.ts:3965-3999 per Execution Decision 5; no UI-honest fallback is required. J05 is already resolved: applyEarlyPayDiscount was renamed to applyDiscount (TER-1662) and the command lives in the correct WorkspacePanel home with invoice context visible. K03 has a Trace tab wired but the intake-batch link is an explicit TODO stub — the fix requires a new tRPC query server-side. J02 is split: label flip is done (no-op), balance-effect preview is the remaining work (only change needed in QuickLedgerGrid.tsx). All K items (K01-K04) and J03, J04, J06, J07 touch OperationsViews.tsx — the 3,858-line hot file flagged by UX-T01 — making wave 4 execution prone to merge collisions if parallelized. K01 (badge cellRenderers for dueReason/scheduledFor) and K02 (confirm copy) are both in the vendorBills column definition and selectionActions sections of OperationsViews.tsx and should be sequenced or assigned to the same agent slot. J04 only touches QuickLedgerGrid.tsx and is safe to parallelize with OperationsViews work."
+    },
+    {
+      "group": "LM",
+      "note": "Cross-item observations:\\n\\n1. UX-L06 is ALREADY_FIXED: the 'recalled while on line' interrupt (Scenario B) is fully implemented in PickLineScreen.tsx with alertdialog, item name, explanation, and 'Got it' / back-to-list action.\\n\\n2. UX-M03 is ALREADY_FIXED: the CAP-025 inline-expand blocker drilldown shipped in Phase 5 (TER-1504). The code at OperationsViews.tsx:3018-3081 exactly matches the audit ask (count + first rows with links + View all).\\n\\n3. UX-M05 depends on UX-D01/T06 (toast action API extension). The Toast type has no action support; M05 cannot be addressed without first extending uiStore.ts Toast shape and pushToast signature. Sequencing risk: M05 must wait for T06.\\n\\n4. UX-L01 and UX-M01 are related: L01 adds PickView to the mobile shell; M01 adds recovery/history to PickView. Both touch PickView and App.tsx. These can collide if executed in parallel — L01 should land first as the mounting prerequisite.\\n\\n5. UX-L03 presets use statuses 'in_progress' and 'needs_picking' which are not actual pick_list DB statuses (schema confirms only 'open' and 'fulfilled'). The existing FilterPresetStrip chips effectively never filter any rows. The fix needs to replace these with a correct 'Open picks' preset (status:open) plus add it as the default-active preset — FilterPresetStrip.tsx has no defaultActive capability, so that API addition is also needed.\\n\\n6. UX-L04: the labelsPrinted and manifestPath columns ARE in the default fulfillment column set (OperationsViews.tsx:211-212), so the data is visible in the grid without opening the drawer. The gap is purely visual styling (boolCol 'Yes/No' text vs. chip badges). The fix is a cellRenderer customization — narrower than a full new feature.\\n\\n7. OperationsViews.tsx is a hot collision file touched by L02, L03, L04, M01, M02, M04, M05 — 7 of the 11 items. All waves touching this file should serialize or be carefully branched."
+    },
+    {
+      "group": "NOP",
+      "note": "Cross-item observations:\n\n1. N01 and N02 are tightly coupled (N02 is partially blocked by N01 for the timeline-based path, though the interim 'order drawer Copy status' path is independent). They are scheduled together in Wave 5 (U01 epic). The primary collision file is ContextDrawer.tsx — any N01 implementation must coordinate with any concurrent work on that file.\n\n2. UX-P01 is ALREADY_FIXED in the ext-review-remediated tree (column count is 8). However, the fix description contains a stale 'keep expiresAt' instruction that references a DB field that does not exist. Implementors should not add an expiresAt column without a corresponding schema migration.\n\n3. UX-P03's field name (expiresAt) is stale — no such column exists on matchmaking tables. The concept of stale-row demoting is valid and implementable against the existing neededBy/availableDate fields with no schema change. This is a low-effort correction.\n\n4. UX-O02 reveals PhotographyQueuePanel is entirely unused (defined but never imported). This is an orphaned component from the audit's original tree. Any O02 fix simply needs to import and mount it in the right places; no rewrite required.\n\n5. UX-N03's evidence shows that separate directional AR/AP figures ARE already present. The 'do not net' concern is about the supplementary Net position row shown for dual-role entities, not a missing separation. The fix is narrower than the audit framing — remove or relabel the Net position row rather than restructuring the display.\n\n6. UX-N04 is a confirmed no-op (direct SQL, no projection lag). No file changes needed.\n\n7. UX-O05 is TRACKED_ONLY (P3) and is also effectively ALREADY_FIXED in the sense that no UI retention enforcement mentions currently exist.\n\n8. Hot shared file collision: ContextDrawer.tsx is touched by N01 (add Timeline tab), N02 (add Copy status action), N03 (modify RelationshipContext net-position row) — three separate N-section items all modify the same file. These should be sequenced or batched carefully."
+    },
+    {
+      "group": "QR",
+      "note": "Key observations across §Q and §R:\\n\\n1. UX-R06 is doubly deferred: it is P3 (tracked-only per execution decisions) AND the core behavior (desktop toggle in mobile header) is already implemented in MobileShell.tsx line 94. If the item is re-examined post-P3-deferral it should be classified ALREADY_FIXED.\\n\\n2. UX-R03 straddles two states: the customer-safe gate (no cost/margin) is already met but the 'copy offer' CTA is absent pending UX-F01. Implementers should treat R03 as a conditional follow-on to F01 rather than a standalone fix.\\n\\n3. UX-Q06 is the largest work unit in §Q — it bundles four distinct gaps (bulk pay command, ledger totals strip, deactivated relationship history, inline sale prompt) none of which have even been started. The bulk pay referee credits command does not exist in the catalog at all, meaning backend work is required before frontend surfacing.\\n\\n4. UX-Q04 (Contacts pending-frontend commands) and UX-Q06 (referee completions) both touch files outside the hot collision set, so they are safe to execute in parallel with waves touching OperationsViews.tsx.\\n\\n5. OperationsViews.tsx is touched by Q02 (via Settings tab hosting divergence panel — but CreditReviewView.tsx is the primary file), Q05 (CreditEngineSettingsPanel lives inside it), Q07 (InvoiceDisputesView lives inside it), and Q08 (SettingsView lives inside it). Four §Q items require edits to OperationsViews.tsx — high collision risk, should be serialized or split per UX-T01 decomposition.\\n\\n6. FormDialog.tsx (Q03 tone/danger variant) is a shared template used by many dialogs — its test contract (FormDialog.test.tsx) must be updated alongside the implementation to avoid breaking the locked a11y tests.\""
+    },
+    {
+      "group": "ST",
+      "note": "Cross-item observations:\\n\\n1. UX-S04 is ALREADY_FIXED for ReceiptPreviewDrawer (phase7 K5 is confirmed done: useFocusTrap at ReceiptPreviewDrawer.tsx:14). The ExpansionPanel portion cited in the audit is a non-issue for focus-return semantics (ExpansionPanel is not a dialog). Executors should close S04 rather than re-implement it.\\n\\n2. UX-S01 baseline is more favorable than the audit states: the remediated tree has 10 .a11y.test.tsx files vs the audit's '~6 dialogs + Dashboard'. The Shell.sideNavAriaCurrent.a11y.test.tsx was added post-audit. However, the four specific contract gaps (StatusActionBar, InspectorDrawer, FilterPresetStrip, ToastCenter live-region) remain genuine gaps.\\n\\n3. UX-T03 scope note: the audit asks to grep for 'any other pre-template *Primary* helper remnants.' salesPrimaryLabel in SalesView.tsx:1565 qualifies as such a remnant and should be swept in the same T03/H01 wave. SalesView already uses StatusActionBar for line-level (line 1241), so the pattern is established; the order-level primary just needs the same treatment.\\n\\n4. UX-T01 and UX-T03 share the OperationsViews.tsx collision key. Any agent working T01 (splitting the file) will cause conflicts with any agent simultaneously touching T03 (removing purchaseOrderPrimary* from the same file). These must be serialized or coordinated.\\n\\n5. UX-T06 (Toast API) and UX-T07 (Shortcuts registry) are architectural enablers with no implementation yet. T06 touches both uiStore.ts AND ToastCenter.tsx — both are hot shared files. T07 only adds a new module but Hotkeys.tsx and Shell.tsx will need updates.\\n\\n6. UX-S05: the audit's concern about 'selection checkboxes are space-toggleable' is moot because OperatorGrid uses checkboxes: false. The remaining S05 gap is narrower: ExpansionPanel div+role=button pattern (K12 from phase7 partially addressed) and the tab-through-non-editable-grid limitation.\\n\\n7. Phase7 audit status: K1 (ContextDrawer focus trap) is FIXED (ContextDrawer.tsx:158 uses useFocusTrap). K2 (RowCommandHistoryDrawer) is FIXED (now uses InspectorDrawer template with built-in useFocusTrap). K4 (VendorContextDrawer) is FIXED (uses InspectorDrawer template). K5 (ReceiptPreviewDrawer) is FIXED. K8 (FulfillmentView alerts drawer) is FIXED at OperationsViews.tsx:2177. K11 (SideNav aria-keyshortcuts) is NOT FIXED — directly maps to UX-S02.\""
+    },
+    {
+      "group": "U",
+      "note": "UX-U02 has the highest collision risk: it touches Hotkeys.tsx, OperatorGrid.tsx, CommandPalette.tsx, uiStore.ts, and InventoryFinderPanel.tsx simultaneously — all shared with other waves. The wave should be serialized so no other unit is editing those files in parallel. UX-T07 (shortcuts registry, in scope as enabler) is a prerequisite for C01 and S02, both of which are bundled into U02; the registry module must land first before the overlay or aria-keyshortcuts sweep can execute. UX-C06 is partially done (Enter-to-add fires) — only the focus-advance-to-next-result behavior is missing; the fix is narrow (one onKeyDown handler change in InventoryFinderPanel.tsx). The RelationshipDrawer 'Copy external-safe status' button is a partial N02 delivery already in place; U01 needs to build on it with the ContextDrawer Timeline tab rather than re-implementing the copy function. UX-U04 shares MobileShell.tsx and App.tsx with any other mobile work (e.g., R02 minimal /mobile/intake from Wave 6); these two items should be batched in the same mobile wave to avoid double-touching those files."
+    }
+  ],
+  "items": [
+    {
+      "id": "UX-A01",
+      "classification": "VALID",
+      "evidence_found": "Hotkeys.tsx:167-170: `if (event.altKey && event.key.toLowerCase() === 'h') { event.preventDefault(); pushToast('Health check requested. Watch the top status indicator.', 'info'); }`. Note: the guard at line 112 (`if (!event.metaKey) return;`) means the real binding is Cmd+Alt+H, not plain Alt+H as the audit states, but the fake-affordance defect (no real command runs, no status indicator exists) is confirmed. No top status indicator was found in the codebase.",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-A02",
+      "classification": "VALID",
+      "evidence_found": "Hotkeys.tsx:171-173: `if (event.altKey && event.key.toLowerCase() === 'v') { event.preventDefault(); pushToast('Validate All complete: visible grids are loaded from server state.', 'success'); }`. Same metaKey guard issue as A01 (actual binding is Cmd+Alt+V), but the fake-affordance defect is confirmed — no grid refetch or `verifyAllIntake` is invoked.",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-A03",
+      "classification": "VALID",
+      "evidence_found": "Hotkeys.tsx:175-182: `if (event.key === 'Enter') { ... const first = rows[0]; if (!first) return pushToast(...); if (activeView === 'sales') await runCommand('confirmSalesOrder', { orderId: first.id }, ...); if (activeView === 'orders') await runCommand('postSalesOrder', { orderId: first.id }, ...); if (activeView === 'payments') await runCommand('allocatePayment', { paymentId: first.id }, ...); }`. Operates only on `rows[0]`, ignores multi-select, has no status check, does not route through StatusActionBar decision tables. Audit cited lines 176-184; actual lines are 175-182 (one-line drift).",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-A04",
+      "classification": "VALID",
+      "evidence_found": "uiStore.ts:502-516: `partialize` function enumerates persisted keys (activeView, sideNavCollapsed, collapsedPanels, activeQuickLaunch, activeSettingsTab, drawerByView, gridColumnPrefs, dismissedShadowBanner, showMargin, lastUsedDrawerStateByView). `ledgerDrafts` is absent from this list. Execution decision 2 resolves: persist server-side per-user. The capability-registry.md:48 confirms CAP-024 promised 'Phase 3 persists ledger drafts in UI store.' — still broken.",
+      "predicted_files": [
+        "src/client/store/uiStore.ts"
+      ],
+      "corrected_scope": "Per decision 2, fix is server-side per-user persistence, not adding to client-side partialize list. The fix touches uiStore.ts only to add a server-fetched draft sync, plus server-side tRPC endpoints.",
+      "collision_keys": [
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-A05",
+      "classification": "VALID",
+      "evidence_found": "OperatorGrid.tsx:662: `<EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'Create or import rows, then mark them Ready when they can be posted.'}</EmptyState>`. Grep of all views for `emptyTitle` found only ~11 usages (ContactsView, SalesView x2, OperationsViews x3, MatchmakingView x3, ContactCustomerPanel). Major views with no custom emptyTitle include Payments, Vendor Payouts, Inventory, Client Ledger, Fulfillment queue, Recovery, PurchaseOrders main grid — all will render the intake-specific fallback text.",
+      "predicted_files": [
+        "src/client/components/OperatorGrid.tsx",
+        "src/client/views/OperationsViews.tsx",
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx",
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-A06",
+      "classification": "VALID",
+      "evidence_found": "ContactsView.tsx:25: `const { data: mergeCount } = trpc.queries.mergeCandidateCount.useQuery();`. The query at queries.ts:2295 does `SELECT COUNT(*) FROM contact_merge_candidates WHERE reviewed = false AND dismissed = false`. No code in the codebase inserts rows into contact_merge_candidates outside seed.ts — searched commandBus.ts, all routers, all views for any INSERT/insert into this table and found only read/update operations. Slight evidence drift: the banner in ContactsView.tsx:112 is conditionally rendered only when `mergeCount.count > 0`, so operators won't see a persistent '0' badge — the feature is simply unreachable. The route `/contacts/merge-candidates` is still present in App.tsx:202 and accessible by direct URL.",
+      "corrected_scope": "The fix should hide the MergeCandidatesView entry point (route guard or removal) and the badge query, not just hide a badge — the badge already auto-hides. Alternatively ship the detection job. Per decision 5 (hiding badge and deferring detection job), the fix is: add a guard to the `/contacts/merge-candidates` route and remove the mergeCandidateCount query from ContactsView.",
+      "predicted_files": [
+        "src/client/views/ContactsView.tsx",
+        "src/client/views/MergeCandidatesView.tsx",
+        "src/client/App.tsx"
+      ],
+      "collision_keys": [
+        "App.tsx"
+      ]
+    },
+    {
+      "id": "UX-A07",
+      "classification": "VALID",
+      "evidence_found": "Searched all of Hotkeys.tsx for `event.key === '/'` or any slash/filter focus handler — zero hits. Searched OperatorGrid.tsx for any keydown handler that focuses the quick-filter input — zero hits. The quick-filter input at OperatorGrid.tsx:465-471 has no `ref` that could be imperatively focused. No `/` grid-filter hotkey exists anywhere.",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx",
+        "src/client/components/OperatorGrid.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx",
+        "OperatorGrid.tsx"
+      ]
+    },
+    {
+      "id": "UX-A08",
+      "classification": "VALID",
+      "evidence_found": "IntakeView.tsx:45-54, 57-76: State declarations `csvOpen`, `csvText`, `csvResult`, `csvDragActive`, `csvImportFocusRef` and handlers `importCsv`, `handleCsvDrop` are present. JSX at line 343 contains only a comment: `{/* TER-1658: CSV import and manual batch creation removed from MVP intake. All batches must originate from a purchase order via Receive PO. Backend (importBatchesCsv, createBatch without purchaseOrderLineId) now rejects these flows. */}`. The CSV variables are never referenced in the JSX return. The audit cited lines 45-78; actual span is 45-76 (minor drift).",
+      "predicted_files": [
+        "src/client/views/IntakeView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-A09",
+      "classification": "VALID",
+      "evidence_found": "Two pieces of evidence: (1) docs/product/work-loops.md:69: `Vendor receipt can be generated from selected rows without requiring a formal PO.` — still present, contradicts PO-first policy. (2) src/client/components/Shell.tsx:99: `{ label: 'Receive', view: 'intake', launch: 'receiving', icon: PackagePlus, title: 'Receive product into intake' }` — Keel chip still routes to intake view with `receiving` launch mode, not a PO picker. docs/product/north-stars.md:21 also has 'Receive Inventory' vocabulary that needs updating. Execution decision 3 confirms: update work-loops/north-stars docs, re-point Receive chip to PO picker.",
+      "predicted_files": [
+        "docs/product/work-loops.md",
+        "docs/product/north-stars.md",
+        "src/client/components/Shell.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-A10",
+      "classification": "VALID",
+      "evidence_found": "docs/design/spec.md §10.7 (line ~965): still lists `in_pack`, `packed`, `labeled` pick statuses that don't exist in schema. §10.8 (~974): connector status `pending` should be `open`. §10.9 (~987): command journal status `reversed` doesn't exist — reversal is expressed as `reversedByCommandId`. §10.5 (~942-947): `buyer_credit` as a payment status doesn't exist — it's a direction; real statuses are `posted | refunded | reversed`. All four discrepancies are confirmed against decisions-log 2026-06-11 Decision 1 at line 44: 'the spec's status names are wrong in four of the seven views and must never be trusted blindly'.",
+      "predicted_files": [
+        "docs/design/spec.md"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-A11",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/VendorContextDrawer.tsx:339: `if (vendorId && confirm('Remove \"' + brand.name + '\" from this vendor?')) { removeBrand.mutate(...); }`. This is a native browser `confirm()` call, bypassing the ConfirmRoot/useConfirm() pattern used elsewhere. Audit cited VendorContextDrawer.tsx:339 — exact match.",
+      "predicted_files": [
+        "src/client/components/VendorContextDrawer.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-A12",
+      "classification": "VALID",
+      "evidence_found": "Three evidence points: (1) src/client/accessPolicy.ts:5: `defaultOperatorViews` array includes both `'processors'` and `'connectors'`. (2) src/client/App.tsx:190+194: `<Route path='connectors' element={<ConnectorsView />} />` and `<Route path='processors' element={<ProcessorsView />} />` — both still routed. (3) CommandPalette.tsx:49 has 'Receive product' with `view: 'intake', launch: 'receiving'` alias entry. Execution decision 4 says gate routes + access policy + palette behind a flag and redirect to Settings→Requests.",
+      "predicted_files": [
+        "src/client/accessPolicy.ts",
+        "src/client/App.tsx",
+        "src/client/components/CommandPalette.tsx"
+      ],
+      "collision_keys": [
+        "App.tsx",
+        "CommandPalette.tsx"
+      ]
+    },
+    {
+      "id": "UX-A13",
+      "classification": "VALID",
+      "evidence_found": "src/client/views/OperationsViews.tsx:3146-3148: SettingsView renders `{effectiveTab === 'requests' ? <ConnectorsView /> : null}`, `{effectiveTab === 'actions' ? <RecoveryView /> : null}`, `{effectiveTab === 'archive' ? <CloseoutView /> : null}` — embedding the same views that have independent top-level nav routes. CommandPalette.tsx:190-215 `navigateEntity` routes connector/command types to `settings` view with `setActiveSettingsTab`, creating divergent ViewKey paths (`settings` vs `recovery`/`connectors`) for the same workflow. Audit cited OperationsViews.tsx:3105-3154 — actual SettingsView function is at lines 3106-3155, matching.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/components/CommandPalette.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx",
+        "CommandPalette.tsx"
+      ]
+    },
+    {
+      "id": "UX-A14",
+      "classification": "VALID",
+      "evidence_found": "Two conflicting CAP-030 definitions found: (1) docs/product/capability-registry.md: CAP-030 = 'Pricing Rules Chain Manager' (pricing_rule_entries table, savePricingRuleChain, PricingRulesView). (2) Server code uses CAP-030 for the pick/fulfillment system: sockets.ts:98 'CAP-030 / TER-1518 — Emit a pick-queue or pick-order event', commandBus.ts:4339 'CAP-030 (TER-1485): Release sales order line to warehouse pick queue', queries.ts:1739 'CAP-030 (TER-1498): Warehouse pick queue'. Decisions-log 2026-06-11 Decision 7 also references 'CAP-030 / TER-1508 (release for picking)' as a distinct capability from Pricing Rules.",
+      "predicted_files": [
+        "docs/product/capability-registry.md"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-A15",
+      "classification": "VALID",
+      "evidence_found": "SalesView.tsx:1047-1053 (snapshot failure path): `setExportError('Sheet downloaded, but Recent Sheets snapshot failed.')` is called in both the `!result.ok` branch and the catch block, with no retry affordance. Display at SalesView.tsx:1134: `{exportError ? <span className='selection-pill danger'>{exportError}</span> : null}` — static text pill only, no button or retry action. Audit cited SalesView.tsx:1122-1131 for the Export button onClick; the error-setting code is at 1047-1053 and display at 1134 (line drift — the Export button onClick wrapper is at 1119-1132, which aligns with the audit's cited range for the error's trigger point).",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-B01",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/Shell.tsx:41-93: navGroups array renders all 5 groups (Decide, Procure, Sell, Money, Admin) with all items flat — Items/SKUs, Photography, Receipts, Referees, Disputes, Credit-Review all always visible. No collapsible 'More' disclosure, no per-group expansion toggle, no persisted collapse state. The SideNav render loop at Shell.tsx:147-189 iterates visibleItems directly with no secondary bucketing.",
+      "predicted_files": [
+        "src/client/components/Shell.tsx",
+        "src/client/store/uiStore.ts"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-B02",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/Shell.tsx:41-93: navGroups contains hotkeys for ⌘1 (dashboard), ⌘2 (intake), ⌘3 (sales), ⌘4 (payments), ⌘5 (inventory), ⌘6 (clients) — exactly 6 lanes. fulfillment has no hotkey (warehouse persona's primary lane). Nav buttons at Shell.tsx:167-185 render a <kbd> chip when showHotkey is true, but no aria-keyshortcuts attribute is ever set. Hotkeys.tsx:8-15 confirms the same 6 bindings in numberViews.",
+      "predicted_files": [
+        "src/client/components/Shell.tsx",
+        "src/client/components/Hotkeys.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-B03",
+      "classification": "VALID",
+      "evidence_found": "src/client/views/OperationsViews.tsx:1712-1768 (ClientLedgerView): name cell links to /contacts/:id only when params.data.contactId is truthy (line 1725). src/client/views/OperationsViews.tsx:1784: VendorPayablesView vendor column is { field: 'vendor', pinned: 'left', width: 190 } — plain text, no contact link. No 'Link contact' inline action found anywhere. src/client/store/uiStore.ts:530-548: defaultTabForEntity maps customer→'balance', vendor→'profile'; neither defaults to 'relationship' for dual-role entities.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/store/uiStore.ts"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx",
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-B04",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/CommandPalette.tsx:190-215: navigateEntity() calls setActiveView(view), setSelectedRows(view, [row]), setDrawerEntity(view, ...), setDrawerState(view, 'standard'), then setOpen(false). There is no call to setGridFilter and no imperative scroll-to-row. The setGridFilter action exists in uiStore.ts:376-380 but is not called from navigateEntity. With AG Grid virtualization, the selected row will be off-screen on large datasets.",
+      "predicted_files": [
+        "src/client/components/CommandPalette.tsx",
+        "src/client/store/uiStore.ts",
+        "src/client/components/OperatorGrid.tsx"
+      ],
+      "collision_keys": [
+        "CommandPalette.tsx",
+        "uiStore.ts",
+        "OperatorGrid.tsx"
+      ]
+    },
+    {
+      "id": "UX-B05",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "src/client/components/IdentityRibbon.tsx:45,62-64: the component subscribes to goBackRouteHistory from uiStore and renders an ArrowLeft back button that calls it. uiStore.ts:404-421: goBackRouteHistory pops the routeHistory stack and restores activeView+entity+drawer state. The IdentityRibbon itself is the lightweight breadcrumb chip the fix calls for — it shows the active view label, entity title, and a ← back button fed by routeHistory. Mounted in App.tsx:119 when CANVAS_GRAMMAR_ENABLED (default true).",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-B06",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/ContextDrawer.tsx:182-201: drawer header contains one toggle button (PanelRightClose icon) with title='Close drawer (shift-click to cycle width)' — the shift-click cycle affordance is invisible unless you hover, and there is no coachmark on first-open. No 'first-open' flag in uiStore, no dismissible coachmark component, no state-cycle button showing all four state glyphs (peek/standard/wide/focus). stateLabel map at ContextDrawer.tsx:127-133 defines the labels but they are not exposed as buttons.",
+      "predicted_files": [
+        "src/client/components/ContextDrawer.tsx",
+        "src/client/store/uiStore.ts"
+      ],
+      "collision_keys": [
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-B07",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "src/client/views/ContactsView.tsx:112-129: a conditional banner already renders when mergeCount.count > 0, showing the count badge, 'Possible duplicate contacts found.' text, and a 'Review Merge Candidates' primary button linking to /contacts/merge-candidates. The B07 fix ('add a row under Contacts toolbar: Review merge candidates (N)') is already implemented. The banner stays hidden because mergeCandidateCount is always 0 (BE-014 — the prerequisite detection job in UX-A06), but the UI element is fully in place.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-B08",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/IdentityRibbon.tsx:78-89: buildIdentity returns null when no row selected and no activeCustomerId — the ribbon clears naturally. However no view-mount effect explicitly calls setSelectedRows/setDrawerEntity to clear stale state when navigating to Matchmaking, Reports, or Sales-in-orders-mode. If an operator was on Sales with a customer selected, then navigates to Reports, the ribbon will correctly show null (no row selected on reports), but Sales in orders-mode sets no ribbon entity for the active order context. The B08 sweep (each route either sets a ribbon entity or explicitly clears it) is not done.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/components/IdentityRibbon.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-B09",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "src/client/components/mobile/MobileShell.tsx:92-104: the mobile header already contains a 'Desktop' link that calls localStorage.setItem('terp-prefer-desktop', 'true') and navigates to /dashboard. It renders inside the header area with a monitor icon and 'Desktop' label — this IS the 'Use desktop site' toggle inside the mobile shell. The fix ('Add a toggle in the mobile header overflow if missing') is already present.",
+      "predicted_files": [],
+      "collision_keys": [
+        "MobileShell.tsx"
+      ]
+    },
+    {
+      "id": "UX-C01",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/Hotkeys.tsx: no handler for key === '?' anywhere in the file. grep for 'aria-keyshortcuts' across entire src/ returns 0 hits. No ShortcutsOverlay, KeyboardHelp, or shortcuts registry module exists — find on *shortcut* or *hotkey* filenames returns only Hotkeys.tsx itself. Palette command 'Keyboard shortcuts' entry absent from launchActions in CommandPalette.tsx:40-53. Shortcuts are only discoverable via nav tooltip <kbd> chips.",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx",
+        "src/client/components/CommandPalette.tsx",
+        "src/client/App.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx",
+        "CommandPalette.tsx"
+      ]
+    },
+    {
+      "id": "UX-C02",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/OperatorGrid.tsx: grep for 'processDataFromClipboard', 'clipboard', 'pasteData', 'TSV', 'tsv' returns 0 hits. AG Grid clipboard module is not imported. No clipboard paste capability exists on any grid. The fix (enable AG Grid clipboard processing on Intake batch detail grids, PO lines, Quick Ledger, Matchmaking entry) requires AG Grid Enterprise clipboard module or custom implementation.",
+      "predicted_files": [
+        "src/client/components/OperatorGrid.tsx",
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx",
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-C03",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/OperatorGrid.tsx: grep for 'fillHandle', 'enableFillHandle', 'fillDown', 'fill.down' returns 0 hits. AG Grid fill handle is not enabled. No ⌘D fill-down handler exists in OperatorGrid. Note: ⌘D in Hotkeys.tsx:130-155 is the Intake duplicate-row action (createBatch), not a grid fill-down. The fix requires enabling AG Grid fill handle (or custom ⌘D range fill) on Intake, PO lines, Quick Ledger.",
+      "predicted_files": [
+        "src/client/components/OperatorGrid.tsx",
+        "src/client/components/Hotkeys.tsx"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx",
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-C04",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/OperatorGrid.tsx: grep for 'density', 'compact', 'rowHeight' returns 0 hits. src/client/store/uiStore.ts: no density field in state. No per-user density toggle (compact/standard) exists in OperatorGrid's Columns menu. The fix requires adding a density preference to uiStore and wiring row/header height to it in OperatorGrid.",
+      "predicted_files": [
+        "src/client/components/OperatorGrid.tsx",
+        "src/client/store/uiStore.ts"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx",
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-C05",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/CommandPalette.tsx:494-516 (commandAliasText): aliases exist for 18 commands. createBatch includes 'ofc cv' (partial workbook vocab). launchActions aliases at lines 47-53 cover standard terms but none of the north-star operator shorthand: 'Files', '25 flex', 'Inv Posted', 'Pay/F-up', 'ticket', 'sub', 'iv', 'rich' are absent from both launchAction aliases and commandAliasText. Entity-search synonym expansion server-side also absent.",
+      "predicted_files": [
+        "src/client/components/CommandPalette.tsx"
+      ],
+      "collision_keys": [
+        "CommandPalette.tsx"
+      ]
+    },
+    {
+      "id": "UX-C06",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/InventoryFinderPanel.tsx:844-846: qty input has onKeyDown handler that calls void add(row) on Enter — Enter-to-add IS implemented. However, the add() function at lines 358-366 only resets the quantity; there is no focus advancement to the next result row after adding. The audit's acceptance bar is 'three keyboard-only adds' which requires Enter-add + focus-advance to next row. Focus advance to the next result is not implemented.",
+      "corrected_scope": "Enter-to-add exists; the fix needed is focus advancement to the next result row after Enter add (one missing piece, not the full feature).",
+      "predicted_files": [
+        "src/client/components/InventoryFinderPanel.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-C07",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/CommandPalette.tsx:357-360: the Advanced payload toggle button (Braces icon) renders unconditionally in the Commands tab footer with no role check. Hotkeys.tsx:51-55: ⌘⌥K opens the advanced palette for all authenticated users. No commandMinRole gate is applied to the advanced panel UI. The commandMinRole map (used server-side at rbac.ts) is not consulted client-side before showing the advanced panel.",
+      "predicted_files": [
+        "src/client/components/CommandPalette.tsx",
+        "src/client/components/Hotkeys.tsx"
+      ],
+      "collision_keys": [
+        "CommandPalette.tsx",
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-C08",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/Hotkeys.tsx:96-102: drawer tab number-key handler (Digit1-5 while drawer open) exists and fires setDrawerTab. src/client/components/ContextDrawer.tsx:203-215: drawer tabs render with role='tab' and aria-selected but no aria-keyshortcuts attribute. No shortcuts overlay (UX-C01 prerequisite) exists to list these bindings. The fix requires both aria-keyshortcuts on the tab buttons and inclusion in the C01 overlay.",
+      "predicted_files": [
+        "src/client/components/ContextDrawer.tsx",
+        "src/client/components/Hotkeys.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-C09",
+      "classification": "VALID",
+      "evidence_found": "src/client/components/Hotkeys.tsx:130-165: ⌘D (duplicate), ⌥⇧R (ready), ⌥I (process) intake hotkeys exist. They push an info toast outside Intake (not fully silent — e.g., line 132 pushToast 'Select intake rows to duplicate.'). No keystroke annotation exists next to the matching intake row actions in IntakeView. No shortcuts overlay (UX-C01 prerequisite) includes these. The fix is two parts: fold into C01 overlay, and show keystroke next to intake row actions — both missing.",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx",
+        "src/client/views/IntakeView.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-D01",
+      "classification": "VALID",
+      "evidence_found": "ToastCenter.tsx:26-38 renders each toast as a plain <button> whose only action is `onClick={() => dismissToast(toast.id)}`. The Toast interface in uiStore.ts:62-66 has only `{id, message, tone}` — no `actionLabel` or `onAction` field. `pushToast` signature at uiStore.ts:157 is `(message: string, tone?)` with no action overload.",
+      "predicted_files": [
+        "src/client/store/uiStore.ts",
+        "src/client/components/ToastCenter.tsx",
+        "src/client/components/useCommandRunner.ts"
+      ],
+      "collision_keys": [
+        "ToastCenter.tsx",
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-D02",
+      "classification": "VALID",
+      "evidence_found": "ToastCenter.tsx:26-38 renders every toast (including error tone) as a single dismiss button with no secondary action. `useCommandRunner.ts:120` calls `pushToast(error.message, 'error')` on failure — no command name, id, or 'Open in Recovery' payload is attached. No 'Copy details' affordance exists anywhere in the toast pipeline.",
+      "predicted_files": [
+        "src/client/components/ToastCenter.tsx",
+        "src/client/store/uiStore.ts",
+        "src/client/components/useCommandRunner.ts"
+      ],
+      "collision_keys": [
+        "ToastCenter.tsx",
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-D03",
+      "classification": "VALID",
+      "evidence_found": "OperatorGrid.tsx:662 default empty text is still 'Create or import rows, then mark them Ready when they can be posted.' GridJourney (OperationsViews.tsx:3703-3756) does not accept or forward an `emptyTitle` prop, so payments (line 1175), clients (line 1766), vendors (line 1912), and closeout archive (line 3083) all fall back to the intake-specific default. Only Fulfillment lines, Recovery, Disputes, and PO lines pass custom emptyTitle. Payments ('No payments yet — press Money In'), Closeout archive, and Reports grids have no view-specific empties.",
+      "predicted_files": [
+        "src/client/components/OperatorGrid.tsx",
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx",
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-D04",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx has 47 `disabled=` occurrences; only 1 (line 784) includes a `title` attribute. SalesView.tsx has 15+ disabled buttons (lines 649, 661, 673, 715, 1092, 1108, 1112, 1122, etc.) without title/inline reason. StatusActionBar handles its own rows, but the surrounding tray/panel buttons throughout both files remain silent-disabled.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-D05",
+      "classification": "VALID",
+      "evidence_found": "No `_DrawerTab` loading/empty/error wrapper component exists in src/client/components/. CustomerPurchaseHistoryPanel.tsx:100-106 uses ad-hoc inline text ('Loading purchase history…', 'No prior purchases…') not a shared wrapper. No standardized pattern is enforced across drawer tabs or WorkspacePanel fetches.",
+      "predicted_files": [
+        "src/client/components/CustomerPurchaseHistoryPanel.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-D06",
+      "classification": "VALID",
+      "evidence_found": "useCommandRunner.ts:96-137 — the onSuccess handler calls `invalidateAffectedQueries` then `invalidateCommandScopedQueries`; no `queryClient.setQueryData`, `cancelQueries`, or optimistic patch is present anywhere in the client. Comment at line 707 in SalesView.tsx references 'enabled optimistically while eligibility loads' but that is eligibility state, not row data.",
+      "predicted_files": [
+        "src/client/components/useCommandRunner.ts"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-D07",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "uiStore.ts:422-427: `pushToast` sets `state.announcement = message` on every call (success and error). ToastCenter.tsx:21 renders `<div aria-live=\"polite\" className=\"sr-only\">{announcement}</div>`. Every `runCommand` result path — onSuccess (line 101) and onError (line 120) — calls `pushToast`, which routes through the live region. The channel exists and is wired.",
+      "predicted_files": [],
+      "collision_keys": [
+        "ToastCenter.tsx",
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-D08",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "P3 item per audit scoring. Partially addressed: styles.css:868-872 has `@media (prefers-reduced-motion: reduce) { .context-drawer { transition-duration: 0ms; } }`. However `.media-batch-drawer` (styles.css:1144) still has `transition-all duration-200` without a reduced-motion override, and canvas-shell panel transitions are not covered. Not in P0/P1/P2 scope.",
+      "predicted_files": [
+        "src/client/styles.css"
+      ],
+      "collision_keys": [
+        "styles.css"
+      ]
+    },
+    {
+      "id": "UX-E01",
+      "classification": "VALID",
+      "evidence_found": "DashboardView.tsx:257-262: every Credit Watch row button `onClick={() => navigate('/clients')}` — no `setGridFilter`, no `setDrawerEntity` call. The `item.customerId` is available in scope but unused for navigation. CountPill pattern is available in uiStore (setGridFilter/setDrawerEntity both exist) but not applied here.",
+      "predicted_files": [
+        "src/client/views/DashboardView.tsx"
+      ],
+      "collision_keys": [
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-E02",
+      "classification": "VALID",
+      "evidence_found": "DashboardView.tsx:206-215: 'Open Orders' tile (line 209) calls `navigate('/sales')` with no `setGridFilter`; the pending-work-queues panel for key='sales' does apply `QUEUE_FILTER['sales'] = 'status:confirmed'` (lines 317-326). Inconsistency confirmed: same metric, tiles navigate unfiltered while queue buttons pre-filter. Additionally 'Open Orders' navigates to /sales not /orders as the fix specifies.",
+      "predicted_files": [
+        "src/client/views/DashboardView.tsx"
+      ],
+      "collision_keys": [
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-E03",
+      "classification": "VALID",
+      "evidence_found": "DashboardView.tsx:230-237: 'Bills due / scheduled' renders text 'Open vendor bills' (no amount) and 'Customer balances due' renders text 'Open customer orders' (no amount). Both have drilldown click targets but the amounts from `dashboard.data?.metrics.find(m => m.key === 'payables')?.value` and `receivables` (already rendered in the TodayFocus tiles above) are not reused here.",
+      "predicted_files": [
+        "src/client/views/DashboardView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-E04",
+      "classification": "VALID",
+      "evidence_found": "DashboardView.tsx:111-120: `if (dashboard.isError || workQueue.isError)` returns a full-page replacement block. If only one query fails, the healthy panels (KPIs, Credit Watch, Drafts, Money Buckets) are discarded. The per-panel error+retry pattern used in OperatorGrid (isError/onRetry props) is not applied to the dashboard wrapper.",
+      "predicted_files": [
+        "src/client/views/DashboardView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-E05",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "KpiCard.tsx:25 renders `<p className=\"mt-2 line-clamp-2 text-xs text-zinc-600\">{metric.definition}</p>`. KpiMetric type (types.ts:150) includes `definition: string`. Server (metrics.ts:107-175) populates definitions for all 7 KPIs (cash, payables, receivables, inventoryValue, agedLots, topCustomer, matchmaking). Money buckets also have a definition field (types.ts:171).",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-E06",
+      "classification": "VALID",
+      "evidence_found": "KpiMetric interface (types.ts:146-153) has no `warningCount` or `affectedRows` field. KpiCard.tsx renders only label/value/definition/severity — no warning count badge. metrics.ts:102-175 computes KPIs with no incomplete-data signal. The feature is entirely absent from the type system, server, and UI.",
+      "predicted_files": [
+        "src/shared/types.ts",
+        "src/server/services/metrics.ts",
+        "src/client/components/KpiCard.tsx",
+        "src/client/views/DashboardView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-E07",
+      "classification": "VALID",
+      "evidence_found": "DashboardView.tsx work queue expansion: `actionsRenderer` (lines 45-68) provides 'Dismiss for 30 days' only when `row.lane === 'Matchmaking'`; non-Matchmaking lanes return `null`. No assign/route/snooze verb exists for any lane. OperatorGrid work queue at line 354-373 has only an 'Open top item' button.",
+      "predicted_files": [
+        "src/client/views/DashboardView.tsx"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx"
+      ]
+    },
+    {
+      "id": "UX-E08",
+      "classification": "VALID",
+      "evidence_found": "DashboardView.tsx:172: `rankedWorkRows.slice(0, 3).map(...)` — hard-capped at 3 with no expansion state, no 'View all (N)' button, and no conditional render for additional items. The full ranked list is displayed separately in the OperatorGrid below (line 354-373) but with different ordering and no 'show ranked' label.",
+      "predicted_files": [
+        "src/client/views/DashboardView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-E09",
+      "classification": "VALID",
+      "evidence_found": "DashboardView.tsx:129-132: the main Refresh button calls only `dashboard.refetch()`. Queries `workQueue` (refetchInterval 15s), `myDrafts` (15s), and `creditWatchlist` (30s) are not included. The error-state retry at line 115 calls `dashboard.refetch(); workQueue.refetch()` but misses myDrafts and creditWatchlist. The fix must add all four to the Refresh handler.",
+      "predicted_files": [
+        "src/client/views/DashboardView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F01",
+      "classification": "VALID",
+      "evidence_found": "SalesOutputTab.tsx:40-51 has `handleCopyOffer()` (clipboard copy via `navigator.clipboard.writeText`) with 'Copy customer offer' button. SalesView.tsx:1226 has a 'Copy/export customer offer' button that calls `exportCustomerOffer()` which downloads a CSV file (not clipboard text). The sheet preview panel (SalesView.tsx:1479-1491) has NO copy or export button of any kind. The toast 'Copied — internal columns excluded' does not exist anywhere. Fix requires: (1) a 'Copy offer' button inside the sheet-preview WorkspacePanel (line 1479), (2) the button must write text (not download CSV), and (3) a toast confirming the copy with the exclusion note.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx",
+        "src/client/components/drawerTabs/SalesOutputTab.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-F02",
+      "classification": "VALID",
+      "evidence_found": "No pre-post checklist strip found anywhere in the codebase. Grep for 'prePost', 'PostChecklist', 'PostConfidence', 'ConfidenceStrip', 'creditOk', 'duplicateSource' in SalesView.tsx returns zero results. The SalesPricingTab in the drawer shows below-floor warnings, and the exceptionBadgeColumn surfaces some issues inline, but there is no compact pre-post strip rendered 'when primary = Post' listing credit/duplicate/priced/inventory checks with deep links.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx",
+        "src/client/components/drawerTabs/SalesPricingTab.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F03",
+      "classification": "VALID",
+      "evidence_found": "SalesView.tsx:183 shows `unresolvedSourceText` field is defined as editable with no custom cell editor. There is no typeahead, async search, or resolver in the item cell. Typing 'm15' into a sale line cell sets `unresolvedSourceText` (plain text). Lines added via the Draft Item input at line 1215 also go directly to `unresolvedSourceText` (line 930). No `ItemCellEditor` or typeahead component exists in the codebase (grep confirms 0 hits).",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx",
+        "src/client/components/InventoryFinderPanel.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F04",
+      "classification": "VALID",
+      "evidence_found": "`addedBatchIds` guards the finder panel: InventoryFinderPanel.tsx:875 shows `{added ? <span className='finder-chip success'>Already in order</span> : null}` on the result row batchCode cell. However, the sales line grid (SalesView.tsx:158-270, `lineColumns` ColDef array) has no 'Already in order' or duplicate-source chip. The `exceptionBadgeColumn` at SalesView.tsx:101-117 only covers priceRange/COGS/belowFloor/vendorApproval — no duplicate-source badge.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F05",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "SalesView.tsx:1179-1189 renders a `customer-facts` div inside `customer-workspace-header` with: balance (`workspace.data?.customer?.balance`), credit limit (`workspace.data?.customer?.creditLimit`), tags, open invoices count and total (lines 1183-1185 using `openInvoices.length` and `openInvoiceBalance` computed at lines 395-404), and last payment amount (lines 1186-1188 using `lastPayment` computed at lines 406+). The `customerWorkspace` tRPC query at line 373 fetches invoices and payments. All the data is rendered.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F06",
+      "classification": "VALID",
+      "evidence_found": "SalesView.tsx has zero referee references (grep 'referee' returns no results). The `priceAndConfirm()` function at SalesView.tsx:868-872 runs `priceSalesOrder` then `confirmSalesOrder` with no referee check. A referee prompt DOES exist in OrdersView (OperationsViews.tsx:1125-1138) at post time via a select box when `customerRelationships.length > 0`, but the audit asks for the confirm-time inline pill in the SalesView Sale Builder workspace.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F07",
+      "classification": "VALID",
+      "evidence_found": "SalesView.tsx:1138-1142 mounts `CustomerPurchaseHistoryPanel` (lazy-loaded disclosure). SalesView.tsx:1150 seeds the finder with `initialSearch={salesRequestText}` from the store. CustomerPurchaseHistoryPanel.tsx (147 lines) renders a disclosure table with free-text filter; it has no chip-generation or prop for seeding the finder with suggested filter chips. No 'Bought X x4 this month' chips are generated anywhere.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx",
+        "src/client/components/CustomerPurchaseHistoryPanel.tsx",
+        "src/client/components/SalesSourcePane.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F08",
+      "classification": "VALID",
+      "evidence_found": "GH #352 partially addresses this: SalesView.tsx:1088-1100 shows 'Repeat last order' button in the TOP control band (not the customer workspace header), visible when `customerId && lastSheet`. `repeatLastOrder()` at SalesView.tsx:585-623 re-resolves prices from snapshots. However: (1) the button is in the global control band, not in the `WorkspacePanel` header for `sales:customer-workspace` (lines 1153-1172 have 'Re-apply rule' and margin toggle but not reorder); (2) no 'deltas flagged' price-change indicator is rendered.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F09",
+      "classification": "VALID",
+      "evidence_found": "SalesView.tsx:1107-1135 is the sale tray ('Sale tray' disclosure at line 1101). It contains: 'Add suggestion' (order verb), 'Reserve' (order verb), sheet-mode toggle (output verb), 'Export' CSV (output verb), and a privacy pill (line 1133 'Customer catalog hides cost...'). The audit's mixed-concerns description matches the code exactly. The SalesOutputTab drawer tab exists as an extraction but the tray still mixes both verb families.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F10",
+      "classification": "VALID",
+      "evidence_found": "Hotkeys.tsx has no handler for Alt+M or any margin toggle hotkey (grep 'margin' in Hotkeys.tsx returns only line 179 which is unrelated ConfirmSalesOrder). SalesView.tsx:1064-1076 renders the margin toggle button with click handler only — no keyboard shortcut binding. The toggle is not mentioned in any hotkey registry.",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx",
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-F11",
+      "classification": "VALID",
+      "evidence_found": "SalesView.tsx mounts SalesSourcePane (line 1146) separately from suggestion grid (line 1465-1478 for the suggestion OperatorGrid). Two separate grids coexist: the finder/source pane (SalesSourcePane) and a Smart Suggestions grid below it. No 'why' chip or pre-filtered finder-row rendering of suggestions has been implemented. The dual mental model remains.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx",
+        "src/client/components/SalesSourcePane.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-F12",
+      "classification": "VALID",
+      "evidence_found": "Partial implementation: (1) LINE GRID: SalesView.tsx:101-117 `exceptionBadgeColumn` shows 'Below floor: {reason}' from `row.belowFloorReason` — badge present. (2) ORDER DRAWER: SalesPricingTab.tsx:24,49-82 filters `belowFloorLines` and renders each with its `belowFloorReason` — drawer present. (3) INTERNAL SHEET EXPORT: `INTERNAL_HEADERS` in src/client/utils/salesExport.ts:34-45 lists 'reason' (suggestion reason) but NOT 'belowFloorReason' — annotation missing from export. (4) CATALOG: customer-offer CSV (SalesView.csvExport.ts:10) uses only ['itemName','qty','unitPrice','sourceRowKey'] — correctly excludes annotation.",
+      "predicted_files": [
+        "src/client/utils/salesExport.ts"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-G01",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "OperationsViews.tsx:102-104 defines the orders column set and includes all three marks: `boolCol('packed', { headerName: 'Packed', editable: true, width: 105 })`, `boolCol('inventoryPosted', { headerName: 'Inv Posted', editable: true, width: 125 })`, `boolCol('paymentFollowup', { headerName: 'Pay/F-up', editable: true, width: 125 })`. The `boolCol()` factory at src/client/utils/format.ts:207-219 sets `filter: 'agSetColumnFilter'` making each filterable by AG Grid's set filter. None have `hide: true`, so all are visible by default. Sortable by default (AG Grid default). The grid-column audit predated these; they are now present.",
+      "predicted_files": [],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-G02",
+      "classification": "VALID",
+      "evidence_found": "No duplicate-source pre-check exists in OrdersView or SalesView for the order row itself. OperationsViews.tsx grep for 'duplicateSource', 'sourceRowKey', 'Already in order chip', 'F02 checklist' all return zero results in the orders context. The `exceptionBadgeColumn` in SalesView handles exception cases but not duplicate-source across order lines. Backend refuses on post; no frontend pre-surface for the F02 checklist or order-row chip when any line shares a sourceRowKey with another open order.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-G03",
+      "classification": "VALID",
+      "evidence_found": "`setDeliveryWindow`: has inline edit in orders grid (OperationsViews.tsx:98 editable column, line 1074-1076 `onCellCommit` handler), no tray verb. Searchable in palette via commandCatalog (shared/commandCatalog.ts:46) but no alias. `applyClientCredit`: found only in IssueSidecar.tsx:29 (the Issue tab of RowInspector) — not in any order drawer tab, order tray, or palette launchActions. No alias in commandAliasText(). Neither has a dedicated order-tray verb. The audit asks to confirm both have a daily-surface home and to wire the palette-only one into the tray.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/components/IssueSidecar.tsx",
+        "src/client/components/CommandPalette.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx",
+        "CommandPalette.tsx"
+      ]
+    },
+    {
+      "id": "UX-G04",
+      "classification": "VALID",
+      "evidence_found": "PaymentsView inspector tabs (OperationsViews.tsx:1190-1199) has only one tab: 'Receipt' (ReceiptPanel kind='payment'). No 'Open order' link in the payment inspector. Drawer tabs directory (/src/client/components/drawerTabs/) has no file providing a payment-to-order cross-ref tab. The ContextDrawer at ContextDrawer.tsx:535 shows 'Open orders' count text but this is a customer-level summary, not a per-payment order link. From payment/invoice rows back to the source order requires manual search.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/components/drawerTabs/"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-G05",
+      "classification": "VALID",
+      "evidence_found": "OrdersView FilterPresetStrip at OperationsViews.tsx:1152-1160 has exactly three presets: 'All Open' (status:draft,confirmed), 'Confirmed' (status:confirmed), and 'Today' (createdAt filter). No 'Needs marks' preset exists. The StatusActionBar decision table at lines 1113-1115 drives closeout-mark actions but no filter preset surfaces 'posted with any closeout mark missing' for the owner's daily queue.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-H01",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx:1032 — `function purchaseOrderPrimaryLabel(status: string)` and :1040 `function purchaseOrderPrimaryDisabled(status: string)` remain. Both helpers are called at lines 890-892 and 923-924 inside PurchaseOrdersView. No StatusActionBar is used in PurchaseOrdersView. The templates.md adoption list (docs/design-system/components/templates.md:65-70) does not include PurchaseOrdersView. OperationsViews.statusTables.test.tsx contains zero references to 'purchaseOrder'.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/views/OperationsViews.statusTables.test.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-H02",
+      "classification": "VALID",
+      "evidence_found": "IntakeView.tsx:2 imports `AgGridReact` directly; no OperatorGrid import exists. Raw `<AgGridReact>` is mounted at line 350 with master-detail. No RowInspector, no CSV export, no column-pref persistence, no quick-filter. The ReceiptPreviewDrawer (line 372) provides receipt preview per order-row action button (lines 294-301) but there is no row-level 'History / Reverse receipt' link on posted batches deep-linking Recovery.",
+      "predicted_files": [
+        "src/client/views/IntakeView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-H03",
+      "classification": "VALID",
+      "evidence_found": "IntakeView.tsx has no selection-totals strip (no count, qty sum, cost sum, or ownership-mix display). The ReceiptPreviewDrawer trigger is a per-order button ('Preview receipt') at lines 294-301 in the master row actions column — not elevated into a sticky strip above a Process action. No 'selectionTotal', 'selectionStrip', or similar construct exists in IntakeView.",
+      "predicted_files": [
+        "src/client/views/IntakeView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-H04",
+      "classification": "VALID",
+      "evidence_found": "purchaseOrderLineColumns (OperationsViews.tsx:267-290) includes `receivedQty` as a read-only display column at line 288 — no `editable: true`. There is no editable receive-qty column on PO lines and no 'Receive selected qty' action. The existing action 'Draft selected lines' (line 960-966) calls `receivePurchaseOrder` with `lineIds` but there is no partial-qty field. Backend command extension is still required per decision 5.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-H05",
+      "classification": "VALID",
+      "evidence_found": "IntakeView.tsx:449 — `{ field: 'arrivalStatus', headerName: 'Arrival', width: 110 }` is present in buildBatchColumns. The `arrivalStatus` column is read-only (no `editable: true`, no cellEditor; defaultColDef at line 202 sets only resizable/sortable/wrapHeaderText). There is no inline control allowing operators to change the arrival status (pending/arrived/canceled) on a batch row. The column displays the value but does not expose an editable cell.",
+      "predicted_files": [
+        "src/client/views/IntakeView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-H06",
+      "classification": "VALID",
+      "evidence_found": "Hotkeys.tsx:130-155 — the ⌘D handler calls `runCommand('createBatch', {...})` which sends the request to the server; no AG Grid `applyTransaction` call with an add-index parameter exists anywhere in IntakeView.tsx or Hotkeys.tsx. The new row will appear wherever the server returns it in the next intakeQueue refetch — typically appended or sorted, not adjacent to its source row. The audit's fix (AG Grid transaction add at index) is absent.",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx",
+        "src/client/views/IntakeView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-H07",
+      "classification": "VALID",
+      "evidence_found": "No marker-legend tooltip map was found anywhere in the client source. The `legacyMarker` column in IntakeView.tsx:449 and OperationsViews.tsx buildInventoryColumns:1547 render raw cell values with no hover legend. The InventoryFinderPanel.tsx:924 renders `row.legacyMarker || row.ownershipStatus` inline with no explanatory tooltip. No shared `MARKER_LEGEND` or similar constant exists.",
+      "predicted_files": [
+        "src/client/views/IntakeView.tsx",
+        "src/client/views/OperationsViews.tsx",
+        "src/client/components/InventoryFinderPanel.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-H08",
+      "classification": "VALID",
+      "evidence_found": "purchaseOrders columnsByView (OperationsViews.tsx:75-92) contains only `prepaymentAmount` at line 81 — a single editable column for the prepayment amount. No `prepayBalance`, `remainingPrepay`, `originalPrepay` or similar split columns exist anywhere in the client source. The RecordPrepaymentDialog shows `maxAmount` derived from `selectedPo.prepaymentAmount` (line 904) but there is no original/prepaid/remaining breakdown visible on the PO row.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-H09",
+      "classification": "VALID",
+      "evidence_found": "styles.css:744-746 — `.po-header-strip { @apply justify-between; }` with no `position: sticky` or `top` property. The PO header `<section className=\"po-header-strip\">` at OperationsViews.tsx:910 renders inside `<div className=\"view-stack\">` with no sticky positioning. It will scroll out of view when the PO lines OperatorGrid (line 946) is taller than the viewport. The VendorContextDrawer + H01 StatusActionBar migration referenced in the audit has not closed the sticky-header gap.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/styles.css"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx",
+        "styles.css"
+      ]
+    },
+    {
+      "id": "UX-I01",
+      "classification": "VALID",
+      "evidence_found": "buildInventoryColumns (OperationsViews.tsx:1450-1554) defines 20 visible columns: batchCode, subcategory, name, itemAlias, category, tags, vendor, availableQty, reservedQty, uom, unitCost, unitPrice, location, legacyMarker, ownershipStatus, arrivalStatus, mediaStatus, lotCode, expirationDate, status — far exceeding the ≤8 rule. purchaseOrders columns (lines 75-92) show 16 columns. The GRID_COLUMN_AUDIT.md (dated 2026-05-18) enumerated the column counts at the time (Inventory 10, PO 11) but columns have since grown in subsequent waves, making the violation worse than audited. No `hide: true` attributes exist on inventory or PO columns.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-I02",
+      "classification": "VALID",
+      "evidence_found": "buildInventoryColumns (OperationsViews.tsx:1550) — `mediaStatus` IS present as a default column. However `hasPrimaryPhoto` is NOT in buildInventoryColumns (it exists only in MediaView.tsx:30 and MobileCatalogView.tsx). The Inventory FilterPresetStrip (lines 1400-1407) has only 'Available' (arrivalStatus:arrived) and 'Office Stock' (ownershipStatus:OFC) presets — no 'No photos' preset chip exists. Fix requires: add `hasPrimaryPhoto` column + 'No photos' preset (`mediaStatus:none` or `hasPrimaryPhoto:false`).",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-I03",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx:1424-1429 — the `availableQty` onCellCommit handler fires `adjustBatchQuantity` directly with `reason: 'Inline inventory adjustment from grid'` (hardcoded), no before/after preview. The InventoryRowActions menu (lines 1590-1709) has set-status, move-location, move-ownership, apply-tags, and general reason input — but NO quantity adjustment control with before/after preview. The reason field is required (disabled check at lines 1618, 1636, 1672) for other operations but the inline cell edit bypasses it entirely.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-I04",
+      "classification": "VALID",
+      "evidence_found": "InventoryFinderPanel.tsx:247-280 — all filtering is client-side within the `filtered` useMemo. A circuit breaker at line 250 truncates to 10,000 rows but there is no row-count telemetry check at the ~500 batch threshold and no server-path switch pre-built. The `filters.applyBatchFilters` server-side path referenced in the audit does not appear in any client code. The 80-result slice at line 279 limits display but does not reduce filter computation.",
+      "predicted_files": [
+        "src/client/components/InventoryFinderPanel.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-I05",
+      "classification": "VALID",
+      "evidence_found": "InventoryFinderPanel.tsx result row rendering (lines 830-937): batchCode is shown (874), sourceCode+intakeDate is shown (878-879), vendor+location are shown (901-904), availableQty is shown (907-915), unitCost+unitPrice are shown (919-921), legacyMarker/ownershipStatus is shown (924). However `intakeQty` (the 'intake' in 'available/intake') is NOT rendered — there are zero references to `intakeQty` in the result row rendering. An operator cannot distinguish a batch with high intakeQty but low availableQty from one with matching values.",
+      "predicted_files": [
+        "src/client/components/InventoryFinderPanel.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-I06",
+      "classification": "VALID",
+      "evidence_found": "SavedFiltersManager.tsx (full file read): the component provides only rename (lines 41-60) and delete (lines 62-71) operations on saved filters. There is no 'Set as my default view for this grid' action, no `isDefault` field, no `setDefault` mutation, and no default-view loading on grid entry. The `trpc.filters` mutations in the file are `updateFilter` (rename only) and `deleteFilter`. The feature is entirely absent.",
+      "predicted_files": [
+        "src/client/components/SavedFiltersManager.tsx",
+        "src/client/components/InventoryFinderPanel.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-J01",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "commandBus.ts:3965-3999: `logPayment` now auto-calls `allocatePayment` in the same transaction when `allocationIntent === 'fifo'`. On allocation failure, returns toast 'Auto-allocation skipped: [errorMsg]' (line 3996). The DYN-H3 original evidence path (commandBus.ts:1642-1680) no longer matches — the fix is at line 3965. Additionally `postTransactionLedgerRow` (line 4716-4744) also gates FIFO and falls back to 'unapplied' when no open invoice exists. The decisions-locked 'fix in backend' path has been executed.",
+      "predicted_files": [],
+      "corrected_scope": "No further UI work needed per Execution Decision 5. Backend auto-allocation is implemented.",
+      "collision_keys": []
+    },
+    {
+      "id": "UX-J02",
+      "classification": "VALID",
+      "evidence_found": "QuickLedgerGrid.tsx:603-605: label flip ('Buyer credit / Down payment' pill) IS present when amount < 0 — that part is done. However QuickLedgerGrid.tsx:784: `ledgerImpact` returns 'Enter amount to preview' for `amount <= 0`, so the impact cell shows nothing useful for negative amounts. The server's `paymentAllocationPreview` for negative amounts returns only `{ label: 'Buyer credit / down payment', unapplied: Math.abs(amount) }` (queries.ts:999) — no balance-after or invoice-delta. `preview.data?.label` shown at QuickLedgerGrid.tsx:330 is just 'Buyer credit / down payment'. The balance-effect preview ('balance → $Z') is not rendered anywhere.",
+      "predicted_files": [
+        "src/client/components/QuickLedgerGrid.tsx"
+      ],
+      "corrected_scope": "Label flip already done; fix is only the balance-effect preview branch in `ledgerImpact` (or the rendered `preview.data` rows) for negative amounts.",
+      "collision_keys": []
+    },
+    {
+      "id": "UX-J03",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx:1204-1212: PaymentsView FilterPresetStrip has only two presets — { label: 'Unpaid', filter: 'status:active' } and { label: 'Overdue', filter: 'category:overdue' }. No 'Unapplied (N)' preset exists. No standing count pill for unapplied payments is rendered anywhere in PaymentsView. OperationsViews.tsx:1343 shows unapplied amount only on the selected-payment pill in the allocations panel, not as a queue indicator.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "corrected_scope": "",
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-J04",
+      "classification": "VALID",
+      "evidence_found": "QuickLedgerGrid.tsx:150-158: `paymentAllocationPreview` query IS called and enabled for customer receiving rows. QuickLedgerGrid.tsx:330: only `preview.data?.label` is passed as `allocationPreview` prop — e.g., 'Auto-apply to oldest invoices'. QuickLedgerGrid.tsx:481: `impact = allocationPreview ?? ledgerImpact(...)`. The server response includes `preview.data.rows` with per-invoice amounts (queries.ts:1008) but these are not rendered. The per-invoice breakdown ('Will allocate $X to INV-123, $Y unapplied') does not appear anywhere in the draft row impact cell.",
+      "predicted_files": [
+        "src/client/components/QuickLedgerGrid.tsx"
+      ],
+      "corrected_scope": "",
+      "collision_keys": []
+    },
+    {
+      "id": "UX-J05",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "commandBus.ts:306-312 / 4182-4186: `applyEarlyPayDiscount` was renamed to `applyDiscount` (TER-1662). OperationsViews.tsx:1329-1335: `applyDiscount` IS in the PaymentAllocationTools WorkspacePanel ('Payment allocations') with the invoice select (`invoiceSelectId`) visible in the same panel — satisfying the audit requirement that 'discount entry lives in the allocations WorkspacePanel with the invoice context visible'. No palette alias exists for `applyDiscount` (CommandPalette.tsx: grep returns no hit), but the WorkspacePanel placement is the stated correct home.",
+      "predicted_files": [],
+      "corrected_scope": "If a palette alias is also desired, add 'applyDiscount' to commandAliasText in CommandPalette.tsx. The WorkspacePanel requirement itself is already met.",
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-J06",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx:1190-1199: PaymentsView inspector tab is a single ReceiptPanel (kind='payment'). ReceiptPanel.tsx: grep for 'navigate', 'orderNo', 'Open order' returns 0 hits — no cross-navigation link to the originating sales order or invoice exists. The ReceiptPanel renders receipt HTML/text but has no 'Open order' button or link.",
+      "predicted_files": [
+        "src/client/components/ReceiptPanel.tsx",
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "corrected_scope": "",
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-J07",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx:120: `locationBucket` IS a default payments column — bucket IS visible on posted payment rows (first part met). DashboardView.tsx:222-238: Money Buckets panel shows per-bucket amounts via `dashboard.data?.moneyBuckets` and renders each bucket as a clickable tile. However DashboardView.tsx:225: every bucket tile click sets `setDrilldownMetric('cash')` — a single undifferentiated 'cash' drilldown with no bucket filter. The drilldown grid (DashboardView.tsx:374-387) shows all cash rows without grouping or filtering by the clicked bucket. 'Dashboard cash drilldown groups by it' is not implemented.",
+      "predicted_files": [
+        "src/client/views/DashboardView.tsx"
+      ],
+      "corrected_scope": "The payment column is already present. Only the drilldown bucket-filter is missing: pass the clicked bucket name to setDrilldownMetric and use it to filter/group the drilldown grid.",
+      "collision_keys": []
+    },
+    {
+      "id": "UX-K01",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx:185-186 (purchaseOrders columns) and 1790-1791 (vendorBills columns): `scheduledFor` and `dueReason` exist as plain `{ field: ... }` column definitions with no `cellRenderer`. No badge/chip custom renderer is defined for these fields — they render as raw text strings. The audit requires 'badge columns' to visually distinguish due-reason (e.g., 'consigned lot depleted') and scheduled date from plain text.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "corrected_scope": "",
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-K02",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx:1941-1948: `payBill` runs `scheduleVendorPayment` + `recordVendorPayment` sequentially with no ConfirmRoot dialog or consequence copy. OperationsViews.tsx:1956: StatusActionBar tray for open/pending bills shows 'Pay now' with no explain-then-confirm pattern. OperationsViews.tsx:1962: catch-all tray label 'Pay (schedules first)' is the only disclosure — a label, not a ConfirmRoot message. `useConfirm` is imported (line 21) and used elsewhere (line 1583) but not on the payBill path. The required copy 'This will schedule an immediate payout event, then record payment' is absent.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "corrected_scope": "",
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-K03",
+      "classification": "VALID",
+      "evidence_found": "ContextDrawer.tsx:78-83: vendorBill entity type has a 'Trace' tab. ContextDrawer.tsx:357-363: VendorBillTraceTab renders for the trace tab. VendorBillTraceTab.tsx:49-76: linked PO from row.poNo/purchaseOrderId IS shown. VendorBillTraceTab.tsx:79-88: consignment trigger IS shown. VendorBillTraceTab.tsx:90-106: intake batch (receipt→batches) is an explicit TODO stub — 'No data — intake batch detail query not yet available. (Stub: vendorBillIntakeBatches query pending.)' The work-loops non-negotiable 'payout traceable to bill/receipt/PO/sellout' is only partially met — PO and consignment-sellout links exist, but receipt→intake batch traceability is stubbed.",
+      "predicted_files": [
+        "src/client/components/drawerTabs/VendorBillTraceTab.tsx",
+        "src/server/routers/queries.ts"
+      ],
+      "corrected_scope": "Add `queries.vendorBillIntakeBatches` tRPC query joining purchase_receipts → batches → items, then render results replacing the stub in VendorBillTraceTab.",
+      "collision_keys": []
+    },
+    {
+      "id": "UX-K04",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx:2111: `voidVendorPayment` is a button inside `VendorBillTools` function, rendered in a WorkspacePanel titled 'Vendor bill and payout tools' (line 1927-1929) — not a StatusActionBar tray verb on payment rows. OperationsViews.tsx:1885-1896: the inline row column shows only a read-only 'Void via drawer' span directing users to the drawer. OperationsViews.tsx:1954-1963: `vendorBillTable` StatusActionBar rules have no void verb in any tray slot. No reversal-policy guidance text surrounds the void button at line 2111.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "corrected_scope": "Add voidVendorPayment as a tray verb in vendorBillTable rules (for non-terminal, paid statuses where a payment exists), with a reversal-policy note (e.g., 'Void reverses the payout and reopens the bill').",
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-L01",
+      "classification": "VALID",
+      "evidence_found": "MobileShell.tsx NAV_TABS (lines 51-57) has exactly 5 tabs: dashboard, inventory, catalog, payments, contacts — no pick or fulfillment tab. App.tsx routes under /mobile/* (lines 164-171) mount MobileDashboardView, MobileInventoryView, MobileCatalogView, MobilePaymentsView, MobileContactsView, MobileContactProfileView only. PickView is routed at line 200 under the desktop /* path, not under /mobile/*. No chrome-free small-viewport override exists for /pick.",
+      "predicted_files": [
+        "src/client/components/mobile/MobileShell.tsx",
+        "src/client/App.tsx",
+        "src/client/views/PickView.tsx"
+      ],
+      "collision_keys": [
+        "MobileShell.tsx",
+        "App.tsx"
+      ]
+    },
+    {
+      "id": "UX-L02",
+      "classification": "VALID",
+      "evidence_found": "PickLineScreen.tsx (lines 82-103) validates weight > 0 but has no check of actual vs expected weight against a tolerance, and no discrepancy-note prompt when they differ. FulfillmentView desktop pack strip (OperationsViews.tsx lines 2334-2370) captures actualWeight but has no tolerance check or discrepancy-note prompt. Neither surface feeds the Issue tab on mismatch. The only discrepancy-note machinery is in IntakeView (intake-specific verify flow).",
+      "predicted_files": [
+        "src/client/components/pick/PickLineScreen.tsx",
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-L03",
+      "classification": "VALID",
+      "evidence_found": "FulfillmentView (OperationsViews.tsx lines 2204-2213): when pickQueueFilters.size === 0 (default), filteredPickRows is the full pickRows array — fulfilled rows are included. FilterPresetStrip (lines 2273-2280) offers only 'Active' (status:in_progress) and 'Pending' (status:needs_picking), which do not match the actual DB statuses ('open' and 'fulfilled' per schema.ts:471 and code comment at line 2310). No preset for status:open exists; the grid ships with all rows visible and no default exclusion of fulfilled picks.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-L04",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx lines 211-212: boolCol('labelsPrinted', { headerName: 'Labels Printed', width: 140 }) and { field: 'manifestPath', minWidth: 220 } are in the default fulfillment column list. boolCol renders via formatBool() which produces plain text 'Yes'/'No' (format.ts:183-193), not a styled chip or badge. manifestPath renders as a raw path string. The audit asks for 'Labels ✓ / Manifest ✓' chips with visual status indication; current rendering is text column values. Data is present in the grid but not as chip-styled indicators.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/utils/format.ts"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-L05",
+      "classification": "VALID",
+      "evidence_found": "PickLineScreen.tsx: the actual-weight input (lines 248-265) has no onKeyDown handler. Only Enter-blocking exists on the alertdialog overlay (lines 140, 177). The 'Mark picked' button (lines 305-313) is the only submit path. No Enter-to-confirm-pack-and-advance behavior is wired to any input field in PickLineScreen.",
+      "predicted_files": [
+        "src/client/components/pick/PickLineScreen.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-L06",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "PickView.tsx: recalledLineItem state is set at line 79 when the line disappears from the query ('Scenario B'). PickLineScreen receives recalled={Boolean(recalledLineItem)} and recalledItemName (lines 150-151). PickLineScreen.tsx lines 131-157 implement a full-screen alertdialog ('Line Recalled') with the item name, explanation ('was recalled by sales — Check with the sales operator for the updated quantity'), and a 'Got it' button (onBack) that returns the picker to the pick list. The state is surfaced consistently and the next action (return to list) is clear and explicit.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-M01",
+      "classification": "VALID",
+      "evidence_found": "RowInspector is embedded in OperatorGrid (OperatorGrid.tsx:666). PickView does not use OperatorGrid — it uses custom screens (QueueScreen, PickListScreen, PickLineScreen) with no RowInspector import (PickView.tsx imports: trpc, usePickWorkLoopGuard, useCommandRunner, QueueScreen, PickListScreen, PickLineScreen, SocketContext only). PickView has no History tab, no reversal capability, and no per-row Recovery deep-link. IntakeView's gap is tracked under UX-H02. The fix for PickView requires adding a row-level recovery/history action or deep-link to Recovery prefiltered by the pick command ID.",
+      "predicted_files": [
+        "src/client/views/PickView.tsx",
+        "src/client/components/pick/PickListScreen.tsx",
+        "src/client/components/pick/QueueScreen.tsx",
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-M02",
+      "classification": "VALID",
+      "evidence_found": "IssueSidecar.tsx IssueActionsBody (lines 13-83) renders actions: dispute, refund, credit, correction — no 'Export support packet for selection' button. Support packet export exists only in RecoveryView's Admin tools > Backup & support tab (OperationsViews.tsx line 2667), scoped to the whole system. The RowInspector Issue tab (RowInspector.tsx:62) renders IssueActionsBody with no extension for per-selection packet export.",
+      "predicted_files": [
+        "src/client/components/IssueSidecar.tsx",
+        "src/client/components/RowInspector.tsx",
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-M03",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "OperationsViews.tsx line 3018: comment 'CAP-025 / Phase 5 — inline expandable blocker drilldown (TER-1504)'. Lines 3019-3081 implement exactly what the audit requests: each blocker row is an expand toggle (aria-expanded), opening a panel showing a description, the first N rows from closeoutBlockerRows query (line 2916-2918, enabled per expandedBlocker), and a 'View all in ...' button that navigates to the filtered view. The blockerTarget() function at line 3094 routes to view+filter. The inline-expand with first rows and links is already shipped.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-M04",
+      "classification": "VALID",
+      "evidence_found": "RecoveryView (OperationsViews.tsx lines 2635-2641): the only search control is a plain text input (state: q, line 2599). The recoverySearch query at line 2609 takes only { q } — a single free-text string. No entity-id filter, no command-family filter chips, no preset pills exist above the command journal grid. The audit asks for entity-id and command-family filter chips to reduce 'too many unrelated results'.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-M05",
+      "classification": "VALID",
+      "evidence_found": "CloseoutView runs archivePeriod via runCommand (OperationsViews.tsx:2967). useCommandRunner.ts line 101: pushToast(result.toast ?? ..., tone) — the Toast type in uiStore.ts lines 62-66 has only { id, message, tone }; no actionLabel or onAction field exists. pushToast signature at line 157 is (message: string, tone?: Toast['tone']) — no action parameter. No deep-link to archive artifacts list is possible with the current toast API. The UX-D01/T06 toast action extension is a prerequisite.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/store/uiStore.ts",
+        "src/client/components/useCommandRunner.ts"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-N01",
+      "classification": "VALID",
+      "evidence_found": "ContextDrawer.tsx drawerTabs (lines 27-125) defines tabs for customer, vendor, lot, order, salesOrder, po, vendorBill, payment, pick, connector, recovery, closeout, report, settings — no 'timeline' tab exists for any entity type. No Timeline component exists anywhere in src/client/ outside of section-heading strings in LotHistoryTab.tsx:87, PoHistoryTab.tsx:87, and LotMovementTab.tsx:84, none of which is a merged chronological event tab.",
+      "predicted_files": [
+        "src/client/components/ContextDrawer.tsx",
+        "src/client/components/drawerTabs/EntityTimelineTab.tsx",
+        "src/server/routers/queries.ts"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-N02",
+      "classification": "VALID",
+      "evidence_found": "No 'Copy status summary (customer-safe)' button or copyStatus action exists anywhere in the client. salesExport.ts provides customer-safe catalog CSV export but no per-order status-story clipboard function. SalesOutputTab.tsx and ContextDrawer.tsx have no such action. The paired N01 timeline is also absent, making the interim 'order drawer Copy status' path the only viable near-term version.",
+      "predicted_files": [
+        "src/client/components/ContextDrawer.tsx",
+        "src/client/components/drawerTabs/SalesOutputTab.tsx",
+        "src/client/utils/salesExport.ts"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-N03",
+      "classification": "VALID",
+      "evidence_found": "ContextDrawer.tsx:443-465 (RelationshipContext): 'Owes us' (AR = customerOpen) and 'We owe them' (AP = vendorOpen) ARE rendered as separate rows, but for dual-role counterparties an additional 'Net position' line (line 461-465) is also rendered showing the arithmetic difference with a coloured sign. The audit asks for a 'do not net' presentation — the net figure is present and prominent for dual-role entities alongside the directional figures. The corrected scope is: the individual figures are already shown; the issue is the Net position row that could mislead operators into thinking netting is the operative number. Fix should remove or label the net row as informational-only, not replace the individual figures.",
+      "predicted_files": [
+        "src/client/components/ContextDrawer.tsx"
+      ],
+      "corrected_scope": "Directional figures already exist. The fix is narrower: remove or re-label the 'Net position' line for dual-role to make clear it is supplementary, not the operative AR/AP figure.",
+      "collision_keys": []
+    },
+    {
+      "id": "UX-N04",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "src/server/routers/queries.ts:1073-1115: globalSearch runs 12 parallel pool.query() calls against base tables directly (customers, vendors, purchase_orders, sales_orders, invoices, payments, batches, customer_needs, vendor_supply, pick_lists, connector_requests, command_journal). No materialized views or projection tables are involved. Results are real-time direct SQL. The audit's own conditional — 'if globalSearch is direct SQL, results are fresh — fine; likely a no-op note' — is satisfied. No 'as of' disclaimer is needed.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-O01",
+      "classification": "VALID",
+      "evidence_found": "MediaView.tsx:15-27 (actual lines 16-27): the colId 'mediaStatus' valueGetter derives status from publishedMediaCount + draftMediaCount with an arbitrary <3 threshold ('No media' / 'Has media' / 'Complete'). The photography gridSql (queries.ts:2669-2686) does NOT include b.media_status from the batches table — it returns only bms.published_media_count, bms.draft_media_count, bms.has_primary_photo, bms.has_primary_video from batch_media_summary. The canonical batches.media_status field (schema.ts:265, varchar default 'open') is never rendered in MediaView. Two truths confirmed.",
+      "predicted_files": [
+        "src/client/views/MediaView.tsx",
+        "src/server/routers/queries.ts"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-O02",
+      "classification": "VALID",
+      "evidence_found": "PhotographyQueuePanel is defined at src/client/components/PhotographyQueuePanel.tsx:9 and is never imported anywhere else in the codebase (grep across all src/ returns only the definition file). It is not mounted in SalesView.tsx, InventoryFinderPanel.tsx, or OperationsViews.tsx. The component exists but is entirely unused.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx",
+        "src/client/views/OperationsViews.tsx",
+        "src/client/components/PhotographyQueuePanel.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-O03",
+      "classification": "VALID",
+      "evidence_found": "MediaView.tsx:53-55: handleSelectionChange takes rows[] but only reads rows[0] to set selectedBatch (single-batch state). OperatorGrid supports multiRow selection (OperatorGrid.tsx:214-221), but MediaView has no selectionActions prop, no StatusActionBar, and no bulk-publish strip. publishBatchMedia command exists (commandBus.ts:1070, commandCatalog.ts:31) but is only exposed per-batch via MediaBatchDrawer, not via a multi-selection action strip.",
+      "predicted_files": [
+        "src/client/views/MediaView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-O04",
+      "classification": "VALID",
+      "evidence_found": "MediaView.tsx has no refetchInterval, no socket subscription, and no upload-complete badge. The grid fetches once via trpc.queries.grid.useQuery({ view: 'photography' }) with no polling interval. MediaUploadMobile.tsx handles the upload token flow but sends no event back to the desktop. No 'N new uploads' badge mechanism exists anywhere in the MediaView or PhotographyQueuePanel code.",
+      "predicted_files": [
+        "src/client/views/MediaView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-O05",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "UX-O05 is P3·S, excluded from this run per execution decision 1 (P3 tracked-only). Verified: no UI mention of media retention policies exists in src/client/ — the mediaRetentionPolicies table (schema.ts:973) and mediaCleanup.ts are server-only. The condition the audit requires (suppress UI mention of retention) is already met in the current tree; no client code references retention policy enforcement.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-P01",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "MatchmakingView.tsx:183-231: matchColumns has exactly 8 entries — score (line 185), customer (204), needProduct (205), vendor (206), vendorProduct (207), 'Price fit' computed column (208-217), 'Qty fit' computed column (219-228), status (230). The audit's cited 11-default-column count no longer exists. Note: the fix instruction says 'keep matchQuality/expiresAt' — score IS the quality field, but expiresAt does not exist anywhere in the matchmaking schema (schema.ts:514-567 for customer_needs and vendor_supply have no expiresAt column; neededBy and availableDate are the closest analogs). The column reduction is complete.",
+      "predicted_files": [],
+      "corrected_scope": "Column count is already 8. The fix description reference to 'expiresAt' is stale — no such field exists on matchmaking_matches, customer_needs, or vendor_supply tables. If an expiry column is desired, it requires a schema migration first.",
+      "collision_keys": []
+    },
+    {
+      "id": "UX-P02",
+      "classification": "VALID",
+      "evidence_found": "MatchmakingView.tsx:244-292 (matchExpansionConfig childrenRenderer/actionsRenderer): when a match row has status 'accepted' or 'dismissed', the only action rendered is a 'Reopen' button (RotateCcw icon, line 280-291). No 'Next: create PO' or 'Next: create Sale' link is shown. The row expansion children renderer shows only 'Match Reasoning' text (line 297-301). No post-acceptance workflow routing exists.",
+      "predicted_files": [
+        "src/client/views/MatchmakingView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-P03",
+      "classification": "STALE_EVIDENCE",
+      "evidence_found": "The audit cites 'expiresAt' as the expiry field for needs/supply rows, but no expiresAt column exists on customer_needs or vendor_supply tables (schema.ts:514-567). customer_needs has neededBy (line 526) and vendor_supply has availableDate (line 555). The concept of stale-row demoting is valid (neededBy-past-due needs do not receive any visual indicator in needColumns which renders 'neededBy' as a plain date field at line 33). However, the fix as written ('needs/supply rows past expiresAt') references a non-existent field. The fix should reference neededBy for needs and availableDate for supplies.",
+      "predicted_files": [
+        "src/client/views/MatchmakingView.tsx"
+      ],
+      "corrected_scope": "Valid concept, wrong field name. Use neededBy for customer needs rows and availableDate for vendor supply rows when detecting past-due/stale items. No schema change needed — both fields already exist and are returned in the grid queries.",
+      "collision_keys": []
+    },
+    {
+      "id": "UX-P04",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "UX-P04 is P3·S, excluded from this run per execution decision 1 (P3 tracked-only). Evidence for informational purposes: noteMatchmakingOutreach command writes to command_journal (commandBus.ts:5700-5747) and is invoked from MatchmakingView.tsx:346,416 after outreach button clicks (then refetches opportunities). No per-match outreach history list is rendered anywhere in the client — the command is write-only from the UI perspective. Verification confirms the P3 finding is accurate.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-Q01",
+      "classification": "VALID",
+      "evidence_found": "ItemsView.tsx lines 170-229 (create band) and 232-293 (edit band) are bespoke inline forms rendered directly inside the view — not FormDialog. Name validation at line 106 uses pushToast('Item name is required.', 'error') (toast, not inline field error). Deactivate/Activate (handleToggleStatus) uses a plain secondary-button in the selection strip with no FormDialog and no danger variant. No FormDialog import is present in ItemsView.tsx.",
+      "predicted_files": [
+        "src/client/views/ItemsView.tsx",
+        "src/client/components/templates/FormDialog.tsx"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx"
+      ]
+    },
+    {
+      "id": "UX-Q02",
+      "classification": "VALID",
+      "evidence_found": "CreditReviewView.tsx line 118-122: the divergence disclosure is wrapped in a plain <div className=\"border-b border-zinc-200\"> not a WorkspacePanel. WorkspacePanel is not imported in CreditReviewView.tsx. CreditDivergencePanel itself is a standalone div (credit/CreditDivergencePanel.tsx:59). Audit cited line 118 is exact.",
+      "predicted_files": [
+        "src/client/views/CreditReviewView.tsx",
+        "src/client/components/WorkspacePanel.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-Q03",
+      "classification": "VALID",
+      "evidence_found": "FormDialog.tsx has no tone, variant, submitTone, or submitVariant prop in its FormDialogProps interface (lines 20-37). The submit button at line 91 unconditionally applies className=\"btn-primary\" regardless of action type. No danger/warning styling pathway exists. Deactivate dialogs and void dialogs that use FormDialog (if any) would render with a standard primary button.",
+      "predicted_files": [
+        "src/client/components/templates/FormDialog.tsx",
+        "src/client/components/templates/FormDialog.test.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-Q04",
+      "classification": "VALID",
+      "evidence_found": "commandCatalog.ts:189-198 confirms updateContact, archiveContact, addContactRole, linkContactToExistingEntity, linkContactToUser, updateVendor are all in pendingFrontendCommandNames. ContactProfileHeader.tsx line 99 has a placeholder 'Edit contact' icon button with aria-label but no onClick handler (no command wired). ContactSettingsPanel.tsx is read-only display only. No runCommand calls for any of the 6 pending commands exist anywhere in src/client (grep returns 0 results).",
+      "predicted_files": [
+        "src/client/components/profile/ContactProfileHeader.tsx",
+        "src/client/components/profile/ContactSettingsPanel.tsx",
+        "src/client/views/ContactProfileView.tsx",
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-Q05",
+      "classification": "VALID",
+      "evidence_found": "commandCatalog.ts:155-175 lists setCustomerStance, disableCreditEngineForCustomer, createCreditEngineStance, updateCreditEngineStance, deleteCreditEngineStance, bulkRevertCustomersToEngine in internalOnlyCommandNames with comment referencing #111. CreditEngineSettingsPanel (OperationsViews.tsx:3514-3630+) only surfaces setCreditEngineConfig (global config) and a read-only stances table with note 'Stance create/edit is command-backed follow-up work' (line 3603). No per-customer overrides or bulk revert surface exists.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/shared/commandCatalog.ts"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-Q06",
+      "classification": "VALID",
+      "evidence_found": "Four gaps confirmed: (1) No payRefereeCredits/bulkPayRefereeCredits command exists in commandCatalog.ts (referee commands are only createReferee, updateReferee, addRefereeRelationship, updateRefereeRelationship, deactivateRefereeRelationship, voidRefereeCredit). (2) RefereeDetailPanel.tsx has no totals strip — it only has Relationships and Credits tabs. (3) RefereeRelationshipsList.tsx line 14 comment: 'the reference query returns ONLY active relationships (WHERE rr.active)... Deactivated relationships disappear here.' (4) SalesView.tsx has zero referee references — no inline prompt when customer has active referee relationship.",
+      "predicted_files": [
+        "src/client/views/RefereesView.tsx",
+        "src/client/components/RefereeDetailPanel.tsx",
+        "src/client/components/RefereeCreditsList.tsx",
+        "src/client/components/RefereeRelationshipsList.tsx",
+        "src/client/views/SalesView.tsx",
+        "src/shared/commandCatalog.ts"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-Q07",
+      "classification": "VALID",
+      "evidence_found": "IssueSidecar.tsx line 49: canDispute = Boolean(row.invoiceId) — 'Open dispute' via createCorrectionJournalEntry is accessible from the Issue tab when the row has an invoiceId. However there is no 'view dispute' link (no link to the existing dispute record, no badge showing dispute exists, no navigation to the dispute in InvoiceDisputesView). Half of the audit ask is met (open) but view-existing is absent. The fix as written ('Open dispute / view dispute') is still needed.",
+      "predicted_files": [
+        "src/client/components/IssueSidecar.tsx",
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-Q08",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx line 3128: <h1 className=\"page-title\">{activeTabLabel}</h1> and line 3129: <p className=\"page-subtitle\">System review, audit history, and archive controls for managers.</p> — the subtitle is generic and does not adapt to the active tab. Titles show raw tab labels (Requests, Archive, Action log) without 'Settings — ' prefix, matching the audit's description.",
+      "corrected_scope": "Depends on UX-A13 canonicalization per audit text, but the title issue itself is independently fixable.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-Q09",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Audit line 268 explicitly marks this item: '[Out of scope this run per decisions]'. Decisions header item 1 lists U05-U12 out of scope; U11 = Pricing Rules Chain Manager = Q09/CAP-030. Item text itself ends with the bracketed out-of-scope note.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-R01",
+      "classification": "VALID",
+      "evidence_found": "MobileShell.tsx NAV_TABS (lines 51-57) contains exactly five tabs: dashboard, inventory, catalog, payments, contacts. No pick or fulfillment tab. App.tsx mobile routes (lines 164-172) show only dashboard, inventory, catalog, payments, contacts, contacts/:id under /mobile/*. PickView is mounted only under the desktop shell at path 'pick' (App.tsx:200). This is identical to the L01 claim. Audit marks R01 as 'see UX-L01'.",
+      "predicted_files": [
+        "src/client/components/mobile/MobileShell.tsx",
+        "src/client/App.tsx",
+        "src/client/views/PickView.tsx"
+      ],
+      "collision_keys": [
+        "MobileShell.tsx",
+        "App.tsx"
+      ]
+    },
+    {
+      "id": "UX-R02",
+      "classification": "VALID",
+      "evidence_found": "No MobileIntakeView file exists anywhere in src/client/views/mobile/ (directory contains only MobileDashboardView, MobileInventoryView, MobileCatalogView, MobilePaymentsView, MobileContactsView, MobileContactProfileView and their tests). No /mobile/intake route is registered in App.tsx. Decision 7 confirms this should be scoped.",
+      "predicted_files": [
+        "src/client/views/mobile/MobileIntakeView.tsx",
+        "src/client/components/mobile/MobileShell.tsx",
+        "src/client/App.tsx"
+      ],
+      "collision_keys": [
+        "MobileShell.tsx",
+        "App.tsx"
+      ]
+    },
+    {
+      "id": "UX-R03",
+      "classification": "VALID",
+      "evidence_found": "MobileCatalogView.tsx renders unitPrice (line 121, 172) and vendor (line 174) but no cost, margin, landedCost, or purchaseCost fields — customer-safe gate is met (no internal financials exposed). However, no 'copy offer' feature exists: the detail bottom sheet (lines 131-209) has only 'Add Photo' CTA and 'View in Inventory' link. UX-F01 (copy offer) is not yet landed, so the shared util is not available. The safety-gate part is ALREADY_FIXED but the 'copy offer' dependency remains outstanding per the audit's stated condition.",
+      "corrected_scope": "Split into two sub-checks: (a) customer-safe gate — already satisfied; (b) copy offer — depends on UX-F01, not yet landed. Fix as written should be scoped to adding copy offer once F01 ships.",
+      "predicted_files": [
+        "src/client/views/mobile/MobileCatalogView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-R04",
+      "classification": "VALID",
+      "evidence_found": "App.tsx lines 82-92: auto-redirect runs once on mount and unconditionally navigates to '/mobile/dashboard' for viewports under 768px without localStorage flag. No desktop-to-mobile route mapping exists anywhere in App.tsx or MobileShell.tsx. Deep links to /payments on a phone redirect to /mobile/dashboard, losing /mobile/payments. Deep links to /contacts/:id redirect to /mobile/dashboard, losing /mobile/contacts/:id.",
+      "predicted_files": [
+        "src/client/App.tsx"
+      ],
+      "collision_keys": [
+        "App.tsx"
+      ]
+    },
+    {
+      "id": "UX-R05",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "MobilePaymentsView.tsx line 176 calls runCommand('logPayment', {...}) for Receive Payment (Money In) and line 216 calls runCommand('recordVendorPayment', {...}) for Pay Vendor. The view is not read-only — it has full payment entry forms for both inbound and outbound. No labeling needed as the audit's concern ('if read-only, label it so') does not apply.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-R06",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "This is a P3 item per §R (UX-R06 [P3·S]). Additionally, MobileShell.tsx lines 92-104 already render a 'Desktop' link in the mobile header that calls localStorage.setItem('terp-prefer-desktop', 'true') — the toggle exists and is exposed. UX-B09 which this references is also P3. The core ask is already implemented in the mobile header.",
+      "corrected_scope": "Evidence shows the toggle is already present in MobileShell.tsx header (line 94). The item is both P3/tracked-only AND appears to already be implemented.",
+      "predicted_files": [],
+      "collision_keys": [
+        "MobileShell.tsx"
+      ]
+    },
+    {
+      "id": "UX-S01",
+      "classification": "VALID",
+      "evidence_found": "10 .a11y.test.tsx files exist (the audit's '~6 dialogs + Dashboard' baseline has grown to include SavedFiltersDropdown, SavedFiltersManager, and Shell.sideNavAriaCurrent). However, the four required contract gaps remain: (1) StatusActionBar tray menu roles are tested in StatusActionBar.test.tsx (covers aria-haspopup, aria-expanded, role='menu', role='menuitem') but NOT as a per-view .a11y.test.tsx; (2) InspectorDrawer tab semantics are tested in InspectorDrawer.test.tsx (covers role='tablist', role='tab', aria-selected, role='tabpanel') but NOT per-view; (3) FilterPresetStrip aria-pressed is tested in FilterPresetStrip.test.tsx but NOT as a dedicated a11y contract; (4) ToastCenter.test.tsx at src/client/components/ToastCenter.test.tsx tests persistence/dismiss timing but does NOT explicitly assert the aria-live announcement region content (the comment at line 89 acknowledges the region exists but queries the button, not the sr-only div). Shell.sideNavAriaCurrent.a11y.test.tsx covers aria-current but not the full Keel landmark structure (Shell.tsx:244 shows `<header className='keel' aria-label='Global workspace keel'>` is present but no test asserts it).",
+      "predicted_files": [
+        "src/client/components/templates/StatusActionBar.a11y.test.tsx",
+        "src/client/components/templates/InspectorDrawer.a11y.test.tsx",
+        "src/client/components/templates/FilterPresetStrip.a11y.test.tsx",
+        "src/client/components/ToastCenter.a11y.test.tsx",
+        "src/client/components/Shell.keel.a11y.test.tsx"
+      ],
+      "collision_keys": [
+        "ToastCenter.tsx"
+      ]
+    },
+    {
+      "id": "UX-S02",
+      "classification": "VALID",
+      "evidence_found": "grep for 'aria-keyshortcuts' across entire src/ returns 0 hits. The phase7-keyboard-a11y-audit (docs/roadmap/phase7-keyboard-a11y-audit.md) at K11 identified this gap: 'SideNav hotkey chips render inside nav link <button> but aria-label is not supplemented' and suggested adding aria-keyshortcuts='Meta+1' etc. The Shell.tsx at line 170-172 has data-testid and aria-current on nav items but no aria-keyshortcuts. The Hotkeys.tsx component defines the key bindings (numberViews at lines 8-15) but none of the bound controls carry aria-keyshortcuts. This item depends on the UX-T07 shortcuts registry (enabler) but can be partially addressed independently.",
+      "predicted_files": [
+        "src/client/components/Shell.tsx",
+        "src/client/components/Hotkeys.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-S03",
+      "classification": "VALID",
+      "evidence_found": "IntakeView.tsx buildBatchColumns() at lines 416-419 applies yellow cellStyle ({backgroundColor: '#fef9c3'}) to the intakeQty column when qty differs, and at lines 437-443 applies red cellStyle ({backgroundColor: '#fee2e2'}) to discrepancyReason when mismatch has no reason. The yellow cell additionally has a tooltipValueGetter at lines 421-428 ('Off by X from expected Y') and the red cell has a generic tooltipValueGetter at line 445. However, tooltips are only accessible on hover/focus — they are NOT a persistently visible text or icon alternative. No cell icon (e.g. warning triangle) is rendered alongside the color tint. The legend text at IntakeView.tsx:348 ('Yellow = qty differs from expected · Red = discrepancy reason required') is a paragraph above the grid, not colocated with the cells. The audit's requirement ('also sets a cell icon/text, not tint alone') is unmet for the interactive/persistent dimension.",
+      "predicted_files": [
+        "src/client/views/IntakeView.tsx"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-S04",
+      "classification": "ALREADY_FIXED",
+      "evidence_found": "ReceiptPreviewDrawer.tsx:14 calls `useFocusTrap<HTMLElement>(Boolean(order), onClose)` which stores `previouslyFocusedElement` and restores it in the cleanup effect (useFocusTrap.ts:80-82). This covers the ReceiptPreviewDrawer case. The audit also mentions ExpansionPanel rows, but ExpansionPanel (ExpansionPanel.tsx:13-83) is an inline row-expansion widget with no modal overlay — it does not steal focus from a calling control, so there is no 'return focus' requirement. The InspectorDrawer template (InspectorDrawer.tsx:59) also uses useFocusTrap. The phase7 K5 fix (ReceiptPreviewDrawer) is confirmed addressed in the remediated tree.",
+      "predicted_files": [],
+      "collision_keys": [],
+      "corrected_scope": "The ReceiptPreviewDrawer half is already fixed. ExpansionPanel does not require focus return (it is not a dialog). The fix item as written can be closed for ReceiptPreviewDrawer; the ExpansionPanel portion is a non-issue. If the intent is to flag the ExpansionPanel's role='button' on a div (K12 from phase7), that is a different concern (keyboard pattern) not focus-return."
+    },
+    {
+      "id": "UX-S05",
+      "classification": "VALID",
+      "evidence_found": "OperatorGrid.tsx rowSelection config at lines 214-222: checkboxes: false, headerCheckbox: false — meaning there are NO selection checkboxes to space-toggle, so that part of S05 is a non-issue. The aria-busy={loading} concern (phase7 A7) IS already fixed: OperatorGrid.tsx:587 `<div ref={gridShellRef} className='ag-theme-quartz grid-shell' aria-busy={loading}>`. However, two phase7 leftovers remain: (a) ExpansionPanel.tsx at lines 37 and 64 uses `role='button'` on a div element with tabIndex={0} rather than an actual `<button>` element — the outer container at line 17 has no tabIndex (K12 partial fix), but the inner headers still use div+role=button pattern which is weaker than native button; (b) the phase7 audit also noted that AG Grid's tab-into-header behavior depends on custom tabToNextCell (OperatorGrid.tsx:226-258) which routes only through editable columns — non-editable grid views may leave a keyboard user stranded. SelectionSummary renders as a normal div with aria-live='polite' and standard buttons (SelectionSummary.tsx:67), reachable via Tab after the grid.",
+      "predicted_files": [
+        "src/client/components/ExpansionPanel.tsx",
+        "src/client/components/OperatorGrid.tsx"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx"
+      ]
+    },
+    {
+      "id": "UX-S06",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "UX-S06 is P3. Execution decision 1 states P3 items are tracked-only (UX-T07 is the sole P3 exception). styles.css:868-872 already includes `@media (prefers-reduced-motion: reduce) { .context-drawer { transition-duration: 0ms; } }` for the drawer. styles.css:1144 has `.media-batch-drawer { transition-all duration-200 }` which is not covered by the reduced-motion query, but this CSS is orphaned (T02). The canvas-shell at styles.css:136-142 has no transitions. The partial coverage is noted but the item is P3 and tracked-only.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-T01",
+      "classification": "VALID",
+      "evidence_found": "OperationsViews.tsx is 3,859 lines (confirmed via wc -l). It contains 14 views plus GridJourney and helpers in a single file. The file is at src/client/views/OperationsViews.tsx. The audit's description of merge collision risk is confirmed: multiple items in §H, §K, §M touch this file. The line count matches the audit's cited '3,858 lines' closely (likely a commit-boundary difference of 1 line).",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/views/PurchaseOrdersView.tsx",
+        "src/client/views/VendorPayablesView.tsx",
+        "src/client/views/FulfillmentView.tsx",
+        "src/client/views/RecoveryView.tsx",
+        "src/client/views/CloseoutView.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-T02",
+      "classification": "VALID",
+      "evidence_found": "styles.css at lines 1143-1160 defines 4 CSS rules: .media-batch-drawer, .media-batch-drawer-open, .media-batch-drawer-header, .media-batch-drawer-body. grep across all .tsx files (excluding .test.tsx) finds zero uses of these class names. MediaBatchDrawer.tsx was migrated to use InspectorDrawer template (InspectorDrawer at line 294) and uses media-upload-zone, media-upload-progress classes instead. MediaView.test.tsx uses `data-testid='media-batch-drawer'` (a mock attribute, not the CSS class). The 4 CSS rules are confirmed orphaned.",
+      "predicted_files": [
+        "src/client/styles.css"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-T03",
+      "classification": "VALID",
+      "evidence_found": "Two pre-template primary helpers confirmed: (1) purchaseOrderPrimaryLabel at OperationsViews.tsx:1032 and purchaseOrderPrimaryDisabled at OperationsViews.tsx:1040, called at lines 890, 892, 923, 924. (2) salesPrimaryLabel at SalesView.tsx:1565 (a remnant the audit asks to find via grep), called at SalesView.tsx:1083. SalesView does use StatusActionBar for line-level actions (line 1241+) but the order-level primary still uses the pre-template salesPrimaryLabel pattern with a raw `<button className='primary-button'>`. T03's fix scope includes both the PO helpers (to be removed with H01) and any other *Primary* helper remnants found by grep — salesPrimaryLabel qualifies.",
+      "predicted_files": [
+        "src/client/views/OperationsViews.tsx",
+        "src/client/views/SalesView.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ],
+      "corrected_scope": "Fix as written correctly targets purchaseOrderPrimaryLabel/Disabled. Executor should also address salesPrimaryLabel in SalesView.tsx as the grep-for-remnants step will find it. SalesView order-level primary needs StatusActionBar migration."
+    },
+    {
+      "id": "UX-T04",
+      "classification": "VALID",
+      "evidence_found": "docs/product/work-loops.md line 69: 'Vendor receipt can be generated from selected rows without requiring a formal PO.' — this directly contradicts TER-1658 PO-first policy (execution decision 3). docs/design/spec.md exists but grep for 'superseded' or 'decisions-log' stamps in §10 status tables returns no hits matching status-table corrections — the status tables have not been marked as corrected. The audit cited decisions-log 2026-06-11 Decision 1 as the source of truth; the spec has not been updated. CAP-030 collision (UX-A14) and GRID_COLUMN_AUDIT status are separate doc items under T04 scope.",
+      "predicted_files": [
+        "docs/product/work-loops.md",
+        "docs/design/spec.md"
+      ],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-T05",
+      "classification": "VALID",
+      "evidence_found": "OperatorGrid.tsx props at lines 77-83 define `expansionConfig?: { enabled, actionsRenderer, historyRenderer, childrenRenderer, isRowMaster }`. This supports AG Grid master-detail with ExpansionPanel as the detail renderer — but ExpansionPanel renders tabs+content, NOT a second independent grid with its own column definitions. IntakeView.tsx:2 imports `AgGridReact` directly (not OperatorGrid) and at line 350 instantiates `<AgGridReact<IntakeOrderRow>>` with `masterDetail`, `detailCellRendererParams` containing a full `detailGridOptions` with its own `columnDefs` (buildBatchColumns at line 172). OperatorGrid has no mechanism to pass `detailCellRendererParams.detailGridOptions.columnDefs` — the expansionConfig only supports the ExpansionPanel wrapper. IntakeView cannot be converged onto OperatorGrid without this extension.",
+      "predicted_files": [
+        "src/client/components/OperatorGrid.tsx",
+        "src/client/views/IntakeView.tsx"
+      ],
+      "collision_keys": [
+        "OperatorGrid.tsx"
+      ]
+    },
+    {
+      "id": "UX-T06",
+      "classification": "VALID",
+      "evidence_found": "uiStore.ts:62-66 defines Toast interface as `{ id, message, tone }` with no action field. uiStore.ts:157 defines pushToast signature as `(message: string, tone?: Toast['tone']) => void` — no optional action parameter. ToastCenter.tsx:26-36 renders each toast as a `<button>` with only dismiss onClick — no conditional action button. The audit's fix (extend toast shape with optional `{actionLabel, onAction}`) is not present.",
+      "predicted_files": [
+        "src/client/store/uiStore.ts",
+        "src/client/components/ToastCenter.tsx"
+      ],
+      "collision_keys": [
+        "ToastCenter.tsx",
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-T07",
+      "classification": "VALID",
+      "evidence_found": "No shortcuts registry module exists anywhere in src/. grep for 'shortcutsRegistry', 'ShortcutRegistry', 'combo.*scope.*description', 'ariaTargets' returns zero hits. Hotkeys.tsx defines key bindings as inline imperative logic in a single useEffect (lines 40-183) with no exported data structure. The numberViews record at Hotkeys.tsx:8-15 is the only tabular shortcut data, and it only covers nav hotkeys. There is no single source of truth consumed by Hotkeys, overlay, and nav badges as the audit requires.",
+      "predicted_files": [
+        "src/client/components/shortcuts/shortcutsRegistry.ts",
+        "src/client/components/Hotkeys.tsx",
+        "src/client/components/Shell.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx"
+      ]
+    },
+    {
+      "id": "UX-U01",
+      "classification": "VALID",
+      "evidence_found": "No Timeline tab exists in ContextDrawer.tsx. The drawerTabs map (ContextDrawer.tsx:27-125) covers customer, vendor, lot, order, salesOrder, po, vendorBill, payment, pick, connector, recovery, closeout, report, settings — none has a 'timeline' key. No EntityTimeline component file exists anywhere in src/client. The RelationshipSummaryBody in RelationshipDrawer.tsx:29-45,80-83 does have a 'Copy external-safe status' button (copySafeStatus), which is a narrow partial for N02, but it is scoped to the RelationshipDrawer (not the ContextDrawer Timeline tab) and omits chronological merged event data. The full epic — ContextDrawer Timeline tab with merged chronological events (commands, payments, allocations, fulfillment marks, media publishes) per entity — is absent.",
+      "predicted_files": [
+        "src/client/components/ContextDrawer.tsx",
+        "src/client/components/drawerTabs/EntityTimelineTab.tsx",
+        "src/client/components/RelationshipDrawer.tsx",
+        "src/server/routers/queries.ts"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-U02",
+      "classification": "VALID",
+      "evidence_found": "All constituent items remain unimplemented. A03: Hotkeys.tsx:175-182 still fires confirmSalesOrder/postSalesOrder/allocatePayment on the first row only, no decision-table routing. A07: No '/' key handler exists in Hotkeys.tsx or OperatorGrid.tsx. C01: Zero aria-keyshortcuts attributes in the entire codebase (grep confirms 0 hits); no '?' handler in Hotkeys.tsx; no ShortcutsOverlay or ShortcutsRegistry module found anywhere. C02: No processDataFromClipboard or clipboard paste options in OperatorGrid.tsx or any grid config. C03: No fillHandle or fill-down configuration in any grid file. C04: No gridDensity or density preference in uiStore.ts state or persisted fields; rowHeight hardcoded only in IntakeView.tsx:204-205. C05: Palette quick-start aliases (CommandPalette.tsx:47-53) include 'vendor receipt' and some standard terms but omit north-star vocabulary ('Files', 'OFC', '25 flex', 'Inv Posted', 'Pay/F-up', 'ticket', 'sub', 'iv', 'rich'). C06: InventoryFinderPanel.tsx:844-846 fires add(row) on Enter but does not advance focus to the next row's qty input — partial. T07 shortcuts registry module does not exist.",
+      "predicted_files": [
+        "src/client/components/Hotkeys.tsx",
+        "src/client/components/OperatorGrid.tsx",
+        "src/client/components/CommandPalette.tsx",
+        "src/client/components/InventoryFinderPanel.tsx",
+        "src/client/store/uiStore.ts",
+        "src/client/components/shortcuts/shortcutsRegistry.ts",
+        "src/client/components/ShortcutsOverlay.tsx"
+      ],
+      "collision_keys": [
+        "Hotkeys.tsx",
+        "OperatorGrid.tsx",
+        "CommandPalette.tsx",
+        "uiStore.ts"
+      ]
+    },
+    {
+      "id": "UX-U03",
+      "classification": "VALID",
+      "evidence_found": "No pre-post confidence strip or checklist exists in the codebase. SalesView.tsx has no validation strip before confirmSalesOrder (called at lines 652, 871) or postSalesOrder (called from OrdersView at OperationsViews.tsx:1064). No component matching F02 (credit/duplicate/priced/resolved checklist), F04 (duplicate-source badge on line grid — finder has 'Already in order' chip in InventoryFinderPanel.tsx:875 but not on the sale lines grid itself), or G02 (order-row chip for shared sourceRowKey) was found. K02 gap confirmed: VendorMoneyOutStrip commit() (OperationsViews.tsx:1985-1992) and payBill() (lines 1941-1948) silently auto-schedule before record with no confirm-copy saying 'This will schedule an immediate payout event, then record payment'. StatusActionBar primary for unscheduled bills (line 1956) runs payBill with no warning text.",
+      "predicted_files": [
+        "src/client/views/SalesView.tsx",
+        "src/client/views/OperationsViews.tsx",
+        "src/client/components/SalePrePostStrip.tsx",
+        "src/client/components/ConfirmRoot.tsx"
+      ],
+      "collision_keys": [
+        "OperationsViews.tsx"
+      ]
+    },
+    {
+      "id": "UX-U04",
+      "classification": "VALID",
+      "evidence_found": "No /mobile/pick route exists. App.tsx:164-172 lists all mobile routes: dashboard, inventory, catalog, payments, contacts, contacts/:id — no pick. MobileShell.tsx:51-57 NAV_TABS has exactly 5 tabs (Dashboard/Inventory/Catalog/Payments/Contacts), no Pick tab. PickView is mounted only at the desktop route 'pick' (App.tsx:200) inside AppContent with full SideNav/Keel chrome. PickView.tsx:1 comment reads 'CAP-030 / TER-1513 — Mobile pick route (/pick)' indicating design intent but it is not chrome-free on small viewports and not mounted inside MobileShell. The auto-redirect on App.tsx:86-90 sends <768px viewports to /mobile/dashboard, not to pick. The in-scope deliverable (/mobile/pick as a MobileShell child route with warehouse tab set) is absent. Follow-on items CAP-040/041/042 are out of scope per the audit's own bracket.",
+      "predicted_files": [
+        "src/client/App.tsx",
+        "src/client/components/mobile/MobileShell.tsx",
+        "src/client/views/mobile/MobilePickView.tsx",
+        "src/client/components/pick/QueueScreen.tsx",
+        "src/client/components/pick/PickListScreen.tsx",
+        "src/client/components/pick/PickLineScreen.tsx"
+      ],
+      "collision_keys": [
+        "MobileShell.tsx",
+        "App.tsx"
+      ]
+    },
+    {
+      "id": "UX-U05",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Execution Decision 1 explicitly lists U05-U12 as Wave-8 epics out of scope pending registry row + Evan assessment. The §U annotation confirms '[Out of scope this run]'. U05 = Customer Intelligence epic.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U06",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Execution Decision 1 and §U bracket both exclude U06-U12. U06 = Quick Order Mode epic.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U07",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Execution Decision 1 and §U bracket both exclude U07. U07 = Broker/Referee CRM epic.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U08",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Execution Decision 1 and §U bracket exclude U08. Additionally, Execution Decision 5 (BE-014) says hide the always-zero merge badge — which is the badge-side fix for merge-candidate detection — rather than ship the detection job. U08 = merge-candidate detection job.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U09",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Execution Decision 1 and §U bracket exclude U09. U09 = banner persistence epic.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U10",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Execution Decision 1 and §U bracket exclude U10. U10 = vendor-to-brand identity epic.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U11",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Execution Decision 1 and §U bracket exclude U11. Standing defaults also call out 'Q09/U11 out of scope, tracked'. U11 = Pricing Rules Chain Manager (same as Q09/CAP-030 collision).",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U12",
+      "classification": "OUT_OF_SCOPE",
+      "evidence_found": "Execution Decision 1 and §U bracket exclude U12. U12 = Sales Manager Dashboard epic.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U13",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "P3 item. Execution Decision 4 explicitly states 'U13 stays deferred'. §U bracket also marks U13-U17 as '[P3] tracked only'. U13 = connector posting bridge.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U14",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "P3 item per §U: 'U14 persisted suggestions' listed in the tracked-only bracket alongside U13-U17. No fix prescribed for this run.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U15",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "P3 item per §U: 'U15 realtime grid push' listed in the tracked-only bracket. No fix prescribed for this run.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U16",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "P3 item per §U: 'U16 per-user server-side layout sync' listed in the tracked-only bracket. No fix prescribed for this run.",
+      "predicted_files": [],
+      "collision_keys": []
+    },
+    {
+      "id": "UX-U17",
+      "classification": "TRACKED_ONLY",
+      "evidence_found": "P3 item per §U: 'U17 help overlays' listed in the tracked-only bracket. No fix prescribed for this run.",
+      "predicted_files": [],
+      "collision_keys": []
+    }
+  ]
+}

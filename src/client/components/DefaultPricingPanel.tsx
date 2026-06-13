@@ -128,7 +128,7 @@ export function DefaultPricingPanel() {
         <div className="section-title">Default markup</div>
         <div className="field-inline mt-2">
           <span className="text-zinc-600 text-xs w-20">Basis</span>
-          <select
+          <select aria-label="Basis"
             className="select compact"
             value={basis}
             onChange={(e) => setBasis(e.target.value as 'percent' | 'dollar')}
@@ -140,7 +140,7 @@ export function DefaultPricingPanel() {
         </div>
         <div className="field-inline mt-1">
           <span className="text-zinc-600 text-xs w-20">Amount</span>
-          <input
+          <input aria-label="Amount text"
             className="input compact"
             style={{ width: 90 }}
             type="number"
@@ -191,7 +191,7 @@ export function DefaultPricingPanel() {
                     ) : null}
                   </td>
                   <td>
-                    <select
+                    <select aria-label="Basis"
                       className="select compact"
                       style={{ minWidth: 60 }}
                       value={draft.basis}
@@ -205,7 +205,7 @@ export function DefaultPricingPanel() {
                     </select>
                   </td>
                   <td>
-                    <input
+                    <input aria-label="Amount"
                       className="input compact"
                       style={{ width: 70 }}
                       type="number"
@@ -235,7 +235,7 @@ export function DefaultPricingPanel() {
                       {sub}
                     </td>
                     <td>
-                      <select
+                      <select aria-label="Basis"
                         className="select compact"
                         style={{ minWidth: 60 }}
                         value={subDraft.basis}
@@ -258,7 +258,7 @@ export function DefaultPricingPanel() {
                       </select>
                     </td>
                     <td>
-                      <input
+                      <input aria-label="Amount"
                         className="input compact"
                         style={{ width: 70 }}
                         type="number"
@@ -295,7 +295,7 @@ export function DefaultPricingPanel() {
                   <tr key={`${cat}::add`} className="pricing-add-sub-row">
                     <td colSpan={4}>
                       <div className="flex items-center gap-1 py-0.5">
-                        <select
+                        <select aria-label="Cat"
                           className="select compact"
                           style={{ minWidth: 130 }}
                           value={newSubcategory[cat] ?? ''}
@@ -327,6 +327,7 @@ export function DefaultPricingPanel() {
             <tr className="pricing-add-cat-row">
               <td colSpan={4}>
                 <select
+                  aria-label="Add pricing category"
                   className="select compact"
                   style={{ minWidth: 160 }}
                   value=""

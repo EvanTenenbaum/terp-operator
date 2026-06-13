@@ -59,14 +59,16 @@ describe('RefereeRelationshipDialog', () => {
     window.alert = vi.fn();
   });
 
-  it('renders Cancel and Create buttons with design-system classes', () => {
+  it('renders Cancel and Create buttons (FormDialog footer contract)', () => {
+    // Chrome converged into templates/FormDialog (2026-06 unified template layer).
+    // Per templates.md testing doctrine, view tests assert behavior, not template
+    // chrome — so this asserts the buttons exist and submit gating, not classes.
     renderDialog();
     const cancel = screen.getByRole('button', { name: /cancel/i });
     const create = screen.getByRole('button', { name: /create relationship/i });
-    expect(cancel).toHaveClass('secondary-button');
-    expect(cancel).toHaveClass('compact-action');
-    expect(create).toHaveClass('primary-button');
-    expect(create).toHaveClass('compact-action');
+    expect(cancel).toBeInTheDocument();
+    expect(create).toBeInTheDocument();
+    expect(create).toBeDisabled(); // no entity selected yet
   });
 
   it('wires useFocusTrap on the dialog content div', () => {

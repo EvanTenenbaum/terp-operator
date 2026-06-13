@@ -41,7 +41,7 @@ function moneyish(value: unknown): string {
 function dateish(value: unknown): string {
   if (!value) return '-';
   const d = new Date(String(value));
-  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString();
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('en-US');
 }
 
 export function VendorBillDetailsTab({ vendorBillId, row, role }: VendorBillDetailsTabProps) {

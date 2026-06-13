@@ -6,6 +6,7 @@
 
 | Need | See |
 |---|---|
+| **Shared templates (StatusActionBar, FilterPresetStrip, InspectorDrawer, FormDialog) — check here first** | [components/templates.md](./components/templates.md) |
 | Button patterns | [components/buttons.md](./components/buttons.md) |
 | AG Grid patterns | [components/grids.md](./components/grids.md) |
 | Forms, modals, layouts | [components/forms.md](./components/forms.md), [components/modals.md](./components/modals.md), [components/layouts.md](./components/layouts.md) |

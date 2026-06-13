@@ -1,4 +1,5 @@
 import { Ban, CalendarClock, Check, CheckCircle, ChevronDown, ChevronRight, ClipboardList, CreditCard, FileDown, Landmark, ListChecks, PackageCheck, PackagePlus, Plus, RotateCcw, Send, ShieldCheck, Trash2, Truck, Undo2, XCircle } from 'lucide-react';
+import { boolCol } from '../utils/format';
 import { whyShownCol, type RuleMap } from '../components/columns';
 import { CommandReversalTab } from '../components/drawerTabs/CommandReversalTab';
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
@@ -8,6 +9,8 @@ import type React from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
+import { FilterPresetStrip, StatusActionBar, type StatusActionTable, type InspectorTab } from '../components/templates';
+import { WorkspacePanel } from '../components/WorkspacePanel';
 import { RecordPrepaymentDialog } from '../components/RecordPrepaymentDialog';
 import { DefaultPricingPanel } from '../components/DefaultPricingPanel';
 
@@ -96,9 +99,9 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'notes', editable: true, minWidth: 180 },
     { field: 'invoiceNo', width: 150 },
     { field: 'invoiceStatus', width: 130 },
-    { field: 'packed', editable: true, width: 105 },
-    { field: 'inventoryPosted', headerName: 'Inv Posted', editable: true, width: 125 },
-    { field: 'paymentFollowup', headerName: 'Pay/F-up', editable: true, width: 125 },
+    boolCol('packed', { headerName: 'Packed', editable: true, width: 105 }),
+    boolCol('inventoryPosted', { headerName: 'Inv Posted', editable: true, width: 125 }),
+    boolCol('paymentFollowup', { headerName: 'Pay/F-up', editable: true, width: 125 }),
     { field: 'legacyStatusMarkers', headerName: 'Markers', width: 115 },
     { field: 'validationIssues', headerName: 'Fix', minWidth: 200 },
     { field: 'postedAt', width: 180 },
@@ -205,7 +208,7 @@ const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
     { field: 'status', width: 125 },
     { field: 'unitsPerBag', width: 130 },
     { field: 'labelFormat', width: 120 },
-    { field: 'labelsPrinted', width: 140 },
+    boolCol('labelsPrinted', { headerName: 'Labels Printed', width: 140 }),
     { field: 'manifestPath', minWidth: 220 },
     { field: 'tracking', minWidth: 160 },
     { field: 'lines', width: 90 }
@@ -312,8 +315,6 @@ export function PurchaseOrdersView() {
   const setDrawerState = useUiStore((state) => state.setDrawerState);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const pushToast = useUiStore((state) => state.pushToast);
-  const setGridFilter = useUiStore((state) => state.setGridFilter);
-  const storedGridFilter = useUiStore((state) => state.gridFilters?.purchaseOrders ?? '');
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedPo = selected[0];
   const lines = trpc.queries.purchaseOrderLines.useQuery(
@@ -462,10 +463,6 @@ export function PurchaseOrdersView() {
     }),
     [isRunning, selectedPo?.id, runCommand, canWrite]
   );
-
-  function togglePreset(preset: string) {
-    setGridFilter('purchaseOrders', storedGridFilter === preset ? '' : preset);
-  }
 
   function openAuthoringWorkspace() {
     setAuthoringOpen(true);
@@ -878,23 +875,16 @@ export function PurchaseOrdersView() {
         onCellCommit={canWrite ? updatePoCell : undefined}
         actions={
           <>
-            <div role="group" aria-label="Filter by status">
-              <button type="button" className="secondary-button compact-action"
-                onClick={() => togglePreset('status:draft,approved,ordered,partially_received')}
-                aria-pressed={storedGridFilter === 'status:draft,approved,ordered,partially_received'}>
-                Active
-              </button>
-              <button type="button" className="secondary-button compact-action"
-                onClick={() => togglePreset('status:ordered,partially_received')}
-                aria-pressed={storedGridFilter === 'status:ordered,partially_received'}>
-                Ordered
-              </button>
-              <button type="button" className="secondary-button compact-action"
-                onClick={() => togglePreset('status:finalized')}
-                aria-pressed={storedGridFilter === 'status:finalized'}>
-                Finalized
-              </button>
-            </div>
+            {/* GH #354 presets, now via the shared template */}
+            <FilterPresetStrip
+              view="purchaseOrders"
+              ariaLabel="Filter by status"
+              presets={[
+                { label: 'Active', filter: 'status:draft,approved,ordered,partially_received' },
+                { label: 'Ordered', filter: 'status:ordered,partially_received' },
+                { label: 'Finalized', filter: 'status:finalized' }
+              ]}
+            />
             {canWrite ? (
               <>
                 <button className="primary-button" disabled={!selected.length || isRunning || purchaseOrderPrimaryDisabled(selectedPoStatus)} onClick={runPurchaseOrderPrimary} type="button">
@@ -1057,13 +1047,7 @@ export function OrdersView() {
   const selectedRows = useUiStore((state) => state.selectedRows.orders);
   const selected = selectedRows ?? EMPTY_ROWS;
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
-  // GH #354: filter presets
-  const setGridFilter = useUiStore((state) => state.setGridFilter);
-  const storedGridFilter = useUiStore((state) => state.gridFilters?.orders ?? '');
-  function toggleOrdersPreset(preset: string) {
-    setGridFilter('orders', storedGridFilter === preset ? '' : preset);
-  }
-  const { runCommand } = useCommandRunner();
+  const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
@@ -1102,6 +1086,40 @@ export function OrdersView() {
   const customerRelationships = (reference.data?.refereeRelationships ?? [])
     .filter((rel: any) => rel.entityType === 'customer' && rel.entityId === customerId);
 
+  // Spec §10.4 — status-aware primary decision table for Orders. Every verb
+  // from the former always-on cockpit (Ready, Post, Reprice, Fulfillment,
+  // Pick list, Cancel) remains reachable: it is either the primary for its
+  // status or lives in the tray; the catch-all rule keeps the full verb set
+  // available for mixed/unknown selections (no functionality loss).
+  const act = {
+    confirm: { key: 'confirm', label: 'Confirm', icon: <Check className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => runCommand('confirmSalesOrder', { orderId: rows[0].id }, 'Mark selected order Ready/Confirmed') },
+    post: { key: 'post', label: 'Post', icon: <Send className="h-4 w-4" aria-hidden="true" />, run: () => handlePostOrder() },
+    reprice: { key: 'reprice', label: 'Reprice', icon: <FileDown className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => runCommand('repriceOrder', { orderId: rows[0].id, strategy: 'clearance' }, 'Reprice selected order') },
+    fulfillment: { key: 'fulfillment', label: 'Allocate fulfillment', icon: <Truck className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => runCommand('allocateOrderToFulfillment', { orderId: rows[0].id }, 'Allocate order to fulfillment') },
+    pickList: { key: 'pickList', label: 'Pick list', icon: <ListChecks className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => runCommand('createPickList', { orderId: rows[0].id }, 'Create pick list for selected order') },
+    cancel: { key: 'cancel', label: 'Cancel order', icon: <Undo2 className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => runCommand('cancelSalesOrder', { orderId: rows[0].id }, 'Cancel selected order') },
+    markCloseout: (field: 'packed' | 'inventoryPosted' | 'paymentFollowup', label: string) => ({
+      key: `mark-${field}`,
+      label,
+      icon: <PackageCheck className="h-4 w-4" aria-hidden="true" />,
+      run: (rows: GridRow[]) => runCommand('updateSalesOrderLine', { orderId: rows[0].id, [field]: true }, `Mark order ${label.toLowerCase()}`)
+    })
+  };
+  const flag = (value: unknown) => value === true || value === 'true' || value === 1 || value === '1';
+  const ordersActionTable: StatusActionTable = {
+    rules: [
+      { when: 'draft', primary: act.confirm, tray: [act.reprice, act.cancel] },
+      { when: 'confirmed', primary: act.post, tray: [act.reprice, act.fulfillment, act.pickList, act.cancel] },
+      { when: (row) => row.status === 'posted' && !flag(row.packed), primary: act.markCloseout('packed', 'Mark packed'), tray: [act.fulfillment, act.pickList, act.reprice] },
+      { when: (row) => row.status === 'posted' && flag(row.packed) && !flag(row.inventoryPosted), primary: act.markCloseout('inventoryPosted', 'Mark inv-posted'), tray: [act.fulfillment, act.pickList] },
+      { when: (row) => row.status === 'posted' && flag(row.packed) && flag(row.inventoryPosted) && !flag(row.paymentFollowup), primary: act.markCloseout('paymentFollowup', 'Mark pay/f-up'), tray: [act.pickList] },
+      { when: 'posted', primary: null, tray: [act.pickList, act.fulfillment] },
+      { when: 'fulfilled', primary: null, tray: [act.pickList] },
+      // Catch-all: mixed or unrecognized statuses keep every verb reachable.
+      { when: () => true, primary: null, tray: [act.confirm, act.post, act.reprice, act.fulfillment, act.pickList, act.cancel] }
+    ]
+  };
+
   return (
     <div className="view-stack">
       {canWrite && selectedOrder && customerRelationships.length > 0 ? (
@@ -1130,51 +1148,21 @@ export function OrdersView() {
         onSelectionChange={(rows) => setSelectedRows('orders', rows)}
         onCellCommit={canWrite ? onCellCommit : undefined}
         actions={canWrite ? (
-          <>
-            {/* GH #354: filter presets */}
-            <div role="group" aria-label="Filter by status">
-              <button type="button" className="secondary-button compact-action"
-                onClick={() => toggleOrdersPreset('status:draft,confirmed')}
-                aria-pressed={storedGridFilter === 'status:draft,confirmed'}>
-                All Open
-              </button>
-              <button type="button" className="secondary-button compact-action"
-                onClick={() => toggleOrdersPreset('status:confirmed')}
-                aria-pressed={storedGridFilter === 'status:confirmed'}>
-                Confirmed
-              </button>
-              <button type="button" className="secondary-button compact-action"
-                onClick={() => toggleOrdersPreset(`createdAt:${new Date().toISOString().slice(0, 10)}`)}
-                aria-pressed={storedGridFilter === `createdAt:${new Date().toISOString().slice(0, 10)}`}>
-                Today
-              </button>
-            </div>
-            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('confirmSalesOrder', { orderId: selected[0].id }, 'Mark selected order Ready/Confirmed')} type="button">
-              <Check className="h-4 w-4" aria-hidden="true" />
-              Ready
-            </button>
-            <button className="primary-button" disabled={!selected.length} onClick={handlePostOrder} type="button">
-              <Send className="h-4 w-4" aria-hidden="true" />
-              Post
-            </button>
-            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('repriceOrder', { orderId: selected[0].id, strategy: 'clearance' }, 'Reprice selected order')} type="button">
-              <FileDown className="h-4 w-4" aria-hidden="true" />
-              Reprice
-            </button>
-            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('allocateOrderToFulfillment', { orderId: selected[0].id }, 'Allocate order to fulfillment')} type="button">
-              <Truck className="h-4 w-4" aria-hidden="true" />
-              Fulfillment
-            </button>
-            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('createPickList', { orderId: selected[0].id }, 'Create pick list for selected order')} type="button">
-              <ListChecks className="h-4 w-4" aria-hidden="true" />
-              Pick list
-            </button>
-            <button className="secondary-button" disabled={!selected.length} onClick={() => runCommand('cancelSalesOrder', { orderId: selected[0].id }, 'Cancel selected order')} type="button">
-              <Undo2 className="h-4 w-4" aria-hidden="true" />
-              Cancel
-            </button>
-          </>
+          /* GH #354 presets, now via the shared template */
+          <FilterPresetStrip
+            view="orders"
+            ariaLabel="Filter by status"
+            presets={[
+              { label: 'All Open', filter: 'status:draft,confirmed' },
+              { label: 'Confirmed', filter: 'status:confirmed' },
+              { key: 'today', label: 'Today', filter: () => `createdAt:${new Date().toISOString().slice(0, 10)}` }
+            ]}
+          />
         ) : null}
+        selectionActions={canWrite ? (rows) => (
+          /* Spec §10.4 — status-aware primary + tray in the selection strip */
+          <StatusActionBar rows={rows} table={ordersActionTable} busy={isRunning} />
+        ) : undefined}
       />
     </div>
   );
@@ -1183,12 +1171,6 @@ export function OrdersView() {
 export function PaymentsView() {
   const selectedRows = useUiStore((state) => state.selectedRows.payments);
   const selectedPayment = selectedRows?.[0];
-  // GH #354: filter presets
-  const setGridFilter = useUiStore((state) => state.setGridFilter);
-  const storedGridFilter = useUiStore((state) => state.gridFilters?.payments ?? '');
-  function togglePaymentsPreset(preset: string) {
-    setGridFilter('payments', storedGridFilter === preset ? '' : preset);
-  }
   return (
     <GridJourney
       view="payments"
@@ -1196,33 +1178,69 @@ export function PaymentsView() {
       prelude={() => (
         <>
           <QuickLedgerGrid />
-          <PaymentAllocationTools selectedPayment={selectedPayment} />
-          {selectedPayment?.id ? (
-            <ReceiptPanel kind="payment" paymentId={String(selectedPayment.id)} />
+          {/* Selection-bound allocation tools live in consistent WorkspacePanel
+              chrome (collapsible, focusable) instead of a bare inline panel. */}
+          {selectedPayment ? (
+            <WorkspacePanel panelId="payments-allocations" title="Payment allocations" subtitle="Uses the selected payment row below." headingLevel={2}>
+              <PaymentAllocationTools selectedPayment={selectedPayment} />
+            </WorkspacePanel>
           ) : null}
         </>
       )}
-      actions={(rows, runCommand) => (
+      inspectorTabs={(row) =>
+        row.id
+          ? [
+              {
+                key: 'receipt',
+                label: 'Receipt',
+                render: () => <ReceiptPanel kind="payment" paymentId={String(row.id)} />
+              }
+            ]
+          : []
+      }
+      actions={() => (
         <>
-          {/* GH #354: filter presets */}
-          <div role="group" aria-label="Filter payments">
-            <button type="button" className="secondary-button compact-action"
-              onClick={() => togglePaymentsPreset('status:active')}
-              aria-pressed={storedGridFilter === 'status:active'}>
-              Unpaid
-            </button>
-            <button type="button" className="secondary-button compact-action"
-              onClick={() => togglePaymentsPreset('category:overdue')}
-              aria-pressed={storedGridFilter === 'category:overdue'}>
-              Overdue
-            </button>
-          </div>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('allocatePayment', { paymentId: rows[0].id }, 'Auto-apply payment to oldest open orders')} type="button">
-            <Check className="h-4 w-4" aria-hidden="true" />
-            Auto-apply oldest
-          </button>
+          {/* GH #354 presets, now via the shared template */}
+          <FilterPresetStrip
+            view="payments"
+            ariaLabel="Filter payments"
+            presets={[
+              { label: 'Unpaid', filter: 'status:active' },
+              { label: 'Overdue', filter: 'category:overdue' }
+            ]}
+          />
         </>
       )}
+      selectionActions={(rows, runCommand) => {
+        // Spec §10.5 — status-aware primary for payments. The spec's
+        // unapplied / partially_applied / applied states are NOT payment
+        // statuses (real payments.status: posted | refunded | reversed,
+        // verified in schema + commandBus); applied-ness is derived from
+        // unappliedAmount vs amount, and buyer credits are a direction, not
+        // a status. allocatePayment requires unapplied > 0. Unallocate and
+        // discounts keep their inputs in the allocations WorkspacePanel
+        // (in-page work tool per the templates.md decision rule).
+        const unappliedOf = (row: GridRow) => Number(row.unappliedAmount ?? 0);
+        const amountOf = (row: GridRow) => Math.abs(Number(row.amount ?? 0));
+        const allocate = (label: string) => ({
+          key: 'allocate',
+          label,
+          icon: <Check className="h-4 w-4" aria-hidden="true" />,
+          run: (r: GridRow[]) => runCommand('allocatePayment', { paymentId: r[0].id }, 'Auto-apply payment to oldest open orders')
+        });
+        const paymentsTable: StatusActionTable = {
+          rules: [
+            { when: (row) => ['reversed', 'refunded'].includes(String(row.status ?? '')), primary: null, tray: [] },
+            { when: (row) => unappliedOf(row) > 0 && unappliedOf(row) >= amountOf(row), primary: allocate('Auto-apply oldest'), tray: [] },
+            { when: (row) => unappliedOf(row) > 0, primary: allocate('Allocate remaining'), tray: [] },
+            // Fully applied: unallocate/discount live in the allocations panel.
+            { when: (row) => unappliedOf(row) <= 0, primary: null, tray: [] },
+            // Catch-all: allocation stays reachable on mixed selections.
+            { when: () => true, primary: null, tray: [allocate('Auto-apply oldest')] }
+          ]
+        };
+        return <StatusActionBar rows={rows} table={paymentsTable} />;
+      }}
     />
   );
 }
@@ -1258,12 +1276,10 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
   const preview = allocationPreview.data;
 
   return (
-    <section className="inline-panel">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="section-title">Payment allocations</h2>
-          <p className="mt-1 text-xs text-zinc-600">Uses the selected payment row below.</p>
-        </div>
+    /* Title/subtitle chrome is owned by the wrapping WorkspacePanel
+       ("Payment allocations") — this body keeps only data + controls. */
+    <section>
+      <div className="flex flex-wrap items-center gap-2">
         <span className="selection-pill">{allocations.data?.length ?? 0} allocation(s)</span>
         {/* CAP-004: buyer credit badge */}
         {isBuyerCredit ? (
@@ -1368,12 +1384,6 @@ export function InventoryView() {
     [reference.data?.defaultPricingRule]
   );
   const vendors = reference.data?.vendors ?? [];
-  // GH #354: filter presets
-  const setGridFilter = useUiStore((state) => state.setGridFilter);
-  const storedGridFilter = useUiStore((state) => state.gridFilters?.inventory ?? '');
-  function toggleInventoryPreset(preset: string) {
-    setGridFilter('inventory', storedGridFilter === preset ? '' : preset);
-  }
 
   const inventoryColumns = useMemo<ColDef<GridRow>[]>(
     () => buildInventoryColumns(defaultsRule),
@@ -1386,19 +1396,15 @@ export function InventoryView() {
       title="Inventory Batches"
       columns={inventoryColumns}
       actions={() => (
-        /* GH #354: filter presets */
-        <div role="group" aria-label="Filter inventory">
-          <button type="button" className="secondary-button compact-action"
-            onClick={() => toggleInventoryPreset('arrivalStatus:arrived')}
-            aria-pressed={storedGridFilter === 'arrivalStatus:arrived'}>
-            Available
-          </button>
-          <button type="button" className="secondary-button compact-action"
-            onClick={() => toggleInventoryPreset('ownershipStatus:OFC')}
-            aria-pressed={storedGridFilter === 'ownershipStatus:OFC'}>
-            Office Stock
-          </button>
-        </div>
+        /* GH #354 presets, now via the shared template */
+        <FilterPresetStrip
+          view="inventory"
+          ariaLabel="Filter inventory"
+          presets={[
+            { label: 'Available', filter: 'arrivalStatus:arrived' },
+            { label: 'Office Stock', filter: 'ownershipStatus:OFC', title: 'Office-owned batches (ownershipStatus:OFC)' }
+          ]}
+        />
       )}
       selectionActions={(rows, runCommand) => (
         <InventoryRowActions rows={rows} vendors={vendors} runCommand={runCommand} />
@@ -1909,19 +1915,55 @@ export function VendorPayablesView() {
       columns={vendorMatchColumns}
       prelude={() => (
         <>
-          <VendorMoneyOutStrip selectedBill={selectedBill} />
-          <VendorBillTools selectedBill={selectedBill} />
+          {/* Pre/post-selection band swap (spec §1.4 #2): the payout commit
+              row appears only once a bill is selected — no disabled-control
+              strip before that. Both tools use WorkspacePanel chrome
+              (collapsible, persisted) like Payments allocations. */}
+          {selectedBill ? (
+            <WorkspacePanel panelId="vendors-money-out" title="Record payout" subtitle="Commits against the selected bill." headingLevel={2}>
+              <VendorMoneyOutStrip selectedBill={selectedBill} />
+            </WorkspacePanel>
+          ) : null}
+          <WorkspacePanel panelId="vendors-bill-tools" title="Vendor bill and payout tools" subtitle="Manual bill creation and payout voiding — no selection required." headingLevel={2}>
+            <VendorBillTools selectedBill={selectedBill} />
+          </WorkspacePanel>
         </>
       )}
-      actions={(rows, runCommand) => (
-        <>
-          <button className="primary-button" disabled={!rows.length || vendorPrimaryDisabled(String(rows[0]?.status ?? ''))} onClick={() => runVendorPrimary(rows[0], runCommand)} type="button">
-            {vendorPrimaryIcon(String(rows[0]?.status ?? ''))}
-            {vendorPrimaryLabel(String(rows[0]?.status ?? ''))}
-          </button>
-          <span className="selection-pill">{rows[0] ? `${String(rows[0].billNo ?? 'Bill')} / ${String(rows[0].status ?? 'open')}` : 'Select bill'}</span>
-        </>
-      )}
+      selectionActions={(rows) => {
+        // Spec §10.6 — status-aware primary decision table for vendor bills.
+        // Status values verified against schema + commandBus (NOT the spec's
+        // names): open → approved → scheduled → (partial →) paid, with
+        // 'reversed' from reversals. There is no 'void' BILL status — void
+        // applies to vendor_payments (TER-1517 expansion + VendorBillTools).
+        // recordVendorPayment requires status 'scheduled', so Pay actions on
+        // unscheduled bills schedule first (same sequence as the Money-out
+        // commit row).
+        const payBill = async (bill: GridRow | undefined) => {
+          if (!bill?.id) return;
+          if (String(bill.status ?? '') !== 'scheduled') {
+            const scheduled = await runCommand('scheduleVendorPayment', { vendorBillId: bill.id, scheduledFor: new Date().toISOString() }, 'Auto-schedule before payout');
+            if (!scheduled.ok) return;
+          }
+          await runCommand('recordVendorPayment', { vendorBillId: bill.id }, 'Record vendor payout');
+        };
+        const vAct = {
+          approve: { key: 'approve', label: 'Approve', icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('approveVendorBill', { vendorBillId: r[0].id }, 'Approve vendor bill') },
+          schedule: (label: string) => ({ key: 'schedule', label, icon: <CalendarClock className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('scheduleVendorPayment', { vendorBillId: r[0].id, scheduledFor: new Date(Date.now() + MS_PER_DAY).toISOString() }, 'Schedule vendor payment') }),
+          pay: (label: string) => ({ key: 'pay', label, icon: <Landmark className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => payBill(r[0]) })
+        };
+        const vendorBillTable: StatusActionTable = {
+          rules: [
+            { when: ['open', 'pending'], primary: vAct.approve, tray: [vAct.schedule('Schedule'), vAct.pay('Pay now')] },
+            { when: 'approved', primary: vAct.schedule('Schedule'), tray: [vAct.pay('Pay now')] },
+            { when: 'scheduled', primary: vAct.pay('Pay'), tray: [vAct.schedule('Reschedule')] },
+            { when: 'partial', primary: vAct.pay('Pay remaining'), tray: [vAct.schedule('Reschedule')] },
+            { when: ['paid', 'reversed'], primary: null, tray: [] },
+            // Catch-all: every verb stays reachable on mixed/unknown statuses.
+            { when: () => true, primary: null, tray: [vAct.approve, vAct.schedule('Schedule'), vAct.pay('Pay (schedules first)')] }
+          ]
+        };
+        return <StatusActionBar rows={rows} table={vendorBillTable} busy={isRunning} />;
+      }}
       expansionConfig={vendorBillExpansionConfig}
     />
   );
@@ -2001,37 +2043,6 @@ function moneyBucketLabel(value: string) {
   return labels[value] ?? labelFromToken(value);
 }
 
-function vendorPrimaryLabel(status: string) {
-  if (status === 'approved') return 'Schedule';
-  if (status === 'scheduled') return 'Pay';
-  if (status === 'paid') return 'Paid';
-  return 'Approve';
-}
-
-function vendorPrimaryDisabled(status: string) {
-  return status === 'paid' || status === 'void';
-}
-
-function vendorPrimaryIcon(status: string) {
-  if (status === 'approved') return <CalendarClock className="h-4 w-4" aria-hidden="true" />;
-  if (status === 'scheduled') return <Landmark className="h-4 w-4" aria-hidden="true" />;
-  return <ShieldCheck className="h-4 w-4" aria-hidden="true" />;
-}
-
-function runVendorPrimary(row: GridRow | undefined, runCommand: ReturnType<typeof useCommandRunner>['runCommand']) {
-  if (!row?.id) return;
-  const status = String(row.status ?? '');
-  if (status === 'scheduled') {
-    runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout');
-    return;
-  }
-  if (status === 'approved') {
-    runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + 86400000).toISOString() }, 'Schedule vendor payment');
-    return;
-  }
-  runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill');
-}
-
 function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
   const reference = trpc.queries.reference.useQuery();
   const vendorPayments = trpc.queries.vendorPayments.useQuery({ vendorBillId: selectedBill?.id }, { enabled: Boolean(selectedBill?.id) });
@@ -2045,12 +2056,10 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
   const chosenPaymentId = vendorPaymentId || String(firstPayment?.id ?? '');
 
   return (
-    <section className="inline-panel">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="section-title">Vendor bill and payout tools</h2>
-          <p className="mt-1 text-xs text-zinc-600">Manual bill creation and payout voiding are surfaced here instead of command-palette JSON.</p>
-        </div>
+    /* Title/subtitle chrome is owned by the wrapping WorkspacePanel
+       ("Vendor bill and payout tools") — this body keeps data + controls. */
+    <section>
+      <div className="flex flex-wrap items-center gap-2">
         <span className="selection-pill">{vendorPayments.data?.length ?? 0} payout(s)</span>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -2160,12 +2169,7 @@ export function FulfillmentView() {
   const pickQueueFilters = useUiStore((state) => state.pickQueueFilters);
   const setPickQueueFilter = useUiStore((state) => state.setPickQueueFilter);
   const clearPickQueueFilters = useUiStore((state) => state.clearPickQueueFilters);
-  // GH #354: grid-filter presets for fulfillment ('Active', 'Pending')
-  const setGridFilter = useUiStore((state) => state.setGridFilter);
-  const storedFulfillmentFilter = useUiStore((state) => state.gridFilters?.fulfillment ?? '');
-  function toggleFulfillmentPreset(preset: string) {
-    setGridFilter('fulfillment', storedFulfillmentFilter === preset ? '' : preset);
-  }
+  // GH #354: grid-filter presets now rendered via FilterPresetStrip template
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
   const [alertsPickListId, setAlertsPickListId] = useState<string | null>(null);
 
@@ -2265,24 +2269,16 @@ export function FulfillmentView() {
         }}
         actions={canWrite ?
           <>
-            {/* GH #354: filter presets */}
-            <div role="group" aria-label="Filter fulfillment">
-              <button type="button" className="secondary-button compact-action"
-                onClick={() => toggleFulfillmentPreset('status:in_progress')}
-                aria-pressed={storedFulfillmentFilter === 'status:in_progress'}>
-                Active
-              </button>
-              <button type="button" className="secondary-button compact-action"
-                onClick={() => toggleFulfillmentPreset('status:needs_picking')}
-                aria-pressed={storedFulfillmentFilter === 'status:needs_picking'}>
-                Pending
-              </button>
-            </div>
+            {/* GH #354 presets, now via the shared template */}
+            <FilterPresetStrip
+              view="fulfillment"
+              ariaLabel="Filter fulfillment"
+              presets={[
+                { label: 'Active', filter: 'status:in_progress' },
+                { label: 'Pending', filter: 'status:needs_picking' }
+              ]}
+            />
             <span className={selectedPick ? 'selection-pill' : 'selection-pill warning'}>{selectedPick ? `Showing ${String(selectedPick.pickNo ?? 'pick')}` : 'Select a pick row'}</span>
-            {fulfillmentComplete ? <button className="primary-button" disabled={!selectedPick?.id} onClick={() => runCommand('markOrderFulfilled', { orderId: selectedPick?.orderId, tracking }, 'Mark order fulfilled')} type="button">
-              <PackageCheck className="h-4 w-4" aria-hidden="true" />
-              Fulfilled
-            </button> : null}
             {/* TER-1660: Label printing deferred to backlog. The Print/Labels
                 tray is hidden from the active fulfillment flow; the underlying
                 printLabels command remains in the catalog for future re-enable. */}
@@ -2309,6 +2305,31 @@ export function FulfillmentView() {
             */}
           </>
           : null}
+        selectionActions={canWrite ? (rows) => {
+          // Spec §10.7 — status-aware primary for pick rows. Real pick_lists
+          // statuses are 'open' and 'fulfilled' only (verified in schema +
+          // commandBus); the spec's draft/in_pack/packed/labeled states do
+          // not exist — pack progress is derived from the line grid
+          // (fulfillmentComplete). printLabels stays out of the bar per the
+          // TER-1660 deferral.
+          const fulfillAct = {
+            key: 'fulfilled',
+            label: 'Mark fulfilled',
+            icon: <PackageCheck className="h-4 w-4" aria-hidden="true" />,
+            disabled: !fulfillmentComplete,
+            disabledReason: 'Pack every line (qty + bag code) below before fulfilling',
+            run: (r: GridRow[]) => runCommand('markOrderFulfilled', { orderId: r[0]?.orderId, tracking }, 'Mark order fulfilled')
+          };
+          const pickTable: StatusActionTable = {
+            rules: [
+              { when: 'open', primary: fulfillAct, tray: [] },
+              { when: 'fulfilled', primary: null, tray: [] },
+              // Catch-all: the verb stays reachable for unknown statuses.
+              { when: () => true, primary: null, tray: [fulfillAct] }
+            ]
+          };
+          return <StatusActionBar rows={rows} table={pickTable} busy={isRunning} />;
+        } : undefined}
       />
       {canWrite && line ? (
         <div className="control-band fulfillment-pack-strip">
@@ -2403,7 +2424,7 @@ export function FulfillmentView() {
                         Acknowledge
                       </button>
                       <div className="flex gap-1">
-                        <input
+                        <input aria-label="Qty"
                           className="input compact w-16"
                           value={alertReturnQty}
                           inputMode="decimal"
@@ -2507,29 +2528,35 @@ export function ConnectorsView() {
           ) : null}
         </>
       )}
-      actions={(rows, runCommand) => (
-        <>
-          {/* CAP-017 / Phase 4 — Route is the primary action; Approve/Reject are secondary */}
-          <button
-            className="primary-button"
-            disabled={!rows.length || !routedTo.trim()}
-            title={!routedTo.trim() ? 'Enter a destination in "Route to" before routing' : 'Reassign this request to another team or person'}
-            onClick={() => runCommand('routeConnectorRequest', { requestId: rows[0].id, routedTo: routedTo.trim(), operatorNotes }, 'Reassign inbound request')}
-            type="button"
-          >
-            <Truck className="h-4 w-4" aria-hidden="true" />
-            Route
-          </button>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('approveConnectorRequest', { requestId: rows[0].id, operatorNotes }, 'Approve inbound request')} type="button">
-            <Check className="h-4 w-4" aria-hidden="true" />
-            Approve
-          </button>
-          <button className="secondary-button" disabled={!rows.length} onClick={() => runCommand('rejectConnectorRequest', { requestId: rows[0].id, operatorNotes }, 'Reject connector request')} type="button">
-            <Undo2 className="h-4 w-4" aria-hidden="true" />
-            Reject
-          </button>
-        </>
-      )}
+      selectionActions={(rows, runCommand) => {
+        // Spec §10.8 — status-aware actions for inbound requests. Real
+        // connector_requests statuses are 'open' (initial) →
+        // 'routed' | 'approved' | 'rejected' (verified in commandBus); the
+        // spec's 'pending' initial state does not exist. Route remains the
+        // primary verb per the later CAP-017 / Phase 4 decision (Approve and
+        // Reject are secondary).
+        const route = {
+          key: 'route',
+          label: 'Route',
+          icon: <Truck className="h-4 w-4" aria-hidden="true" />,
+          disabled: !routedTo.trim(),
+          disabledReason: 'Enter a destination in "Route to" before routing',
+          run: (r: GridRow[]) => runCommand('routeConnectorRequest', { requestId: r[0].id, routedTo: routedTo.trim(), operatorNotes }, 'Reassign inbound request')
+        };
+        const approve = { key: 'approve', label: 'Approve', icon: <Check className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('approveConnectorRequest', { requestId: r[0].id, operatorNotes }, 'Approve inbound request') };
+        const reject = { key: 'reject', label: 'Reject', icon: <Undo2 className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('rejectConnectorRequest', { requestId: r[0].id, operatorNotes }, 'Reject connector request') };
+        const connectorTable: StatusActionTable = {
+          rules: [
+            { when: ['open', 'pending', 'pending_review'], primary: route, tray: [approve, reject] },
+            { when: 'routed', primary: null, tray: [approve, reject] },
+            { when: 'approved', primary: null, tray: [route, reject] },
+            { when: 'rejected', primary: null, tray: [route, approve] },
+            // Catch-all: all three verbs reachable for mixed/unknown states.
+            { when: () => true, primary: null, tray: [route, approve, reject] }
+          ]
+        };
+        return <StatusActionBar rows={rows} table={connectorTable} />;
+      }}
     />
   );
 }
@@ -2570,7 +2597,7 @@ export function RecoveryView() {
   // inside SettingsView as the "Action log" tab.
   const isStandaloneRecovery = !location.pathname.startsWith('/settings');
   const [q, setQ] = useState('');
-  const [showAdminTools, setShowAdminTools] = useState(false);
+  const [adminTab, setAdminTab] = useState<'backup' | 'correction' | 'findreplace'>('backup');
   const [backupId, setBackupId] = useState('');
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [amount, setAmount] = useState('0');
@@ -2610,30 +2637,70 @@ export function RecoveryView() {
           Search
           <input className="input" value={q} onChange={(event) => setQ(event.target.value)} />
         </label>
-        <button className="secondary-button compact-action" type="button" onClick={() => setShowAdminTools((value) => !value)} aria-expanded={showAdminTools}>
-          {showAdminTools ? 'Hide admin tools' : 'Admin tools'}
-        </button>
+
       </div>
-      {showAdminTools ? (
-        <>
-          <div className="control-band subtle-band">
-            <button className="secondary-button" type="button" onClick={() => support.refetch().then((result) => downloadJson('terp-agro-support-packet.json', result.data))}>
-              <FileDown className="h-4 w-4" aria-hidden="true" />
-              Export support
-            </button>
-            <select className="select" value={backupId} onChange={(event) => setBackupId(event.target.value)}>
-              <option value="">Backup preview</option>
-              {reference.data?.backupSnapshots.map((snapshot) => (
-                <option key={snapshot.id} value={snapshot.id}>
-                  {snapshot.label}
-                </option>
-              ))}
-            </select>
-            <button className="secondary-button" type="button" disabled={!backupId} onClick={() => runCommand('restoreFromBackupPoint', { backupId }, 'Read-only backup restore preview')}>
-              Restore preview
-            </button>
+      <WorkspacePanel panelId="recovery-admin-tools" title="Admin tools" headingLevel={2}>
+        {/* Tab nav */}
+        <div className="inspector-tabs border-b border-line mb-3" role="tablist" aria-label="Admin tool sections">
+          {(['backup', 'correction', 'findreplace'] as const).map((tab) => {
+            const labels = { backup: 'Backup & support', correction: 'Correction', findreplace: 'Find & replace' };
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={adminTab === tab}
+                className={`inspector-tab${adminTab === tab ? ' active' : ''}`}
+                tabIndex={adminTab === tab ? 0 : -1}
+                onClick={() => setAdminTab(tab)}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Backup & support tab */}
+        {adminTab === 'backup' && (
+          <div role="tabpanel" aria-label="Backup and support" className="space-y-3 p-1">
+            <div className="control-band subtle-band">
+              <button className="secondary-button" type="button" onClick={() => support.refetch().then((result) => downloadJson('terp-agro-support-packet.json', result.data))}>
+                <FileDown className="h-4 w-4" aria-hidden="true" />
+                Export support
+              </button>
+              <select aria-label="Backup id" className="select" value={backupId} onChange={(event) => setBackupId(event.target.value)}>
+                <option value="">Backup preview</option>
+                {reference.data?.backupSnapshots.map((snapshot) => (
+                  <option key={snapshot.id} value={snapshot.id}>
+                    {snapshot.label}
+                  </option>
+                ))}
+              </select>
+              <button className="secondary-button" type="button" disabled={!backupId} onClick={() => runCommand('restoreFromBackupPoint', { backupId }, 'Read-only backup restore preview')}>
+                Restore preview
+              </button>
+            </div>
+            {diff.data ? (
+              <div className="border border-line bg-white p-3">
+                <h3 className="section-title mb-2">Snapshot diff</h3>
+                <div className="grid gap-1 text-sm">
+                  {diff.data.rows.map((row) => (
+                    <div key={row.key} className="activity-row">
+                      <span>{row.key}</span>
+                      <span>backup {row.backup}</span>
+                      <span>current {row.current}</span>
+                      <span>delta {row.delta}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-          <div className="control-band subtle-band">
+        )}
+
+        {/* Correction tab */}
+        {adminTab === 'correction' && (
+          <div role="tabpanel" aria-label="Correction" className="control-band subtle-band">
             {/* K3/A9: explicit id+htmlFor so keyboard users know which input they are in */}
             <label className="field-inline" htmlFor="recovery-period">
               Period
@@ -2652,52 +2719,75 @@ export function RecoveryView() {
               Correction
             </button>
           </div>
-          <div className="control-band subtle-band">
-            <label className="field-inline">
-              Find in
-              <select className="select compact" value={replaceTable} onChange={(event) => setReplaceTable(event.target.value as typeof replaceTable)}>
-                <option value="batches">Inventory Batches</option>
-                <option value="customers">Customers</option>
-                <option value="vendors">Vendors</option>
-                <option value="sales_orders">Sales Orders</option>
-                <option value="connector_requests">Inbound Requests</option>
-              </select>
-            </label>
-            <label className="field-inline">
-              Find value
-              <input className="input compact" value={findText} onChange={(event) => setFindText(event.target.value)} />
-            </label>
-            <label className="field-inline">
-              Replace with
-              <input className="input compact" value={replaceText} onChange={(event) => setReplaceText(event.target.value)} />
-            </label>
-            <label className="field-inline">
-              Confirm
-              <input className="input compact" value={replaceConfirm} placeholder="Type REPLACE" onChange={(event) => setReplaceConfirm(event.target.value)} />
-            </label>
-            <span className="selection-pill">{findReplace.data?.count ? `${findReplace.data.count} matching row(s)` : 'No matching rows'}</span>
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={!findText || !findReplace.data?.count || replaceConfirm !== 'REPLACE'}
-              onClick={() =>
-                runCommand(
-                  'createCorrectionJournalEntry',
-                  {
-                    period,
-                    amount: 0,
-                    memo: `Find and replace ${findText} -> ${replaceText} in ${replaceTable}`,
-                    findReplace: { table: replaceTable, find: findText, replacement: replaceText }
-                  },
-                  'Action log find and replace with preview'
-                )
-              }
-            >
-              Apply previewed replace
-            </button>
+        )}
+
+        {/* Find & replace tab */}
+        {adminTab === 'findreplace' && (
+          <div role="tabpanel" aria-label="Find and replace" className="space-y-3 p-1">
+            <div className="control-band subtle-band">
+              <label className="field-inline">
+                Find in
+                <select className="select compact" value={replaceTable} onChange={(event) => setReplaceTable(event.target.value as typeof replaceTable)}>
+                  <option value="batches">Inventory Batches</option>
+                  <option value="customers">Customers</option>
+                  <option value="vendors">Vendors</option>
+                  <option value="sales_orders">Sales Orders</option>
+                  <option value="connector_requests">Inbound Requests</option>
+                </select>
+              </label>
+              <label className="field-inline">
+                Find value
+                <input className="input compact" value={findText} onChange={(event) => setFindText(event.target.value)} />
+              </label>
+              <label className="field-inline">
+                Replace with
+                <input className="input compact" value={replaceText} onChange={(event) => setReplaceText(event.target.value)} />
+              </label>
+              <label className="field-inline">
+                Confirm
+                <input className="input compact" value={replaceConfirm} placeholder="Type REPLACE" onChange={(event) => setReplaceConfirm(event.target.value)} />
+              </label>
+              <span className="selection-pill">{findReplace.data?.count ? `${findReplace.data.count} matching row(s)` : 'No matching rows'}</span>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={!findText || !findReplace.data?.count || replaceConfirm !== 'REPLACE'}
+                onClick={() =>
+                  runCommand(
+                    'createCorrectionJournalEntry',
+                    {
+                      period,
+                      amount: 0,
+                      memo: `Find and replace ${findText} -> ${replaceText} in ${replaceTable}`,
+                      findReplace: { table: replaceTable, find: findText, replacement: replaceText }
+                    },
+                    'Action log find and replace with preview'
+                  )
+                }
+              >
+                Apply previewed replace
+              </button>
+            </div>
+            {findReplace.data?.rows.length ? (
+              <div className="inline-panel">
+                <h3 className="section-title mb-2">Find / replace preview</h3>
+                <div className="grid gap-2 text-xs">
+                  {findReplace.data.rows.slice(0, 8).map((row) => (
+                    <div key={row.id} className="border border-line bg-panel p-2">
+                      <strong>{row.id}</strong>
+                      {row.matches.map((match) => (
+                        <div key={match.field} className="mt-1">
+                          {match.field}: {String(match.before)} {'->'}  {String(match.after)}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-        </>
-      ) : null}
+        )}
+      </WorkspacePanel>
       <OperatorGrid
         view="recovery"
         title="Action Log"
@@ -2707,12 +2797,35 @@ export function RecoveryView() {
         onSelectionChange={(selection) => setSelectedRows('recovery', selection)}
         emptyTitle="No recent actions"
         emptyChildren="Recent commands will appear here automatically. Use search when you need a specific row, person, or action."
-        actions={
-          <button className="secondary-button" disabled={!selected || selected.status !== 'failed'} onClick={() => runCommand(String(selected?.commandName) as CommandName, payloadObject(selected?.inputPayload), 'Retry failed command')} type="button">
-            <Send className="h-4 w-4" aria-hidden="true" />
-            Retry
-          </button>
-        }
+        selectionActions={(rows) => {
+          // Spec §10.9 — status table for the action log. Real command_journal
+          // statuses are pending | ok | failed; "reversed" is ok +
+          // reversedByCommandId set (verified in commandBus). Retry replays
+          // the original command name with its stored input_payload. Reverse
+          // is intentionally NOT a one-click primary here: reverseCommandById
+          // is destructive and its designed home is the TER-1521 confirm-flow
+          // reversal panel below the grid (spec §10.9 predates TER-1521).
+          const allFailed = rows.every((row) => String(row.status ?? '') === 'failed');
+          const retry = {
+            key: 'retry',
+            label: 'Retry',
+            icon: <Send className="h-4 w-4" aria-hidden="true" />,
+            disabled: !allFailed,
+            disabledReason: 'Retry applies to failed commands only',
+            run: (r: GridRow[]) => runCommand(String(r[0]?.commandName) as CommandName, payloadObject(r[0]?.inputPayload), 'Retry failed command')
+          };
+          const recoveryTable: StatusActionTable = {
+            rules: [
+              { when: 'failed', primary: retry, tray: [] },
+              // ok rows: reversal runs through the confirm-flow panel below.
+              { when: ['ok', 'pending'], primary: null, tray: [] },
+              // Catch-all: Retry stays reachable (disabled-with-reason when
+              // the selection is not all-failed).
+              { when: () => true, primary: null, tray: [retry] }
+            ]
+          };
+          return <StatusActionBar rows={rows} table={recoveryTable} />;
+        }}
       />
       {/* CAP-009 / Phase 5 — reversal preview panel (CMD-RECOVERY TER-1521) */}
       {selected ? (
@@ -2729,38 +2842,7 @@ export function RecoveryView() {
           <CommandReversalTab commandId={String(selected.id)} />
         </section>
       ) : null}
-      {showAdminTools && diff.data ? (
-        <section className="border border-line bg-white p-3">
-          <h2 className="section-title">Snapshot diff</h2>
-          <div className="mt-2 grid gap-1 text-sm">
-            {diff.data.rows.map((row) => (
-              <div key={row.key} className="activity-row">
-                <span>{row.key}</span>
-                <span>backup {row.backup}</span>
-                <span>current {row.current}</span>
-                <span>delta {row.delta}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      {showAdminTools && findReplace.data?.rows.length ? (
-        <section className="inline-panel">
-          <h2 className="section-title">Find / replace preview</h2>
-          <div className="mt-2 grid gap-2 text-xs">
-            {findReplace.data.rows.slice(0, 8).map((row) => (
-              <div key={row.id} className="border border-line bg-panel p-2">
-                <strong>{row.id}</strong>
-                {row.matches.map((match) => (
-                  <div key={match.field} className="mt-1">
-                    {match.field}: {String(match.before)} {'->'} {String(match.after)}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+
     </div>
   );
 }
@@ -2823,7 +2905,7 @@ export function CloseoutView() {
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [expandedBlocker, setExpandedBlocker] = useState<string | null>(null);
   const preview = trpc.queries.closeoutPreview.useQuery({ period });
-  const { runCommand } = useCommandRunner();
+  const { runCommand, isRunning } = useCommandRunner();
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
   const setGridFilter = useUiStore((state) => state.setGridFilter);
@@ -2831,7 +2913,6 @@ export function CloseoutView() {
   const blockers = preview.data?.blockers ?? [];
   const openWorkCount = preview.data?.openWorkCount ?? preview.data?.unsafeRows ?? 0;
   const readiness = closeoutReadiness(preview.data?.locked, openWorkCount);
-  const lockDisabled = openWorkCount > 0 || Boolean(preview.data?.locked);
   const blockerRows = trpc.queries.closeoutBlockerRows.useQuery(
     { period, blockerId: expandedBlocker ?? '' },
     { enabled: Boolean(expandedBlocker) }
@@ -2851,29 +2932,58 @@ export function CloseoutView() {
           Period
           <input className="input compact" value={period} onChange={(event) => setPeriod(event.target.value)} />
         </label>
-        <button className={openWorkCount > 0 ? 'secondary-button compact-action' : 'text-button compact-action'} type="button" onClick={() => openBlocker(blockers[0]?.id)}>
-          Open work: {openWorkCount}
-        </button>
+        <span className="selection-pill">Open work: {openWorkCount}</span>
         <span className={`selection-pill ${readiness.tone}`}>{readiness.label}</span>
         <span className="text-sm text-zinc-700">Batches: {controlTotals.batches ?? 0}</span>
         <span className="text-sm text-zinc-700">Sales: {controlTotals.salesOrders ?? 0}</span>
         <span className="text-sm text-zinc-700">POs: {controlTotals.purchaseOrders ?? 0}</span>
         <span className="text-sm text-zinc-700">Commands: {controlTotals.commands ?? 0}</span>
-        <button className="secondary-button" type="button" onClick={() => setShowAdjustment((value) => !value)}>
-          {showAdjustment ? 'Hide adjustment' : 'Adjustment'}
-        </button>
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={lockDisabled}
-          title={openWorkCount > 0 ? 'Review open work before locking this period.' : preview.data?.locked ? 'This period is already locked.' : undefined}
-          onClick={() => runCommand('lockPeriod', { period }, 'Lock closeout period')}
-        >
-          Lock period
-        </button>
-        <button className="primary-button" type="button" disabled={!preview.data?.locked || openWorkCount > 0} onClick={() => runCommand('archivePeriod', { period, verified: true }, 'Archive locked period')}>
-          Archive
-        </button>
+        {(() => {
+          // Spec §10.10 — status-aware primary for the closeout period. The
+          // period is not a grid row, so the band feeds the same decision
+          // engine a synthetic row (status: open | locked from
+          // closeoutPreview). With open work the primary becomes the amber
+          // "Fix unsafe rows (N)" warning-tone action; Lock and Archive stay
+          // visible in the tray (disabled-with-reason) so no verb is lost.
+          const fixUnsafe = {
+            key: 'fix-unsafe',
+            label: `Fix unsafe rows (${openWorkCount})`,
+            tone: 'warning' as const,
+            run: () => openBlocker(blockers[0]?.id)
+          };
+          const lock = (disabled: boolean) => ({
+            key: 'lock',
+            label: 'Lock period',
+            disabled,
+            disabledReason: 'Review open work before locking this period',
+            run: () => runCommand('lockPeriod', { period }, 'Lock closeout period')
+          });
+          const archive = (disabled: boolean, reason: string) => ({
+            key: 'archive',
+            label: 'Archive',
+            icon: <FileDown className="h-4 w-4" aria-hidden="true" />,
+            disabled,
+            disabledReason: reason,
+            run: () => runCommand('archivePeriod', { period, verified: true }, 'Archive locked period')
+          });
+          const adjust = {
+            key: 'adjust',
+            label: showAdjustment ? 'Hide adjustment' : 'Adjustment',
+            run: () => setShowAdjustment((value) => !value)
+          };
+          const closeoutTable: StatusActionTable = {
+            rules: [
+              { when: (row) => row.status === 'open' && openWorkCount > 0, primary: fixUnsafe, tray: [adjust, lock(true), archive(true, 'Lock the period first')] },
+              { when: 'open', primary: lock(false), tray: [adjust, archive(true, 'Lock the period first')] },
+              { when: (row) => row.status === 'locked' && openWorkCount > 0, primary: fixUnsafe, tray: [adjust, archive(true, 'Review open work before archiving')] },
+              { when: 'locked', primary: archive(false, ''), tray: [adjust] },
+              // Catch-all: every closeout verb stays reachable.
+              { when: () => true, primary: null, tray: [fixUnsafe, lock(false), archive(false, ''), adjust] }
+            ]
+          };
+          const periodRow: GridRow = { id: period, status: preview.data?.locked ? 'locked' : 'open' };
+          return <StatusActionBar rows={[periodRow]} table={closeoutTable} busy={isRunning} />;
+        })()}
       </div>
       {showAdjustment ? (
         <div className="control-band subtle-band">
@@ -3335,7 +3445,7 @@ function SystemSettingsPanel() {
                     <td className="font-mono text-xs">{s.key}</td>
                     <td>
                       {isEditing ? (
-                        <textarea
+                        <textarea aria-label="Edit text"
                           className="input w-full"
                           rows={Math.max(3, editText.split('\n').length)}
                           style={{ fontFamily: 'monospace', fontSize: '12px' }}
@@ -3536,7 +3646,7 @@ function CreditEngineSettingsPanel() {
                   <tbody>
                     {configHistory.data.map((entry) => (
                       <tr key={entry.id}>
-                        <td>{new Date(entry.changedAt).toLocaleString()}</td>
+                        <td>{new Date(entry.changedAt).toLocaleString('en-US')}</td>
                         <td>{entry.changedByName || entry.changedByEmail}</td>
                         <td>{changedFieldsSummary(entry.preState as Record<string, unknown>, entry.postState as Record<string, unknown>)}</td>
                       </tr>
@@ -3570,7 +3680,7 @@ function CreditEngineSettingsPanel() {
                   <tbody>
                     {stanceHistory.data.map((entry) => (
                       <tr key={entry.id}>
-                        <td>{new Date(entry.changedAt).toLocaleString()}</td>
+                        <td>{new Date(entry.changedAt).toLocaleString('en-US')}</td>
                         <td>{entry.stanceName}</td>
                         <td className="font-mono text-xs">{entry.action}</td>
                         <td>{entry.changedByName || entry.changedByEmail}</td>
@@ -3598,7 +3708,8 @@ function GridJourney({
   onCellCommit,
   expansionConfig,
   columns,
-  selectionActions
+  selectionActions,
+  inspectorTabs
 }: {
   view: Exclude<ViewKey, 'dashboard' | 'intake' | 'sales' | 'reports' | 'settings' | 'credit-review' | 'pick' | 'contacts' | 'contacts-customer-orders'>;
   title: string;
@@ -3614,6 +3725,7 @@ function GridJourney({
   };
   columns?: ColDef<GridRow>[];
   selectionActions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand']) => React.ReactNode;
+  inspectorTabs?: (row: GridRow) => InspectorTab[];
 }) {
   const grid = trpc.queries.grid.useQuery({ view });
   const selectedRows = useUiStore((state) => state.selectedRows[view]);
@@ -3637,6 +3749,7 @@ function GridJourney({
         onCellCommit={(event) => onCellCommit?.(event, runCommand)}
         actions={canWrite ? actions?.(selected, runCommand) : null}
         selectionActions={canWrite && selectionActions ? (rows) => selectionActions(rows, runCommand) : undefined}
+        inspectorTabs={inspectorTabs}
         expansionConfig={canWrite ? expansionConfig : undefined}
       />
     </div>
@@ -3742,5 +3855,5 @@ function moneyish(value: unknown) {
 function dateish(value: unknown) {
   if (!value) return '-';
   const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('en-US');
 }

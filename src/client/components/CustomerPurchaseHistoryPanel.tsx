@@ -23,13 +23,13 @@ interface CustomerPurchaseHistoryPanelProps {
 function moneyish(value: unknown): string {
   const n = Number(value ?? 0);
   return Number.isFinite(n)
-    ? n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+    ? n.toLocaleString('en-US', { maximumFractionDigits: 2 })
     : '0';
 }
 
 function qtyish(value: unknown): string {
   const n = Number(value ?? 0);
-  return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 3 }) : '0';
+  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 3 }) : '0';
 }
 
 function statusLabel(status: string | null | undefined): string {
@@ -126,7 +126,7 @@ export function CustomerPurchaseHistoryPanel({ customerId, customerName }: Custo
                   {filtered.map((row) => (
                     <tr key={row.id}>
                       <td className="font-medium">{row.orderNo ?? '-'}</td>
-                      <td>{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '-'}</td>
+                      <td>{row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-US') : '-'}</td>
                       <td>{row.itemAlias ?? '-'}</td>
                       <td>{row.itemName ?? '-'}</td>
                       <td>{row.vendor ?? '-'}</td>

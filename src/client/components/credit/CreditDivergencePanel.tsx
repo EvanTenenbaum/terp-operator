@@ -117,9 +117,9 @@ export function CreditDivergencePanel() {
               {rows.map((row) => (
                 <tr key={row.customerId}>
                   <td className="py-2 pr-4 font-medium text-zinc-900">{row.customerName}</td>
-                  <td className="py-2 pr-4 text-zinc-700">${row.currentLimit.toLocaleString()}</td>
+                  <td className="py-2 pr-4 text-zinc-700">${row.currentLimit.toLocaleString('en-US')}</td>
                   <td className="py-2 pr-4 text-zinc-700">
-                    {row.engineRecommendation !== null ? `$${row.engineRecommendation.toLocaleString()}` : '—'}
+                    {row.engineRecommendation !== null ? `$${row.engineRecommendation.toLocaleString('en-US')}` : '—'}
                   </td>
                   <td className="py-2 pr-4 text-zinc-700">
                     {row.deltaAbs !== 0 ? `${row.deltaPct >= 0 ? '+' : ''}${row.deltaPct.toFixed(1)}%` : '—'}

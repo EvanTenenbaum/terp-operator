@@ -118,7 +118,7 @@ export function MobileCatalogView() {
                   <p className="truncate text-xs font-semibold" style={{ color: 'var(--m-ink)' }}>{name}</p>
                   <p className="font-mono text-xs" style={{ color: 'var(--m-muted-2)' }}>{String(row.batchCode ?? '')}</p>
                   <p className="text-xs" style={{ color: 'var(--m-muted)' }}>
-                    {Number(row.availableQty ?? 0)} lb · ${Number(row.unitPrice ?? 0).toLocaleString()}
+                    {Number(row.availableQty ?? 0)} lb · ${Number(row.unitPrice ?? 0).toLocaleString('en-US')}
                   </p>
                 </div>
               </button>
@@ -169,7 +169,7 @@ export function MobileCatalogView() {
                 <div className="mt-3 grid grid-cols-2 gap-y-3 text-sm">
                   {([
                     ['Available', `${activeRow.availableQty} lb`],
-                    ['Unit Price', `$${Number(activeRow.unitPrice ?? 0).toLocaleString()}`],
+                    ['Unit Price', `$${Number(activeRow.unitPrice ?? 0).toLocaleString('en-US')}`],
                     ['Status',    String(activeRow.status  ?? '—')],
                     ['Vendor',    String(activeRow.vendor  ?? '—')],
                   ] as const).map(([label, val]) => (

@@ -145,9 +145,9 @@ export function CreditReviewView() {
               {rows.map((row) => (
                 <tr key={row.customerId} className="border-b border-line hover:bg-panel">
                   <th scope="row" className="py-1.5 pr-4 text-left font-medium text-ink">{row.customerName}</th>
-                  <td className="py-1.5 pr-4">${row.creditLimit.toLocaleString()}</td>
+                  <td className="py-1.5 pr-4">${row.creditLimit.toLocaleString('en-US')}</td>
                   <td className="py-1.5 pr-4">
-                    {row.engineRecommendation !== null ? `$${row.engineRecommendation.toLocaleString()}` : '-'}
+                    {row.engineRecommendation !== null ? `$${row.engineRecommendation.toLocaleString('en-US')}` : '-'}
                   </td>
                   <td className="py-1.5 pr-4 capitalize">{row.source}</td>
                   <td className="py-1.5 pr-4">{row.daysSinceReview ?? '-'}</td>
