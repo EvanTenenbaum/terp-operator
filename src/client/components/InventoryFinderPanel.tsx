@@ -307,28 +307,28 @@ export function InventoryFinderPanel({
     [compareIds, rows],
   );
 
-  // TER-1646: batch-fetch last-ordered qty for filtered rows when a customer
-  // is selected in the sales workspace.  tRPC httpBatchLink merges the per-row
-  // queries into a single HTTP request so we stay within the no-new-fetch
-  // guardrail established in TER-1618.
-  const lastOrderedResults = trpc.useQueries((t) =>
-    customerId
-      ? filtered.map((row) =>
-          t.queries.customerLastOrderedQty({ batchId: row.id, customerId }),
-        )
-      : ([] as const),
+  // TER-1646 / SX-A01: Bulk-fetch last-ordered qty for all filtered rows
+  // when a customer is selected. The previous per-row useQueries pattern
+  // exceeded HTTP header limits at ~80 rows (HTTP 431). A single bulk query
+  // with all batchIds stays within limits regardless of finder size.
+  const batchIds = useMemo(
+    () => (customerId ? filtered.map((row) => row.id) : []),
+    [customerId, filtered]
+  );
+  const lastOrderedBulk = trpc.queries.customerLastOrderedQtyBulk.useQuery(
+    { customerId: customerId ?? '', batchIds },
+    { enabled: Boolean(customerId && batchIds.length > 0) }
   );
   const lastOrderedQtyMap = useMemo(() => {
     const map = new Map<string, string>();
-    if (!customerId) return map;
-    for (const [index, result] of lastOrderedResults.entries()) {
-      const qty = result.data;
+    if (!customerId || !lastOrderedBulk.data) return map;
+    for (const [batchId, qty] of Object.entries(lastOrderedBulk.data)) {
       if (qty != null && Number(qty) > 0) {
-        map.set(filtered[index].id, String(Number(qty)));
+        map.set(batchId, String(Number(qty)));
       }
     }
     return map;
-  }, [customerId, filtered, lastOrderedResults]);
+  }, [customerId, lastOrderedBulk.data]);
 
   const activeFilterCount =
     (search ? 1 : 0) + (advancedFilter?.conditions?.length ?? 0);

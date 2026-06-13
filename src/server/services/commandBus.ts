@@ -416,14 +416,16 @@ const postTransactionLedgerRowPayloadSchema = z.object({
   entityId: z.string().uuid().optional(),
   entityName: z.string().optional(),
   kind: z.string().optional(),
-  method: z.string().optional(),
-  reference: z.string().optional(),
+  // Accept both string and Date (pipeline may coerce date strings via superjson).
+  // Nulls are handled by the command implementation (dateOrNull / stringValue).
+  method: z.union([z.string(), z.null()]).optional(),
+  reference: z.union([z.string(), z.null()]).optional(),
   notes: z.string().optional(),
   allocationTargetType: z.string().optional(),
   allocationTargetId: z.string().uuid().optional(),
   allocationIntent: z.string().optional(),
   bucket: z.string().optional(),
-  date: z.string().optional(),
+  date: z.union([z.string(), z.date()]).optional(),
 });
 
 const upsertTransactionTypePayloadSchema = z.object({

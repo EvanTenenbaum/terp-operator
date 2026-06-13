@@ -36,6 +36,7 @@ export function shouldConfirm(tab: Tab, amount: number, invoiceTotal: number | n
 interface InvoiceRow {
   id: string;
   customer: string;
+  customerId: string;
   invoiceNo: string;
   unappliedAmount: number;
   total: number;
@@ -99,7 +100,10 @@ export function MobilePaymentsView() {
   const canPayVendor = role === 'owner' || role === 'manager';
 
   const invoices: InvoiceRow[] = useMemo(() => {
-    const raw = (invoicesQuery.data ?? []) as InvoiceRow[];
+    const raw = ((invoicesQuery.data ?? []) as any[]).map((row: any) => ({
+      ...row,
+      customerId: row.customerId ?? row.customer_id ?? row.id,
+    })) as InvoiceRow[];
     return raw
       .filter(r => !dismissedIds.has(r.id))
       .slice()
@@ -174,9 +178,9 @@ export function MobilePaymentsView() {
     const run = async () => {
       try {
         await runCommand('logPayment', {
-          customerId: row.id,
+          customerId: row.customerId,
           amount: amt,
-          method: mlabel,
+          method: method,
           reference: reference.trim(),
           direction: 'inbound',
           category: 'receivable',
@@ -212,7 +216,7 @@ export function MobilePaymentsView() {
         await runCommand('recordVendorPayment', {
           vendorBillId: row.id,
           amount: amt,
-          method: mlabel,
+          method: method,
           reference: reference.trim(),
         });
         addToast(`Payment sent to ${row.vendor}`, 'success');
