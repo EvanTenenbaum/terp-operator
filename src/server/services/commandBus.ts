@@ -4806,6 +4806,12 @@ async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionU
   const transactionType = requiredString(payload.transactionType, 'transactionType');
   const amount = requiredNumber(payload.amount, 'amount');
   if (amount === 0) throw new Error('Transaction amount cannot be zero.');
+  // SX-J10: sanity threshold on large payouts. Amounts above $1,000,000
+  // must be confirmed through the advanced palette to prevent accidental
+  // six-figure+ ledger entries from a single hotkey or mis-click.
+  if (direction === 'paying' && Math.abs(amount) >= 1_000_000) {
+    throw new Error('Amount exceeds sanity threshold — use the advanced palette to override');
+  }
   const transactionDate = dateOrNull(payload.date) ?? new Date();
   const method = stringValue(payload.method) || 'cash';
   const reference = stringValue(payload.reference) || null;

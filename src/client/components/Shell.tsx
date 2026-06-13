@@ -373,7 +373,13 @@ export function Keel({ user }: { user: SessionUser }) {
                       title={chip.title}
                       onClick={() => {
                         setActiveQuickLaunch(chip.launch);
-                        navigate(`/${chip.view}`);
+                        if (activeView !== chip.view) {
+                          navigate(`/${chip.view}`);
+                        } else {
+                          // Already on this view — setActiveQuickLaunch above is
+                          // sufficient to focus/expand the relevant panel (e.g.
+                          // Quick Ledger on /payments for Money in/out).
+                        }
                         setActionsOpen(false);
                       }}
                     >

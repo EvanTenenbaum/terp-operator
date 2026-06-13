@@ -155,9 +155,11 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, recalled, re
   }
 
   // UX-L05: Enter on the weight field confirms pack (one-hand scale workflow)
+  // SX-K11: guard against double-Enter skipping the discrepancy note prompt.
   function handleWeightKeyDown(e: { key: string; preventDefault: () => void }) {
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (showDiscrepancyNote) return; // Require explicit button press on the prompt
       void handleMarkPicked();
     }
   }
@@ -323,6 +325,7 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, recalled, re
             style={{ minHeight: 48, fontSize: 20 }}
             value={actualWeight}
             inputMode="decimal"
+            autoFocus
             placeholder="0.0"
             aria-describedby={weightError ? 'pick-weight-error' : undefined}
             aria-invalid={!!weightError}

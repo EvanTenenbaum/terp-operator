@@ -266,7 +266,7 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
             <option value="">Choose order</option>
             {invoices.map((invoice) => (
               <option key={invoice.id} value={invoice.id}>
-                {invoice.invoiceNo} / ${Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0)}
+                {invoice.invoiceNo} / ${moneyish(Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0))}
               </option>
             ))}
           </select>

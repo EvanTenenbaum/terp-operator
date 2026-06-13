@@ -37,10 +37,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'timeline', label: 'Timeline' },
     { key: 'profile', label: 'Profile' },
     { key: 'balance', label: 'Balance' },
-    { key: 'purchases', label: 'Purchases' },
-    { key: 'credit', label: 'Credit' },
-    { key: 'notes', label: 'Notes' },
-    { key: 'history', label: 'History' }
+    { key: 'credit', label: 'Credit' }
   ],
   vendor: [
     { key: 'relationship', label: 'Relationship' },
@@ -60,11 +57,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
   ],
   order: [
     { key: 'relationship', label: 'Relationship' },
-    { key: 'timeline', label: 'Timeline' },
-    { key: 'lines', label: 'Lines' },
-    { key: 'customer', label: 'Customer' },
-    { key: 'output', label: 'Output' },
-    { key: 'history', label: 'History' }
+    { key: 'timeline', label: 'Timeline' }
   ],
   salesOrder: [
     { key: 'balance', label: 'Balance' },
@@ -91,11 +84,7 @@ const drawerTabs: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'history', label: 'History' }
   ],
   payment: [
-    { key: 'relationship', label: 'Relationship' },
-    { key: 'allocations', label: 'Allocations' },
-    { key: 'customer', label: 'Customer' },
-    { key: 'impact', label: 'Impact' },
-    { key: 'history', label: 'History' }
+    { key: 'relationship', label: 'Relationship' }
   ],
   pick: [
     { key: 'relationship', label: 'Relationship' },
@@ -184,10 +173,16 @@ export function ContextDrawer() {
   useDrawerUrlSync(activeView);
 
   // K1 / A4 (phase7-keyboard-a11y-audit): Trap focus inside the open drawer so Tab
-  // cannot bleed into the background AG Grid. Escape is already handled globally in
-  // Hotkeys.tsx; the trap here prevents Tab leakage only.
+  // cannot bleed into the background AG Grid. SX-I12: Escape handler here is a
+  // defense-in-depth complement to Hotkeys.tsx; it skips closure when an overlay
+  // or palette is open so the layering stays correct even if the event reaches
+  // the drawer's focus trap.
   const drawerOpen = drawer.state !== 'closed';
-  const drawerRef = useFocusTrap<HTMLElement>(drawerOpen, () => setDrawerState(activeView, 'closed'));
+  const drawerRef = useFocusTrap<HTMLElement>(drawerOpen, () => {
+    const ui = useUiStore.getState();
+    if (ui.shortcutsOverlayOpen || ui.commandPaletteOpen) return;
+    setDrawerState(activeView, 'closed');
+  });
 
   if (drawer.state === 'closed') {
     if (activeEntity.entityType === 'queue' && !row) return null;

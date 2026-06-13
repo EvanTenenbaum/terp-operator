@@ -140,24 +140,27 @@ export function Hotkeys() {
 
       if (event.key === 'Escape') {
         event.preventDefault();
-        // UX-C01: the shortcuts overlay closes first — it sits above the
-        // drawer/palette, so Escape must not also collapse what is beneath it.
+        // SX-I12: Esc consumes one layer per press. Check in the documented
+        // order (overlay first, then drawer, then palette, then focus) and
+        // stop propagation so focus traps on child elements (ContextDrawer,
+        // ShortcutsOverlay) do not also fire for the same keydown.
+        let handled = false;
         if (shortcutsOverlayOpen) {
           setShortcutsOverlayOpen(false);
-          return;
-        }
-        if (drawerState !== 'closed') {
+          handled = true;
+        } else if (drawerState !== 'closed') {
           setDrawerState(activeView, 'closed');
-          return;
-        }
-        if (commandPaletteOpen) {
+          handled = true;
+        } else if (commandPaletteOpen) {
           setCommandPaletteOpen(false);
-          return;
-        }
-        if (focusedPanelId || focusMode) {
+          handled = true;
+        } else if (focusedPanelId || focusMode) {
           setFocusedPanel(null);
           setFocusMode(false);
-          return;
+          handled = true;
+        }
+        if (handled) {
+          event.stopPropagation();
         }
         return;
       }
@@ -349,8 +352,8 @@ export function Hotkeys() {
       }
     }
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [
     activeView,
     commandPaletteOpen,
@@ -391,22 +394,39 @@ function isEditingText(target: HTMLElement | null) {
 }
 
 function tabForIndex(view: ViewKey, index: number) {
+  // SX-I09: aligned with the rendered drawerTabs in ContextDrawer.tsx.
+  // Each view maps to an entity type; the tab order here matches the
+  // corresponding entry in drawerTabs exactly so digit hotkeys match
+  // the numbers printed on the actual tabs.
   const tabsByView: Partial<Record<ViewKey, string[]>> = {
+    // queue entity
     dashboard: ['actions', 'saved'],
-    reports: ['rows', 'export', 'saved'],
-    purchaseOrders: ['relationship', 'lines', 'vendor', 'linked-intake', 'history'],
     intake: ['actions', 'saved'],
-    sales: ['relationship', 'profile', 'balance', 'purchases', 'notes', 'history'],
-    orders: ['relationship', 'lines', 'customer', 'output', 'history'],
-    payments: ['relationship', 'allocations', 'customer', 'impact', 'history'],
-    inventory: ['relationship', 'movement', 'sales', 'photos', 'history'],
-    clients: ['relationship', 'profile', 'balance', 'purchases', 'notes', 'history'],
-    vendors: ['relationship', 'due-reason', 'linked-po', 'payouts', 'history'],
+    // report entity
+    reports: ['rows', 'export', 'saved'],
+    // po entity
+    purchaseOrders: ['relationship', 'lines', 'vendor', 'linked-intake', 'history', 'commands'],
+    // customer entity (clients view + sales drawer when customer is active)
+    sales: ['relationship', 'timeline', 'profile', 'balance', 'credit'],
+    clients: ['relationship', 'timeline', 'profile', 'balance', 'credit'],
+    // order entity
+    orders: ['relationship', 'timeline'],
+    // payment entity
+    payments: ['relationship'],
+    // lot entity
+    inventory: ['relationship', 'timeline', 'movement', 'sales', 'photos', 'history'],
+    // vendor entity
+    vendors: ['relationship', 'timeline', 'profile', 'open-bills', 'pos', 'history'],
+    // pick entity
     fulfillment: ['relationship', 'lines', 'order', 'labels', 'history'],
+    // connector entity
     connectors: ['relationship', 'request', 'source', 'history'],
+    // recovery entity
     recovery: ['undo', 'target', 'history'],
+    // closeout entity
     closeout: ['control-totals', 'open-work', 'artifacts'],
-    settings: ['requests', 'actions', 'archive', 'strain-aliases', 'pricing']
+    // settings entity
+    settings: ['requests', 'actions', 'archive']
   };
   return tabsByView[view]?.[index] ?? null;
 }
