@@ -46,6 +46,7 @@ export function VoidRefereeCreditDialog({
       pending={isRunning}
       error={errorMsg}
       maxWidthClass="max-w-md"
+      tone="danger"
       description={
         <>
           Void credit for transaction <strong>{transactionNo}</strong> in the amount of <strong>{formatMoney(creditAmount)}</strong>?

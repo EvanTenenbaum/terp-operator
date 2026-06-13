@@ -14,6 +14,7 @@ import { ReportsRouteShell } from './components/ReportsRouteShell';
 import { Keel, SideNav } from './components/Shell';
 import { ToastCenter } from './components/ToastCenter';
 import { useUiStore } from './store/uiStore';
+import { CONNECTOR_SURFACES_ENABLED } from './featureFlags';
 import { SocketProvider } from './context/SocketContext';
 import { DashboardView } from './views/DashboardView';
 import { IntakeView } from './views/IntakeView';
@@ -60,6 +61,21 @@ import { MobileContactProfileView } from './views/mobile/MobileContactProfileVie
 // Phase 0b — CAP-007 / CAP-008 canvas grammar feature flag.
 // Default: enabled. Set VITE_CANVAS_GRAMMAR_ENABLED=false to revert to pre-canvas shell.
 const CANVAS_GRAMMAR_ENABLED = import.meta.env.VITE_CANVAS_GRAMMAR_ENABLED !== 'false';
+
+// TER-1664 / UX-A12 (Execution Decision 4): connector/processor surfaces are
+// MVP-out. While CONNECTOR_SURFACES_ENABLED is false, direct visits to
+// /connectors and /processors land on Settings → Requests — the canonical
+// home for connector-request review. ConnectorsView / ProcessorsView stay
+// imported and route-ready so flipping the flag restores both lanes.
+function SettingsRequestsRedirect() {
+  const navigate = useNavigate();
+  const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
+  useEffect(() => {
+    setActiveSettingsTab('requests');
+    navigate('/settings', { replace: true });
+  }, [navigate, setActiveSettingsTab]);
+  return null;
+}
 
 // Sync URL with activeView state.
 // Nested routes intentionally use the first path segment as activeView
@@ -191,11 +207,13 @@ export function App() {
             <Route path="clients" element={<ClientLedgerView />} />
             <Route path="vendors" element={<VendorPayablesView />} />
             <Route path="fulfillment" element={<FulfillmentView />} />
-            <Route path="connectors" element={<ConnectorsView />} />
+            {/* TER-1664 / UX-A12: flagged-off connector surface → Settings → Requests */}
+            <Route path="connectors" element={CONNECTOR_SURFACES_ENABLED ? <ConnectorsView /> : <SettingsRequestsRedirect />} />
             <Route path="recovery" element={<RecoveryView />} />
             <Route path="closeout" element={<CloseoutView />} />
             <Route path="referees" element={<RefereesView />} />
-            <Route path="processors" element={<ProcessorsView />} />
+            {/* TER-1664 / UX-A12: flagged-off processor surface → Settings → Requests */}
+            <Route path="processors" element={CONNECTOR_SURFACES_ENABLED ? <ProcessorsView /> : <SettingsRequestsRedirect />} />
             <Route path="items" element={<ItemsView />} />
             <Route path="disputes" element={<InvoiceDisputesView />} />
             <Route path="credit-review" element={<CreditReviewView />} />

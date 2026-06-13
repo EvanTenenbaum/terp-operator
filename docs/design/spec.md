@@ -937,55 +937,80 @@ Below-floor warning: shown inline as amber pill on line; never blocks primary.
 
 ### 10.5 Payments (`PaymentsView`)
 
-| Payment status | Primary | Command | Tray |
+> **⚠️ Status vocabulary corrected (UX-A10, decisions-log 2026-06-11 Decision 1):** Real `payments.status` values are `posted | refunded | reversed`. `buyer_credit` is a payment *direction*, not a status. Applied-ness is derived from `unappliedAmount` vs `amount`, not a stored status field. `partially_applied` and `applied` are not DB statuses. The table below uses the corrected real-value predicates; the original column names are superseded.
+
+| Selection / payment state (corrected) | Primary | Command | Tray |
 | --- | --- | --- | --- |
 | Pre-selection (Quick Ledger row composing) | **(implicit row-level ✓ commit button)** | `logPayment` / `recordVendorPayment` / `createCorrectionJournalEntry` | — |
-| Selected, `unapplied` | **Allocate FIFO** | `allocatePayment` | Allocate to selected invoice · Apply early-pay discount · Refund · Reverse |
-| Selected, `partially_applied` | **Allocate remaining** | `allocatePayment` { paymentId, allocationIntent: 'fifo' } | Allocate to selected · Unallocate · Discount |
-| Selected, `applied` | (no primary) | — | Unallocate · Reverse |
-| Selected, `buyer_credit` | **Apply to invoice** | `allocatePayment` { allocationIntent: 'selected' } | Refund · Reverse |
-| Selected, `reversed` | (no primary) | — | View linked correction |
+| `posted`, fully unapplied (`unappliedAmount = amount`) | **Auto-apply oldest** | `allocatePayment` { allocationIntent: 'fifo' } | Allocate to selected invoice · Apply discount · Refund · Reverse |
+| `posted`, partially applied (`0 < unappliedAmount < amount`) | **Allocate remaining** | `allocatePayment` { allocationIntent: 'fifo' } | Allocate to selected · Unallocate · Discount |
+| `posted`, fully applied (`unappliedAmount = 0`) | (no primary) | — | Unallocate · Reverse |
+| `posted`, direction = buyer credit (negative amount) | **Apply to invoice** | `allocatePayment` { allocationIntent: 'selected' } | Refund · Reverse |
+| `refunded` | (no primary) | — | View linked refund |
+| `reversed` | (no primary) | — | View linked correction |
 
 ### 10.6 Vendor Payouts (`VendorPayablesView`)
 
-| Bill status | Primary | Command | Tray |
+> **⚠️ Status vocabulary corrected (UX-A10, decisions-log 2026-06-11 Decision 1 + Decision 2):** Real `vendor_bills.status` values are `open | approved | scheduled | partial | paid | reversed`. There is **no** `void` bill status — `voidVendorPayment` voids a `vendor_payments` row, not the bill itself, and the bill may revert to an earlier status after voiding. The original `void` row is superseded.
+
+| Bill status (corrected) | Primary | Command | Tray |
 | --- | --- | --- | --- |
 | `open` | **Approve** | `approveVendorBill` | Edit terms · Reject · View source receipt |
-| `approved` | **Schedule** | `scheduleVendorPayment` { scheduledFor } | Pay now (auto-schedule) · Reverse approval · Reject |
-| `scheduled` | **Pay** | `recordVendorPayment` | Reschedule · Cancel schedule · Void · Reverse approval |
+| `approved` | **Schedule** | `scheduleVendorPayment` { scheduledFor } | Pay now (auto-schedules first) · Reverse approval · Reject |
+| `scheduled` | **Pay** | `recordVendorPayment` (schedules if not already) | Reschedule · Cancel schedule · Void last payout · Reverse approval |
 | `partial` | **Pay remaining** | `recordVendorPayment` { amount: open balance } | Reschedule · Void last payout |
-| `paid` | (no primary; closed) | — | Reverse last payout · Open audit trail |
-| `void` | (no primary) | — | Restore (creates new approval) |
+| `paid` | (no primary; closed) | — | Void last payout · Open audit trail |
+| `reversed` | (no primary) | — | View reversal command |
+
+> **Original superseded table row (preserved for reference):**
+> `void` was listed as a bill status; it does not exist on `vendor_bills`. Void applies to `vendor_payments` rows via `voidVendorPayment`.
 
 ### 10.7 Fulfillment (`FulfillmentView`)
 
-| Pick status | Primary | Command | Tray |
+> **⚠️ Status vocabulary corrected (UX-A10, decisions-log 2026-06-11 Decision 1 + Wave 1 UX-L03):** Real `pick_lists.status` values are **only** `open | fulfilled`. The spec's `draft`, `in_pack`, `packed`, and `labeled` statuses do **not exist** in the database schema. Pack progress is derived client-side from the fulfillment_lines grid (lines packed/unpacked), not from a pick-list status column. The original table below is superseded; use the corrected table.
+>
+> **Also corrected (UX-L03, Wave 1):** FilterPresetStrip presets `status:in_progress` / `status:needs_picking` were dead (those statuses don't exist). Replaced with `status:open` ("Open picks") and `status:fulfilled` ("Fulfilled"). `status:open` is the default grid filter on mount.
+
+| Pick status (corrected) | Primary | Command | Tray |
 | --- | --- | --- | --- |
-| `draft` (no lines packed yet) | **Open lines** (route to drawer Lines tab; pack inputs become inline) | — | Cancel pick · Duplicate |
-| `in_pack` (some lines packed) | **Pack remaining** (selects unpacked lines and focuses qty cell) | `recordWeighAndPack` | Auto-bag · Print partial labels · Reverse pack |
-| `packed` (all lines packed) | **Print labels** | `printLabels` { pickListId, labelFormat } | Auto-bag · Reverse pack |
-| `labeled` (all printed) | **Mark fulfilled** | `markOrderFulfilled` { orderId, tracking } | Reprint labels · Reverse |
-| `fulfilled` | (no primary) | — | Reverse fulfillment · Open manifest |
+| `open` (no lines packed yet — derived from line grid) | **Open lines** (route to drawer Lines tab; pack inputs become inline) | — | Cancel pick · Duplicate |
+| `open` (some lines packed — derived from line grid) | **Pack remaining** (selects unpacked lines and focuses qty cell) | `recordWeighAndPack` | Auto-bag · Print partial labels · Reverse pack |
+| `open` (all lines packed — derived from line grid) | **Print labels** | `printLabels` { pickListId, labelFormat } | Auto-bag · Reverse pack |
+| `fulfilled` | (no primary; closed) | — | Reverse fulfillment · Open manifest |
+
+> **Original superseded table (preserved for reference):**
+> `draft` / `in_pack` / `packed` / `labeled` were used in the original spec but are not real DB statuses. Implementation uses `open` and `fulfilled` only.
 
 ### 10.8 Connectors (`ConnectorsView`)
 
-| Request status | Primary | Command | Tray |
+> **⚠️ Status vocabulary corrected (UX-A10, decisions-log 2026-06-11 Decision 1 + Decision 3):** Connector requests start at `open`, **not** `pending`. Also corrected per Decision 3: **Route** is the primary (CAP-017 / Phase 4 decision), not Approve. Approve/Reject move to the tray. The original `pending`-first Approve-primary table is superseded.
+
+| Request status (corrected) | Primary | Command | Tray |
 | --- | --- | --- | --- |
-| `pending` | **Approve** | `approveConnectorRequest` | Reject · Open source |
-| `routed` | (internal state; no operator primary) | — | Open linked order/pick |
+| `open` | **Route** (disabled with reason until destination entered) | `routeConnectorRequest` (internal) | Approve · Reject · Open source |
+| `routed` | (internal state; no operator primary) | — | Approve · Open linked order/pick |
 | `approved` | (no primary; accepted for normal lane work) | — | Reject · Open linked entity |
-| `rejected` | (no primary) | — | Restore as pending |
+| `rejected` | (no primary) | — | Restore as open |
+
+> **Original superseded table (preserved for reference):**
+> Used `pending` as initial status and **Approve** as primary; neither matches the implementation.
 
 Safety note in the drawer only: connector requests never mutate ledgers directly. Any lane/default assignment is backend/internal, not a user routing workflow.
 
 ### 10.9 Recovery (`RecoveryView`)
 
-| Command status | Primary | Command | Tray |
+> **⚠️ Status vocabulary corrected (UX-A10, decisions-log 2026-06-11 Decision 1 + Decision 4):** Real command journal statuses are `pending | ok | failed`. `reversed` is **not** a status — reversal is expressed as `reversedByCommandId IS NOT NULL` on a row with `status = ok`. Also corrected per Decision 4: **Retry** is the primary for `failed` rows; **Reverse** is intentionally NOT in the bar (it lives in the TER-1521 confirm-flow reversal panel, which postdates this spec table).
+
+| Command status (corrected) | Primary | Command | Tray |
 | --- | --- | --- | --- |
-| `posted`, reversible | **Reverse** | `reverseCommandById` | Open target row · Snapshot diff · Support packet |
-| `posted`, non-reversible | (no primary; primary disabled) | — | Open target row · Support packet |
-| `failed` | **Retry** | (replays original command name with stored `input_payload`) | Open target row · Edit payload (advanced) · Mark resolved |
-| `reversed` | (no primary) | — | Open reversal command |
+| `ok`, reversible (`reversedByCommandId IS NULL`) | (no primary in bar; Reverse lives in TER-1521 panel) | — | Open target row · Snapshot diff · Support packet |
+| `ok`, non-reversible | (no primary; primary disabled) | — | Open target row · Support packet |
+| `ok`, already reversed (`reversedByCommandId IS NOT NULL`) | (no primary) | — | Open reversal command |
+| `failed` | **Retry** | (replays stored command name + `input_payload`) | Open target row · Edit payload (advanced) · Mark resolved |
+| `pending` | (no primary; in-flight) | — | Open target row |
+
+> **Original superseded table (preserved for reference):**
+> Used `posted` and `reversed` as status values; neither exists. `reversed` is a derived predicate, not a stored status.
 
 Drawer queue-state tabs (no command selected): Find/Replace · Correction · Backup · Markers · System.
 

@@ -16,9 +16,8 @@ import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
 import { VerifyAllPreviewBody } from '../components/VerifyAllPreviewBody';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useConfirm } from '../hooks/useConfirm';
-import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useUiStore } from '../store/uiStore';
-import type { CommandResult, GridRow } from '../../shared/types';
+import type { GridRow } from '../../shared/types';
 import type { IntakeBatchRow, IntakeOrderRow } from './IntakeView.types';
 
 const EMPTY: IntakeOrderRow[] = [];
@@ -42,38 +41,11 @@ export function IntakeView() {
   const confirm = useConfirm();
   const apiRef = useRef<GridApi<IntakeOrderRow> | null>(null);
   const [busy, setBusy] = useState(false);
-  const [csvOpen, setCsvOpen] = useState(false);
-  const [csvText, setCsvText] = useState('name,category,vendor,intake_qty,unit_cost,source_code,legacy_marker,ownership_status,notes\n');
-  const [csvResult, setCsvResult] = useState<CommandResult | null>(null);
   const [previewOrder, setPreviewOrder] = useState<IntakeOrderRow | null>(null);
-  // TER-1627 (F-13/F-32): drag-and-drop affordance for the CSV import textarea
-  const [csvDragActive, setCsvDragActive] = useState(false);
-  // #21 slice 3 (UX-A9): inline confirm panels each get a focus trap so Tab
-  // stays in-panel and Escape collapses them, matching CommandPalette /
-  // RefereeRelationshipDialog. The trap activates only when its panel is open.
-  const csvImportFocusRef = useFocusTrap<HTMLDivElement>(csvOpen, () => setCsvOpen(false));
+  // TER-1658: CSV import (importBatchesCsv / createBatch without purchaseOrderLineId)
+  // was retired from MVP intake. All intake must originate from an approved purchase
+  // order via Receive PO. The backend rejects those flows with operator-facing guidance.
   const orderRows = (intakeQueue.data ?? EMPTY) as IntakeOrderRow[];
-
-  async function importCsv(validateOnly: boolean) {
-    const result = await runCommand('importBatchesCsv', { csv: csvText, validateOnly }, validateOnly ? 'Validate intake CSV import' : 'Import validated intake CSV');
-    setCsvResult(result);
-    if (result.ok && !validateOnly) setCsvOpen(false);
-  }
-
-  // TER-1627: accept .csv files dropped onto the import textarea zone
-  function handleCsvDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setCsvDragActive(false);
-    const file = e.dataTransfer.files[0];
-    if (file && (file.name.endsWith('.csv') || file.type === 'text/csv')) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const text = ev.target?.result as string;
-        setCsvText(text);
-      };
-      reader.readAsText(file);
-    }
-  }
 
   async function verifyBatch(batchId: string, intakeQty: string, expectedQty: string | null, discrepancyReason?: string) {
     setBusy(true);

@@ -51,11 +51,17 @@ const mockSetSelectedRows = vi.fn();
 const mockSetGridFilter = vi.fn();
 const mockSetActiveView = vi.fn();
 const mockSetActiveSettingsTab = vi.fn();
+const mockSetDrawerState = vi.fn();
+const mockSetDrawerEntity = vi.fn();
+const mockPushToast = vi.fn();
 vi.mock('../store/uiStore', () => ({
   useUiStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
       selectedRows: {},
       setSelectedRows: mockSetSelectedRows,
+      setDrawerState: mockSetDrawerState,
+      setDrawerEntity: mockSetDrawerEntity,
+      pushToast: mockPushToast,
       gridFilters: {},
       setGridFilter: mockSetGridFilter,
       collapsedPanels: {},
@@ -101,7 +107,7 @@ vi.mock('../components/drawerTabs/CommandReversalTab', () => ({
   CommandReversalTab: () => <div data-testid="command-reversal-tab" />
 }));
 
-import { VendorPayablesView, ConnectorsView, RecoveryView, PaymentsView, CloseoutView } from './OperationsViews';
+import { VendorPayablesView, ConnectorsView, RecoveryView, PaymentsView, CloseoutView, PurchaseOrdersView } from './OperationsViews';
 
 beforeEach(() => {
   stubRows = [];
@@ -281,5 +287,103 @@ describe('CloseoutView §10.10 period status table', () => {
     fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
     const archiveItem = screen.getByRole('menuitem', { name: /^Archive$/ });
     expect(archiveItem.hasAttribute('disabled')).toBe(true);
+  });
+});
+
+describe('PurchaseOrdersView UX-H01 status table (real PO statuses: draft → finalized → approved → ordered → partially_received → received, + cancelled)', () => {
+  it('draft PO → Finalize PO primary fires finalizePurchaseOrder; Cancel PO in tray', () => {
+    stubRows = [{ id: 'po1', status: 'draft' } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^Finalize PO$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith('finalizePurchaseOrder', { purchaseOrderId: 'po1' }, expect.any(String));
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Cancel PO$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith('cancelPurchaseOrder', { purchaseOrderId: 'po1' }, expect.any(String));
+  });
+
+  it('finalized PO → Approve PO primary; Unfinalize reachable from the tray', () => {
+    stubRows = [{ id: 'po2', status: 'finalized' } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^Approve PO$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith('approvePurchaseOrder', { purchaseOrderId: 'po2' }, expect.any(String));
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Unfinalize$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith('unfinalizePurchaseOrder', { purchaseOrderId: 'po2' }, expect.any(String));
+  });
+
+  it('approved PO → Receive PO primary fires receivePurchaseOrder', () => {
+    stubRows = [{ id: 'po3', status: 'approved' } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^Receive PO$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith('receivePurchaseOrder', { purchaseOrderId: 'po3' }, expect.any(String));
+  });
+
+  it('approved PO with a prepayment amount → Record prepayment enabled in the tray', () => {
+    stubRows = [{ id: 'po3', status: 'approved', prepaymentAmount: 500 } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    const prepay = screen.getByRole('menuitem', { name: /^Record prepayment$/ });
+    expect(prepay.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('approved PO without a prepayment amount → Record prepayment disabled with reason', () => {
+    stubRows = [{ id: 'po3', status: 'approved', prepaymentAmount: 0 } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    const prepay = screen.getByRole('menuitem', { name: /^Record prepayment$/ });
+    expect(prepay.hasAttribute('disabled')).toBe(true);
+    expect(prepay.getAttribute('title')).toMatch(/no prepayment amount/);
+  });
+
+  it('ordered PO → Receive PO primary', () => {
+    stubRows = [{ id: 'po4', status: 'ordered' } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^Receive PO$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith('receivePurchaseOrder', { purchaseOrderId: 'po4' }, expect.any(String));
+  });
+
+  it('partially_received PO → Receive PO primary', () => {
+    stubRows = [{ id: 'po5', status: 'partially_received' } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    fireEvent.click(screen.getByRole('button', { name: /^Receive PO$/ }));
+    expect(mockRunCommand).toHaveBeenCalledWith('receivePurchaseOrder', { purchaseOrderId: 'po5' }, expect.any(String));
+  });
+
+  it('received PO → no primary and no tray (terminal)', () => {
+    stubRows = [{ id: 'po6', status: 'received' } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    expect(screen.queryByRole('button', { name: /^Finalize PO$|^Approve PO$|^Receive PO$|^Cancel PO$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^More$/ })).toBeNull();
+  });
+
+  it('cancelled PO → no primary and no tray (terminal)', () => {
+    stubRows = [{ id: 'po7', status: 'cancelled' } as unknown as GridRow];
+    render(<PurchaseOrdersView />);
+    expect(screen.queryByRole('button', { name: /^Finalize PO$|^Approve PO$|^Receive PO$|^Cancel PO$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^More$/ })).toBeNull();
+  });
+
+  it('mixed selection → catch-all keeps every PO verb reachable from the tray', () => {
+    stubRows = [
+      { id: 'po1', status: 'draft' } as unknown as GridRow,
+      { id: 'po6', status: 'received' } as unknown as GridRow
+    ];
+    render(<PurchaseOrdersView />);
+    // No status-matched primary for a mixed selection…
+    expect(screen.queryByRole('button', { name: /^Finalize PO$|^Approve PO$|^Receive PO$/ })).toBeNull();
+    // …but the catch-all rule exposes the full verb set in More.
+    fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
+    expect(screen.getByRole('menuitem', { name: /^Finalize PO$/ })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /^Approve PO$/ })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /^Receive PO$/ })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /^Unfinalize$/ })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /^Record prepayment$/ })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /^Cancel PO$/ })).toBeTruthy();
+  });
+
+  it('exactly one ⌘↵-committable primary — the StatusActionBar one (no double-fire)', () => {
+    stubRows = [{ id: 'po1', status: 'draft' } as unknown as GridRow];
+    const { container } = render(<PurchaseOrdersView />);
+    expect(container.querySelectorAll('[data-status-action-primary]').length).toBe(1);
   });
 });

@@ -11,6 +11,26 @@ vi.mock('../components/credit/ShadowModeBanner', () => ({
   ShadowModeBanner: () => null,
 }));
 
+// WorkspacePanel is mocked with a stateful component that starts collapsed
+// (matching the bespoke divergenceOpen=false initial state), so the
+// "click to show" behavior contract is preserved.
+vi.mock('../components/WorkspacePanel', async () => {
+  const { useState } = await import('react');
+  return {
+    WorkspacePanel: ({ title, children }: { title: string; panelId: string; headingLevel?: number; children: React.ReactNode }) => {
+      const [open, setOpen] = useState(false);
+      return (
+        <div>
+          <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            {title}
+          </button>
+          {open ? children : null}
+        </div>
+      );
+    },
+  };
+});
+
 vi.mock('../store/uiStore', () => ({
   useUiStore: (selector: (s: { setDrawerEntity: ReturnType<typeof vi.fn>; setDrawerState: ReturnType<typeof vi.fn> }) => unknown) =>
     selector({ setDrawerEntity: vi.fn(), setDrawerState: vi.fn() }),

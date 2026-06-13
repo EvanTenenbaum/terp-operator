@@ -96,7 +96,12 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
 const keelChips: Array<{ label: string; view: ViewKey; launch: 'sale' | 'purchaseOrder' | 'receiving' | 'moneyIn' | 'moneyOut'; icon: typeof Gauge; title: string }> = [
   { label: 'New Sale', view: 'sales', launch: 'sale', icon: ShoppingCart, title: 'Start a new sale' },
   { label: 'New PO', view: 'purchaseOrders', launch: 'purchaseOrder', icon: ClipboardList, title: 'Start a new purchase order' },
-  { label: 'Receive', view: 'intake', launch: 'receiving', icon: PackagePlus, title: 'Receive product into intake' },
+  // UX-A09 (2026-06-12): PO-first intake is official (TER-1658). Renamed to
+  // "Receive against PO" and re-pointed to purchaseOrders view so the operator
+  // lands on the PO list to select an approved PO for receiving. The old
+  // 'intake'/'receiving' path is rejected by the backend (importBatchesCsv /
+  // createBatch without purchaseOrderLineId no longer accepted).
+  { label: 'Receive against PO', view: 'purchaseOrders', launch: 'purchaseOrder', icon: PackagePlus, title: 'Receive product — select an approved PO to draft intake rows' },
   { label: 'Money in', view: 'payments', launch: 'moneyIn', icon: ArrowDown, title: 'Open money in' },
   { label: 'Money out', view: 'vendors', launch: 'moneyOut', icon: ArrowUp, title: 'Open money out' }
 ];
@@ -269,7 +274,7 @@ export function Keel({ user }: { user: SessionUser }) {
                   const Icon = chip.icon;
                   return (
                     <button
-                      key={chip.launch}
+                      key={chip.label}
                       type="button"
                       role="menuitem"
                       className={clsx('quick-action-item', activeView === chip.view && 'quick-action-item-active')}
