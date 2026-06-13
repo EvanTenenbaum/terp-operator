@@ -9,26 +9,47 @@ import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import { columnsByView, EMPTY_ROWS } from './operations/shared';
 
+// UX-D01: deep-link helper — navigate to the orders view filtered to a specific
+// order row and open its drawer. Mirrors the CountPill pattern (TER-1624/E01).
+function useOrderDeepLink() {
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
+  return (orderId: string | undefined) => {
+    if (!orderId) return;
+    setGridFilter('orders', `id:${orderId}`);
+    setDrawerEntity('orders', 'order', orderId);
+    setDrawerState('orders', 'standard');
+    setActiveView('orders');
+  };
+}
+
 export function OrdersView() {
   const grid = trpc.queries.grid.useQuery({ view: 'orders' });
   const reference = trpc.queries.reference.useQuery();
   const selectedRows = useUiStore((state) => state.selectedRows.orders);
   const selected = selectedRows ?? EMPTY_ROWS;
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
-  const { runCommand, isRunning } = useCommandRunner();
+  const { runCommand, setNextSuccessActions, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const selectedOrder = selected[0];
   const customerId = String(selectedOrder?.customerId ?? '');
+  // UX-D01: deep-link used for success-toast "View order" actions
+  const openOrderDeepLink = useOrderDeepLink();
 
   async function handlePostOrder() {
     if (!selectedOrder) return;
+    const orderId = String(selectedOrder.id ?? '');
     const payload: Record<string, unknown> = { orderId: selectedOrder.id };
     if (refereeRelationshipId) {
       payload.refereeRelationshipId = refereeRelationshipId;
       payload.logRefereeCredit = true;
     }
+    // UX-D01: success toast deep-links back to this order in Orders view.
+    setNextSuccessActions?.([{ label: 'View order', onAction: () => openOrderDeepLink(orderId) }]);
     await runCommand('postSalesOrder', payload, 'Post selected order');
     setRefereeRelationshipId('');
   }
@@ -60,7 +81,12 @@ export function OrdersView() {
   // status or lives in the tray; the catch-all rule keeps the full verb set
   // available for mixed/unknown selections (no functionality loss).
   const act = {
-    confirm: { key: 'confirm', label: 'Confirm', icon: <Check className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => runCommand('confirmSalesOrder', { orderId: rows[0].id }, 'Mark selected order Ready/Confirmed') },
+    // UX-D01: "View order" action on success toast deep-links back here.
+    confirm: { key: 'confirm', label: 'Confirm', icon: <Check className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => {
+      const orderId = String(rows[0].id ?? '');
+      setNextSuccessActions?.([{ label: 'View order', onAction: () => openOrderDeepLink(orderId) }]);
+      return runCommand('confirmSalesOrder', { orderId: rows[0].id }, 'Mark selected order Ready/Confirmed');
+    }},
     post: { key: 'post', label: 'Post', icon: <Send className="h-4 w-4" aria-hidden="true" />, run: () => handlePostOrder() },
     reprice: { key: 'reprice', label: 'Reprice', icon: <FileDown className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => runCommand('repriceOrder', { orderId: rows[0].id, strategy: 'clearance' }, 'Reprice selected order') },
     fulfillment: { key: 'fulfillment', label: 'Allocate fulfillment', icon: <Truck className="h-4 w-4" aria-hidden="true" />, run: (rows: GridRow[]) => runCommand('allocateOrderToFulfillment', { orderId: rows[0].id }, 'Allocate order to fulfillment') },
@@ -115,6 +141,9 @@ export function OrdersView() {
         onRetry={() => grid.refetch()}
         onSelectionChange={(rows) => setSelectedRows('orders', rows)}
         onCellCommit={canWrite ? onCellCommit : undefined}
+        // UX-D03: tailored empty state names the producing verb + surface.
+        emptyTitle="No orders — post a sale to create an order"
+        emptyChildren="Confirmed sales orders appear here. Go to Sales to create a sale and confirm it."
         actions={canWrite ? (
           /* GH #354 presets, now via the shared template */
           <FilterPresetStrip

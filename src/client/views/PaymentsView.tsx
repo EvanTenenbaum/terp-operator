@@ -10,13 +10,34 @@ import { ReceiptPanel } from '../components/ReceiptPanel';
 import type { GridRow } from '../../shared/types';
 import { GridJourney, moneyish, dateish } from './operations/shared';
 
+// UX-D01: deep-link helper — navigate to the payments view filtered + drawered
+// to a specific payment row. Mirrors the CountPill pattern (TER-1624/E01).
+function usePaymentDeepLink() {
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
+  return (paymentId: string | undefined) => {
+    if (!paymentId) return;
+    setGridFilter('payments', `id:${paymentId}`);
+    setDrawerEntity('payments', 'payment', paymentId);
+    setDrawerState('payments', 'standard');
+    setActiveView('payments');
+  };
+}
+
 export function PaymentsView() {
   const selectedRows = useUiStore((state) => state.selectedRows.payments);
   const selectedPayment = selectedRows?.[0];
+  // UX-D01: deep-link for success toast "View payment" action
+  const openPaymentDeepLink = usePaymentDeepLink();
   return (
     <GridJourney
       view="payments"
       title="Payments"
+      // UX-D03: tailored empty state names the producing verb and surface.
+      emptyTitle="No payments yet — press Money In"
+      emptyChildren="Use the Quick Ledger above to log a cash, check, wire, or crypto receipt. Payments appear here once posted."
       prelude={() => (
         <>
           <QuickLedgerGrid />
@@ -53,7 +74,7 @@ export function PaymentsView() {
           />
         </>
       )}
-      selectionActions={(rows, runCommand) => {
+      selectionActions={(rows, runCommand, setNextSuccessActions) => {
         // Spec §10.5 — status-aware primary for payments. The spec's
         // unapplied / partially_applied / applied states are NOT payment
         // statuses (real payments.status: posted | refunded | reversed,
@@ -64,11 +85,19 @@ export function PaymentsView() {
         // (in-page work tool per the templates.md decision rule).
         const unappliedOf = (row: GridRow) => Number(row.unappliedAmount ?? 0);
         const amountOf = (row: GridRow) => Math.abs(Number(row.amount ?? 0));
+        // UX-D01: "View payment" action on allocate success toast. Call
+        // setNextSuccessActions immediately before runCommand so the hook
+        // attaches the action to the success toast. runCommand stays 3-arg,
+        // preserving the existing test contract in statusTables.test.tsx.
         const allocate = (label: string) => ({
           key: 'allocate',
           label,
           icon: <Check className="h-4 w-4" aria-hidden="true" />,
-          run: (r: GridRow[]) => runCommand('allocatePayment', { paymentId: r[0].id }, 'Auto-apply payment to oldest open orders')
+          run: (r: GridRow[]) => {
+            const paymentId = String(r[0].id ?? '');
+            setNextSuccessActions?.([{ label: 'View payment', onAction: () => openPaymentDeepLink(paymentId) }]);
+            return runCommand('allocatePayment', { paymentId: r[0].id }, 'Auto-apply payment to oldest open orders');
+          }
         });
         const paymentsTable: StatusActionTable = {
           rules: [

@@ -34,15 +34,20 @@ import clsx from 'clsx';
 import { trpc } from '../api/trpc';
 import { startVisibleForUser, viewVisibleForUser } from '../accessPolicy';
 import { useUiStore } from '../store/uiStore';
+import { navShortcutForView, requireShortcut } from '../shortcuts/registry';
 import type { SessionUser, ViewKey } from '../../shared/types';
 
-type NavItem = { view: ViewKey; label: string; hotkey?: string; icon: typeof Gauge };
+type NavItem = { view: ViewKey; label: string; icon: typeof Gauge };
 
+// UX-T07/UX-B02: nav hotkey badges are no longer hardcoded per item — they are
+// looked up from the shortcuts registry (navShortcutForView), so the badge and
+// the actual Hotkeys binding can never disagree. ⌘1–⌘6 assignments are kept
+// as-is this run; per-loop hotkey maps remain tracked under UX-B02.
 const navGroups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: 'Decide',
     items: [
-      { view: 'dashboard', label: 'Dashboard', hotkey: '⌘1', icon: Gauge },
+      { view: 'dashboard', label: 'Dashboard', icon: Gauge },
       { view: 'reports', label: 'Reports', icon: BarChart3 }
     ]
   },
@@ -51,8 +56,8 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { view: 'purchaseOrders', label: 'Purchase Orders', icon: PackagePlus },
       { view: 'purchaseReceipts', label: 'Receipts', icon: ReceiptText },
-      { view: 'intake', label: 'Intake', hotkey: '⌘2', icon: ClipboardList },
-      { view: 'inventory', label: 'Inventory', hotkey: '⌘5', icon: Boxes },
+      { view: 'intake', label: 'Intake', icon: ClipboardList },
+      { view: 'inventory', label: 'Inventory', icon: Boxes },
       { view: 'photography', label: 'Photography', icon: Camera },
       { view: 'items', label: 'Items / SKUs', icon: Tags }
     ]
@@ -60,19 +65,19 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: 'Sell',
     items: [
-      { view: 'sales', label: 'Sales', hotkey: '⌘3', icon: ShoppingCart },
+      { view: 'sales', label: 'Sales', icon: ShoppingCart },
       { view: 'matchmaking', label: 'Matchmaking', icon: Search },
       { view: 'orders', label: 'Orders', icon: Inbox },
       { view: 'fulfillment', label: 'Fulfillment', icon: PackageCheck },
       { view: 'pick', label: 'Pick Queue', icon: ListChecks },  // CAP-030 / TER-1563
-      { view: 'clients', label: 'Client Balances', hotkey: '⌘6', icon: ReceiptText },
+      { view: 'clients', label: 'Client Balances', icon: ReceiptText },
       { view: 'credit-review', label: 'Credit Review', icon: Scale }
     ]
   },
   {
     label: 'Money',
     items: [
-      { view: 'payments', label: 'Payments', hotkey: '⌘4', icon: BadgeDollarSign },
+      { view: 'payments', label: 'Payments', icon: BadgeDollarSign },
       { view: 'vendors', label: 'Vendor Payouts', icon: Landmark },
       { view: 'disputes', label: 'Disputes', icon: AlertTriangle },
       { view: 'referees', label: 'Referees', icon: Users },
@@ -158,16 +163,22 @@ export function SideNav({ user }: { user: SessionUser }) {
               {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const showBadge = item.view === 'credit-review' && badgeTotal > 0 && !sideNavCollapsed;
-                // #34 FE-L4 — defence-in-depth: only render the Cmd+N hotkey
-                // chip when the lane is actually enterable for this operator.
+                // UX-T07: badge content comes from the shortcuts registry, not
+                // a per-item literal — single source of truth with Hotkeys.tsx.
+                const navShortcut = navShortcutForView(item.view);
+                // #34 FE-L4 — defence-in-depth: only treat the lane as bound
+                // when it is actually enterable for this operator.
                 // visibleItems already filters by viewVisibleForUser, but
                 // gating the chip directly here means a future refactor that
                 // loosens visibleItems can't silently leak a chip for a lane
                 // that fires the "lane not part of this operator workspace"
                 // toast when hit.
-                const showHotkey = Boolean(
-                  item.hotkey && !sideNavCollapsed && viewVisibleForUser(item.view, user)
-                );
+                const hotkeyBound = Boolean(navShortcut && viewVisibleForUser(item.view, user));
+                // The visual chip hides when the rail is collapsed, but the
+                // aria-keyshortcuts contract (UX-S02/B02) stays on the control
+                // whenever the binding is live — collapsing the rail does not
+                // unbind ⌘1–⌘6.
+                const showHotkey = hotkeyBound && !sideNavCollapsed;
                 return (
                   <button
                     type="button"
@@ -175,6 +186,7 @@ export function SideNav({ user }: { user: SessionUser }) {
                     data-testid={`sidenav-item-${item.view}`}
                     aria-label={item.label}
                     aria-current={activeView === item.view ? 'page' : undefined}
+                    aria-keyshortcuts={hotkeyBound && navShortcut ? navShortcut.ariaKeyshortcuts : undefined}
                     onClick={() => navigate(`/${item.view}`)}
                     className={clsx('nav-button', activeView === item.view && 'nav-button-active')}
                   >
@@ -185,7 +197,7 @@ export function SideNav({ user }: { user: SessionUser }) {
                         {badgeTotal > 99 ? '99+' : badgeTotal}
                       </span>
                     ) : null}
-                    {showHotkey ? <kbd>{item.hotkey}</kbd> : null}
+                    {showHotkey && navShortcut ? <kbd>{navShortcut.combo}</kbd> : null}
                   </button>
                 );
               })}
@@ -245,12 +257,21 @@ export function Keel({ user }: { user: SessionUser }) {
     return () => document.removeEventListener('mousedown', closeOnOutside);
   }, [actionsOpen]);
 
+  // UX-S02: the keel search button is the visible control for the ⌘K binding —
+  // surface that on the control itself, sourced from the shortcuts registry.
+  const paletteShortcut = requireShortcut('palette.commands');
+
   return (
     <header className="keel" aria-label="Global workspace keel">
-      <button type="button" className="command-search keel-search" onClick={() => setCommandPaletteOpen(true)}>
+      <button
+        type="button"
+        className="command-search keel-search"
+        aria-keyshortcuts={paletteShortcut.ariaKeyshortcuts}
+        onClick={() => setCommandPaletteOpen(true)}
+      >
         <Search className="h-4 w-4 text-zinc-500" aria-hidden="true" />
         <span>Search</span>
-        <kbd className="ml-auto">⌘K</kbd>
+        <kbd className="ml-auto">{paletteShortcut.combo}</kbd>
       </button>
       <div className="keel-chip-row" aria-label="Quick actions and tools">
         {visibleChips.length ? (

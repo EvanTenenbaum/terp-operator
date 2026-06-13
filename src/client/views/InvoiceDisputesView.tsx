@@ -96,8 +96,9 @@ export function InvoiceDisputesView() {
             </>
           ) : null
         }
-        emptyTitle="No disputes"
-        emptyChildren="Invoice disputes are created from correction journal entries with an invoice reference."
+        // UX-D03: tailored empty state names the producing verb + surface.
+        emptyTitle="No open disputes"
+        emptyChildren="Invoice disputes appear here when a correction journal entry references a disputed invoice. Open the invoice in Payments or Orders to flag it."
       />
       {selectedDispute ? (
         <section className="inline-panel" aria-label="Dispute details">

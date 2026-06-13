@@ -11,13 +11,31 @@ import { ReceiptPanel } from '../components/ReceiptPanel';
 import type { GridRow } from '../../shared/types';
 import { GridJourney, labelFromToken, moneyish } from './operations/shared';
 
+// UX-D01: deep-link helper — navigate to the vendors (payables) view filtered
+// and drawered to a specific bill row. Mirrors the CountPill pattern (E01).
+function useVendorBillDeepLink() {
+  const setActiveView = useUiStore((state) => state.setActiveView);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
+  return (billId: string | undefined) => {
+    if (!billId) return;
+    setGridFilter('vendors', `id:${billId}`);
+    setDrawerEntity('vendors', 'vendorBill', billId);
+    setDrawerState('vendors', 'standard');
+    setActiveView('vendors');
+  };
+}
+
 const MS_PER_DAY = 86400000;
 
 export function VendorPayablesView() {
   const selectedRows = useUiStore((state) => state.selectedRows.vendors);
   const selectedBill = selectedRows?.[0];
-  const { runCommand, isRunning } = useCommandRunner();
+  const { runCommand, setNextSuccessActions, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
+  // UX-D01: deep-link for "View bill" success toast action
+  const openVendorBillDeepLink = useVendorBillDeepLink();
   const canWrite = me.data?.role !== 'viewer';
   const canVoid = me.data?.role === 'manager' || me.data?.role === 'owner';
   const navigate = useNavigate();
@@ -160,6 +178,9 @@ export function VendorPayablesView() {
       view="vendors"
       title="Vendor Payouts"
       columns={vendorMatchColumns}
+      // UX-D03: tailored empty state names the producing verb + surface.
+      emptyTitle="No vendor bills — create a bill to schedule a payout"
+      emptyChildren="Vendor bills are created from posted purchase receipts or manually via 'Create bill' above. Bills appear here once created."
       prelude={() => (
         <>
           {/* Pre/post-selection band swap (spec §1.4 #2): the payout commit
@@ -185,17 +206,28 @@ export function VendorPayablesView() {
         // recordVendorPayment requires status 'scheduled', so Pay actions on
         // unscheduled bills schedule first (same sequence as the Money-out
         // commit row).
+        // UX-D01: "View bill" action on pay success toast. Call
+        // setNextSuccessActions immediately before runCommand so the hook
+        // attaches the action to the success toast. runCommand stays 3-arg,
+        // preserving the existing test contract in statusTables.test.tsx.
         const payBill = async (bill: GridRow | undefined) => {
           if (!bill?.id) return;
+          const billId = String(bill.id);
           if (String(bill.status ?? '') !== 'scheduled') {
             const scheduled = await runCommand('scheduleVendorPayment', { vendorBillId: bill.id, scheduledFor: new Date().toISOString() }, 'Auto-schedule before payout');
             if (!scheduled.ok) return;
           }
+          setNextSuccessActions?.([{ label: 'View bill', onAction: () => openVendorBillDeepLink(billId) }]);
           await runCommand('recordVendorPayment', { vendorBillId: bill.id }, 'Record vendor payout');
         };
+        // UX-D01: "View bill" action on schedule success toast.
         const vAct = {
           approve: { key: 'approve', label: 'Approve', icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('approveVendorBill', { vendorBillId: r[0].id }, 'Approve vendor bill') },
-          schedule: (label: string) => ({ key: 'schedule', label, icon: <CalendarClock className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('scheduleVendorPayment', { vendorBillId: r[0].id, scheduledFor: new Date(Date.now() + MS_PER_DAY).toISOString() }, 'Schedule vendor payment') }),
+          schedule: (label: string) => ({ key: 'schedule', label, icon: <CalendarClock className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => {
+            const billId = String(r[0].id ?? '');
+            setNextSuccessActions?.([{ label: 'View bill', onAction: () => openVendorBillDeepLink(billId) }]);
+            return runCommand('scheduleVendorPayment', { vendorBillId: r[0].id, scheduledFor: new Date(Date.now() + MS_PER_DAY).toISOString() }, 'Schedule vendor payment');
+          }}),
           pay: (label: string) => ({ key: 'pay', label, icon: <Landmark className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => payBill(r[0]) })
         };
         const vendorBillTable: StatusActionTable = {

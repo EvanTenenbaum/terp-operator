@@ -14,10 +14,12 @@ export function CloseoutView() {
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [expandedBlocker, setExpandedBlocker] = useState<string | null>(null);
   const preview = trpc.queries.closeoutPreview.useQuery({ period });
-  const { runCommand, isRunning } = useCommandRunner();
+  const { runCommand, setNextSuccessActions, isRunning } = useCommandRunner();
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
   const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
+  const setDrawerState = useUiStore((state) => state.setDrawerState);
   const controlTotals = preview.data?.controlTotals ?? {};
   const blockers = preview.data?.blockers ?? [];
   const openWorkCount = preview.data?.openWorkCount ?? preview.data?.unsafeRows ?? 0;
@@ -60,20 +62,40 @@ export function CloseoutView() {
             tone: 'warning' as const,
             run: () => openBlocker(blockers[0]?.id)
           };
+          // UX-D01: "Open closeout" action on lock success toast. Call
+          // setNextSuccessActions immediately before runCommand so the hook
+          // can attach the action to the toast in onSuccess. This keeps
+          // runCommand at 3 args, preserving the existing test contract.
           const lock = (disabled: boolean) => ({
             key: 'lock',
             label: 'Lock period',
             disabled,
             disabledReason: 'Review open work before locking this period',
-            run: () => runCommand('lockPeriod', { period }, 'Lock closeout period')
+            run: () => {
+              setNextSuccessActions?.([{ label: 'Open closeout', onAction: () => setActiveView('closeout') }]);
+              return runCommand('lockPeriod', { period }, 'Lock closeout period');
+            }
           });
+          // UX-D01/M05: "View artifacts" action on archive success toast — deep-links
+          // the closeout archive grid filtered to the just-archived period.
           const archive = (disabled: boolean, reason: string) => ({
             key: 'archive',
             label: 'Archive',
             icon: <FileDown className="h-4 w-4" aria-hidden="true" />,
             disabled,
             disabledReason: reason,
-            run: () => runCommand('archivePeriod', { period, verified: true }, 'Archive locked period')
+            run: () => {
+              setNextSuccessActions?.([{
+                label: 'View artifacts',
+                onAction: () => {
+                  setGridFilter('closeout', `period:${period}`);
+                  setDrawerEntity('closeout', 'closeout');
+                  setDrawerState('closeout', 'standard');
+                  setActiveView('closeout');
+                }
+              }]);
+              return runCommand('archivePeriod', { period, verified: true }, 'Archive locked period');
+            }
           });
           const adjust = {
             key: 'adjust',
@@ -189,7 +211,13 @@ export function CloseoutView() {
           </div>
         ) : null}
       </section>
-      <GridJourney view="closeout" title="Archive Runs" />
+      {/* UX-D03: tailored empty state for the archive run log */}
+      <GridJourney
+        view="closeout"
+        title="Archive Runs"
+        emptyTitle="No archive runs yet — lock and archive a period"
+        emptyChildren="When you lock and archive a period, the run record and artifact paths (CSV, JSONL, PDF) appear here."
+      />
     </div>
   );
 }
