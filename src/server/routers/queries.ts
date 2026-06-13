@@ -26,7 +26,7 @@ let _referenceCacheAt = 0;
 
 async function _fetchReferenceData() {
   const [customers, vendors, staff, transactionTypes, items, tags, invoices, batches, orders, purchaseOrders, backups, referees, refereeRelationships, processors, pricingDefaults, allSystemSettings] = await Promise.all([
-    pool.query('select id, name, credit_limit as "creditLimit", balance, tags, pricing_rule as "pricingRule" from customers order by name'),
+    pool.query('select id, name, credit_limit as "creditLimit", balance, tags, pricing_rule as "pricingRule" from customers where name not like \'reaper-test-%\' order by name'),
     pool.query('select id, name, terms_days as "termsDays", consignment_default as "consignmentDefault" from vendors order by name'),
     pool.query("select id, name, role from users where role in ('owner','manager','operator') and active order by name"),
     pool.query(`select id, slug, label, direction, allowed_entity_types as "allowedEntityTypes",
@@ -2064,8 +2064,10 @@ export const queriesRouter = router({
       return renderPrintHtml(projection);
     }),
   // CAP-030 (TER-1498): Warehouse pick queue. Returns one row per pick_list that
-  // still has at least one open + unpicked + non-cancelled fulfillment line on a
-  // pick-released sales line. Ordered by oldest pick_released_at for FIFO.
+  // has at least one pick-released, non-cancelled fulfillment line. Fully-packed
+  // picks stay visible as "ready to close" so the operator can "Complete Order"
+  // without the pick vanishing from the queue. Ordered by oldest pick_released_at
+  // for FIFO.
   pickQueue: protectedProcedure.query(async () => {
     return (
       await pool.query(
@@ -2075,7 +2077,11 @@ export const queriesRouter = router({
            pl.order_id AS "orderId",
            so.order_no AS "orderNo",
            c.name AS customer,
-           pl.status,
+           CASE WHEN COUNT(fl.id) FILTER (WHERE fl.actual_qty = 0 AND fl.status = 'open' AND fl.status_extended IS DISTINCT FROM 'cancelled') = 0
+                AND COUNT(fl.id) FILTER (WHERE fl.actual_qty > 0) > 0
+                THEN 'ready_to_close'
+                ELSE pl.status
+           END AS status,
            pl.assigned_to AS "assignedTo",
            pl.created_at AS "createdAt",
            COUNT(fl.id) FILTER (WHERE fl.status = 'open' AND fl.status_extended IS DISTINCT FROM 'cancelled')::int AS "openLines",
@@ -2090,10 +2096,7 @@ export const queriesRouter = router({
          WHERE pl.status = 'open'
            AND EXISTS (
              SELECT 1 FROM fulfillment_lines fl2
-             JOIN sales_order_lines sol2 ON sol2.id = fl2.order_line_id
              WHERE fl2.pick_list_id = pl.id
-               AND sol2.pick_released_at IS NOT NULL
-               AND fl2.actual_qty = 0
                AND fl2.status_extended IS DISTINCT FROM 'cancelled'
            )
          GROUP BY pl.id, so.order_no, c.name

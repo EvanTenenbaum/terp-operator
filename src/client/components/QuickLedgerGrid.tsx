@@ -652,8 +652,8 @@ function DraftLedgerRow({
         {row.entityType === 'other' ? (
           <input aria-label="Entity name" value={row.entityName} onFocus={onFocus} onChange={(event) => onUpdate({ entityName: event.target.value })} placeholder="Name" />
         ) : (
-          <select aria-label="Entity id" value={row.entityId} onFocus={onFocus} onChange={(event) => onUpdate({ entityId: event.target.value, allocationTargetId: '' })}>
-            <option value="">Choose</option>
+          <select aria-label={`${labelFromToken(row.entityType)} counterparty`} value={row.entityId} onFocus={onFocus} onChange={(event) => onUpdate({ entityId: event.target.value, allocationTargetId: '' })}>
+            <option value="">Choose {labelFromToken(row.entityType)}</option>
             {entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
           </select>
         )}

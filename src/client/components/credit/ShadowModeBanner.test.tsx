@@ -5,11 +5,17 @@ import userEvent from '@testing-library/user-event';
 
 const creditEngineStancesQueryMock = vi.fn();
 const isBannerDismissedQueryMock = vi.fn();
+const meQueryMock = vi.fn();
 const dismissBannerMutateMock = vi.fn();
 const clearBannerDismissalMutateMock = vi.fn();
 
 vi.mock('../../api/trpc', () => ({
   trpc: {
+    auth: {
+      me: {
+        useQuery: () => meQueryMock(),
+      },
+    },
     credit: {
       creditEngineStances: {
         useQuery: (input: unknown, options: unknown) =>
@@ -69,8 +75,11 @@ describe('ShadowModeBanner', () => {
   beforeEach(() => {
     creditEngineStancesQueryMock.mockReset();
     isBannerDismissedQueryMock.mockReset();
+    meQueryMock.mockReset();
     dismissBannerMutateMock.mockReset();
     clearBannerDismissalMutateMock.mockReset();
+    // SX-L01: default to manager role so credit queries are enabled
+    meQueryMock.mockReturnValue({ data: { role: 'manager' }, isLoading: false });
     // Default: not dismissed in DB
     mockDismissalState(false);
     resetUiStore();

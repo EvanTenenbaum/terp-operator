@@ -14,11 +14,27 @@ interface Props {
   isCompletingOrder?: boolean;
 }
 
+// SX-K14: map raw enum strings to human labels for display
+function statusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    open: 'Open',
+    picking: 'Picking',
+    hold: 'Hold',
+    packed: 'Packed',
+    cancelled: 'Cancelled',
+    recall_pending: 'Recall Pending',
+    released: 'Released',
+    picked: 'Picked',
+  };
+  return labels[status] ?? status.replace(/_/g, ' ');
+}
+
 function statusColor(status: string) {
   if (status === 'packed') return 'bg-green-100 text-green-800';
   if (status === 'picking') return 'bg-blue-100 text-blue-800';
   if (status === 'hold') return 'bg-amber-100 text-amber-800';
   if (status === 'cancelled') return 'bg-red-100 text-red-800';
+  if (status === 'recall_pending') return 'bg-red-100 text-red-800';
   return 'bg-zinc-100 text-zinc-600';
 }
 
@@ -113,7 +129,7 @@ export function PickListScreen({ pickList, loading, onBack, onSelectLine, onComp
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${statusColor(line.status)}`}>
-                        {line.status}
+                        {statusLabel(line.status)}
                       </span>
                       {line.alertCount > 0 ? (
                         <span

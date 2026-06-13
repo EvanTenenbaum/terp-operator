@@ -64,7 +64,35 @@ export function ClientLedgerView() {
         }
       },
       { field: 'creditLimit', type: 'numericColumn', width: 140 },
-      { field: 'balance', type: 'numericColumn', width: 130 },
+      {
+        field: 'balance',
+        type: 'numericColumn',
+        width: 130,
+        // SX-J05: format as currency, clickable to open ledger drawer
+        valueFormatter: (params: any) => {
+          const n = Number(params.value ?? 0);
+          if (!Number.isFinite(n)) return '$0.00';
+          return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+        cellRenderer: (params: { data: GridRow; value: number }) => {
+          const n = Number(params.value ?? 0);
+          const formatted = '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          return (
+            <button
+              className="text-button font-mono tabular-nums text-right"
+              type="button"
+              title="Open client ledger"
+              onClick={() => {
+                const customerId = String(params.data?.id ?? params.data?.customerId ?? '');
+                if (!customerId) return;
+                navigate(`/clients?id=${customerId}`);
+              }}
+            >
+              {formatted}
+            </button>
+          );
+        }
+      },
       { field: 'tags', minWidth: 180 },
       { field: 'notes', minWidth: 260 },
       { field: 'invoiceCount', width: 120 },

@@ -93,6 +93,7 @@ export function MobilePaymentsView() {
   const { runCommand } = useCommandRunner();
   const { addToast } = useMobileToast();
 
+  // SX-K08: this query returns payment records, not open invoices.
   const invoicesQuery = trpc.queries.grid.useQuery({ view: 'payments' });
   const billsQuery    = trpc.queries.grid.useQuery({ view: 'vendors' });
 
@@ -251,7 +252,7 @@ export function MobilePaymentsView() {
 
       {tab === 'receive' ? (
         invoices.length === 0 ? (
-          <MobileEmptyState icon="💰" headline="No open customer balances" body="All caught up." />
+          <MobileEmptyState icon="💰" headline="No recent payments" body="Payment records will appear here once logged." />
         ) : (
           <div className="divide-y px-4" style={{ borderColor: 'var(--m-line)' }}>
             {invoices.map(row => {

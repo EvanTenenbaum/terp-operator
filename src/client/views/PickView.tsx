@@ -1,5 +1,5 @@
 // CAP-030 / TER-1513 — Mobile pick route (/pick)
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { trpc } from '../api/trpc';
 import { usePickWorkLoopGuard } from '../hooks/usePickWorkLoopGuard';
 import { useCommandRunner } from '../components/useCommandRunner';
@@ -18,6 +18,45 @@ export function PickView() {
   const [activeInterrupt, setActiveInterrupt] = useState<WarehouseAlertInterrupt | null>(null);
   // Scenario B: track when the picker is on a line that gets recalled while they're on it.
   const [recalledLineItem, setRecalledLineItem] = useState<string | null>(null);
+
+  // SX-K10: Push a history entry on each forward screen transition so
+  // browser Back/Forward navigates within the pick flow instead of exiting
+  // to the previous route. We push a new entry with a synthetic state on
+  // every forward move; on popstate we walk the component-level screen
+  // stack backwards. The UI "←" buttons call history.back() to keep the
+  // browser history and the internal stack in lockstep.
+  const screenHistoryRef = useRef<Screen[]>(['queue']);
+
+  function pushPickScreen(next: Screen) {
+    const current = screenHistoryRef.current[screenHistoryRef.current.length - 1];
+    if (current === next) return; // already on this screen
+    screenHistoryRef.current.push(next);
+    try {
+      history.pushState({ pickDepth: screenHistoryRef.current.length }, '', window.location.href);
+    } catch { /* not in a browser */ }
+  }
+
+  useEffect(() => {
+    function onPopState(_event: PopStateEvent) {
+      // When the stack has more than one entry, the user is inside the
+      // flow. Pop the top entry and navigate within the component.
+      if (screenHistoryRef.current.length > 1) {
+        screenHistoryRef.current.pop();
+        const prev = screenHistoryRef.current[screenHistoryRef.current.length - 1];
+        setScreen(prev);
+        if (prev === 'queue') {
+          setSelectedPickList(null);
+          setSelectedLine(null);
+        } else if (prev === 'list') {
+          setSelectedLine(null);
+        }
+      }
+      // If the stack has only one entry, the user is on the queue screen.
+      // Let the browser handle the popstate normally (exit to previous route).
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const me = trpc.auth.me.useQuery();
   usePickWorkLoopGuard(me.data ?? null);
@@ -107,11 +146,13 @@ export function PickView() {
   function handleSelectPickList(item: PickQueueItem) {
     setSelectedPickList(item);
     setScreen('list');
+    pushPickScreen('list');
   }
 
   function handleSelectLine(line: PickLine) {
     setSelectedLine(line);
     setScreen('line');
+    pushPickScreen('line');
   }
 
   function handleLinePicked() {
@@ -122,12 +163,12 @@ export function PickView() {
     ) ?? null;
     void utils.queries.pickListWithLines.invalidate({ pickListId: selectedPickList?.id ?? '' });
     if (nextLine) {
-      // Stay on 'line' screen, just swap to the next line
+      // Stay on 'line' screen, just swap to the next line (same depth)
       setSelectedLine(nextLine);
     } else {
-      // All lines packed — return to list
+      // All lines packed — return to list via history.back()
       setSelectedLine(null);
-      setScreen('list');
+      history.back();
     }
   }
 
@@ -136,6 +177,8 @@ export function PickView() {
     const orderId = selectedPickList?.orderId;
     if (!orderId) return;
     await runPickCommand('markOrderFulfilled', { orderId }, 'Complete order from PickListScreen');
+    // Pop all the way back to queue
+    screenHistoryRef.current = ['queue'];
     setScreen('queue');
     void utils.queries.pickQueue.invalidate();
   }
@@ -152,7 +195,9 @@ export function PickView() {
         onBack={() => {
           setActiveInterrupt(null);
           setRecalledLineItem(null);
-          setScreen('list');
+          // Use history.back() so popstate handles the state restoration
+          // and the stack stays consistent with browser history.
+          history.back();
         }}
         onPicked={handleLinePicked}
       />
@@ -164,7 +209,7 @@ export function PickView() {
       <PickListScreen
         pickList={pickList}
         loading={pickListLoading}
-        onBack={() => setScreen('queue')}
+        onBack={() => history.back()}
         onSelectLine={handleSelectLine}
         onCompleteOrder={handleCompleteOrder}
         isCompletingOrder={isCompletingOrder}

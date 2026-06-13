@@ -85,6 +85,7 @@ export const COMMAND_SCOPED_QUERY_FAMILIES: readonly string[][] = [
   ['queries', 'intakeQueue'],
   ['queries', 'pickQueue'],
   ['queries', 'photographyQueue'],
+  ['queries', 'paymentAllocations'],
   ['credit'],
 ];
 

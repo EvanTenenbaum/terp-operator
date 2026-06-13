@@ -133,7 +133,7 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
       {isLoading ? (
         <p className="page-subtitle">Loading receipt…</p>
       ) : showEmpty ? (
-        <p className="page-subtitle">No receipt generated yet. Finalize the {emptyLabel()} to produce one.</p>
+        <p className="page-subtitle">No receipt generated yet. {isPo ? 'Finalize' : isPayment ? 'Log' : 'Post'} the {emptyLabel()} to produce one.</p>
       ) : projection ? (
         <ReceiptBody audience={audience} projection={projection} />
       ) : (

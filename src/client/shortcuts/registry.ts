@@ -79,23 +79,23 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
 
   // ── Context drawer ──────────────────────────────────────────────────────
   { id: 'drawer.toggle', combo: ']', ariaKeyshortcuts: ']', scope: 'Context drawer', description: 'Open or close the context drawer' },
-  { id: 'drawer.cycleWidth', combo: '⇧]', ariaKeyshortcuts: 'Shift+]', scope: 'Context drawer', description: 'Cycle drawer width (standard → wide → focus)' },
+  { id: 'drawer.cycleWidth', combo: '⇧]', ariaKeyshortcuts: 'Shift+]', scope: 'Context drawer', description: 'Cycle drawer width (peek → standard → wide → focus)' },
   // UX-C08: drawer-tab number keys — bound only while the drawer is open.
   { id: 'drawer.tabs', combo: '1–5', ariaKeyshortcuts: '1', scope: 'Context drawer', description: 'Switch drawer tab 1–5 (while the drawer is open)', target: 'ContextDrawer tab buttons — tab N carries aria-keyshortcuts="N"' },
 
   // ── Workspace & actions ─────────────────────────────────────────────────
-  { id: 'workspace.focusMode', combo: 'F', ariaKeyshortcuts: 'F', scope: 'Workspace & actions', description: 'Toggle focus mode for the active panel' },
+  { id: 'workspace.focusMode', combo: 'F', ariaKeyshortcuts: 'F', scope: 'Workspace & actions', description: 'Toggle focus mode (screen-reader-only; no visible layout change)' },
   { id: 'action.commitPrimary', combo: '⌘↵', ariaKeyshortcuts: 'Meta+Enter', scope: 'Workspace & actions', description: 'Commit the visible primary action for the current selection', target: 'StatusActionBar primary button [data-status-action-primary]' },
   { id: 'workspace.escape', combo: 'Esc', ariaKeyshortcuts: 'Escape', scope: 'Workspace & actions', description: 'Close the shortcuts overlay, drawer, palette, or focus mode (in that order)' },
 
   // ── Intake (UX-C09 — apply only on the Intake lane with rows selected) ──
-  { id: 'intake.duplicate', combo: '⌘D', ariaKeyshortcuts: 'Meta+D', scope: 'Intake', description: 'Duplicate the selected intake rows into their PO group' },
+  { id: 'intake.duplicate', combo: '⌘D', ariaKeyshortcuts: 'Meta+D', scope: 'Intake', description: 'Duplicate selected intake rows / grid fill-down on editable columns' },
   { id: 'intake.markReady', combo: '⌘⌥⇧R', ariaKeyshortcuts: 'Meta+Alt+Shift+R', scope: 'Intake', description: 'Mark the selected intake rows Ready' },
   { id: 'intake.process', combo: '⌘⌥I', ariaKeyshortcuts: 'Meta+Alt+I', scope: 'Intake', description: 'Process intake — post a purchase receipt for the selected rows' },
 
   // ── Sales ───────────────────────────────────────────────────────────────
   // UX-F10: margin visibility toggle (uiStore.showMargin, persisted per #63).
-  { id: 'sales.toggleMargin', combo: '⌥M', ariaKeyshortcuts: 'Alt+M', scope: 'Sales', description: 'Show or hide margin & cost columns in the Sales workspace', target: 'SalesView margin eye toggle' },
+  { id: 'sales.toggleMargin', combo: '⌥M', ariaKeyshortcuts: 'Alt+M', scope: 'Workspace & actions', description: 'Show or hide margin & cost columns (global; most visible in Sales)', target: 'SalesView margin eye toggle' },
 
   // ── System ──────────────────────────────────────────────────────────────
   { id: 'system.healthCheck', combo: '⌘⌥H', ariaKeyshortcuts: 'Meta+Alt+H', scope: 'System', description: 'Run a live server health check' },

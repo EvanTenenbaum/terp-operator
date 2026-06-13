@@ -540,7 +540,10 @@ function moneyBucketLabel(value: string) {
 
 function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
   const reference = trpc.queries.reference.useQuery();
-  const vendorPayments = trpc.queries.vendorPayments.useQuery({ vendorBillId: selectedBill?.id }, { enabled: Boolean(selectedBill?.id) });
+  const vendorPayments = trpc.queries.vendorPayments.useQuery(
+    { vendorBillId: selectedBill?.id as string | undefined, vendorId: selectedBill?.vendorId as string | undefined },
+    { enabled: Boolean(selectedBill?.id || selectedBill?.vendorId) }
+  );
   const { runCommand, isRunning } = useCommandRunner();
   // UX-K04: useConfirm for void tray verb — keeps reversal-policy guidance in the dialog body.
   const confirm = useConfirm();
