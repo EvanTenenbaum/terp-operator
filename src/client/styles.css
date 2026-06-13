@@ -493,6 +493,7 @@ kbd {
 
 .finder-table-wrap {
   @apply mt-2 min-h-0 flex-1 overflow-auto border border-line;
+  max-height: 60vh;
 }
 
 .finder-table {
@@ -628,7 +629,7 @@ kbd {
 }
 
 .customer-facts {
-  @apply flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-700;
+  @apply flex flex-nowrap items-center gap-2 overflow-hidden text-xs font-medium text-zinc-700;
 }
 
 .customer-facts span {
@@ -678,6 +679,7 @@ kbd {
 
 .transaction-ledger-grid {
   @apply overflow-auto bg-white;
+  max-height: 60vh;
 }
 
 .transaction-ledger-table {

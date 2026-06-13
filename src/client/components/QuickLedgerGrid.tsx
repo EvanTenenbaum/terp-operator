@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Plus, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Plus, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 // UX-A04 / CAP-024 / Execution Decision 2: server-side per-user draft sync.
@@ -444,6 +444,7 @@ export function QuickLedgerGrid() {
                     accessIssue={canPostLedgerRow ? undefined : 'Manager access required to post payment entries'}
                     disabled={isRunning || !canPostLedgerRow}
                     onCommit={commit}
+                    onDiscard={() => removeLedgerDraft(row.id)}
                     onFocus={() => setActiveRowId(row.id)}
                     onUpdate={(patch) => updateRow(row.id, patch)}
                   />
@@ -582,6 +583,7 @@ function DraftLedgerRow({
   accessIssue,
   disabled,
   onCommit,
+  onDiscard,
   onFocus,
   onUpdate
 }: {
@@ -594,6 +596,7 @@ function DraftLedgerRow({
   accessIssue?: string;
   disabled: boolean;
   onCommit: (row: LedgerDraft) => void;
+  onDiscard: () => void;
   onFocus: () => void;
   onUpdate: (patch: Partial<LedgerDraft>) => void;
 }) {
@@ -748,10 +751,17 @@ function DraftLedgerRow({
       <td><span className={row.status === 'posted' ? 'finder-chip success' : row.status === 'needs_fix' ? 'finder-chip warning' : 'finder-chip'}>{labelFromToken(row.status)}</span></td>
       <td><span className="transaction-ledger-source">Draft</span></td>
       <td>
-        <button className="icon-button" type="button" disabled={disabled || row.status === 'posted'} onClick={() => onCommit(row)} title={accessIssue ?? 'Record payment'}>
-          <Check className="h-4 w-4" aria-hidden="true" />
-          <span className="sr-only">Record payment</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button className="icon-button" type="button" disabled={disabled || row.status === 'posted'} onClick={() => onCommit(row)} title={accessIssue ?? 'Record payment'}>
+            <Check className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Record payment</span>
+          </button>
+          {/* SX-D02: draft hygiene — per-row discard deletes from server-persisted drafts */}
+          <button className="icon-button" type="button" disabled={row.status === 'posted'} onClick={onDiscard} title="Discard this draft row">
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Discard draft</span>
+          </button>
+        </div>
         {/* CAP-004: role-gate note for viewers */}
         {accessIssue ? (
           <p className="text-xs text-zinc-400 mt-1">Manager or owner required to post ledger rows.</p>

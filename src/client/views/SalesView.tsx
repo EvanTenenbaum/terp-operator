@@ -410,6 +410,8 @@ export function SalesView() {
   const [suggestionPriceBracket, setSuggestionPriceBracket] = useState('');
   const [suggestionAgingOnly, setSuggestionAgingOnly] = useState(false);
   const suggestionFiltersActive = Boolean(suggestionCategory || suggestionPriceBracket || suggestionAgingOnly);
+  // SX-B05: suggestions collapsed by default with live count summary
+  const [suggestionsCollapsed, setSuggestionsCollapsed] = useState(true);
   const activeCustomerId = useUiStore((state) => state.activeCustomerId);
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const setActiveCustomerId = useUiStore((state) => state.setActiveCustomerId);
@@ -1382,12 +1384,6 @@ export function SalesView() {
           ) : null}
         </div>
       ) : null}
-      {customerId ? (
-        <CustomerPurchaseHistoryPanel
-          customerId={customerId}
-          customerName={workspace.data?.customer?.name}
-        />
-      ) : null}
 
       {/* UX-O02: photographer->sales blocker surfacing — media-readiness counts where catalog decisions happen */}
       {customerId ? <PhotographyQueuePanel /> : null}
@@ -1459,13 +1455,13 @@ export function SalesView() {
             </div>
             <ShadowModeBanner />
             {showCreditIndicator && !isIndicatorDismissed && engineRecommendation != null ? (
-              <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
-                <span>
-                  ⓘ Engine recommends a lower limit for this customer ({formatMoney(engineRecommendation)}). Order is OK against current manual limit ({formatMoney(manualLimit)}).
-                </span>
+              <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-800"
+                   title={`Engine recommends a lower limit (${formatMoney(engineRecommendation)}). Current manual limit: ${formatMoney(manualLimit)}.`}>
+                <span>ⓘ Engine limit {formatMoney(engineRecommendation)}</span>
                 <button
                   type="button"
-                  className="font-medium text-amber-700 hover:text-amber-900"
+                  className="font-medium text-amber-600 hover:text-amber-800"
+                  aria-label="Dismiss credit limit notice"
                   onClick={() => {
                     setDismissedCreditIndicators((prev) => {
                       const next = new Set(prev);
@@ -1474,39 +1470,8 @@ export function SalesView() {
                     });
                   }}
                 >
-                  Dismiss
+                  ×
                 </button>
-              </div>
-            ) : null}
-            {/* UX-F06 — referee inline prompt: when the customer has an active
-                referee relationship, show a one-line pill at confirm time so
-                credit accrual is never silently missed. The pill appears when
-                the order is in draft (confirm primary is active) and at least
-                one customer-type relationship exists. The operator can select
-                a different relationship or clear it ("None"). The selected id
-                is wired into priceAndConfirm → confirmSalesOrder. */}
-            {canWrite && customerId && selectedOrderStatus === 'draft' && customerRefereeRelationships.length > 0 ? (
-              <div className="mt-2 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-900" data-testid="referee-credit-pill">
-                <span className="font-medium">Referee credit:</span>
-                <select
-                  className="select text-xs"
-                  value={refereeRelationshipId}
-                  onChange={(e) => setRefereeRelationshipId(e.target.value)}
-                  data-testid="referee-credit-select"
-                >
-                  <option value="">None — no credit will accrue</option>
-                  {customerRefereeRelationships.map((rel: any) => (
-                    <option key={rel.id} value={rel.id}>
-                      {rel.refereeName} — credit will accrue
-                      {' ▸ '}
-                      {rel.feeType === 'percentage'
-                        ? `${rel.feePercentage}%`
-                        : rel.feeType === 'fixed'
-                        ? `$${rel.feeFixedAmount}`
-                        : `${rel.feePercentage}% + $${rel.feeFixedAmount}`}
-                    </option>
-                  ))}
-                </select>
               </div>
             ) : null}
             {showPrePostStrip ? (
@@ -1743,6 +1708,17 @@ export function SalesView() {
       )}
 
       {customerId ? <div className="min-h-[340px]">
+        {/* SX-B05: suggestions collapsed by default with live count summary */}
+        <button
+          type="button"
+          className="text-button compact-action mb-2"
+          aria-expanded={!suggestionsCollapsed}
+          onClick={() => setSuggestionsCollapsed((c) => !c)}
+        >
+          {suggestionsCollapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+          Smart Suggestions / Buyer Fit · {(suggestions.data ?? []).length} match{(suggestions.data ?? []).length !== 1 ? 'es' : ''}
+        </button>
+        {!suggestionsCollapsed ? (<>
         {/* GH #351: suggestion filter bar */}
         <div className="filter-bar">
           <Search className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" aria-hidden="true" />
@@ -1806,7 +1782,15 @@ export function SalesView() {
           loading={suggestions.isLoading}
           onSelectionChange={setSelectedSuggestions}
         />
+        </>) : null}
       </div> : null}
+      {/* SX-B05: purchase history (collapsed by default, lives below suggestions per rule 4) */}
+      {customerId ? (
+        <CustomerPurchaseHistoryPanel
+          customerId={customerId}
+          customerName={workspace.data?.customer?.name}
+        />
+      ) : null}
       {sheetRows.length > 0 ? (
         <WorkspacePanel
           panelId="sales:sheet-preview"
@@ -1881,6 +1865,34 @@ export function SalesView() {
               onRetry={() => void retrySnapshot()}
             />
           </div>
+          {/* SX-B04 / UX-F06 — referee credit pill relocated from the builder
+              header to the sheet preview (the confirmation tray). Its moment
+              is confirm-time; wire the selected id into priceAndConfirm →
+              confirmSalesOrder. */}
+          {canWrite && customerId && selectedOrderStatus === 'draft' && customerRefereeRelationships.length > 0 ? (
+            <div className="mt-2 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-900" data-testid="referee-credit-pill">
+              <span className="font-medium">Referee credit:</span>
+              <select
+                className="select text-xs"
+                value={refereeRelationshipId}
+                onChange={(e) => setRefereeRelationshipId(e.target.value)}
+                data-testid="referee-credit-select"
+              >
+                <option value="">None — no credit will accrue</option>
+                {customerRefereeRelationships.map((rel: any) => (
+                  <option key={rel.id} value={rel.id}>
+                    {rel.refereeName} — credit will accrue
+                    {' ▸ '}
+                    {rel.feeType === 'percentage'
+                      ? `${rel.feePercentage}%`
+                      : rel.feeType === 'fixed'
+                      ? `$${rel.feeFixedAmount}`
+                      : `${rel.feePercentage}% + $${rel.feeFixedAmount}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           {!sheetRows.length ? (
             <p className="mt-2 text-sm text-zinc-600">
               Select suggestions below to build a sheet, then export or copy the offer from here.
