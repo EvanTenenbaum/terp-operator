@@ -986,7 +986,7 @@ export const queriesRouter = router({
                 after_snapshot as "afterSnapshot", result, reversed_by_command_id as "reversedByCommandId",
                 created_at as "createdAt"
          from command_journal
-         where affected_ids && $1::uuid[]
+         where affected_ids && $1::text[]
          order by created_at desc
          limit 25`,
         [entityIds]
@@ -1576,7 +1576,7 @@ export const queriesRouter = router({
           `select id, command_name as "commandName", actor_name as "actorName", status, error,
                   affected_ids as "affectedIds", created_at as "createdAt"
            from command_journal
-           where affected_ids && $1::uuid[]
+           where affected_ids && $1::text[]
            order by created_at desc
            limit 200`,
           [validIds]
@@ -3021,7 +3021,8 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
     case 'fulfillment':
       return `select pl.id, pl.order_id as "orderId", pl.pick_no as "pickNo", so.order_no as "orderNo", c.name as customer, pl.status,
                      pl.units_per_bag as "unitsPerBag", pl.label_format as "labelFormat", pl.labels_printed as "labelsPrinted",
-                     pl.manifest_path as "manifestPath", pl.tracking, count(fl.id)::int as lines
+                     pl.manifest_path as "manifestPath", pl.tracking, count(fl.id)::int as lines,
+                     coalesce(sum(jsonb_array_length(fl.warehouse_alerts)), 0)::int as "alertCount"
               from pick_lists pl
               join sales_orders so on so.id = pl.order_id
               left join customers c on c.id = so.customer_id

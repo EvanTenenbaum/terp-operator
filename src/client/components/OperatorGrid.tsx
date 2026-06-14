@@ -158,7 +158,20 @@ export function OperatorGrid({
     if (!storedAdvancedFilter || storedAdvancedFilter.conditions.length === 0) return rows;
     return rows.filter((row) => evaluateFilterGroup(row as unknown as Record<string, unknown>, storedAdvancedFilter));
   }, [rows, storedAdvancedFilter]);
-  const renderedRows = useMemo(() => applyGridFilter(advancedFilteredRows, parsedFilter), [parsedFilter, advancedFilteredRows]);
+  // SX-I08: Clone rows before handing to AG Grid — tRPC query-cache rows may be
+  // frozen (Object.preventExtensions / structural sharing), causing "Cannot assign
+  // to read only property" errors during inline editing, TSV paste, and fill-down.
+  const renderedRows = useMemo(() => {
+    const filtered = applyGridFilter(advancedFilteredRows, parsedFilter);
+    return filtered.map((row) => ({...row}));
+  }, [parsedFilter, advancedFilteredRows]);
+  // SX-J04: Detect filter misses — when server data exists but filters eliminated
+  // all rows, show a different empty state than "no data at all".
+  const hasActiveFilter = useMemo(() =>
+    Boolean(parsedFilter.freeText || Object.keys(parsedFilter.fields).length || (storedAdvancedFilter?.conditions?.length ?? 0) > 0),
+    [parsedFilter, storedAdvancedFilter]
+  );
+  const isFilterMiss = rows.length > 0 && renderedRows.length === 0 && hasActiveFilter;
   const panelId = useMemo(() => `grid:${view}:${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [title, view]);
 
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
@@ -769,7 +782,11 @@ export function OperatorGrid({
             onCellContextMenu={onCellContextMenuHandler}
           />
         ) : (
-          <EmptyState title={emptyTitle ?? 'No rows yet'}>{emptyChildren ?? 'No rows match the current view.'}</EmptyState>
+          <EmptyState title={isFilterMiss ? 'No rows match the current filters' : (emptyTitle ?? 'No rows yet')}>
+            {isFilterMiss
+              ? 'Try adjusting the filter query or clearing it to see all rows.'
+              : (emptyChildren ?? 'No rows match the current view.')}
+          </EmptyState>
         )}
       </div>
       <SelectionSummary rows={selectedRows} view={view} onOpenHistory={(row) => setInspector({ row, tab: 'history' })} onOpenRelationship={(row) => setInspector({ row, tab: 'relationship' })} onOpenIssue={canWrite ? (row) => setInspector({ row, tab: 'issue' }) : undefined} actions={canWrite ? selectionActions?.(selectedRows) : null} cellRangeStats={cellRangeStats} />

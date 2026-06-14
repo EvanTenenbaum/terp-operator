@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, FileDown, PackageCheck } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {  useEffect, useState , useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -158,14 +158,14 @@ export function FulfillmentView() {
   const pickQueueFilters = useUiStore((state) => state.pickQueueFilters);
   const setPickQueueFilter = useUiStore((state) => state.setPickQueueFilter);
   const clearPickQueueFilters = useUiStore((state) => state.clearPickQueueFilters);
-  // UX-L03: default to 'Open picks' so fulfilled rows are excluded on first load.
-  // gridFilters is not persisted across sessions (uiStore.ts partialize list), so
-  // we seed status:open on every mount unless the operator has already chosen a filter.
-  const fulfillmentGridFilter = useUiStore((state) => state.gridFilters?.fulfillment ?? '');
+  // SX-K06: the picks grid and lines grid now use distinct filter slots
+  // ('fulfillment-picks' / 'fulfillment-lines') so their filter state is
+  // independent. Pick filter defaults to status:open on first mount.
+  const fulfillmentGridFilter = useUiStore((state) => state.gridFilters?.['fulfillment-picks'] ?? '');
   const setGridFilter = useUiStore((state) => state.setGridFilter);
   useEffect(() => {
     if (!fulfillmentGridFilter) {
-      setGridFilter('fulfillment', 'status:open');
+      setGridFilter('fulfillment-picks', 'status:open');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // GH #354: grid-filter presets now rendered via FilterPresetStrip template
@@ -202,16 +202,22 @@ export function FulfillmentView() {
       lines.data.every((candidate) => String(candidate.status ?? '') === 'packed' || (Number(candidate.actualQty ?? 0) > 0 && Boolean(candidate.bagCode)))
   );
 
-  // CAP-030 / TER-1510 — apply chip filters to pick rows
-  const filteredPickRows = pickQueueFilters.size === 0 ? pickRows : pickRows.filter((row) => {
-    const status = String(row.status ?? '');
-    const alertCount = Number(row.alertCount ?? 0);
-    if (pickQueueFilters.has('needs_picking') && status !== 'needs_picking') return false;
-    if (pickQueueFilters.has('in_progress') && status !== 'in_progress') return false;
-    if (pickQueueFilters.has('has_alerts') && alertCount === 0) return false;
-    if (pickQueueFilters.has('ready_to_close') && status !== 'ready_to_close') return false;
-    return true;
-  });
+  // CAP-030 / TER-1510 — apply chip filters to pick rows.
+  // SX-I11: Memoized so AG Grid doesn't rebuild its row DOM on every render
+  // (the previous unmemoized .filter() created a new array identity each
+  // time, causing ~2,000 DOM node replacements/sec while idle).
+  const filteredPickRows = useMemo(() => {
+    if (pickQueueFilters.size === 0) return pickRows;
+    return pickRows.filter((row) => {
+      const status = String(row.status ?? '');
+      const alertCount = Number(row.alertCount ?? 0);
+      if (pickQueueFilters.has('needs_picking') && status !== 'needs_picking') return false;
+      if (pickQueueFilters.has('in_progress') && status !== 'in_progress') return false;
+      if (pickQueueFilters.has('has_alerts') && alertCount === 0) return false;
+      if (pickQueueFilters.has('ready_to_close') && status !== 'ready_to_close') return false;
+      return true;
+    });
+  }, [pickRows, pickQueueFilters]);
 
   useEffect(() => {
     if (!line) {
@@ -256,7 +262,7 @@ export function FulfillmentView() {
         </div>
       ) : null}
       <OperatorGrid
-        view="fulfillment"
+        view="fulfillment-picks"
         title="Fulfillment"
         rows={filteredPickRows}
         columns={fulfillmentPickColumns}
@@ -278,7 +284,7 @@ export function FulfillmentView() {
                 ('in_progress', 'needs_picking') that never matched any rows.
                 'Open picks' is the default-active preset (seeded by useEffect above). */}
             <FilterPresetStrip
-              view="fulfillment"
+              view="fulfillment-picks"
               ariaLabel="Filter fulfillment"
               presets={[
                 { label: 'Open picks', filter: 'status:open', title: 'Show only open (active) pick lists' },
@@ -386,7 +392,7 @@ export function FulfillmentView() {
         </div>
       ) : null}
       <OperatorGrid
-        view="fulfillment"
+        view="fulfillment-lines"
         title="Fulfillment Lines"
         rows={(lines.data ?? []) as GridRow[]}
         columns={fulfillmentLineColumns}
