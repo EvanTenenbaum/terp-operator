@@ -3,7 +3,6 @@ import { trpc } from '../api/trpc';
 import { viewVisibleForUser } from '../accessPolicy';
 import { drawerStateNameForState, useUiStore } from '../store/uiStore';
 import { useCommandRunner } from './useCommandRunner';
-import { useNavigate } from 'react-router-dom';
 import { navShortcuts, requireShortcut } from '../shortcuts/registry';
 import { ShortcutsOverlay } from '../shortcuts/ShortcutsOverlay';
 import type { ViewKey } from '../../shared/types';
@@ -82,7 +81,6 @@ function errorMessage(error: unknown): string {
 }
 
 export function Hotkeys() {
-  const navigate = useNavigate();
   const activeView = useUiStore((state) => state.activeView);
   const selectedRows = useUiStore((state) => state.selectedRows);
   const setActiveView = useUiStore((state) => state.setActiveView);
@@ -234,8 +232,7 @@ export function Hotkeys() {
           pushToast('That lane is not part of this operator workspace.', 'info');
           return;
         }
-        navigate("/" + view);
-        setActiveView(view);
+        window.location.assign("/" + view);
         return;
       }
 
