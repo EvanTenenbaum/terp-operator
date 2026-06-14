@@ -119,6 +119,7 @@ function AppContent() {
         catalog: '/mobile/catalog',
       };
       const currentPath = window.location.pathname;
+      if (currentPath.startsWith('/mobile')) return;
       const firstSegment = currentPath.slice(1).split('/')[0] ?? '';
       // contacts/:id → /mobile/contacts/:id
       if (firstSegment === 'contacts') {

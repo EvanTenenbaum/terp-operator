@@ -1,5 +1,6 @@
 import { FileDown } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
 import { StatusActionBar, type StatusActionTable } from '../components/templates';
 import { useCommandRunner } from '../components/useCommandRunner';
@@ -20,6 +21,7 @@ export function CloseoutView() {
   const setGridFilter = useUiStore((state) => state.setGridFilter);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const navigate = useNavigate();
   const controlTotals = preview.data?.controlTotals ?? {};
   const blockers = preview.data?.blockers ?? [];
   const openWorkCount = preview.data?.openWorkCount ?? preview.data?.unsafeRows ?? 0;
@@ -33,6 +35,7 @@ export function CloseoutView() {
     const target = blockerTarget(blockerId);
     if (target.settingsTab) setActiveSettingsTab(target.settingsTab);
     setGridFilter(target.filterView ?? target.view, target.filter);
+    navigate('/' + target.view);
     setActiveView(target.view);
   }
 
@@ -72,7 +75,7 @@ export function CloseoutView() {
             disabled,
             disabledReason: 'Review open work before locking this period',
             run: () => {
-              setNextSuccessActions?.([{ label: 'Open closeout', onAction: () => setActiveView('closeout') }]);
+              setNextSuccessActions?.([{ label: 'Open closeout', onAction: () => { navigate('/closeout'); setActiveView('closeout'); } }]);
               return runCommand('lockPeriod', { period }, 'Lock closeout period');
             }
           });
@@ -91,6 +94,7 @@ export function CloseoutView() {
                   setGridFilter('closeout', `period:${period}`);
                   setDrawerEntity('closeout', 'closeout');
                   setDrawerState('closeout', 'standard');
+                  navigate('/closeout');
                   setActiveView('closeout');
                 }
               }]);

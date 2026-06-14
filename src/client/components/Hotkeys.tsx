@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { trpc } from '../api/trpc';
 import { viewVisibleForUser } from '../accessPolicy';
 import { drawerStateNameForState, useUiStore } from '../store/uiStore';
@@ -232,7 +232,7 @@ export function Hotkeys() {
           pushToast('That lane is not part of this operator workspace.', 'info');
           return;
         }
-        setActiveView(view);
+        window.location.assign("/" + view);
         return;
       }
 

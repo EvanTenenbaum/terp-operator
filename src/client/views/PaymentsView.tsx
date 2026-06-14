@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import { useId, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
 import { FilterPresetStrip, StatusActionBar, type StatusActionTable } from '../components/templates';
 import { WorkspacePanel } from '../components/WorkspacePanel';
@@ -45,11 +46,13 @@ function usePaymentDeepLink() {
   const setGridFilter = useUiStore((state) => state.setGridFilter);
   const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
   const setDrawerState = useUiStore((state) => state.setDrawerState);
+  const navigate = useNavigate();
   return (paymentId: string | undefined) => {
     if (!paymentId) return;
     setGridFilter('payments', `id:${paymentId}`);
     setDrawerEntity('payments', 'payment', paymentId);
     setDrawerState('payments', 'standard');
+    navigate('/payments');
     setActiveView('payments');
   };
 }
@@ -255,6 +258,9 @@ function PaymentAllocationTools({ selectedPayment }: { selectedPayment?: GridRow
           Discount
           <input id={discountInputId} className="input compact" value={discountAmount} inputMode="decimal" disabled={!canAllocate} onChange={(event) => setDiscountAmount(event.target.value)} />
         </label>
+        <button className="secondary-button" type="button" disabled={!invoiceId || !selectedPayment?.id || isRunning || !canAllocate} title={!canAllocate ? "Manager or owner required to allocate" : !invoiceId ? "Select an order to apply to" : !selectedPayment?.id ? "Select a payment row first" : undefined} onClick={() => runCommand("allocatePayment", { paymentId: selectedPayment?.id, invoiceId }, "Apply payment to selected order")}>
+          Apply to selected
+        </button>
         <button className="secondary-button" type="button" disabled={!invoiceId || !discountAmount || isRunning || !canAllocate} title={!canAllocate ? 'Manager or owner required to apply discount' : !invoiceId ? 'Select an order first' : !discountAmount ? 'Enter a discount amount' : undefined} onClick={() => runCommand('applyDiscount', { invoiceId, amount: Number(discountAmount) }, 'Apply discount from payments surface')}>
           Apply Discount
         </button>

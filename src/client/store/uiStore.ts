@@ -1,8 +1,11 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
 import { persist } from 'zustand/middleware';
 import type { DrawerEntityRef, DrawerState, DrawerStateName, GridRow, QuickLaunchMode, RouteHistoryEntry, SettingsTab, ViewKey } from '../../shared/types';
 import type { FilterGroupInput } from '../../shared/filterSchemas';
+
+enableMapSet();
 
 // CAP-024: Ledger draft shape — kept here so uiStore and QuickLedgerGrid share one definition.
 export type LedgerDirection = 'receiving' | 'paying';

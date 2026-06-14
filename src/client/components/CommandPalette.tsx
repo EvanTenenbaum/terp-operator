@@ -175,6 +175,7 @@ export function CommandPalette() {
     );
   }, [normalizedQuery]);
 
+  const { runCommand, isRunning } = useCommandRunner();
   if (!open) return null;
 
   const contextPayload = selectedRows[activeView]?.length
@@ -220,6 +221,7 @@ export function CommandPalette() {
     if (view) {
       const drawerType = drawerTypeForEntity(type);
       setActiveView(view);
+      navigate("/" + view);
       setSelectedRows(view, [row]);
       setDrawerEntity(view, drawerType, row.id);
       if (relationshipEntity(row, type)) {
@@ -236,6 +238,7 @@ export function CommandPalette() {
       setSalesRequestText(query.trim());
     }
     setActiveView(action.view);
+    navigate("/" + action.view);
     setOpen(false);
   }
 
@@ -264,6 +267,7 @@ export function CommandPalette() {
     const view = viewForEntity(type);
     if (!view) return;
     setActiveView(view);
+    navigate("/" + view);
     setSelectedRows(view, [row]);
     setDrawerEntity(view, drawerTypeForEntity(type), row.id);
     setDrawerState(view, 'standard');
@@ -277,7 +281,6 @@ export function CommandPalette() {
     setOpen(false);
   }
 
-  const { runCommand, isRunning } = useCommandRunner();
 
   // ── Entities tab: filter groups by frame ─────────────────────────────────
   const allEntityGroups = entityTabSearch.data?.groups ?? {};

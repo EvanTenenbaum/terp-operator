@@ -5,6 +5,7 @@
 //   "Copy details" and "Open in Recovery" actions automatically.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import type { ToastAction } from '../store/uiStore';
@@ -47,7 +48,11 @@ import { useCommandRunner } from './useCommandRunner';
 
 function wrapperFactory(queryClient: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </MemoryRouter>
+    );
   };
 }
 
