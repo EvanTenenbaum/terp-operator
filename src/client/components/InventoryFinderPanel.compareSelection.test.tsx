@@ -47,6 +47,7 @@ vi.mock('../api/trpc', () => ({
           isLoading: false,
         }),
       },
+      customerLastOrderedQtyBulk: { useQuery: () => ({ data: {}, isLoading: false }) },
     },
     useQueries: () => [],
     filters: {

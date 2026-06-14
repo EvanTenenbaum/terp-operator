@@ -21,7 +21,7 @@ import { defaultQtyFor, qtyHintFor, InventoryFinderPanel, type InventoryFinderBa
 
 vi.mock('../api/trpc', () => ({
   trpc: {
-    queries: { reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) } },
+    queries: { reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) }, customerLastOrderedQtyBulk: { useQuery: () => ({ data: {}, isLoading: false }) } },
     useQueries: () => [],
     filters: {
       listSavedFilters: { useQuery: () => ({ data: [] }) },
