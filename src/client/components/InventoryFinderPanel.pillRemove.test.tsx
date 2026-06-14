@@ -44,7 +44,8 @@ const SAVED_FILTERS = [
 vi.mock('../api/trpc', () => ({
   trpc: {
     queries: {
-      reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) },
+      reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) }
+        customerLastOrderedQtyBulk: { useQuery: () => ({ data: {}, isLoading: false }) },
     },
     useQueries: () => [],
     filters: {
