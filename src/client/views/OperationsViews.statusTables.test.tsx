@@ -429,6 +429,8 @@ describe('PurchaseOrdersView UX-H04 partial receiving (BE-009 lineage, Execution
       { id: 'l2', qty: 5, receivedQty: 0, status: 'planned' }
     ]);
     render(<PurchaseOrdersView />);
+    // SX-F02: PO lines grid is gated behind a Show/Hide toggle.
+    fireEvent.click(screen.getByRole('button', { name: /^Show lines$/ }));
     fireEvent.click(screen.getByTestId('select-all-PO-9 Lines'));
     fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: /^Receive selected qty$/ }));
@@ -457,6 +459,8 @@ describe('PurchaseOrdersView UX-H04 partial receiving (BE-009 lineage, Execution
       { id: 'l2', qty: 3, receivedQty: 1, status: 'partially_received' }
     ]);
     render(<PurchaseOrdersView />);
+    // SX-F02: PO lines grid is gated behind a Show/Hide toggle.
+    fireEvent.click(screen.getByRole('button', { name: /^Show lines$/ }));
     fireEvent.click(screen.getByTestId('select-all-PO-9 Lines'));
     fireEvent.click(screen.getByRole('button', { name: /^More$/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: /^Receive selected qty$/ }));

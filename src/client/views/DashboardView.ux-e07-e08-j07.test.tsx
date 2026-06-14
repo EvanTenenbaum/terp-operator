@@ -130,6 +130,8 @@ function Wrap({ children }: { children: ReactNode }) {
   );
 }
 
+const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+
 beforeEach(() => {
   mockNavigate.mockClear();
   _drilldownRows = DRILLDOWN_CASH_ROWS;
@@ -142,6 +144,8 @@ beforeEach(() => {
     snoozedWorkQueueItems: {},
     drilldownMetric: null,
   });
+  // SX-C03: restore scrollIntoView in case tests mocked it.
+  window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
 });
 
 // ── UX-E07: per-lane snooze ────────────────────────────────────────────────────
@@ -227,7 +231,11 @@ describe('UX-E08 — "View all (N)" expansion on Today\'s Top Decisions', () => 
     expect(toggle.textContent).toMatch(/view all \(5\)/i);
   });
 
-  it('clicking the toggle expands to show all ranked rows', () => {
+  it('clicking "View all" scrolls the My Open Work grid into view', () => {
+    // SX-C03: "View all" scrolls to My Open Work grid instead of expanding in-place.
+    const scrollIntoView = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
     render(
       <Wrap>
         <DashboardView />
@@ -235,13 +243,17 @@ describe('UX-E08 — "View all (N)" expansion on Today\'s Top Decisions', () => 
     );
 
     const toggle = screen.getByTestId('top-decisions-toggle');
+    expect(toggle.textContent).toMatch(/view all \(5\)/i);
     fireEvent.click(toggle);
 
-    // After expansion, toggle label changes to "Show less".
-    expect(toggle.textContent).toMatch(/show less/i);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
-  it('clicking "Show less" collapses back to the top 3', () => {
+  // SX-C03: "View all" no longer toggles expand/collapse in-place.
+  it('"View all" button is clickable and always shows "View all (N)" label', () => {
+    const scrollIntoView = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
     render(
       <Wrap>
         <DashboardView />
@@ -249,12 +261,15 @@ describe('UX-E08 — "View all (N)" expansion on Today\'s Top Decisions', () => 
     );
 
     const toggle = screen.getByTestId('top-decisions-toggle');
-    // Expand first.
-    fireEvent.click(toggle);
-    expect(toggle.textContent).toMatch(/show less/i);
-    // Collapse.
+    expect(toggle.textContent).toMatch(/view all \(5\)/i);
+
+    // Click twice — label never changes to "Show less".
     fireEvent.click(toggle);
     expect(toggle.textContent).toMatch(/view all \(5\)/i);
+    fireEvent.click(toggle);
+    expect(toggle.textContent).toMatch(/view all \(5\)/i);
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
   });
 
   it('does NOT show the toggle when there are 3 or fewer rows', () => {

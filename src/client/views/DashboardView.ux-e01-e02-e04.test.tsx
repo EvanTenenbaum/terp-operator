@@ -281,7 +281,8 @@ describe('UX-E04 — Per-panel error state (healthy panels remain live)', () => 
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
   });
 
-  it('when workQueue errors, the Money Buckets panel remains visible', () => {
+  // SX-C01: Money Buckets panel was removed from the dashboard.
+  it.skip('when workQueue errors, the Money Buckets panel remains visible', () => {
     _workQueueError = true;
 
     render(
