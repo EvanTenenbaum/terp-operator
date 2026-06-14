@@ -72,7 +72,10 @@ export function DashboardView() {
   const { runCommand, isRunning } = useCommandRunner();
   const myDrafts = trpc.queries.myDrafts.useQuery(undefined, { refetchInterval: 15_000 });
   // GH #359: Credit watch watchlist — top customers by credit risk
-  const creditWatchlist = trpc.queries.creditWatchlist.useQuery({ limit: 10 }, { refetchInterval: 30_000 });
+  // SX-I16: role-gate — viewer/intake@ roles get 403 on this manager-only query.
+  const meForCreditWatch = trpc.auth.me.useQuery();
+  const isCreditWatchRole = meForCreditWatch.data?.role === 'owner' || meForCreditWatch.data?.role === 'manager';
+  const creditWatchlist = trpc.queries.creditWatchlist.useQuery({ limit: 10 }, { refetchInterval: 30_000, enabled: isCreditWatchRole });
 
   // UX-J07: group cash drilldown rows by locationBucket when the metric is 'cash'
   // and locationBucket is present on the wire (gridSql('payments') always returns it).

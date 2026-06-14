@@ -157,8 +157,14 @@ export function CommandPalette() {
   const commands = useMemo(() => {
     const all = reference.data?.commands ?? [];
     if (!normalizedQuery) return [];
-    return all.filter((command) => `${command.label} ${command.name} ${commandAliasText(command.name as CommandName)}`.toLowerCase().includes(normalizedQuery)).slice(0, 16);
-  }, [reference.data?.commands, normalizedQuery]);
+    const role = me.data?.role ?? 'viewer';
+    const roleRank = { owner: 4, manager: 3, operator: 2, viewer: 1 } as Record<string, number>;
+    return all.filter((command) => {
+      if (!command.minRole) return true;
+      const needed = { owner: 4, manager: 3, operator: 2, viewer: 1 }[command.minRole] ?? 0;
+      return (roleRank[role] ?? 0) >= needed;
+    }).filter((command) => `${command.label} ${command.name} ${commandAliasText(command.name as CommandName)}`.toLowerCase().includes(normalizedQuery)).slice(0, 16);
+  }, [reference.data?.commands, normalizedQuery, me.data?.role]);
 
   const matchingLaunches = useMemo(() => {
     const user = me.data;

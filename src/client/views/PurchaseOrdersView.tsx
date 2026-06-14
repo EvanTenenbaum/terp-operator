@@ -115,6 +115,8 @@ export function PurchaseOrdersView() {
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+  // SX-L03: approvePurchaseOrder requires manager+; gate so intake@ doesn't see enabled verb.
+  const canApprove = me.data?.role === 'owner' || me.data?.role === 'manager';
   const [authoringOpen, setAuthoringOpen] = useState(false);
   const [vendorId, setVendorId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
@@ -464,6 +466,8 @@ export function PurchaseOrdersView() {
         key: 'approve',
         label: 'Approve PO',
         icon: <Check className="h-4 w-4" aria-hidden="true" />,
+        disabled: !canApprove,
+        disabledReason: !canApprove ? 'Manager role required to approve a PO' : undefined,
         run: (r: GridRow[]) => runCommand('approvePurchaseOrder', { purchaseOrderId: r[0].id }, 'Approve finalized PO')
       },
       receive: {

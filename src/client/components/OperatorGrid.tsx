@@ -153,6 +153,9 @@ export function OperatorGrid({
   const resetGridColumnPrefs = useUiStore((state) => state.resetGridColumnPrefs);
   const [quickFilter, setQuickFilter] = useState(storedGridFilter);
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
+  // SX-I13: row count driven from AG Grid's post-filter displayed row count
+  // so the subtitle stays accurate when quick-filter text reduces visible rows.
+  const [displayedRowCount, setDisplayedRowCount] = useState(rows.length);
   const parsedFilter = useMemo(() => parseGridFilter(quickFilter), [quickFilter]);
   const advancedFilteredRows = useMemo(() => {
     if (!storedAdvancedFilter || storedAdvancedFilter.conditions.length === 0) return rows;
@@ -557,7 +560,7 @@ export function OperatorGrid({
     <WorkspacePanel
       panelId={panelId}
       title={title}
-      subtitle={subtitle ?? `${renderedRows.length.toLocaleString('en-US')} row(s)`}
+      subtitle={subtitle ?? `${displayedRowCount.toLocaleString('en-US')} row(s)`}
       actions={
         <>
           <button
@@ -760,6 +763,9 @@ export function OperatorGrid({
               } else {
                 fitColumnsWithoutCompression(event.api, gridShellRef.current);
               }
+            }}
+            onFilterChanged={() => {
+              setDisplayedRowCount(apiRef.current?.getDisplayedRowCount() ?? rows.length);
             }}
             onColumnMoved={(_event: ColumnMovedEvent<GridRow>) => persistColumnState()}
             onColumnResized={(event: ColumnResizedEvent<GridRow>) => {

@@ -25,8 +25,12 @@ import { BANNER_KEYS } from '../../../shared/bannerKeys';
 const SHADOW_BANNER_KEY = BANNER_KEYS.SHADOW_MODE;
 
 export function ShadowModeBanner() {
+  const me = trpc.auth.me.useQuery();
+  const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
+
   const { data, isLoading } = trpc.credit.creditEngineStances.useQuery(undefined, {
     refetchOnWindowFocus: false,
+    enabled: isManagerOrOwner,
   });
 
   // DB-backed dismissal check (TER-1587): seeded from DB on mount so the
@@ -34,7 +38,7 @@ export function ShadowModeBanner() {
   // period.
   const { data: dismissalData, isLoading: dismissalLoading } = trpc.credit.isBannerDismissed.useQuery(
     { bannerKey: SHADOW_BANNER_KEY },
-    { refetchOnWindowFocus: false }
+    { refetchOnWindowFocus: false, enabled: isManagerOrOwner }
   );
   const dismissBannerMutation = trpc.credit.dismissBanner.useMutation();
   const clearBannerDismissalMutation = trpc.credit.clearBannerDismissal.useMutation();
@@ -60,9 +64,11 @@ export function ShadowModeBanner() {
     }
   }, [isLoading, data, shadowMode, dismissed, setDismissed, clearBannerDismissalMutation]);
 
-  if (isLoading || !data || dismissalLoading) return null;
+  if (me.isLoading || isLoading || !data || dismissalLoading) return null;
   if (!shadowMode) return null;
   if (dismissed) return null;
+  // SX-L01: non-managers never have credit engine data loaded (queries are
+  // disabled), so the banner won't render for sales@ or viewer roles.
 
   function handleDismiss() {
     setDismissed(true);
