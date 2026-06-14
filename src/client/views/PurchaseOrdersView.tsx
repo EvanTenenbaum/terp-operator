@@ -1,4 +1,4 @@
-import { Check, ChevronRight, ClipboardList, CreditCard, PackagePlus, Plus, Trash2, Undo2 } from 'lucide-react';
+import { Check, ClipboardList, CreditCard, PackagePlus, Plus, Trash2, Undo2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
@@ -138,6 +138,8 @@ export function PurchaseOrdersView() {
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
   const [receiptOverlayOpen, setReceiptOverlayOpen] = useState(false);
+  // SX-F02: explicit inline lines grid expansion. Drawer is the primary door.
+  const [linesExpanded, setLinesExpanded] = useState(false);
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
   const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
@@ -582,16 +584,6 @@ export function PurchaseOrdersView() {
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 Add new vendor
               </button>
-              <button
-                className="secondary-button compact-action"
-                type="button"
-                onClick={() => setVendorDrawerOpen(true)}
-                disabled={!defaultVendorId}
-                title="View vendor context"
-              >
-                <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                Context
-              </button>
               <label className="field-inline">
                 Expected
                 <input className="input compact" type="date" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} />
@@ -610,17 +602,19 @@ export function PurchaseOrdersView() {
                   ))}
                 </select>
               </label>
-              <label className="field-inline">
-                Prepayment amount
-                <input
-                  className="input compact"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={prepaymentAmount}
-                  onChange={(event) => setPrepaymentAmount(event.target.value)}
-                />
-              </label>
+              {paymentTerms === 'prepayment' ? (
+                <label className="field-inline">
+                  Prepayment amount
+                  <input
+                    className="input compact"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={prepaymentAmount}
+                    onChange={(event) => setPrepaymentAmount(event.target.value)}
+                  />
+                </label>
+              ) : null}
               <label className="field-inline">
                 Referee credit (optional)
                 <select className="select" value={refereeRelationshipId} onChange={(event) => setRefereeRelationshipId(event.target.value)}>
@@ -773,6 +767,7 @@ export function PurchaseOrdersView() {
         onSelectionChange={(rows) => {
           setSelectedRows('purchaseOrders', rows);
           setSelectedLines([]);
+          setLinesExpanded(false); // SX-F02: drawer is primary door
           // CAP-002 / TER-1474: open PO drawer context on row selection
           if (rows.length === 1 && rows[0]?.id) {
             setDrawerEntity('purchaseOrders', 'po', String(rows[0].id));
@@ -832,6 +827,14 @@ export function PurchaseOrdersView() {
                 Preview receipt
               </button>
             ) : null}
+            {/* SX-F02: toggle inline lines grid; drawer is the primary door. */}
+            <button
+              type="button"
+              className="secondary-button compact-action"
+              onClick={() => setLinesExpanded((prev) => !prev)}
+            >
+              {linesExpanded ? 'Hide lines' : 'Show lines'}
+            </button>
           </section>
           {receiptOverlayOpen && selectedPo?.id ? (
             <ReceiptPreviewOverlay
@@ -842,6 +845,8 @@ export function PurchaseOrdersView() {
           {['finalized', 'approved', 'ordered', 'partially_received', 'received'].includes(selectedPoStatus) ? (
             <ReceiptPanel purchaseOrderId={String(selectedPo.id)} />
           ) : null}
+          {/* SX-F02: inline lines grid only when explicitly expanded. */}
+          {linesExpanded ? (
           <OperatorGrid
             view="purchaseOrders"
             title={`${String(selectedPo.poNo ?? 'Selected PO')} Lines`}
@@ -879,6 +884,7 @@ export function PurchaseOrdersView() {
             }
             expansionConfig={canWrite ? purchaseOrderLineExpansionConfig : undefined}
           />
+          ) : null}
         </>
       ) : null}
 

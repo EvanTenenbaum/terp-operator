@@ -34,6 +34,8 @@ export function PhotographyQueuePanel() {
       panelId="inventory:photography-queue"
       title="Photography Queue"
       subtitle={`${open.length} open / ${ready} ready`}
+      defaultCollapsed
+      collapsedSummary={`${open.length} batch${open.length !== 1 ? 'es' : ''} need media`}
       contentClassName="p-3"
       actions={
         <div className="flex flex-wrap items-center gap-2 text-xs">

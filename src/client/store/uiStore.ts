@@ -245,7 +245,7 @@ export const useUiStore = create<UiState>()(
     activeView: 'dashboard',
     activeCustomerId: null,
     activeQuickLaunch: 'sale',
-    activeSettingsTab: 'requests',
+    activeSettingsTab: 'strain-aliases',
     salesRequestText: '',
     selectedRows: {},
     commandPaletteOpen: false,

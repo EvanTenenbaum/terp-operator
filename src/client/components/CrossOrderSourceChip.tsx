@@ -35,12 +35,16 @@ export function CrossOrderSourceChip({ status, conflictOrders }: { status: strin
   );
 }
 
-/** Column def appended to the Orders grid by OrdersView (UX-G02). */
+/** Column def appended to the Orders grid by OrdersView (UX-G02).
+ *  SX-H02: demoted to optional — exception flags are not permanent columns
+ *  (Odoo principle). Available in the column chooser; otherwise the chip
+ *  remains reachable as a row indicator on hover/expansion. */
 export const crossOrderSourceColumn: ColDef<GridRow> = {
   field: 'crossOrderSourceOrders',
   headerName: 'Source conflict',
   width: 190,
   sortable: true,
+  hide: true,
   cellRenderer: (params: { data?: GridRow }) => {
     const row = params.data;
     if (!row) return null;
