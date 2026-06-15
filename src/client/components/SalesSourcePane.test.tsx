@@ -22,6 +22,7 @@ vi.mock('../api/trpc', () => ({
     queries: {
       reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] } }) },
       recentCustomerSheets: { useQuery: () => ({ data: [], isLoading: false }) },
+      customerLastOrderedQtyBulk: { useQuery: () => ({ data: [], isLoading: false }) },
       customerSheetSnapshotById: { useQuery: () => ({ data: null, isLoading: false }) }
     },
     useQueries: () => [],

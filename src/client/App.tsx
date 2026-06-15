@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { trpc } from './api/trpc';
@@ -100,6 +100,7 @@ function AppContent() {
   const focusedPanelId = useUiStore((state) => state.focusedPanelId);
   const focusMode = useUiStore((state) => state.focusMode);
   const navigate = useNavigate();
+  const prevMeData = useRef(me.data);
 
   // UX-R04: Auto-redirect mobile viewports to the mobile shell.
   // Maps desktop routes to mobile equivalents before falling back to /mobile/dashboard.
@@ -132,6 +133,45 @@ function AppContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // SX-J09 / SX-K05: After login, redirect to the correct view.
+  // The <Navigate> inside Routes and the mobile-redirect useEffect (empty deps)
+  // may not fire correctly during the login transition.
+  useEffect(() => {
+    if (me.data && !prevMeData.current) {
+      const path = window.location.pathname;
+      const isMobile =
+        typeof window !== 'undefined' &&
+        window.innerWidth < 768 &&
+        !localStorage.getItem('terp-prefer-desktop');
+
+      // Desktop/mobile at / → dashboard
+      if (path === '/') {
+        navigate(isMobile ? '/mobile/dashboard' : '/dashboard', { replace: true });
+        prevMeData.current = me.data;
+        return;
+      }
+
+      // SX-K05: Mobile viewport at a desktop path — apply mobile redirect
+      if (isMobile && !path.startsWith('/mobile')) {
+        const DESKTOP_TO_MOBILE: Record<string, string> = {
+          payments: '/mobile/payments',
+          inventory: '/mobile/inventory',
+          pick: '/mobile/pick',
+          intake: '/mobile/intake',
+          catalog: '/mobile/catalog',
+        };
+        const firstSegment = path.slice(1).split('/')[0] ?? '';
+        if (firstSegment === 'contacts') {
+          const rest = path.slice('/contacts'.length);
+          navigate('/mobile/contacts' + rest, { replace: true });
+        } else {
+          navigate(DESKTOP_TO_MOBILE[firstSegment] ?? '/mobile/dashboard', { replace: true });
+        }
+      }
+    }
+    prevMeData.current = me.data;
+  }, [me.data, navigate]);
 
   if (me.isLoading) {
     return <div className="flex min-h-screen items-center justify-center bg-panel text-sm text-zinc-600">Loading TERP Operator...</div>;

@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 // AG Grid is heavy in jsdom and we don't need its DOM here — replace with a
-// stub. The rest of the dashboard (KPIs, money buckets, OperatorGrid shell
+// stub. The rest of the dashboard (KPIs, OperatorGrid shell
 // with its quick-filter input) still renders normally.
 vi.mock('ag-grid-react', () => ({
   AgGridReact: () => <div data-testid="ag-grid-stub" />
@@ -20,7 +20,6 @@ vi.mock('../api/trpc', () => {
     dashboard: () => ({
       data: {
         metrics: [{ key: 'cash', label: 'Cash', value: 1000, sub: 'liquid' }],
-        moneyBuckets: [{ bucket: 'Operating', amount: 1000 }],
         pendingQueues: [{ key: 'intake', label: 'Intake', count: 1 }],
         recentActivity: [],
         health: { ok: true, warnings: [] }
