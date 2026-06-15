@@ -125,7 +125,7 @@ describe('UX-L03 — FulfillmentView default grid filter', () => {
   });
 
   it('does NOT override a filter the operator has already set', () => {
-    storedGridFilters = { fulfillment: 'status:fulfilled' };
+    storedGridFilters = { 'fulfillment-picks': 'status:fulfilled' };
     render(<FulfillmentView />);
     // fulfillmentGridFilter is truthy — skip the default seed
     expect(mockSetGridFilter).not.toHaveBeenCalledWith('fulfillment-picks', 'status:open');
