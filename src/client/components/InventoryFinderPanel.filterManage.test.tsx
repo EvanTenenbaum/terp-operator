@@ -15,7 +15,7 @@ vi.mock('../api/trpc', () => {
   ];
   return {
     trpc: {
-      queries: { reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) } },
+      queries: { reference: { useQuery: () => ({ data: { availableBatches: [], vendors: [] }, isLoading: false }) }, customerLastOrderedQtyBulk: { useQuery: () => ({ data: {}, isLoading: false }) } },
       useQueries: () => [],
       filters: {
         listSavedFilters: { useQuery: () => ({ data: savedFilters }) },
