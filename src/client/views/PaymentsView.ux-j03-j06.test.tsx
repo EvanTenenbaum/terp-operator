@@ -152,7 +152,7 @@ describe('UX-J03 — Payments "Unapplied" preset and count badge', () => {
   it('clicking the Unapplied preset calls setGridFilter with unappliedAmount:>0', () => {
     render(<PaymentsView />);
     fireEvent.click(screen.getByRole('button', { name: 'Unapplied' }));
-    expect(mockSetGridFilter).toHaveBeenCalledWith('payments', 'unappliedAmount:>0');
+    expect(mockSetGridFilter).toHaveBeenCalledWith('payments', 'allocationIntent:unapplied');
   });
 
   it('does NOT render the count badge when the grid has no unapplied rows', () => {
@@ -188,7 +188,7 @@ describe('UX-J03 — Payments "Unapplied" preset and count badge', () => {
   });
 
   it('the Unapplied preset button toggles off the filter when already active', () => {
-    storedGridFilter = 'unappliedAmount:>0';
+    storedGridFilter = 'allocationIntent:unapplied';
     render(<PaymentsView />);
     fireEvent.click(screen.getByRole('button', { name: 'Unapplied' }));
     expect(mockSetGridFilter).toHaveBeenCalledWith('payments', '');

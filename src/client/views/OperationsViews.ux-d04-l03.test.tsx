@@ -120,15 +120,15 @@ describe('UX-L03 — FulfillmentView default grid filter', () => {
   it('seeds status:open on first mount when no filter is stored', () => {
     storedGridFilters = {};
     render(<FulfillmentView />);
-    // The useEffect sets gridFilter('fulfillment', 'status:open') on mount
-    expect(mockSetGridFilter).toHaveBeenCalledWith('fulfillment', 'status:open');
+    // The useEffect sets gridFilter('fulfillment-picks', 'status:open') on mount
+    expect(mockSetGridFilter).toHaveBeenCalledWith('fulfillment-picks', 'status:open');
   });
 
   it('does NOT override a filter the operator has already set', () => {
     storedGridFilters = { fulfillment: 'status:fulfilled' };
     render(<FulfillmentView />);
     // fulfillmentGridFilter is truthy — skip the default seed
-    expect(mockSetGridFilter).not.toHaveBeenCalledWith('fulfillment', 'status:open');
+    expect(mockSetGridFilter).not.toHaveBeenCalledWith('fulfillment-picks', 'status:open');
   });
 
   it('renders FilterPresetStrip with correct DB status presets', () => {
