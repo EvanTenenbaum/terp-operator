@@ -1,4 +1,22 @@
-# Design System Decision Log
+## 2026-06-15 — AG Grid border visibility fix
+
+**Problem**: Grid lines (horizontal and vertical cell borders) were invisible across all AG Grid table views (Inventory, Purchase Orders, Client Ledger, Sales). Previous fix attempts focused on grid height/collapse issues.
+
+**Root causes (3)**:
+1. AG Grid base theme sets `--ag-cell-horizontal-border: solid transparent` — vertical column borders invisible
+2. `--ag-border-color` was near-invisible against alternating row backgrounds: our `#d8ded6` or AG Grid's 15% opacity default had ~1.05:1 contrast against `#fbfcfa`
+3. Our `.ag-theme-quartz` overrides loaded before `ag-theme-quartz.css` — AG Grid defaults always won
+
+**Fix** (`src/client/styles.css`):
+- New `.ag-theme-quartz.grid-shell` block with higher specificity (two-class selector, wins regardless of CSS import order)
+- `--ag-border-color: #c5cdc0` — visible but subtle; ~1.7:1 contrast against alternating row backgrounds 
+- `--ag-cell-horizontal-border: solid 1px var(--ag-border-color)` — vertical column borders now visible
+- `.ag-theme-quartz.grid-shell .ag-row { border-bottom-color: #c5cdc0 }` — horizontal row borders
+- `.ag-theme-quartz.grid-shell .ag-cell { border-bottom-color: #c5cdc0 }` — cell borders  
+
+**Verification**: Live browser tests confirm `rgb(197, 205, 192)` borders rendered on staging across all 4 modules (11+ rows, 88-110 cells each).
+
+**Also fixed**: 3 pre-existing Tailwind `text-accent-dark` build errors in `.pricing-col-header`, `.filter-pill`, `.advanced-btn`, `.builder-panel-title`.
 
 > **Append-only.** Add new entries at the **top**. Don't delete history.
 
@@ -921,3 +939,21 @@ This means:
 **Files:** `src/client/views/PickView.tsx`, `src/client/components/pick/QueueScreen.tsx`, `PickListScreen.tsx`, `PickLineScreen.tsx`, `pickTypes.ts`
 **Author:** Claude Sonnet 4.6 via Evan
 **Related:** TER-1513, PR #190.
+
+## 2026-06-15 — Mercury demo dashboard taste analysis (first taste skill run)
+
+**Context**: Ran the `taste` skill against `https://demo.mercury.com/dashboard` + 4 linked surfaces (Transactions, Payments, Invoicing, Reimbursements). Evan flagged Transactions as the closest model for TERP Operator's table design.
+
+**Key findings that inform TERP Operator tables:**
+
+1. **51px row density standard** — Mercury uses exactly 51px table rows with 16px font at 16px line-height. This is a 3.2:1 height-to-font ratio — extremely compact. For TERP Operator's spreadsheet-native wholesale workflows, this density level is the benchmark.
+2. **Table-first architecture** — Every functional page uses `<table>` as the primary surface; no card/list toggle exists. The table IS the interface. This aligns with TERP Operator's spreadsheet-native posture.
+3. **9-column standard** — Transactions page: [checkbox, Date, To/From, Amount, Account, Method, Category, GL Code, Attachment]. 4 columns are sortable, 2 are inline-editable dropdowns (Category, GL Code).
+4. **Row actions** — Click-to-navigate detail, multi-select via checkbox column, inline editing for categorization fields.
+5. **Cool-tinted neutral palette** — Every neutral is blue-shifted (no pure gray). Near-black `#1E1E2A`, page bg `#FBFCFD`. Shadow colors inherit the blue tint.
+6. **Two-tier shadow system** — Light card shadow (2-layer) vs. elevated popover shadow (4-layer), all blue-tinted.
+7. **Motion is micro-feedback only** — 0.14-0.20s, transform/opacity only, respects reduced motion.
+
+**Artifacts**: `docs/design-system/taste/demo.mercury.com.md` + `demo.mercury.com.json`
+
+**Skill integration**: Taste skill installed for OpenCode at `~/.config/opencode/skills/taste/`. Export target "TERP Operator" → writes to `docs/design-system/taste/{domain}.md` + `.json`. Playwright MCP enabled.
