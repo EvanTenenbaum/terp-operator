@@ -19,7 +19,7 @@ describe('UX-H08 — PO grid prepayment columns', () => {
   it('has a prepaymentAmount (original) column', () => {
     const col = poCols.find((c) => c.field === 'prepaymentAmount');
     expect(col).toBeDefined();
-    expect(col?.headerName).toMatch(/original/i);
+    expect(col?.headerName).toBe('Prepay');
   });
 
   it('has a prepaidAmount column', () => {

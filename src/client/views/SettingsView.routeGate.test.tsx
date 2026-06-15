@@ -92,7 +92,7 @@ describe('SettingsView — UX-A13 canonical homes', () => {
     expect(tabNames).not.toContain('Action log');
     expect(tabNames).not.toContain('Archive');
     // Requests stays the connector-request home (UX-A12 redirect target).
-    expect(tabNames).toContain('Requests');
+    expect(tabNames).toContain('Connector requests');
     expect(screen.getByTestId('connectors-view-embedded')).toBeInTheDocument();
   });
 
@@ -114,6 +114,6 @@ describe('SettingsView — UX-A13 canonical homes', () => {
 
   it('titles the page "Settings — <tab>" (UX-Q08 partial)', () => {
     render(<TestRoutes />);
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Settings — Requests');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Settings — Connector requests');
   });
 });
