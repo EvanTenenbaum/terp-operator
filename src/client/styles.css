@@ -902,10 +902,27 @@ kbd {
   --ag-row-height: 28px;
   --ag-header-height: 30px;
   --ag-list-item-height: 28px;
-  --ag-border-color: #d8ded6;
   --ag-header-background-color: #f7f8f5;
   --ag-odd-row-background-color: #fbfcfa;
   --ag-selected-row-background-color: rgba(33, 110, 78, 0.12);
+}
+
+/* Override AG Grid borders with higher specificity.
+   ag-theme-quartz.css loads after styles.css, so .ag-theme-quartz alone
+   is overridden by the theme defaults. The combined .ag-theme-quartz.grid-shell
+   selector has higher specificity and wins regardless of import order. */
+.ag-theme-quartz.grid-shell {
+  --ag-border-color: #c5cdc0;
+  --ag-cell-horizontal-border: solid 1px var(--ag-border-color);
+}
+
+/* Explicit cell + row borders — ensures horizontal lines render even when
+   AG Grid CSS variable chain produces transparent computed values. */
+.ag-theme-quartz.grid-shell .ag-row {
+  border-bottom-color: #c5cdc0;
+}
+.ag-theme-quartz.grid-shell .ag-cell {
+  border-bottom-color: #c5cdc0;
 }
 
 .ag-theme-quartz .ag-header-cell-label {
@@ -1231,7 +1248,7 @@ kbd {
 /* ── SalesView inline pricing column headers ─────────────── */
 
 .pricing-col-header {
-  @apply bg-accent/10 text-accent-dark;
+  background-color: rgba(33, 110, 78, 0.10); color: #174d36;
   font-weight: 700;
 }
 
@@ -1243,7 +1260,8 @@ kbd {
 }
 
 .filter-pill {
-  @apply inline-flex h-[26px] items-center gap-1 rounded-full border border-accent/30 bg-accent/10 pl-2.5 pr-1 text-[11px] font-medium text-accent-dark;
+  @apply inline-flex h-[26px] items-center gap-1 rounded-full border border-accent/30 bg-accent/10 pl-2.5 pr-1 text-[11px] font-medium ;
+  color: #174d36;
 }
 
 .filter-pill-remove {
@@ -1278,7 +1296,8 @@ kbd {
 }
 
 .advanced-btn {
-  @apply ml-auto inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded border border-accent/30 bg-accent/10 px-2.5 text-xs font-semibold text-accent-dark;
+  @apply ml-auto inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded border border-accent/30 bg-accent/10 px-2.5 text-xs font-semibold ;
+  color: #174d36;
 }
 
 .advanced-btn.open {
@@ -1311,7 +1330,8 @@ kbd {
 }
 
 .builder-panel-title {
-  @apply flex items-center gap-1.5 text-xs font-bold text-accent-dark;
+  @apply flex items-center gap-1.5 text-xs font-bold ;
+  color: #174d36;
 }
 
 .builder-panel-body {
