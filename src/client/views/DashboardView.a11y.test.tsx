@@ -152,7 +152,7 @@ describe('DashboardView accessibility (#34 FE-M3)', () => {
     const sectionTitles = sectionHeadings.map((h) => h.textContent?.trim().toLowerCase());
     expect(sectionTitles).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('money buckets'),
+        expect.stringContaining('today focus'),
         expect.stringContaining('pending work queues'),
         expect.stringContaining('recent activity')
       ])
