@@ -1,7 +1,7 @@
 # Mercury UX Retrofit — AI Task Tracker
 
 **Updated:** 2026-06-15  
-**Current Phase:** Planning Complete → Ready for Phase -1  
+**Current Phase:** Phase -1 Wireframes: Complete → Ready for Review  
 **Total Tasks:** 108 (91 frontend + 17 backend)  
 **Completed:** 0  
 **In Progress:** 0  
@@ -32,7 +32,7 @@ pending → assigned → in_progress → done
 
 | ID | Task | Status | Agent | Evidence |
 |----|------|--------|-------|----------|
-| WF-ALL | Create all wireframes (27 views + 10 components + 10 flows) | pending | — | — |
+| WF-ALL | Create all wireframes (27 views + 10 components + 10 flows) | done | PM (DeepSeek V4 Pro) | 47 files created in docs/engineering-plans/wireframes/ |
 
 ---
 
@@ -168,4 +168,5 @@ These are hard checkpoints. Do NOT proceed past a gate without evidence.
 | Date | Agent | Action | Phase | Notes |
 |------|-------|--------|-------|-------|
 | 2026-06-15 | PM (DeepSeek V4 Pro) | Plan creation complete | Planning | Master document, backend audit, task registry finalized |
+| 2026-06-15 | PM (DeepSeek V4 Pro) | Phase -1 wireframes created | Phase -1 | 27 views + 10 component sets + 10 flows = 47 files. Parallel dispatch across 7 agents. |
 
