@@ -13,6 +13,7 @@
  */
 
 import type { Role } from '../../shared/types';
+import { PurchaseOrderStatus } from '../../shared/statuses';
 
 // ─── Architecture Compliance Checklist ──────────────────────────────────────
 // [ ] No per-view ColDef arrays — all definitions originate here
@@ -45,7 +46,9 @@ export interface EntityAction {
 
 /**
  * Maps entity status → allowed actions.
- * Status values must match `src/shared/types.ts` Status union.
+ * Status values must come from the canonical enums in `src/shared/statuses.ts`
+ * (use computed `[XStatus.enum.foo]:` keys so a typo/renamed value is caught
+ * at type-check time rather than producing a silently unreachable state).
  * Actions listed here are the EXCLUSIVE set — no fallback, no catch-all.
  */
 export type StateMachine = Record<string, EntityAction[]>;
@@ -59,9 +62,17 @@ export interface EntityActionConfig {
 
 // ─── PurchaseOrder state machine (worked example) ───────────────────────────
 //
-// Status flow (from src/shared/types.ts Status union):
-//   draft → finalized → approved → ordered → partially_received → received → posted
+// Status flow (canonical enum: src/shared/statuses.ts → PurchaseOrderStatus):
+//   draft → finalized → approved → partially_received → received
 //   any → cancelled (terminal)
+//   reversed (terminal — command-bus reversal)
+//
+// The 'ordered' and 'posted' keys below are documentation-only placeholders:
+// runtime POs never carry those statuses (commandBus.ts sets 'approved' when
+// orderedAt is recorded; posting acts on batches, not the PO row). They remain
+// for the time being to preserve UI intent until the Sales/Intake state
+// machines are fleshed out and the PO flow is re-validated end-to-end. Do not
+// add new keys outside `PurchaseOrderStatus.enum` without an explicit decision.
 //
 // Command names (from src/shared/commandCatalog.ts):
 //   saveDraft       → createPurchaseOrder / updatePurchaseOrder
@@ -78,7 +89,7 @@ export const purchaseOrderActions: EntityActionConfig = {
   label: 'Purchase Order',
   states: {
     // ══ draft ══════════════════════════════════════════════════════════════════
-    draft: [
+    [PurchaseOrderStatus.enum.draft]: [
       {
         id: 'updatePurchaseOrder',
         label: 'Save draft',
@@ -103,7 +114,7 @@ export const purchaseOrderActions: EntityActionConfig = {
     ],
 
     // ══ finalized ═════════════════════════════════════════════════════════════
-    finalized: [
+    [PurchaseOrderStatus.enum.finalized]: [
       {
         id: 'approvePurchaseOrder',
         label: 'Approve',
@@ -130,7 +141,7 @@ export const purchaseOrderActions: EntityActionConfig = {
     ],
 
     // ══ approved ══════════════════════════════════════════════════════════════
-    approved: [
+    [PurchaseOrderStatus.enum.approved]: [
       {
         id: 'recordVendorPrepayment',
         label: 'Record prepay',
@@ -148,7 +159,7 @@ export const purchaseOrderActions: EntityActionConfig = {
       },
     ],
 
-    // ══ ordered ═══════════════════════════════════════════════════════════════
+    // ══ ordered (orphan — not in PurchaseOrderStatus enum; unreachable) ═══════
     ordered: [
       {
         id: 'receivePurchaseOrder',
@@ -175,7 +186,7 @@ export const purchaseOrderActions: EntityActionConfig = {
     ],
 
     // ══ partially_received ════════════════════════════════════════════════════
-    partially_received: [
+    [PurchaseOrderStatus.enum.partially_received]: [
       {
         id: 'receivePurchaseOrder',
         label: 'Receive more',
@@ -195,18 +206,18 @@ export const purchaseOrderActions: EntityActionConfig = {
 
     // ══ received ══════════════════════════════════════════════════════════════
     // All items received. Post happens via Intake, not the PO actions.
-    received: [
+    [PurchaseOrderStatus.enum.received]: [
       // Post happens via the intake process — not a direct PO action.
       // The PO is complete; no actions available on the PO itself.
     ],
 
-    // ══ posted ════════════════════════════════════════════════════════════════
+    // ══ posted (orphan — not in PurchaseOrderStatus enum; unreachable) ════════
     posted: [
       // Terminal state. Posted POs with fully posted inventory are immutable.
     ],
 
     // ══ cancelled ═════════════════════════════════════════════════════════════
-    cancelled: [
+    [PurchaseOrderStatus.enum.cancelled]: [
       // Terminal state. Cancelled POs are immutable.
     ],
   },

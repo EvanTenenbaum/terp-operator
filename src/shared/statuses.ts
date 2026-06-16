@@ -50,16 +50,19 @@ export type PurchaseOrderStatus = z.infer<typeof PurchaseOrderStatus>;
 // ─────────────────────────────────────────────────────────────────────────────
 // PurchaseOrderLine (purchase_order_lines)
 // Default: 'planned' (schema.ts:235)
+//   draft               — created on in-draft POs (see addPOLine paths).
 //   planned             — line exists, awaiting receipt against it.
 //   partially_received  — some quantity received against the line.
+//   received            — fully received (set by intake-posting when
+//                         receivedQty reaches the ordered qty —
+//                         commandBus.ts ~line 1552).
 //   cancelled           — line/PO cancelled.
-// (Schema default is 'planned' but line is created at 'draft' for in-draft
-//  POs in some code paths — see entry default in commandBus addPOLine paths.)
 // ─────────────────────────────────────────────────────────────────────────────
 export const PurchaseOrderLineStatus = z.enum([
   'draft',
   'planned',
   'partially_received',
+  'received',
   'cancelled'
 ]);
 export type PurchaseOrderLineStatus = z.infer<typeof PurchaseOrderLineStatus>;
@@ -88,16 +91,21 @@ export type SalesOrderStatus = z.infer<typeof SalesOrderStatus>;
 // SalesOrderLine (sales_order_lines)
 // Default: 'draft' (schema.ts:388)
 //   draft       — line added to a draft order, editable.
+//   needs_fix   — validation flagged the line (e.g. pick landed COGS issue,
+//                 missing batch) — set in addSalesOrderLine / updateSalesOrderLine
+//                 when validationIssues are non-empty
+//                 (commandBus.ts ~line 2880, 2996, 2998).
 //   reserved    — inventory soft-reserved against the batch.
 //   posted      — inventory posted (inventoryPosted=true).
 //   reversed    — command-bus reversal.
 // Intake-validation schema (shared/schemas.ts:94) also accepts 'confirmed',
-// 'fulfilled', 'cancelled', 'needs_fix' on the salesOrderPayloadSchema —
-// those values are observed in legacy intake but are NOT runtime line-state
-// writes; the runtime state machine for lines uses the four values above.
+// 'fulfilled', 'cancelled' on the salesOrderPayloadSchema — those values are
+// observed in legacy intake but are NOT runtime line-state writes; the
+// runtime state machine uses the values above.
 // ─────────────────────────────────────────────────────────────────────────────
 export const SalesOrderLineStatus = z.enum([
   'draft',
+  'needs_fix',
   'reserved',
   'posted',
   'reversed'
@@ -148,11 +156,15 @@ export type BatchStatus = z.infer<typeof BatchStatus>;
 // ─────────────────────────────────────────────────────────────────────────────
 // Invoice (invoices)
 // Default: 'open' (schema.ts:412)
-//   open     — issued; amountPaid < total.
-//   paid     — fully allocated.
+//   open     — issued; no allocations yet (amountPaid == 0).
+//   partial  — partially allocated (0 < amountPaid < total). Set by
+//              allocatePayment / unallocatePayment / payment reversal paths
+//              (commandBus.ts ~lines 4190, 4245, 5292, 5320). Distinguishes
+//              "untouched open" from "in-progress payment" in the AP/AR ledger.
+//   paid     — fully allocated (amountPaid == total).
 //   reversed — command-bus reversal.
 // ─────────────────────────────────────────────────────────────────────────────
-export const InvoiceStatus = z.enum(['open', 'paid', 'reversed']);
+export const InvoiceStatus = z.enum(['open', 'partial', 'paid', 'reversed']);
 export type InvoiceStatus = z.infer<typeof InvoiceStatus>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,12 +326,15 @@ export type PhotographyQueueStatus = z.infer<typeof PhotographyQueueStatus>;
 // ─────────────────────────────────────────────────────────────────────────────
 // CommandJournal (command_journal) — internal command-bus audit row.
 // No schema default (schema.ts:739). Observed values:
-//   pending — write reserved; outcome not yet recorded.
-//   failed  — command threw / validation rejected.
-// (Successful commands are recorded with their result and not a status flag;
-//  callers reading this should also check `error` and `result`.)
+//   pending — write reserved; outcome not yet recorded (idempotency claim).
+//   ok      — command completed successfully (set by the runCommand
+//             finalization update at commandBus.ts ~line 823).
+//   failed  — command threw / validation rejected (set by the failure
+//             path at commandBus.ts ~line 985 and the orphan sweeper at
+//             ~line 742).
+// Callers reading this should also inspect `error` and `result` for context.
 // ─────────────────────────────────────────────────────────────────────────────
-export const CommandJournalStatus = z.enum(['pending', 'failed']);
+export const CommandJournalStatus = z.enum(['pending', 'ok', 'failed']);
 export type CommandJournalStatus = z.infer<typeof CommandJournalStatus>;
 
 // ─────────────────────────────────────────────────────────────────────────────
