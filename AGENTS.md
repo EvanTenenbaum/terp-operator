@@ -277,3 +277,19 @@ Key rules for TERP Operator:
      Scoring starts at 100; reducers are applied cumulatively with a floor of 0. Rubric (score reducers): missing AQA (-10 to -20), missing spec coverage (-10), unresolved/untracked non-blocker (-5 each), broken frontend/user path (-15 to -25), missing evidence for a claim (-10), rejected finding without evidence (-10).
   5. **Non-blocking issue discipline**: blocking issues first. Non-blocking issues that affect system efficacy, UX, reliability, confidence, or operator workflow must be fixed in-scope or tracked in the appropriate system with rationale: Linear for product/workflow/capability gaps, GitHub Issues for repo-level bugs/problems, or in-session TODO only for current-session decomposition. They cannot be silently ignored.
 - **Closeout evidence must include**: QA tier and rationale; commands/tests/runtime checks run; AQA report path and adversarial/final score (required for Deep QA/Critical; mark N/A with tier rationale otherwise); spec coverage result (required for Deep QA/Critical; mark N/A with tier rationale otherwise); accepted findings fixed; rejected findings with evidence; remaining non-blockers fixed or tracked with rationale.
+
+<!-- MERCURY-RETROFIT:BEGIN -->
+## Mercury UX Retrofit (Active Project)
+
+When the active branch is `docs/mercury-ux-retrofit-master-plan` (or a task worktree derived from it):
+
+**Read `docs/engineering-plans/AGENTS.md` first.** This is a comprehensive, AI-execution-ready plan to retrofit TERP Operator's UI with Mercury.com's functional patterns. All 108 tasks are pre-specced with exact file paths, APIs, states, keyboard behavior, a11y requirements, and acceptance criteria.
+
+Key documents:
+- `docs/engineering-plans/MASTER-EXECUTION-DOCUMENT.md` — Single source of truth (1543 lines)
+- `docs/engineering-plans/AI-TODO.md` — Task tracker with state machine
+- `docs/engineering-plans/BUG-REGISTRY.md` — Known bugs from integration audit
+- `docs/engineering-plans/HANDOFF.md` — Session handoff protocol
+
+The standard AGENTS.md instructions (above) still apply, but retrofit-specific rules in `docs/engineering-plans/AGENTS.md` take precedence when they conflict.
+<!-- MERCURY-RETROFIT:END -->

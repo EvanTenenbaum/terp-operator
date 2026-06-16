@@ -1,0 +1,38 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e6013]:
+      - generic [ref=e6015]:
+        - generic [ref=e6017]:
+          - img [ref=e6018]
+          - generic [ref=e6020]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e6022] [cursor=pointer]
+        - generic [ref=e6023]:
+          - button "Viewing as Admin" [ref=e6025] [cursor=pointer]:
+            - generic [ref=e6026]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e6028] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e6029]: Open account
+      - generic [ref=e6030]:
+        - navigation [ref=e6031]:
+          - button "Mercury Demo Pro" [ref=e6034] [cursor=pointer]:
+            - generic [ref=e6036]: Mercury Demo
+            - generic [ref=e6038]: Pro
+          - generic [ref=e6039]:
+            - generic [ref=e6040]
+            - separator [ref=e6062]
+            - generic [ref=e6063]
+            - separator [ref=e6124]
+            - group "Bookmarks" [ref=e6125]
+        - generic [ref=e6167]:
+          - generic [ref=e6169]:
+            - button "Search for anything" [ref=e6171] [cursor=pointer]
+            - button "Move money" [ref=e6174] [cursor=pointer]
+            - generic [ref=e6176]
+          - generic [ref=e6188]:
+            - generic [ref=e6191]
+            - generic [ref=e6201]
+      - button [ref=e6489] [cursor=pointer]:
+        - img [ref=e6490]
+  - alert

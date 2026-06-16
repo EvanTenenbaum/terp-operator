@@ -1,0 +1,70 @@
+- generic [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e7]:
+        - generic [ref=e9]:
+          - img [ref=e10]
+          - generic [ref=e12]
+        - generic [ref=e15]:
+          - button "Viewing as Admin" [ref=e17] [cursor=pointer]
+          - link "Open account" [ref=e20] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+      - generic [ref=e22]:
+        - navigation [ref=e23]:
+          - button "Mercury Demo Pro" [ref=e26] [cursor=pointer]
+          - generic [ref=e31]
+        - generic [ref=e170]:
+          - generic [ref=e172]
+          - generic [ref=e191]
+      - button [ref=e931] [cursor=pointer]:
+        - img [ref=e932]
+  - alert
+  - complementary [ref=e5894]:
+    - generic [ref=e5895]:
+      - generic [ref=e5896]:
+        - generic [ref=e5899]: Working Capital Loan Payment
+        - button "Close detail panel" [ref=e5903] [cursor=pointer]:
+          - img [ref=e5904]
+      - generic [ref=e5906]:
+        - generic [ref=e5907]:
+          - generic [ref=e5908]
+          - generic [ref=e5911]
+          - generic [ref=e5923]
+        - generic [ref=e5931]:
+          - generic [ref=e5932]
+          - generic [ref=e5946]
+          - generic [ref=e5963]
+          - generic [ref=e5974]
+          - term [ref=e5983]: Attachments
+          - generic [ref=e5985]
+          - term [ref=e5993]: Bank description
+          - definition [ref=e5994]: MERCURYWOR_UE7FWLISEJ5SF REF#10976
+      - generic [ref=e5995]:
+        - generic [ref=e5997]:
+          - textbox [ref=e6000]
+          - generic [ref=e6002]
+        - button [ref=e6010] [cursor=pointer]:
+          - img
+  - dialog "0 selected" [ref=e934]:
+    - generic [ref=e935]:
+      - generic [ref=e936]:
+        - generic [ref=e938]: 0 selected
+        - generic [ref=e939]:
+          - generic [ref=e941]
+          - generic [ref=e952]
+          - button "Add file" [ref=e959] [cursor=pointer]
+          - button "Add notes" [ref=e961] [cursor=pointer]
+          - button "More bulk actions" [ref=e964] [cursor=pointer]
+      - button "Unselect" [ref=e968] [cursor=pointer]:
+        - img
+        - generic [ref=e969]: Unselect
+  - alert "We categorized past transactions for you" [ref=e5878]:
+    - generic [ref=e5880]:
+      - generic [ref=e5881]:
+        - generic [ref=e5883]: We categorized past transactions for you
+        - button "Dismiss spotlight" [ref=e5884] [cursor=pointer]:
+          - img [ref=e5885]
+      - paragraph [ref=e5887]: Update or add your own categories to help improve your business insights.
+      - link "View categorized transactions" [ref=e5890] [cursor=pointer]:
+        - /url: /transactions?q=%7B%22groupsKind%22%3A%22transactionGroupsCustomCategoryKind%22%7D
+        - text: View
