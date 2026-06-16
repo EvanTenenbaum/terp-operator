@@ -2,7 +2,7 @@
 
 **Branch:** `docs/mercury-ux-retrofit-master-plan`  
 **Last updated:** 2026-06-16  
-**Status:** Planning sprint underway. Manifesto + scaffolds + template done. Pre-Phase 0 gap closure in progress.
+**Status:** Planning sprint complete. Unified execution plan (616 lines) + architecture manifesto (710 lines) + config stubs deployed. Phase 0a (P0 closure) ready.
 
 ---
 
@@ -32,7 +32,8 @@ The TERP Operator console needs a UX retrofit adopting Mercury.com's functional 
 
 | Order | File | Lines | Why |
 |-------|------|-------|-----|
-| **1st** | [MERCURY-ARCHITECTURE-MANIFESTO.md](./MERCURY-ARCHITECTURE-MANIFESTO.md) | 710 | **Architecture Authority.** Maps all 12 UX rules → enforceable ARCH rules. Canonical component hierarchy. Anti-patterns. Migration map. **Read this before writing any code.** |
+| **1st** | [MERCURY-ARCHITECTURE-MANIFESTO.md](./MERCURY-ARCHITECTURE-MANIFESTO.md) | 710 | **Architecture Authority.** Maps UX rules → ARCH rules. Anti-patterns. Migration map. **Read before writing any code.** |
+| **1.5** | [UNIFIED-EXECUTION-PLAN.md](./UNIFIED-EXECUTION-PLAN.md) | 616 | **Dispatch Authority.** Phases, layers, tasks, risks, verification gates, per-view index. **Read before starting any phase.** | Maps all 12 UX rules → enforceable ARCH rules. Canonical component hierarchy. Anti-patterns. Migration map. **Read this before writing any code.** |
 | **2nd** | [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md) | 245 | **UX Authority.** Why we're doing this. 12 UX rules, top-7 friction points, operator attention budget. Cross-model validated. |
 | **3rd** | [CPO-AUDIT-REPORT.md](./CPO-AUDIT-REPORT.md) | 548 | **Readiness Reality Check.** What's broken, what's missing, what's salvageable. 15 findings (3 P0). Read before planning any new work. |
 | **4th** | [MASTER-EXECUTION-DOCUMENT.md](./MASTER-EXECUTION-DOCUMENT.md) | 1543 | **Execution source of truth.** All specs, tasks, visual design rules. |
@@ -152,6 +153,8 @@ docs/engineering-plans/
 ├── MASTER-EXECUTION-DOCUMENT.md           ← Execution source of truth
 ├── README.md                              ← Human-readable index
 ├── dependency-graph.md                    ← Task ordering
+├── UNIFIED-EXECUTION-PLAN.md              ← DISPATCH AUTHORITY (phases, layers, tasks, gates, per-view index)
+├── PLANNING-SYNTHESIS.md                   ← Compact synthesis for agent handoffs
 ├── MERCURY-ARCHITECTURE-MANIFESTO.md      ← ARCHITECTURE AUTHORITY (read first; 12 ARCH rules, component hierarchy, anti-patterns)
 ├── mercury-ux-integrated-analysis.md      ← UX Authority (12 UX rules, cross-model validated)
 ├── CPO-AUDIT-REPORT.md                    ← Readiness reality check (15 findings, 3 P0)
