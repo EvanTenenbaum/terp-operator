@@ -10,6 +10,20 @@
 
 You are an AI agent dispatched to work on the TERP Operator Mercury UX retrofit. This document is your entry point.
 
+### 0. ⚠️ Superseded Documents (Do Not Use)
+
+These files were authored before the UX-first rewrite (2026-06-16). Their design guidance is superseded:
+
+| Superseded | Replaced By | Why |
+|-----------|-------------|-----|
+| DESIGN-RULES.md v1.1 (token-first) | [DESIGN-RULES.md](wireframes/DESIGN-RULES.md) v2.0 | 10 token rules → 12 UX-first rules |
+| review.html (pre-UX, spec-document style) | [review.html](wireframes/review.html) (UX-first, operator narrative) | Rebuilt with friction status, state-gating, attention budget |
+| Wireframe .md files (pre-surgery) | Same files, updated (UX-first layouts) | Pre-staged panels removed, state-gated actions, 280→44px rows |
+| mercury-design-ground-up-analysis.md §6 (old rules) | DESIGN-RULES.md v2.0 | Token rules superseded for UX intent |
+| §17.9-17.11 v1.1 (MASTER-EXECUTION-DOCUMENT) | §17.9-17.11 v2.0 (UX-first mirror) | Rewritten to reference DESIGN-RULES.md v2.0 |
+
+**Authority chain:** [mercury-ux-integrated-analysis.md](mercury-ux-integrated-analysis.md) → [DESIGN-RULES.md](wireframes/DESIGN-RULES.md) → [INTEGRATION-MAP.md](wireframes/INTEGRATION-MAP.md) → wireframe .md files.
+
 ### 1. Context: What Is This?
 
 The TERP Operator console needs a UX retrofit adopting Mercury.com's functional patterns (inline editing, filter toolbar, KPI strips, bulk actions, progressive disclosure). The plan covers 27 views, 10 new components, 18 backend endpoints, and a complete re-architecture of the frontend layer from imperative ColDef arrays to schema-driven configuration.

@@ -402,7 +402,16 @@ Implementation: add a `## Authority Hierarchy` section to `MASTER-EXECUTION-DOCU
 
 ---
 
-## 6. Ground-Up Design Rules (Revised)
+## 6. Ground-Up Design Rules [⚠️ SUPERSEDED FOR UX INTENT]
+
+> **DO NOT USE THESE RULES FOR UX BEHAVIOR DECISIONS.**  
+> These 13 rules were derived from token analysis (font weights, border opacities, pixel ratios).  
+> For UX behavior (what to show, when, how many clicks), use **[DESIGN-RULES.md](wireframes/DESIGN-RULES.md) v2.0** (12 UX-first rules).  
+> For implementation specs (exact px, tokens), the rules below remain authoritative for VISUAL implementation.
+>
+> **Authority:** mercury-ux-integrated-analysis.md (UX) → DESIGN-RULES.md v2.0 (UX rules) → This document (visual tokens)
+
+ (Revised)
 
 > **Superseded for UX intent (2026-06-16):** The 13 visual-system rules below have been superseded by the **UX-first rules in [DESIGN-RULES.md v2.0](./wireframes/DESIGN-RULES.md)**, which encode the 12 UX rules (UX-1 through UX-12) from [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md). The rules in this section remain authoritative for **visual tokens** (weights, opacities, max-widths, motion easing) and **layout grammar** (3-zone main area, sidebar context). For action visibility, progressive disclosure, validation placement, and URL/state semantics, follow the UX rules. When the two systems agree, that's because the visual rules below were already Mercury-faithful on those points; when they diverge, UX wins.
 
