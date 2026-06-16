@@ -1,7 +1,7 @@
 # Mercury UX Retrofit — Unified Execution Plan
 
 **Branch:** `docs/mercury-ux-retrofit-master-plan`
-**Status:** Phase 0a CLOSED. All 7 P0 items resolved (2026-06-16). Production code dispatch (Phase 0b, Layers 0-2) is now unlocked.
+**Status:** Phase 0a CLOSED (risk-verifier approved 2026-06-16). All 7 P0 items resolved, all 5 AC verified. Production code dispatch (Phase 0b, Layers 0-2) is now unlocked.
 **Authority:** This document is the SINGLE AUTHORITY for agent dispatch after Phase 0a closes. It supersedes the dispatch sequencing language in `MASTER-EXECUTION-DOCUMENT.md`, `AI-TODO.md`, and `dependency-graph.md` where those conflict.
 **Reads (in order):** [PLANNING-SYNTHESIS.md](./PLANNING-SYNTHESIS.md) → [MERCURY-ARCHITECTURE-MANIFESTO.md](./MERCURY-ARCHITECTURE-MANIFESTO.md) → [CPO-AUDIT-REPORT.md](./CPO-AUDIT-REPORT.md) → this document → spec sheets.
 
@@ -49,6 +49,13 @@ Phase 0a is closed only when:
 3. `docs/design-system/decisions-log.md` contains entries for P0-3 and P0-4 and is referenced from this file.
 4. `00-master-task-registry.md` contains full definitions for T-B-01..T-B-18 (or the renumbered equivalents).
 5. `docs/engineering-plans/migration-plan.md` exists and is linked from `MERCURY-ARCHITECTURE-MANIFESTO.md` §4 (the migration map).
+
+**Closeout Audit (2026-06-16, risk-verifier):** All 5 criteria ✅ PASS.
+- C1: All 7 P0 files exist. P0-1 AC (b) `statuses.test.ts` (265 lines, 4/4 pass). AC (d) `entity-actions.ts:16` imports `PurchaseOrderStatus` from `statuses.ts`.
+- C2: `pnpm typecheck` clean. `entity-actions.ts` imports from `statuses.ts`.
+- C3: Decisions log entries for P0-3 (line 123) + P0-4 (line 1). Referenced from unified plan.
+- C4: T-B-01..T-B-18 all defined in master task registry (lines 771-1006).
+- C5: `migration-plan.md` linked from manifesto §4 (line 485).
 
 ---
 
