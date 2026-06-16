@@ -546,3 +546,14 @@ The retrofit will work. The UX foundation is solid. The implementation plan need
 ---
 
 *End of CPO Audit Report. Append corrections as a new section at the top with date. Don't edit history.*
+
+---
+
+## §11 — DB Migration Audit (P0-7 Resolution)
+
+> Note on numbering: this report's existing §4 covers Planning Completeness (F13–F15). The P0-7 addendum follows the report's chronological growth pattern (next available section number) rather than overwriting §4.
+
+Resolved by: [db-migration-audit.md](./db-migration-audit.md)
+Date: 2026-06-16
+Summary: Phase 0 requires exactly **one** schema change (split into two files for the runner's CONCURRENTLY constraint): `0083_command_journal_bulk_columns.sql` adds `bulk_group_key uuid` and `bulk_sequence integer` as nullable columns on `command_journal`, and `0084_command_journal_bulk_index.sql` creates a composite btree index `command_journal_bulk_group_seq_idx` on `(bulk_group_key, bulk_sequence)` via `CREATE INDEX CONCURRENTLY` — owned by T-B-06 and consumed by `commands.runBulk`. Every other Phase 0 backend task (T-B-01..T-B-05, T-B-07..T-B-18) is add-only TypeScript or read-only SQL work with **zero schema impact**. Status enum hardening (Option B per audit §3: per-table `CHECK (status IN …)` constraints on money-mutating entities) and saved-views / feature-flags table extensions are explicitly deferred to Phase 0c/1 or later — none are Phase 0 blockers, all are additive when they land. Deployment is online-safe (no downtime, no data rewrite, no backfill, fully rollbackable until non-NULL writes begin), and the `varchar + Zod` status pattern stays as the recommended global default.
+

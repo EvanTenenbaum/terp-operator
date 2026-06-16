@@ -1,3 +1,188 @@
+## 2026-06-16 — GridJourney → PrimaryGridView Refactor Decision
+
+**Context.** Mercury UX retrofit (branch `docs/mercury-ux-retrofit-master-plan`) names a `PrimaryGridView` template (Manifesto §2.1, §5.2) that is functionally identical to the existing `GridJourney` factory at `src/client/views/operations/shared.tsx:247`. `GridJourney` already wires `trpc.queries.grid.useQuery({ view })` (one primary query, ARCH-1), `useUiStore.selectedRows[view]` (ARCH-4 selection gate), `useCommandRunner` (ARCH-7 mutations), `OperatorGrid` (the AG Grid wrapper), the viewer role-gating that drives canWrite, and a pass-through of `inspectorTabs` into `OperatorGrid`'s bottom-anchored RowInspector. Today's callers are 6 views directly (`ClientLedgerView`, `CloseoutView`, `ConnectorsView`, `InventoryView`, `PaymentsView`, `VendorPayablesView`) plus 5 sibling views (`PurchaseOrdersView`, `OrdersView`, `FulfillmentView`, `PurchaseReceiptsView`, `RecoveryView`) that reach into `columnsByView` and `OperatorGrid` directly with the same shape. The Manifesto §4 migration table calls the union "10+ views" and lists `GridJourney → PrimaryGridView` as **Refactor and rename**, not parallel build. CPO audit Finding #2 (P0) called out the gap. Without an explicit closeout, agents reading the spec at `docs/engineering-plans/specifications/templates/grid-view.md` would parallel-build a `GridView.tsx` component sibling to `GridJourney` and produce two competing templates for an entire release cycle. Authority: `MERCURY-ARCHITECTURE-MANIFESTO.md` §4 (migration map row "GridJourney"), §5.2 (extension over replacement); `CPO-AUDIT-REPORT.md` F2 (P0) and follow-up "Decide GridJourney ↔ GridView template strategy."
+
+**Decision: Refactor in place.** No parallel `GridView.tsx`/`PrimaryGridView.tsx` build. The spec at `docs/engineering-plans/specifications/templates/primary-grid-view.md` describes the *target shape of the existing `GridJourney` factory after refactor*, not a sibling component. Rationale (3 lines): (1) `GridJourney` already implements every load-bearing primitive — primary query wiring, selection store wiring, command runner wiring, role-gated canWrite, empty-state plumbing; the gap is only schema-driven columns and state-machine-driven actions, both of which the Phase 0 config stubs (`entity-schemas.ts`, `entity-actions.ts`) are now ready to absorb. (2) Parallel build means 11 views split across two templates for at least the duration of Phase 2–3D — inconsistent selection behavior, inconsistent empty states, double maintenance of the grid query path, and a guaranteed source of "this view's column prefs work, that view's don't" regressions. (3) Refactor in place keeps a single mount, a single grid path, a single selection store, and a single set of operator AG-Grid column prefs valid throughout the migration.
+
+**Renames.**
+
+| Today | After refactor |
+|---|---|
+| File `src/client/views/operations/shared.tsx` (GridJourney lives inside the operations grab-bag) | `src/client/templates/PrimaryGridView.tsx` (template gets its own home; helpers `labelFromToken`, `moneyish`, `dateish`, `formatRequestType`, `formatRequestSource`, `EMPTY_ROWS` stay in `shared.tsx` to avoid a 30-file import churn). `columnsByView` is **deleted** as its content migrates field-by-field into `entity-schemas.ts`. |
+| Component `GridJourney` (export) | `PrimaryGridView` (export). `GridJourney` re-exported from `templates/PrimaryGridView.tsx` as a `@deprecated` alias for one release cycle. |
+| Props type (inline anonymous) | Named export `PrimaryGridViewProps` (formal interface, see signature change below). The old anonymous shape is no longer accepted; per-view `columns` / `actions` / `selectionActions` / `inspectorTabs` are removed entirely. |
+| `columnsByView` map in `shared.tsx` | Resolved via `useColumnDefs(entity)` against `entity-schemas.ts`. Each entry (`purchaseOrders`, `orders`, `payments`, `inventory`, `clients`, `vendors`, `fulfillment`, `connectors`, `recovery`, `purchaseReceipts`, `disputes`, `closeout`) becomes a field block on the corresponding entity schema. |
+| `selectionActions` callback returning `<StatusActionBar>` | Auto-mounted `<BulkActionBar>` whose contents come from the intersection of `getAllowedActions(entity, status, role)` across selected rows. |
+| `actions` callback returning ad-hoc top-of-grid chrome | Removed. Top-of-grid chrome is owned by `<FilterToolbar>` (filter presets, status pills, advanced filter button); operator-side action buttons live in `<SlideOver>`'s action bar from the state machine. |
+| `prelude` callback returning workspace panels above the grid | Removed from the template surface. The two views that pass real preludes (PaymentsView's `QuickLedgerGrid` + allocation panel, VendorPayablesView's vendor money-out + bill tools, InventoryView's `PhotographyQueuePanel`, ConnectorsView's notes/route band) get an explicit `headerSlot?: ReactNode` extension slot per the existing template spec — narrowly scoped, not a free-form chrome dumping ground. |
+| `inspectorTabs` callback returning bottom-anchored RowInspector tabs | **Deleted entirely.** PaymentsView's `receipt` + `linked-orders` tabs and OrdersView's `invoice` tab fold into right-side `<SlideOver>` tabs via the tab registry. See "inspectorTabs disposition" below. |
+| `onCellCommit` callback | Removed from props. Cell editors commit via `cellRendererParams` from `entity-schemas.ts` directly through `useCommandRunner` per ARCH-12 — the per-view `onCellCommit` switch is the anti-pattern this replaces. |
+| `expansionConfig` (master-detail AG Grid behavior) | Removed from `PrimaryGridView`. Views that need master-detail (PurchaseOrdersView lines) migrate to the separate `MasterDetailView` template (Manifesto §2.1). |
+| `title`, `emptyTitle`, `emptyChildren` | Sourced from `view-registry.ts` (`title`) and entity schema (`emptyTitle` / `emptyChildren` default — overrideable per view registry entry). Removed from per-call props. |
+
+**New signature (formal interface).**
+
+```ts
+// src/client/templates/PrimaryGridView.tsx
+export interface PrimaryGridViewProps {
+  /** View key. Drives query, store slice, URL grammar, and registry lookup. */
+  viewKey: ViewKey;
+  /**
+   * Optional bespoke header content rendered ABOVE FilterToolbar.
+   * Used by ~3 views that have non-chrome workspace context (PaymentsView's
+   * QuickLedgerGrid + allocation panel, VendorPayablesView's money-out band).
+   * Standard views (≥7 of 11) pass nothing.
+   *
+   * RULE: headerSlot is for primary-task context that survives view load.
+   * It is NOT a hiding place for buttons, status strips, or supporting info.
+   * Those go to FilterToolbar, ActionBar, or a SlideOver tab. Violations
+   * fail review under §6.1.
+   */
+  headerSlot?: ReactNode;
+}
+```
+
+Everything else flows from `viewKey` → `getViewEntry(viewKey)` → `entity` → `useColumnDefs(entity)` + `getAllowedActions(entity, status, role)`. No per-view ColDef arrays, no per-view StatusActionTables, no per-view onCellCommit handlers.
+
+**inspectorTabs disposition (binding tie to P0-3 ContextDrawer → SlideOver decision).** PaymentsView (`receipt`, `linked-orders`) and OrdersView (`invoice`) are the two real callers today; the Manifesto §4 row claim that this is OrdersView-only is wrong and is corrected here. Both fold into `<SlideOver>` tabs via the new tab registry (`src/client/components/tabs/registry.ts`), which the P0-3 decision created. Concretely:
+
+- PaymentsView's `(row) => [receipt, linked-orders]` becomes `registerTabs('payment', [{key: 'receipt', component: ReceiptPanelTab, defaultFor: ['payment']}, {key: 'linked-orders', component: PaymentLinkedOrdersTab}])`. The `ReceiptPanel` and `PaymentLinkedOrdersTab` components already exist; only the registration call is new.
+- OrdersView's `(row) => [invoice]` becomes `registerTabs('order', [..., {key: 'invoice', component: OrderInvoiceTab}])`. The `OrderInvoiceTab` component already exists inline in `OrdersView.tsx`; it moves to `src/client/components/tabs/OrderInvoiceTab.tsx` verbatim during view migration.
+
+**Transition behavior during migration.** Between Phase 0b (rename + signature shrink) and Phase 2 (per-view migration), views still passing the old `inspectorTabs` / `actions` / `selectionActions` / `prelude` / `columns` props would be a hard type error if the props are simply removed in one shot — that breaks the typecheck gate before any view migrates. The handoff plan:
+
+1. Phase 0b renames `GridJourney` to `PrimaryGridView` but **keeps the legacy prop surface** wired through a thin `@deprecated`-marked wrapper. The wrapper accepts the old shape, logs a one-time `console.warn` per view in dev, and dispatches into the new internals. Typecheck stays green; no view changes behavior.
+2. Each view migrates in Phase 1 (PurchaseOrdersView pilot) or Phase 2 (the 5 remaining current GridJourney callers + 5 sibling views). When a view migrates, it drops the old props in the same PR that adds its `view-registry.ts` entry + `entity-schemas.ts` fields + (where needed) `entity-actions.ts` state machine + tab registrations.
+3. Phase 2 closeout deletes the `@deprecated` legacy prop wrapper after all 11 views have migrated. Grep at gate must return zero references to `actions=`, `selectionActions=`, `inspectorTabs=`, `prelude=`, `columns=`, `onCellCommit=`, `expansionConfig=` on `<PrimaryGridView` or `<GridJourney`.
+4. Phase 4 deletes the `GridJourney` re-export alias.
+
+**Action system replacement (per-view overrides question).** The Manifesto §2.2 contract for `BulkActionBar` is that selection actions come from `getAllowedActions(entity, status, role)` intersected across selected rows — **with no per-view escape hatch.** The CPO audit explicitly rejects per-view `StatusActionTable` for the same reason that drove the entity-actions registry. Concretely, the 6 today-and-tomorrow views that need genuinely view-specific selection behavior (PaymentsView's `allocatePayment` with auto-apply-oldest vs. allocate-remaining; VendorPayablesView's `payBill` two-step with confirm-then-schedule-then-record; ConnectorsView's `route` requiring a non-empty destination field) are handled in the state machine itself: state machines may declare action variants gated on row-derived predicates (`when: (row) => Number(row.unappliedAmount) > 0`) and may declare confirmation requirements (`confirmationRequired: true`, `confirmGuard: (row) => ...`). The `EntityAction` type already accommodates `confirmationRequired` and `slidesOver`; the predicate variant is the only additive change. **There is no per-view action override.** If a view feels it needs one, the correct response is a state machine bug in `entity-actions.ts`, not a callback prop on the template.
+
+**`columnsByView` deletion path.** Today's `columnsByView` map (12 entries totaling ~210 lines of inline ColDef arrays in `shared.tsx`) is the inverse of the entity-schemas registry. Each entry maps directly:
+
+| `columnsByView` key | Migrates to entity schema | Phase |
+|---|---|---|
+| `purchaseOrders` | `purchaseOrderSchema` (already scaffolded in `entity-schemas.ts`) | Phase 1 (pilot) |
+| `orders` | New `saleOrderSchema` (note: the entity is `sale` per the view-registry stub, but the view key remains `orders`; map carefully) | Phase 3A/3B |
+| `payments` | New `paymentSchema` | Phase 2 |
+| `inventory` | New `inventoryBatchSchema` | Phase 2 |
+| `clients` | New `customerSchema` | Phase 2 |
+| `vendors` | New `vendorBillSchema` (the `vendors` view shows vendor bills, not vendors) | Phase 2 |
+| `fulfillment` | New `pickSchema` | Phase 3D |
+| `connectors` | New `connectorRequestSchema` | Phase 2 |
+| `recovery` | New `commandJournalSchema` (recovery view = failed commands) | Phase 3D |
+| `purchaseReceipts` | New `purchaseReceiptSchema` | Phase 3D |
+| `disputes` | New `invoiceDisputeSchema` | Phase 3D |
+| `closeout` | New `closeoutPeriodSchema` | Phase 2 |
+
+The custom `cellRenderer` blocks in `columnsByView.clients` (the "Aging" badge), `columnsByView.fulfillment` (the `alertCount` chip), `columnsByView.inventory` (the alias dot), and `columnsByView.connectors` (the source/type formatters) become **stable component exports** under `src/client/components/cellRenderers/` and are referenced from the entity schema by name. Per ARCH-3 / §6.1, no inline `useMemo` closures over view state. ClientLedgerView's heavy `cellRenderer` blocks (linking to contact profile, opening client ledger) are the canonical case — they move into `CustomerNameCell`, `CustomerBalanceCell`, etc. as standalone components.
+
+**Migration order.**
+
+1. **Phase 0a (this branch, no behavior change).**
+   - Create the rewritten spec at `docs/engineering-plans/specifications/templates/primary-grid-view.md` (this PR — planning artifact only).
+   - Update `entity-schemas.ts` and `entity-actions.ts` scaffolding tables and TODOs to reference the per-entity migration mapping above.
+   - Mark the existing `docs/engineering-plans/specifications/templates/grid-view.md` superseded with a pointer to `primary-grid-view.md`. Do not delete; redirect.
+2. **Phase 0b (rename + signature shrink, no view changes).**
+   - Move `GridJourney` body from `src/client/views/operations/shared.tsx` to `src/client/templates/PrimaryGridView.tsx`. Export as `PrimaryGridView`. Re-export `GridJourney` from the same module as a `@deprecated` alias.
+   - Implement the new `PrimaryGridViewProps` interface (only `viewKey` + `headerSlot?`).
+   - Add the `@deprecated` legacy-prop wrapper that maps `{view, title, actions, prelude, columns, selectionActions, inspectorTabs, onCellCommit, expansionConfig, emptyTitle, emptyChildren}` into the new internals. Wrapper logs one `console.warn` per view per session.
+   - Verify: typecheck clean, all 1608 tests green, no observable behavior change.
+3. **Phase 1 (PurchaseOrdersView pilot).**
+   - Populate `view-registry.ts` entry for `purchaseOrders` (already scaffolded).
+   - Populate `entity-schemas.ts` `purchaseOrderSchema` fields against the full `columnsByView.purchaseOrders` set (already scaffolded with 8 of 22 fields).
+   - Populate `entity-actions.ts` `purchaseOrderActions` state machine (already scaffolded across 8 states).
+   - Migrate `PurchaseOrdersView` to `<PrimaryGridView viewKey="purchaseOrders" />` — drop the direct `OperatorGrid` invocation, drop the local prelude blocks (move to `headerSlot` if genuinely primary-task, otherwise into a `SlideOver` tab or delete per UX-3).
+   - Verify: persona QA passes the PurchaseOrdersView Mercury wireframe coverage (Manifesto §7.x).
+4. **Phase 2 (the 9 remaining views: ClientLedgerView, PaymentsView, InventoryView, VendorPayablesView, ConnectorsView, CloseoutView, OrdersView, FulfillmentView, PurchaseReceiptsView, RecoveryView).**
+   - Migrate in dependency order: views with the fewest custom renderers and state-machine actions first (CloseoutView → ConnectorsView → PurchaseReceiptsView → RecoveryView), then mid-complexity (PaymentsView, FulfillmentView, OrdersView), then high-complexity (VendorPayablesView, ClientLedgerView, InventoryView).
+   - Each view migration is one PR: registry entry + schema fields + state machine + tab registrations + view file shrink. PRs that don't include the schema additions are rejected.
+5. **Phase 3A/3B (SalesView).**
+   - SalesView is the hard gate; its 1986-line shape is not addressed by this decision. SalesView migrates to `PrimaryGridView` as the last step of its own Phase 3A refactor sequence, after its inline `useMemo` cell renderers have been extracted to stable components.
+6. **Phase 4 (cleanup).**
+   - Delete the `@deprecated` legacy-prop wrapper in `PrimaryGridView`.
+   - Delete the `GridJourney` re-export alias.
+   - Delete `columnsByView` from `shared.tsx`.
+   - Delete `templates/InspectorDrawer.tsx` and `templates/InspectorDrawer.test.tsx` (no remaining callers after `OperatorGrid.inspectorTabs` is removed in Phase 2).
+   - Remove the `inspectorTabs` prop from `OperatorGrid` itself (one-line cleanup once the upstream callers are gone).
+   - Confirm `rg "GridJourney" src/` returns zero hits.
+
+**The `OperatorGrid.inspectorTabs` underlying mechanism also retires.** `OperatorGrid` accepts an `inspectorTabs?: (row: GridRow) => InspectorTab[]` prop (line 71 of `OperatorGrid.tsx`) that drives a bottom-anchored `RowInspector` component. This is the same pattern as the `InspectorDrawer` (different file, same idea). Per Manifesto §5.3 the InspectorDrawer migrates to right-side `SlideOver` tabs; this decision extends that to the `OperatorGrid.inspectorTabs` prop. After Phase 2, the `inspectorTabs` prop disappears from `OperatorGrid`, the `RowInspector` component is deleted, and `templates/InspectorDrawer.tsx` is deleted. Two parallel bottom-tab systems become zero.
+
+**Why this is the only sane path.** A parallel `PrimaryGridView` build means: (1) `columnsByView` and `entity-schemas.ts` both contain column truth for at least Phase 2 — guaranteed drift, especially around editability and cell renderers; (2) `StatusActionBar`-via-`selectionActions` and `BulkActionBar`-via-state-machine both run, with views split between them — operators see inconsistent confirmation behavior between `vendors` and `purchaseOrders`; (3) the grid query path is duplicated, breaking the tRPC deduplication assumption that `UnappliedCountBadge` (PaymentsView) and `fulfillmentPickColumns` (FulfillmentView) silently depend on; (4) `OperatorGrid.inspectorTabs` and `SlideOver` tabs both render simultaneously for OrdersView/PaymentsView until both are migrated — two competing supplementary surfaces on the same row click. Refactor in place keeps one column path, one selection path, one query path, one supplementary surface, and ships the schema/state-machine registries as additive — exactly the shape Phase 0 was scaffolded for.
+
+**Authority:** `MERCURY-ARCHITECTURE-MANIFESTO.md` §4 (migration map rows "GridJourney", "InspectorDrawer", "Per-view `ColDef[]` arrays", "Per-view `StatusActionTable` decision logic"), §5.2 ("GridJourney → PrimaryGridView" extension strategy), §6.1 (anti-patterns "Per-view `useMemo` with inline cell renderer", "Inline `<button>` action ribbon in a view", "Layout primitives in view files"); `CPO-AUDIT-REPORT.md` F2 (P0) and the "Decide GridJourney ↔ GridView template strategy" follow-up; `docs/design-system/decisions-log.md` 2026-06-16 entry "ContextDrawer → SlideOver Refactor Decision" (sibling P0 decision; this one is consistent with it on `inspectorTabs` fold-into-`SlideOver`-tabs and on refactor-in-place posture).
+
+**Files changed by this decision (planning only — no code):**
+- This entry (`docs/design-system/decisions-log.md`).
+- Rewritten spec at `docs/engineering-plans/specifications/templates/primary-grid-view.md` (treats spec as refactor target, not parallel build).
+- `docs/engineering-plans/specifications/templates/grid-view.md` updated to a one-line pointer at the new spec (superseded; not deleted to avoid breaking outbound links).
+
+---
+
+## 2026-06-16 — ContextDrawer → SlideOver Refactor Decision
+
+**Context.** Mercury UX retrofit (branch `docs/mercury-ux-retrofit-master-plan`) plans a `DetailSlideover` component. `ContextDrawer.tsx` (647 lines) already implements 80%+ of the spec: 5-state model (`closed | peek | standard | wide | focus`), URL sync via `useDrawerUrlSync`, focus trap via `useFocusTrap`, hard-coded 14-entity `drawerTabs` map, ARIA-correct dialog/tablist semantics, per-view `drawerByView` in `useUiStore`, `lastUsedDrawerStateByView` memory, state-cycle button (UX-B06), `]` keyboard shortcut, and conditional dispatch into 19 existing tab components under `drawerTabs/`. CPO audit F2 (P0) named this as a blocker for Phase 0. Authority: `MERCURY-ARCHITECTURE-MANIFESTO.md` §5.2; `CPO-AUDIT-REPORT.md` F2.
+
+**Decision: Refactor in place.** No parallel `DetailSlideover.tsx`. The spec at `docs/engineering-plans/specifications/components/detail-slideover.md` describes the *target shape of the existing ContextDrawer after refactor*, not a sibling build. Parallel build = guaranteed drift, double-mount risk, 6–8 weeks of dead-code migration. Refactor in place = ~1–2 weeks, no semantic discontinuity for operators mid-session.
+
+**Renames.**
+| Today | After refactor |
+|---|---|
+| File `src/client/components/ContextDrawer.tsx` | `src/client/components/SlideOver.tsx` |
+| Component `ContextDrawer` (export) | `SlideOver` (export) |
+| Type `DrawerStateName` | `SlideOverState` |
+| Hard-coded `drawerTabs` map (`Record<string, Tab[]>` inside the component) | Tab registry at `src/client/components/tabs/registry.ts` with `registerTabs(entityType, tabs[])` / `getTabs(entityType, role?)` API. Registrations live in `src/client/components/tabs/registrations.ts`, imported once at app boot. |
+| Hook `useDrawerUrlSync(view)` | Wrapped (not replaced) by `useViewUrlState(view)` which adds `tab`, `status`, `f`, `sel`, `cur` params on top of the existing `drawer | entityType | entityId` grammar. Public surface of `useDrawerUrlSync` preserved for the transition; deleted in Phase 4. |
+| `drawerByView` store slice | **Field name kept** — renaming would force a persisted-state migration for every operator's session. Internal identifier is irrelevant; external naming is what the UX requires. Same rationale for `activeDrawerEntityByView`, `lastUsedDrawerStateByView`, `setDrawerState`, `setDrawerTab`, `cycleDrawer`, `toggleDrawer`. |
+| Drawer-tab components in `drawerTabs/*.tsx` | Kept as-is, registered by key via the new registry. No mass move. |
+
+**5th `focus` state: DROP.** Rationale (3 lines): (1) The spec describes 4 states; Mercury has no 4th width tier; the cycle adds chrome (state glyph, coachmark text) for marginal width gain over `wide`. (2) Code search shows `focus` is referenced only by `ContextDrawer.tsx` itself, the `DRAWER_CYCLE_ORDER` cycle, and uiStore — no view depends on a `focus`-only behavior. (3) Removing a state shrinks the state machine without breaking any view contract. Migration: during the refactor window, persisted `focus` values in `drawerByView`/`lastUsedDrawerStateByView` are coerced to `wide` on store rehydration (one-line `partialize` migration). `DRAWER_CYCLE_ORDER` becomes `['peek', 'standard', 'wide']`. `stateLabel`/`DRAWER_STATE_GLYPH` lose the `focus` row. Coachmark copy drops "/ focus".
+
+**URL sync: preserve exactly.** `useDrawerUrlSync` keeps writing `drawer`, `entityType`, `entityId` with the same `replace: true` semantics and the same mount-time restore. New `useViewUrlState(view)` is a *wrapper* — it composes the existing hook and adds `tab` (active SlideOver tab), `status` (multi-select status filter, comma-separated), `f` (compressed `FilterGroupInput`), `sel` (optional selection list), `cur` (pagination cursor). The existing `?drawer=…&entityType=…&entityId=…` URLs in operator bookmarks remain valid. Per Manifesto §5.2.
+
+**Focus trap: preserve.** `useFocusTrap` is mature, used elsewhere (VendorContextDrawer pattern, alert dialogs), and works. No refactor. SlideOver continues to call `useFocusTrap<HTMLElement>(open, closeFn)` with the same overlay/palette skip logic.
+
+**Hard-coded `drawerTabs` map: replaced by registry.** Source: `src/client/components/tabs/registry.ts` exports `registerTabs(entityType, tabs)`, `getTabs(entityType, role?)`, type `SlideOverTab { key, label, icon?, component, badge?, requiresRole?, defaultFor? }`. Registrations live in `src/client/components/tabs/registrations.ts` as 14 `registerTabs(...)` calls (one per current entity type: `queue, customer, vendor, lot, order, salesOrder, po, vendorBill, payment, pick, connector, recovery, closeout, report, settings`). Each call references the existing component from `drawerTabs/*.tsx` by import. The 187 lines of map inside `ContextDrawer.tsx` move out verbatim — same keys, same labels. SlideOver calls `getTabs(entityType, user.role)` once per render. Role-gating is enforced by both the registry filter AND the underlying tRPC procedure (defense in depth per CPO audit F11).
+
+**Migration path (order and gating).**
+
+1. **Phase 0a (this branch, no behavior change):**
+   - Create `tabs/registry.ts` and `tabs/registrations.ts`. Port `drawerTabs` verbatim.
+   - `ContextDrawer.tsx` replaces `tabsFor(entityType)` with `getTabs(entityType, role)`. No other changes.
+   - Add `partialize`/migrate step coercing persisted `focus` → `wide`.
+   - Verify: existing tests pass, no UI change.
+2. **Phase 0b (rename + state-machine shrink):**
+   - Rename file `ContextDrawer.tsx` → `SlideOver.tsx`; component export `ContextDrawer` → `SlideOver`. Update ~25 import sites.
+   - Rename type `DrawerStateName` → `SlideOverState` at declaration site (`src/shared/types.ts`); re-export `DrawerStateName` as deprecated alias for one release. Store field names unchanged.
+   - Remove `focus` from `SlideOverState` enum. Remove from `DRAWER_CYCLE_ORDER`, `stateLabel`, `DRAWER_STATE_GLYPH`, coachmark string.
+   - Verify: typecheck clean, `pnpm test` green, persisted-state restore test covers the `focus → wide` coercion path.
+3. **Phase 1 (PurchaseOrdersView pilot, additive features per spec):**
+   - Wrap `useDrawerUrlSync` in `useViewUrlState(view)` and add `tab` param. PO is the first view to consume it.
+   - Add drag-to-resize handle on left edge (NEW; not currently implemented).
+   - Add "Open in full view" action wired to entity route (NEW).
+   - Add peek-state click-outside dismiss (NEW; currently only `wide`/`standard` close via ✕/Escape/focus-trap-Escape).
+   - Migrate the per-view inline conditional rendering (PO/Lot/SalesOrder/VendorBill `if (activeTab === '…' && is…Entity)` blocks) into per-tab `component` props in the registry. The inline `RelationshipContext` and generic facts card become a registered `overview` tab component.
+4. **Phase 1–3D (per-view tab adoption, per Manifesto §5.3 migration map):**
+   - Each of the 18 drawer/dialog components listed in Manifesto §5.3 migrates to either a registry tab key on an existing entity, a new entity registration, or a `ConfirmRoot` call. See the per-component table in `docs/engineering-plans/specifications/components/detail-slideover.md` §C.
+5. **Phase 4 (cleanup):**
+   - Delete `useDrawerUrlSync` re-export.
+   - Delete `DrawerStateName` deprecated alias.
+   - Delete deprecated dialog components after grep-clean confirmation.
+   - Confirm no remaining `ContextDrawer` import in the tree.
+
+**The old `DrawerStateName` enum sticks around during transition** as a re-export alias from the same module, marked `@deprecated` with a JSDoc pointer to `SlideOverState`. Removed in Phase 4 only after the manifest-level grep returns zero non-self references.
+
+**Why this is the only sane path.** Parallel build would create three live drawer systems (ContextDrawer, InspectorDrawer, DetailSlideover) for at least one release cycle, with views split between them and operators surprised by inconsistent close/cycle behavior. Refactor in place keeps a single mount, a single set of keyboard hotkeys, a single ARIA contract, and a single set of operator bookmarks valid throughout the migration. The spec's "build from scratch" framing was a CPO-audit miss (F2); this decision corrects it.
+
+**Authority:** `MERCURY-ARCHITECTURE-MANIFESTO.md` §5.2 (ContextDrawer extension), §4 migration map row "ContextDrawer", §6.1 anti-patterns "Multiple `SlideOver` instances mounted simultaneously"; `CPO-AUDIT-REPORT.md` F2 (P0).
+
+**Files changed by this decision (planning only — no code):**
+- This entry (`docs/design-system/decisions-log.md`).
+- Rewritten spec at `docs/engineering-plans/specifications/components/detail-slideover.md` (treats spec as refactor target, not parallel build).
+
+---
+
 ## 2026-06-15 — AG Grid border visibility fix
 
 **Problem**: Grid lines (horizontal and vertical cell borders) were invisible across all AG Grid table views (Inventory, Purchase Orders, Client Ledger, Sales). Previous fix attempts focused on grid height/collapse issues.

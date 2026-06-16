@@ -1,37 +1,11 @@
-# GridView — Template Specification
+# GridView — SUPERSEDED
 
-**Type:** View layout template
-**Used by:** ~15 views
-**Replaces:** Per-view layout code, GridJourney factory
+**This spec is superseded by [`primary-grid-view.md`](./primary-grid-view.md) as of 2026-06-16.**
 
-## API Contract
-```typescript
-interface GridViewProps {
-  viewKey: ViewKey;
-  headerContent?: ReactNode;        // Above FilterToolbar (bespoke)
-  preGridContent?: ReactNode;       // Between SummaryStrip and grid (bespoke)
-  postGridContent?: ReactNode;      // Below grid (bespoke)
-}
-```
+The earlier "GridView template" framing in this file was a CPO-audit miss (Finding F2): it described the template as a parallel build alongside the existing `GridJourney` factory at `src/client/views/operations/shared.tsx:247`, which would have produced two competing templates for the entire Phase 2–3D migration window. The corrected approach — refactor in place, no parallel build — is documented in:
 
-## Layout
-```
-┌─FilterToolbar────────────────────────────────────────────┐
-├─GridSummaryStrip──────────────────────────────────────────┤
-├─ViewTabBar────────────────────────────────────────────────┤
-├─OperatorGrid──────────────────────────────────────────────┤
-├─BulkActionBar (conditional)───────────────────────────────┘
-  DetailSlideover (right, conditional)
-```
+- **Decision rationale:** `docs/design-system/decisions-log.md` entry "2026-06-16 — GridJourney → PrimaryGridView Refactor Decision".
+- **Target spec:** [`primary-grid-view.md`](./primary-grid-view.md).
+- **Authority:** `MERCURY-ARCHITECTURE-MANIFESTO.md` §2.1, §4 (migration map row "GridJourney"), §5.2.
 
-## Extension Slots
-Views inject bespoke content via slots. Standard views don't use slots. Complex views (SalesView) use them for workspace context, customer header, etc.
-
-## Data Flow
-1. Template reads `viewKey` → `getViewConfig(viewKey)` from registry
-2. Config provides: entity schema, state machine, summary query, detail tabs, filter presets
-3. Template renders components from config + grid data from `useViewData(viewKey)`
-4. Extension slots inject bespoke sections where needed
-
-## File
-`src/client/templates/GridView.tsx`
+This file is kept (not deleted) so outbound links from older planning documents resolve to a redirect rather than 404. Do not author against this file. Do not paste this file's content into agent prompts.

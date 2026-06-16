@@ -1,7 +1,7 @@
 # Mercury UX Retrofit — Unified Execution Plan
 
 **Branch:** `docs/mercury-ux-retrofit-master-plan`
-**Status:** Drafting. Phase 0a (P0 closure) in progress; production code dispatch blocked until Phase 0a closes.
+**Status:** Phase 0a CLOSED. All 7 P0 items resolved (2026-06-16). Production code dispatch (Phase 0b, Layers 0-2) is now unlocked.
 **Authority:** This document is the SINGLE AUTHORITY for agent dispatch after Phase 0a closes. It supersedes the dispatch sequencing language in `MASTER-EXECUTION-DOCUMENT.md`, `AI-TODO.md`, and `dependency-graph.md` where those conflict.
 **Reads (in order):** [PLANNING-SYNTHESIS.md](./PLANNING-SYNTHESIS.md) → [MERCURY-ARCHITECTURE-MANIFESTO.md](./MERCURY-ARCHITECTURE-MANIFESTO.md) → [CPO-AUDIT-REPORT.md](./CPO-AUDIT-REPORT.md) → this document → spec sheets.
 

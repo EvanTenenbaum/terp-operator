@@ -1,279 +1,244 @@
-# DetailSlideover — Component Specification
+# SlideOver — Component Specification (Refactor Target of ContextDrawer)
 
 **Type:** Layout shell
-**Replaces:** ContextDrawer (all 5 states) + ~15 drawer/panel components
-**Research reference:** `research-packets/mercury-detail-panel-behavior.md`
+**Refactor target:** `src/client/components/ContextDrawer.tsx` (647 lines, existing). This spec describes the shape of that file *after* refactor. **There is no parallel build.** See `docs/design-system/decisions-log.md` (2026-06-16 entry "ContextDrawer → SlideOver Refactor Decision") for the binding rationale.
+**Authority:** `MERCURY-ARCHITECTURE-MANIFESTO.md` §5.2; `CPO-AUDIT-REPORT.md` F2 (P0).
+**Status:** Spec rewritten 2026-06-16 to reflect refactor-in-place strategy. The original "build from scratch" framing was a CPO-audit miss.
 
 ---
 
-## Purpose
-Right-side slide-over panel for entity detail. Shows entity summary + tabbed content. Opens on row click. Replaces TERP's ContextDrawer with a cleaner 3-state model + full-page fallback.
+## 0. Disposition table — what is preserved, renamed, refactored, dropped
+
+The existing `ContextDrawer.tsx` is the substrate. Every behavior below is classified.
+
+| Concern | Today (`ContextDrawer.tsx`) | Disposition | Target shape |
+|---|---|---|---|
+| File path | `src/client/components/ContextDrawer.tsx` | RENAME | `src/client/components/SlideOver.tsx` |
+| Component export | `ContextDrawer` | RENAME | `SlideOver` |
+| State enum | `DrawerStateName = 'closed' \| 'peek' \| 'standard' \| 'wide' \| 'focus'` | RENAME + SHRINK | `SlideOverState = 'closed' \| 'peek' \| 'standard' \| 'wide'`. `focus` dropped; persisted values coerced to `wide` on rehydration. |
+| Per-view drawer state in store | `drawerByView`, `activeDrawerEntityByView`, `lastUsedDrawerStateByView` | PRESERVE (names unchanged) | Same. Renaming the persisted slice would force operator-session migration with no UX gain. |
+| URL sync | `useDrawerUrlSync(view)` writes `drawer`, `entityType`, `entityId` | PRESERVE + WRAP | Hook body unchanged. A new outer hook `useViewUrlState(view)` composes it and adds `tab`, `status`, `f`, `sel`, `cur`. Backward-compatible URLs. |
+| Focus trap | `useFocusTrap<HTMLElement>(open, closeFn)` with overlay/palette skip | PRESERVE EXACTLY | Same call site, same logic. |
+| ARIA contract | `role="dialog"`, `aria-modal="true"`, `aria-label="Context drawer"`, `role="tablist"`, `role="tab"`, `aria-selected` | PRESERVE | Update `aria-label` text to `"Entity details"` per Mercury spec language. |
+| Tab data source | Hard-coded `drawerTabs: Record<string, Tab[]>` (~187 lines, 14 entity types) | REPLACE | Tab registry in `src/client/components/tabs/registry.ts` + registrations in `tabs/registrations.ts`. SlideOver calls `getTabs(entityType, role)`. |
+| Tab components | 19 components in `drawerTabs/*.tsx` (PoLinesTab, PoVendorTab, PoHistoryTab, EntityTimelineTab, LotMovementTab, etc.) | PRESERVE | Imported into `tabs/registrations.ts` and registered by key. Same components, same props. |
+| Conditional content dispatch | ~120 lines of `if (activeTab === '…' && is…Entity)` inside `ContextDrawerContent` | REFACTOR | Each conditional branch becomes a tab `component` reference in the registry. The dispatch collapses to `const Tab = registry.getTab(entityType, activeTab)?.component; return <Tab entityId={…} entityType={…} row={row} />;`. |
+| Inline `RelationshipContext` + facts card (fallback render path) | Inlined in `ContextDrawer.tsx` (~140 lines) | EXTRACT | Move to `src/client/components/tabs/OverviewTab.tsx`. Register as `defaultFor: ['queue', 'customer', 'vendor', …]`. |
+| State-cycle button (UX-B06) | Glyph button + `DRAWER_STATE_GLYPH` map + `DRAWER_CYCLE_ORDER` + cycle handler | PRESERVE (shrunk) | Cycle order becomes `['peek', 'standard', 'wide']`. Glyph map loses `focus` row. Button keeps `data-testid="drawer-cycle-btn"`. |
+| Coachmark (UX-B06) | One-time tip with persisted dismissal | PRESERVE | Drop "/ focus" from copy. Persisted `dismissedDrawerCoachmark` flag unchanged. |
+| Keyboard shortcut `]` (cycle) and `⇧]` (cycle width) | In `Hotkeys.tsx`, wired to `toggleDrawer`/`cycleDrawer` actions | PRESERVE | Unchanged. |
+| Reopen pill (closed state) | `context-drawer-reopen` aside with reopen button | PRESERVE | CSS class renamed to `slide-over-reopen`. |
+| Drag-to-resize on left edge | **Does not exist** | ADD (NEW) | 8px invisible handle. MouseDown→Move updates width. Snap to 280px/420px/60% on MouseUp. <200px = close. |
+| "Open in full view" action | **Does not exist** | ADD (NEW) | Footer link or header action. Navigates to entity route (e.g., `/purchase-orders/:id`). Route map provided by view registry. |
+| Peek click-outside dismiss | **Does not exist** (only ✕ / Escape close) | ADD (NEW) | In peek state only, click outside the panel closes it. Standard/wide require explicit ✕ or Escape (per current behavior). |
+| State-restore on URL deep-link | `useDrawerUrlSync` mount effect | PRESERVE | Wrapped by `useViewUrlState`; `tab` param honored on first mount. |
+| `defaultTabForEntity` resolution | `tabsFor(entityType)` → fallback to first tab if persisted `activeTab` invalid | PRESERVE | Lives in the registry now: `getDefaultTab(entityType)` returns first tab with `defaultFor: [entityType]`, else first registered tab. |
+| Per-view `selectedRows[view][0]` → drawer content | `useUiStore` selector | PRESERVE | Unchanged. SlideOver still derives `row` from the active selection by default; explicit `entityId` from URL overrides. |
+| Persisted operator URL bookmarks (`?drawer=standard&entityType=po&entityId=…`) | Live and load correctly today | PRESERVE | Same param shape, same restore behavior. `tab` param is additive. |
+| Multi-mounted overlay rule | One ContextDrawer instance per view | PRESERVE + ENFORCE | Manifesto §6.1 forbids simultaneous SlideOver instances. Opening a new entity replaces the entity in the existing SlideOver via `setDrawerEntity` (already today's behavior). |
 
 ---
 
-## API Contract
+## 1. Public API after refactor
 
 ```typescript
-interface DetailSlideoverProps {
-  entityType: string;            // e.g., 'po', 'salesOrder', 'customer', 'vendor', 'lot'
-  entityId: string;              // UUID of the entity
-  state: SlideoverState;         // 'closed' | 'peek' | 'standard' | 'wide'
-  onStateChange: (state: SlideoverState) => void;
-  onClose: () => void;          // Called on × click, Escape, or click-outside (peek only)
-  onOpenFullView?: () => void;  // Navigates to full-page entity route
+// src/client/components/SlideOver.tsx
+
+/**
+ * SlideOver is mounted exactly once per view by the PrimaryGridView template.
+ * It reads `activeDrawerEntityByView[view]` and `drawerByView[key]` from useUiStore
+ * and renders accordingly. Closed state mounts a reopen affordance only.
+ *
+ * No props. State flows through useUiStore + useViewUrlState.
+ */
+export function SlideOver(): JSX.Element | null;
+
+// src/client/components/tabs/registry.ts
+
+export interface SlideOverTab {
+  /** Unique within entity type. Used in URL `?tab=<key>`. */
+  key: string;
+  /** Display name. */
+  label: string;
+  /** Optional lucide-react icon name. */
+  icon?: string;
+  /** Tab content component. Mounted only when this tab is active (ARCH-3). */
+  component: React.ComponentType<SlideOverTabProps>;
+  /** Optional badge count. May be a static number or a selector hook. */
+  badge?: number | (() => number);
+  /** Role-gating. Tab is filtered from `getTabs` output when user.role < required. */
+  requiresRole?: 'owner' | 'manager' | 'operator';
+  /** Entity types where this tab should be the default (first) tab. */
+  defaultFor?: string[];
 }
 
-type SlideoverState = 'closed' | 'peek' | 'standard' | 'wide';
-```
-
----
-
-## Tab Registry API
-
-```typescript
-// Register tabs for an entity type (called at module import time, NOT in render)
-function registerTabs(entityType: string, tabs: DetailTab[]): void;
-
-// Get registered tabs for an entity type
-function getTabs(entityType: string, userRole?: string): DetailTab[];
-
-interface DetailTab {
-  key: string;                   // Unique key within entity type
-  label: string;                 // Display name (e.g., "Lines", "History")
-  icon?: string;                 // Lucide icon name (e.g., 'Package', 'Clock')
-  component: React.ComponentType<DetailTabProps>;  // Tab content component
-  badge?: number | (() => number);  // Badge count (e.g., "3 invoices")
-  requiresRole?: string;         // Role gate (e.g., 'manager')
-  defaultFor?: string[];         // Entity types where this tab is default (first shown)
-}
-
-interface DetailTabProps {
-  entityId: string;
+export interface SlideOverTabProps {
+  entityId: string | null;
   entityType: string;
+  row?: GridRow;
 }
+
+export function registerTabs(entityType: string, tabs: SlideOverTab[]): void;
+export function getTabs(entityType: string, role?: UserRole): SlideOverTab[];
+export function getDefaultTab(entityType: string): string | undefined;
+
+// src/client/hooks/useViewUrlState.ts (wrapper around useDrawerUrlSync)
+
+export interface ViewUrlState {
+  drawer: SlideOverState;        // existing
+  entityType?: string;           // existing
+  entityId?: string;             // existing
+  tab?: string;                  // NEW
+  status?: string[];             // NEW (comma-split)
+  f?: string;                    // NEW (compressed FilterGroupInput)
+  sel?: string[];                // NEW (optional selection)
+  cur?: string;                  // NEW (pagination cursor)
+}
+
+export function useViewUrlState(view: ViewKey): ViewUrlState;
 ```
+
+### What is removed from the public surface
+
+- `ContextDrawer` (renamed; old name re-exported as `@deprecated` alias for one release cycle).
+- The exported `getActiveDrawerStorageKey(view)` helper is preserved (used by sales export). Renamed internally to clarify intent; export name unchanged for one release.
+
+### What is added to the public surface
+
+- `SlideOver` component.
+- `tabs/registry.ts` exports (registry API).
+- `useViewUrlState(view)` hook.
+- `OverviewTab` component (extracted from inline `RelationshipContext` + facts card).
 
 ---
 
-## States
+## 2. State machine after refactor
 
-### State 1: Closed
 ```
-[Not rendered]
+       ┌─────────┐                ┌─────────┐                ┌─────────┐
+       │ closed  │ ─── row sel ─▶ │  peek   │ ─── click ───▶ │standard │
+       └─────────┘ ◀── click X ── └─────────┘ ◀── close ─── └─────────┘
+                          ▲                                       │
+                          │                                       │ cycle / drag-left
+                          │                                       ▼
+                          │                                  ┌─────────┐
+                          └──── click X / Escape ──────────  │  wide   │
+                                                             └─────────┘
 ```
-- **Trigger:** No entity selected, or user clicked × / pressed Escape / clicked outside (peek)
-- **Visual:** Slideover not in DOM (or `display: none`). Main content: full width.
-- **Transition out:** Slideover animates right (200ms ease-in). Main content expands to full width (200ms).
 
-### State 2: Peek (280px)
-```
-┌─Main Content──────────────────────────┬─Peek────────┐
-│                                        │ PO #1004     │
-│  [Table continues, fully interactive]  │ Acme Corp    │
-│                                        │ Ordered      │
-│                                        │ $8,200       │
-│                                        │              │
-│                                        │ [Open] [···] │  ← 2-3 key actions
-│                                        │              │
-│                                        │ ◀ drag       │
-└────────────────────────────────────────┴──────────────┘
-```
-- **Width:** 280px
-- **Trigger:** Single-click row OR hover row (configurable, default: single-click)
-- **Visual:** Slides in from right. Main content stays full width (peek overlays, doesn't push). Semi-transparent right edge of peek panel. Table behind remains INTERACTIVE.
-- **Content:** Entity summary header (title, key fields, status badge). 2-3 primary action buttons. Minimal info.
-- **Dismiss:** Click ×, click outside peek panel, or press Escape.
-- **Transition:** 300ms ease-out from right.
+| State | Width | Mount cost | Main content layout |
+|---|---|---|---|
+| `closed` | 0 | Reopen pill only (~40px) | Full width |
+| `peek` | 280px | Header + 2–3 primary actions | Full width (overlay, no shift) |
+| `standard` | 420px | Header + actions + tabs + content + "Open in full view" | Shifted left by 420px |
+| `wide` | 60vw | Same as standard, content uses extra space | Compressed to 40vw |
 
-### State 3: Standard (420px)
-```
-┌─Main Content (shifts left)─────────────┬─Standard─────┐
-│                                         │ PO #1004      │
-│  [Table is narrower, fully functional]  │ Acme Corp     │
-│                                         │ Ordered       │
-│                                         │ $8,200        │
-│                                         │               │
-│                                         │ [Draft Intake]│
-│                                         │ [Unfinalize]  │
-│                                         │ [Cancel]      │
-│                                         │───────────────│
-│                                         │ Lines | Intake│
-│                                         │ Vendor | Hist │  ← tab bar
-│                                         │───────────────│
-│                                         │ Tab Content:  │
-│                                         │ Line 1 · Rose │
-│                                         │ Line 2 · Fern │
-│                                         │ ...           │
-│                                         │               │
-│                                         │ [Open in full │
-│                                         │  view →]      │
-└─────────────────────────────────────────┴───────────────┘
-```
-- **Width:** 420px
-- **Trigger:** Double-click row, OR click "Open" button in peek, OR drag peek handle left
-- **Visual:** Main content shifts left (`margin-right: 420px`). Slideover has full border-left. Tab bar visible. Active tab content visible.
-- **Content:** Entity header + action buttons + tab bar + tab content area + "Open in full view" link.
-- **Dismiss:** Click × or Escape. Closes to peek? Or fully closed? → Fully closed. User re-clicks row to re-open.
-- **Tab switching:** Click tab → content swaps. Tab indicator animates horizontally.
-
-### State 4: Wide (60%)
-```
-┌─Main Content (40% width)───────────────┬─Wide (60%)───┐
-│                                         │ Same layout  │
-│  [Table compressed but usable]          │ as standard  │
-│                                         │ but wider    │
-│                                         │ content      │
-└─────────────────────────────────────────┴──────────────┘
-```
-- **Width:** 60% of viewport
-- **Trigger:** Drag left edge leftward beyond 420px, OR click "Expand" button
-- **Visual:** Main content compressed to 40%. Slideover content has more horizontal space.
-- **Content:** Same as standard. Tabs/content use the extra width.
-- **Dismiss:** Click × or Escape. Returns to standard (420px) on next open? → Returns to standard.
-
-### State 5: Full View (Navigated)
-```
-┌─Full Page───────────────────────────────────────────────┐
-│ ← Back to list                                          │
-│ PO #1004 · Acme Corp · Ordered · $8,200                 │
-│ [Draft Intake] [Unfinalize] [Cancel]                    │
-├─────────────────────────────────────────────────────────┤
-│ Lines | Linked Intake | Vendor | History                │
-│  (same tabs, full-page layout)                          │
-│  [Full-width table, more room for complex data]         │
-└─────────────────────────────────────────────────────────┘
-```
-- **Trigger:** Click "Open in full view" in standard/wide state
-- **Visual:** Full page navigation. Browser URL updates (e.g., `/purchase-orders/:id`). Back button works.
-- **Content:** Same tab registry used in full-page layout. Same entity header. Same action buttons.
-- **Navigation:** Back button → returns to list view. Slideover closes.
+Cycle order: `peek → standard → wide → peek` (via `]` keyboard shortcut and the state-cycle button). `closed` is reachable only via ✕ / Escape (or peek click-outside).
 
 ---
 
-## Transitions
+## 3. Migration table for the 18 drawer/dialog components (Manifesto §5.3)
 
-| From → To | Animation | Duration | Easing |
-|-----------|-----------|----------|--------|
-| Closed → Peek | Slide in from right | 300ms | `cubic-bezier(0.2, 0.8, 0.4, 1)` |
-| Peek → Standard | Width expand + main shift | 250ms | `cubic-bezier(0.2, 0.8, 0.4, 1)` |
-| Standard → Wide | Width expand | 250ms | `cubic-bezier(0.2, 0.8, 0.4, 1)` |
-| Any → Closed | Slide out to right | 200ms | `cubic-bezier(0.4, 0, 0.6, 1)` |
-| Standard → Full View | Route navigation (no animation) | — | — |
+Each row names a current component, the SlideOver tab key (or `ConfirmRoot` mapping) it migrates to, and the entity type that owns it.
 
-**Implementation:** CSS `transition` on width + transform properties. Use existing `--tx-drawer-state: 180ms cubic-bezier(0.2, 0.8, 0.4, 1)` CSS variable (already defined in `styles.css:13`).
-
----
-
-## Tab Content Loading States
-
-Each tab loads its own data (queries fire when tab becomes active):
-
-### Tab Loading
-```
-┌──────────────────────┐
-│ Lines | Intake | Ven │
-│──────────────────────│
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │  ← skeleton rows
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
-└──────────────────────┘
-```
-- Skeleton placeholder while tab queries load. Matches grid row height.
-
-### Tab Error
-```
-┌──────────────────────┐
-│ Lines | Intake | Ven │
-│──────────────────────│
-│ ⚠ Could not load     │
-│   [Retry]            │
-└──────────────────────┘
-```
-
-### Tab Empty
-```
-┌──────────────────────┐
-│ Lines | Intake | Ven │
-│──────────────────────│
-│ No lines yet         │
-│ [Add first line]     │
-└──────────────────────┘
-```
+| Current component | Disposition | SlideOver entity type | Tab key / mapping | Notes |
+|---|---|---|---|---|
+| `ContextDrawer.tsx` | THIS REFACTOR | n/a | n/a | This file becomes `SlideOver.tsx`. |
+| `InspectorDrawer.tsx` (bottom-anchored tabs in OrdersView via `GridJourney`'s `inspectorTabs` prop) | FOLD | `order` | Existing `relationship` + `timeline` tabs absorb the inspector's tab content. `GridJourney.inspectorTabs` prop deleted in Phase 2. | OrdersView's bottom-drawer pattern retires; OrdersView opens right-side SlideOver instead. |
+| `RecordPrepaymentDialog.tsx` | TAB MIGRATION | `po` | New tab `prepayment` (or fold into existing `commands` tab as a sub-action). | Was a blocking modal; becomes SlideOver tab per UX-6. |
+| `RefereeDialog.tsx` | TAB MIGRATION | `referee` (new entity type registration) | New tab `actions` | Add referee to entity types. |
+| `RefereeRelationshipDialog.tsx` | TAB MIGRATION | `referee` | New tab `relationships` | |
+| `RefereeDetailPanel.tsx` | TAB MIGRATION | `referee` | Default tab (`overview`) | The detail-panel content moves into the registered overview tab. |
+| `MediaBatchDrawer.tsx` | TAB MIGRATION | `lot` | New tab `media-batch` (or merge into existing `photos` tab) | Existing `LotPhotosTab` is closest current analog. Decide: merge into `photos` or add `media-batch` (recommend merge). |
+| `ProcessorDetailPanel.tsx` | TAB MIGRATION | `processor` (new entity type registration) | Default tab (`overview`) | Currently gated by `CONNECTOR_SURFACES_ENABLED` flag; keep gating. |
+| `RowCommandHistoryDrawer.tsx` | TAB MIGRATION | varies (per row's entity) | Existing `commands` / `history` tabs (PoCommandsTab, SalesCommandHistoryTab) | Already implemented per-entity; this component retires. |
+| `IssueSidecar.tsx` | TAB MIGRATION | `salesOrder`, `invoice` | New tab `issue` | Issue-tracking content moves to a registered tab. |
+| `RelationshipDrawer.tsx` | TAB MIGRATION (already done) | `customer`, `vendor` | Existing `relationship` tab | Wave 5 already converged this onto ContextDrawer's relationship tab; retire the standalone drawer. |
+| `ReceiptPreviewOverlay.tsx` | TAB MIGRATION | `payment` | New tab `receipt` | Backend procedure for receipt preview already exists; needs registry registration. |
+| `EditCreditLimitModal.tsx` (edit mode) | TAB MIGRATION | `customer` | Existing `credit` tab (extend `CustomerCreditPanel`) | When used to *confirm* destructive credit changes (e.g., suspend), route to `ConfirmRoot` via `useConfirm()` instead. |
+| `EditCreditLimitModal.tsx` (confirm mode) | CONFIRM MIGRATION | n/a | `useConfirm()` modal | Destructive paths use `ConfirmRoot`, not SlideOver. |
+| `AddRefereeRelationshipDrawer.tsx` | TAB MIGRATION | `referee` | `relationships` tab (form lives inside the tab) | |
+| `CustomerCreditPanel.tsx` (current SlideOver tab content) | PRESERVE | `customer` | Existing `credit` tab | Already correctly placed; no change. |
+| `PhotographyQueuePanel.tsx` (Wave 7) | TAB MIGRATION | `lot` | New tab `photo-queue` OR removed from primary surface and replaced with badge on `photos` tab | Decision per Phase 1 pilot; the panel-on-primary-surface pattern is a UX-3 violation. |
+| `PoLinesTab`, `PoVendorTab`, `PoHistoryTab`, `PoLinkedIntakeTab`, `PoCommandsTab`, `SalesOutputTab`, `SalesPricingTab`, `SalesCommandHistoryTab`, `LotMovementTab`, `LotHistoryTab`, `LotPhotosTab`, `VendorBillDetailsTab`, `VendorBillTraceTab`, `VendorPaymentHistoryTab`, `EntityTimelineTab`, `PaymentLinkedOrdersTab`, `CommandReversalTab` | REGISTER | varies | Same tab keys as today | The 17 existing tab components are imported once into `tabs/registrations.ts` and registered by key. Zero code change to the components themselves. |
+| Future tabs (`NEEDS_BUILD` per CPO audit F6) — Customer `purchase-history`, `photography`, `overview`; Inventory `finder` entity; SalesOrder `vendor` tab; `receipt-preview` tab | NEW | as listed | as listed | Built in Phase 1+ during per-view migration. Each new tab is a component + a registry registration. No new SlideOver mechanics required. |
 
 ---
 
-## Drag-to-Resize
+## 4. CSS class migration
 
-The left edge of the slideover is draggable:
-- Drag leftward → expands width (peek → standard → wide, continuous)
-- Drag rightward → shrinks width (wide → standard → peek → closed)
-- **Min width:** 280px (peek). Below 200px: close.
-- **Max width:** 70% of viewport.
-- **Snap points:** 280px, 420px, 60%. If drag released within 20px of snap point, snap to it.
+The visual contract is unchanged. Class names update for clarity but retain identical styling tokens.
 
-**Implementation:** MouseDown on 8px-wide invisible drag handle on left edge. MouseMove updates width. MouseUp snaps to nearest state.
+| Current class | New class | Rationale |
+|---|---|---|
+| `.context-drawer` | `.slide-over` | Match component name |
+| `.context-drawer-${state}` (closed/peek/standard/wide/focus) | `.slide-over-${state}` (closed/peek/standard/wide) | Drop `focus` variant |
+| `.context-drawer-header` | `.slide-over-header` | |
+| `.context-drawer-body` | `.slide-over-body` | |
+| `.context-drawer-card` | `.slide-over-card` | |
+| `.context-drawer-reopen` | `.slide-over-reopen` | |
+| `.context-reopen-button` | `.slide-over-reopen-button` | |
+| `.drawer-tabs` / `.drawer-tab` / `.drawer-tab-active` / `.drawer-tab-index` | `.slide-over-tabs` / `.slide-over-tab` / `.slide-over-tab-active` / `.slide-over-tab-index` | |
+| `.drawer-fact-row` | `.slide-over-fact-row` | |
+| `.drawer-empty` | `.slide-over-empty` | |
 
----
-
-## Keyboard Behavior
-
-| Key | State | Action |
-|-----|-------|--------|
-| Escape | Any | Close slideover (fully closed) |
-| Tab | Any | Focus cycles within slideover (header → actions → tab bar → tab content) |
-| Shift+Tab | Any | Reverse cycle |
-| ArrowLeft/Right | Standard/Wide | Switch tabs when tab bar is focused |
+CSS variable `--tx-drawer-state` is preserved as `--tx-slide-over-state` with the same value (`180ms cubic-bezier(0.2, 0.8, 0.4, 1)`). Old name aliased for one release.
 
 ---
 
-## Accessibility
+## 5. Test plan
 
-| Requirement | Implementation |
-|-------------|---------------|
-| `role="complementary"` | On slideover container |
-| `aria-label="Entity details"` | On slideover |
-| `aria-expanded` | On triggering row: true when slideover open |
-| Focus trap | Tab cycles within slideover; Escape to close |
-| Close button | `aria-label="Close detail panel"` |
-| Tab bar | `role="tablist"`, tabs have `role="tab"`, panels have `role="tabpanel"` |
-| Drag handle | `aria-label="Resize detail panel"` |
+Existing tests under `src/client/components/ContextDrawer*.test.tsx` continue to assert behavior. Refactor must preserve every existing test, with the following changes:
 
----
+1. Update any test that imports `ContextDrawer` directly to import `SlideOver`. Old name is re-exported during the deprecation window so test failures are limited to type-level assertions.
+2. Remove tests for `focus` state cycle (UX-B06 cycle now `peek → standard → wide`).
+3. Add tests for the registry: `registerTabs(entityType, tabs)` is idempotent; `getTabs(entityType, role)` filters by `requiresRole`; `getDefaultTab` resolves correctly.
+4. Add tests for `useViewUrlState`: `tab` param round-trips; backward-compatible with existing `drawer`/`entityType`/`entityId` URLs; `focus` value in URL coerces to `wide` and rewrites cleanly.
+5. Add a one-time persisted-state migration test: a store rehydrated with `drawerByView[k].state === 'focus'` yields `'wide'` post-migration.
 
-## File Locations
-
-```
-src/client/components/
-├── DetailSlideover.tsx           Shell component
-├── DetailSlideover.test.tsx      Unit + integration tests
-└── tabs/
-    └── registry.ts               registerTabs / getTabs
-```
+New behaviors (drag-to-resize, "Open in full view", peek click-outside) ship in Phase 1 with their own tests; not part of the Phase 0 refactor.
 
 ---
 
-## Test Checklist
+## 6. Acceptance criteria for the Phase 0 refactor (no new features)
 
-- [ ] Renders nothing in closed state
-- [ ] Opens in peek on single-click (280px)
-- [ ] Opens to standard on double-click (420px)
-- [ ] Expands to wide on drag (60%)
-- [ ] Closes on × button click
-- [ ] Closes on Escape key
-- [ ] Closes on click-outside (peek only)
-- [ ] Tab bar renders registered tabs
-- [ ] Clicking tab shows correct content
-- [ ] Tab badge count renders correctly
-- [ ] Role-gated tabs hidden for non-matching roles
-- [ ] Drag handle resizes smoothly
-- [ ] Snaps to 280px / 420px / 60% on drag release
-- [ ] "Open in full view" navigates to correct route
-- [ ] Back navigation returns to list view
-- [ ] Focus trapped when open
-- [ ] Tab content shows loading skeleton
-- [ ] Tab content shows error with retry
-- [ ] Tab content shows empty state
-- [ ] Main content is interactive in peek state
-- [ ] Transitions are smooth (no jank)
-- [ ] ARIA roles and labels correct
-- [ ] Works with keyboard only
+The Phase 0 refactor lands when:
+
+- [ ] `SlideOver` exported from `src/client/components/SlideOver.tsx`; `ContextDrawer` re-exported as `@deprecated` alias from the same file for one release.
+- [ ] `tabs/registry.ts` + `tabs/registrations.ts` exist; `drawerTabs` map is gone from the component file; all 14 entity types registered with identical tab keys and labels.
+- [ ] `SlideOverState` exported from `src/shared/types.ts`; `DrawerStateName` re-exported as `@deprecated` alias.
+- [ ] `focus` state removed from enum, cycle, glyph map, label map, coachmark copy; persisted `focus` values coerce to `wide` on rehydration.
+- [ ] CSS classes renamed; old class names kept as aliases for one release (Tailwind config or duplicate selectors).
+- [ ] `useDrawerUrlSync` unchanged in behavior. `useViewUrlState(view)` added as wrapper but not yet consumed by views — first consumption is PurchaseOrdersView in Phase 1.
+- [ ] `useFocusTrap` invocation unchanged.
+- [ ] All existing tests pass (with name-import updates only).
+- [ ] No view changes its behavior. Operator bookmarks (`?drawer=…&entityType=…&entityId=…`) continue to restore correctly.
+- [ ] Decisions-log entry exists and is linked from the Mercury authority chain.
+
+---
+
+## 7. Acceptance criteria for Phase 1 additive features
+
+The Phase 1 features (drag, "Open in full view", peek click-outside) ship behind PurchaseOrdersView's per-view feature flag (Manifesto / CPO F9). AC for those will live in the PurchaseOrdersView task entries, not here. This spec defers them to `MASTER-EXECUTION-DOCUMENT.md` Phase 1.
+
+---
+
+## 8. What this spec is NOT
+
+- Not a build-from-scratch component spec. The substrate exists. Anyone treating this as a greenfield task should stop and re-read the 2026-06-16 entry in `docs/design-system/decisions-log.md`.
+- Not a place to invent new visual states. The state machine is `closed | peek | standard | wide`. No 5th state, no "fullscreen-with-rail", no "split". A view needing more than `wide` is a UX-3 violation.
+- Not a parent of any modal. Destructive confirmations route to `useConfirm()` + `ConfirmRoot`. Forms that are not destructive route to a SlideOver tab.
+- Not a long-lived bottom drawer. `InspectorDrawer`'s bottom-anchored tabs retire in Phase 2; their content is right-side tabs in SlideOver.
+
+---
+
+## 9. Reference reads
+
+- `docs/design-system/decisions-log.md` — 2026-06-16 entry "ContextDrawer → SlideOver Refactor Decision" (binding rationale).
+- `docs/engineering-plans/MERCURY-ARCHITECTURE-MANIFESTO.md` §5.2 (extension over replacement) and §4 (migration map row "ContextDrawer").
+- `docs/engineering-plans/CPO-AUDIT-REPORT.md` F2 (the finding this spec resolves).
+- `src/client/components/ContextDrawer.tsx` (the substrate; read top-to-bottom before touching).
+- `src/client/hooks/useDrawerUrlSync.ts` (the URL hook to wrap, not replace).
+- `src/client/hooks/useFocusTrap.ts` (the focus trap to preserve).
+- `src/client/store/uiStore.ts` — `drawerByView`, `activeDrawerEntityByView`, `lastUsedDrawerStateByView`, `setDrawerState`, `setDrawerTab`, `cycleDrawer`, `toggleDrawer` (all preserved verbatim).
+- `src/client/components/drawerTabs/*` (the 19 tab components to register, not rebuild).

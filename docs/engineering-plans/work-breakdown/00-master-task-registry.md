@@ -766,3 +766,256 @@ Same pattern as T-3A-01 for: BatchCodeCell, MarkupCell, DerivedCogsCell, PickSta
   - [ ] Skipped test implemented or deleted with comment
   - [ ] No `it.skip` remaining
 
+---
+
+## Phase 0-B / 1-B — Backend Foundation Tasks (T-B-01 through T-B-18)
+
+These tasks stand up the backend procedures, shared schemas, and tests that Phase 0 frontend components and views depend on. Without them, Phase 0 components are demoware: combobox cells cannot fetch options, summary strips have no metrics, tab bars cannot count, grids cannot filter, bulk actions cannot dispatch. Every entry references its spec sheet under `docs/engineering-plans/specifications/procedures/`.
+
+> **Status enum invariant (applies to every T-B task):** Every status value used by backend code MUST be imported from `src/shared/statuses.ts`. Inline string literals (e.g., `status === 'approved'`) are forbidden. Reviewer greps for new occurrences in every PR introduced by T-B tasks.
+
+### T-B-01: Canonical Status Enumerations
+- **Phase:** 0-B (Week 1, blocker for every other T-B task)
+- **Agent:** `build`
+- **Dependencies:** None
+- **Inputs:** `src/server/schema.ts` (declared status columns + defaults), `src/server/services/commandBus.ts` (actual `set({ status })` sites), `src/shared/schemas.ts` (intake payload schemas)
+- **Outputs:** `src/shared/statuses.ts`
+- **States to implement:** N/A (pure type module)
+- **Acceptance Criteria:**
+  - [ ] One exported `<EntityName>Status` Zod enum per status-bearing entity (29 entities listed in `src/shared/statuses.ts`).
+  - [ ] Each enum exports both as a Zod schema and an inferred TS type via value/type namespace merging.
+  - [ ] Per-entity doc comment cites the schema default and the command-bus transitions that produce each value.
+  - [ ] `EntityStatus` convenience union exported for generic helpers.
+  - [ ] No inline status literals introduced anywhere else in the same PR.
+- **Tests:** Covered by T-B-10 (canonical sync test).
+- **Agent notes:** This is the load-bearing file for the entire backend foundation. Treat additions as schema work — never invent statuses; discover them. (Already shipped on `docs/mercury-ux-retrofit-master-plan`.)
+- **Spec sheet:** N/A (the file IS the source of truth). Referenced as `src/shared/statuses.ts` from every other T-B sheet.
+
+### T-B-02: `queries.comboboxOptions` Endpoint
+- **Phase:** 0-B (Week 1)
+- **Agent:** `build` (review: `qa-reviewer`)
+- **Dependencies:** T-B-01
+- **Inputs:** [`specifications/procedures/comboboxOptions.md`](../specifications/procedures/comboboxOptions.md), `src/server/routers/queries.ts` (existing `grid`/`reference` patterns).
+- **Outputs:** New procedure in `src/server/routers/queries.ts`; new schemas in `src/shared/schemas.ts`.
+- **States to implement:** N/A (single-shot query).
+- **Acceptance Criteria:** As listed in spec §11 (AC-1 through AC-9). Specifically:
+  - [ ] 11 supported entity types per spec §1.3; unknown entity → `BAD_REQUEST`.
+  - [ ] Per-entity min role enforced; `viewer` on a forbidden entity → `FORBIDDEN`.
+  - [ ] `filters.status` re-parsed against `src/shared/statuses.ts` per entity.
+  - [ ] Single SQL statement per call (N+1 guard test passes).
+  - [ ] `truncated` flag accurate.
+- **Tests:** T-B-12.
+- **Spec sheet:** [`specifications/procedures/comboboxOptions.md`](../specifications/procedures/comboboxOptions.md)
+
+### T-B-03: `queries.gridSummary` Endpoint
+- **Phase:** 0-B (Week 1)
+- **Agent:** `build` (review: `qa-reviewer`)
+- **Dependencies:** T-B-01, T-B-05 (shares `gridFiltersSchema` and `buildGridWhereClause`)
+- **Inputs:** [`specifications/procedures/gridSummary.md`](../specifications/procedures/gridSummary.md), `src/server/routers/queries.ts`.
+- **Outputs:** New procedure in `src/server/routers/queries.ts`; new schemas in `src/shared/schemas.ts`; per-entity summary registry.
+- **States to implement:** N/A.
+- **Acceptance Criteria:** Per spec §11 (AC-1 through AC-8). Specifically:
+  - [ ] All `viewSchema` entries have a summary registry entry.
+  - [ ] Role-gated `sumFields` absent (not zero) for sub-`manager` actors on `sales` / `inventory` / `vendors` / `purchaseReceipts`.
+  - [ ] Shares `buildGridWhereClause` with `grid-v2` — parity test passes for at least one fixture per entity.
+  - [ ] Single SQL statement per call.
+  - [ ] `countBy` sums to `totalRows` when the categorical field is not restricted by the filter set.
+- **Tests:** T-B-13.
+- **Spec sheet:** [`specifications/procedures/gridSummary.md`](../specifications/procedures/gridSummary.md)
+
+### T-B-04: `queries.statusCounts` Endpoint
+- **Phase:** 0-B (Week 1)
+- **Agent:** `fast-build` (review: `qa-reviewer`)
+- **Dependencies:** T-B-01
+- **Inputs:** [`specifications/procedures/statusCounts.md`](../specifications/procedures/statusCounts.md).
+- **Outputs:** New procedure in `src/server/routers/queries.ts`; new schemas in `src/shared/schemas.ts`.
+- **States to implement:** N/A.
+- **Acceptance Criteria:** Per spec §11 (AC-1 through AC-8). Specifically:
+  - [ ] Per-entity registry for 19 entities per spec §1.4 complete.
+  - [ ] Response zero-filled to the full canonical enum, in enum declaration order.
+  - [ ] Phantom status from DB → `INTERNAL_SERVER_ERROR` (invariant §4.1).
+  - [ ] Single SQL statement per call.
+  - [ ] `archived_at` filtering preserved for `batches`.
+- **Tests:** Pattern test in T-B-04's own test file; spot tests for `purchaseOrders`, `batches`, `vendorPayments`.
+- **Spec sheet:** [`specifications/procedures/statusCounts.md`](../specifications/procedures/statusCounts.md)
+
+### T-B-05: `queries.grid` v2 — Filter/Sort/Group/Paginate
+- **Phase:** 0-B (Week 1; blocker for `GridView` template)
+- **Agent:** `build` (review: `qa-reviewer`; escalate to `opus-build` on SQL-correctness flag)
+- **Dependencies:** T-B-01
+- **Inputs:** [`specifications/procedures/grid-v2.md`](../specifications/procedures/grid-v2.md), `src/server/routers/queries.ts` (existing `grid` + `gridSql`).
+- **Outputs:** Extended `queries.grid` procedure; new `src/shared/gridFilters.ts` exporting `gridFiltersSchema` and `gridSortSchema`; new `buildGridWhereClause` helper; refactor of `gridSql` from string-returning to builder-returning.
+- **States to implement:** N/A.
+- **Acceptance Criteria:** Per spec §11 (AC-1 through AC-11). Specifically:
+  - [ ] Backwards compat: `{ view }` alias accepted; legacy callsites unbroken until Phase 4 codemod.
+  - [ ] Per-entity allowlists for `filters.eq`, `filters.dateRange.field`, `sort.field`, `groupBy` (spec §§3.2–3.4) — unknown keys → `BAD_REQUEST`.
+  - [ ] `offset > 0` without `sort` → `BAD_REQUEST`.
+  - [ ] Output shape `{ entityType, rows, totalRows, aggregate?, groups? }`.
+  - [ ] Role projection (`internalMargin`, `marginWaivedTotal`, `unitCost`) matches v1 exactly.
+  - [ ] Single SQL statement per call (`count(*) OVER ()` for `totalRows`).
+  - [ ] Parity test with `gridSummary` passes.
+- **Tests:** T-B-15.
+- **Spec sheet:** [`specifications/procedures/grid-v2.md`](../specifications/procedures/grid-v2.md)
+
+### T-B-06: `commands.runBulk` Endpoint
+- **Phase:** 1-B (Phase 1 pilot dependency; blocker for `BulkActionBar`)
+- **Agent:** `build` (review: `qa-reviewer`; escalate to `opus-build` for transactional concerns)
+- **Dependencies:** T-B-01, T-B-07 (`MONEY_MUTATING_COMMANDS` set in `src/shared/commandCatalog.ts`), P0-7 (`command_journal` migration for `bulk_group_key`, `bulk_sequence`)
+- **Inputs:** [`specifications/procedures/run-bulk.md`](../specifications/procedures/run-bulk.md) (738 lines; ALREADY WRITTEN), `src/server/services/commandBus.ts` lines 654–1020.
+- **Outputs:** New `runBulk` procedure in `src/server/routers/commands.ts`; new `executeCommandWithinTx` and `executeCommandAsBulkMember` exports from `src/server/services/commandBus.ts`; new `bulkCommandInputSchema`, `bulkCommandResultSchema` in `src/shared/schemas.ts`; new `MONEY_MUTATING_COMMANDS` constant.
+- **States to implement:** N/A (one-shot mutation).
+- **Acceptance Criteria:** Per spec §11 (AC-1 through AC-10). See run-bulk.md.
+- **Tests:** T-B-14.
+- **Spec sheet:** [`specifications/procedures/run-bulk.md`](../specifications/procedures/run-bulk.md)
+
+### T-B-07: Entity → DB Column Mapping + `MONEY_MUTATING_COMMANDS`
+- **Phase:** 0-B (Week 1)
+- **Agent:** `build`
+- **Dependencies:** T-B-01
+- **Inputs:** `src/server/services/commandBus.ts` body (to derive money-set membership), `src/server/schema.ts` (column names), `src/client/config/entity-schemas.ts` (frontend field names — already scaffolded).
+- **Outputs:**
+  - `src/client/config/entity-column-map.ts` (frontend field name → DB column name, per entity).
+  - `MONEY_MUTATING_COMMANDS` constant added to `src/shared/commandCatalog.ts` (set defined in `run-bulk.md` §1.3).
+- **States to implement:** N/A.
+- **Acceptance Criteria:**
+  - [ ] Per-entity column map covers every field exposed in `entity-schemas.ts` for the Phase 0–3 entities.
+  - [ ] `MONEY_MUTATING_COMMANDS` set matches `run-bulk.md` §1.3 verbatim.
+  - [ ] CI guard (`pnpm lint:money-mutating-commands`) checks `commandBus.ts` for ledger/payments/vendor-bills table writes against the set membership — see `run-bulk.md` §1.3.
+- **Tests:** Covered by T-B-14 (`runBulk` cohort partitioning).
+- **Spec sheet:** Co-owned by `run-bulk.md` §1.3; column-map portion lives in `MASTER-EXECUTION-DOCUMENT.md` §17.6.
+
+### T-B-08: Per-Entity Tab Query Matrix (Pattern + 12 procedures)
+- **Phase:** 0-B (Week 2; blockers for Phase 0 view tab bars)
+- **Agent:** `fast-build` (one entity at a time, mechanical from template) with `qa-reviewer` review
+- **Dependencies:** T-B-01, T-B-05 (shares filter compilation infrastructure for the entities that overlap)
+- **Inputs:** [`specifications/procedures/entityTabs.md`](../specifications/procedures/entityTabs.md) (pattern) + 12 per-entity sheets under `specifications/procedures/tabs/`.
+- **Outputs:** 12 new procedures under `queries.<entity>Tabs` in `src/server/routers/queries.ts`; per-entity row schemas under `src/shared/schemas/tabs/<entity>.ts`.
+- **States to implement:** N/A.
+- **Acceptance Criteria:** Per pattern spec §11 (AC-1 through AC-7) + per-entity AC sheets. Specifically:
+  - [ ] All 12 entities (purchaseOrders, salesOrders, inventory, payments, invoices, purchaseReceipts, vendorBills, fulfillmentLines, pickLists, connectorRequests, matchmakingMatches, photographyQueue) implemented.
+  - [ ] Each entity imports its status enum from `src/shared/statuses.ts`.
+  - [ ] Pattern-level test (`queries.entityTabs.pattern.test.ts`) passes for all 12 entities (status enum membership, bad-status rejection, single-query guard, role gate, echo invariants).
+  - [ ] Per-entity row shapes match the corresponding `gridSql` projection (where one exists) column-for-column.
+- **Tests:** Pattern test (§8 of `entityTabs.md`) covers all 12 entities parametrically.
+- **Spec sheets:** [`specifications/procedures/entityTabs.md`](../specifications/procedures/entityTabs.md) + 12 sheets under `specifications/procedures/tabs/`.
+
+### T-B-09: New Detail Queries for Entities Lacking Them
+- **Phase:** 0-B (Week 2)
+- **Agent:** `build`
+- **Dependencies:** T-B-08 (catalog identifies missing detail queries)
+- **Inputs:** Output of T-B-08 (which entities lack a `queries.<entity>Detail` for the slide-over). Currently confirmed gaps: `connectorRequests`, `matchmakingMatches`, `photographyQueue`, `fulfillmentLines`.
+- **Outputs:** Per-gap, a new `queries.<entity>Detail` procedure in `src/server/routers/queries.ts` returning a single entity by ID, with neighbor entities joined for the slide-over tabs.
+- **States to implement:** N/A.
+- **Acceptance Criteria:**
+  - [ ] Each new detail procedure is `protectedProcedure` with `{ id: z.string().uuid() }` input.
+  - [ ] Returns the entity row + its tab data via one or more co-issued queries (T-0-06 `tabs/registry.ts` calls them).
+  - [ ] Single SQL statement per call for the main row; tabs may issue their own follow-up queries via the registry.
+  - [ ] Role gate matches the entity's tab-query role.
+- **Tests:** Co-located unit tests, one per new detail procedure.
+- **Spec sheet:** Lazily authored — one short spec per gap referenced from `entityTabs.md` §3.
+
+### T-B-10: Canonical Status Sync Test
+- **Phase:** 0-B (Week 1)
+- **Agent:** `terminal` (test-author)
+- **Dependencies:** T-B-01
+- **Inputs:** `src/shared/statuses.ts`, `src/server/schema.ts`, `src/server/services/commandBus.ts`.
+- **Outputs:** `src/shared/statuses.sync.test.ts` (or similar).
+- **States to implement:** N/A.
+- **Acceptance Criteria:**
+  - [ ] Test reads every `<EntityName>Status` enum from `src/shared/statuses.ts`.
+  - [ ] For each entity, asserts the enum's options match every value used in `set({ status: '...' })` sites inside `commandBus.ts` (parsed via a static-analysis helper or regex over the file).
+  - [ ] Asserts every schema default in `src/server/schema.ts` is in the corresponding enum.
+  - [ ] Fails loudly when `commandBus.ts` adds a new status value without updating the enum.
+- **Tests:** Self.
+- **Spec sheet:** N/A.
+
+### T-B-11: Entity State Machine Validation Test
+- **Phase:** 1-B (Phase 1)
+- **Agent:** `terminal`
+- **Dependencies:** T-B-01, `src/client/config/entity-actions.ts` (8-state PO machine, already scaffolded)
+- **Inputs:** `src/client/config/entity-actions.ts`, `src/shared/statuses.ts`.
+- **Outputs:** `src/client/config/entity-actions.machine.test.ts`.
+- **States to implement:** N/A.
+- **Acceptance Criteria:**
+  - [ ] For each registered entity state machine: every source state and every target state is in the canonical status enum.
+  - [ ] Every action's role gate matches `commandMinRole` for the underlying command name.
+  - [ ] Unreachable states fail the test with a named report.
+- **Tests:** Self.
+- **Spec sheet:** N/A.
+
+### T-B-12: `comboboxOptions` Tests
+- **Phase:** 0-B (Week 1)
+- **Agent:** `terminal`
+- **Dependencies:** T-B-02
+- **Outputs:** `src/server/routers/queries.comboboxOptions.test.ts`.
+- **Acceptance Criteria:** Test sketches §8 of [`comboboxOptions.md`](../specifications/procedures/comboboxOptions.md) implemented; passes; one happy-path per supported entity type.
+- **Spec sheet:** [`specifications/procedures/comboboxOptions.md`](../specifications/procedures/comboboxOptions.md) §8.
+
+### T-B-13: `gridSummary` Tests
+- **Phase:** 0-B (Week 1)
+- **Agent:** `terminal`
+- **Dependencies:** T-B-03, T-B-05 (parity test depends on `grid` v2)
+- **Outputs:** `src/server/routers/queries.gridSummary.test.ts`.
+- **Acceptance Criteria:** Test sketches §8 of [`gridSummary.md`](../specifications/procedures/gridSummary.md) implemented; parity test passes for at least one fixture per `viewSchema` entry.
+- **Spec sheet:** [`specifications/procedures/gridSummary.md`](../specifications/procedures/gridSummary.md) §8.
+
+### T-B-14: `runBulk` Tests
+- **Phase:** 1-B
+- **Agent:** `terminal`
+- **Dependencies:** T-B-06
+- **Outputs:** `src/server/routers/commands.runBulk.test.ts`.
+- **Acceptance Criteria:** Test sketches §7 of [`run-bulk.md`](../specifications/procedures/run-bulk.md) implemented; covers idempotency, money-cohort rollback, mixed cohort, per-row role gate, bad envelope.
+- **Spec sheet:** [`specifications/procedures/run-bulk.md`](../specifications/procedures/run-bulk.md) §7.
+
+### T-B-15: `grid` v2 Tests
+- **Phase:** 0-B (Week 1)
+- **Agent:** `terminal`
+- **Dependencies:** T-B-05
+- **Outputs:** `src/server/routers/queries.grid.v2.test.ts`.
+- **Acceptance Criteria:** Test sketches §8 of [`grid-v2.md`](../specifications/procedures/grid-v2.md) implemented; backwards compat with `{ view }` callsite; pagination, sort allowlist, single-query guard, role projection, gridSummary parity.
+- **Spec sheet:** [`specifications/procedures/grid-v2.md`](../specifications/procedures/grid-v2.md) §8.
+
+### T-B-16: Schema Migration Audit
+- **Phase:** 0-B (Week 1; pre-flight for every T-B task)
+- **Agent:** `terminal`
+- **Dependencies:** T-B-01, T-B-02, T-B-03, T-B-04, T-B-05, T-B-08
+- **Inputs:** `src/server/schema.ts`, each T-B spec's `§3.2` index audit notes, `comboboxOptions.md` §3.2, `grid-v2.md` index notes.
+- **Outputs:** Audit report at `docs/engineering-plans/work-breakdown/phase-0/MIGRATION-AUDIT.md`.
+- **Acceptance Criteria:**
+  - [ ] Confirms every column referenced by §3.2 (`comboboxOptions`) and the grid-v2/grid-summary filter helpers has the requisite index.
+  - [ ] Confirms `command_journal` schema needs additions (`bulk_group_key`, `bulk_sequence`) for T-B-06.
+  - [ ] Lists every required migration with proposed SQL.
+  - [ ] If zero migrations are needed for the read-only T-B tasks (T-B-02..05, T-B-08), this is explicit (not implicit).
+- **Spec sheet:** N/A (audit deliverable).
+
+### T-B-17: Cache Invalidation Strategy for `useViewData`
+- **Phase:** 1-B
+- **Agent:** `build`
+- **Dependencies:** T-B-02, T-B-03, T-B-04, T-B-05, T-B-08
+- **Inputs:** `src/client/components/useCommandRunner.ts` (existing `buildAffectedQueryPredicate`), all T-B spec sheets' "Client Consumption" sections (`comboboxOptions.md` §5, `gridSummary.md` §5, `statusCounts.md` §5, `grid-v2.md` §2, `entityTabs.md` §5).
+- **Outputs:** `src/client/hooks/useViewData.ts` (new hook); per-procedure query-key contracts documented in `docs/engineering-plans/specifications/hooks/useViewData.md`.
+- **States to implement:** N/A.
+- **Acceptance Criteria:**
+  - [ ] `useViewData(entityType, filters?)` parallel-fetches the 4 procedures (`grid`, `gridSummary`, `statusCounts`, applicable `<entity>Tabs`) under stable keys.
+  - [ ] `useCommandRunner.onSuccess` invalidates every affected query key via `buildAffectedQueryPredicate` over the union of `commandResult.affectedIds`.
+  - [ ] Stale times match each spec's caching guidance (30s for `comboboxOptions`, 15s for `gridSummary` / `grid`, 30s for `statusCounts`).
+  - [ ] No view fetches the same data twice in one render.
+- **Tests:** `useViewData.test.tsx` covering invalidation paths for at least 3 entity types.
+- **Spec sheet:** `specifications/hooks/useViewData.md` (NEEDS_BUILD as part of this task).
+
+### T-B-18: Optimistic Update in `ComboboxCellEditor`
+- **Phase:** 1-B
+- **Agent:** `build`
+- **Dependencies:** T-0-01..04 (ComboboxCellEditor base), T-B-02 (comboboxOptions endpoint), T-B-17 (cache invalidation hook)
+- **Inputs:** `specifications/components/combobox-cell-editor.md` §"Optimistic Save", `src/client/components/useCommandRunner.ts`.
+- **Outputs:** Updated `src/client/components/editors/ComboboxCellEditor.tsx` with optimistic value commit.
+- **Acceptance Criteria:**
+  - [ ] On commit, the cell displays the new value immediately while the mutation is in flight (200ms saving indicator).
+  - [ ] On success, the cell stays on the new value; the success indicator clears.
+  - [ ] On failure, the cell reverts to the prior value with a red border and tooltip; retry on re-click is supported.
+  - [ ] Optimistic value never leaks into the React Query cache as a "real" value (write only to the editor's local state, not to `queryClient.setQueryData`).
+  - [ ] Concurrent optimistic edits on multiple cells in the same row do not collide; each cell tracks its own pending value.
+- **Tests:** Unit test: success, failure-revert, retry, concurrent-edit.
+- **Spec sheet:** Inherits from `specifications/components/combobox-cell-editor.md` (existing).
+
+
