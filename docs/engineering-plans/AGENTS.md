@@ -1,8 +1,8 @@
 # Mercury UX Retrofit — AI Agent Entry Point
 
 **Branch:** `docs/mercury-ux-retrofit-master-plan`  
-**Last updated:** 2026-06-15  
-**Status:** Planning complete. Ready for Phase -1 wireframe creation.
+**Last updated:** 2026-06-16  
+**Status:** Planning sprint underway. Manifesto + scaffolds + template done. Pre-Phase 0 gap closure in progress.
 
 ---
 
@@ -22,20 +22,22 @@ These files were authored before the UX-first rewrite (2026-06-16). Their design
 | mercury-design-ground-up-analysis.md §6 (old rules) | DESIGN-RULES.md v2.0 | Token rules superseded for UX intent |
 | §17.9-17.11 v1.1 (MASTER-EXECUTION-DOCUMENT) | §17.9-17.11 v2.0 (UX-first mirror) | Rewritten to reference DESIGN-RULES.md v2.0 |
 
-**Authority chain:** [mercury-ux-integrated-analysis.md](mercury-ux-integrated-analysis.md) → [DESIGN-RULES.md](wireframes/DESIGN-RULES.md) → [INTEGRATION-MAP.md](wireframes/INTEGRATION-MAP.md) → wireframe .md files.
+**Authority chain:** [MERCURY-ARCHITECTURE-MANIFESTO.md](MERCURY-ARCHITECTURE-MANIFESTO.md) → [mercury-ux-integrated-analysis.md](mercury-ux-integrated-analysis.md) → [DESIGN-RULES.md](wireframes/DESIGN-RULES.md) → [INTEGRATION-MAP.md](wireframes/INTEGRATION-MAP.md) → wireframe .md files. **Implementation scaffold:** The 4  stubs embody this chain — agents fill blanks, never redesign structure.
 
 ### 1. Context: What Is This?
 
 The TERP Operator console needs a UX retrofit adopting Mercury.com's functional patterns (inline editing, filter toolbar, KPI strips, bulk actions, progressive disclosure). The plan covers 27 views, 10 new components, 18 backend endpoints, and a complete re-architecture of the frontend layer from imperative ColDef arrays to schema-driven configuration.
 
-### 2. Your First Read (4 files, ~15 minutes)
+### 2. Your First Read (6 files, ~25 minutes)
 
 | Order | File | Lines | Why |
 |-------|------|-------|-----|
-| **1st** | [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md) | 245 | **UX Authority.** Read this before any user-facing work. 12 UX rules, top-7 friction points, operator attention budget. Cross-model validated (Claude Opus 4.7 + GPT-4o). |
-| **2nd** | [MASTER-EXECUTION-DOCUMENT.md](./MASTER-EXECUTION-DOCUMENT.md) | 1543 | **Execution source of truth.** All specs, tasks, visual design rules. |
-| **3rd** | [AI-TODO.md](./AI-TODO.md) | — | **Active task state.** What's done/in-progress/blocked. |
-| **4th** | [HANDOFF.md](./HANDOFF.md) | — | **How to resume work.** Pick up where last agent left off. |
+| **1st** | [MERCURY-ARCHITECTURE-MANIFESTO.md](./MERCURY-ARCHITECTURE-MANIFESTO.md) | 710 | **Architecture Authority.** Maps all 12 UX rules → enforceable ARCH rules. Canonical component hierarchy. Anti-patterns. Migration map. **Read this before writing any code.** |
+| **2nd** | [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md) | 245 | **UX Authority.** Why we're doing this. 12 UX rules, top-7 friction points, operator attention budget. Cross-model validated. |
+| **3rd** | [CPO-AUDIT-REPORT.md](./CPO-AUDIT-REPORT.md) | 548 | **Readiness Reality Check.** What's broken, what's missing, what's salvageable. 15 findings (3 P0). Read before planning any new work. |
+| **4th** | [MASTER-EXECUTION-DOCUMENT.md](./MASTER-EXECUTION-DOCUMENT.md) | 1543 | **Execution source of truth.** All specs, tasks, visual design rules. |
+| **5th** | [AI-TODO.md](./AI-TODO.md) | — | **Active task state.** What's done/in-progress/blocked. |
+| **6th** | [HANDOFF.md](./HANDOFF.md) | — | **How to resume work.** Pick up where last agent left off. |
 
 ### 3. What Phase Are We In?
 
@@ -103,6 +105,10 @@ Source: [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md)
 **Operator Attention Budget — single most actionable principle:**
 > Show three things: (1) what they're working on — 0 clicks, always visible; (2) what they might need next — 1 click away; (3) what they rarely need — 2+ clicks away. **Anything always-visible that belongs in category 2 or 3 is a design bug.**
 
+### 5b. Spec Template (Mandatory — Do Not Skip)
+
+Every implementation spec MUST use [specifications/_TEMPLATE.md](./specifications/_TEMPLATE.md). The Manifesto Anchoring table is **non-negotiable** — a spec without it is not ready for agent dispatch.
+
 ### 6. Agent Types and When to Use
 
 | Agent | Use For | Model |
@@ -146,8 +152,10 @@ docs/engineering-plans/
 ├── MASTER-EXECUTION-DOCUMENT.md           ← Execution source of truth
 ├── README.md                              ← Human-readable index
 ├── dependency-graph.md                    ← Task ordering
-├── mercury-ux-integrated-analysis.md      ← UX AUTHORITY (read first; 12 UX rules)
-├── mercury-user-experience-analysis.md    ← Claude Opus 4.7 UX audit (source for integrated)
+├── MERCURY-ARCHITECTURE-MANIFESTO.md      ← ARCHITECTURE AUTHORITY (read first; 12 ARCH rules, component hierarchy, anti-patterns)
+├── mercury-ux-integrated-analysis.md      ← UX Authority (12 UX rules, cross-model validated)
+├── CPO-AUDIT-REPORT.md                    ← Readiness reality check (15 findings, 3 P0)
+├── mercury-user-experience-analysis.md    ← Claude Opus UX audit (source for integrated)
 ├── openai-ux-analysis-gpt4o.md            ← GPT-4o adversarial UX audit (source for integrated)
 ├── mercury-design-ground-up-analysis.md   ← Visual tokens + component architecture
 ├── mercury-ux-adoption.md                 ← Original plan (rationale)
@@ -176,9 +184,13 @@ docs/engineering-plans/
 ```
 src/
 ├── shared/
-│   └── statuses.ts                        ← NEW: Canonical status enums
+│   └── statuses.ts                        ← NEW: Canonical status enums (P0, not yet created)
 ├── client/
 │   ├── config/
+│   │   ├── entity-schemas.ts              ← ✅ SCAFFOLDED (277 lines, PurchaseOrder example)
+│   │   ├── entity-actions.ts              ← ✅ SCAFFOLDED (268 lines, 8-state PO machine)
+│   │   ├── view-registry.ts               ← ✅ SCAFFOLDED (228 lines, PO + SalesView entries)
+│   │   └── entity-column-map.ts           ← ✅ SCAFFOLDED (159 lines, PO column mapping)
 │   │   ├── entity-schemas.ts              ← Entity field definitions
 │   │   ├── entity-actions.ts              ← State machines
 │   │   ├── view-registry.ts               ← View declarations
