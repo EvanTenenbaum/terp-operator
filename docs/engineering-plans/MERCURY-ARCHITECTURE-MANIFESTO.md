@@ -482,6 +482,8 @@ Every old pattern listed here is **mandatory to remove** by the end of the phase
 | Eight stacked `WorkspacePanel`s on dashboard | `src/client/views/DashboardView.tsx` (13 `WorkspacePanel` mounts) | 3-zone `DashboardView` template with typed widgets (`WelcomeStrip`, `QuickActionsRow`, `KpiStrip`, `MyDraftsList`, `RecentActivityFeed`, `FocusList`, `PendingQueuesList`) | Phase 3C | UX-10 (launchpad not control tower); the panel sequence has no visual hierarchy |
 | `useState` for global view state | Various views (filter chips, selected entity, expanded sections in `WorkspacePanel`) | Slice in `useUiStore` + URL serialization via `useViewUrlState` | Phase 1+ (per-view migration) | UX-6 (state survives navigation): component-local state evaporates on navigation |
 
+**Rollout & migration strategy:** [migration-plan.md](./migration-plan.md) — per-view feature flags, persisted-state migration, column-preference compatibility, rollback procedures, deployment sequencing, URL state grammar, and operator communication.
+
 ---
 
 ## §5 — Existing Infrastructure to Leverage
