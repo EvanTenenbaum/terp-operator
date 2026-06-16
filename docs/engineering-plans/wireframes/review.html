@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TERP Operator — Mercury Retrofit Wireframe Review (v1.1)</title>
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       TERP OPERATOR — MERCURY RETROFIT DESIGN SYSTEM (v1.1)
+       Tokens from live Mercury demo app + TERP domain adjustments
+       ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --font: "Inter", system-ui, -apple-system, sans-serif;
+      --font-display: "Inter Display", system-ui, sans-serif;
+
+      /* Mercury-extracted tokens */
+      --text-primary: #1e1e2a;
+      --text-secondary: #363644;
+      --text-muted: #70707d;
+      --text-subtle: #535461;
+      --text-on-dark: #dddee6;
+
+      --fs-body: 15px; --fs-small: 13px; --fs-heading: 17px; --fs-display: 28px;
+      --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
+
+      --card-bg: #fff;
+      --card-radius: 10px;
+      --card-padding: 24px;
+      --card-shadow: 0 0 2px rgba(175, 178, 206, 0.40), 0 1px 3px rgba(4, 4, 52, 0.06);
+      --border-subtle: rgba(112, 115, 147, 0.10);
+      --border-pill: rgba(112, 115, 147, 0.14);
+
+      --pill-bg: #fafbfc;
+      --pill-radius: 8px;
+
+      --accent-blue: rgb(70, 91, 209);
+      --accent-green: #0d7c4a;
+      --accent-red: #d92d20;
+
+      --page-max: 1240px;
+      --sidebar-w: 200px;
+      --row-h: 44px;
+
+      /* TERP-specific extensions */
+      --blue: #4459cf;
+      --green: #0d7c4a;
+      --red: #d92d20;
+      --dark-bg: #1e1e2a;
+      --dark-text: #dddee6;
+      --dark-muted: rgba(221, 222, 230, 0.45);
+      --dark-active-bg: rgba(255, 255, 255, 0.08);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font); background: #f4f5f7; color: var(--text-primary);
+      font-size: var(--fs-body); -webkit-font-smoothing: antialiased; line-height: 1.5;
+    }
+
+    /* ── Sticky Nav Bar ── */
+    .sticky-nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--dark-bg); color: var(--text-on-dark);
+      padding: 8px 32px; display: flex; align-items: center; gap: 24px;
+      font-size: var(--fs-small); box-shadow: 0 2px 12px rgba(4,4,52,0.15);
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
+    .sticky-nav .brand { font-weight: var(--fw-semibold); font-size: var(--fs-heading); white-space: nowrap; }
+    .sticky-nav .sep { color: var(--dark-muted); }
+    .sticky-nav a {
+      color: var(--dark-muted); text-decoration: none; white-space: nowrap;
+      padding: 4px 8px; border-radius: 4px; transition: all 0.15s;
+    }
+    .sticky-nav a:hover { color: var(--text-on-dark); background: var(--dark-active-bg); }
+    .sticky-nav .doc-links { margin-left: auto; display: flex; gap: 12px; }
+    .sticky-nav .doc-links a {
+      color: var(--text-on-dark); font-weight: var(--fw-medium);
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 12px;
+    }
+    .sticky-nav .doc-links a:hover { background: rgba(255,255,255,0.12); }
+
+    .page { max-width: var(--page-max); margin: 0 auto; padding: 28px 20px 120px; }
+
+    /* ── Page Header ── */
+    .page-header { margin-bottom: 24px; }
+    .page-header h1 { font-size: var(--fs-display); font-weight: var(--fw-semibold); color: var(--text-primary); margin-bottom: 8px; }
+    .page-header p { font-size: var(--fs-body); color: var(--text-muted); max-width: 720px; line-height: 1.6; }
+    .page-header .meta { font-size: var(--fs-small); color: var(--text-muted); margin-top: 8px; }
+    .page-header .meta a { color: var(--blue); }
+    .design-rules-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+    .design-rules-chips .chip {
+      background: var(--pill-bg); border: 1px solid var(--border-pill);
+      border-radius: var(--pill-radius); padding: 5px 12px; font-size: var(--fs-small); color: var(--text-secondary);
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 28px;
+      padding: 12px 16px; background: #fff; border-radius: var(--card-radius);
+      box-shadow: var(--card-shadow); font-size: var(--fs-small);
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .legend-dot.mercury { background: var(--accent-blue); }
+    .legend-dot.terp { background: var(--green); }
+
+    /* ── Wireframe Card ── */
+    .wireframe {
+      background: #fff; border-radius: var(--card-radius); padding: 28px;
+      box-shadow: var(--card-shadow); margin-bottom: 36px; scroll-margin-top: 64px;
+    }
+    .wireframe h2 { font-size: var(--fs-heading); font-weight: var(--fw-semibold); color: var(--text-primary); margin-bottom: 2px; }
+    .wireframe .principle { font-size: var(--fs-small); color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+
+    /* ── Traceability Bar ── */
+    .trace-bar {
+      margin-bottom: 16px; padding: 10px 14px; background: #f8f9fb;
+      border-radius: 6px; border: 1px solid var(--border-subtle);
+      font-size: var(--fs-small); display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline;
+      line-height: 1.6;
+    }
+    .trace-bar .trace-label { font-weight: var(--fw-semibold); color: var(--text-primary); }
+    .trace-bar .trace-val { color: var(--text-secondary); }
+    .trace-bar .trace-val a { color: var(--blue); text-decoration: none; }
+    .trace-bar .trace-val a:hover { text-decoration: underline; }
+    .trace-sep { color: var(--border-pill); margin: 0 2px; }
+
+    /* ── Diagram Container ── */
+    .diagram {
+      background: #f8f9fb; border-radius: 8px; padding: 24px; overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* ── Shared Layout Primitives ── */
+    .wf-row { display: flex; gap: 0; align-items: flex-start; }
+    .wf-col { display: flex; flex-direction: column; }
+    .wf-sidebar {
+      width: var(--sidebar-w); flex-shrink: 0; min-height: 520px;
+      background: var(--dark-bg); color: var(--text-on-dark);
+      border-radius: 10px 0 0 10px; padding: 18px 12px; font-size: var(--fs-small);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .wf-sidebar .brand { font-size: var(--fs-body); font-weight: var(--fw-semibold); margin-bottom: 12px; letter-spacing: -0.01em; padding: 0 6px; }
+    .wf-sidebar .nav-item { padding: 6px 10px; border-radius: 6px; color: var(--text-on-dark); cursor: default; font-size: var(--fs-small); }
+    .wf-sidebar .nav-item.active { background: var(--dark-active-bg); font-weight: var(--fw-medium); }
+    .wf-sidebar .nav-item .badge { float: right; font-size: 11px; color: var(--dark-muted); background: rgba(255,255,255,0.06); padding: 1px 7px; border-radius: 10px; }
+    .wf-sidebar .section-label { font-size: 11px; color: var(--dark-muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 16px 10px 6px; }
+    .wf-sidebar .bookmark { color: var(--dark-muted); font-size: 12px; padding: 3px 10px; }
+    .wf-sidebar .bookmark .bal { color: var(--text-on-dark); font-weight: var(--fw-medium); }
+    .wf-main {
+      flex: 1; min-width: 0; background: #fff;
+      border-radius: 0 10px 10px 0; padding: 16px 24px 20px;
+      border: 1px solid var(--border-subtle); border-left: none;
+      display: flex; flex-direction: column; gap: 0;
+    }
+    .wf-topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--dark-bg); color: var(--text-on-dark);
+      border-radius: 10px 10px 0 0; padding: 10px 22px; font-size: var(--fs-small);
+      margin: -1px -1px 0 -1px;
+    }
+    .wf-topbar .brand-sm { font-weight: var(--fw-semibold); font-size: 14px; }
+    .wf-topbar .search { background: rgba(255,255,255,0.08); border: none; border-radius: 6px; padding: 5px 12px; color: var(--dark-muted); font-size: 12px; font-family: var(--font); width: 180px; }
+    .wf-topbar .avatar { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.15); flex-shrink: 0; }
+    .wf-view-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border-subtle); margin-bottom: 2px;
+    }
+    .wf-view-header .title { font-size: 20px; font-weight: var(--fw-semibold); color: var(--text-primary); }
+    .wf-view-header .actions { display: flex; gap: 8px; align-items: center; }
+    .wf-tab-pills { display: flex; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
+    .wf-tab-pill {
+      padding: 5px 14px; border-radius: var(--pill-radius); font-size: var(--fs-small);
+      color: var(--text-secondary); cursor: default; font-weight: var(--fw-regular);
+      border: 1px solid transparent; transition: all 0.15s; white-space: nowrap;
+    }
+    .wf-tab-pill.active { background: rgba(68, 89, 207, 0.06); color: var(--blue); font-weight: var(--fw-medium); border-color: rgba(68, 89, 207, 0.18); }
+    .wf-tab-pill .count { font-size: 11px; color: var(--text-muted); margin-left: 2px; }
+    .wf-tab-pill.active .count { color: var(--blue); }
+    .wf-filter-pills { display: flex; gap: 6px; padding: 8px 0; flex-wrap: wrap; }
+    .wf-filter-pill {
+      padding: 5px 12px; border-radius: var(--pill-radius); font-size: var(--fs-small);
+      color: var(--text-secondary); cursor: default; border: 1px solid var(--border-pill);
+      background: var(--pill-bg); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .wf-filter-pill .chevron { font-size: 10px; color: var(--text-muted); }
+    .wf-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
+    .wf-metric-card {
+      background: #fff; border-radius: 8px; padding: 12px 16px;
+      box-shadow: var(--card-shadow); cursor: default; transition: box-shadow 0.2s;
+    }
+    .wf-metric-card:hover { box-shadow: 0 0 0 1px var(--border-pill), 0 2px 8px rgba(4,4,52,0.08); }
+    .wf-metric-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+    .wf-metric-value { font-size: 20px; font-weight: var(--fw-semibold); color: var(--text-primary); }
+    .wf-metric-sub { font-size: 11px; color: var(--green); margin-top: 2px; }
+    .wf-table-container { flex: 1; overflow: hidden; }
+    .wf-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .wf-table th {
+      font-size: var(--fs-small); color: var(--text-muted); font-weight: var(--fw-medium);
+      text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--border-subtle);
+      background: #fafbfc; white-space: nowrap; text-transform: none;
+    }
+    .wf-table td {
+      font-size: var(--fs-body); color: var(--text-primary); padding: 0 14px;
+      height: var(--row-h); border-bottom: 1px solid rgba(0,0,0,0.04); white-space: nowrap;
+    }
+    .wf-table tr:hover td { background: rgba(68, 89, 207, 0.02); }
+    .wf-table tr.selected td { background: rgba(68, 89, 207, 0.05); }
+    .wf-cb {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid rgba(112,115,147,0.30);
+      flex-shrink: 0; cursor: default;
+    }
+    .wf-cb.checked { background: var(--text-primary); border-color: var(--text-primary); }
+    .wf-cb.checked::after { content: "✓"; color: #fff; font-size: 11px; font-weight: var(--fw-semibold); }
+    .wf-tag {
+      display: inline-block; padding: 2px 10px; border-radius: 4px;
+      font-size: var(--fs-small); font-weight: var(--fw-medium); line-height: 1.6;
+    }
+    .wf-tag.blue { background: rgba(68,89,207,0.07); color: var(--blue); }
+    .wf-tag.green { background: rgba(13,124,74,0.07); color: var(--green); }
+    .wf-tag.red { background: rgba(217,45,32,0.06); color: var(--red); }
+    .wf-tag.gray { background: rgba(112,112,125,0.07); color: var(--text-muted); }
+    .wf-btn {
+      display: inline-flex; align-items: center; gap: 4px; padding: 6px 16px;
+      border-radius: 6px; font-size: var(--fs-small); font-weight: var(--fw-medium);
+      font-family: var(--font); cursor: default; white-space: nowrap;
+      border: 1px solid var(--border-pill); background: #fff; color: var(--text-secondary);
+    }
+    .wf-btn.primary { background: var(--text-primary); color: #fff; border: none; }
+    .wf-btn.blue { background: var(--blue); color: #fff; border: none; }
+    .wf-btn.ghost { background: transparent; border: none; color: var(--text-muted); }
+    .wf-btn.sm { padding: 4px 12px; font-size: 12px; }
+    .wf-bulkbar {
+      background: var(--dark-bg); color: var(--text-on-dark); border-radius: 8px;
+      padding: 12px 18px; display: flex; gap: 16px; align-items: center;
+      font-size: var(--fs-small); margin-top: 12px;
+    }
+    .wf-bulkbar .count { font-weight: var(--fw-semibold); }
+    .wf-bulkbar .total { color: var(--dark-muted); }
+    .wf-bulkbar .wf-btn { background: rgba(255,255,255,0.12); border: none; color: #fff; font-size: 12px; }
+    .wf-so {
+      width: 360px; flex-shrink: 0; border-left: 1px solid var(--border-subtle);
+      background: #fff; padding: 20px 18px; display: flex; flex-direction: column; gap: 14px;
+      overflow-y: auto;
+    }
+    .wf-so-header { display: flex; justify-content: space-between; align-items: center; }
+    .wf-so-title { font-size: 16px; font-weight: var(--fw-semibold); }
+    .wf-so-close { font-size: 16px; color: var(--text-muted); cursor: default; padding: 2px 6px; }
+    .wf-so-meta { font-size: var(--fs-small); color: var(--text-secondary); }
+    .wf-so-amount { font-size: 20px; font-weight: var(--fw-semibold); color: var(--text-primary); }
+    .wf-so-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; }
+    .wf-so-tab { padding: 5px 12px; border-radius: 6px; font-size: var(--fs-small); color: var(--text-secondary); cursor: default; }
+    .wf-so-tab.active { background: rgba(68,89,207,0.06); color: var(--blue); font-weight: var(--fw-medium); }
+    .wf-so-line { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.03); font-size: var(--fs-small); }
+    .wf-so-line .item { color: var(--text-primary); }
+    .wf-so-line .qty { color: var(--text-secondary); }
+    .wf-so-line .price { font-weight: var(--fw-medium); }
+    .wf-so-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .wf-qa-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+    .wf-welcome { font-size: var(--fs-display); font-weight: var(--fw-semibold); color: var(--text-primary); margin-bottom: 4px; }
+    .wf-date-sub { font-size: var(--fs-small); color: var(--text-muted); }
+    .wf-pop {
+      background: #fff; border-radius: 10px; min-width: 260px;
+      box-shadow: 0 4px 24px rgba(4, 4, 52, 0.14), 0 1px 4px rgba(4, 4, 52, 0.06);
+      padding: 14px; z-index: 5;
+    }
+    .wf-pop .search-input {
+      width: 100%; padding: 7px 12px; border: 1px solid var(--border-pill);
+      border-radius: 6px; font-size: var(--fs-small); font-family: var(--font); margin-bottom: 10px; outline: none;
+    }
+    .wf-pop .opt { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; font-size: var(--fs-small); cursor: default; }
+    .wf-pop .opt:hover { background: rgba(68,89,207,0.04); }
+    .wf-pop .pop-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+    .wf-steps { display: flex; align-items: center; justify-content: center; gap: 0; padding: 24px 0; }
+    .wf-step { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .wf-step-circle {
+      width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 14px; font-weight: var(--fw-semibold);
+      border: 2px solid rgba(112,115,147,0.25); color: var(--text-muted);
+    }
+    .wf-step-circle.done { background: rgba(13,124,74,0.08); border-color: var(--green); color: var(--green); }
+    .wf-step-circle.active { background: var(--text-primary); border-color: var(--text-primary); color: #fff; }
+    .wf-step-label { font-size: 11px; color: var(--text-muted); text-align: center; }
+    .wf-step-label.active { color: var(--text-primary); font-weight: var(--fw-medium); }
+    .wf-step-line { width: 80px; height: 2px; background: rgba(112,115,147,0.15); margin: 0 2px; align-self: center; margin-bottom: 24px; }
+    .wf-step-line.done { background: var(--green); }
+    .wf-step-nav { display: flex; justify-content: space-between; padding: 14px 0; border-top: 1px solid var(--border-subtle); }
+    .wf-step-content { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; min-height: 200px; }
+    .wf-back-link { font-size: var(--fs-small); color: var(--blue); margin-bottom: 16px; cursor: default; }
+    .wf-profile-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+    .wf-avatar-lg { width: 48px; height: 48px; border-radius: 50%; background: rgba(68,89,207,0.12); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: var(--fw-semibold); color: var(--blue); }
+    .wf-profile-name { font-size: 18px; font-weight: var(--fw-semibold); }
+    .wf-profile-role { font-size: var(--fs-small); color: var(--text-muted); }
+    .wf-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .wf-detail-field { padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.03); }
+    .wf-detail-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+    .wf-detail-value { font-size: 14px; color: var(--text-primary); }
+    .wf-timeline { margin-top: 16px; }
+    .wf-timeline-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.03); font-size: var(--fs-small); }
+    .wf-timeline-time { color: var(--text-muted); flex-shrink: 0; width: 60px; font-size: 12px; }
+    .wf-timeline-desc { color: var(--text-primary); }
+    .wf-timeline-meta { color: var(--text-muted); margin-left: auto; font-size: 12px; }
+    .wf-err-inline {
+      border-left: 3px solid var(--red); padding: 8px 14px; display: flex;
+      align-items: center; gap: 10px; font-size: var(--fs-small);
+      background: rgba(217,45,32,0.03);
+    }
+    .wf-err-inline .icon { color: var(--red); }
+    .wf-err-inline .retry { color: var(--blue); cursor: default; text-decoration: underline; }
+    .wf-empty-state { text-align: center; padding: 48px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .wf-empty-title { font-size: 16px; font-weight: var(--fw-medium); color: var(--text-secondary); }
+    .wf-empty-desc { font-size: var(--fs-small); color: var(--text-muted); }
+    .wf-skeleton { display: flex; flex-direction: column; gap: 12px; padding: 16px 0; }
+    .wf-skel-row {
+      height: 40px; border-radius: 6px; background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.07) 50%, rgba(0,0,0,0.04) 75%);
+      background-size: 200% 100%; animation: pulse 1.6s ease-in-out infinite;
+    }
+    .wf-skel-row:nth-child(2) { width: 95%; } .wf-skel-row:nth-child(3) { width: 88%; }
+    .wf-skel-row:nth-child(4) { width: 92%; } .wf-skel-row:nth-child(5) { width: 85%; }
+    @keyframes pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .wf-collapsible { border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; }
+    .wf-collapsible-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; background: #fafbfc; font-size: var(--fs-small);
+      font-weight: var(--fw-medium); color: var(--text-secondary); cursor: default;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .wf-collapsible-body { padding: 16px; }
+    .specs { margin-top: 20px; }
+    .specs table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .specs th { text-align: left; color: var(--text-muted); font-weight: var(--fw-medium); padding: 4px 14px; border-bottom: 1px solid var(--border-subtle); }
+    .specs td { padding: 5px 14px; border-bottom: 1px solid rgba(0,0,0,0.02); color: var(--text-secondary); }
+    .specs td:first-child { font-weight: var(--fw-medium); color: var(--text-primary); white-space: nowrap; }
+
+    /* ── Design Rules (Collapsible) ── */
+    .rules-section { margin-top: 40px; }
+    .rules-section summary {
+      font-size: var(--fs-heading); font-weight: var(--fw-semibold); color: var(--text-primary);
+      cursor: pointer; padding: 16px 0; border-bottom: 1px solid var(--border-subtle);
+    }
+    .rules-section details[open] summary { margin-bottom: 16px; }
+    .rules-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); margin-bottom: 20px; }
+    .rules-table th { text-align: left; color: var(--text-muted); font-weight: var(--fw-medium); padding: 6px 12px; border-bottom: 1px solid var(--border-subtle); background: #fafbfc; }
+    .rules-table td { padding: 7px 12px; border-bottom: 1px solid rgba(0,0,0,0.03); color: var(--text-secondary); vertical-align: top; }
+    .rules-table td:first-child { font-weight: var(--fw-semibold); color: var(--text-primary); white-space: nowrap; }
+
+    /* ── Utility ── */
+    .gap-8 { gap: 8px; } .gap-12 { gap: 12px; } .gap-16 { gap: 16px; }
+    .mt-8 { margin-top: 8px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+    .mb-8 { margin-bottom: 8px; } .mb-12 { margin-bottom: 12px; } .mb-16 { margin-bottom: 16px; }
+    .fg-1 { flex: 1; } .ws-nw { white-space: nowrap; }
+    .text-green { color: var(--green); } .text-red { color: var(--red); } .text-muted { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     STICKY NAV BAR
+     ═══════════════════════════════════════════════════════════════ -->
+<nav class="sticky-nav">
+  <span class="brand">TERP Operator — Mercury Retrofit v1.1</span>
+  <span class="sep">|</span>
+  <a href="#wf-dashboard">1. Dashboard</a>
+  <a href="#wf-gridview">2. Grid View</a>
+  <a href="#wf-selected">3. Bulk Actions</a>
+  <a href="#wf-slideover">4. Slideover</a>
+  <a href="#wf-sales">5. Sales View</a>
+  <a href="#wf-intake">6. Intake</a>
+  <a href="#wf-pick">7. Pick</a>
+  <a href="#wf-profile">8. Profile</a>
+  <a href="#wf-filter">9. Filter</a>
+  <a href="#wf-errors">10. Errors</a>
+  <a href="#design-rules-ref">Rules</a>
+  <span class="sep">|</span>
+  <span class="doc-links">
+    <a href="../MASTER-EXECUTION-DOCUMENT.md">Master Doc</a>
+    <a href="../terp-feature-to-mercury-mapping.md">Feature Map</a>
+    <a href="DESIGN-RULES.md">Design Rules</a>
+    <a href="./">Source WFs</a>
+  </span>
+</nav>
+
+<div class="page">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PAGE HEADER
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <h1>TERP Operator — Mercury UX Retrofit Wireframe Review</h1>
+  <p>
+    10 high-resolution wireframes for the TERP Operator console Mercury retrofit.
+    Each wireframe traces back to live Mercury demo app patterns (§14), QA'd
+    design rules (§17.9), and TERP feature mapping. Every screen shows real-looking
+    data at realistic proportions. Content-first, chrome-second.
+  </p>
+  <p class="meta">
+    <strong>Version:</strong> 1.1 &middot;
+    <strong>Date:</strong> 2026-06-16 &middot;
+    <strong>Source:</strong> <a href="../MASTER-EXECUTION-DOCUMENT.md#14-research-evidence-summary-mercury-patterns">§14 Mercury tokens</a> +
+    <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">§17.9 Design rules</a> +
+    <a href="../terp-feature-to-mercury-mapping.md">Feature mapping</a> &middot;
+    <strong>47 source wireframes</strong> in <code>wireframes/WF-*.md</code>
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     DESIGN RULES CHIPS (quick reference)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="design-rules-chips">
+  <span class="chip">#1 Content-first, chrome-second</span>
+  <span class="chip">#2 Progressive disclosure</span>
+  <span class="chip">#3 Subtle tab pills</span>
+  <span class="chip">#4 Glanceable metrics</span>
+  <span class="chip">#5 Minimal view headers</span>
+  <span class="chip">#6 Table dominance 70-80%</span>
+  <span class="chip">#7 Invisible chrome</span>
+  <span class="chip">#8 Typographic hierarchy</span>
+  <span class="chip">#9 Collapsible sections</span>
+  <span class="chip">#10 Clear error states</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LEGEND
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="legend">
+  <div class="legend-item"><span class="legend-dot mercury"></span> <strong>Mercury pattern</strong> — observed in demo.mercury.com</div>
+  <div class="legend-item"><span class="legend-dot terp"></span> <strong>TERP adjustment</strong> — adapted for brokerage operator domain</div>
+  <div class="legend-item" style="margin-left:auto;font-size:12px;color:var(--text-muted);">Each wireframe below has a traceability bar linking to the source docs.</div>
+</div>
+
+
+<!-- ═══════════════════════════════ 1. DASHBOARD ═══════════════════════════════ -->
+<section class="wireframe" id="wf-dashboard">
+  <h2>1. Dashboard — Full Screen</h2>
+  <p class="principle">Content-first greeting, quick actions, glanceable metrics, and a data-dominant activity table.</p>
+  <!-- Traceability Bar -->
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#information-architecture-from-live-dom-observation">Dashboard (4 elements)</a> — Welcome, quick actions, 1 balance card, activity table</span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#1</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#4</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#5</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#6</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">DashboardView</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-V-DASH.md">WF-V-DASH</a></span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-d-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item active" data-wf-id="wf-d-nav-home">Home</div>
+        <div class="nav-item" data-wf-id="wf-d-nav-po">Purchase Orders <span class="badge">15</span></div>
+        <div class="nav-item" data-wf-id="wf-d-nav-sales">Sales Orders <span class="badge">48</span></div>
+        <div class="nav-item" data-wf-id="wf-d-nav-intake">Intake <span class="badge">8</span></div>
+        <div class="nav-item" data-wf-id="wf-d-nav-inventory">Inventory</div>
+        <div class="nav-item" data-wf-id="wf-d-nav-payments">Payments</div>
+        <div class="section-label">Bookmarks</div>
+        <div class="bookmark" data-wf-id="wf-d-bm-ar">AR Balance <span class="bal">$142,500</span></div>
+        <div class="bookmark" data-wf-id="wf-d-bm-ap">AP Balance <span class="bal">$48,200</span></div>
+      </div>
+      <div class="wf-main">
+        <div class="wf-topbar" data-wf-id="wf-d-topbar">
+          <span class="brand-sm">TERP Operator</span>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <span class="search" data-wf-id="wf-d-search">Search orders, POs, vendors…</span>
+            <span class="avatar" data-wf-id="wf-d-avatar"></span>
+          </div>
+        </div>
+        <div style="padding: 8px 0;">
+          <div class="wf-welcome" data-wf-id="wf-d-welcome">Welcome back, Evan</div>
+          <div class="wf-date-sub" data-wf-id="wf-d-date">Monday, June 15, 2026</div>
+          <div class="wf-qa-row" data-wf-id="wf-d-qa">
+            <span class="wf-btn primary" data-wf-id="wf-d-qa-sale">+ New Sale</span>
+            <span class="wf-btn" data-wf-id="wf-d-qa-po">+ New PO</span>
+            <span class="wf-btn" data-wf-id="wf-d-qa-intake">Intake</span>
+            <span class="wf-btn" data-wf-id="wf-d-qa-payment">Receive Payment</span>
+          </div>
+          <div class="wf-metrics" data-wf-id="wf-d-metrics">
+            <div class="wf-metric-card" data-wf-id="wf-d-metric-active">
+              <div class="wf-metric-label">Active Orders</div><div class="wf-metric-value">12</div><div class="wf-metric-sub">↑ 3 from last week</div>
+            </div>
+            <div class="wf-metric-card" data-wf-id="wf-d-metric-pending">
+              <div class="wf-metric-label">Pending Intake</div><div class="wf-metric-value">8</div><div class="wf-metric-sub">142 batches waiting</div>
+            </div>
+            <div class="wf-metric-card" data-wf-id="wf-d-metric-ar">
+              <div class="wf-metric-label">AR Balance</div><div class="wf-metric-value">$142,500</div><div class="wf-metric-sub" style="color:var(--text-muted);">12 outstanding</div>
+            </div>
+            <div class="wf-metric-card" data-wf-id="wf-d-metric-ap">
+              <div class="wf-metric-label">AP Balance</div><div class="wf-metric-value">$48,200</div><div class="wf-metric-sub" style="color:var(--red);">3 overdue</div>
+            </div>
+          </div>
+          <div style="padding-top: 12px;">
+            <div style="font-size:14px;font-weight:var(--fw-semibold);color:var(--text-primary);margin-bottom:8px;" data-wf-id="wf-d-activity-title">Recent Activity</div>
+            <div class="wf-table-container">
+              <table class="wf-table">
+                <thead><tr><th style="width:80px;">Date</th><th style="width:200px;">Description</th><th style="width:120px;">Status</th><th style="width:100px;">Amount</th></tr></thead>
+                <tbody>
+                  <tr data-wf-id="wf-d-txn-1"><td>Jun 15, 10:42 AM</td><td>SO-1052 confirmed · Acme Corp</td><td><span class="wf-tag green">Confirmed</span></td><td>$12,400</td></tr>
+                  <tr data-wf-id="wf-d-txn-2"><td>Jun 15, 9:15 AM</td><td>PO-2041 received intake batch</td><td><span class="wf-tag blue">Received</span></td><td>$8,200</td></tr>
+                  <tr data-wf-id="wf-d-txn-3"><td>Jun 14, 4:30 PM</td><td>Payment received · Gamma LLC</td><td><span class="wf-tag green">Paid</span></td><td>$3,150</td></tr>
+                  <tr data-wf-id="wf-d-txn-4"><td>Jun 14, 2:15 PM</td><td>SO-1051 posted · Beta Industries</td><td><span class="wf-tag gray">Posted</span></td><td>$6,900</td></tr>
+                  <tr data-wf-id="wf-d-txn-5"><td>Jun 14, 11:00 AM</td><td>Intake batch IA-306 verified</td><td><span class="wf-tag green">Verified</span></td><td>$22,800</td></tr>
+                  <tr data-wf-id="wf-d-txn-6"><td>Jun 13, 3:45 PM</td><td>PO-2040 finalized · Delta Corp</td><td><span class="wf-tag green">Finalized</span></td><td>$15,300</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════ 2. GRID VIEW · PURCHASE ORDERS ═══════════════ -->
+<section class="wireframe" id="wf-gridview">
+  <h2>2. Grid View — Purchase Orders (Default State)</h2>
+  <p class="principle">Table-dominant view. View header, tab pills with counts, filter pills, metric cards, full 8-column table with real data.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#information-architecture-from-live-dom-observation">Transactions page (3 elements)</a> — filter pills, KPI line, table</span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#1</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#3</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#4</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#5</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#6</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#7</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">PurchaseOrdersView, GridView template</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-V-PO.md">WF-V-PO</a>, <a href="WF-C-TABBAR.md">WF-C-TABBAR</a>, <a href="WF-C-SUMMARY.md">WF-C-SUMMARY</a></span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-g-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item" data-wf-id="wf-g-nav-home">Home</div>
+        <div class="nav-item active" data-wf-id="wf-g-nav-po">Purchase Orders <span class="badge">15</span></div>
+        <div class="nav-item" data-wf-id="wf-g-nav-sales">Sales Orders</div>
+        <div class="nav-item" data-wf-id="wf-g-nav-intake">Intake</div>
+        <div class="nav-item" data-wf-id="wf-g-nav-inventory">Inventory</div>
+        <div class="nav-item" data-wf-id="wf-g-nav-payments">Payments</div>
+      </div>
+      <div class="wf-main" style="padding:0;">
+        <div class="wf-view-header" style="padding:10px 20px;" data-wf-id="wf-g-header">
+          <span class="title">Purchase Orders</span>
+          <div class="actions"><span class="wf-btn primary" data-wf-id="wf-g-btn-new">+ New PO</span></div>
+        </div>
+        <div class="wf-tab-pills" style="padding:6px 20px;" data-wf-id="wf-g-tabs">
+          <span class="wf-tab-pill active" data-wf-id="wf-g-tab-all">All <span class="count">15</span></span>
+          <span class="wf-tab-pill" data-wf-id="wf-g-tab-draft">Draft <span class="count">4</span></span>
+          <span class="wf-tab-pill" data-wf-id="wf-g-tab-ordered">Ordered <span class="count">3</span></span>
+          <span class="wf-tab-pill" data-wf-id="wf-g-tab-received">Received <span class="count">6</span></span>
+          <span class="wf-tab-pill" data-wf-id="wf-g-tab-finalized">Finalized <span class="count">2</span></span>
+        </div>
+        <div class="wf-filter-pills" style="padding:6px 20px;" data-wf-id="wf-g-filters">
+          <span class="wf-filter-pill" data-wf-id="wf-g-f-date">Date <span class="chevron">▾</span></span>
+          <span class="wf-filter-pill" data-wf-id="wf-g-f-vendor">Vendor <span class="chevron">▾</span></span>
+          <span class="wf-filter-pill" data-wf-id="wf-g-f-amount">Amount <span class="chevron">▾</span></span>
+        </div>
+        <div class="wf-metrics" style="padding:10px 20px;" data-wf-id="wf-g-metrics">
+          <div class="wf-metric-card"><div class="wf-metric-label">Total POs</div><div class="wf-metric-value">15</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Total Value</div><div class="wf-metric-value">$124,500</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Draft</div><div class="wf-metric-value">4</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Ordered</div><div class="wf-metric-value">3</div></div>
+        </div>
+        <div style="padding:0 20px 16px;" data-wf-id="wf-g-table-area">
+          <table class="wf-table">
+            <thead><tr><th style="width:38px;"><span class="wf-cb"></span></th><th style="width:90px;">PO #</th><th style="width:160px;">Vendor</th><th style="width:80px;">Date</th><th style="width:90px;">Status</th><th style="width:60px;">Items</th><th style="width:90px;">Total</th><th style="width:40px;"></th></tr></thead>
+            <tbody>
+              <tr data-wf-id="wf-g-row-1"><td><span class="wf-cb"></span></td><td>PO-1042</td><td>Acme Corporation</td><td>6/15/26</td><td><span class="wf-tag blue">Draft</span></td><td>12</td><td>$12,400</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr data-wf-id="wf-g-row-2"><td><span class="wf-cb"></span></td><td>PO-1041</td><td>Beta Industries</td><td>6/14/26</td><td><span class="wf-tag blue">Ordered</span></td><td>8</td><td>$8,200</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr data-wf-id="wf-g-row-3"><td><span class="wf-cb"></span></td><td>PO-1040</td><td>Gamma Ltd</td><td>6/14/26</td><td><span class="wf-tag green">Received</span></td><td>5</td><td>$6,900</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr data-wf-id="wf-g-row-4"><td><span class="wf-cb"></span></td><td>PO-1039</td><td>Delta Supply Co</td><td>6/13/26</td><td><span class="wf-tag green">Received</span></td><td>15</td><td>$22,800</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr data-wf-id="wf-g-row-5"><td><span class="wf-cb"></span></td><td>PO-1038</td><td>Epsilon Enterprises</td><td>6/13/26</td><td><span class="wf-tag blue">Ordered</span></td><td>6</td><td>$4,500</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr data-wf-id="wf-g-row-6"><td><span class="wf-cb"></span></td><td>PO-1037</td><td>Zeta LLC</td><td>6/12/26</td><td><span class="wf-tag green">Finalized</span></td><td>10</td><td>$15,300</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr data-wf-id="wf-g-row-7"><td><span class="wf-cb"></span></td><td>PO-1036</td><td>Eta Corporation</td><td>6/12/26</td><td><span class="wf-tag blue">Draft</span></td><td>3</td><td>$4,150</td><td style="color:var(--text-muted);">⋮</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════ 3. GRID VIEW · ROWS SELECTED ═══════════════════ -->
+<section class="wireframe" id="wf-selected">
+  <h2>3. Grid View — Rows Selected (Bulk Actions)</h2>
+  <p class="principle">Bulk action bar slides up from bottom when rows are checked. Three rows selected with dark bar showing count + actions.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#bulk-actions">Bulk actions — checkboxes on rows, selection bar with count + total + actions</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#2</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#10</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">BulkActionBar</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-C-BULK.md">WF-C-BULK</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Flow:</span>
+    <span class="trace-val">User selects rows → bulk bar appears → choose action (Confirm / Post / More)</span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-sel-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item">Home</div>
+        <div class="nav-item active">Purchase Orders <span class="badge">15</span></div>
+        <div class="nav-item">Sales Orders</div>
+        <div class="nav-item">Intake</div>
+      </div>
+      <div class="wf-main" style="padding:0;">
+        <div class="wf-view-header" style="padding:10px 20px;" data-wf-id="wf-sel-header">
+          <span class="title">Purchase Orders</span>
+          <div class="actions"><span class="wf-btn primary">+ New PO</span></div>
+        </div>
+        <div class="wf-tab-pills" style="padding:6px 20px;">
+          <span class="wf-tab-pill active">All <span class="count">15</span></span>
+          <span class="wf-tab-pill">Draft <span class="count">4</span></span>
+          <span class="wf-tab-pill">Ordered <span class="count">3</span></span>
+          <span class="wf-tab-pill">Received <span class="count">6</span></span>
+          <span class="wf-tab-pill">Finalized <span class="count">2</span></span>
+        </div>
+        <div class="wf-filter-pills" style="padding:6px 20px;">
+          <span class="wf-filter-pill">Date <span class="chevron">▾</span></span>
+          <span class="wf-filter-pill">Vendor <span class="chevron">▾</span></span>
+          <span class="wf-filter-pill">Amount <span class="chevron">▾</span></span>
+        </div>
+        <div class="wf-metrics" style="padding:10px 20px;">
+          <div class="wf-metric-card"><div class="wf-metric-label">Total POs</div><div class="wf-metric-value">15</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Total Value</div><div class="wf-metric-value">$124,500</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Draft</div><div class="wf-metric-value">4</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Ordered</div><div class="wf-metric-value">3</div></div>
+        </div>
+        <div style="padding:0 20px 16px;">
+          <table class="wf-table">
+            <thead><tr><th style="width:38px;"><span class="wf-cb"></span></th><th style="width:90px;">PO #</th><th style="width:160px;">Vendor</th><th style="width:80px;">Date</th><th style="width:90px;">Status</th><th style="width:60px;">Items</th><th style="width:90px;">Total</th><th style="width:40px;"></th></tr></thead>
+            <tbody>
+              <tr class="selected" data-wf-id="wf-sel-r1"><td><span class="wf-cb checked"></span></td><td>PO-1042</td><td>Acme Corporation</td><td>6/15/26</td><td><span class="wf-tag blue">Draft</span></td><td>12</td><td>$12,400</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr data-wf-id="wf-sel-r2"><td><span class="wf-cb"></span></td><td>PO-1041</td><td>Beta Industries</td><td>6/14/26</td><td><span class="wf-tag blue">Ordered</span></td><td>8</td><td>$8,200</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr class="selected" data-wf-id="wf-sel-r3"><td><span class="wf-cb checked"></span></td><td>PO-1040</td><td>Gamma Ltd</td><td>6/14/26</td><td><span class="wf-tag green">Received</span></td><td>5</td><td>$6,900</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr class="selected" data-wf-id="wf-sel-r4"><td><span class="wf-cb checked"></span></td><td>PO-1039</td><td>Delta Supply Co</td><td>6/13/26</td><td><span class="wf-tag green">Received</span></td><td>15</td><td>$22,800</td><td style="color:var(--text-muted);">⋮</td></tr>
+              <tr data-wf-id="wf-sel-r5"><td><span class="wf-cb"></span></td><td>PO-1038</td><td>Epsilon Enterprises</td><td>6/13/26</td><td><span class="wf-tag blue">Ordered</span></td><td>6</td><td>$4,500</td><td style="color:var(--text-muted);">⋮</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="wf-bulkbar" data-wf-id="wf-sel-bulkbar">
+          <span><span class="count">3 selected</span> <span class="total">· $24,500</span></span>
+          <span class="wf-btn" data-wf-id="wf-sel-bulk-confirm">✓ Confirm</span>
+          <span class="wf-btn" data-wf-id="wf-sel-bulk-post">Post</span>
+          <span class="wf-btn" data-wf-id="wf-sel-bulk-more">More ▾</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════ 4. GRID VIEW · DETAIL SLIDEOVER ════════════════════ -->
+<section class="wireframe" id="wf-slideover">
+  <h2>4. Grid View — Row Clicked (Detail Slideover)</h2>
+  <p class="principle">Right panel opens on row click. Main table compresses. Slideover shows entity summary, tab pills, line items, and actions.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#detail-panel">Detail panel (~424px slide-over, URL update, X close)</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#2</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#6</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">DetailSlideover</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-C-SLIDEOVER.md">WF-C-SLIDEOVER</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Flow:</span>
+    <span class="trace-val">Click row → slideover opens → browse lines/tabs → close with X or Escape → "Open full view" navigates to Profile</span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-so-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item">Home</div>
+        <div class="nav-item active">Purchase Orders <span class="badge">15</span></div>
+      </div>
+      <div class="wf-main" style="padding:0;">
+        <div class="wf-view-header" style="padding:10px 20px;">
+          <span class="title">Purchase Orders</span>
+          <div class="actions"><span class="wf-btn primary">+ New PO</span></div>
+        </div>
+        <div class="wf-tab-pills" style="padding:6px 20px;">
+          <span class="wf-tab-pill active">All <span class="count">15</span></span>
+          <span class="wf-tab-pill">Draft <span class="count">4</span></span>
+          <span class="wf-tab-pill">Ordered <span class="count">3</span></span>
+        </div>
+        <div class="wf-filter-pills" style="padding:6px 20px;">
+          <span class="wf-filter-pill">Date <span class="chevron">▾</span></span>
+          <span class="wf-filter-pill">Vendor <span class="chevron">▾</span></span>
+        </div>
+        <div class="wf-metrics" style="padding:10px 20px;">
+          <div class="wf-metric-card"><div class="wf-metric-label">Total POs</div><div class="wf-metric-value">15</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Total Value</div><div class="wf-metric-value">$124,500</div></div>
+        </div>
+        <div style="display:flex;padding:0 0 16px 20px;gap:0;">
+          <div style="flex:1;min-width:0;overflow:hidden;">
+            <table class="wf-table">
+              <thead><tr><th style="width:38px;"><span class="wf-cb"></span></th><th style="width:70px;">PO #</th><th style="width:130px;">Vendor</th><th style="width:70px;">Status</th><th style="width:70px;">Total</th></tr></thead>
+              <tbody>
+                <tr data-wf-id="wf-so-tr1"><td><span class="wf-cb"></span></td><td>PO-1042</td><td>Acme Corp</td><td><span class="wf-tag blue">Draft</span></td><td>$12,400</td></tr>
+                <tr style="background:rgba(68,89,207,0.04);" data-wf-id="wf-so-tr2"><td><span class="wf-cb"></span></td><td style="font-weight:var(--fw-medium);">PO-1041</td><td>Beta Industries</td><td><span class="wf-tag blue">Ordered</span></td><td>$8,200</td></tr>
+                <tr data-wf-id="wf-so-tr3"><td><span class="wf-cb"></span></td><td>PO-1040</td><td>Gamma Ltd</td><td><span class="wf-tag green">Received</span></td><td>$6,900</td></tr>
+                <tr data-wf-id="wf-so-tr4"><td><span class="wf-cb"></span></td><td>PO-1039</td><td>Delta Supply Co</td><td><span class="wf-tag green">Received</span></td><td>$22,800</td></tr>
+                <tr data-wf-id="wf-so-tr5"><td><span class="wf-cb"></span></td><td>PO-1038</td><td>Epsilon Ent</td><td><span class="wf-tag blue">Ordered</span></td><td>$4,500</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="wf-so" data-wf-id="wf-so-slideover">
+            <div class="wf-so-header"><span class="wf-so-title">PO #1042</span><span class="wf-so-close">×</span></div>
+            <div class="wf-so-meta" data-wf-id="wf-so-vendor">Acme Corporation</div>
+            <div class="wf-so-amount" data-wf-id="wf-so-amount">$12,400 <span class="wf-tag blue">Draft</span></div>
+            <div class="wf-so-actions" data-wf-id="wf-so-btns">
+              <span class="wf-btn primary sm">Edit</span><span class="wf-btn sm">Confirm</span><span class="wf-btn sm">More ▾</span>
+            </div>
+            <div class="wf-so-tabs" data-wf-id="wf-so-tabs">
+              <span class="wf-so-tab active">Lines</span>
+              <span class="wf-so-tab">Linked Intake</span>
+              <span class="wf-so-tab">Vendor</span>
+              <span class="wf-so-tab">History</span>
+            </div>
+            <div data-wf-id="wf-so-lines">
+              <div class="wf-so-line" data-wf-id="wf-so-line1"><span class="item">Roma Tomatoes</span><span class="qty">50 lbs</span><span class="price">$4,800</span></div>
+              <div class="wf-so-line" data-wf-id="wf-so-line2"><span class="item">Green Peppers</span><span class="qty">30 lbs</span><span class="price">$3,200</span></div>
+              <div class="wf-so-line" data-wf-id="wf-so-line3"><span class="item">Red Onions</span><span class="qty">20 lbs</span><span class="price">$4,400</span></div>
+            </div>
+            <div style="font-size:12px;color:var(--blue);cursor:default;margin-top:4px;" data-wf-id="wf-so-full">Open full view →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════ 5. SALES VIEW · MULTI-SECTION ═══════════════════ -->
+<section class="wireframe" id="wf-sales">
+  <h2>5. Sales View — Multi-Section Layout</h2>
+  <p class="principle">The most complex view. Table dominates. Collapsible sections below are subordinate. Context bar appears when customer selected.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#information-architecture-from-live-dom-observation">Progressive disclosure — "Show graphs" toggle + collapsible</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#1</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#4</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#6</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#9</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">SalesView (6 panels → 1 primary + collapsible + slide-over)</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-V-SALES.md">WF-V-SALES</a></span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-sa-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item">Home</div>
+        <div class="nav-item">Purchase Orders</div>
+        <div class="nav-item active">Sales Orders <span class="badge">48</span></div>
+        <div class="nav-item">Intake</div>
+        <div class="nav-item">Inventory</div>
+      </div>
+      <div class="wf-main" style="padding:0;">
+        <div class="wf-view-header" style="padding:10px 20px;" data-wf-id="wf-sa-header">
+          <span class="title">Sales Orders</span>
+          <div class="actions"><span class="wf-btn primary" data-wf-id="wf-sa-btn-new">+ New Sale</span></div>
+        </div>
+        <div class="wf-tab-pills" style="padding:6px 20px;" data-wf-id="wf-sa-tabs">
+          <span class="wf-tab-pill active">All <span class="count">48</span></span>
+          <span class="wf-tab-pill">Draft <span class="count">5</span></span>
+          <span class="wf-tab-pill">Confirmed <span class="count">12</span></span>
+          <span class="wf-tab-pill">Posted <span class="count">31</span></span>
+          <span class="wf-tab-pill">Fulfilled <span class="count">0</span></span>
+        </div>
+        <div class="wf-filter-pills" style="padding:6px 20px;" data-wf-id="wf-sa-filters">
+          <span class="wf-filter-pill">Date <span class="chevron">▾</span></span>
+          <span class="wf-filter-pill">Customer <span class="chevron">▾</span></span>
+          <span class="wf-filter-pill">Amount <span class="chevron">▾</span></span>
+        </div>
+        <div style="padding:8px 20px;background:rgba(68,89,207,0.03);border-bottom:1px solid var(--border-subtle);font-size:var(--fs-small);display:flex;gap:16px;align-items:center;" data-wf-id="wf-sa-context">
+          <span><b>Customer:</b> Acme Corp</span>
+          <span><b>Balance:</b> $12,450</span>
+          <span style="color:var(--green);"><b>Credit:</b> ✓ Good standing</span>
+        </div>
+        <div class="wf-metrics" style="padding:10px 20px;">
+          <div class="wf-metric-card"><div class="wf-metric-label">Total Sales</div><div class="wf-metric-value">48</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Total Value</div><div class="wf-metric-value">$312,800</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Confirmed</div><div class="wf-metric-value">12</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">AR Balance</div><div class="wf-metric-value">$142,500</div></div>
+        </div>
+        <div style="padding:0 20px 12px;">
+          <table class="wf-table">
+            <thead><tr><th style="width:38px;"><span class="wf-cb"></span></th><th style="width:90px;">SO #</th><th style="width:160px;">Customer</th><th style="width:80px;">Date</th><th style="width:90px;">Status</th><th style="width:90px;">Total</th></tr></thead>
+            <tbody>
+              <tr data-wf-id="wf-sa-row1"><td><span class="wf-cb"></span></td><td>SO-1052</td><td>Acme Corp</td><td>6/15/26</td><td><span class="wf-tag blue">Draft</span></td><td>$12,400</td></tr>
+              <tr data-wf-id="wf-sa-row2"><td><span class="wf-cb"></span></td><td>SO-1051</td><td>Beta Industries</td><td>6/14/26</td><td><span class="wf-tag green">Confirmed</span></td><td>$8,200</td></tr>
+              <tr data-wf-id="wf-sa-row3"><td><span class="wf-cb"></span></td><td>SO-1050</td><td>Gamma LLC</td><td>6/13/26</td><td><span class="wf-tag gray">Posted</span></td><td>$3,150</td></tr>
+              <tr data-wf-id="wf-sa-row4"><td><span class="wf-cb"></span></td><td>SO-1049</td><td>Delta Corp</td><td>6/12/26</td><td><span class="wf-tag gray">Posted</span></td><td>$22,800</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:0 20px 8px;">
+          <div class="wf-collapsible" data-wf-id="wf-sa-collaps-lines">
+            <div class="wf-collapsible-header" style="border-bottom:1px solid var(--border-subtle);">
+              <span>▾ Draft Lines</span>
+              <span class="wf-btn sm ghost" data-wf-id="wf-sa-add-line">+ Add Line</span>
+            </div>
+            <div class="wf-collapsible-body">
+              <table class="wf-table">
+                <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+                <tbody>
+                  <tr data-wf-id="wf-sa-line1"><td>Roma Tomatoes</td><td>200 ct</td><td>$0.25</td><td>$50.00</td></tr>
+                  <tr data-wf-id="wf-sa-line2"><td>Green Peppers</td><td>150 ct</td><td>$0.30</td><td>$45.00</td></tr>
+                  <tr data-wf-id="wf-sa-line3"><td>Red Onions</td><td>100 ct</td><td>$0.40</td><td>$40.00</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="wf-collapsible mt-8" data-wf-id="wf-sa-collaps-sug">
+            <div class="wf-collapsible-header">▸ Suggestions Grid</div>
+          </div>
+          <div class="wf-collapsible mt-8" data-wf-id="wf-sa-collaps-hist">
+            <div class="wf-collapsible-header">▸ Purchase History</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════ 6. INTAKE VIEW · MASTER/DETAIL ════════════════════ -->
+<section class="wireframe" id="wf-intake">
+  <h2>6. Intake View — Master/Detail with Expandable Rows</h2>
+  <p class="principle">Master rows expand inline to reveal batch detail rows. Tabs, metrics, and inline verification actions.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#information-architecture-from-live-dom-observation">Table-dominant + progressive disclosure. On-demand expand.</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#1</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#2</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#6</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#9</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">IntakeView (MasterDetailView template)</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-V-INTAKE.md">WF-V-INTAKE</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Flow:</span>
+    <span class="trace-val">Click ▸ to expand batch → verify individual batches → Verify All / Reject All actions</span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-in-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item">Home</div>
+        <div class="nav-item">Purchase Orders</div>
+        <div class="nav-item active">Intake <span class="badge">8</span></div>
+        <div class="nav-item">Sales Orders</div>
+      </div>
+      <div class="wf-main" style="padding:0;">
+        <div class="wf-view-header" style="padding:10px 20px;" data-wf-id="wf-in-header">
+          <span class="title">Intake</span>
+          <div class="actions"><span class="wf-btn primary">+ New Intake</span></div>
+        </div>
+        <div class="wf-tab-pills" style="padding:6px 20px;" data-wf-id="wf-in-tabs">
+          <span class="wf-tab-pill active">Ready <span class="count">8</span></span>
+          <span class="wf-tab-pill">In Progress <span class="count">3</span></span>
+          <span class="wf-tab-pill">Verified <span class="count">12</span></span>
+        </div>
+        <div class="wf-metrics" style="padding:10px 20px;">
+          <div class="wf-metric-card"><div class="wf-metric-label">Pending Intake</div><div class="wf-metric-value">8 POs</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Total Batches</div><div class="wf-metric-value">142</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Total Value</div><div class="wf-metric-value">$67,400</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Verified</div><div class="wf-metric-value">12</div></div>
+        </div>
+        <div style="padding:0 20px 16px;">
+          <table class="wf-table">
+            <thead><tr><th style="width:30px;"></th><th style="width:80px;">PO #</th><th style="width:140px;">Vendor</th><th style="width:80px;">Status</th><th style="width:70px;">Date</th><th style="width:80px;">Total</th></tr></thead>
+            <tbody>
+              <tr data-wf-id="wf-in-mr1"><td style="color:var(--text-muted);font-size:14px;">▸</td><td>PO #1004</td><td>Acme Corporation</td><td><span class="wf-tag green">Received</span></td><td>6/14/26</td><td>$12,400</td></tr>
+              <tr style="background:rgba(13,124,74,0.03);" data-wf-id="wf-in-mr2"><td style="color:var(--green);font-size:14px;">▾</td><td style="font-weight:var(--fw-medium);">PO #1005</td><td>Beta Industries</td><td><span class="wf-tag green">Received</span></td><td>6/13/26</td><td>$8,200</td></tr>
+              <tr data-wf-id="wf-in-child1"><td></td>
+                <td colspan="5" style="padding:0 14px 0 0;height:auto;">
+                  <div style="background:rgba(0,0,0,0.01);border-radius:6px;padding:8px 16px;margin:4px 0;">
+                    <table style="width:100%;border-collapse:collapse;">
+                      <tr data-wf-id="wf-in-child-r1"><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-primary);">Batch A-1</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-secondary);">Roma Tomatoes</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-secondary);">50 lbs</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--green);">✓ Verified</td></tr>
+                      <tr data-wf-id="wf-in-child-r2"><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-primary);">Batch A-2</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-secondary);">Green Peppers</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-secondary);">30 lbs</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-muted);">○ Pending</td></tr>
+                      <tr data-wf-id="wf-in-child-r3"><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-primary);">Batch A-3</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-secondary);">Red Onions</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-secondary);">20 lbs</td><td style="font-size:var(--fs-small);padding:6px 8px;color:var(--text-muted);">⏳ In Progress</td></tr>
+                    </table>
+                    <div style="display:flex;gap:8px;padding:8px 0 4px;">
+                      <span class="wf-btn sm" data-wf-id="wf-in-va">✓ Verify All</span>
+                      <span class="wf-btn sm ghost" data-wf-id="wf-in-rej">✕ Reject All</span>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr data-wf-id="wf-in-mr3"><td style="color:var(--text-muted);font-size:14px;">▸</td><td>PO #1006</td><td>Gamma Ltd</td><td><span class="wf-tag blue">Received</span></td><td>6/12/26</td><td>$15,600</td></tr>
+              <tr data-wf-id="wf-in-mr4"><td style="color:var(--text-muted);font-size:14px;">▸</td><td>PO #1007</td><td>Delta Supply</td><td><span class="wf-tag green">Received</span></td><td>6/11/26</td><td>$22,800</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════ 7. PICK VIEW · WIZARD STEPS ══════════════════════ -->
+<section class="wireframe" id="wf-pick">
+  <h2>7. Pick View — Wizard Steps</h2>
+  <p class="principle">Guided multi-step flow. Step indicator with connected circles. Current step shows pick items grid. Previous/Next navigation.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val">Progressive disclosure — guided flow pattern (TERP-specific, no direct Mercury analog)</span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#1</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#5</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#7</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">PickView (WizardView template)</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-V-PICK.md">WF-V-PICK</a></span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-pk-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item">Home</div>
+        <div class="nav-item">Sales Orders</div>
+        <div class="nav-item active">Picking</div>
+        <div class="nav-item">Inventory</div>
+      </div>
+      <div class="wf-main">
+        <div class="wf-view-header" data-wf-id="wf-pk-header">
+          <span class="title">Pick Order #PK-042</span>
+          <span style="font-size:var(--fs-small);color:var(--text-muted);">Step 2 of 4 — Verify Items</span>
+        </div>
+        <div class="wf-steps" data-wf-id="wf-pk-steps">
+          <div class="wf-step">
+            <div class="wf-step-circle done">✓</div><div class="wf-step-label">Pending</div>
+          </div>
+          <div class="wf-step-line done"></div>
+          <div class="wf-step">
+            <div class="wf-step-circle active">2</div><div class="wf-step-label active">In Progress</div>
+          </div>
+          <div class="wf-step-line"></div>
+          <div class="wf-step">
+            <div class="wf-step-circle">3</div><div class="wf-step-label">Verify</div>
+          </div>
+          <div class="wf-step-line"></div>
+          <div class="wf-step">
+            <div class="wf-step-circle">4</div><div class="wf-step-label">Complete</div>
+          </div>
+        </div>
+        <div class="wf-step-content" data-wf-id="wf-pk-content">
+          <div style="font-size:14px;font-weight:var(--fw-medium);color:var(--text-primary);margin-bottom:4px;">Pick Items</div>
+          <table class="wf-table">
+            <thead><tr><th style="width:38px;"><span class="wf-cb checked"></span></th><th style="width:140px;">Product</th><th style="width:80px;">Ordered</th><th style="width:80px;">Picked</th><th style="width:120px;">Location</th></tr></thead>
+            <tbody>
+              <tr data-wf-id="wf-pk-item1"><td><span class="wf-cb checked"></span></td><td>Roma Tomatoes</td><td>200 ct</td><td>200 ct</td><td>Aisle 3, Bay 12</td></tr>
+              <tr data-wf-id="wf-pk-item2"><td><span class="wf-cb checked"></span></td><td>Green Peppers</td><td>150 ct</td><td>150 ct</td><td>Aisle 5, Bay 04</td></tr>
+              <tr data-wf-id="wf-pk-item3"><td><span class="wf-cb"></span></td><td>Red Onions</td><td>100 ct</td><td>—</td><td>Aisle 2, Bay 18</td></tr>
+              <tr data-wf-id="wf-pk-item4"><td><span class="wf-cb"></span></td><td>Jalapeños</td><td>75 ct</td><td>—</td><td>Aisle 1, Bay 07</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="wf-step-nav" data-wf-id="wf-pk-nav">
+          <span class="wf-btn ghost">← Cancel</span>
+          <div style="display:flex;gap:8px;">
+            <span class="wf-btn" data-wf-id="wf-pk-prev">← Previous</span>
+            <span class="wf-btn primary" data-wf-id="wf-pk-next">Next →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════ 8. FULL-PAGE DETAIL / PROFILE ════════════════════ -->
+<section class="wireframe" id="wf-profile">
+  <h2>8. Full-Page Detail — Entity Profile</h2>
+  <p class="principle">Complete entity detail as a full page. Back link, avatar, name + role, tab pills, field grid, and activity timeline.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#page-structure">Account detail — full-page navigation with tabs</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#3</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#5</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#7</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#8</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">EntityProfilePage (full-page detail)</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-V-PROFILE.md">WF-V-PROFILE</a></span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-pr-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item">Home</div>
+        <div class="nav-item">Purchase Orders</div>
+        <div class="nav-item">Sales Orders</div>
+        <div class="nav-item active">Clients</div>
+        <div class="nav-item">Vendors</div>
+      </div>
+      <div class="wf-main">
+        <div class="wf-back-link" data-wf-id="wf-pr-back">← Clients</div>
+        <div class="wf-profile-header" data-wf-id="wf-pr-identity">
+          <div class="wf-avatar-lg" data-wf-id="wf-pr-avatar">MG</div>
+          <div>
+            <div class="wf-profile-name">Maria Gonzalez</div>
+            <div class="wf-profile-role">Procurement Manager, Acme Corporation</div>
+          </div>
+        </div>
+        <div class="wf-tab-pills" style="margin-bottom:16px;" data-wf-id="wf-pr-tabs">
+          <span class="wf-tab-pill active">Overview</span>
+          <span class="wf-tab-pill">Activity <span class="count">12</span></span>
+          <span class="wf-tab-pill">Related</span>
+          <span class="wf-tab-pill">Documents <span class="count">3</span></span>
+        </div>
+        <div style="padding:20px;box-shadow:var(--card-shadow);border-radius:var(--card-radius);" data-wf-id="wf-pr-fields">
+          <div class="wf-detail-grid">
+            <div class="wf-detail-field"><div class="wf-detail-label">Email</div><div class="wf-detail-value">maria@acmecorp.com</div></div>
+            <div class="wf-detail-field"><div class="wf-detail-label">Phone</div><div class="wf-detail-value">+1 (555) 123-4567</div></div>
+            <div class="wf-detail-field"><div class="wf-detail-label">Company</div><div class="wf-detail-value">Acme Corporation</div></div>
+            <div class="wf-detail-field"><div class="wf-detail-label">Role</div><div class="wf-detail-value">Procurement Manager</div></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;font-size:var(--fs-small);color:var(--text-secondary);padding:16px;background:#fafbfc;border-radius:8px;" data-wf-id="wf-pr-notes">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Notes</div>
+          Primary contact for West Coast produce orders. Prefers email communication. Usually places orders on Tuesday mornings for Thursday delivery.
+        </div>
+        <div class="wf-timeline" data-wf-id="wf-pr-timeline">
+          <div style="font-size:var(--fs-small);font-weight:var(--fw-semibold);color:var(--text-primary);margin-bottom:8px;">Recent Activity</div>
+          <div class="wf-timeline-item" data-wf-id="wf-pr-tl1"><span class="wf-timeline-time">Jun 15</span><span class="wf-timeline-desc">Confirmed SO-1052</span><span class="wf-timeline-meta">$12,400</span></div>
+          <div class="wf-timeline-item" data-wf-id="wf-pr-tl2"><span class="wf-timeline-time">Jun 14</span><span class="wf-timeline-desc">Created PO-2041</span><span class="wf-timeline-meta">Beta Industries</span></div>
+          <div class="wf-timeline-item" data-wf-id="wf-pr-tl3"><span class="wf-timeline-time">Jun 12</span><span class="wf-timeline-desc">Payment received</span><span class="wf-timeline-meta">$3,150 · SO-1040</span></div>
+          <div class="wf-timeline-item" data-wf-id="wf-pr-tl4"><span class="wf-timeline-time">Jun 10</span><span class="wf-timeline-desc">Intake batch verified</span><span class="wf-timeline-meta">IA-305 · 12 orders</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════ 9. FILTER POPOVER · OPEN STATE ═══════════════════ -->
+<section class="wireframe" id="wf-filter">
+  <h2>9. Filter Popover — Open State</h2>
+  <p class="principle">Popover appears below the filter pill on click. Search input + checkbox list + Clear/Apply. Table visible behind.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#filter-toolbar">Filter toolbar — chips open inline popovers, active filters as dismissible pills</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#2</a>, <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#7</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">FilterToolbar</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-C-FILTER.md">WF-C-FILTER</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Flow:</span>
+    <span class="trace-val">Click filter pill → popover opens → search/check → Apply → filter count shown in pill</span>
+  </div>
+  <div class="diagram">
+    <div class="wf-row">
+      <div class="wf-sidebar" data-wf-id="wf-fi-sidebar">
+        <div class="brand">TERP Operator</div>
+        <div class="nav-item">Home</div>
+        <div class="nav-item active">Purchase Orders <span class="badge">15</span></div>
+        <div class="nav-item">Sales Orders</div>
+      </div>
+      <div class="wf-main" style="padding:0;">
+        <div class="wf-view-header" style="padding:10px 20px;">
+          <span class="title">Purchase Orders</span>
+          <div class="actions"><span class="wf-btn primary">+ New PO</span></div>
+        </div>
+        <div class="wf-tab-pills" style="padding:6px 20px;">
+          <span class="wf-tab-pill active">All <span class="count">15</span></span>
+          <span class="wf-tab-pill">Draft <span class="count">4</span></span>
+          <span class="wf-tab-pill">Ordered <span class="count">3</span></span>
+        </div>
+        <div style="position:relative;padding:6px 20px;">
+          <div class="wf-filter-pills">
+            <span class="wf-filter-pill">Date <span class="chevron">▾</span></span>
+            <span class="wf-filter-pill active" data-wf-id="wf-fi-pill-vendor" style="background:rgba(68,89,207,0.06);border-color:rgba(68,89,207,0.22);color:var(--blue);">Vendor <span class="chevron" style="color:var(--blue);">▲</span></span>
+            <span class="wf-filter-pill">Amount <span class="chevron">▾</span></span>
+          </div>
+          <div class="wf-pop" style="position:absolute;top:38px;left:100px;" data-wf-id="wf-fi-popover">
+            <input class="search-input" placeholder="Search vendors…" data-wf-id="wf-fi-search" value="">
+            <div class="opt" data-wf-id="wf-fi-opt1"><span class="wf-cb checked"></span> Acme Corporation</div>
+            <div class="opt" data-wf-id="wf-fi-opt2"><span class="wf-cb"></span> Beta Industries</div>
+            <div class="opt" data-wf-id="wf-fi-opt3"><span class="wf-cb checked"></span> Gamma Ltd</div>
+            <div class="opt" data-wf-id="wf-fi-opt4"><span class="wf-cb"></span> Delta Supply Co</div>
+            <div class="opt" data-wf-id="wf-fi-opt5"><span class="wf-cb"></span> Epsilon Enterprises</div>
+            <div class="pop-actions">
+              <span class="wf-btn sm ghost" data-wf-id="wf-fi-clear">Clear</span>
+              <span class="wf-btn sm primary" data-wf-id="wf-fi-apply">Apply</span>
+            </div>
+          </div>
+        </div>
+        <div class="wf-metrics" style="padding:10px 20px;">
+          <div class="wf-metric-card"><div class="wf-metric-label">Total POs</div><div class="wf-metric-value">15</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Total Value</div><div class="wf-metric-value">$124,500</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Draft</div><div class="wf-metric-value">4</div></div>
+          <div class="wf-metric-card"><div class="wf-metric-label">Ordered</div><div class="wf-metric-value">3</div></div>
+        </div>
+        <div style="padding:0 20px 16px;">
+          <table class="wf-table">
+            <thead><tr><th style="width:38px;"><span class="wf-cb"></span></th><th style="width:90px;">PO #</th><th style="width:160px;">Vendor</th><th style="width:90px;">Status</th><th style="width:90px;">Total</th></tr></thead>
+            <tbody>
+              <tr data-wf-id="wf-fi-row1"><td><span class="wf-cb"></span></td><td>PO-1042</td><td>Acme Corp</td><td><span class="wf-tag blue">Draft</span></td><td>$12,400</td></tr>
+              <tr data-wf-id="wf-fi-row2"><td><span class="wf-cb"></span></td><td>PO-1041</td><td>Beta Inc</td><td><span class="wf-tag blue">Ordered</span></td><td>$8,200</td></tr>
+              <tr data-wf-id="wf-fi-row3"><td><span class="wf-cb"></span></td><td>PO-1040</td><td>Gamma Ltd</td><td><span class="wf-tag green">Received</span></td><td>$6,900</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════ 10. ERROR & EMPTY STATES ═══════════════════════ -->
+<section class="wireframe" id="wf-errors">
+  <h2>10. Error & Empty States — Four Mini-Patterns</h2>
+  <p class="principle">Contextual error handling: inline cell errors, bulk partial failures, empty states, and loading skeletons. No modals.</p>
+  <div class="trace-bar">
+    <span class="trace-label">Mercury:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#14-research-evidence-summary-mercury-patterns">Mercury berry-red inline errors. No modals, no persistent error banners.</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Rules:</span>
+    <span class="trace-val"><a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">#10</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">TERP feature:</span>
+    <span class="trace-val"><a href="../terp-feature-to-mercury-mapping.md">ComboboxCellEditor errors, BulkActionBar partial failure, empty states, loading skeleton</a></span>
+    <span class="trace-sep">|</span>
+    <span class="trace-label">Source WFs:</span>
+    <span class="trace-val"><a href="WF-C-COMBOBOX.md">WF-C-COMBOBOX</a> (error), <a href="WF-C-BULK.md">WF-C-BULK</a> (failure), empty state WFs</span>
+  </div>
+  <div class="diagram">
+    <div class="wf-col gap-16">
+
+      <!-- Pattern A: Inline Cell Error -->
+      <div style="background:#fff;padding:16px;border-radius:8px;box-shadow:var(--card-shadow);">
+        <div style="font-size:var(--fs-small);font-weight:var(--fw-semibold);margin-bottom:12px;color:var(--text-primary);">a) Inline Cell Edit Error</div>
+        <table class="wf-table">
+          <thead><tr><th style="width:140px;">Vendor</th><th style="width:140px;">Status</th><th style="width:100px;">Total</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Acme Corporation</td>
+              <td data-wf-id="wf-err-a-cell">
+                <div class="wf-err-inline"><span class="icon">⚠</span> Network error <span class="retry" data-wf-id="wf-err-a-retry">Retry?</span></div>
+              </td>
+              <td>$12,400</td>
+            </tr>
+            <tr><td>Beta Industries</td><td><span class="wf-tag green">Posted</span></td><td>$8,200</td></tr>
+            <tr><td>Gamma Ltd</td><td><span class="wf-tag blue">Draft</span></td><td>$3,150</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pattern B: Bulk Action Partial Failure -->
+      <div style="background:#fff;padding:16px;border-radius:8px;box-shadow:var(--card-shadow);">
+        <div style="font-size:var(--fs-small);font-weight:var(--fw-semibold);margin-bottom:12px;color:var(--text-primary);">b) Bulk Action — Partial Failure</div>
+        <div class="wf-bulkbar" data-wf-id="wf-err-b-bulkbar">
+          <span><span class="count">2 confirmed</span> · <span style="color:#f87171;font-weight:var(--fw-semibold);">1 failed</span></span>
+          <span class="wf-btn" data-wf-id="wf-err-b-view">View →</span>
+          <span class="wf-btn ghost" style="color:var(--dark-muted);">Dismiss</span>
+        </div>
+      </div>
+
+      <!-- Pattern C: Empty State -->
+      <div style="background:#fff;padding:16px;border-radius:8px;box-shadow:var(--card-shadow);">
+        <div style="font-size:var(--fs-small);font-weight:var(--fw-semibold);margin-bottom:12px;color:var(--text-primary);">c) Empty State</div>
+        <div class="wf-empty-state" data-wf-id="wf-err-c-empty">
+          <div class="wf-empty-title">No purchase orders yet</div>
+          <div class="wf-empty-desc">Create your first purchase order to get started.</div>
+          <span class="wf-btn primary" data-wf-id="wf-err-c-cta">Create first PO</span>
+        </div>
+      </div>
+
+      <!-- Pattern D: Loading Skeleton -->
+      <div style="background:#fff;padding:16px;border-radius:8px;box-shadow:var(--card-shadow);">
+        <div style="font-size:var(--fs-small);font-weight:var(--fw-semibold);margin-bottom:12px;color:var(--text-primary);">d) Loading Skeleton</div>
+        <div class="wf-skeleton" data-wf-id="wf-err-d-skeleton">
+          <div class="wf-skel-row"></div><div class="wf-skel-row"></div><div class="wf-skel-row"></div><div class="wf-skel-row"></div><div class="wf-skel-row"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     DESIGN RULES REFERENCE (collapsible)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="rules-section" id="design-rules-ref">
+  <details>
+    <summary>10 Design Rules (v1.1) — Click to expand</summary>
+    <p style="font-size:var(--fs-small);color:var(--text-muted);margin-bottom:16px;">
+      Derived from live Mercury demo app tokens (<a href="../MASTER-EXECUTION-DOCUMENT.md#14-research-evidence-summary-mercury-patterns">§14</a>) +
+      TERP feature mapping (<a href="../terp-feature-to-mercury-mapping.md">mapping doc</a>) +
+      domain QA against TERP's 27-view, 8-status-per-entity complexity.
+      Full source: <a href="../MASTER-EXECUTION-DOCUMENT.md#179-terp-operator-design-rules-post-qa-v11">§17.9</a>. Separate file: <a href="DESIGN-RULES.md">DESIGN-RULES.md</a>.
+      <strong>Applies to all Phase 0+ implementation.</strong>
+    </p>
+    <table class="rules-table">
+      <thead>
+        <tr><th style="width:40px;">#</th><th style="width:220px;">Rule</th><th>Source</th><th style="width:200px;">Applies To</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>Content-first, chrome-second</strong> — Data dominates. Chrome recedes via shadow-only cards and 0.08-0.12 opacity borders.</td>
+          <td>Mercury IA: 3 elements in main area, table at 75%+ visual weight</td>
+          <td>All GridView, MasterDetailView, DashboardView</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>Progressive disclosure</strong> — Bulk actions, detail panels, filter popovers, collapsible sections appear on demand.</td>
+          <td>Mercury: no bulk bar or detail panel visible by default</td>
+          <td>BulkActionBar, DetailSlideover, FilterToolbar</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Subtle tab pills</strong> — Status navigation as Mercury-style pill toggles with count badges. NOT heavy framed tabs.</td>
+          <td>TERP domain need (8 statuses) + Mercury pill style</td>
+          <td>ViewTabBar, all view-level status tabs</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><strong>Glanceable metrics</strong> — 3-5 subtle metric cards above tables. Expandable on click. Shadow-only cards.</td>
+          <td>Adjusted from Mercury's single KPI line</td>
+          <td>GridSummaryStrip, Dashboard KPI section</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><strong>Minimal view headers</strong> — View title + subtle action buttons. No heavy framing. 27 views need orientation.</td>
+          <td>TERP domain need + Mercury minimalism</td>
+          <td>All view templates</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><strong>Table dominance</strong> — Table occupies 70-80% of visual space. Supporting context only.</td>
+          <td>Mercury: 968px table in 1440px viewport</td>
+          <td>GridView, MasterDetailView</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><strong>Invisible chrome</strong> — Borders at 0.08-0.12 opacity. Shadows for depth. Cards: shadow-only.</td>
+          <td>Mercury cards: no border, shadow-only. Pill borders at 0.16 opacity.</td>
+          <td>All components, all views</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><strong>Typographic hierarchy</strong> — Inter/system-ui, 400-600 weight. No uppercase headers. Table headers: 13px regular case.</td>
+          <td>Mercury: max weight 480, no bold. Adjusted for TERP data density.</td>
+          <td>All typography</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td><strong>Collapsible supporting sections</strong> — Multi-section views show one primary surface. Others are collapsible.</td>
+          <td>TERP: SalesView's 6 panels → 1 primary + collapsible + slide-over</td>
+          <td>SalesView, IntakeView</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td><strong>Clear error states</strong> — #d92d20, inline, contextual. Cell: left red border. Bulk: partial result bar. Empty: centered CTA.</td>
+          <td>Adjusted from Mercury berry-red for accessibility</td>
+          <td>ComboboxCellEditor, BulkActionBar, empty states</td>
+        </tr>
+      </tbody>
+    </table>
+  </details>
+</div>
+
+</div><!-- /page -->
+</body>
+</html>

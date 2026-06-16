@@ -1,109 +1,75 @@
 # Wireframe: WF-V-MATCH — MatchmakingView
 
-**Template:** GridView (with tabs and expandable rows)
+**Template:** GridView (with expandable rows)
 **Entity:** MatchmakingPair
 **Wireframe ID:** WF-V-MATCH
 
 ---
 
-## Full View — Default State (Tab: All, No Selection)
+### UX Posture
+
+The matchmaking pairs table is the only primary surface. Status filter is a pill in the FilterToolbar. Match criteria breakdown is one click away — either inline expandable row or in the slide-over Match Criteria tab. Score visualization stays at the row for glanceable comparison.
+
+---
+
+## Full View — Default State (no selection)
 
 ```
-┌─View Header──────────────────────────────────────────────────────────────┐
-│ Matchmaking                                                    [New Scan] │
-└───────────────────────────────────────────────────────────────────────────┘
 ┌─FilterToolbar────────────────────────────────────────────────────────────┐
-│ [▾ Data views]  │  Date ▾  │  Keyword ▾  │  Amount ▾  │ Group ▾  │ Sort ▾ │ ⬇ │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─GridSummaryStrip─────────────────────────────────────────────────────────┐
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
-│ │ 1,247 Matches │ │ 83% Match    │ │ 342 Pending  │ │ $2.1M Total  │      │
-│ │      Total    │ │   Rate       │ │   Review     │ │  Matched     │      │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─ViewTabBar───────────────────────────────────────────────────────────────┐
-│  All (1,247) │ Pending (342) │ Matched (872) │ Rejected (33)              │
-└───────────────────────────────────────────────────────────────────────────┘
+│ [+ New Scan] │ Status ▾ │ Data views │ Date │ Keyword │ Amount │ Group │ │
+│              │ Sort ▾ │ Export ▾                                         │
+└──────────────────────────────────────────────────────────────────────────┘
+┌─KPI Line─────────────────────────────────────────────────────────────────┐
+│ 1,247 matches · 83% match rate · 342 pending review · $2.1M total matched│
+│                                                       [Show breakdown ▾] │
+└──────────────────────────────────────────────────────────────────────────┘
 ┌─AG Grid (32px rows, checkboxes, sortable headers)────────────────────────┐
 │ ☐ │ ID        │ Source              │ Target              │ Score ▾│ Status  │ Date       │
 ├───┼───────────┼─────────────────────┼─────────────────────┼────────┼─────────┼────────────┤
-│ ☐ │ MAT-1042  │ PO-8841 Acme Corp   │ SO-7732 GlobalFresh  │ ████░░ │ Pending │ 2026-06-14 │
-│   │           │ $48,200 · 12 lines  │ $51,000 · 15 lines   │  78%   │         │            │
-│ ☐ │ MAT-1041  │ PO-8839 TerraFruits │ SO-7731 BerryBest    │ █████░ │ Matched │ 2026-06-14 │
-│   │           │ $12,800 · 8 lines   │ $13,100 · 8 lines    │  94%   │         │            │
-│ ☐ │ MAT-1040  │ PO-8837 GreenValley │ SO-7728 OrganicTrade  │ ███░░░ │ Pending │ 2026-06-13 │
-│   │           │ $22,300 · 6 lines   │ $20,100 · 5 lines    │  61%   │         │            │
-│ ☐ │ MAT-1039  │ PO-8835 PacificAg   │ SO-7725 FarmDirect    │ ██░░░░ │ Rejected│ 2026-06-13 │
-│   │           │ $7,500 · 3 lines    │ $6,200 · 3 lines     │  43%   │         │            │
-│ ☐ │ MAT-1038  │ PO-8832 SunHarvest  │ SO-7722 FreshFields   │ ██████ │ Matched │ 2026-06-12 │
-│   │           │ $31,400 · 10 lines  │ $31,200 · 10 lines   │  99%   │         │            │
-│ ☑ │ MAT-1037  │ PO-8829 ValleyGrown │ SO-7719 PlainsProduce │ █████░ │ Matched │ 2026-06-12 │
-│   │           │ $18,900 · 6 lines   │ $19,200 · 7 lines    │  92%   │         │            │
-│ ☐ │ MAT-1036  │ PO-8827 CoastalFarm │ SO-7716 GreenBasket   │ ████░░ │ Pending │ 2026-06-12 │
-│   │           │ $41,000 · 14 lines  │ $38,500 · 12 lines   │  75%   │         │            │
+│ ☐ │ MAT-1042  │ PO-8841 Acme Corp   │ SO-7732 GlobalFresh │ ████░░ │ Pending │ 2026-06-14 │
+│ ☐ │ MAT-1041  │ PO-8839 TerraFruits │ SO-7731 BerryBest   │ █████░ │ Matched │ 2026-06-14 │
+│ ☐ │ MAT-1040  │ PO-8837 GreenValley │ SO-7728 OrganicTrade│ ███░░░ │ Pending │ 2026-06-13 │
+│ ☐ │ MAT-1039  │ PO-8835 PacificAg   │ SO-7725 FarmDirect  │ ██░░░░ │ Rejected│ 2026-06-13 │
+│ ☐ │ MAT-1038  │ PO-8832 SunHarvest  │ SO-7722 FreshFields │ ██████ │ Matched │ 2026-06-12 │
+│ ☑ │ MAT-1037  │ PO-8829 ValleyGrown │ SO-7719 PlainsProd  │ █████░ │ Matched │ 2026-06-12 │
+│ ☐ │ MAT-1036  │ PO-8827 CoastalFarm │ SO-7716 GreenBasket │ ████░░ │ Pending │ 2026-06-12 │
 └───┴───────────┴─────────────────────┴─────────────────────┴────────┴─────────┴────────────┘
-┌─BulkActionBar (conditional, bottom-animated)─────────────────────────────┐
+┌─BulkActionBar (appears only when rows selected)──────────────────────────┐
 │ 1 match selected                                                          │
-│ [Accept Match] [Reject] [Request Review] [Export]                         │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─DetailSlideover: Peek (280px, right)─────────────────────────────────────┐
-│ MAT-1041                                         ×                       │
-│ Source: PO-8839 · TerraFruits · $12,800                                 │
-│ Target: SO-7731 · BerryBest · $13,100                                    │
-│ Match Score: 94%  ███████████████████░                                   │
-│ Status: Matched                                                          │
-│ [Accept] [Reject] [···]                                                  │
-│ ◀ drag                                                                    │
-└───────────────────────────────────────────────────────────────────────────┘
+│ [Accept Match] [Reject] [More ▾: Request Review | Export]                │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## DetailSlideover: Standard (420px) — Match Criteria Tab Active
+### State-Gated Action Surface
 
-```
-┌─Main Content (shifts left)───────────────────┬─DetailSlideover: Standard─┐
-│                                               │ MAT-1041                   │
-│  [Grid is narrower, fully functional]         │ Source: PO-8839            │
-│                                               │ Target: SO-7731            │
-│                                               │ Score: 94% ████████████░   │
-│                                               │ [Accept] [Reject] [Review] │
-│                                               │────────────────────────────│
-│                                               │ Src Det | Tgt Det | Match  │
-│                                               │         |         | Crit ▾│
-│                                               │────────────────────────────│
-│                                               │ Match Criteria Breakdown:  │
-│                                               │ ┌────────────────────────┐ │
-│                                               │ │ Product     95% █████░ │ │
-│                                               │ │ Quantity    100% ██████│ │
-│                                               │ │ Price       89%  ████░░│ │
-│                                               │ │ Location    92%  █████░│ │
-│                                               │ │ Delivery    88%  ████░░│ │
-│                                               │ │ Quality     100% ██████│ │
-│                                               │ └────────────────────────┘ │
-│                                               │ [Open in full view →]      │
-└───────────────────────────────────────────────┴────────────────────────────┘
-```
+| Match State | Visible Actions                              |
+|-------------|----------------------------------------------|
+| Pending     | `Accept Match`, `Reject`, `Request Review`   |
+| Matched     | `View Linked Records`, `Reverse Match`       |
+| Rejected    | `Reopen` (with reason)                       |
 
 ---
 
-## Expanded Row — Match Criteria Breakdown (Inline)
+## DetailSlideover — Tabs: Source Detail | Target Detail | Match Criteria | Decision
+
+Footer actions follow state-gating.
+
+---
+
+## Expanded Row — Match Criteria Inline (one click away)
 
 ```
 │ ☐ │ MAT-1041  │ PO-8839 TerraFruits │ SO-7731 BerryBest    │ █████░ │ Matched │ 2026-06-14 │
-│   │           │ $12,800 · 8 lines   │ $13,100 · 8 lines    │  94%   │         │            │
 │ ▼ ├───────────┴─────────────────────┴──────────────────────┴────────┴─────────┴────────────┤
 │   │ Match Criteria Breakdown (expandable row)                                              │
-│   │ ┌──────────────┬─────────────┬─────────────┬──────────┬──────────────────────────────┐ │
-│   │ │ Criterion    │ Source      │ Target      │ Score    │ Notes                        │ │
-│   │ ├──────────────┼─────────────┼─────────────┼──────────┼──────────────────────────────┤ │
-│   │ │ Product      │ Strawberries│ Strawberries│ 95% ████░│ Variety: Albion vs Albion    │ │
-│   │ │ Quantity     │ 1,200 lbs   │ 1,200 lbs   │100% ████ │ Exact match                  │ │
-│   │ │ Price        │ $1.07/lb    │ $1.09/lb    │ 89% ████░│ ±$0.02 variance              │ │
-│   │ │ Location     │ Fresno, CA  │ Fresno, CA  │ 92% ████░│ Same region, diff warehouse  │ │
-│   │ │ Delivery     │ Jun 22      │ Jun 24      │ 88% ████░│ 2-day gap                    │ │
-│   │ │ Quality      │ USDA #1     │ USDA #1     │100% ████ │ Perfect match                │ │
-│   │ └──────────────┴─────────────┴─────────────┴──────────┴──────────────────────────────┘ │
+│   │ │ Product      │ Strawberries│ Strawberries│ 95% │ Variety: Albion vs Albion    │
+│   │ │ Quantity     │ 1,200 lbs   │ 1,200 lbs   │100% │ Exact match                  │
+│   │ │ Price        │ $1.07/lb    │ $1.09/lb    │ 89% │ ±$0.02 variance              │
+│   │ │ Location     │ Fresno, CA  │ Fresno, CA  │ 92% │ Same region                  │
+│   │ │ Delivery     │ Jun 22      │ Jun 24      │ 88% │ 2-day gap                    │
+│   │ │ Quality      │ USDA #1     │ USDA #1     │100% │ Perfect match                │
 │   │ Weighted Average Score: 94%                                                             │
 │   └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -112,89 +78,92 @@
 
 ## Dimensions
 
-- View container: 100vw × 100vh, overflow hidden
-- View Header: 56px tall, padding 12px 24px, Inter 18px semibold
-- FilterToolbar: 44px tall, menubar role, chips 28px tall, Inter 13px
-- GridSummaryStrip: 80px tall, 4 cards per row, each 240px × 72px
-- ViewTabBar: 40px tall, tabs 120px wide, count badges 18px pill
-- AG Grid: 32px row height, checkbox column 48px, ID column 120px
-- Source/Target columns: 200px each, two-line display
-- Match Score column: 120px, colored bar + percentage
-- Status column: 110px, ComboboxCellEditor on double-click
-- BulkActionBar: 52px tall, sticky bottom, translateY animation 200ms
-- DetailSlideover: Peek 280px → Standard 420px → Wide 60vw
+- View container: 100vw × 100vh
+- FilterToolbar: 44px tall (plus 32px chip row)
+- KPI line: 32px / ~96px expanded
+- AG Grid: 32px row height; checkbox 48px; ID 120px; Source/Target 200px each (two-line); Score 120px (bar + percentage); Status 110px
+- BulkActionBar: 52px
+- Slide-over: Peek 280px → Standard 420px → Wide 60vw
 - Expanded row: content area min-height 200px, auto-height
-- Font: Inter 13px body, 11px secondary, 14px header. CSS semantic classes only.
+- Font: Inter 13px body, 11px secondary, 14px header
 
 ---
 
 ## Interactive Elements
 
-- **Checkbox (AG Grid):** Click → toggle row selection. Shift+click → range select. ARIA: role="checkbox", aria-checked.
-- **Match Score bar:** Inline colored bar (green≥90%, amber≥70%, red<70%). ARIA: role="meter", aria-valuenow, aria-valuemin, aria-valuemax.
-- **Expand toggle (▶/▼):** Click → expand/collapse match criteria breakdown. ARIA: role="button", aria-expanded.
-- **Status cell:** Double-click → ComboboxCellEditor (Pending/Matched/Rejected). ARIA: role="combobox".
-- **Row click:** Single-click → DetailSlideover peek (280px). Double-click → standard (420px). ARIA: aria-expanded on row.
-- **BulkActionBar Accept Match:** Primary button → execute matchAccept command. Shows spinner during execution.
-- **BulkActionBar Reject:** Danger button → execute matchReject command. Confirmation dialog before rejecting.
-- **New Scan button:** Opens scan creation dialog. Triggers matchmaking algorithm.
-- **FilterToolbar Date:** Popover with date range picker. Quick presets: Today, This Week, Last 7 Days, This Month.
-- **FilterToolbar Keyword:** Text input with debounce 300ms. Searches source/target names.
-- **Match Criteria tab:** Shows breakdown table. Sortable by score. Visual bars per criterion.
-- **Drag handle:** Resize slideover. Snap points at 280px, 420px, 60%.
+- **Match Score bar**: Inline color-coded (success ≥ 90%, warning ≥ 70%, error < 70%). `role="meter"`.
+- **Expand toggle (▶/▼)**: Click to expand inline match criteria breakdown. `role="button"`, `aria-expanded`.
+- **Status cell**: ComboboxCellEditor (Pending/Matched/Rejected).
+- **Row click**: Single → slide-over peek. Double → standard.
+- **BulkActionBar Accept Match**: Executes match accept command.
+- **BulkActionBar Reject**: Modal confirmation.
+- **New Scan button**: Opens scan creation slide-over. Triggers matchmaking algorithm.
+- **Status ▾ pill**: Multi-select with `Pending (342)`, `Matched (872)`, `Rejected (33)`. Replaces prior ViewTabBar.
+- **FilterToolbar Date**: Popover with date range picker.
+- **Match Criteria tab**: Breakdown table sortable by score; visual bars per criterion.
+- **Drag handle**: Resize slide-over.
 
 ---
 
 ## States Shown
 
-- **Default (no selection):** Full grid visible. No DetailSlideover. No BulkActionBar.
-- **Row selected (peek):** 1 row highlighted. DetailSlideover at 280px with summary. BulkActionBar visible.
-- **Row selected (standard):** DetailSlideover at 420px with tabs. Main content margin-right: 420px.
-- **Expandable row open:** Row expansion shows match criteria breakdown below the parent row.
-- **Bulk action executing:** Spinner on active button. All other buttons disabled. Bar stays visible.
-- **Empty state:** "No matches found" illustration. "Run a new scan" CTA button. FilterToolbar still accessible.
-- **Error state:** Toast notification. Row with error shows ⚠ indicator. Retry button in cell.
-- **Loading state:** Grid skeleton rows (8 rows × 32px). SummaryStrip skeleton cards. Tab badges show "—".
+- **Default (no selection)**: Full grid visible.
+- **Row selected (peek)**: 1 row highlighted; slide-over at 280px.
+- **Row selected (standard)**: Slide-over at 420px with tabs.
+- **Expandable row open**: Inline criteria breakdown shown.
+- **Bulk action executing**: Spinner on active button.
+- **Empty state**: "No matches found" + "Run a new scan" CTA.
+- **Error state**: Toast.
+- **Loading state**: Skeleton rows.
 
 ---
 
 ## ARIA Annotations
 
-- View container: role="region", aria-label="Matchmaking view"
-- FilterToolbar: role="menubar", aria-label="Filter and data controls"
-- Quick filter chips: role="menuitem", aria-haspopup="dialog", aria-expanded
-- Active filter pills: role="list", aria-label="Active filters". Each: role="listitem". Remove button: aria-label="Remove filter: [name]"
-- GridSummaryStrip: role="region", aria-label="Matchmaking summary metrics"
-- Metric cards: role="status", aria-label="[metric name]: [value]"
-- ViewTabBar: role="tablist", aria-label="Match filters"
-- Tabs: role="tab", aria-selected, aria-controls="match-grid-panel"
-- Tab badges: aria-label="[count] [tab name] matches"
-- AG Grid: role="grid", aria-label="Matchmaking pairs", aria-rowcount, aria-colcount
-- Row: role="row", aria-selected, aria-expanded (on row click), aria-rowindex
-- Checkbox cell: role="columnheader" or "gridcell". Checkbox: role="checkbox", aria-checked
-- Match score cell: role="meter", aria-valuenow, aria-valuemin="0", aria-valuemax="100", aria-label="Match score: 94%"
-- Expand toggle: role="button", aria-expanded, aria-label="Show match criteria breakdown"
-- Expanded region: role="region", aria-label="Match criteria for [ID]"
-- Status cell (editing): role="combobox", aria-haspopup="listbox", aria-autocomplete="list"
-- BulkActionBar: role="toolbar", aria-label="Bulk actions"
-- Action buttons: role="button". Primary: aria-label="Accept [count] matches"
-- DetailSlideover: role="complementary", aria-label="Match details"
-- Detail tabs: role="tablist", tabs role="tab", panels role="tabpanel"
-- Drag handle: aria-label="Resize detail panel"
-- Close button: aria-label="Close match details"
-- New Scan button: role="button", aria-label="Run new matchmaking scan"
+- FilterToolbar: `role="menubar"`, `aria-label="Matchmaking filter toolbar"`
+- Status ▾ pill: `role="combobox"`, `aria-haspopup="listbox"`, `aria-label="Filter by match status"`, `aria-multiselectable="true"`
+- ActiveFilterPills: `role="list"`, `aria-label="Active filters"`
+- KPI line: `role="status"`, `aria-live="polite"`, `aria-label="1,247 matches, 83 percent match rate, 342 pending review, $2.1 million total matched"`
+- AG Grid: `role="grid"`, `aria-label="Matchmaking pairs"`, `aria-rowcount`, `aria-colcount`
+- Row: `role="row"`, `aria-selected`, `aria-expanded` on inline expansion
+- Match score cell: `role="meter"`, `aria-valuenow`, `aria-valuemax="100"`, `aria-label="Match score: 94%"`
+- Expand toggle: `role="button"`, `aria-expanded`, `aria-label="Show match criteria breakdown"`
+- Expanded region: `role="region"`, `aria-label="Match criteria for [ID]"`
+- Status cell (editing): `role="combobox"`, `aria-haspopup="listbox"`
+- BulkActionBar: `role="toolbar"`, `aria-label="Bulk actions"`
+- Slide-over: `role="dialog"`, `aria-label="Match details"`
+- Detail tabs: `role="tablist"`, tabs `role="tab"`, panels `role="tabpanel"`
 
 ---
 
 ## Edge Cases Handled
 
-- **Zero-score match:** Bar rendered at 0% width. Score displayed as "0%". Tooltip: "No matching criteria."
-- **Single-source/multiple-targets:** Row repeats for each target pair. Source shown in each row.
-- **Stale match data:** Cell value not in current options → shown as-is with "Outdated" tooltip. Combobox shows "Current: [value]" header.
-- **Large match criteria (20+):** Expandable row scrollable. Max height 400px.
-- **Rapid row expand/collapse:** Debounced animation. Ignores rapid clicks within 100ms.
-- **No matches after scan:** Empty state with scan results summary. "0 matches found across 47 PO-SO pairs."
-- **Duplicate matches:** Warning badge on row. Tooltip: "Potential duplicate of MAT-1036."
-- **Match score loading:** Score bar pulses while algorithm computes. Placeholder text "Calculating...".
-- **Bulk accept with mixed statuses:** Only Pending-status rows are actionable. Matched rows show "Already matched" tooltip. Rejected rows show "Cannot re-accept rejected match — use Reopen first."
-- **Concurrent scan conflict:** If new scan runs while viewing results, toast: "Results may be stale. Refresh?" with Refresh button.
+- **Zero-score match**: Bar at 0% width; "0%"; tooltip "No matching criteria."
+- **Single-source/multiple-targets**: Row repeats per target pair.
+- **Stale match data**: Cell value with "Outdated" tooltip.
+- **Large match criteria (20+)**: Expandable row scrollable; max height 400px.
+- **Rapid row expand/collapse**: Debounced.
+- **No matches after scan**: Empty state with summary.
+- **Duplicate matches**: Warning badge.
+- **Match score loading**: Score bar pulses.
+- **Bulk accept with mixed statuses**: Only Pending actionable; Matched shows tooltip "Already matched."
+- **Concurrent scan conflict**: Toast "Results may be stale. Refresh?"
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1: Action visibility follows entity state | ✓ | Accept/Reject only on Pending; Reverse only on Matched; Reopen only on Rejected. |
+| UX-2: Supporting info one click away, never zero | ✓ | Match criteria as expandable row OR slide-over tab. Source/Target details one click away. |
+| UX-3: One primary surface per view | ✓ | Matches table is the only primary surface. |
+| UX-4: Bulk actions appear only on selection | ✓ | BulkActionBar slides up only on selection. |
+| UX-5: Validation errors at point of impact | ✓ | Stale data warning at the cell. |
+| UX-6: Tools and forms in slide-overs; modals for confirmations | ✓ | New Scan in slide-over. Reject modal. |
+| UX-7: System never hides what mode the operator is in | ✓ | Filter pills, slide-over header, expand state visible. |
+| UX-8: State changes resolve in place | ✓ | Accept/Reject updates row inline. |
+| UX-9: Filtering is fluid; navigation is durable | ✓ | Status ▾ pill replaces tab bar. |
+| UX-10: Cell-level interactions save immediately; forms have explicit save | ✓ | Status edits save. Scan form explicit. |
+| UX-11: URL is the session memory | ✓ | Filters, slide-over ID, expansion state encode into URL. |
+| UX-12: Empty states give the operator a next step | ✓ | Empty → New Scan CTA. Empty filtered → Clear filters. |

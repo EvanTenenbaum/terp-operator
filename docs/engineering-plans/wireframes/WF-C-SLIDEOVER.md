@@ -6,6 +6,34 @@ fallback.
 
 ---
 
+### Slide-Over Modes
+
+The slide-over is the **only** secondary surface. It runs in one of three modes,
+chosen by the trigger, not the user:
+
+| Mode | Use for | Header | Tabs? | URL encoding |
+|------|---------|--------|-------|--------------|
+| **entity** | Open a row to inspect / drill into related data (PO, Sale, Customer) | Entity title + state badge | Yes (Summary / Lines / History / etc.) | `/<view>/<entity>/<id>` |
+| **tool** | Lightweight tool that operates on the current view (Inventory Finder, Search, Saved Views) | Tool title | No (single content area) | `?tool=<name>` |
+| **form** | Authoring or editing a new entity (New PO, New Sale, New Intake) | Form title + breadcrumb | No (fields + actions) | `?action=<name>` |
+
+#### URL state (UX-11)
+- Mode, target id, active tab, and active filters all encode into the URL.
+- Browser back/forward navigates **slide-over state** before navigating away from the page.
+- Reload restores the exact mode, target, tab, and scroll position.
+- Sharing the URL reproduces the operator's view.
+
+#### Close behavior (consistent across modes)
+- **Esc** closes the slide-over (form mode prompts on dirty state).
+- **× button** (top-right, 24×24 hit area) closes.
+- **Click-outside** the slide-over closes (form mode prompts on dirty state).
+- **Browser back** closes the slide-over **before** navigating off the page.
+- After close, focus returns to the originating row, button, or filter chip.
+
+---
+
+---
+
 ### State 1: Closed
 
 #### Layout (ASCII)
@@ -215,6 +243,25 @@ Closed ──row click──▶ Peek (280px) ──double click / drag──▶ 
 
 **Z-index:** 30 (below Combobox dropdown at 50, above grid)
 **Font:** Inter 13px body, Inter 11px labels, Inter 16px header title (semibold)
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Slide-over actions come from the entity state machine; non-applicable actions are absent, not disabled |
+| UX-2 Supporting info one click away | ✅ | Slide-over IS the one-click layer; nothing in it must be permanently visible on the master view |
+| UX-3 One primary surface per view | ✅ | Grid stays primary; slide-over is secondary disclosure |
+| UX-4 Bulk actions on selection only | N/A | Component-level; bulk lives in WF-C-BULK |
+| UX-5 Validation at point of impact | ✅ | Form mode shows field-level errors inline; no separate "validation panel" |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Tools and forms run in the slide-over; modals only for irreversible confirms |
+| UX-7 Mode is always visible | ✅ | Header carries entity title + state badge OR tool/form title; operator can never lose context |
+| UX-8 State changes resolve in place | ✅ | Saves resolve in-slide-over; success returns operator to grid with row flashed |
+| UX-9 Filtering fluid; navigation durable | ✅ | Entity slide-overs are durable URLs; tool/form slide-overs are transient query params |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Form mode has explicit Save/Cancel; entity tabs may inline-edit per WF-C-COMBOBOX |
+| UX-11 URL is session memory | ✅ | All three modes encode into the URL (see modes table) |
+| UX-12 Empty states give next step | ✅ | Empty tab content shows "No [items] yet — [+ Add]" |
 
 ---
 *All widths use CSS transitions. Focus trap via `react-focus-lock`. Tab content from shared tab registry.*

@@ -1,7 +1,7 @@
 # Mercury UX Retrofit — AI Task Tracker
 
-**Updated:** 2026-06-15  
-**Current Phase:** Phase -1 Wireframes: Complete → Ready for Review  
+**Updated:** 2026-06-16  
+**Current Phase:** Phase -1 Wireframes: Complete. UX analysis authority established ([mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md)). Design rules being rewritten (UX-first).  
 **Total Tasks:** 108 (91 frontend + 17 backend)  
 **Completed:** 0  
 **In Progress:** 0  
@@ -169,4 +169,10 @@ These are hard checkpoints. Do NOT proceed past a gate without evidence.
 |------|-------|--------|-------|-------|
 | 2026-06-15 | PM (DeepSeek V4 Pro) | Plan creation complete | Planning | Master document, backend audit, task registry finalized |
 | 2026-06-15 | PM (DeepSeek V4 Pro) | Phase -1 wireframes created | Phase -1 | 27 views + 10 component sets + 10 flows = 47 files. Parallel dispatch across 7 agents. |
+| 2026-06-16 | PM (DeepSeek V4 Pro) | Design rules QA + Mercury token extraction + branch integration | Phase -1 | Updated MASTER-EXECUTION-DOCUMENT.md §14 (live demo app tokens) + §17.9-17.11 (10 design rules with integration map). Created DESIGN-RULES.md. Rebuilt review.html with full traceability. |
+| 2026-06-16 | Claude Opus 4.7 xhigh + GPT-4o | Cross-model UX analysis (adversarial audit) | Phase -1 | Two independent models converged on same diagnosis: information overload, missing progressive disclosure, debilitating context switching. Claude 5.0/10 avg per workflow, GPT-4o 2.5/10. Source files: mercury-user-experience-analysis.md, openai-ux-analysis-gpt4o.md. |
+| 2026-06-16 | Claude Opus 4.7 xhigh | UX integrated analysis authority | Phase -1 | Created [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md) — single authoritative UX analysis. Supersedes both source UX audits. Defines 12 UX rules (6 cross-model confirmed), top-7 friction points, operator attention budget principle, and concrete implementation implications. |
+| 2026-06-16 | Claude Opus 4.7 xhigh | UX-first design rules rewrite | Phase -1 | Design rules being rewritten with UX behavior as primary axis; visual tokens deferred to mercury-design-ground-up-analysis.md. DESIGN-RULES.md v2.0 in progress. |
+| 2026-06-16 | PM (DeepSeek V4 Pro) | Wireframe surgery sweep | Phase -1 | Updated 47 wireframe .md files to conform to UX-first rules (3-zone layout, no view headers, status as filter pill, single KPI line, shadow-only chrome). |
+| 2026-06-16 | PM (DeepSeek V4 Pro) | Feature mapping UX update | Phase -1 | Updated terp-feature-to-mercury-mapping.md to reflect UX authority decisions (Purchase History default tab, Quick Add row affordance, Recovery 2-click retry, filter-pill status). |
 

@@ -146,3 +146,31 @@ Operator verifies received batches against purchase orders in the Intake view. F
 - Status transition: CSS transition on status badge color (amber → green). `aria-live="polite"` for count update.
 - Edge case: PO fully received AND fully verified → auto-move to "Complete" status.
 - Edge case: Rejected batches block full verification → PO stays "Partially Verified" until resolved.
+
+---
+
+### UX Check
+
+| Question | Answer |
+|----------|--------|
+| Does the flow require mode-switching? | No. Verification happens inline in the master-detail grid; the only modal is rejection-reason capture (a confirmation, not a tool). |
+| Is the operator ever shown irrelevant actions? | No. Already-verified batches don't expose Verify; rejected batches expose Resolve/Reject-again only. State-gated per UX-1. |
+| Is context preserved if the operator leaves mid-flow? | Yes. Expanded master row id and any selected detail rows encode to URL (UX-11). Reload restores the expansion. |
+| Mercury comparison | Mercury reconciles uncategorized transactions inline via a dropdown — the table is the surface, not a separate reconciliation page. This flow mirrors that pattern for batches. |
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Verify/Reject visible only when batch is "Received" and unverified |
+| UX-2 Supporting info one click away | ✅ | Batch detail (photos, weight, condition notes) one click away in detail slide-over |
+| UX-3 One primary surface per view | ✅ | Intake list is primary; one master row expanded at a time |
+| UX-4 Bulk actions on selection only | ✅ | BulkActionBar appears on batch checkbox selection |
+| UX-5 Validation at point of impact | ✅ | Damaged-condition warning appears inline on the batch row; rejection-reason dialog explains why batch was rejected |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Rejection reason is a confirmation dialog; batch detail is a slide-over |
+| UX-7 Mode is always visible | ✅ | Expanded master row highlighted (bg-green-50); BulkActionBar shows count |
+| UX-8 State changes resolve in place | ✅ | Verify resolves inline (green flash on row); no navigation |
+| UX-9 Filtering fluid; navigation durable | ✅ | "Ready to Verify" is a Status pill filter, durable as a URL |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Single-batch Verify is immediate; bulk Verify is explicit submit |
+| UX-11 URL is session memory | ✅ | `?status=ready&expanded=1043&selected=BAT-51,BAT-52` encodes state |
+| UX-12 Empty states give next step | ✅ | "All intake verified ✓" empty state when zero Ready batches |

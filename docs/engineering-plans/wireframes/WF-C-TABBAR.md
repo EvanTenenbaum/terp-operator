@@ -1,7 +1,22 @@
-## Wireframe: WF-C-TABBAR — ViewTabBar All States
+## Wireframe: WF-C-TABBAR — ContentTabBar (Content-Kind Tabs Only)
 
-A horizontal tab bar for navigating between entity status views. Mercury-style
-underline indicator with count badges and overflow handling.
+> **Repurposed in the UX-first retrofit.** Status filtering has moved to the
+> `FilterToolbar` Status pill (see WF-C-FILTER). This component now handles
+> **content-type tab navigation only** — switching between *kinds* of content within
+> a single surface, not between filter slices of the same kind.
+>
+> Use this component for:
+> - **Slide-over entity tabs** (Summary / Lines / Pricing / History / Logs)
+> - **Dashboard activity tabs** (Recent Activity / Notifications / Audit Log)
+> - **Profile tabs** (Customer profile: Overview / Orders / Payments / Tags / Notes)
+> - **Wizard step tabs** (when wizard renders in tabbed form rather than linear)
+>
+> Do **not** use this component for status-based filtering of a list. Status
+> filtering is part of the filter toolbar (UX-9 — filtering is fluid, navigation
+> is durable).
+
+A horizontal tab bar for navigating between content kinds within a single surface.
+Mercury-style underline indicator with optional count badges and overflow handling.
 
 ---
 
@@ -9,31 +24,30 @@ underline indicator with count badges and overflow handling.
 
 #### Layout (ASCII)
 ```
-┌─ ViewTabBar ──────────────────────────────────────────────────────────────────┐
+┌─ ContentTabBar ───────────────────────────────────────────────────────────────┐
 │                                                                                │
-│  ┌──────────┐  ┌───────────┐  ┌──────────────────┐  ┌────────────┐            │
-│  │   All    │  │ Draft (3) │  │ Confirmed (12)   │  │Posted (45) │            │
-│  └──────────┘  └───────────┘  └──────────────────┘  └────────────┘            │
+│  ┌──────────┐  ┌───────────┐  ┌──────────────┐  ┌─────────────┐               │
+│  │ Summary  │  │ Lines (3) │  │ History (12) │  │ Logs        │               │
+│  └──────────┘  └───────────┘  └──────────────┘  └─────────────┘               │
 │       ↑                          ████████████                                 │
 │       │                          active indicator: 2px #216e4e                │
-│    inactive tab                  (width matches tab text)                      │
+│   inactive tab                   (width matches tab text)                      │
 │                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
   Height: 40px   bg-white   border-bottom: 1px solid border-zinc-200
 ```
 
 #### Details
-- **Layout:** Horizontal row of tab buttons. Full width. Height: 40px. `bg-white`, bottom border: `1px solid border-zinc-200`
-- **Active tab:** `text-accent` (#216e4e) color, `font-weight: 600` (semibold). 2px solid `border-accent` bottom indicator, width matches text width
-- **Inactive tabs:** `text-zinc-600` color, `font-weight: 400` (regular). No bottom border
-- **Count badges:** Parenthesized number, e.g., "Draft (3)". Uses `text-muted`, Inter 12px. No separate badge pill — inline text only
-- **Hover:** `bg-zinc-50` background on hover (full tab height). `transition: background-color 150ms`
-- **Font:** Inter 13px medium. Tab names from entity state machine config (`entity-actions.ts` `tabs` array)
-- **Spacing:** 0px gap between tabs (adjoining). Each tab: padding 8px 16px horizontal. Text left-aligned within tab
-- **Width:** Tabs sized to content (no equal-width stretching). If tabs total < bar width, empty space on right
-- **Keyboard:** ArrowLeft/ArrowRight moves focus between tabs (roving tabindex). Home/End jump to first/last. Enter/Space activates
-- **ARIA:** `role="tablist"`. Each tab: `role="tab"`, `aria-selected="true|false"`, `tabindex="0"` (active) / `tabindex="-1"` (inactive). `aria-controls` points to tabpanel ID. Tabpanel: `role="tabpanel"`, `aria-labelledby` points to tab ID
-- **Edge cases:** Tab with count 0 → still shown (user may want empty view). Tab disabled in config → not rendered. Only one tab in config → bar not rendered (no need for single tab)
+- Horizontal row of tab buttons. Height: 40px. `bg-white`, bottom border `1px solid border-zinc-200`
+- **Active tab:** `text-accent` (#216e4e), `font-weight: 600`. 2px `border-accent` bottom indicator, width matches text
+- **Inactive tabs:** `text-zinc-600`, `font-weight: 400`. No bottom border
+- **Count badges (optional):** inline parens `(3)` in `text-muted`, Inter 12px — used for "Lines (3)" or "History (12)" where the count is genuinely useful context, **not** for filtering an entity list
+- **Hover:** `bg-zinc-50`. Transition 150ms
+- **Tabs sized to content** (no equal-width stretching)
+- **Tab content** loads on activation (lazy), or pre-fetched in slide-over case
+- **Keyboard:** ArrowLeft/Right roving tabindex. Home/End jump. Enter/Space activates
+- **ARIA:** `role="tablist"`, each tab `role="tab"` with `aria-selected`, `aria-controls` → tabpanel id. Tabpanel: `role="tabpanel"`, `aria-labelledby` → tab id
+- **URL encoding:** active tab encodes as `#tab-id` (entity slide-over) or `?tab=...` (full-page), so reload restores the tab (UX-11)
 
 ---
 
@@ -41,46 +55,55 @@ underline indicator with count badges and overflow handling.
 
 #### Layout (ASCII)
 ```
-┌─ ViewTabBar ──────────────────────────────────────────────────────────────────┐
-│ ┌──┐ ┌──────────┐ ┌───────────┐ ┌──────────────┐ ┌────────────┐ ┌────────┐ ┌┐│
-│ │◀ │ │   All    │ │ Draft (3) │ │Confirmed (12)│ │Posted (45) │ │Fulfill │ │▶││
-│ └──┘ └──────────┘ └───────────┘ └──────────────┘ └────────────┘ │ed (7)  │ └┘│
-│  scroll left                                          ██████████ └────────┘ sr│
-│  button (hidden                       active indicator (scrolls into view)    │
-│  if at start)                                                                 │
+┌─ ContentTabBar ───────────────────────────────────────────────────────────────┐
+│ ┌──┐ ┌────────┐ ┌──────┐ ┌──────────┐ ┌─────────┐ ┌──────┐ ┌──────────┐ ┌──┐ │
+│ │◀ │ │Summary │ │Lines │ │ Pricing  │ │ History │ │ Logs │ │Notes (4) │ │▶ │ │
+│ └──┘ └────────┘ └──────┘ └──────────┘ └─────────┘ └──────┘ └──────────┘ └──┘ │
+│  scroll left                                                       scroll right│
 └────────────────────────────────────────────────────────────────────────────────┘
-  Arrow buttons appear on edges when tabs overflow viewport
 ```
 
 #### Details
-- **Trigger:** Total tab width > viewport width → overflow mode
-- **Scroll buttons:** "◀" left arrow (left edge), "▶" right arrow (right edge). 28×28px, `bg-white`, border: none, hover: `bg-zinc-100`. Z-index: 1 (above tabs)
-- **Visibility:** Left arrow hidden when scrolled to start (scrollLeft === 0). Right arrow hidden when scrolled to end
-- **Scroll behavior:** Click scrolls by ~150px (or next partially visible tab into full view). Smooth scroll: `scroll-behavior: smooth`
-- **Active tab:** On activation: `scrollIntoView({ block: 'nearest', inline: 'center' })` — auto-scrolls to ensure active tab is visible
-- **Container:** `overflow-x: auto` with scrollbar hidden (`scrollbar-width: none` or `-webkit-scrollbar: none`). Arrow buttons provide explicit scroll control
-- **Keyboard:** Arrow keys still navigate tabs AND scroll if needed (same as normal)
-- **ARIA:** Scroll buttons: `aria-label="Scroll tabs left"` / "Scroll tabs right". Hidden when not visible: `aria-hidden="true"`
-- **Edge cases:** Very narrow viewport (mobile) → arrow buttons always visible (24×24px). Tab text may truncate to "Conf…" if < 80px wide, with full text in `title` tooltip
+- Overflow triggers when total tab width > container width
+- Scroll buttons "◀" / "▶" 28×28, bg-white, hover `bg-zinc-100`, hidden at scroll extremes (4px buffer)
+- Active tab `scrollIntoView({ inline: 'center' })` on activation
+- Container `overflow-x: auto` with scrollbar hidden
+- **ARIA:** scroll buttons `aria-label`, `aria-hidden="true"` when not visible
 
 ---
 
-### Overflow Scroll Mechanics (Detail)
+### Migration note (from old ViewTabBar)
 
-```
-┌───┬──────────────────────────────────────────────────────┬───┐
-│ ◀ │ [All] [Draft (3)] [Confirmed (12)] [Posted (45)] [Fu│ ▶ │
-└───┴──────────────────────────────────────────────────────┴───┘
-     │                                              │
-     └─ scroll buttons toggle visibility  ──────────┘
-        via IntersectionObserver on first/last tab
-```
+Old usage (status filtering) → moved to **FilterToolbar Status pill**.
 
-**Scroll button rendering rule:**
-```
-leftArrow.visible  = (scrollContainer.scrollLeft > 4)      // 4px buffer
-rightArrow.visible = (scrollWidth - clientWidth - scrollLeft > 4)
-```
+| Old tab bar role | New home |
+|------------------|----------|
+| "All / Draft (3) / Confirmed (12) / Posted (45)" filtering of a list | FilterToolbar Status pill (multi-select with count badges) |
+| "Summary / Lines / Pricing / History" inside an entity slide-over | This component (content-kind tabs) |
+| Dashboard "Recent Activity / Notifications" | This component (content-kind tabs) |
+| Customer profile "Overview / Orders / Payments" | This component (content-kind tabs) |
+
+Existing call sites that used the old component for status filtering must migrate to
+the Status pill. See WF-C-FILTER for the multi-select Status pill spec.
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | N/A | Navigation component, not actions |
+| UX-2 Supporting info one click away | ✅ | Each tab is exactly one click from the active surface |
+| UX-3 One primary surface per view | ✅ | Tab content fills one primary area; tabs do not split the surface |
+| UX-4 Bulk actions on selection only | N/A | Not a selection component |
+| UX-5 Validation at point of impact | N/A | Not a write surface |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | This component lives inside slide-overs and full-page entity views |
+| UX-7 Mode is always visible | ✅ | Active tab indicator continuously visible |
+| UX-8 State changes resolve in place | ✅ | Tab switch updates content in place; no navigation away |
+| UX-9 Filtering fluid; navigation durable | ✅ | This component is for content-kind navigation (durable); status filtering moved out |
+| UX-10 Cell saves immediate; forms explicit | N/A | Not a write surface |
+| UX-11 URL is session memory | ✅ | Active tab encodes to URL hash or query param |
+| UX-12 Empty states give next step | ✅ | Empty tab content shows "No [items] yet — [+ Add]" |
 
 ---
 *Font: Inter 13px medium. Active indicator: 2px #216e4e. Hover: bg-zinc-50. All transitions: 150ms.*

@@ -6,32 +6,28 @@
 
 ---
 
-## Full View — Default State (Tab: All, Step 1 Active)
+### UX Posture
+
+The pick queue is the only primary surface. The Step Indicator is a glanceable progress display — not a competing surface. Status filter is a pill in the FilterToolbar. Footer actions on the slide-over are state-gated by pick state. Inline progress at the row keeps the operator on the table for the common case.
+
+---
+
+## Full View — Default State (no selection)
 
 ```
-┌─View Header──────────────────────────────────────────────────────────────┐
-│ Pick Queue                                                      [Scan]   │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─Step Indicator───────────────────────────────────────────────────────────┐
-│                                                                           │
+┌─Step Indicator (glanceable, not a competing surface)─────────────────────┐
 │   ● ────── ○ ────── ○ ────── ○                                          │
-│  Step 1  Step 2   Step 3   Step 4                                        │
-│  Pending Picking  Verify  Complete                                        │
-│   (12)    (8)      (5)     (0)                                            │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
+│  Pending  Picking  Verify  Complete                                       │
+│   (12)     (8)      (5)     (0)                                           │
+└──────────────────────────────────────────────────────────────────────────┘
 ┌─FilterToolbar────────────────────────────────────────────────────────────┐
-│ [▾ Data views]  │  Date ▾  │  Keyword ▾  │ Location ▾  │ Group ▾  │ Sort ▾ │ ⬇ │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─GridSummaryStrip─────────────────────────────────────────────────────────┐
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
-│ │ 25 Picks     │ │ 1,847 Items  │ │ 12 Pending   │ │ 92% Fill     │      │
-│ │    Today     │ │    Total     │ │   Now        │ │   Rate       │      │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─ViewTabBar───────────────────────────────────────────────────────────────┐
-│  All (25) │ Pending (12) │ In Progress (8) │ Picked (5)                   │
-└───────────────────────────────────────────────────────────────────────────┘
+│ [+ Scan] │ Status ▾ │ Data views │ Date │ Keyword │ Location │ Group │   │
+│          │ Sort ▾ │ Export ▾                                              │
+└──────────────────────────────────────────────────────────────────────────┘
+┌─KPI Line─────────────────────────────────────────────────────────────────┐
+│ 25 picks today · 1,847 items total · 12 pending now · 92% fill rate      │
+│                                                       [Show breakdown ▾] │
+└──────────────────────────────────────────────────────────────────────────┘
 ┌─AG Grid (32px rows, checkboxes, sortable headers)────────────────────────┐
 │ ☐ │ ID        │ Order            │ Item              │ Qty  │ Location    │ Status    │
 ├───┼───────────┼──────────────────┼───────────────────┼──────┼─────────────┼───────────┤
@@ -43,68 +39,29 @@
 │ ☐ │ PCK-2209  │ SO-7727 PacificAg│ Avocados          │ 144  │ Bay D-03    │ In Prog   │
 │ ☐ │ PCK-2208  │ SO-7725 FarmDir  │ Sweet Potatoes    │ 60   │ Bin F-11    │ Pending   │
 └───┴───────────┴──────────────────┴───────────────────┴──────┴─────────────┴───────────┘
-┌─BulkActionBar (conditional)──────────────────────────────────────────────┐
+┌─BulkActionBar (appears only when rows selected)──────────────────────────┐
 │ 1 pick selected                                                           │
-│ [Start Picking] [Assign to Me] [Print Pick List] [···]                    │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─DetailSlideover: Peek (280px)────────────────────────────────────────────┐
-│ PCK-2212                                             ×                   │
-│ Order: SO-7730 · FreshFields                                             │
-│ Item: Romaine Hearts · 96 units                                          │
-│ Location: Cooler 2-B                                                     │
-│ Status: In Progress                                                      │
-│ [Mark Picked] [Report Issue]                                             │
-│ ◀ drag                                                                    │
-└───────────────────────────────────────────────────────────────────────────┘
+│ [Start Picking] [More ▾: Assign to Me | Print Pick List]                 │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Step Indicator — Step 2 (In Progress) Active
+### State-Gated Action Surface
 
-```
-┌─Step Indicator───────────────────────────────────────────────────────────┐
-│                                                                           │
-│   ✓ ────── ● ────── ○ ────── ○                                          │
-│  Step 1  Step 2   Step 3   Step 4                                        │
-│  Pending Picking  Verify  Complete                                        │
-│   (12)✓   (8)●    (5)     (0)                                             │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
-```
-- Step 1 shows checkmark (completed). Step 2 highlighted (current). Steps 3-4 greyed.
-- Count badges update as picks progress through workflow.
-- Clicking a completed step shows that step's records (read-only).
+| Pick State    | Visible Actions                              |
+|---------------|----------------------------------------------|
+| Pending       | `Start Picking`, `Assign`                    |
+| In Progress   | `Mark Picked`, `Report Issue`, `Pause`       |
+| Picked        | `Verify`, `Report Issue`                     |
+| Verified      | `View Complete`                              |
+| Complete      | `View Documents` (read-only)                 |
 
 ---
 
-## DetailSlideover: Standard (420px) — Items Tab
+## DetailSlideover — Tabs: Order Detail | Items | Location | History
 
-```
-┌─Main Content (shifts left)───────────────────┬─DetailSlideover: Standard─┐
-│                                               │ PCK-2212                   │
-│  [Grid is narrower, fully functional]         │ Order: SO-7730             │
-│                                               │ Item: Romaine Hearts       │
-│                                               │ Qty: 96 · Loc: Cooler 2-B  │
-│                                               │ [Mark Picked] [Report] [✕]│
-│                                               │────────────────────────────│
-│                                               │ Ord Det│ Items│ Loc │ Hist │
-│                                               │        │  ▾   │     │      │
-│                                               │────────────────────────────│
-│                                               │ Order Lines to Pick:       │
-│                                               │ ┌────────────────────────┐ │
-│                                               │ │ ☑ Romaine Hearts  96   │ │
-│                                               │ │ ☑ Romaine Hearts  48   │ │
-│                                               │ │ ☐ Romaine Hearts  24   │ │
-│                                               │ │ ☐ Butter Lettuce  36   │ │
-│                                               │ │ ☐ Arugula         24   │ │
-│                                               │ └────────────────────────┘ │
-│                                               │ Remaining: 60 / 228 units  │
-│                                               │ [Open in full view →]      │
-└───────────────────────────────────────────────┴────────────────────────────┘
-```
-- Checkboxes show progress within the pick. Checked = already picked.
-- "Remaining: X / Y units" progress counter updates in real-time.
+Footer actions follow state-gating.
 
 ---
 
@@ -115,87 +72,102 @@
 │   │           │                  │                   │ 24/96│             │ 25% ██░░░░│
 ```
 
-- **Qty column:** Shows "picked/total" when In Progress. Shows total only when Pending/Complete.
-- **Status column:** Shows progress bar + percentage when In Progress.
+- **Qty column**: Shows "picked/total" when In Progress.
+- **Status column**: Shows progress bar + percentage when In Progress.
 
 ---
 
 ## Dimensions
 
-- View container: 100vw × 100vh, overflow hidden
-- View Header: 56px tall. "Pick Queue" title. [Scan] button right-aligned.
-- Step Indicator: 80px tall. Horizontal stepper with 4 steps. Step circles 32px diameter. Connector lines 64px long, 2px thick. Active step: filled color. Completed: checkmark. Future: grey outline.
-- FilterToolbar: 44px tall. Location quick filter replaces Amount (warehouse zones).
-- GridSummaryStrip: 80px tall, 4 metric cards.
-- ViewTabBar: 40px tall. Tabs 140px wide.
-- AG Grid: 32px row height. ID column 110px. Order column 160px. Item column 180px. Qty column 100px. Location column 130px. Status column 140px (with progress bar).
-- BulkActionBar: 52px tall. Sticky bottom.
-- DetailSlideover: Peek 280px → Standard 420px → Wide 60vw.
-- Progress bar: 4px tall, inline in status cell. Width matches percentage. CSS transition width 300ms.
-- Font: Inter 13px body, 11px secondary, 14px header.
+- View container: 100vw × 100vh
+- Step Indicator: 80px tall; step circles 32px; connector lines 64px × 2px
+- FilterToolbar: 44px (plus 32px chip row)
+- KPI line: 32px / ~96px expanded
+- AG Grid: 32px row height; ID 110px; Order 160px; Item 180px; Qty 100px; Location 130px; Status 140px (with progress bar)
+- BulkActionBar: 52px
+- Slide-over: Peek 280px → Standard 420px → Wide 60vw
+- Progress bar: 4px tall, inline in status cell; CSS transition width 300ms
 
 ---
 
 ## Interactive Elements
 
-- **Step Indicator circles:** Click → filters grid to that step's records. ARIA: role="tab" within role="tablist".
-- **Step connector lines:** Animated fill effect as picks progress. CSS transition on width.
-- **Checkbox (AG Grid):** Row selection for bulk actions. Shift+click range select.
-- **Status cell:** Double-click → ComboboxCellEditor (Pending/In Progress/Picked). Also: progress bar clickable to advance step.
-- **Qty inline editor:** Double-click on Qty cell when In Progress → number input. Enter commits. Validates: cannot exceed remaining.
-- **Row click:** Single-click → DetailSlideover peek. Double-click → standard.
-- **BulkActionBar Start Picking:** Moves selected Pending rows to In Progress. Assigns to current user.
-- **BulkActionBar Assign to Me:** Reassigns picks. Shows confirmation if already assigned.
-- **BulkActionBar Print Pick List:** Opens printable view in new tab. Shows location-sorted list.
-- **Detail Items tab:** Checkboxes for each line. Clicking marks individual line as picked.
-- **Mark Picked button:** Transitions entire pick to Picked status. Validates all lines picked.
-- **Report Issue button:** Opens dialog with issue type dropdown (Damaged, Missing, Wrong Item, Quality). Creates incident record.
-- **Scan button:** Opens barcode scanner (camera or manual entry). Scans location barcode to verify.
+- **Step Indicator circles**: Click → filters grid to that step's records. Each is a deep-link filter. ARIA: `role="tab"`.
+- **Step connector lines**: Animated fill as picks progress.
+- **Status ▾ pill**: Multi-select with `Pending (12)`, `In Progress (8)`, `Picked (5)`, `Verified`, `Complete`. Replaces prior ViewTabBar.
+- **Status cell**: ComboboxCellEditor (Pending/In Progress/Picked). Progress bar clickable to advance step.
+- **Qty inline editor**: Double-click on Qty cell when In Progress → number input. Validates: cannot exceed remaining.
+- **Row click**: Single → slide-over peek. Double → standard.
+- **BulkActionBar Start Picking**: Moves selected Pending rows to In Progress. Assigns to current user.
+- **BulkActionBar Assign to Me**: Reassigns; modal if already assigned.
+- **BulkActionBar Print Pick List**: Opens printable view; location-sorted.
+- **Detail Items tab**: Checkboxes for each line. Clicking marks individual line as picked.
+- **Mark Picked button**: Validates all lines picked.
+- **Report Issue button**: Opens dialog with issue type dropdown (Damaged, Missing, Wrong Item, Quality).
+- **Scan button**: Opens barcode scanner.
 
 ---
 
 ## States Shown
 
-- **Default (All tab, Step 1):** Full pick queue visible. Pending picks highlighted with amber left-border.
-- **In Progress (Step 2):** Rows show progress bars. Detail panel shows per-line checkboxes.
-- **Verification (Step 3):** Read-only review. Picked items shown with ✓ checkmark. "Verified by" column appears with reviewer name.
-- **Complete (Step 4):** All picks for order complete. Green left-border. Cannot be modified.
-- **Scanning mode:** Camera overlay above grid. Scanning animation. Beep on successful scan.
-- **Empty state:** "All picks complete! 🎉" illustration. "No pending picks for today." Show yesterday's completed picks.
-- **Issue reported:** Row shows ⚠ indicator. Status changes to "Issue". Issue details in History tab.
-- **Error state:** Toast for failed status change. Retry button in BulkActionBar.
+- **Default (no filter)**: Full pick queue visible.
+- **In Progress (Step 2 filter active)**: Rows show progress bars.
+- **Verification (Step 3 filter active)**: Read-only review; "Verified by" column appears.
+- **Complete (Step 4 filter active)**: Success-state left border; cannot be modified.
+- **Scanning mode**: Camera overlay; scanning animation.
+- **Empty state**: "All picks complete! 🎉" + show yesterday's completed.
+- **Issue reported**: Row shows ⚠; status changes to "Issue."
+- **Error state**: Toast.
 
 ---
 
 ## ARIA Annotations
 
-- View container: role="region", aria-label="Pick queue"
-- Step Indicator: role="tablist", aria-label="Pick workflow steps"
-- Step circles: role="tab", aria-selected, aria-controls="pick-grid-panel"
-- Completed step: aria-label="Step 1: Pending — completed, 12 picks"
-- Active step: aria-label="Step 2: Picking — in progress, 8 picks"
-- Future step: aria-label="Step 3: Verify — not yet available, 5 queued"
-- FilterToolbar: role="menubar", aria-label="Filter and data controls"
-- GridSummaryStrip: role="region", aria-label="Pick summary metrics"
-- AG Grid: role="grid", aria-label="Pick records"
-- Progress bar: role="progressbar", aria-valuenow, aria-valuemin="0", aria-valuemax="100", aria-label="Pick progress: 25%"
-- Qty cell (editing): role="spinbutton", aria-valuenow, aria-valuemin="0", aria-valuemax
-- BulkActionBar: role="toolbar", aria-label="Pick actions"
-- DetailSlideover: role="complementary", aria-label="Pick details"
-- Items tab checkboxes: role="checkbox", aria-checked, aria-label="Pick line: Romaine Hearts, 96 units"
-- Barcode scanner: aria-live="polite", aria-label="Scanner active. Point camera at location barcode."
-- Scan button: role="button", aria-label="Scan location barcode"
+- Step Indicator: `role="tablist"`, `aria-label="Pick workflow steps"`
+- Step circles: `role="tab"`, `aria-selected`, `aria-controls="pick-grid-panel"`
+- Completed step: `aria-label="Step 1: Pending — completed, 12 picks"`
+- Active step: `aria-label="Step 2: Picking — in progress, 8 picks"`
+- FilterToolbar: `role="menubar"`, `aria-label="Pick filter toolbar"`
+- Status ▾ pill: `role="combobox"`, `aria-haspopup="listbox"`, `aria-label="Filter by pick status"`, `aria-multiselectable="true"`
+- KPI line: `role="status"`, `aria-live="polite"`
+- AG Grid: `role="grid"`, `aria-label="Pick records"`
+- Progress bar: `role="progressbar"`, `aria-valuenow`, `aria-valuemax="100"`, `aria-label="Pick progress: 25%"`
+- Qty cell (editing): `role="spinbutton"`, `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax`
+- BulkActionBar: `role="toolbar"`, `aria-label="Pick actions"`
+- Slide-over: `role="dialog"`, `aria-label="Pick details"`
+- Items tab checkboxes: `role="checkbox"`, `aria-label="Pick line: Romaine Hearts, 96 units"`
+- Barcode scanner: `aria-live="polite"`, `aria-label="Scanner active. Point camera at location barcode."`
+- Scan button: `role="button"`, `aria-label="Scan location barcode"`
 
 ---
 
 ## Edge Cases Handled
 
-- **Partial pick (picked less than total):** Qty shows "72/96". Progress bar at 75%. Status stays "In Progress".
-- **Over-pick attempt:** Input validation rejects qty > remaining. Tooltip: "Cannot pick more than 24 remaining units."
-- **Pick order with multiple line items:** Detail Items tab lists all lines with checkboxes. Progress aggregates across all lines.
-- **Location change mid-pick:** "Location Changed" warning badge. Reason captured in History tab.
-- **Scan wrong location:** Red flash on scanner. Error message: "Location does not match Cooler 2-B. Expected: Cooler 2-B, Scanned: Cooler 2-C."
-- **Concurrent pick assignment:** If two users start picking same order, second user sees toast: "Pick already in progress by [User]. View only."
-- **Pick cancellation:** Revert from In Progress to Pending. Clear assignments. Confirmation dialog required.
-- **Expired pick (not completed within shift):** Row highlighted in amber. "Aged pick — 3d 4h" badge. Can be reassigned.
-- **Zero-quantity line:** Line auto-marked as N/A. Skipped in progress calculation. Info tooltip: "0 qty ordered — nothing to pick."
+- **Partial pick**: Qty "72/96"; progress at 75%; status stays "In Progress."
+- **Over-pick attempt**: Input rejects qty > remaining; tooltip.
+- **Pick order with multiple line items**: Items tab lists all lines.
+- **Location change mid-pick**: "Location Changed" warning badge.
+- **Scan wrong location**: Error flash; "Location does not match Cooler 2-B."
+- **Concurrent pick assignment**: Toast "Pick already in progress by [user]. View only."
+- **Pick cancellation**: Revert from In Progress to Pending; modal confirmation.
+- **Expired pick**: "Aged pick — 3d 4h" warning badge.
+- **Zero-quantity line**: Auto-marked N/A; skipped in progress.
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1: Action visibility follows entity state | ✓ | Mark Picked only on In Progress; Verify only on Picked; View Complete only on Verified. |
+| UX-2: Supporting info one click away, never zero | ✓ | Order Detail, Items, Location, History as slide-over tabs. |
+| UX-3: One primary surface per view | ✓ | Pick queue is the only primary surface. Step Indicator is glanceable progress, not a competing surface. |
+| UX-4: Bulk actions appear only on selection | ✓ | BulkActionBar slides up only on selection. |
+| UX-5: Validation errors at point of impact | ✓ | Wrong location at the scanner. Over-pick at the cell. |
+| UX-6: Tools and forms in slide-overs; modals for confirmations | ✓ | Scan modal-like overlay. Cancel modal. |
+| UX-7: System never hides what mode the operator is in | ✓ | Step indicator shows operator's position in workflow. Filter pills. |
+| UX-8: State changes resolve in place | ✓ | Status transitions inline. |
+| UX-9: Filtering is fluid; navigation is durable | ✓ | Status ▾ pill replaces tab bar. Step circles are filters. |
+| UX-10: Cell-level interactions save immediately; forms have explicit save | ✓ | Status edits save. Issue report form explicit. |
+| UX-11: URL is the session memory | ✓ | Filters, slide-over ID, step filter encode into URL. |
+| UX-12: Empty states give the operator a next step | ✓ | Empty → "All picks complete!" Empty filtered → Clear filters. |

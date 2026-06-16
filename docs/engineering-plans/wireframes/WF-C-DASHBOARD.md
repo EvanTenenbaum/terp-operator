@@ -3,6 +3,20 @@
 A welcome-and-overview template for the operator console home screen. Mercury-style
 dashboard with KPI strips, focus panels, work queues, and activity feeds.
 
+> **UX-first principles for this template:**
+> - **One primary surface and a clear landing zone.** The 4-card KPI strip is the
+>   default eye-landing target. Today's Focus and Work Queues are secondary, not
+>   peers (UX-3).
+> - **Three visual sections, not eight WorkspacePanels.** Welcome + Quick Actions →
+>   KPI strip → two-column (Focus / Queues) → Activity Feed.
+> - **Work Queues are clickable links to filtered views** (UX-9). Clicking
+>   "Intake Ready: 8" navigates to `/intake?status=ready`. The dashboard does
+>   not own the work — it routes the operator to the surface that does.
+> - **Empty queues stay visible** with a green "All caught up ✓" — the operator
+>   trusts that "nothing here" means "nothing to do," not "broken."
+> - **State (active tab in activity feed) encodes in the URL** so reload restores
+>   the view (UX-11).
+
 ---
 
 ### Full Page Layout
@@ -225,6 +239,25 @@ DashboardView
 - **Today's Focus empty:** "Nothing needs your attention today" with ✓ icon
 - **Work Queues all empty:** "All queues cleared" with ✓ icon
 - **Activity Feed empty:** "No recent activity" with empty state illustration (or just text for v1)
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Quick Actions reflect what the operator can usefully start; no disabled "Coming soon" buttons |
+| UX-2 Supporting info one click away | ✅ | KPI deltas, queue counts, and activity feed link to detail; no dense always-visible reference data |
+| UX-3 One primary surface per view | ✅ | KPI strip is the default landing zone; Focus and Queues are secondary, not 8 equal panels |
+| UX-4 Bulk actions on selection only | N/A | Dashboard is not a multi-select surface |
+| UX-5 Validation at point of impact | N/A | Read-only summary surface |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Quick Action "+ New Order" opens the sales slide-over form, not a modal |
+| UX-7 Mode is always visible | ✅ | Greeting and date orient the operator; current view is always the dashboard while here |
+| UX-8 State changes resolve in place | ✅ | Activity feed polling updates in place; queue counts update without navigation |
+| UX-9 Filtering fluid; navigation durable | ✅ | Clicking a Work Queue navigates to a filtered view URL (e.g., `/intake?status=ready`) |
+| UX-10 Cell saves immediate; forms explicit | N/A | No edit surface |
+| UX-11 URL is session memory | ✅ | Active activity tab and any expanded section encode to URL hash; dashboard root URL is durable |
+| UX-12 Empty states give next step | ✅ | Empty Focus → "Nothing needs your attention today ✓"; empty Queues → "All caught up ✓"; empty Activity → "No recent activity" |
 
 ---
 *Font: Inter 24px greeting, Inter 14px section headers, Inter 13px body, Inter 12px meta. Columns: 50/50 split at desktop, stacked at tablet/mobile. Real-time polling: 30s.*

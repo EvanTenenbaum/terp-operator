@@ -162,3 +162,31 @@ Operator builds complex filters beyond simple chips. Flow: active chip pills in 
 - `[✕ Clear all]`: removes all filters, restores full grid. `[Save this filter as...]`: opens name dialog, saves to "Saved Filters" dropdown.
 - Edge case: Zero results → empty state "No purchase orders match this filter. [Clear filters]".
 - Edge case: Filter URL shareable → URL encodes filter parameters via query string.
+
+---
+
+### UX Check
+
+| Question | Answer |
+|----------|--------|
+| Does the flow require mode-switching? | The builder expands inline above the grid (replaces chip row), not a separate page. The operator stays on the view. |
+| Is the operator ever shown irrelevant actions? | No. Operator selectors are scoped to the chosen field's type; value inputs adapt (date picker, number, combobox). |
+| Is context preserved if the operator leaves mid-flow? | Yes. Cancel reverts to the previous (chip) filter state. Apply encodes the entire expression into URL, so sharing or reload reproduces the filter. |
+| Mercury comparison | Mercury does not have a complex filter builder, but its "saved views" pattern matches: filters encode to URL, complex expressions can be saved and reapplied. This flow preserves that durability. |
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | N/A | Filter component |
+| UX-2 Supporting info one click away | ✅ | Final logic preview shown in builder; chips remain compact when collapsed |
+| UX-3 One primary surface per view | ✅ | Builder is a thin expanded band above the grid, not a sidebar |
+| UX-4 Bulk actions on selection only | N/A | Filter flow |
+| UX-5 Validation at point of impact | ✅ | Invalid operator/value pairings shown under the field |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Builder is inline expansion, not a modal; "Save filter as…" uses a small naming dialog |
+| UX-7 Mode is always visible | ✅ | Amber "⚙ Complex filter active" pill makes the mode obvious when collapsed |
+| UX-8 State changes resolve in place | ✅ | Apply updates grid in place; no navigation |
+| UX-9 Filtering fluid; navigation durable | ✅ | Filter applies fluidly; URL is durable so it can be bookmarked or shared |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Builder has explicit Apply / Cancel (it's a form expression) |
+| UX-11 URL is session memory | ✅ | Entire filter expression encodes to URL query string |
+| UX-12 Empty states give next step | ✅ | Zero results → "No purchase orders match. [Clear filters]" |

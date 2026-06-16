@@ -1,7 +1,12 @@
 ## Wireframe: WF-F-PO-CREATE — Create Purchase Order Flow
 
 ### Flow Overview
-Operator creates a new Purchase Order from the PO grid. Flow spans grid → authoring slideover (420px) with vendor/date/terms → inline line editor → multi-line totals → save draft / finalize. Every step uses keyboard-accessible controls with immediate validation feedback.
+Operator creates a new Purchase Order from the PO grid. Flow: PO list view → "+ New PO" opens **slide-over authoring form** (420px) → inline lines + vendor reference in a tab → Save Draft → Approve & Finalize.
+
+> **UX-first changes from prior draft:**
+> - The PO list view is **never pre-staged with an authoring workspace** (UX-3). Authoring lives entirely in the slide-over (UX-6 — tools and forms in slide-overs).
+> - **Only two primary actions are visible** while authoring: `Save Draft` and `Approve & Finalize` (UX-1 — action visibility follows entity state). `Receive`, `Unfinalize`, `Cancel Order`, etc. do not exist for a draft PO and are **absent**, not disabled.
+> - **Vendor context** (recent POs, payment terms, credit) lives in a **Vendor tab inside the slide-over**, not as a permanent VendorContextPanel on the PO list page (UX-2).
 
 ### Step 1: Grid — Click "New PO" CTA
 #### Layout (ASCII)
@@ -31,27 +36,31 @@ Operator creates a new Purchase Order from the PO grid. Flow spans grid → auth
 - Keyboard: Enter/Space triggers. Escape or click backdrop closes (no-op, no data loss).
 - Edge case: If user has unsaved changes elsewhere, warn before opening.
 
-### Step 2: Authoring Slideover Opens
+### Step 2: Authoring Slideover Opens (form mode, tabs: Lines | Vendor)
 #### Layout (ASCII)
 ```
 ┌─────────────────────────────┬──────────────────────────────────┐
-│  PO Grid (dimmed backdrop)  │  New Purchase Order          [✕] │ ← 420px slideover
-│                             │──────────────────────────────────│
-│  #     │ Vendor  │ Status   │  Vendor: [Sunny Farms      ▾]    │
-│  ──────┼─────────┼──────────│  Date:   [2026-06-15   📅]       │
-│  1039  │ Sunny   │ Received │  Terms:  [Net 30           ▾]    │
-│  1040  │ Green   │ Draft    │  Ref #:  [_______________]       │
+│  PO Grid (still interactive)│  New Purchase Order          [✕] │ ← 420px slide-over
+│                             │  [Lines]  [Vendor]               │ ← tabs (content-kind)
+│  #     │ Vendor  │ Status   │──────────────────────────────────│
+│  ──────┼─────────┼──────────│  Vendor: [Sunny Farms      ▾]    │
+│  1039  │ Sunny   │ Received │  Date:   [2026-06-15   📅]       │
+│  1040  │ Green   │ Draft    │  Terms:  [Net 30           ▾]    │
+│                             │  Ref #:  [_______________]       │
 │                             │──────────────────────────────────│
 │                             │  Lines (0)            [+ Add Line]│
 │                             │  ┌──────────────────────────────┐│
-│                             │  │ No lines yet                ││
+│                             │  │ No lines yet —              ││
+│                             │  │ [+ Add line item]           ││ ← empty state w/ CTA
 │                             │  └──────────────────────────────┘│
 │                             │──────────────────────────────────│
 │                             │  Subtotal:     $0.00             │
-│                             │  Tax:           $0.00            │
-│                             │  Total:         $0.00            │
+│                             │  Total:        $0.00             │
 │                             │                                  │
-│                             │  [Save Draft]      [Finalize →]  │
+│                             │  [Save Draft]    [Approve &      │
+│                             │                   Finalize]      │
+│                             │  Only 2 actions — no Receive,   │
+│                             │  Unfinalize, or Cancel for draft│
 └─────────────────────────────┴──────────────────────────────────┘
 ```
 #### Before State
@@ -62,8 +71,11 @@ Operator creates a new Purchase Order from the PO grid. Flow spans grid → auth
 - Form fields populated. `[+ Add Line]` button now active (was disabled without vendor).
 #### Interactive Elements, ARIA, Edge Cases
 - Vendor: combobox with async search. Date: native date input or custom picker. Terms: simple select.
+- **Vendor tab** (one click away) shows: contact, payment terms, credit limit, open balance, last 3 POs from this vendor. Not a permanent panel on the PO list page.
+- Slide-over URL: `/purchase-orders?action=new`. Reload reproduces the open form (UX-11).
 - `aria-label="Purchase order authoring form"`. Escape closes with unsaved-changes warning.
-- Edge case: Invalid vendor → inline error "Vendor not found".
+- Only `Save Draft` and `Approve & Finalize` are rendered. `Receive`, `Draft Intake`, `Unfinalize`, `Cancel Order` would correspond to other states and are not present (UX-1).
+- Edge case: Invalid vendor → inline error "Vendor not found" under the field.
 
 ### Step 3: Add Line — Inline Line Editor
 #### Layout (ASCII)
@@ -188,3 +200,31 @@ Operator creates a new Purchase Order from the PO grid. Flow spans grid → auth
 - Dialog: `role="alertdialog"`, `aria-modal="true"`, focus trapped. Escape = Cancel.
 - Edge case: Vendor inactive → block finalize with message "Cannot finalize: vendor account is inactive".
 - Edge case: Insufficient credit → warning "Credit limit approached ($X remaining)" with option to proceed.
+
+---
+
+### UX Check
+
+| Question | Answer |
+|----------|--------|
+| Does the flow require mode-switching? | No. Authoring happens inside the slide-over without leaving the PO list view. The list stays interactive in the background. |
+| Is the operator ever shown irrelevant actions? | No. A draft PO only exposes `Save Draft` and `Approve & Finalize`. Receive, Unfinalize, Cancel are absent for this state. |
+| Is context preserved if the operator leaves mid-flow? | Yes. The slide-over URL encodes the open form (`?action=new`); reload restores it. Closing without save warns on dirty state and can save a draft. |
+| Mercury comparison | Mercury's "Send a transfer" opens a right-side panel from the transactions page with exactly the fields and the one applicable action (`Send`). The transactions table behind it stays visible. This flow mirrors that pattern. |
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Draft PO shows only `Save Draft` + `Approve & Finalize`; other actions are absent |
+| UX-2 Supporting info one click away | ✅ | Vendor history is a tab in the slide-over, not a permanent panel on the PO list |
+| UX-3 One primary surface per view | ✅ | PO list is the primary surface; authoring lives in a slide-over (secondary) |
+| UX-4 Bulk actions on selection only | ✅ | "+ New PO" is single-target; bulk actions on the PO list use WF-C-BULK on selection only |
+| UX-5 Validation at point of impact | ✅ | "Vendor not found" appears under the vendor field; credit warning appears at finalize confirm |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Authoring is in slide-over; finalize uses a confirmation modal (irreversible state change) |
+| UX-7 Mode is always visible | ✅ | Slide-over title "New Purchase Order" then "PO #1042 — Draft" makes the mode obvious throughout |
+| UX-8 State changes resolve in place | ✅ | Save Draft → green flash in slide-over, no navigation; Finalize → slide-over closes, grid row flashes |
+| UX-9 Filtering fluid; navigation durable | N/A | Authoring flow, not browsing |
+| UX-10 Cell saves immediate; forms explicit | ✅ | This is a multi-field form — explicit `Save Draft` and `Approve & Finalize` |
+| UX-11 URL is session memory | ✅ | `/purchase-orders?action=new` encodes the open slide-over; draft id encodes once saved |
+| UX-12 Empty states give next step | ✅ | "No lines yet — [+ Add line item]" empty state inside the Lines section |

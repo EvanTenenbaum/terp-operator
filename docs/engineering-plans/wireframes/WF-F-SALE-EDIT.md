@@ -158,3 +158,31 @@ Summary strip:  ▸ 4 sales │ 3 Confirmed │ $7,756 total  ← updates reacti
 - Tooltip: `role="tooltip"`, appears on hover/focus. Actions: `[Retry]` re-attempts save, `[✕ Discard]` reverts to original "Draft".
 - Edge case: Multiple cells fail → each shows independent error state. Bulk retry via "Retry all failed" banner.
 - Edge case: Conflict (another user changed same cell) → tooltip "Modified by another user. Refresh to see changes." with `[Refresh]` action.
+
+---
+
+### UX Check
+
+| Question | Answer |
+|----------|--------|
+| Does the flow require mode-switching? | No. Edit happens in the same cell on the same view; no separate edit page or modal. |
+| Is the operator ever shown irrelevant actions? | No. The dropdown shows only the status values currently reachable from the row's state (gated by the entity state machine). |
+| Is context preserved if the operator leaves mid-flow? | Yes. The cell shows its current saved value at all times; an in-flight save reverts to the prior value on error. The grid and filter state never change during the edit. |
+| Mercury comparison | Mercury edits transaction memos and categories inline in the table — no separate edit page. The cell IS the editor. This flow mirrors that pattern. |
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Dropdown options gated by entity state machine; only reachable values appear |
+| UX-2 Supporting info one click away | ✅ | Full server error message in the cell tooltip; row detail one click away in slide-over |
+| UX-3 One primary surface per view | ✅ | Grid stays primary; edit happens in the cell |
+| UX-4 Bulk actions on selection only | N/A | Single-cell edit flow |
+| UX-5 Validation at point of impact | ✅ | Save errors render in the cell that failed, with red border and inline retry/discard |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Inline editor, no modal |
+| UX-7 Mode is always visible | ✅ | Open / saving / saved / error all visible in the cell |
+| UX-8 State changes resolve in place | ✅ | Save, success, error all in the cell; summary strip updates reactively |
+| UX-9 Filtering fluid; navigation durable | N/A | Edit flow, not browsing |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Single-cell edit commits on Enter; no Save button |
+| UX-11 URL is session memory | ✅ | Grid filter/sort/selection state preserved; edit does not change URL |
+| UX-12 Empty states give next step | ✅ | "No results" with allowCreate offers the next step ("Create new status") if configured |

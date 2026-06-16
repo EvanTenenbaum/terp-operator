@@ -177,3 +177,31 @@ Operator navigates from grid to full PO detail. Progressive disclosure: peek sli
 - Full-width tabs: same tab component as slideover, but 6 tabs visible. Scrollable if >6 tabs.
 - Data grids within tabs: standard AG Grid with sorting/filtering.
 - Edge case: Long page → sticky tab bar and action footer.
+
+---
+
+### UX Check
+
+| Question | Answer |
+|----------|--------|
+| Does the flow require mode-switching? | No. Peek → standard → full are progressive disclosures of the same entity; the grid context is preserved at peek and standard. |
+| Is the operator ever shown irrelevant actions? | No. Slide-over and full-page actions come from the entity state machine; only state-valid actions appear. |
+| Is context preserved if the operator leaves mid-flow? | Yes. URL encodes target entity + active tab; reload restores the exact view. Browser back closes slide-over before navigating away. |
+| Mercury comparison | Mercury's transaction detail follows the same pattern: row click → side panel preview → "Open full" expands to a dedicated route. URL preserves the panel state. This flow mirrors that progression. |
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Draft PO shows Edit + Finalize; Confirmed PO shows Receive + Cancel; non-applicable actions absent |
+| UX-2 Supporting info one click away | ✅ | Vendor, line items, log are tabs inside the slide-over — one click each |
+| UX-3 One primary surface per view | ✅ | Grid is primary; slide-over is secondary disclosure; full view is dedicated route |
+| UX-4 Bulk actions on selection only | N/A | Single-entity navigation flow |
+| UX-5 Validation at point of impact | ✅ | Errors in slide-over content render inline (e.g., "Could not load vendor details") |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Detail lives in slide-over; full view is a route, not a modal |
+| UX-7 Mode is always visible | ✅ | Header shows entity id + state badge at every width; breadcrumb makes "where am I" obvious on full view |
+| UX-8 State changes resolve in place | ✅ | Tab switching is in-place; slide-over close returns to grid with row preserved |
+| UX-9 Filtering fluid; navigation durable | ✅ | Slide-over is durable URL state (`/purchase-orders/1042?tab=vendor`); back closes panel before leaving |
+| UX-10 Cell saves immediate; forms explicit | N/A | Navigation flow; edits handled by WF-F-SALE-EDIT |
+| UX-11 URL is session memory | ✅ | Target entity id + active tab + grid filter state all encode to URL |
+| UX-12 Empty states give next step | ✅ | Empty tab content (e.g., "No receipts yet") shows clear next-action CTA |

@@ -1,7 +1,15 @@
 ## Wireframe: WF-C-GRIDVIEW — GridView Template
 
 The primary view template for all list-type entity views (Sales Orders, Purchase Orders, Inventory, etc.).
-Composes: Header, FilterToolbar, GridSummaryStrip, ViewTabBar, OperatorGrid, BulkActionBar, DetailSlideover.
+Composes: Header, FilterToolbar, GridSummaryStrip, OperatorGrid, BulkActionBar, DetailSlideover.
+
+> **UX-first principles for this template (UX-3, UX-4, UX-2, UX-11):**
+> - **One primary surface:** the OperatorGrid is the view. Nothing else is permanent enough to compete.
+> - **Status is a filter, not a tab.** The legacy `ViewTabBar` is removed from this template; status lives in the FilterToolbar Status pill (WF-C-FILTER). See WF-C-TABBAR for its new content-tab role.
+> - **GridSummaryStrip is collapsed by default** to a single inline KPI line (WF-C-SUMMARY). Operator clicks "Show breakdown ▾" only when they need it.
+> - **Actions are state-gated.** The "+ New" button is always shown; per-row actions render only when they apply to the row's current state.
+> - **BulkActionBar appears on selection only** (UX-4). Dark translucent overlay.
+> - **DetailSlideover encodes target+tab into the URL** (UX-11). Browser back closes it before navigating away.
 
 ---
 
@@ -12,20 +20,13 @@ Composes: Header, FilterToolbar, GridSummaryStrip, ViewTabBar, OperatorGrid, Bul
 │  "Sales Orders"                                     [+ New Order ▾] [⚙ Settings] │
 │  Inter 20px semibold                                right-aligned actions        │
 ├─ FilterToolbar ──────────────────────────────────────────────────────────────────┤
-│  [▾ Data views] │ [▾ Date ▾] [▾ Keyword ▾] [▾ Amount ▾] [▾ Group ▾]              │
-│                 │ [▾ Sort ▾] [⬇ Export]                                         │
-│  [✕ status:confirmed] [✕ date:last-30-days]                                      │
-├─ GridSummaryStrip ───────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │ Total Orders│  │ Total Value │  │  Pending    │  │  Shipped    │              │
-│  │      42     │  │  $128,400   │  │  5  ▲12%   │  │  3  ▼4%    │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘              │
-├─ ViewTabBar ─────────────────────────────────────────────────────────────────────┤
-│  [All (42)]  [Draft (5)]  ┌──────────────────┐  [Posted (18)]  [Fulfilled (7)]    │
-│                            │ Confirmed (12)   │                                    │
-│                            └──────────────────┘  ← active tab                      │
-│                              ████████████████                                     │
-├─ OperatorGrid (AG Grid) ──────────────────────────────────────────────────────────┤
+│  [▾ Data views] │ [▾ Date ▾] [▾ Keyword ▾] [▾ Amount ▾] [▾ Status (2)]           │
+│                 │ [⬇ Export]                                                     │
+│  [✕ status: Draft, Confirmed]  [✕ date: last-30-days]                            │
+├─ GridSummaryStrip (collapsed by default) ────────────────────────────────────────┤
+│  42 orders · $128,400 total · 5 pending · 3 shipped         [Show breakdown ▾]   │
+├─ OperatorGrid (AG Grid) ─────────────────────────────────────────────────────────┤
+│  (Status now lives in FilterToolbar Status pill — no ViewTabBar above the grid)  │
 │  ┌──────┬────────────────┬────────────┬───────────┬──────────┬─────────┐          │
 │  │  ☐   │  ID            │ Customer   │ Status    │ Date     │ Amount  │ •••      │
 │  ├──────┼────────────────┼────────────┼───────────┼──────────┼─────────┤          │
@@ -61,12 +62,13 @@ Composes: Header, FilterToolbar, GridSummaryStrip, ViewTabBar, OperatorGrid, Bul
 - **Height:** 44px (default) to 84px (with pill row). `bg-white`, `border-bottom: 1px solid border-zinc-200`
 
 #### 3. GridSummaryStrip
-- **Component:** `GridSummaryStrip` with entity-specific metrics. See `WF-C-SUMMARY.md`
-- **Height:** 80px (64px cards + 8px padding top/bottom). `bg-zinc-50`
+- **Component:** `GridSummaryStrip`. See `WF-C-SUMMARY.md`
+- **Height:** 36px collapsed (inline KPI text), 116px expanded after "Show breakdown ▾"
+- **Status filtering does NOT live here.** Status is part of the FilterToolbar Status pill (multi-select, UX-9). No ViewTabBar above the grid.
 
-#### 4. ViewTabBar
-- **Component:** `ViewTabBar` with entity state machine tabs. See `WF-C-TABBAR.md`
-- **Height:** 40px. `bg-white`, `border-bottom: 1px solid border-zinc-200`
+#### 4. ~~ViewTabBar~~ → Removed from this template
+- Status-by-status filtering is in the FilterToolbar Status pill (WF-C-FILTER).
+- The legacy `ViewTabBar` component is repurposed as the content-kind `ContentTabBar` for slide-overs, profiles, and dashboards (WF-C-TABBAR). It does not appear in the GridView template.
 
 #### 5. OperatorGrid (AG Grid)
 - **Component:** AG Grid Community Edition with entity column definitions
@@ -96,15 +98,19 @@ GridView = (
   <div className="flex flex-col h-screen">
     <ViewHeader        entity={entity} config={viewConfig.header} />
     <FilterToolbar     entity={entity} config={viewConfig.filters} />
-    <GridSummaryStrip  entity={entity} metrics={viewConfig.metrics} />
-    <ViewTabBar        entity={entity} tabs={entityStateMachine.tabs} />
+                       {/* Status pill is part of FilterToolbar, NOT a separate TabBar */}
+    <GridSummaryStrip  entity={entity} metrics={viewConfig.metrics}
+                       defaultCollapsed />
     <OperatorGrid      entity={entity} columns={entitySchema.columns}
                        rowData={data} onRowClick={openSlideover} />
     {selectedCount > 0 && <BulkActionBar entity={entity} />}
-    {selectedRow && <DetailSlideover entity={entity} row={selectedRow} />}
+    {urlState.slideoverTarget && <DetailSlideover entity={entity} />}
   </div>
 )
 ```
+
+URL state is the source of truth for selection, filters, and the open slide-over —
+not local React state. Reload reproduces the exact view (UX-11).
 
 ### Data Flow
 
@@ -136,6 +142,25 @@ View Config (view-registry.ts)
 - Below 1024px: FilterToolbar chips wrap to 2 rows, Export moves to "More" dropdown
 - Below 768px: SummaryStrip wraps to 2 columns. Grid columns auto-hide low-priority columns (configurable per entity schema `mobilePriority` field)
 - Below 480px: Slideover takes full width (100vw). BulkActionBar actions collapse to "More" menu
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Per-row "⋮" menu shows only actions valid for the row state; absent (not disabled) actions for other states |
+| UX-2 Supporting info one click away | ✅ | Slide-over carries history, vendor, customer detail; no permanent VendorContextPanel / PurchaseHistoryPanel |
+| UX-3 One primary surface per view | ✅ | OperatorGrid is the surface; everything else is a thin band or transient overlay |
+| UX-4 Bulk actions on selection only | ✅ | BulkActionBar renders only when `selectedCount > 0` |
+| UX-5 Validation at point of impact | ✅ | Inline cell editor errors per WF-C-COMBOBOX; no permanent validation strip |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Inventory Finder, Saved Views run in slide-overs; modals only for irreversible confirms |
+| UX-7 Mode is always visible | ✅ | Active filters (chip pills) and selection count are continuously visible |
+| UX-8 State changes resolve in place | ✅ | Cell edits, bulk actions, slide-over saves all resolve without leaving the grid view |
+| UX-9 Filtering fluid; navigation durable | ✅ | Status is a filter inside FilterToolbar; no TabBar masquerading as filter |
+| UX-10 Cell saves immediate; forms explicit | ✅ | OperatorGrid cells inline-save; slide-over forms have explicit Save/Cancel |
+| UX-11 URL is session memory | ✅ | Filters, sort, selection, open slide-over target+tab, breakdown state all encode to URL |
+| UX-12 Empty states give next step | ✅ | Zero results show "No [entities] match. [Clear filters]" with primary action |
 
 ---
 *Font: Inter 20px headers, Inter 13px body. Colors: semantic classes only. All sections: border-bottom separation.*

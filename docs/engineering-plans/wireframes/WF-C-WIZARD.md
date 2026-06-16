@@ -3,6 +3,21 @@
 A multi-step form template for guided workflows (Intake, Pick, Pack, etc.). Mercury-style
 step indicator with numbered circles, progress-connected lines, and Previous/Next navigation.
 
+> **UX-first principles for this template:**
+> - **One primary surface per step.** The step content fills the wizard area; no
+>   reference panels or peripheral content compete (UX-3).
+> - **Actions are state-gated.** "Next →" is enabled only when the current step
+>   validates; "Confirm" replaces "Next →" on the final step. Disabled buttons
+>   are visible (operator needs to understand why) but never confusing (UX-1).
+> - **Validation at point of impact** (UX-5). Field errors render under the field;
+>   step-level errors render as a banner at the top of the content area, not in a
+>   permanent side panel.
+> - **State and active step encode into the URL** (UX-11). Reload reproduces the
+>   wizard at the same step. Browser back navigates to the previous step before
+>   leaving the wizard.
+> - **Cancel preserves an exit path.** Dirty state prompts; clean cancel returns
+>   the operator to where they were.
+
 ---
 
 ### Full Page Layout
@@ -279,6 +294,25 @@ const intakeWizardSteps = [
 - **Dirty state tracking:** Wizard tracks whether any field has been modified. Cancel/back shows confirmation only if dirty
 - **Very many steps (8+):** Step indicator switches to compact mode: numbered dots without labels, labels in tooltip on hover
 - **Network error during save:** Transitions to an error step showing "Failed to save. [Retry]" with option to go back and edit
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Next → / Confirm swap on the last step; Previous hidden on step 1; Save Draft only when supported |
+| UX-2 Supporting info one click away | ✅ | Reference content (vendor history, line preview) inside the step or in tooltip/popover, not permanent rails |
+| UX-3 One primary surface per view | ✅ | Step content fills the wizard area; step indicator is a thin band, navigation is a thin footer |
+| UX-4 Bulk actions on selection only | N/A | Wizard is a single-target authoring flow |
+| UX-5 Validation at point of impact | ✅ | Field errors under fields; step-level error banner at top of content; no permanent validation panel |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Cancel and Confirm are inline buttons; only dirty-cancel triggers an alert dialog |
+| UX-7 Mode is always visible | ✅ | Step indicator always visible at top; wizard title plus "Step X of N — [label]" continuously legible |
+| UX-8 State changes resolve in place | ✅ | Step transitions are in-content crossfades; Confirm shows inline Saving then Done state, no full navigation |
+| UX-9 Filtering fluid; navigation durable | N/A | Wizard is authoring, not browsing |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Wizard is the canonical "explicit save" form: Confirm only on the last step; Save Draft optional inline |
+| UX-11 URL is session memory | ✅ | Active step encodes as `?step=lines`; reload restores step and last-saved draft if supported |
+| UX-12 Empty states give next step | ✅ | Empty step content (zero line items) shows "+ Add line item…" inline; review shows "Looks good — confirm to save" |
 
 ---
 *Font: Inter 20px wizard title, Inter 14px step content, Inter 11px step labels. Transitions: 200ms ease-out fades. Step circles: 32px.*

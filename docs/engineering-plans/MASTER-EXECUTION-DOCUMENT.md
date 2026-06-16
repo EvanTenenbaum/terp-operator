@@ -1,7 +1,7 @@
 # TERP Operator — Mercury UX Retrofit: Master Execution Document
 
-**Version:** 1.0 — Everything needed to build. Self-contained.
-**Date:** 2026-06-15
+**Version:** 1.1 — Phase -1 wireframes + design rules integrated
+**Date:** 2026-06-16
 **Scope:** 91 tasks, 20 weeks sequential / 17 days parallel AI dispatch
 **Source:** Synthesized from 19 planning documents + 6 deep-reconnaissance audits + 3-model adversarial review
 
@@ -259,6 +259,150 @@ QA agent (compares built result to wireframe)
 | Apply AI feedback | 1 day |
 | Final human approval | 1 day |
 | **Total Phase -1** | **~5-7 days** |
+
+### 17.9 TERP Operator UX Design Rules (v2.0, UX-First)
+
+**Canonical source:** [wireframes/DESIGN-RULES.md](./wireframes/DESIGN-RULES.md) (this section mirrors it).
+**Authority:** [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md) (cross-model: Claude Opus 4.7 xhigh + OpenAI GPT-4o adversarial audit).
+**Posture shift from v1.1:** v1.1 was token-first (chrome opacity, pill radii, typographic weights). v2.0 is UX-first (what's shown, when, how many clicks away). Visual tokens are now subordinate implementation detail; see §17.11.
+
+**Core principle:** The operator's attention is sacred. After six hours of order processing, attention — not screen real estate, clicks, or keystrokes — is the scarcest resource. Every always-visible panel that the operator didn't ask for spends attention. Every irrelevant action button forces triage. Every state lost to a context switch teaches the operator to mistrust the system. Both source models converged on this diagnosis from different angles (Claude per-step walkthrough vs. GPT-4o worst-moment audit).
+
+**The rule of thumb:** *Would Mercury show this here?* If Mercury — a bank handling money for millions — doesn't put eight equal-weight panels in front of the user, TERP shouldn't either.
+
+| # | Rule | Statement | Trace to Integrated Analysis |
+|---|------|-----------|------------------------------|
+| **UX-1** | One Primary Surface Per View | Every view has exactly one job. Eye lands on the primary surface in under 1 second. If you describe the view on a phone call, the listener knows what to click first. | Friction Point #1 (Claude 2/10, GPT-4o 2/10); cross-model UX-3 |
+| **UX-2** | Actions Are State-Gated | Only show actions that apply to the entity's current state. Inapplicable buttons are **absent**, not disabled. Disabled buttons still consume attention. | Friction Point #4; cross-model UX-1 ("irrelevant action buttons like Receive and Unfinalize") |
+| **UX-3** | Context On Demand, Not By Default | Supporting information lives one click away (tab, slide-over, popover). Permanent reference panels are a design bug — exception: live monitoring of a value the operator must watch continuously during the current task. | Friction Point #7; cross-model UX-2 |
+| **UX-4** | Progressive Disclosure Is the Default | Bulk action bars, detail panels, filter popovers, slide-overs appear only when needed. Default state of every view is the minimum. Interaction reveals the rest. | Cross-model finding: "lack of progressive disclosure severely impacts task efficiency" |
+| **UX-5** | The Attention Budget | Three tiers: **0 clicks** (working on now), **1 click** (might need next), **2+ clicks** (rarely need). Anything always-visible in Tier 1 or 2 is a bug. | "Operator Attention Budget" — the integrated analysis's single most actionable principle |
+| **UX-6** | State Must Survive Context Switches | Leaving mid-task preserves draft state. Return restores exact view (row, filters, tab, slide-over, draft text). URL encodes full state. Refresh, back button, URL-share all reproduce the view. | Friction Point #2 — **GPT-4o 1/10**, lowest score either model gave; cross-model UX-11 |
+| **UX-7** | Feedback Is Immediate and Actionable | Operators never wonder "did it work?" Inline confirmation at the point of action. Cell edit → green checkmark on cell. Failure → red border + fix link in place. No modals for routine actions. | Cross-model UX-8: "lack of feedback on task completion leaves the operator uncertain" |
+| **UX-8** | The Table IS the View | In data views, table occupies 70–80% of visual weight. Chrome recedes. Mercury benchmark: 968px table in 1440px viewport. | Implementation Implications: "Every View Must Pass the 'What Do I See First?' Test" |
+| **UX-9** | Errors Are Safety Nets, Not Interrogations | Failures are foregrounded with command context, recent activity, and one obvious action (Retry / Reverse / Mark Resolved). Inline retry available without opening a detail panel. | Friction Point #5 (Claude 5/10, GPT-4o 2/10 — "debilitating"); Implementation: "Recovery Must Show Command Context" |
+| **UX-10** | Dashboard Is a Launchpad, Not a Control Tower | Three zones: (1) what needs attention, (2) what you were working on, (3) broader state. Eye lands on KPI strip. Position known in 2 seconds. Not eight stacked panels. | Friction Point #3 (Claude 4/10, GPT-4o 3/10); Implementation: "Dashboard Must Go from 8 Panels to Focused Overview" |
+| **UX-11** | Collapsible Sections Over Competing Panels | Multi-section views show one primary surface at full width. Supplementary sections are collapsible toggles or tabs in a slide-over. One section expanded at a time. | Implementation Implications: "SalesView Must Go from 8 Panels to 1 Primary + Collapsible Sections + Slide-Over" |
+| **UX-12** | Inline Editing Is Immediate | Cell-level edits save on Enter/blur. No save button on single cells. Success: green checkmark, ~600ms. Failure: red border + inline retry. Multi-field forms have explicit Save because they are atomic. | Cross-model UX-10: "cell-level interactions save immediately; multi-field forms have explicit save" |
+
+### 17.10 Integration Map: UX Rule → TERP Pattern → Mercury Equivalent → Wireframe
+
+This section is a **faithful subset** of the canonical integration map. The full sortable map with reverse lookup (wireframe → migrations covered) lives at **[wireframes/INTEGRATION-MAP.md](./wireframes/INTEGRATION-MAP.md)**. The annotated authority-side version with access-cost discipline notes lives at **[wireframes/DESIGN-RULES.md § Integration Map](./wireframes/DESIGN-RULES.md#integration-map-ux-rule--terp-pattern--mercury-equivalent--wireframe)**.
+
+This section reflects all 38 TERP→Mercury migrations from [terp-feature-to-mercury-mapping.md](./terp-feature-to-mercury-mapping.md) (§1.1, §1.2, §1.3, §3.1), sorted by **primary v2.0 UX rule** (UX-1 → UX-12 as defined in [wireframes/DESIGN-RULES.md](./wireframes/DESIGN-RULES.md)).
+
+> **UX rule numbering note:** this map uses **v2.0 numbering** (e.g., UX-1 = "One Primary Surface Per View", UX-2 = "Actions Are State-Gated", UX-12 = "Inline Editing Is Immediate"). The source document `terp-feature-to-mercury-mapping.md` uses an older numbering; cross-reference both carefully. The v2.0 ↔ source-doc translation table lives in [INTEGRATION-MAP.md § Cross-numbering sanity check](./wireframes/INTEGRATION-MAP.md#cross-numbering-sanity-check).
+
+**UX-1 — One Primary Surface Per View**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 2 | UX-1, UX-11 | WorkspacePanels (stacked, all visible) | Single primary + collapsible sections + tabs | View templates + `DetailSlideover` | WF-V-SALES, WF-V-INTAKE, WF-V-DASH, WF-C-SLIDEOVER |
+| 25 | UX-1, UX-8 | Sidebar nav groups (5 groups) | Simplified sidebar + bookmarks | Sidebar component | All views |
+| 38 | UX-1, UX-7 | CommandPalette (Cmd+K) | Keep + enhance with entity search | Existing CommandPalette | All views |
+
+**UX-2 — Actions Are State-Gated, Not Permanently Visible**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 28 | UX-2, UX-4 | StatusActionBar (inline, per-view) | Sticky bottom bar on selection | `BulkActionBar` | WF-C-BULK, WF-F-BULK-ACTION |
+| 29 | UX-2 | StatusActionTable (per-view decision logic) | Same logic, rendered in BulkActionBar | `BulkActionBar` + decision tables | WF-C-BULK, WF-F-BULK-ACTION |
+| 31 | UX-2 | Per-row action buttons (Confirm/Reserve/Cancel/etc.) | Keep — per-row, state-filtered | Row expansion / action slot | WF-C-GRIDVIEW, WF-V-PO, WF-V-SALES, WF-V-ORDERS |
+| 32 | UX-2 | Expansion actions (`Receive`, `Unfinalize`, etc., always visible) | Filtered by entity state machine | Entity state machines + `entity-actions.ts` | WF-C-GRIDVIEW, WF-V-PO, WF-F-PO-CREATE, WF-F-PO-RECEIVE |
+
+**UX-3 — Context On Demand, Not By Default**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 1 | UX-3, UX-4, UX-6 | ContextDrawer (5 states, always present) | Right-side slide-over (420px / 60%) | `DetailSlideover` | WF-C-SLIDEOVER, WF-F-DETAIL-NAVIGATE |
+| 3 | UX-3, UX-5 | VendorContextPanel (always-visible side panel) | Tab in PO slide-over | `DetailSlideover` Vendor tab | WF-V-PO, WF-C-SLIDEOVER |
+| 4 | UX-3, UX-5 | CustomerPurchaseHistoryPanel (always visible) | Tab in customer slide-over | `DetailSlideover` History tab | WF-V-SALES, WF-C-SLIDEOVER, WF-F-SALE-CREATE |
+| 5 | UX-3, UX-5 | PhotographyQueuePanel (always visible) | Tab in customer slide-over | `DetailSlideover` Photos tab | WF-V-SALES, WF-C-SLIDEOVER, WF-F-SALE-CREATE |
+| 6 | UX-3, UX-4 | SalesSourcePane (Inventory Finder permanent pane) | Slide-over from "Add line" | `DetailSlideover` (finder) | WF-V-SALES, WF-C-SLIDEOVER, WF-F-SALE-CREATE |
+| 7 | UX-3, UX-4 | ReceiptPanel (inline, always when applicable) | Tab in PO slide-over | `DetailSlideover` Receipt tab | WF-V-PO, WF-C-SLIDEOVER, WF-F-PO-RECEIVE |
+| 8 | UX-3, UX-4 | ReceiptPreviewOverlay / ReceiptPreviewDrawer | Slide-over from "Preview receipt" | `DetailSlideover` | WF-C-SLIDEOVER, WF-V-PO, WF-F-PO-RECEIVE |
+| 9 | UX-3, UX-11 | Inspector tabs (bottom of grid) | Tabs inside `DetailSlideover` | `DetailSlideover` tabs | WF-V-ORDERS, WF-C-SLIDEOVER |
+| 17 | UX-3 | RowCommandHistoryDrawer | Tab in entity slide-over | `DetailSlideover` History tab | WF-C-SLIDEOVER |
+| 18 | UX-3 | IssueSidecar | Section in entity slide-over | `DetailSlideover` Issues section | WF-C-SLIDEOVER |
+| 19 | UX-3 | RelationshipDrawer | Tab in PO/sales slide-over | `DetailSlideover` Relationships tab | WF-C-SLIDEOVER, WF-V-PO, WF-V-SALES |
+
+**UX-4 — Progressive Disclosure Is the Default**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 10 | UX-4 | Row expansion panels (inline detail) | Keep — Mercury's "Show details" | AG Grid row expansion | WF-C-GRIDVIEW (All GridViews) |
+| 11 | UX-4, UX-7 | RecordPrepaymentDialog (blocking modal) | Slide-over from "Record Prepayment" | `DetailSlideover` | WF-V-PO, WF-C-SLIDEOVER |
+| 12 | UX-4, UX-7 | RefereeDialog (blocking modal) | Slide-over for edit | `DetailSlideover` | WF-V-REFEREES, WF-C-SLIDEOVER |
+| 13 | UX-4, UX-7 | RefereeRelationshipDialog (blocking modal) | Slide-over for add | `DetailSlideover` | WF-V-REFEREES, WF-C-SLIDEOVER |
+| 14 | UX-4 | RefereeDetailPanel | Slide-over for view | `DetailSlideover` | WF-V-REFEREES, WF-C-SLIDEOVER |
+| 15 | UX-4 | MediaBatchDrawer | Slide-over for batch detail | `DetailSlideover` | WF-V-MEDIA, WF-C-SLIDEOVER |
+| 16 | UX-4 | ProcessorDetailPanel | Slide-over for processor detail | `DetailSlideover` | WF-V-PROCESSORS, WF-C-SLIDEOVER |
+| 20 | UX-4 | FilterPresetStrip (horizontal status pills) | Pill toggles with count badges | `ViewTabBar` | WF-C-TABBAR, WF-C-FILTER |
+| 21 | UX-4, UX-8 | AdvancedFilterBuilder (always-open side panel) | Behind "Advanced" button | `FilterToolbar` + `DetailSlideover` | WF-C-FILTER, WF-F-FILTER-ADVANCED, WF-C-SLIDEOVER |
+| 22 | UX-4 | SavedFiltersDropdown | "Data views" dropdown | `FilterToolbar` | WF-C-FILTER |
+| 23 | UX-4 | Grid quick filter text box | Keyword search in FilterToolbar | `FilterToolbar` | WF-C-FILTER |
+| 24 | UX-4, UX-9 | Inline filter chips (RecoveryView families) | Chips in FilterToolbar | `FilterToolbar` chips | WF-V-RECOVERY, WF-C-FILTER, WF-F-ERROR-RECOVER |
+| 30 | UX-4 | IntakeView selection totals strip | Promoted into BulkActionBar | `BulkActionBar` | WF-V-INTAKE, WF-C-BULK, WF-F-INTAKE-VERIFY |
+
+**UX-6 — State Must Survive Context Switches**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 26 | UX-6, UX-3 | Grid → detail via drawer (ad-hoc state) | Grid → slide-over with URL-encoded state | `DetailSlideover` + URL state | WF-F-DETAIL-NAVIGATE, WF-C-SLIDEOVER |
+| 27 | UX-6 | Deep links between views | Keep — Mercury supports filtered URLs | URL state encoder | All views |
+
+**UX-7 — Feedback Is Immediate and Actionable**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 35 | UX-7 | BatchRowActions (IntakeView inline) | Keep — already Mercury-like (immediate feedback) | Existing inline actions | WF-V-INTAKE, WF-F-INTAKE-VERIFY |
+
+**UX-8 — The Table IS the View**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 36 | UX-8, UX-10 | StatusActionBar / scattered KPI tiles | Single KPI line above table | `GridSummaryStrip` | WF-C-SUMMARY, WF-V-DASH, WF-C-GRIDVIEW |
+
+**UX-10 — Dashboard Is a Launchpad, Not a Control Tower**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 37 | UX-10, UX-1 | DashboardView 8 stacked WorkspacePanels | 3-section launchpad | `DashboardView` template | WF-V-DASH, WF-C-DASHBOARD, WF-F-DASHBOARD |
+
+**UX-12 — Inline Editing Is Immediate**
+
+| # | UX Rule(s) | TERP Pattern (Current) | Mercury Equivalent | Target Component | Wireframe |
+|---|------------|------------------------|--------------------|--------------------|-----------|
+| 33 | UX-12 | Grid cell editing (text, numeric) | Same — already immediate | AG Grid default editors | WF-C-GRIDVIEW (All GridViews) |
+| 34 | UX-12, UX-7 | Status/category/method cell editing | Inline combobox with immediate save | `ComboboxCellEditor` | WF-C-COMBOBOX, WF-F-SALE-EDIT |
+
+**Rules with no direct primary rows above:** UX-5 (the attention-budget meta-rule, appears as secondary on rows 3, 4, 5), UX-9 (errors as safety nets, implemented at view-level in RecoveryView; secondary on row 24), and UX-11 (collapsible sections, implementation detail of UX-1; secondary on rows 2 and 9) do not have their own primary groups because they are governed by the v2.0 rules above. See [INTEGRATION-MAP.md § Why some v2.0 rules have no primary rows](./wireframes/INTEGRATION-MAP.md#why-some-v20-rules-have-no-primary-rows-in-this-38-row-table).
+
+### 17.11 Visual Tokens & Wireframe Review Artifact
+
+**Visual tokens are subordinate to UX rules.** A component can satisfy every visual token below and still violate UX-1 through UX-12; the tokens cannot rescue a design that puts eight panels on screen. When tokens and UX rules conflict, the UX rules win.
+
+**Token summary** (full version in [wireframes/DESIGN-RULES.md § Visual Token Reference](./wireframes/DESIGN-RULES.md#visual-token-reference-subordinate-implementation-detail)):
+
+- **Font stack:** Inter, system-ui (TERP identity, not Mercury's brand font)
+- **Weight range:** 400–600 (TERP allows 500–600 for dense-data scannability)
+- **Table headers:** 13px, regular case, muted — never bold, never uppercase
+- **Table cells:** 15–16px regular
+- **Borders:** 0.08–0.12 opacity (cards shadow-only; pills 0.16 opacity)
+- **Error color:** `#d92d20` (AA-grade adjustment from Mercury's `rgb(176,23,95)`)
+- **Slide-over widths:** 420px standard, 60% wide
+- **Table visual weight:** 70–80% of data view area
+- **Card style:** shadow-only, no border
+- **Semantic classes only:** never `style={{ color: '#...' }}` — use semantic classes from §9–10
+
+**Review page:** `docs/engineering-plans/wireframes/review.html` — 10 high-res wireframes with full traceability annotations. Each wireframe shows:
+- Which UX rule(s) it implements (linked to §17.9)
+- Which TERP feature(s) it covers (linked to terp-feature-to-mercury-mapping.md)
+- Which Mercury pattern it adopts (linked to §14)
+- Which source wireframe .md file(s) it derives from
+- `data-wf-id` annotations for Agentation review
+
+**Source wireframes:** 47 .md files in `docs/engineering-plans/wireframes/` (27 views + 10 component states + 10 interaction flows). Created per §17.4 inventory. The review.html supplements these — it does not replace them.
 
 
 ## 18. Backend & Database Audit — Gap Analysis
@@ -1445,6 +1589,79 @@ Any phase: toggle flag OFF for problematic view. Instant. No git revert. No depl
 
 ## 14. Research Evidence Summary (Mercury Patterns)
 
+**Source:** Live DOM extraction from demo.mercury.com (dashboard + transactions pages), 2026-06-16
+**Method:** Playwright browser inspection + computed style extraction
+**Updated:** Post-QA with design rule integration
+
+### Design Tokens (from live Mercury demo app)
+
+```css
+/* Typography */
+--font-body: "Arcadia Text", system-ui, sans-serif;
+--font-display: "Arcadia Display", system-ui, sans-serif;
+--text-primary: rgb(30, 30, 42);
+--text-secondary: rgb(54, 54, 68);
+--text-muted: rgb(112, 112, 125);
+--text-subtle: rgb(83, 84, 97);
+--text-on-dark: rgb(221, 221, 229);
+
+--fs-body: 15px; --fs-small: 13px; --fs-heading: 17px; --fs-display: 28px;
+--fw-light: 360; --fw-regular: 400; --fw-medium: 480;
+--lh-body: 20px; --lh-nav: 24px; --lh-heading: 28px; --lh-display: 36px;
+
+/* Surfaces */
+--card-bg: rgb(255, 255, 255);
+--card-radius: 12px;
+--card-padding: 24px;
+--card-shadow: 0 0 2px rgba(175, 178, 206, 0.56), 0 1px 4px rgba(4, 4, 52, 0.1);
+/* NOTE: Cards have NO borders — shadow-only separation */
+
+/* Pills */
+--pill-bg: rgb(251, 252, 253);
+--pill-border: 1px solid rgba(112, 115, 147, 0.16);
+--pill-radius: 8px;
+
+/* Interactive */
+--accent-blue: rgb(70, 91, 209);
+--accent-green: rgb(3, 110, 67);
+--accent-red: rgb(176, 23, 95);
+
+/* Layout */
+--page-max: 1440px;
+--sidebar-w: 200px;
+--table-w: 968px;
+--row-height: 49px;
+
+/* Transitions */
+--ease-out: cubic-bezier(0.2, 0.8, 0.4, 1);
+```
+
+### Information Architecture (from live DOM observation)
+
+**Transactions page — 3 visible elements in main area:**
+1. Filter pills row: `[Data views ▾] [Date ▾] [Keyword ▾] [Amount ▾]`
+2. Single KPI line (clickable to expand): "Net change this month $3,364,973.38 | Money in $4,068,048.07 | Money out −$703,074.69"
+3. THE TABLE — 8 columns, 49px rows, inline comboboxes on Category and GL Code
+
+**Dashboard — 4 elements:**
+1. "Welcome, Jane" greeting
+2. Quick actions: [Send] [Transfer] [Deposit] [Request] [Upload bill]
+3. ONE balance card: "$5,216,471.18" with graph/table toggle
+4. Recent activity table with tab pills: [Recent] [My transactions] [Monthly money in] [Monthly money out] [Operating expenses]
+
+**Key observations:**
+- NO tab bars above tables — status filtering handled by filter pills
+- NO summary strips — a single KPI line above the table
+- NO view headers — page identity from sidebar nav
+- NO bulk bars visible by default — appear only on row selection
+- NO detail panels visible by default — slide in from right on row click
+- NO card borders — shadow-only depth
+- Pill borders at 0.16 opacity — barely visible
+- Table headers: 13px, regular case, NOT uppercase, NOT bold
+- Font weights never exceed 480 — no bold anywhere in the app
+- Massive whitespace: 968px table in 1440px viewport (238px side margins)
+- Sidebar bookmarks show contextual information (account balances) rather than cramming it into the main view
+
 ### Combobox (from demo.mercury.com/transactions)
 - Custom component: `role="combobox"`, `aria-autocomplete="list"`
 - Immediate save on Enter — no "Save" button
@@ -1453,7 +1670,7 @@ Any phase: toggle flag OFF for problematic view. Instant. No git revert. No depl
 - Typeahead: `readonly="false"` on input
 
 ### Detail Panel
-- Right-side slide-over, 424px, z-index: 2
+- Right-side slide-over, ~424px, z-index: 2
 - URL updates on open (e.g., `/transactions/lineOfCreditTransaction-3`)
 - "Close detail panel" button with X icon
 - Content: amount, account, date, category picker, GL code, notes, attachments
@@ -1463,9 +1680,6 @@ Any phase: toggle flag OFF for problematic view. Instant. No git revert. No depl
 - Chips open inline popovers
 - Active filters shown as dismissible pills
 - "Show graphs" toggles inline expansion above table
-
-### KPI Summary
-- Above every table: "Net change this month: $3,363,738.82 | Money in: $4,068,048.07 | Money out: −$704,309.25"
 
 ### Bulk Actions
 - Checkboxes on rows

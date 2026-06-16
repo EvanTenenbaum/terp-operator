@@ -1,5 +1,7 @@
 # Mercury → TERP Design Analysis & Ground-Up Improvement Plan
 
+> **Authority note (2026-06-16):** [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md) is now the **authoritative UX analysis** for the Mercury retrofit. This document covers **visual design tokens, component architecture, and source-of-truth reconciliation**. For UX behavior — what's shown, when, how many clicks away, attention budget, friction-point ranking — defer to the integrated analysis. Where the two documents discuss the same topic (e.g., design rules), the integrated analysis wins on UX intent; this document remains authoritative on visual tokens and component API shape.
+
 **Date:** 2026-06-16
 **Version:** 1.0 — derived from first principles
 **Inputs:** `MASTER-EXECUTION-DOCUMENT.md` §14 (lines 1490–1593), `research-packets/mercury-combobox-behavior.md`, `terp-feature-to-mercury-mapping.md` (579 lines), `wireframes/DESIGN-RULES.md` (97 lines), `wireframes/review.html` (1300 lines), 47 `wireframes/WF-*.md` files, `src/shared/schemas.ts`, `src/client/views/SalesView.tsx` (1986 lines), `src/server/routers/queries.ts` (3174 lines).
@@ -402,6 +404,8 @@ Implementation: add a `## Authority Hierarchy` section to `MASTER-EXECUTION-DOCU
 
 ## 6. Ground-Up Design Rules (Revised)
 
+> **Superseded for UX intent (2026-06-16):** The 13 visual-system rules below have been superseded by the **UX-first rules in [DESIGN-RULES.md v2.0](./wireframes/DESIGN-RULES.md)**, which encode the 12 UX rules (UX-1 through UX-12) from [mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md). The rules in this section remain authoritative for **visual tokens** (weights, opacities, max-widths, motion easing) and **layout grammar** (3-zone main area, sidebar context). For action visibility, progressive disclosure, validation placement, and URL/state semantics, follow the UX rules. When the two systems agree, that's because the visual rules below were already Mercury-faithful on those points; when they diverge, UX wins.
+
 Derived fresh from §14 evidence + corrected for operator domain need. 13 rules instead of 10. Each cites evidence and includes one anti-example.
 
 ### Rule 1 — Three-zone main area
@@ -712,6 +716,8 @@ These are scoped backend / frontend primitive changes that operationalize the ru
 2. **Recovery retry: 2 clicks (slide-over).** Evan: "two clicks, ideally this is almost never needed." Recovery is not an emergency surface; it is a last-resort tool. A failed command should open its detail slide-over where retry + context is available. One-click inline retry is removed from the plan.
 
 These decisions tighten the Mercury fidelity: both eliminate operator-comfort rationalizations in favor of the Mercury pattern. The 13 design rules in §6 already reflect the filter-pill default; the Recovery ruling updates §3's access-cost matrix (1-click → 2-click for Recovery retry).
+
+> **UX analysis confirmation (2026-06-16):** Both decisions were independently validated by the cross-model UX analysis ([mercury-ux-integrated-analysis.md](./mercury-ux-integrated-analysis.md)). The filter-pill-over-tabs ruling aligns with UX-9 (filtering is fluid; navigation is durable) and the Recovery 2-click ruling aligns with UX-2 (supporting information one click away, never zero, except for continuous monitoring). Both decisions reduce always-visible chrome and respect the operator attention budget. No conflict between Evan's decisions and the UX authority.
 
 ## 10. What this plan does not do
 

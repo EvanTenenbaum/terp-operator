@@ -6,246 +6,151 @@
 
 ---
 
-## Full View — Default State (Tab: All, No Selection)
+### UX Posture
+
+The referees directory is the only primary surface. Status filter is a pill in the FilterToolbar. Profile, transactions, credits, and history live in the slide-over. Star ratings and contact links are at the row level for glanceable use.
+
+---
+
+## Full View — Default State (no selection)
 
 ```
-┌─View Header──────────────────────────────────────────────────────────────┐
-│ Referees                                                      [Add Referee]│
-└───────────────────────────────────────────────────────────────────────────┘
 ┌─FilterToolbar────────────────────────────────────────────────────────────┐
-│ [▾ Data views]  │  Date ▾  │  Keyword ▾  │  Type ▾  │ Company ▾  │ Sort ▾ │ ⬇ │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─GridSummaryStrip─────────────────────────────────────────────────────────┐
-│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
-│ │ 487 Referees │ │ 312 Active   │ │ $1.8M Total  │ │ 4.2 Avg      │      │
-│ │    Total     │ │    64% Rate  │ │   Credits    │ │   Rating     │      │
-│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─ViewTabBar───────────────────────────────────────────────────────────────┐
-│  All (487) │ Active (312) │ Inactive (142) │ Pending (33)                 │
-└───────────────────────────────────────────────────────────────────────────┘
+│ [+ Add Referee] │ Status ▾ │ Data views │ Date │ Keyword │ Type │ Company│
+│                 │ Sort ▾ │ Export ▾                                      │
+└──────────────────────────────────────────────────────────────────────────┘
+┌─KPI Line─────────────────────────────────────────────────────────────────┐
+│ 487 referees · 312 active (64%) · $1.8M total credits · 4.2 avg rating   │
+│                                                       [Show breakdown ▾] │
+└──────────────────────────────────────────────────────────────────────────┘
 ┌─AG Grid (32px rows, checkboxes, sortable headers)────────────────────────┐
 │ ☐ │ ID        │ Name               │ Type       │ Company          │ Status  │ Contact          │
 ├───┼───────────┼────────────────────┼────────────┼──────────────────┼─────────┼──────────────────┤
 │ ☐ │ REF-0487  │ Marco Rivera       │ Inspector  │ USDA             │ Active  │ m.rivera@usda.gov│
-│   │           │ ★★★★☆ (4.2)       │            │                  │         │ +1 (559) 555-0101│
+│   │           │ ★★★★☆ (4.2)        │            │                  │         │ +1 (559) 555-0101│
 │ ☐ │ REF-0486  │ Sarah Chen         │ Broker     │ FreshLink LLC    │ Active  │ sarah@freshlink..│
-│   │           │ ★★★★★ (4.8)       │            │                  │         │ +1 (415) 555-0142│
 │ ☑ │ REF-0485  │ James Okonkwo      │ Inspector  │ PrimusGFS        │ Active  │ j.okonkwo@primus │
-│   │           │ ★★★★☆ (4.1)       │            │                  │         │ +1 (209) 555-0178│
 │ ☐ │ REF-0484  │ Ana Gutierrez      │ Surveyor   │ Independent      │ Active  │ ana.g@email.com  │
-│   │           │ ★★★☆☆ (3.7)       │            │                  │         │ +1 (661) 555-0134│
 │ ☐ │ REF-0483  │ David Park         │ Auditor    │ SGS              │ Pending │ d.park@sgs.com   │
-│   │           │ — (new)            │            │                  │         │ +1 (310) 555-0199│
 │ ☐ │ REF-0482  │ Lisa Tran          │ Inspector  │ NSF International│ Inactive│ —                │
-│   │           │ ★★★★☆ (4.0)       │            │                  │         │                  │
 │ ☐ │ REF-0481  │ Carl Johansson     │ Inspector  │ Eurofins         │ Active  │ carl.j@eurofins..│
-│   │           │ ★★★★★ (4.6)       │            │                  │         │ +46 70 555 0123  │
 └───┴───────────┴────────────────────┴────────────┴──────────────────┴─────────┴──────────────────┘
-┌─BulkActionBar (conditional)──────────────────────────────────────────────┐
+┌─BulkActionBar (appears only when rows selected)──────────────────────────┐
 │ 1 referee selected                                                        │
-│ [View Profile] [Assign to Inspection] [Deactivate] [Export]               │
-└───────────────────────────────────────────────────────────────────────────┘
-┌─DetailSlideover: Peek (280px)────────────────────────────────────────────┐
-│ REF-0485                                             ×                   │
-│ James Okonkwo · Inspector                                                 │
-│ PrimusGFS                                                                │
-│ ★★★★☆ 4.1 · 42 inspections                                              │
-│ Credit Balance: $1,200                                                   │
-│ Status: Active                                                           │
-│ [View Profile] [Assign Inspection]                                       │
-│ ◀ drag                                                                    │
-└───────────────────────────────────────────────────────────────────────────┘
+│ [Assign to Inspection] [More ▾: Deactivate | Export | Edit Role]         │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## DetailSlideover: Standard (420px) — Credits Tab
+### State-Gated Action Surface
 
-```
-┌─Main Content (shifts left)───────────────────┬─DetailSlideover: Standard─┐
-│                                               │ REF-0485                   │
-│  [Grid is narrower, fully functional]         │ James Okonkwo              │
-│                                               │ Inspector · PrimusGFS      │
-│                                               │ ★★★★☆ 4.1 · 42 inspections│
-│                                               │ [View Profile] [Assign]    │
-│                                               │────────────────────────────│
-│                                               │ Profile│ Trans│ Cred│ His  │
-│                                               │        │      │  ▾  │      │
-│                                               │────────────────────────────│
-│                                               │ Credit Account:            │
-│                                               │ ┌────────────────────────┐ │
-│                                               │ │ Balance    $1,200.00   │ │
-│                                               │ │ Pending    $350.00     │ │
-│                                               │ │ Total      $1,550.00   │ │
-│                                               │ │ Last Used  Jun 12 2026 │ │
-│                                               │ └────────────────────────┘ │
-│                                               │ Recent Credits:            │
-│                                               │ ┌────────────────────────┐ │
-│                                               │ │ Jun 12  +$350  Pending │ │
-│                                               │ │   Lot 4412 inspection  │ │
-│                                               │ │ May 28  +$200  Applied │ │
-│                                               │ │   SO-7621 quality ck   │ │
-│                                               │ │ May 15  +$500  Applied │ │
-│                                               │ │   PO-8741 pre-shipment │ │
-│                                               │ │ Apr 30  +$150  Applied │ │
-│                                               │ │   LOT-4300 arrival insp│ │
-│                                               │ └────────────────────────┘ │
-│                                               │ [Add Credit] [View All →]  │
-└───────────────────────────────────────────────┴────────────────────────────┘
-```
+| Referee State | Visible Actions                                  |
+|---------------|--------------------------------------------------|
+| Active        | `Assign Inspection`, `Add Credit`, `Deactivate`  |
+| Pending       | `Approve`, `Reject`, `Request More Info`         |
+| Inactive      | `Reactivate`                                     |
 
 ---
 
-## DetailSlideover — Profile Tab
+## DetailSlideover — Tabs: Profile | Linked Transactions | Credits | History
 
-```
-│ Profile│ Trans│ Cred│ His  │
-│    ▾    │      │     │      │
-│────────────────────────────│
-│ ┌────────────────────────┐ │
-│ │ James Okonkwo          │ │
-│ │ j.okonkwo@primusgfs.com│ │
-│ │ +1 (209) 555-0178      │ │
-│ │ Fresno, CA · USA       │ │
-│ │ Languages: English,    │ │
-│ │   Igbo, Spanish        │ │
-│ └────────────────────────┘ │
-│ Certifications:            │
-│ ┌────────────────────────┐ │
-│ │ ✓ PrimusGFS Auditor    │ │
-│ │ ✓ HACCP Certified      │ │
-│ │ ✓ Organic Inspector    │ │
-│ │ ✓ FSMA Preventive Ctrl │ │
-│ └────────────────────────┘ │
-│ Specializations:           │
-│ ┌────────────────────────┐ │
-│ │ • Fresh produce        │ │
-│ │ • Cold chain           │ │
-│ │ • Organic compliance   │ │
-│ │ • Food safety audits   │ │
-│ └────────────────────────┘ │
-│ [Edit Profile]             │
-```
-
----
-
-## DetailSlideover — Linked Transactions Tab
-
-```
-│ Profile│ Trans│ Cred│ His  │
-│        │  ▾   │     │      │
-│────────────────────────────│
-│ Inspections (42):          │
-│ ┌────────────────────────┐ │
-│ │ Jun 12  LOT-4412       │ │
-│ │   Strawberries · Pass  │ │
-│ │ Jun 08  PO-8843        │ │
-│ │   Mixed veg · Pass     │ │
-│ │ May 28  SO-7621        │ │
-│ │   Citrus · Pass*       │ │
-│ │   *minor finding        │ │
-│ │ ... 39 more            │ │
-│ │ [View All Inspections] │ │
-│ └────────────────────────┘ │
-│ Quality Checks (18):       │
-│ ┌────────────────────────┐ │
-│ │ May 15  PO-8741        │ │
-│ │   Apples · Grade A     │ │
-│ │ ... 17 more            │ │
-│ └────────────────────────┘ │
-```
+Footer actions follow state-gating table.
 
 ---
 
 ## Dimensions
 
 - View container: 100vw × 100vh
-- View Header: 56px tall. [Add Referee] button.
-- FilterToolbar: 44px tall. Type quick filter: Inspector/Broker/Surveyor/Auditor/Other. Company filter: autocomplete.
-- GridSummaryStrip: 80px tall, 4 metric cards.
-- ViewTabBar: 40px tall. Tabs 130px wide.
-- AG Grid: 32px row height. ID column 110px. Name column 220px (two-line: name + rating stars). Type column 110px. Company column 170px. Status column 100px. Contact column 200px (two-line: email + phone).
-- Star rating: 16px star characters. Inline with name.
-- Credit Balance (detail): Large number display. "Balance $1,200.00" in Inter 24px.
-- Profile certifications: 28px rows. Checkmark + certification name.
-- Specializations: 24px rows. Bullet + text.
-- Linked Transactions: 48px rows. Date + ID + description + result.
-- BulkActionBar: 52px tall.
-- DetailSlideover: Peek 280px → Standard 420px → Wide 60vw.
-- Font: Inter 13px body, 11px secondary, 14px header, 24px credit balance.
+- FilterToolbar: 44px tall (plus 32px chip row)
+- KPI line: 32px / ~96px expanded
+- AG Grid: 32px row height; ID 110px; Name 220px (two-line with rating); Type 110px; Company 170px; Status 100px; Contact 200px (two-line: email + phone)
+- Star rating: 16px stars inline with name
+- BulkActionBar: 52px
+- Slide-over: Peek 280px → Standard 420px → Wide 60vw
+- Font: Inter 13px body, 11px secondary, 14px header, 24px credit balance
 
 ---
 
 ## Interactive Elements
 
-- **Star rating:** Displayed inline. Stars filled proportionally (4.2 = 4 filled + 1 fifth-filled). Hover: tooltip "4.2 average from 42 inspections." ARIA: role="img", aria-label="Rating: 4.2 out of 5 from 42 inspections."
-- **Status cell:** Double-click → ComboboxCellEditor (Active/Inactive/Pending). Inactive triggers confirmation: "Deactivate Marco Rivera? They will not appear in inspection assignments."
-- **Name cell:** Click → opens profile view. Double-click → DetailSlideover standard.
-- **Contact cell:** Click email → mailto link. Click phone → tel link. Copy button on hover.
-- **Row click:** Single-click → DetailSlideover peek. Double-click → standard.
-- **Add Referee button:** Opens creation form. Fields: Name, Type dropdown, Company, Email, Phone, Certifications (multi-select), Specializations (tag input), Languages (tag input).
-- **BulkActionBar Assign to Inspection:** Opens inspection assignment dialog. Select inspection from list or create new.
-- **BulkActionBar Deactivate:** Sets selected referees to Inactive. Confirmation with count. "Deactivate 3 referees?"
-- **BulkActionBar Export:** Exports referee list as CSV/Excel. Includes all visible columns + certifications.
-- **Profile tab — Edit Profile:** Inline editing. All fields editable. Certifications: multi-select combobox.
-- **Credits tab — Add Credit:** Opens credit issuance form. Amount, reference (inspection/order ID), notes. Credit auto-applied to referee balance.
-- **Credits tab — Credit rows:** Click → navigates to linked transaction. Hover: tooltip with full notes.
-- **Linked Transactions tab:** Click row → navigates to inspection/order detail. Paginated if >10.
-- **Rating recalculation:** Triggered when new inspection completed. Rating updates with animation (count-up effect).
+- **[+ Add Referee]**: Opens creation form (slide-over). Fields: Name, Type, Company, Email, Phone, Certifications (multi-select), Specializations (tag input), Languages (tag input).
+- **Status ▾ pill**: Multi-select with `Active (312)`, `Inactive (142)`, `Pending (33)`. Replaces prior ViewTabBar.
+- **Star rating**: Inline with name. Stars filled proportionally. Hover → tooltip "4.2 average from 42 inspections."
+- **Status cell**: ComboboxCellEditor (Active/Inactive/Pending). Inactive triggers modal confirmation.
+- **Name cell**: Click → slide-over.
+- **Contact cell**: Click email → mailto. Click phone → tel. Copy button on hover.
+- **Row click**: Slide-over peek.
+- **BulkActionBar Assign to Inspection**: Inspection assignment dialog.
+- **BulkActionBar Deactivate**: Modal confirmation.
+- **Profile tab — Edit Profile**: Inline editing.
+- **Credits tab — Add Credit**: Form. Amount, reference, notes. Credit auto-applied.
+- **Credits tab — Credit rows**: Click → navigates to linked transaction.
+- **Linked Transactions tab**: Click row → navigates to inspection/order detail.
+- **Rating recalculation**: Updates with animation when new inspection completed.
 
 ---
 
 ## States Shown
 
-- **Default (All tab):** Full referee directory. Active referees have green status dot. Pending have amber dot. Inactive have grey dot.
-- **Pending tab:** Only newly registered referees awaiting approval. "Approve" button in row actions.
-- **Inactive tab:** Greyed rows. "Reactivate" action available. Shows deactivation date.
-- **Empty state:** "No referees yet." CTA: "Add your first referee." Import referees from CSV link.
-- **New referee (no rating):** Rating shows "—" with "New" badge. Rating updates after first inspection.
-- **High-value referee (total credits >$5k):** Star badge on row. "Top Referee" label in detail.
-- **Deactivated referee with pending inspections:** Warning on deactivation. "2 pending inspections will need reassignment."
-- **Certification expiring:** Amber warning badge if certification expires within 30 days. "PrimusGFS Auditor expires Jul 15, 2026."
-- **Credit balance zero/near-zero:** Grey balance display. "No credits available."
-- **Credit balance high:** Green balance display. "Credits available for future inspections."
-- **Error state:** Toast for failed status change. Network error on profile save.
+- **Default (no filter)**: Full directory; status dots indicate state.
+- **Pending pre-selected**: Newly registered referees awaiting approval. "Approve" in row actions.
+- **Inactive row**: Grey/dimmed.
+- **Empty state**: "No referees yet." CTA: "Add your first referee."
+- **New referee (no rating)**: Rating shows "—" with "New" badge.
+- **High-value referee (>$5k credits)**: Star badge.
+- **Deactivated referee with pending inspections**: Modal warning "2 pending inspections will need reassignment."
+- **Certification expiring**: Warning badge if certification expires within 30 days.
+- **Credit balance high**: Success-styled balance display.
+- **Error state**: Toast for failed status change.
 
 ---
 
 ## ARIA Annotations
 
-- View container: role="region", aria-label="Referees directory"
-- FilterToolbar: role="menubar", aria-label="Filter and data controls"
-- GridSummaryStrip: role="region", aria-label="Referee summary metrics"
-- ViewTabBar: role="tablist", aria-label="Referee status filters"
-- AG Grid: role="grid", aria-label="Referee records"
-- Row: role="row", aria-selected, aria-expanded
-- Star rating: role="img", aria-label="Rating: [value] out of 5 from [count] inspections"
-- Name cell: role="gridcell". Name text: aria-label="Referee name". Rating: aria-describedby for rating details.
-- Status cell: role="gridcell". Status dot: aria-hidden="true". Status text is semantic.
-- Status cell (editing): role="combobox", aria-haspopup="listbox"
-- Contact cell: email as role="link", aria-label="Email [name]". Phone as role="link", aria-label="Call [name]"
-- BulkActionBar: role="toolbar", aria-label="Referee actions"
-- DetailSlideover: role="complementary", aria-label="Referee details"
-- Profile tab: role="tabpanel", aria-label="Referee profile"
-- Certifications: role="list", aria-label="Certifications". Items: role="listitem"
-- Specializations: role="list", aria-label="Specializations"
-- Credits tab: role="tabpanel", aria-label="Credit account". Balance: role="status", aria-label="Credit balance: $1,200"
-- Credit rows: role="row". Amount: aria-label="Credit of $350 — pending"
-- Linked Transactions tab: role="tabpanel", aria-label="Linked inspections and quality checks"
-- History tab: role="tabpanel", aria-label="Referee activity history"
+- FilterToolbar: `role="menubar"`, `aria-label="Referees filter toolbar"`
+- Status ▾ pill: `role="combobox"`, `aria-haspopup="listbox"`, `aria-label="Filter by referee status"`, `aria-multiselectable="true"`
+- KPI line: `role="status"`, `aria-live="polite"`, `aria-label="487 referees, 312 active at 64 percent, $1.8 million total credits, 4.2 average rating"`
+- AG Grid: `role="grid"`, `aria-label="Referee records"`
+- Star rating: `role="img"`, `aria-label="Rating: 4.2 out of 5 from 42 inspections"`
+- Name cell: `role="gridcell"`, `aria-describedby` for rating details
+- Status cell (editing): `role="combobox"`, `aria-haspopup="listbox"`
+- Contact cell email: `role="link"`, `aria-label="Email [name]"`. Phone: `role="link"`, `aria-label="Call [name]"`
+- BulkActionBar: `role="toolbar"`, `aria-label="Referee actions"`
+- Slide-over: `role="dialog"`, `aria-label="Referee details"`
+- Profile tab: `role="tabpanel"`, `aria-label="Referee profile"`
+- Credits tab balance: `role="status"`, `aria-label="Credit balance: $1,200"`
 
 ---
 
 ## Edge Cases Handled
 
-- **Referee with no contact info:** "No contact information" shown in muted text. Edit Profile to add.
-- **Referee with multiple certifications (10+):** Profile tab scrollable. "Showing 10 of 14 certifications." Expand link.
-- **Referee assigned to inspection while being deactivated:** Deactivation blocked. Toast: "Cannot deactivate — currently assigned to LOT-4412 inspection."
-- **Duplicate referee detection:** On Add Referee, if email matches existing: "A referee with this email already exists. Merge profiles?" option.
-- **International phone numbers:** Formatted with country code. Flag emoji next to non-US numbers for quick visual identification.
-- **Referee with zero inspections (new):** Rating shows "—" not "0". "No inspections completed yet." Profile Tab shows registration date.
-- **Referee with negative credit balance:** Red balance display. "Credits overdrawn — $150.00." Tooltip: "Referee has used more credits than issued."
-- **Bulk deactivation with active assignments:** Warning dialog listing all active assignments. Option to reassign or proceed with deactivation.
-- **Certification expiration bulk view:** Filter preset "Expiring Certifications" shows referees with certs expiring in 30/60/90 days.
-- **Multiple referees from same company:** "Same Company" grouping indicator. "3 referees from PrimusGFS" in company column.
+- **Referee with no contact info**: "No contact information."
+- **Many certifications (10+)**: Scrollable; "Showing 10 of 14."
+- **Assigned while deactivating**: Blocked: "Currently assigned to LOT-4412 inspection."
+- **Duplicate referee detection**: On Add, if email matches: "Merge profiles?"
+- **International phone numbers**: Country code formatted with flag emoji.
+- **Referee with zero inspections (new)**: Rating "—"; "No inspections completed yet."
+- **Negative credit balance**: Error styling; "Credits overdrawn."
+- **Bulk deactivation with active assignments**: Modal listing active assignments; reassign or proceed.
+- **Certification expiration bulk view**: Filter preset "Expiring Certifications."
+- **Multiple referees from same company**: "Same Company" grouping indicator.
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1: Action visibility follows entity state | ✓ | Approve only Pending; Reactivate only Inactive; Add Credit only Active. |
+| UX-2: Supporting info one click away, never zero | ✓ | Profile, Linked Transactions, Credits, History as slide-over tabs. |
+| UX-3: One primary surface per view | ✓ | Referees table is the only primary surface. |
+| UX-4: Bulk actions appear only on selection | ✓ | BulkActionBar slides up only on selection. |
+| UX-5: Validation errors at point of impact | ✓ | Certification expiry warning at the row. |
+| UX-6: Tools and forms in slide-overs; modals for confirmations | ✓ | Add Referee in slide-over. Deactivate modal. |
+| UX-7: System never hides what mode the operator is in | ✓ | Filter pills, slide-over header, status dots. |
+| UX-8: State changes resolve in place | ✓ | Status transitions inline. |
+| UX-9: Filtering is fluid; navigation is durable | ✓ | Status ▾ pill replaces tab bar. |
+| UX-10: Cell-level interactions save immediately; forms have explicit save | ✓ | Cell edits save. Add Referee form explicit. |
+| UX-11: URL is the session memory | ✓ | Filters, slide-over ID encode into URL. |
+| UX-12: Empty states give the operator a next step | ✓ | Empty → Add Referee CTA. Empty filtered → Clear filters. |

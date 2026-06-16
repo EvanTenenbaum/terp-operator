@@ -220,3 +220,31 @@ Operator lands on Dashboard, views KPIs and Work Queues, clicks an actionable qu
 - Changed metrics: brief amber highlight animation on values that changed since last render (300ms).
 - Edge case: Network error on re-fetch → stale data shown with banner "Data may be outdated. [Refresh now]".
 - Edge case: Intake Ready goes to 0 → item stays visible but shows "Intake Ready: 0 — All caught up! 🎉" with green styling.
+
+---
+
+### UX Check
+
+| Question | Answer |
+|----------|--------|
+| Does the flow require mode-switching? | No. Dashboard is the landing zone; clicking a Work Queue is a durable filter navigation to a real view, not a hidden mode change. |
+| Is the operator ever shown irrelevant actions? | No. Quick Actions are the few high-frequency starting points; queue items with zero count gray out (`aria-disabled`) so no dead-end clicks. |
+| Is context preserved if the operator leaves mid-flow? | Yes. Filter URLs (`/intake?status=ready`) are durable and shareable. Dashboard re-fetches on return and animates changed counts so the operator sees the impact of their work. |
+| Mercury comparison | Mercury's home: greeting + balance card (the landing zone) + 4 quick actions + recent activity. Eye lands on the balance in 2 seconds. This flow targets the same 2-second time-to-orient via the KPI strip. |
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Empty queues stay visible with green ✓; zero-count items are disabled (no dead clicks) |
+| UX-2 Supporting info one click away | ✅ | Activity feed details, queue contents, KPI breakdowns are all one click away via the linked view |
+| UX-3 One primary surface per view | ✅ | KPI strip is the default landing zone; Focus + Queues are secondary, not 8 equal panels |
+| UX-4 Bulk actions on selection only | N/A | Read-only summary surface |
+| UX-5 Validation at point of impact | N/A | Read-only summary surface |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Quick Action "+ New …" opens authoring slide-over, not a modal |
+| UX-7 Mode is always visible | ✅ | "Dashboard" is the current view throughout; date and greeting orient the operator |
+| UX-8 State changes resolve in place | ✅ | Polling and re-focus refresh update counts in place with brief amber highlight |
+| UX-9 Filtering fluid; navigation durable | ✅ | Queue links go to filter URLs that are durable and shareable |
+| UX-10 Cell saves immediate; forms explicit | N/A | No edit surface |
+| UX-11 URL is session memory | ✅ | Dashboard root URL is durable; activity tab encodes to hash |
+| UX-12 Empty states give next step | ✅ | Zero queues → "All caught up ✓"; zero KPIs → "No data yet" tooltip on em-dash placeholder |

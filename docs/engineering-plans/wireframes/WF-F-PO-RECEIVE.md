@@ -170,3 +170,31 @@ Operator receives goods against a confirmed Purchase Order. Flow: select PO row(
 #### Interactive Elements, ARIA, Edge Cases
 - Print: opens browser print dialog. Export PDF: generates download.
 - Edge case: Receipt amended later → show version history or "Amended" badge.
+
+---
+
+### UX Check
+
+| Question | Answer |
+|----------|--------|
+| Does the flow require mode-switching? | No. Selection on the PO list raises the BulkActionBar in place; the receive form opens as a modal only because the qty input is a confirmation step. |
+| Is the operator ever shown irrelevant actions? | No. `Receive` is only enabled for Confirmed POs. Draft / Received POs disable the checkbox with an explanatory tooltip, so the bulk action never offers a nonsensical option. |
+| Is context preserved if the operator leaves mid-flow? | Yes. Selection is encoded in the URL (UX-11). The receive modal can be cancelled without data loss. After receipt, the slide-over peek confirms the result without navigation. |
+| Mercury comparison | Mercury has no "receive payment" page — `payment received` is a status change on the transaction row, applied via row action or bulk. This flow mirrors that pattern: receive is an action on selected POs, not a destination. |
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | `Receive` only enabled for Confirmed POs; disabled with tooltip on Draft/Received |
+| UX-2 Supporting info one click away | ✅ | Receipt details one click away in peek slide-over; full receipt one more click |
+| UX-3 One primary surface per view | ✅ | PO list stays primary throughout |
+| UX-4 Bulk actions on selection only | ✅ | BulkActionBar appears on checkbox selection |
+| UX-5 Validation at point of impact | ✅ | "Cannot exceed ordered quantity" appears under the qty input |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Receive uses a confirmation modal (inventory mutation); preview lives in a slide-over |
+| UX-7 Mode is always visible | ✅ | "1 PO selected" continuously visible while the bar is up; modal title carries PO id |
+| UX-8 State changes resolve in place | ✅ | Receipt creation → green flash → grid row updates → peek slide-over; no navigation |
+| UX-9 Filtering fluid; navigation durable | N/A | Action flow, not browsing |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Receive is multi-field (qty + confirmation) — explicit submit |
+| UX-11 URL is session memory | ✅ | Selection encoded as `?selected=…`; receipt id encoded after creation |
+| UX-12 Empty states give next step | ✅ | "Nothing to receive" tab state would route operator to confirm-POs view |

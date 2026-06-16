@@ -1,227 +1,131 @@
-## Wireframe: WF-C-COMBOBOX — ComboboxCellEditor All States
+## Wireframe: WF-C-COMBOBOX — ComboboxCellEditor Essential States
 
 A Mercury-style inline combobox dropdown for AG Grid cells. Replaces native `<select>` with
 typeahead, keyboard navigation, async save, and error recovery.
 
+> **UX annotation:** Inline edit is immediate. No Save button. **Enter commits, Escape cancels.**
+> The cell IS the editor — there is no separate edit mode, modal, or form. Mode is implicit:
+> default → open → saving → saved. Error appears in the same cell with retry on click.
+
 ---
 
-### State 1: Empty
+### State 1: Closed (Default / Value Display)
 
 #### Layout (ASCII)
 ```
 ┌──────────────────────────────────────┐
-│ Select...                       ▾    │
+│ Confirmed                         ▾  │   ← value set: dark text + chevron
 └──────────────────────────────────────┘
-  280px × 32px     text-muted color
+┌──────────────────────────────────────┐
+│ Select...                         ▾  │   ← empty: muted placeholder
+└──────────────────────────────────────┘
+  280px × 32px       Inter 13px
 ```
 
 #### Details
-- **Dimensions:** 280px wide × 32px tall (default; configurable via `maxWidth`)
-- **Font:** Inter 13px regular, `text-muted` (grey #737373)
-- **Interactive elements:** Entire cell clickable. Chevron-down icon (12×12) on right, 8px padding
-- **ARIA:** `role="combobox"`, `aria-expanded="false"`, `aria-haspopup="listbox"`, `aria-label="Select value"` (or entity-specific label)
-- **Edge cases:** No placeholder flicker on mount; uses `aria-placeholder` for screen readers
+- **Dimensions:** 280px wide × 32px tall (configurable via `maxWidth`)
+- **Value set:** dark text (`text-zinc-900`), Inter 13px regular, chevron "▾" on right
+- **Empty:** "Select..." in `text-muted` (#737373)
+- **Interactive:** entire cell clickable. Click, Enter, F2, or typing opens dropdown
+- **Focus ring:** 2px solid `border-accent` (#216e4e) on keyboard focus
+- **ARIA:** `role="combobox"`, `aria-expanded="false"`, `aria-haspopup="listbox"`, `aria-label` matches column
+- **Edge cases:** values >25 chars truncate with "…" and reveal full text on hover via tooltip
 
 ---
 
-### State 2: Focused
-
-#### Layout (ASCII)
-```
-┌─[blue focus ring #216e4e 2px]──────┐
-│ Select...                       ▾    │
-└──────────────────────────────────────┘
-```
-
-#### Details
-- **Focus ring:** 2px solid `border-accent` (#216e4e), 2px offset from cell edge
-- **Placeholder** still visible ("Select..."), ready for keyboard input
-- **Keyboard:** Press Enter or type to open dropdown. Escape to blur back to cell
-- **ARIA:** `aria-expanded="false"` until opened
-- **Edge cases:** Focus ring visible on keyboard focus only; no ring on mouse click unless opened
-
----
-
-### State 3: Open
+### State 2: Open (Dropdown + Typeahead)
 
 #### Layout (ASCII)
 ```
 ┌─[blue focus ring]───────────────────┐
-│ Select...                       ▾    │
+│ Con|                             ▾   │   ← typing filters list as you go
 └──────────────────────────────────────┘
 ┌──────────────────────────────────────┐
-│  ┌─ Option A ──────────────────────┐ │  ← default row 32px
-│  │ Option B                        │ │  ← hover: bg-zinc-100
-│  │ ✓ Option C                      │ │  ← selected: bg-green-50 + checkmark
-│  │ Option D                        │ │
-│  │ ...                             │ │
-│  └─────────────────────────────────┘ │
+│ ✓ Confirmed                          │   ← selected: bg-green-50 + check
+│ Consensus                            │   ← hover/keyboard: bg-zinc-100
+│ Consigned                            │
+│ ───────────────────────────────────  │   ← divider (allowCreate only)
+│ + Create "Concheck"                  │   ← green, only if allowCreate
 └──────────────────────────────────────┘
-  min-width: 200px
-  max-height: 280px (scrolls if more)
-  shadow: 0 4px 12px rgba(0,0,0,0.1)
-  z-index: 50
+  min-width 200px, max-height 280px (scroll), shadow + z-index 50
 ```
 
 #### Details
-- **Dropdown container:** Positioned absolutely below cell, min-width: 200px (never narrower than cell), max-width: 400px, max-height: 280px with `overflow-y: auto`
-- **Option rows:** 32px tall, padding: 0 8px, Inter 13px. Selected option: `bg-green-50` + green checkmark (✓) on right
-- **Shadow:** `0 4px 12px rgba(0,0,0,0.1)`, border-radius: 4px (matches Mercury)
-- **Z-index:** 50 (above grid cells but below tooltips)
-- **ARIA:** `role="listbox"` on dropdown, `role="option"` on each item. `aria-selected="true"` on selected. `aria-labelledby` pointing to combobox
-- **Keyboard:** ArrowUp/ArrowDown moves highlight. Enter selects. Escape closes. Home/End jump to first/last
-- **Click outside:** Closes dropdown (listens on `document` mousedown, portal-safe)
-- **Edge cases:** Empty options array → "No options" row shown. Dropdown scrolls into viewport if near bottom edge
+- **Dropdown:** positioned below the cell (above if near viewport bottom), `min-width: 200px`, `max-height: 280px` with `overflow-y: auto`
+- **Option rows:** 32px tall, padding `0 8px`, Inter 13px. Selected has `bg-green-50` + ✓
+- **Typeahead:** typing filters (case-insensitive, startsWith). Empty matches → "No results" row in `text-muted`
+- **allowCreate:** when true and no exact match, a green "+ Create '[text]'" row appears below a divider. Selecting fires `onCreate(text)`, then transitions to Saving
+- **Keyboard:** ArrowUp/Down moves highlight; Enter commits; Escape closes without saving; Home/End jump
+- **Click-outside / Escape:** closes without saving
+- **ARIA:** `role="listbox"`, each row `role="option"` with `aria-selected`; `aria-activedescendant` follows highlight
+- **Edge cases:** virtualized after 50 visible options; leading/trailing whitespace trimmed before match
 
 ---
 
-### State 4: Hovered
+### State 3: Saving
 
 #### Layout (ASCII)
 ```
 ┌──────────────────────────────────────┐
-│ Option A                             │
-│ ┌[bg-zinc-100]─────────────────────┐ │  ← hovered row
-│ │ Option B                         │ │
-│ └──────────────────────────────────┘ │
-│ Option C                             │
+│ Confirmed                         ◌  │   ← spinner replaces chevron
 └──────────────────────────────────────┘
+  cell border 1px solid border-zinc-200, non-interactive, aria-busy
 ```
 
 #### Details
-- **Hover:** `bg-zinc-100` background on the option row under the cursor
-- **ARIA:** `aria-activedescendant` updated on the combobox to point to the hovered option ID
-- **Visual:** cursor: pointer on each option row
-- **Edge cases:** Hover state clears on keyboard arrow movement (keyboard takes priority over mouse)
+- **Trigger:** selecting an option commits immediately — no separate Save button
+- **Visual:** rotating spinner (16×16) replaces the chevron. Cell border `border-zinc-200`
+- **Non-interactive:** clicks and keyboard ignored. `aria-busy="true"`
+- **Cancellation:** a new selection cancels the in-flight save and starts a new one
+- **Timeout:** 10 seconds → Error sub-state (red border + ⚠) with retry-on-click
+- **Edge cases:** error persists in-cell until user retries (click reopens dropdown) or discards (× clears)
 
 ---
 
-### State 5: Selected / Value Set
+### State 4: Saved
 
 #### Layout (ASCII)
 ```
 ┌──────────────────────────────────────┐
-│ Confirmed                         ×▾ │
+│ ✓ Confirmed                       ▾  │   ← green check flashes 200ms, fades to State 1
 └──────────────────────────────────────┘
-  dark text (Inter 13px)   clear on right
 ```
 
 #### Details
-- **Display:** Selected value in dark text (Inter 13px regular, `text-zinc-900`). No placeholder
-- **Clear button:** "×" icon (12×12) on right, before chevron. `aria-label="Clear selection"`. On click: clears to empty state, fires onChange(undefined)
-- **Chevron:** "▾" remains visible for dropdown access
-- **ARIA:** `aria-expanded="false"`, value set via `aria-valuetext`
-- **Edge cases:** Value may be truncated with "…" if > 25 chars. Full value shown in tooltip on hover
-
----
-
-### State 6: Saving
-
-#### Layout (ASCII)
-```
-┌──────────────────────────────────────┐
-│ Confirmed                         ◌  │
-└──────────────────────────────────────┘
-  cell border: 1px solid #e5e7eb (grey)
-  spinner icon replaces chevron
-  non-interactive
-```
-
-#### Details
-- **Visual:** Spinner icon (SVG rotating, 16×16) replaces the chevron. Cell border: 1px solid `border-zinc-200`
-- **Behavior:** Non-interactive — clicks ignored, keyboard blocked. `aria-busy="true"`
-- **Matches Mercury:** No separate "Save" button; auto-save on selection. Saving state shown inline
-- **Timeout:** After 10 seconds → transitions to Error state (State 8)
-- **Edge cases:** Rapid re-selection: cancels previous save promise, starts new save. Debounce: none (immediate on select)
-
----
-
-### State 7: Saved
-
-#### Layout (ASCII)
-```
-┌──────────────────────────────────────┐
-│ Confirmed                         ✓▾ │
-└──────────────────────────────────────┘
-  green checkmark flash 200ms
-  then fades to normal value display
-```
-
-#### Details
-- **Flash:** Green checkmark (✓, `text-green-600`) appears in place of spinner for 200ms
-- **Transition:** 200ms flash, then fades to State 5 (value display) with 200ms ease-out opacity
+- **Flash:** green ✓ for 200ms, then 200ms ease-out fade back to State 1 display
 - **ARIA:** `aria-live="polite"` announcement: "Status saved" (or entity-specific)
-- **Edge cases:** If user tabs away during flash, flash completes and cell returns to normal
+- **Grid:** summary strip / KPI cards refresh reactively, no full grid reload
+- **Edge cases:** if focus leaves during flash, animation still completes
 
 ---
 
-### State 8: Error
+### Error (cell-level sub-state of Saving)
 
-#### Layout (ASCII)
-```
-┌──────────────────────────────────────┐
-│ Confirmed                         ⚠× │
-└──────────────────────────────────────┘
-  red border (#b42318 border-error)
-  error icon + clear button
-```
+Error is not a separate "panel" or "page" — it is the saving cell in its failed state.
+A red 2px border replaces the focus ring, a ⚠ icon replaces the spinner, and hover/focus
+shows the server error in a tooltip. Click the cell to reopen the dropdown with the
+attempted value pre-selected (retry). Click "×" in the tooltip to revert to original.
 
-#### Details
-- **Border:** 2px solid `border-error` (#b42318), overriding focus/accent
-- **Icons:** Warning icon "⚠" (16×16, `text-error`) + clear "×" button
-- **Tooltip:** On hover (or focus): "Failed to save: [error message from server]. Click to retry."
-- **Click behavior:** Clicking the cell opens dropdown for retry (re-select). Clicking "×" discards to empty
-- **ARIA:** `aria-invalid="true"`, `aria-errormessage` pointing to tooltip content ID
-- **Edge cases:** Error border takes priority over focus ring. Error persists until user action (retry or clear)
+This honors UX-5 (validation at point of impact) and UX-8 (state changes resolve in place).
 
 ---
 
-### State 9: Typeahead
+### UX Compliance
 
-#### Layout (ASCII)
-```
-┌──────────────────────────────────────┐
-│ Con|                             ▾    │  ← user typing "Con"
-└──────────────────────────────────────┘
-┌──────────────────────────────────────┐
-│  ┌─ Confirmed ─────────────────────┐ │
-│  │ Consensus                       │ │
-│  │ Consigned                       │ │
-│  │ ─────────────────────────────── │ │  ← divider (if allowCreate)
-│  │ + Create "Concheck"  (green)    │ │  ← allowCreate option
-│  ├─────────────────────────────────┤ │
-│  │ No results                      │ │  ← if no matches
-│  └─────────────────────────────────┘ │
-└──────────────────────────────────────┘
-```
-
-#### Details
-- **Typing:** User types in the combobox → dropdown filters to matching options (startsWith, case-insensitive)
-- **Filtered options:** Only options matching the typed prefix are shown
-- **No results:** If no matches: "No results" row in `text-muted`, not selectable. Not an error state
-- **allowCreate:** If `allowCreate` prop is true: divider line + "Create '[text]'" option at bottom in `text-green-600` (Inter 13px). On select: fires `onCreate(typedText)`, closes dropdown, transitions to Saving
-- **Keyboard:** Arrow keys navigate filtered list. Enter selects (or creates). Escape clears filter, closes dropdown
-- **Edge cases:** Input trimmed before search. Leading/trailing spaces ignored for matching. Max 50 visible options (virtualized scroll)
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | N/A | Cell editor, not entity-level actions |
+| UX-2 Supporting info one click away | ✅ | Tooltip carries full server error; no permanent error panel |
+| UX-3 One primary surface per view | ✅ | The cell is the editor; no parallel form panel |
+| UX-4 Bulk actions on selection only | N/A | Per-cell control |
+| UX-5 Validation at point of impact | ✅ | Errors render in the cell that failed, not a status panel |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Inline editor; no modal for cell edits |
+| UX-7 Mode is always visible | ✅ | Open/saving/saved are all visible in-cell |
+| UX-8 State changes resolve in place | ✅ | Save, success, error all happen in the cell |
+| UX-9 Filtering fluid; navigation durable | N/A | Cell editor, not a view |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Selection commits immediately, no Save button |
+| UX-11 URL is session memory | N/A | Cell editor is transient |
+| UX-12 Empty states give next step | ✅ | Empty list → "No results"; allowCreate offers the next step |
 
 ---
-
-### State 10: Disabled
-
-#### Layout (ASCII)
-```
-┌──────────────────────────────────────┐
-│ Confirmed                             │
-└──────────────────────────────────────┘
-  grey text (#9ca3af)
-  no chevron, no clear button
-  cursor: not-allowed
-```
-
-#### Details
-- **Text:** `text-zinc-400` grey, same font size. No chevron (▾). No clear button (×)
-- **Interaction:** `cursor: not-allowed` on hover. All clicks, keyboard events blocked
-- **ARIA:** `aria-disabled="true"`. Combobox role retained but interactions suppressed
-- **Edge cases:** Cell still tabbable (not `tabindex="-1"`) so screen reader can announce it, but Tab skips to next cell
-
----
-*Font: Inter 13px body, 11px labels. Colors: semantic class names only. Transitions: 150ms ease.*
+*Font: Inter 13px body. Colors: semantic class names only. Transitions: 150ms ease.*

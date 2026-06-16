@@ -3,6 +3,16 @@
 A fixed bottom bar for multi-select operations. Animates up when rows are selected,
 shows action buttons, and handles execution states inline.
 
+> **UX annotation:** The bar **appears on selection only** (UX-4 — progressive
+> disclosure). It is **dark translucent** in Mercury style (semi-opaque dark backdrop,
+> not a heavy colored bar), so it reads as a transient overlay rather than chrome that
+> always lives at the bottom of the page. When the operator is browsing, the bar does
+> not exist; when they have selected rows, the bar floats up.
+
+**Key states kept:** Hidden, Visible, Executing, Partial Success, Error. (Success and
+Bespoke Input states are described inline as variants of Visible / Executing rather
+than dedicated sections, to honor the spec's call to focus on essential states.)
+
 ---
 
 ### State 1: Hidden
@@ -174,8 +184,9 @@ shows action buttons, and handles execution states inline.
 
 ```
 Height:        56px
-Background:    bg-white
-Border:        1px solid border-zinc-200 (top only)
+Background:    Mercury dark translucent — rgba(24, 24, 27, 0.92) with backdrop-blur
+Foreground:    text-white for labels and action buttons
+Border:        none (the dark translucent backdrop is the visual seal)
 Padding:       0 12px (horizontal)
 Content:       flex, justify-between, align-items: center
 Left:          checkbox + count + total (flex, gap: 8px)
@@ -184,6 +195,25 @@ Font:          Inter 13px medium (count), Inter 13px regular (total)
 Z-index:       40 (below combobox 50, above slideover 30)
 Animation:     translateY 200ms ease-out (enter), 200ms ease-in (exit)
 ```
+
+---
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Bar shows only actions valid for the selected rows' states; mixed selection collapses incompatible actions into "More" |
+| UX-2 Supporting info one click away | ✅ | "More ▾" carries secondary actions; primary 2-3 are inline |
+| UX-3 One primary surface per view | ✅ | Bar is transient overlay, not a permanent surface |
+| UX-4 Bulk actions on selection only | ✅ | Component renders `null` when selectedCount === 0 |
+| UX-5 Validation at point of impact | ✅ | Errors render in the bar with the action that failed, plus per-row red border for failed rows |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Bar uses inline bespoke input rather than modal; destructive actions confirm via modal |
+| UX-7 Mode is always visible | ✅ | "N orders selected · $total" is continuously visible while the bar is up |
+| UX-8 State changes resolve in place | ✅ | Execute → spinner → success/partial/error all render in the bar; no navigation |
+| UX-9 Filtering fluid; navigation durable | N/A | Bar is action layer, not filter |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Bulk = explicit Submit (the action button) since it is a multi-row write |
+| UX-11 URL is session memory | ✅ | Selection encoded as `?selected=id1,id2,…` so reload restores selection (and the bar) |
+| UX-12 Empty states give next step | N/A | Empty selection = hidden bar |
 
 ---
 *All states transition through the same DOM element (never unmount/mount mid-animation). Fixed position, bottom: 0, left: 0, right: 0.*

@@ -168,3 +168,31 @@ Operator performs actions on multiple rows at once. Flow: select rows via checkb
 - `[View failures]`: toggles expanded detail for each failed row (error message + suggestion).
 - `[Retry]`: re-attempts only failed items; progress runs again for subset.
 - Edge case: All fail → bar shows "✕ 3 failed · 0 confirmed [View failures] [Retry all]". Red styling.
+
+---
+
+### UX Check
+
+| Question | Answer |
+|----------|--------|
+| Does the flow require mode-switching? | No. Selection raises the bar in place; the bar lives over the grid and never replaces it. |
+| Is the operator ever shown irrelevant actions? | No. Actions are state-gated by the entity state machine; mixed selections collapse incompatible actions into "More" or disable the bar with an explanation. |
+| Is context preserved if the operator leaves mid-flow? | Yes. Selection is part of URL state; reload restores the selection and the bar. After an action completes, success rows flash and selection clears predictably. |
+| Mercury comparison | Mercury's transaction multi-select uses the same pattern: dark bar at the bottom, count + total, primary action + More. This flow mirrors it directly. |
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1 Action visibility follows entity state | ✅ | Actions reflect state-machine; mixed selection narrows visible actions |
+| UX-2 Supporting info one click away | ✅ | Failure detail panel one click from the partial-success bar |
+| UX-3 One primary surface per view | ✅ | Grid stays primary; bar is transient overlay |
+| UX-4 Bulk actions on selection only | ✅ | Bar appears only when ≥1 row selected |
+| UX-5 Validation at point of impact | ✅ | Failed rows get red border on row; failure detail shows reason + suggestion |
+| UX-6 Tools in slide-overs; modals for confirms | ✅ | Bar is inline; destructive actions (Delete) confirm via modal |
+| UX-7 Mode is always visible | ✅ | "3 selected · $6,866" continuously visible while the bar is up |
+| UX-8 State changes resolve in place | ✅ | Execute → progress → success/partial/error → row flashes; no navigation |
+| UX-9 Filtering fluid; navigation durable | N/A | Action flow |
+| UX-10 Cell saves immediate; forms explicit | ✅ | Bulk action is explicit submit (the action button) |
+| UX-11 URL is session memory | ✅ | Selection encodes to URL; bar appears on reload if selection persisted |
+| UX-12 Empty states give next step | N/A | Empty selection = hidden bar |

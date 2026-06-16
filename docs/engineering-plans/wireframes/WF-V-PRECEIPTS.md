@@ -1,27 +1,23 @@
 ## Wireframe: WF-V-PRECEIPTS — PurchaseReceiptsView
 
+### UX Posture
+
+The receipts table is the only primary surface. Status filter is a pill in the FilterToolbar. Footer actions state-gated by receipt state. Discrepancies surface at the row, not in a permanent panel.
+
 ### Layout (ASCII)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Purchase Receipts                                               [+ New Receipt]│
-├──────────────────────────────────────────────────────────────────────────────┤
 │ ┌─ FilterToolbar ──────────────────────────────────────────────────────────┐ │
-│ │ [Data views ▾] │ [Date range ▾] │ [Keyword…] │ [Amount ▾] │ [Group ▾]   │ │
-│ │ [Sort ▾] │ [Export ▾]                                                    │ │
+│ │ [+ New Receipt] │ Status ▾ │ Data views │ Date range │ Keyword │ Amount │ │
+│ │                 │ Group ▾ │ Sort ▾ │ Export ▾                            │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
 │ ┌─ ActiveFilterPills ──────────────────────────────────────────────────────┐ │
 │ │ [Status: Pending ✕] [Vendor: US Foods ✕] [+ Add filter]                  │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
-│ ┌─ GridSummaryStrip ───────────────────────────────────────────────────────┐ │
-│ │ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │ │
-│ │ │ Pending  │ │ Received │ │ Verified │ │ Discrep. │ │  Total   │        │ │
-│ │ │    47    │ │   312    │ │   289    │ │    12    │ │   660    │        │ │
-│ │ │ $341.2k  │ │ $2.1M    │ │ $1.9M    │ │ $82.4k   │ │ $4.5M    │        │ │
-│ │ └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘        │ │
-│ └──────────────────────────────────────────────────────────────────────────┘ │
-│ ┌─ ViewTabBar ─────────────────────────────────────────────────────────────┐ │
-│ │ [All 660] [Pending 47] [Received 312] [Verified 289]                     │ │
+│ ┌─ KPI Line ───────────────────────────────────────────────────────────────┐ │
+│ │ 660 receipts · $4.5M  ·  Pending 47 · Received 312 · Verified 289 ·     │ │
+│ │ Discrepancy 12                                       [Show breakdown ▾]  │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
 │ ┌─ AG Grid ────────────────────────────────────────────────────────────────┐ │
 │ │ ☐ │ ID       │ PO#      │ Vendor       │ Received   │ Qty │ Status      │ │
@@ -34,151 +30,117 @@
 │ │ ☐ │ REC-0655 │ PO-3438  │ Gordon Food  │ 06/12/26   │ 410 │ Verified    │ │
 │ │ ☐ │ REC-0654 │ PO-3435  │ FreshPoint   │ 06/11/26   │ 280 │ Received    │ │
 │ │ ☐ │ REC-0653 │ PO-3431  │ Sysco Corp   │ 06/11/26   │ 195 │ Verified    │ │
-│ │───┼──────────┴──────────┴──────────────┴────────────┴─────┴─────────────│ │
-│ │                      Page 1 of 83   [◀ ◀ 1 2 3 … 83 ▶ ▶]                 │ │
+│ │                       (row height: 32px Mercury standard)                  │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
-│ ┌─ BulkActionBar (hidden until ≥1 row selected) ───────────────────────────┐ │
-│ │ 3 selected • 770 units  [Mark Received] [Verify] [Link PO ▾] [More ▾]    │ │
-│ └──────────────────────────────────────────────────────────────────────────┘ │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ ┌─ DetailSlideover (right, peek 280px) ────────────────────────────────────┐ │
-│ │ REC-0660 — PO-3451 (US Foods)                                   [✕] [↗]   │ │
-│ │ ┌─ DetailTabBar ───────────────────────────────────────────────────┐     │ │
-│ │ │ [Items] [PO Link] [History]                                       │     │ │
-│ │ └───────────────────────────────────────────────────────────────────┘     │ │
-│ │ Status: [Pending ▾]     Received Date: 06/14/26                             │ │
-│ │ PO#: PO-3451            Vendor: US Foods                                    │ │
-│ │ Expected Qty: 250       Received Qty: 240                                    │ │
-│ │ Variance: -10 units (4%)                                                     │ │
-│ │ ────────────────────────────────────────────────────────────────────────── │ │
-│ │ ┌─ Line Items ───────────────────────────────────────────────────────┐    │ │
-│ │ │ SKU         │ Desc           │ PO Qty │ Recv Qty │ Variance        │    │ │
-│ │ │───────────────────────────────────────────────────────────────────│    │ │
-│ │ │ FRZ-BR-001  │ Broccoli Floret│ 100    │ 100      │ ✓               │    │ │
-│ │ │ FRZ-SP-003  │ Spinach Chopped│  80    │  72      │ -8 (shortage)   │    │ │
-│ │ │ CAN-TM-012  │ Diced Tomatoes │  70    │  68      │ -2 (shortage)   │    │ │
-│ │ └─────────────────────────────────────────────────────────────────────┘    │ │
+│ ┌─ BulkActionBar (appears only when ≥1 row selected) ──────────────────────┐ │
+│ │ 3 selected • 770 units  [Mark Received] [Verify] [More ▾]                │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────────────┘
+
+Detail Slide-over (right, 420px, opens on row click):
+  Tabs: Items | PO Link | History
+  Footer actions (state-gated):
+    Pending      → [Mark Received] [Cancel]
+    Received     → [Verify] [Flag Discrepancy]
+    Verified     → [View PO]
+    Discrepancy  → [Resolve] [Escalate] [View PO]
+    Cancelled    → [View History] (read-only)
 ```
+
+### State-Gated Action Surface
+
+| Receipt State | Visible Actions                              |
+|---------------|----------------------------------------------|
+| Pending       | `Mark Received`, `Cancel`                    |
+| Received      | `Verify`, `Flag Discrepancy`                 |
+| Verified      | `View PO`                                    |
+| Discrepancy   | `Resolve`, `Escalate`, `View PO`             |
+| Cancelled     | `View History` (read-only)                   |
 
 ### Dimensions
 
 | Element | Width | Height | Notes |
 |---------|-------|--------|-------|
-| View container | 100% viewport | 100vh | flex column |
-| View header | 100% | 56px | px-6, flex, items-center, justify-between |
-| FilterToolbar | 100% | 40px | horizontal menubar, px-4, gap-2 |
-| ActiveFilterPills | 100% | 36px | flex-wrap, px-4, gap-1 |
-| GridSummaryStrip | 100% | 88px | px-4, flex, gap-3, overflow-x-auto |
-| Summary card | min 160px | 72px | rounded-lg, border, p-3 |
-| ViewTabBar | 100% | 40px | px-4, border-b |
+| FilterToolbar | 100% | 40px | horizontal menubar |
+| ActiveFilterPills | 100% | 36px | flex-wrap |
+| KPI line | 100% | 32px / ~96px expanded | px-4 |
 | AG Grid | 100% | flex-1 | virtual scrolling |
 | Grid row | 100% | 32px | Mercury standard |
-| Checkbox column | 48px | 32px | center aligned |
-| BulkActionBar | 100% | 48px | sticky bottom, animate slide-up |
-| DetailSlideover peek | 280px | 100% parent | default peek width |
-| DetailSlideover standard | 420px | 100% parent | on expand click |
-| DetailSlideover wide | 60% viewport | 100% parent | on drag to expand |
-| DetailTabBar | 100% | 36px | inside slideover |
-| Pagination bar | 100% | 36px | border-t, px-4 |
+| BulkActionBar | 100% | 48px | sticky bottom, slide-up |
+| Slide-over | 280/420/60% | 100% parent | three sizes |
 
 ### Interactive Elements
 
-- **Checkbox (per row):** Click toggles row selection; header checkbox selects/deselects all visible
-- **Status cell (ComboboxCellEditor):** Double-click opens combobox: Pending, Received, Verified, Discrepancy, Cancelled; typeahead filtered; Enter commits
-- **Status display:** Pending = neutral-gray; Received = info-blue; Verified = success-green; Discrepancy = warning-yellow with icon
-- **PO# cell:** Click navigates to related Purchase Order; rendered as link
-- **Vendor cell:** Click navigates to vendor detail; rendered as link
-- **Qty cell:** Display-only; right-aligned; discrepancy rows show variance indicator
-- **Received Date cell:** Double-click opens date picker
-- **Row click:** Opens DetailSlideover at peek (280px)
-- **DetailSlideover expand/collapse:** Drag resize 280px ↔ 420px ↔ 60%; click expand icon toggles
-- **DetailTabBar tabs:** Click switches (Items, PO Link, History)
-- **Items tab:** Table of line items with SKU, description, PO qty, received qty, variance; variances highlighted (red = shortage, green = overage, checkmark = exact)
-- **PO Link tab:** Summary of linked purchase order with PO status, expected totals, receipt totals, reconciliation; [View Full PO] link
-- **Status dropdown (in detail):** Inline combobox, same as grid editor
-- **FilterToolbar:** Date range for received date; Amount for qty range; Keyword searches PO# + vendor + SKU
-- **Filter pills (✕):** Click removes filter; grid re-filters
-- **+ Add filter:** Filter builder popover
-- **Sort dropdown:** Multi-column sort builder
-- **Export dropdown:** CSV, Excel, PDF
-- **GridSummaryStrip cards:** Click filters to that card's segment
-- **BulkActionBar buttons:** Mark Received (batch status), Verify (batch verification), Link PO (associate receipts to POs), More ▾ (Export selected, Add note, Flag discrepancy)
-- **Pagination:** Standard controls
-- **[+ New Receipt] button:** Opens receipt entry form: select PO, enter received quantities per line item, received date, notes; auto-calculates variances
-- **Column header click:** Sort; column resize via drag
+- **[+ New Receipt] button**: Opens receipt entry slide-over (PO selector, auto-populates line items).
+- **Status ▾ pill**: Multi-select with `Pending (47)`, `Received (312)`, `Verified (289)`, `Discrepancy (12)`, `Cancelled`. Replaces prior ViewTabBar.
+- **Status cell (ComboboxCellEditor)**: Valid transitions only.
+- **Status display**: Pending = neutral; Received = info; Verified = success; Discrepancy = warning with icon.
+- **PO# cell**: Click navigates to PO.
+- **Vendor cell**: Click navigates to vendor.
+- **Qty cell**: Right-aligned; discrepancy rows show variance.
+- **Received Date cell**: Date picker.
+- **Row click**: Slide-over peek (280px).
+- **DetailTabBar tabs**: Items (line items with variances highlighted), PO Link, History.
+- **Items tab**: Per-item SKU, description, PO qty, received qty, variance (error = shortage, success = match, info = overage).
+- **PO Link tab**: Linked PO summary with reconciliation.
+- **FilterToolbar**: Date range for received date, Amount for qty range, Keyword (PO# + vendor + SKU).
+- **BulkActionBar**: Mark Received (batch), Verify (batch), Link PO (associate receipts to POs). Only intersection of valid actions.
 
 ### States Shown
 
-- **Empty state:** "No purchase receipts found" + "Clear filters" or "Create your first receipt" + [+ New Receipt]
-- **Loading state:** 8 skeleton rows; skeleton summary cards; skeleton tabs
-- **Error state:** Banner "Failed to load receipts. [Retry]"
-- **Filter active:** ActiveFilterPills visible; menubar indicators
-- **No filters:** ActiveFilterPills hidden
-- **Row selected:** Highlight + checkbox; BulkActionBar slides up
-- **Discrepancy row:** Status pill warning-yellow; Qty cell shows variance in parentheses; row has subtle warning background; detail Items tab shows per-item variances
-- **Pending receipt:** Neutral status; clickable to mark received
-- **Verified receipt:** Green status; locked editing except for notes
-- **Row editing:** Combobox dropdown for status; date picker for received date
-- **Row saving:** Spinner; non-interactive
-- **Row save failed:** Red flash; toast with retry
-- **Bulk action in progress:** "Verifying 3 receipts…"; buttons disabled; progress on large batches
-- **Bulk action complete:** Toast "3 receipts verified"; refresh
-- **Partial receipt (some items received):** Status Pending; Qty shows partial count; detail Items tab shows mixed status per line item
-- **Over-receipt (more received than ordered):** Discrepancy status; positive variance highlighted orange; detail notes "Over-receipt requires approval"
-- **DetailSlideover open:** Grid narrows; keyboard trapped
-- **Detail Items with line-level discrepancy:** Variances per line item; ability to mark individual lines as verified/disputed
-- **New Receipt form:** Modal or inline form; PO selector (search by PO# / vendor); auto-populates line items from PO; editable received quantities; [Save] [Save & New] [Cancel]
-- **Offline:** Banner; cached data; queued actions
-- **Keyboard:** Arrow keys grid navigation; F2 edit status; Enter detail; Tab cycle; Escape close
+- **Empty state**: "No purchase receipts found" + Clear filters or "Create your first receipt" CTA.
+- **Loading state**: 8 skeleton rows.
+- **Error state**: Banner with retry.
+- **Discrepancy row**: Warning status pill; Qty cell variance in parentheses; row warning background.
+- **Bulk action in progress**: "Verifying 3 receipts…"; buttons disabled.
+- **Slide-over open**: Grid narrows.
+- **Detail Items with line-level discrepancy**: Per-line status (match / shortage / overage); marks individual lines as verified/disputed.
+- **New Receipt form**: Slide-over with PO selector typeahead; auto-populates line items; editable received quantities.
 
 ### ARIA Annotations
 
-- **View container:** `role="region" aria-label="Purchase Receipts view"`
-- **View header:** `role="banner"`
-- **FilterToolbar:** `role="menubar" aria-label="Filter and view options"`
-- **FilterToolbar items:** `role="menuitem" aria-haspopup="true"`
-- **ActiveFilterPills:** `role="list" aria-label="Active filters"`
-- **Filter pill:** `role="listitem"`; remove: `aria-label="Remove Status: Pending filter"`
-- **+ Add filter:** `role="button" aria-label="Add filter"`
-- **GridSummaryStrip:** `role="region" aria-label="Receipts summary"`
-- **Summary card:** `role="button" aria-label="Discrepancy: 12 receipts, $82.4k — click to filter" tabindex="0"`
-- **ViewTabBar:** `role="tablist" aria-label="Receipt status tabs"`
-- **Tab:** `role="tab" aria-selected="true|false" aria-label="Pending — 47 receipts"`
-- **AG Grid:** `role="grid" aria-label="Purchase receipt records" aria-multiselectable="true" aria-rowcount="660"`
-- **Grid header row:** `role="row" aria-rowindex="1"`
-- **Column header:** `role="columnheader" aria-sort="none|ascending|descending" aria-label="Qty — click to sort"`
-- **Grid data row:** `role="row" aria-rowindex="N" aria-selected="false|true"`
-- **Checkbox cell:** `role="gridcell" aria-colindex="1"`; checkbox: `role="checkbox" aria-label="Select REC-0660"`
-- **Status cell (editable):** `role="gridcell" aria-colindex="7" aria-readonly="false"`; combobox: `role="combobox" aria-expanded="false" aria-label="Status for REC-0660"`
-- **Variance row:** `aria-label="REC-0656 — Discrepancy — 150 units received"` via row-level
-- **BulkActionBar:** `role="toolbar" aria-label="Bulk actions — 3 selected" aria-live="polite"`
-- **Pagination:** `role="navigation" aria-label="Grid pagination"`
-- **DetailSlideover:** `role="dialog" aria-label="Receipt REC-0660 details" aria-modal="true"`
-- **Slideover close:** `aria-label="Close details"`
-- **Slideover expand:** `aria-label="Expand to 420px"`
-- **DetailTabBar:** `role="tablist" aria-label="Receipt detail sections"`
-- **Line items table:** `role="table" aria-label="Line items for REC-0660"`
-- **Variance cell:** `aria-label="Broccoli Floret — exact match"` or `aria-label="Spinach Chopped — shortage of 8 units"`
-- **Toast:** `role="alert" aria-live="assertive"`
-- **New Receipt form:** `role="dialog" aria-label="Create new receipt" aria-modal="true"`
+- FilterToolbar: `role="menubar"`, `aria-label="Purchase receipts filter toolbar"`
+- Status ▾ pill: `role="combobox"`, `aria-haspopup="listbox"`, `aria-label="Filter by receipt status"`, `aria-multiselectable="true"`
+- ActiveFilterPills: `role="list"`, `aria-label="Active filters"`
+- KPI line: `role="status"`, `aria-live="polite"`, `aria-label="660 receipts, $4.5M. Pending 47, Received 312, Verified 289, Discrepancy 12."`
+- AG Grid: `role="grid"`, `aria-label="Purchase receipt records"`, `aria-multiselectable="true"`
+- Status cell (editable): `role="combobox"`, `aria-label="Status for REC-0660"`
+- Variance row: `aria-label="REC-0656 — Discrepancy — 150 units received"`
+- BulkActionBar: `role="toolbar"`, `aria-label="Bulk actions — 3 selected"`
+- Slide-over: `role="dialog"`, `aria-label="Receipt REC-0660 details"`
+- Line items table: `role="table"`, `aria-label="Line items for REC-0660"`
+- Variance cell: `aria-label="Broccoli Floret — exact match"` or `aria-label="Spinach Chopped — shortage of 8 units"`
+- Toast: `role="alert"`, `aria-live="assertive"`
 
 ### Edge Cases Handled
 
-- **No receipts at all:** Full-page empty; summary/tabs hidden; direct CTA to [+ New Receipt]
-- **All receipts verified:** Normal view; Pending/Received tabs shown with count 0; Verified tab selected; all summary cards show numbers
-- **Zero-quantity receipt:** Qty shows 0; Detail Items tab shows all items with 0 received; discrepancy flag
-- **Partial line item receipt (e.g., 50 of 100 received):** Line item shows "50/100" in both columns; Status "Partial"; ability to add additional receipt against same PO line
-- **Multiple receipts for same PO:** Detail PO Link tab lists all receipts against this PO; reconciliation table: PO total vs sum of all receipts
-- **Backdated receipt:** Received Date before PO date triggers soft warning "Receipt date precedes PO date" — advisory only; does not block save
-- **Overage approval threshold:** If received qty exceeds PO qty by >10% (configurable), status shows "Over-receipt" with approval required; workflow triggers
-- **Damaged goods receipt:** Line item can be marked "Damaged" with qty; separate from shortage; detail shows damaged qty with reason field
-- **Unlinked PO (receipt without PO):** PO# cell shows "—"; [Link PO] action available in detail; PO Link tab shows "No PO linked — [Link to PO]"
-- **Zero-value PO (samples/free goods):** Amount shown as $0.00; discrepancy logic based on qty only, not value
-- **Concurrent verification:** Conflict detection if two users try to verify same receipt; second user gets toast "This receipt was already verified"
-- **Large dataset:** Virtual scrolling; pre-computed summary
-- **Rapid filter changes:** 300ms debounce; request cancellation
-- **Browser back:** Closes slideover; restores state
-- **Keyboard:** Full grid keyboard; F2 edit; Enter detail; Tab cycle; Escape close
-- **Screen reader:** "47 pending receipts, 12 with discrepancies" on summary; "Sorted by received date, newest first"
+- **No receipts at all**: Full-page empty.
+- **All verified**: Normal view; Verified pre-selected.
+- **Zero-quantity receipt**: Items show all 0; discrepancy flag.
+- **Partial line item receipt**: "50/100" in both columns; Status "Partial"; ability to add additional receipt.
+- **Multiple receipts for same PO**: PO Link tab lists all receipts; reconciliation table.
+- **Backdated receipt**: Soft warning "Receipt date precedes PO date."
+- **Overage approval threshold**: > 10% over PO qty triggers "Over-receipt requires approval."
+- **Damaged goods**: Line item marked "Damaged" with qty separate from shortage.
+- **Unlinked PO**: PO# "—"; `Link PO` available.
+- **Zero-value PO**: Discrepancy logic based on qty only.
+- **Concurrent verification**: Conflict toast.
+- **Large dataset**: Virtual scrolling.
+- **Browser back**: Closes slide-over.
+
+### UX Compliance
+
+| UX Rule | Status | Note |
+|---------|--------|------|
+| UX-1: Action visibility follows entity state | ✓ | Mark Received only Pending; Verify only Received; Resolve only Discrepancy. |
+| UX-2: Supporting info one click away, never zero | ✓ | Items, PO Link, History as slide-over tabs. |
+| UX-3: One primary surface per view | ✓ | Receipts table is the only primary surface. |
+| UX-4: Bulk actions appear only on selection | ✓ | BulkActionBar slides up only on selection. |
+| UX-5: Validation errors at point of impact | ✓ | Discrepancy at the row; variance at the line. |
+| UX-6: Tools and forms in slide-overs; modals for confirmations | ✓ | New receipt in slide-over. Cancel modal. |
+| UX-7: System never hides what mode the operator is in | ✓ | Filter pills, slide-over header. |
+| UX-8: State changes resolve in place | ✓ | Verify updates row inline. |
+| UX-9: Filtering is fluid; navigation is durable | ✓ | Status ▾ pill replaces tab bar. |
+| UX-10: Cell-level interactions save immediately; forms have explicit save | ✓ | Status edits save. Receipt form explicit. |
+| UX-11: URL is the session memory | ✓ | Filters, slide-over ID encode into URL. |
+| UX-12: Empty states give the operator a next step | ✓ | Empty → New Receipt CTA. Empty filtered → Clear filters. |
