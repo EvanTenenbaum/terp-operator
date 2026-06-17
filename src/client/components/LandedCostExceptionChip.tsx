@@ -89,30 +89,11 @@ export function LandedCostExceptionChip({
   );
 }
 
-// AG Grid cell renderer signature is `(params: { data?: TRow; value?: any })`.
-// We accept the projected fields directly from the row so the renderer is a
-// thin adapter and the testable surface is the chip itself.
-interface CellRendererParams {
-  data?: {
-    landedCostExceptionReason?: string | null;
-    landedCostExceptionNote?: string | null;
-    landedCostBelowRange?: boolean;
-    landedCostExceptionRangeLow?: number | null;
-    landedCostExceptionRangeHigh?: number | null;
-  } | null;
-}
-
-export function LandedCostExceptionCellRenderer(params: CellRendererParams = {}) {
-  const data = params.data ?? {};
-  return (
-    <LandedCostExceptionChip
-      reason={data.landedCostExceptionReason ?? null}
-      note={data.landedCostExceptionNote ?? null}
-      rangeLow={data.landedCostExceptionRangeLow ?? null}
-      rangeHigh={data.landedCostExceptionRangeHigh ?? null}
-    />
-  );
-}
+// Phase 3A: LandedCostExceptionCellRenderer is now canonicalized at
+// src/client/components/cells/sales/LandedCostExceptionCell.tsx as
+// LandedCostExceptionCell. This re-export preserves the import path for
+// existing consumers (e.g., LandedCostExceptionChip.test.tsx).
+export { LandedCostExceptionCell as LandedCostExceptionCellRenderer } from './cells/sales/LandedCostExceptionCell';
 
 // Re-export so callers can guard the BELOW_FLOOR_REASONS list from one import.
 export { BELOW_FLOOR_REASONS };
