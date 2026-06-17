@@ -12,6 +12,10 @@ import { CustomerPurchaseHistoryPanel } from '../components/CustomerPurchaseHist
 import { SalesSourcePane } from '../components/SalesSourcePane';
 import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 import { type CustomerSheetSnapshotRow, type CustomerSheetSnapshotSummary } from '../components/RecentSheetsPanel';
+import { useSearchParams } from 'react-router-dom';
+import { SALES_VIEW_MERCURY } from '../featureFlags';
+import { SalesBrowseMode } from './sales/SalesBrowseMode';
+import { SalesBuildMode } from './sales/SalesBuildMode';
 import { SaleLineExceptionControls } from '../components/SaleLineExceptionControls';
 import { SalePrePostStrip, type SalePrePostCheck, type SalePrePostLine } from '../components/SalePrePostStrip';
 import { SnapshotRetryPill } from '../components/SnapshotRetryPill';
@@ -276,7 +280,20 @@ function moneyish(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0';
 }
 
-export function SalesView() {
+/**
+ * LegacySalesView — the pre-Phase 3B 1813-line monolithic SalesView.
+ *
+ * Preserved byte-identical behind the `salesViewMercury` feature flag.
+ * When the flag is OFF (default), the `SalesView` mode router delegates
+ * to this component. When the flag is ON, `SalesBrowseMode` / `SalesBuildMode`
+ * render this component as the primary or secondary surface.
+ *
+ * This function is exported so the Phase 3B mode components can import it
+ * without an extra file. It SHOULD NOT be imported directly by any other
+ * module — use `SalesView` (the mode router) instead.
+ */
+export function LegacySalesView() {
+
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setGridFilter = useUiStore((state) => state.setGridFilter);
   const selectedSalesRows = useUiStore((state) => state.selectedRows.sales);
@@ -1794,6 +1811,63 @@ export function SalesView() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * SalesView — Phase 3B mode router.
+ *
+ * When `salesViewMercury` feature flag is OFF (default): delegates to
+ * `LegacySalesView` — the full 1813-line monolithic view. No operator impact.
+ *
+ * When the flag is ON:
+ *   - No ?customer=<uuid> param → SalesBrowseMode (Mode A — browsing)
+ *   - ?customer=<uuid> present    → SalesBuildMode (Mode B — building)
+ *
+ * Mode A → Mode B transition: set ?customer=<uuid> in the URL (e.g., via
+ * keel bar global customer selector or customer cell click).
+ *
+ * Mode B → Mode A transition: clear the ?customer param (via the context
+ * header's [Clear] button).
+ *
+ * @see docs/engineering-plans/specifications/views/sales-view-refactor-plan.md
+ */
+export function SalesView() {
+  if (!SALES_VIEW_MERCURY) {
+    return <LegacySalesView />;
+  }
+  return <MercurySalesView />;
+}
+
+/**
+ * Internal mode router — only reached when `salesViewMercury` is ON.
+ * Reads ?customer=<uuid> from URL search params to decide mode.
+ */
+function MercurySalesView() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const customerId = searchParams.get('customer') ?? '';
+
+  function handleClearCustomer() {
+    setSearchParams({});
+  }
+
+  function handleCustomerSelect(id: string) {
+    setSearchParams({ customer: id });
+  }
+
+  if (customerId) {
+    return (
+      <SalesBuildMode
+        customerId={customerId}
+        onClear={handleClearCustomer}
+      />
+    );
+  }
+
+  return (
+    <SalesBrowseMode
+      onCustomerSelect={handleCustomerSelect}
+    />
   );
 }
 

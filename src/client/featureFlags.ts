@@ -17,3 +17,22 @@
  * and lane visibility when the connector program (U13) is picked back up.
  */
 export const CONNECTOR_SURFACES_ENABLED = false;
+
+/**
+ * Phase 3B — SalesView Mercury UX retrofit (layout swap behind flag).
+ *
+ * When `false` (default): SalesView renders the legacy 1813-line monolithic
+ * view unchanged. No operator impact.
+ *
+ * When `true`: SalesView becomes a mode router:
+ *   - No customer selected → SalesBrowseMode (Mode A — browsing, same layout)
+ *   - Customer selected via ?customer=<uuid> → SalesBuildMode (Mode B —
+ *     sticky customer context header + primary draft lines grid)
+ *
+ * This flag gates ALL Phase 3B layout changes. Remove after Phase 4 closeout
+ * when `salesViewMercury` is the canonical SalesView.
+ *
+ * @see docs/engineering-plans/specifications/views/sales-view-refactor-plan.md
+ * @see docs/engineering-plans/MASTER-EXECUTION-DOCUMENT.md §Phase 3B
+ */
+export const SALES_VIEW_MERCURY = false;
