@@ -1,8 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Maximize2, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import type { GridRow, Role } from '../../shared/types';
+import { useDrawerUrlSync } from '../hooks/useDrawerUrlSync';
+import { useEntityActions } from '../hooks/useEntityActions';
+import { trpc } from '../api/trpc';
+import type { GridRow, Role, ViewKey } from '../../shared/types';
+import type { CommandName } from '../../shared/commandCatalog';
+import type { BulkCommandRow } from '../../shared/schemas';
+import type { BulkAction, BulkActionResult } from './BulkActionBar';
 import type { SlideOverTab, SlideOverTabProps } from './tabs/registry';
 import { getTabs, getDefaultTab } from './tabs/registry';
 
@@ -17,6 +23,8 @@ export interface DetailSlideoverProps {
   onClose: () => void;
   onStateChange?: (s: SlideoverState) => void;
   onOpenFullView?: () => void;
+  /** View key for URL state sync. Required for proper drawer URL persistence. */
+  viewKey: ViewKey;
   /** Override tabs from the registry (useful for testing / ad-hoc usage). */
   tabs?: SlideOverTab[];
   /** Grid row data passed to active tab. */
@@ -57,12 +65,16 @@ export function DetailSlideover({
   onClose,
   onStateChange,
   onOpenFullView,
+  viewKey,
   tabs: explicitTabs,
   row,
   role,
   loading = false,
   error = null,
 }: DetailSlideoverProps): JSX.Element | null {
+  // Sync drawer entity + state to URL query params for navigation persistence.
+  useDrawerUrlSync(viewKey);
+
   // Resolve tabs from registry or explicit prop.
   const resolvedTabs: SlideOverTab[] = explicitTabs ?? getTabs(entityType, role);
   const defaultTabKey = getDefaultTab(entityType);
@@ -106,6 +118,55 @@ export function DetailSlideover({
       document.removeEventListener('mousedown', handleClick);
     };
   }, [state, onClose]);
+
+  // ── Slideover ActionBar ──────────────────────────────────────────────────
+  // Resolve available actions for the selected entity.
+  const selectedRowForActions: { id: string; status: string }[] = useMemo(() => {
+    if (!entityId || !row || typeof row.status !== 'string') return [];
+    return [{ id: entityId, status: row.status as string }];
+  }, [entityId, row]);
+
+  const slideoverActionDefs = useEntityActions(
+    entityType,
+    selectedRowForActions,
+    role ?? 'viewer',
+  );
+
+  const runBulk = trpc.commands.runBulk.useMutation();
+
+  const slideoverActions: BulkAction[] = useMemo(() => {
+    if (slideoverActionDefs.length === 0 || !entityId) return [];
+    return slideoverActionDefs.map((def): BulkAction => ({
+      key: def.key,
+      label: def.label,
+      primary: def.primary,
+      variant: def.variant,
+      onAction: async (inputValue?: string): Promise<BulkActionResult> => {
+        const groupKey = crypto.randomUUID();
+        const commands: BulkCommandRow[] = [{
+          entityType,
+          entityId: entityId!,
+          commandName: def.key as CommandName,
+          payload: inputValue ? { value: inputValue } : {},
+          idempotencyKey: `${groupKey}:${entityId!}`,
+        }];
+        try {
+          const result = await runBulk.mutateAsync({
+            groupKey,
+            reason: `Slideover ${def.label} on ${entityLabel(entityType)}`,
+            commands,
+          });
+          return {
+            succeeded: result.succeeded,
+            failed: result.failed + result.rolledBack + result.skipped,
+          };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Command failed';
+          return { succeeded: 0, failed: 1, error: message };
+        }
+      },
+    }));
+  }, [slideoverActionDefs, entityId, entityType, runBulk]);
 
   // Cycle width: peek → standard → wide → peek.
   const handleCycle = useCallback(() => {
@@ -238,6 +299,33 @@ export function DetailSlideover({
             row,
           })}
         </div>
+
+        {/* ActionBar — anchored at bottom, shows entity actions (standard/wide only) */}
+        {entityId && row && role && state !== 'peek' && slideoverActions.length > 0 && (
+          <div className="slideover-actions" data-testid="slideover-actions">
+            {slideoverActions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                className={[
+                  'inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium',
+                  'transition-colors duration-150',
+                  'focus:outline-none focus-visible:shadow-focus',
+                  action.variant === 'danger'
+                    ? 'text-red-700 bg-red-50 hover:bg-red-100 border border-red-200'
+                    : action.variant === 'warning'
+                      ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                      : 'text-zinc-700 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200',
+                  action.primary ? 'font-semibold' : '',
+                ].join(' ')}
+                onClick={() => action.onAction()}
+                disabled={runBulk.isLoading}
+              >
+                {runBulk.isLoading ? '...' : action.label}
+              </button>
+            ))}
+          </div>
+        )}
       </aside>
     </>
   );

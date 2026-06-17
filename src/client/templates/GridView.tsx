@@ -239,6 +239,13 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
   // ── Title ──────────────────────────────────────────────────────────────────
   const title = viewConfig?.title ?? fallbackTitle(entityLabel, entityType);
 
+  // ── Active row for slideover detail (looked up by drawer entityId). ──────
+  const activeRow = useMemo(() => {
+    const eId = activeDrawerEntity?.entityId;
+    if (!eId) return undefined;
+    return rows.find((r) => r.id === eId);
+  }, [rows, activeDrawerEntity?.entityId]);
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="grid-view flex flex-col h-full" data-testid={`grid-view-${viewKey}`}>
@@ -249,8 +256,10 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
         exportFormats={['csv']}
       />
 
-      {/* GridSummaryStrip — auto-fetches from queries.gridSummary */}
-      <GridSummaryStrip entityType={VIEW_TO_GRID_SUMMARY[viewKey] ?? entityType} />
+      {/* GridSummaryStrip — auto-fetches from queries.gridSummary. Hidden when BulkActionBar is mounted (ARCH-4). */}
+      {selectedRows.length === 0 && (
+        <GridSummaryStrip entityType={VIEW_TO_GRID_SUMMARY[viewKey] ?? entityType} />
+      )}
 
       {/* ViewTabBar — auto-fetches status counts from queries.statusCounts */}
       <ViewTabBar
@@ -286,9 +295,12 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
 
       {/* DetailSlideover — right-side panel, overlays the grid */}
       <DetailSlideover
+        viewKey={viewKey}
         entityType={entityType}
         entityId={activeDrawerEntity?.entityId ?? null}
         state={drawerState}
+        row={activeRow}
+        role={userRole}
         onClose={handleDrawerClose}
       />
     </div>

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { ColDef, ValueFormatterParams } from 'ag-grid-community';
+import type { ColDef, ICellEditorParams, ValueFormatterParams } from 'ag-grid-community';
 import {
   entitySchemas,
   type FieldDefinition,
@@ -50,6 +50,10 @@ const TYPE_GRID_TYPE: Partial<Record<FieldType, string>> = {
  * @param overrides  Partial ColDefs to merge by `field` or `colId` key. The
  *                   consumer is responsible for providing a stable reference
  *                   (e.g. via `useMemo`) to avoid unnecessary recomputation.
+ * @param onCellCommit Optional callback invoked when a combobox/enum editor
+ *                     commits a new value. Receives the field name, new value,
+ *                     and the grid row data. Consumer should stabilize with
+ *                     `useCallback`.
  * @returns AG Grid ColDef array ordered per the schema's {@link FieldDefinition}
  *          array. Returns empty array when the entityType is not found.
  *
@@ -61,6 +65,7 @@ const TYPE_GRID_TYPE: Partial<Record<FieldType, string>> = {
 export function useColumnDefs(
   entityType: string,
   overrides?: Partial<ColDef>[],
+  onCellCommit?: (field: string, value: unknown, row: Record<string, unknown>) => Promise<void>,
 ): ColDef[] {
   const prefs = useUiStore(
     (state) => state.gridColumnPrefs[entityType] ?? EMPTY_PREFS,
@@ -70,7 +75,7 @@ export function useColumnDefs(
     const schema = entitySchemas[entityType];
     if (!schema) return [];
 
-    let defs: ColDef[] = schema.fields.map(fieldToColDef);
+    let defs: ColDef[] = schema.fields.map((f) => fieldToColDef(f, onCellCommit));
 
     // Apply view-level overrides by field or colId key.
     if (overrides?.length) {
@@ -107,7 +112,7 @@ export function useColumnDefs(
     }
 
     return defs;
-  }, [entityType, overrides, prefs]);
+  }, [entityType, overrides, prefs, onCellCommit]);
 }
 
 // ── FieldDefinition → ColDef mapper ──────────────────────────────────────────
@@ -132,7 +137,10 @@ export function useColumnDefs(
  * - Tier 1 → visible (`hide: false`)
  * - Tier 2 → hidden by default (`hide: true`), reachable via Columns menu
  */
-function fieldToColDef(f: FieldDefinition): ColDef {
+function fieldToColDef(
+  f: FieldDefinition,
+  onCellCommit?: (field: string, value: unknown, row: Record<string, unknown>) => Promise<void>,
+): ColDef {
   const base: ColDef = {
     colId: f.field,
     field: f.field,
@@ -206,10 +214,22 @@ function fieldToColDef(f: FieldDefinition): ColDef {
       // `withStatusRenderer` — do not conflict with that enhancement.
       if (f.editable) {
         base.cellEditor = ComboboxCellEditor as unknown as ColDef['cellEditor'];
-        base.cellEditorParams = {
-          options: [],
-          placeholder: `Select ${f.headerName.toLowerCase()}`,
-        } as ColDef['cellEditorParams'];
+        if (onCellCommit) {
+          base.cellEditorParams = (params: ICellEditorParams) => ({
+            options: [],
+            placeholder: `Select ${f.headerName.toLowerCase()}`,
+            onCommit: async (value: string | null) => {
+              if (value !== null) {
+                await onCellCommit(f.field, value, params.data as Record<string, unknown>);
+              }
+            },
+          } as ColDef['cellEditorParams']);
+        } else {
+          base.cellEditorParams = {
+            options: [],
+            placeholder: `Select ${f.headerName.toLowerCase()}`,
+          } as ColDef['cellEditorParams'];
+        }
       }
       break;
     }
@@ -217,11 +237,24 @@ function fieldToColDef(f: FieldDefinition): ColDef {
     case 'combobox': {
       if (f.editable) {
         base.cellEditor = ComboboxCellEditor as unknown as ColDef['cellEditor'];
-        base.cellEditorParams = {
-          options: [],
-          placeholder: `Select ${f.headerName.toLowerCase()}`,
-          // async options loaded via comboboxSource trpc procedure (future).
-        } as ColDef['cellEditorParams'];
+        if (onCellCommit) {
+          base.cellEditorParams = (params: ICellEditorParams) => ({
+            options: [],
+            placeholder: `Select ${f.headerName.toLowerCase()}`,
+            // async options loaded via comboboxSource trpc procedure (future).
+            onCommit: async (value: string | null) => {
+              if (value !== null) {
+                await onCellCommit(f.field, value, params.data as Record<string, unknown>);
+              }
+            },
+          } as ColDef['cellEditorParams']);
+        } else {
+          base.cellEditorParams = {
+            options: [],
+            placeholder: `Select ${f.headerName.toLowerCase()}`,
+            // async options loaded via comboboxSource trpc procedure (future).
+          } as ColDef['cellEditorParams'];
+        }
       }
       break;
     }
