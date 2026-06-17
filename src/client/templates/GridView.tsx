@@ -37,6 +37,8 @@ interface GridViewProps {
   entityType: string;
   /** Human-readable plural label (e.g. 'Purchase Orders'). Falls back to view config title. */
   entityLabel?: string;
+  /** Optional custom summary strip — replaces the auto-fetched GridSummaryStrip when provided. */
+  summarySlot?: ReactNode;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -108,7 +110,7 @@ function fallbackTitle(entityLabel: string | undefined, entityType: string): str
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): ReactNode {
+export function GridView({ viewKey, entityType, entityLabel, summarySlot }: GridViewProps): ReactNode {
   // ── View config ────────────────────────────────────────────────────────────
   const viewConfig: ViewEntry | undefined = viewRegistry[viewKey];
 
@@ -297,10 +299,11 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
         onStatusFilterChange={handleStatusFilterChange}
       />
 
-      {/* GridSummaryStrip — auto-fetches from queries.gridSummary. Hidden when BulkActionBar is mounted (ARCH-4). */}
-      {selectedRows.length === 0 && (
+      {/* GridSummaryStrip — auto-fetches from queries.gridSummary. Hidden when BulkActionBar is mounted (ARCH-4).
+          When summarySlot is provided, it replaces the auto-fetched strip. */}
+      {summarySlot ?? (selectedRows.length === 0 && (
         <GridSummaryStrip entityType={VIEW_TO_GRID_SUMMARY[viewKey] ?? entityType} />
-      )}
+      ))}
 
       {/* ViewTabBar — auto-fetches status counts from queries.statusCounts */}
       <ViewTabBar

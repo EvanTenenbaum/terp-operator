@@ -1,6 +1,7 @@
 import { PackageCheck, ShieldCheck, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { GridView } from '../templates/GridView';
+import { trpc } from '../api/trpc';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useConfirm } from '../hooks/useConfirm';
 import type { GridRow } from '../../shared/types';
@@ -12,12 +13,48 @@ import {
   inventoryUnitCostSortValue
 } from '../../shared/inventoryPricing';
 
+// ─── Inventory subcategory / category summary ────────────────────────────────
+// DR-1: subcategory is prioritized over category. Shows top-5 groups by availableQty.
+
+function InventoryCategorySummary({ viewKey }: { viewKey: string }) {
+  type GridQueryInput = Parameters<typeof trpc.queries.grid.useQuery>[0];
+  const grid = trpc.queries.grid.useQuery({ view: viewKey } as GridQueryInput);
+  const rows = (grid.data as GridRow[] | undefined) ?? [];
+
+  const metrics = useMemo(() => {
+    if (!rows.length) return [];
+    const groups: Record<string, number> = {};
+    for (const row of rows) {
+      const key = (row.subcategory as string) || (row.category as string) || 'Other';
+      const qty = Number(row.availableQty ?? 0);
+      groups[key] = (groups[key] ?? 0) + qty;
+    }
+    return Object.entries(groups)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([label, value]) => ({ label, value: String(value) }));
+  }, [rows]);
+
+  if (!metrics.length) return null;
+
+  return (
+    <div className="flex gap-3 px-4 py-2 bg-white border-b border-zinc-200 overflow-x-auto">
+      {metrics.map((m) => (
+        <div key={m.label} className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200">
+          <span className="text-[11px] text-zinc-500 block">{m.label}</span>
+          <span className="text-sm font-semibold text-zinc-900 tabular-nums">{m.value} units</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function InventoryView() {
   return (
     <div className="h-full flex flex-col">
       {/* ── Main grid — GridView template handles column defs, filtering, bulk actions, slide-over ── */}
       <div className="flex-1 min-h-0">
-        <GridView viewKey="inventory" entityType="intake" />
+        <GridView viewKey="inventory" entityType="intake" summarySlot={<InventoryCategorySummary viewKey="inventory" />} />
       </div>
     </div>
   );
