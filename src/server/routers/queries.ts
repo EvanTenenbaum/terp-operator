@@ -53,6 +53,7 @@ import {
   buildGridWhereClause,
 } from './gridWhere';
 import { entityTabsRouter } from './queries.entityTabs';
+import { detailQueriesRouter } from './queries.detail';
 
 // Exported so the HTTP CSV export route (`/api/export/:view.csv`, see #35
 // FE-M1) can share the same view whitelist, SQL, and column ordering as the
@@ -3388,6 +3389,9 @@ export const queriesRouter = router({
 
   // -- Entity tab queries (T-B-08) --
   ...entityTabsRouter,
+
+  // -- Detail queries for slide-over entities (T-B-09) --
+  ...detailQueriesRouter,
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {

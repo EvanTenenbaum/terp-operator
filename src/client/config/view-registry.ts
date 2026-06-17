@@ -97,79 +97,316 @@ const salesView: ViewEntry = {
 };
 
 // ─── DashboardView ───────────────────────────────────────────────────────────
-// TODO: add Dashboard view entry
-// const dashboardView: ViewEntry = {
-//   viewKey: 'dashboard',
-//   entity: 'dashboard',
-//   template: 'dashboard',
-//   primaryProcedure: 'queries.dashboard',
-//   urlPath: '/',
-//   title: 'Dashboard',
-//   allowedSlideOvers: [],
-// };
 
-// ─── IntakeView ──────────────────────────────────────────────────────────────
-// TODO: add Intake view entry
-
-// ─── InventoryView ───────────────────────────────────────────────────────────
-// TODO: add Inventory view entry
-
-// ─── PaymentsView ────────────────────────────────────────────────────────────
-// TODO: add Payments view entry
-
-// ─── VendorsView ─────────────────────────────────────────────────────────────
-// TODO: add Vendors view entry
-
-// ─── ClientsView ─────────────────────────────────────────────────────────────
-// TODO: add Clients view entry
-
-// ─── CloseoutView ────────────────────────────────────────────────────────────
-// TODO: add Closeout view entry
-
-// ─── RecoveryView ────────────────────────────────────────────────────────────
-// TODO: add Recovery view entry
-
-// ─── ConnectorsView ──────────────────────────────────────────────────────────
-// TODO: add Connectors view entry
-
-// ─── FulfillmentView ─────────────────────────────────────────────────────────
-// TODO: add Fulfillment view entry
-
-// ─── MatchmakingView ─────────────────────────────────────────────────────────
-// TODO: add Matchmaking view entry
-
-// ─── OrdersView ──────────────────────────────────────────────────────────────
-// TODO: add Orders view entry
-
-// ─── RefereesView ────────────────────────────────────────────────────────────
-// TODO: add Referees view entry
-
-// ─── ProcessorsView ──────────────────────────────────────────────────────────
-// TODO: add Processors view entry
-
-// ─── PhotographyView ─────────────────────────────────────────────────────────
-// TODO: add Photography view entry
-
-// ─── PurchaseReceiptsView ────────────────────────────────────────────────────
-// TODO: add PurchaseReceipts view entry
-
-// ─── ItemsView ───────────────────────────────────────────────────────────────
-// TODO: add Items view entry
-
-// ─── DisputesView ────────────────────────────────────────────────────────────
-// TODO: add Disputes view entry
-
-// ─── SettingsView ────────────────────────────────────────────────────────────
-// TODO: add Settings view entry
-
-// ─── PickView ────────────────────────────────────────────────────────────────
-// TODO: add Pick view entry
-
-// ─── ContactsView ────────────────────────────────────────────────────────────
-// TODO: add Contacts view entry
+const dashboardView: ViewEntry = {
+  viewKey: 'dashboard',
+  entity: '',
+  template: 'dashboard',
+  primaryProcedure: 'queries.dashboard',
+  urlPath: '/',
+  title: 'Dashboard',
+  allowedSlideOvers: [],
+};
 
 // ─── ReportsView ─────────────────────────────────────────────────────────────
-// TODO: add Reports view entry
+
+const reportsView: ViewEntry = {
+  viewKey: 'reports',
+  entity: '',
+  template: 'report',
+  primaryProcedure: 'queries.reports',
+  urlPath: '/reports',
+  title: 'Reports',
+  allowedSlideOvers: [],
+};
+
+// ─── IntakeView ──────────────────────────────────────────────────────────────
+
+const intakeView: ViewEntry = {
+  viewKey: 'intake',
+  entity: 'batch',
+  template: 'masterDetail',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/intake',
+  title: 'Intake',
+  allowedSlideOvers: ['batch', 'item', 'vendor'],
+};
+
+// ─── MatchmakingView ─────────────────────────────────────────────────────────
+
+const matchmakingView: ViewEntry = {
+  viewKey: 'matchmaking',
+  entity: 'matchmakingMatch',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/matchmaking',
+  title: 'Matchmaking',
+  allowedSlideOvers: ['matchmakingMatch', 'sale', 'purchaseOrder'],
+};
+
+// ─── OrdersView ──────────────────────────────────────────────────────────────
+
+const ordersView: ViewEntry = {
+  viewKey: 'orders',
+  entity: 'sale',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/orders',
+  title: 'Orders',
+  allowedSlideOvers: ['sale', 'customer'],
+};
+
+// ─── PaymentsView ────────────────────────────────────────────────────────────
+
+const paymentsView: ViewEntry = {
+  viewKey: 'payments',
+  entity: 'payment',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/payments',
+  title: 'Payments',
+  allowedSlideOvers: ['payment', 'invoice', 'customer'],
+};
+
+// ─── InventoryView ───────────────────────────────────────────────────────────
+
+const inventoryView: ViewEntry = {
+  viewKey: 'inventory',
+  entity: 'batch',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/inventory',
+  title: 'Inventory',
+  allowedSlideOvers: ['batch', 'item'],
+};
+
+// ─── ClientsView ─────────────────────────────────────────────────────────────
+
+const clientsView: ViewEntry = {
+  viewKey: 'clients',
+  entity: 'customer',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/customers',
+  title: 'Customers',
+  allowedSlideOvers: ['customer', 'sale'],
+};
+
+// ─── VendorsView ─────────────────────────────────────────────────────────────
+
+const vendorsView: ViewEntry = {
+  viewKey: 'vendors',
+  entity: 'vendor',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/vendors',
+  title: 'Vendors',
+  allowedSlideOvers: ['vendor', 'purchaseOrder'],
+};
+
+// ─── FulfillmentView ─────────────────────────────────────────────────────────
+
+const fulfillmentView: ViewEntry = {
+  viewKey: 'fulfillment',
+  entity: 'fulfillmentLine',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/fulfillment',
+  title: 'Fulfillment',
+  allowedSlideOvers: ['fulfillmentLine', 'sale', 'pickList'],
+};
+
+// ─── ConnectorsView ──────────────────────────────────────────────────────────
+
+const connectorsView: ViewEntry = {
+  viewKey: 'connectors',
+  entity: 'connectorRequest',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/connector-requests',
+  title: 'Connector Requests',
+  allowedSlideOvers: ['connectorRequest'],
+};
+
+// ─── RecoveryView ────────────────────────────────────────────────────────────
+
+const recoveryView: ViewEntry = {
+  viewKey: 'recovery',
+  entity: 'correctionJournalEntry',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/correction-journal',
+  title: 'Correction Journal',
+  allowedSlideOvers: ['correctionJournalEntry'],
+};
+
+// ─── CloseoutView ────────────────────────────────────────────────────────────
+
+const closeoutView: ViewEntry = {
+  viewKey: 'closeout',
+  entity: '',
+  template: 'report',
+  primaryProcedure: 'queries.closeout',
+  urlPath: '/closeout',
+  title: 'Period Closeout',
+  allowedSlideOvers: [],
+};
+
+// ─── RefereesView ────────────────────────────────────────────────────────────
+
+const refereesView: ViewEntry = {
+  viewKey: 'referees',
+  entity: 'refereeCredit',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/referee-credits',
+  title: 'Referee Credits',
+  allowedSlideOvers: ['refereeCredit'],
+};
+
+// ─── ProcessorsView ──────────────────────────────────────────────────────────
+
+const processorsView: ViewEntry = {
+  viewKey: 'processors',
+  entity: 'user',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/staff',
+  title: 'Staff',
+  allowedSlideOvers: ['user'],
+};
+
+// ─── CreditReviewView ────────────────────────────────────────────────────────
+
+const creditReviewView: ViewEntry = {
+  viewKey: 'credit-review',
+  entity: 'invoiceDispute',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/credit-review',
+  title: 'Credit Review',
+  allowedSlideOvers: ['invoiceDispute', 'invoice', 'customer'],
+};
+
+// ─── PhotographyView ─────────────────────────────────────────────────────────
+
+const photographyView: ViewEntry = {
+  viewKey: 'photography',
+  entity: 'photographyQueue',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/photography-queue',
+  title: 'Photography Queue',
+  allowedSlideOvers: ['photographyQueue', 'batch'],
+};
+
+// ─── ContactsView ────────────────────────────────────────────────────────────
+
+const contactsView: ViewEntry = {
+  viewKey: 'contacts',
+  entity: 'customer',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/contacts',
+  title: 'Contacts',
+  allowedSlideOvers: ['customer', 'sale'],
+};
+
+// ─── ContactsCustomerOrdersView ──────────────────────────────────────────────
+
+const contactsCustomerOrdersView: ViewEntry = {
+  viewKey: 'contacts-customer-orders',
+  entity: 'sale',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/contacts/customer-orders',
+  title: 'Customer Orders',
+  allowedSlideOvers: ['sale'],
+};
+
+// ─── SettingsView ────────────────────────────────────────────────────────────
+
+const settingsView: ViewEntry = {
+  viewKey: 'settings',
+  entity: '',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/settings',
+  title: 'Settings',
+  allowedSlideOvers: [],
+};
+
+// ─── PickView ────────────────────────────────────────────────────────────────
+
+const pickView: ViewEntry = {
+  viewKey: 'pick',
+  entity: 'pickList',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/pick-lists',
+  title: 'Pick Lists',
+  allowedSlideOvers: ['pickList', 'fulfillmentLine', 'sale'],
+};
+
+// ─── FulfillmentPicksView ────────────────────────────────────────────────────
+
+const fulfillmentPicksView: ViewEntry = {
+  viewKey: 'fulfillment-picks',
+  entity: 'pickList',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/fulfillment/picks',
+  title: 'Fulfillment Picks',
+  allowedSlideOvers: ['pickList'],
+};
+
+// ─── FulfillmentLinesView ────────────────────────────────────────────────────
+
+const fulfillmentLinesView: ViewEntry = {
+  viewKey: 'fulfillment-lines',
+  entity: 'fulfillmentLine',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/fulfillment/lines',
+  title: 'Fulfillment Lines',
+  allowedSlideOvers: ['fulfillmentLine', 'sale'],
+};
+
+// ─── PurchaseReceiptsView ────────────────────────────────────────────────────
+
+const purchaseReceiptsView: ViewEntry = {
+  viewKey: 'purchaseReceipts',
+  entity: 'purchaseReceipt',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/purchase-receipts',
+  title: 'Purchase Receipts',
+  allowedSlideOvers: ['purchaseReceipt', 'purchaseOrder', 'vendor'],
+};
+
+// ─── ItemsView ───────────────────────────────────────────────────────────────
+
+const itemsView: ViewEntry = {
+  viewKey: 'items',
+  entity: 'item',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/items',
+  title: 'Items',
+  allowedSlideOvers: ['item'],
+};
+
+// ─── DisputesView ────────────────────────────────────────────────────────────
+
+const disputesView: ViewEntry = {
+  viewKey: 'disputes',
+  entity: 'invoiceDispute',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/invoice-disputes',
+  title: 'Invoice Disputes',
+  allowedSlideOvers: ['invoiceDispute', 'invoice', 'customer'],
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VIEW REGISTRY MAP
@@ -182,33 +419,32 @@ const salesView: ViewEntry = {
 export const viewRegistry: Record<ViewKey, ViewEntry> = {
   purchaseOrders: purchaseOrdersView,
   sales: salesView,
-  // TODO: add remaining view entries (~25 views)
-  dashboard: undefined as unknown as ViewEntry,
-  reports: undefined as unknown as ViewEntry,
-  intake: undefined as unknown as ViewEntry,
-  matchmaking: undefined as unknown as ViewEntry,
-  orders: undefined as unknown as ViewEntry,
-  payments: undefined as unknown as ViewEntry,
-  inventory: undefined as unknown as ViewEntry,
-  clients: undefined as unknown as ViewEntry,
-  vendors: undefined as unknown as ViewEntry,
-  fulfillment: undefined as unknown as ViewEntry,
-  connectors: undefined as unknown as ViewEntry,
-  recovery: undefined as unknown as ViewEntry,
-  closeout: undefined as unknown as ViewEntry,
-  referees: undefined as unknown as ViewEntry,
-  processors: undefined as unknown as ViewEntry,
-  'credit-review': undefined as unknown as ViewEntry,
-  photography: undefined as unknown as ViewEntry,
-  contacts: undefined as unknown as ViewEntry,
-  'contacts-customer-orders': undefined as unknown as ViewEntry,
-  settings: undefined as unknown as ViewEntry,
-  pick: undefined as unknown as ViewEntry,
-  'fulfillment-picks': undefined as unknown as ViewEntry,
-  'fulfillment-lines': undefined as unknown as ViewEntry,
-  purchaseReceipts: undefined as unknown as ViewEntry,
-  items: undefined as unknown as ViewEntry,
-  disputes: undefined as unknown as ViewEntry,
+  dashboard: dashboardView,
+  reports: reportsView,
+  intake: intakeView,
+  matchmaking: matchmakingView,
+  orders: ordersView,
+  payments: paymentsView,
+  inventory: inventoryView,
+  clients: clientsView,
+  vendors: vendorsView,
+  fulfillment: fulfillmentView,
+  connectors: connectorsView,
+  recovery: recoveryView,
+  closeout: closeoutView,
+  referees: refereesView,
+  processors: processorsView,
+  'credit-review': creditReviewView,
+  photography: photographyView,
+  contacts: contactsView,
+  'contacts-customer-orders': contactsCustomerOrdersView,
+  settings: settingsView,
+  pick: pickView,
+  'fulfillment-picks': fulfillmentPicksView,
+  'fulfillment-lines': fulfillmentLinesView,
+  purchaseReceipts: purchaseReceiptsView,
+  items: itemsView,
+  disputes: disputesView,
 };
 
 /**

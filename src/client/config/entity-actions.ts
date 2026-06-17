@@ -13,7 +13,19 @@
  */
 
 import type { Role } from '../../shared/types';
-import { PurchaseOrderStatus } from '../../shared/statuses';
+import {
+  PurchaseOrderStatus,
+  SalesOrderStatus,
+  PaymentStatus,
+  InvoiceStatus,
+  VendorBillStatus,
+  PurchaseReceiptStatus,
+  VendorPaymentStatus,
+  BatchStatus,
+  FulfillmentLineStatus,
+  ConnectorRequestStatus,
+  PickListStatus,
+} from '../../shared/statuses';
 
 // ─── Architecture Compliance Checklist ──────────────────────────────────────
 // [ ] No per-view ColDef arrays — all definitions originate here
@@ -223,21 +235,781 @@ export const purchaseOrderActions: EntityActionConfig = {
   },
 };
 
-// ─── Sale — template section ─────────────────────────────────────────────────
-// TODO: add Sale entity state machine
-// Statuses: draft, confirmed, posted, fulfilled, cancelled, reversed, needs_fix
-// Commands: createSalesOrder, addSalesOrderLine, updateSalesOrderLine,
-//   removeSalesOrderLine, reserveInventoryForOrder, priceSalesOrder,
-//   confirmSalesOrder, cancelSalesOrder, postSalesOrder, allocateOrderToFulfillment
+// ═══════════════════════════════════════════════════════════════════════════════
+// SalesOrder
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: draft → confirmed → posted → fulfilled
+//   any → cancelled (terminal)
+//   reversed (terminal — command-bus reversal)
+//
+// Commands:
+//   confirmSalesOrder           — draft → confirmed (operator)
+//   cancelSalesOrder            — draft/confirmed → cancelled (manager)
+//   postSalesOrder              — confirmed → posted (operator)
+//   priceSalesOrder             — draft/confirmed: slide-over pricing (operator)
+//   repriceOrder                — confirmed: reprice order (manager)
+//   allocateOrderToFulfillment  — confirmed/posted: create pick list (operator)
+//   applyClientCredit           — draft/confirmed: apply credit (manager)
+//   setDeliveryWindow           — draft/confirmed: set delivery window (operator)
+//   markOrderFulfilled          — posted → fulfilled (operator)
 
-// ─── Intake — template section ───────────────────────────────────────────────
-// TODO: add Intake (Batch) entity state machine
+export const salesOrderActions: EntityActionConfig = {
+  entity: 'salesOrder',
+  label: 'Sales Order',
+  states: {
+    // ══ draft ══════════════════════════════════════════════════════════════════
+    [SalesOrderStatus.enum.draft]: [
+      {
+        id: 'confirmSalesOrder',
+        label: 'Confirm',
+        icon: 'Check',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+      },
+      {
+        id: 'priceSalesOrder',
+        label: 'Price',
+        icon: 'DollarSign',
+        commandRoute: 'commands.run',
+        slidesOver: 'PriceOrderForm',
+      },
+      {
+        id: 'applyClientCredit',
+        label: 'Apply credit',
+        icon: 'Wallet',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'setDeliveryWindow',
+        label: 'Delivery window',
+        icon: 'Calendar',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'cancelSalesOrder',
+        label: 'Cancel',
+        icon: 'Trash2',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+        minRole: 'manager',
+      },
+    ],
 
-// ─── Payment — template section ──────────────────────────────────────────────
-// TODO: add Payment entity state machine
+    // ══ confirmed ═════════════════════════════════════════════════════════════
+    [SalesOrderStatus.enum.confirmed]: [
+      {
+        id: 'postSalesOrder',
+        label: 'Post',
+        icon: 'Send',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+      },
+      {
+        id: 'repriceOrder',
+        label: 'Reprice',
+        icon: 'RefreshCw',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'allocateOrderToFulfillment',
+        label: 'Fulfill',
+        icon: 'Package',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'applyClientCredit',
+        label: 'Apply credit',
+        icon: 'Wallet',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'cancelSalesOrder',
+        label: 'Cancel',
+        icon: 'Trash2',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+        minRole: 'manager',
+      },
+    ],
 
-// ─── Closeout — template section ──────────────────────────────────────────────
-// TODO: add Closeout entity state machine
+    // ══ posted ═════════════════════════════════════════════════════════════════
+    [SalesOrderStatus.enum.posted]: [
+      {
+        id: 'allocateOrderToFulfillment',
+        label: 'Fulfill',
+        icon: 'Package',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'markOrderFulfilled',
+        label: 'Mark fulfilled',
+        icon: 'CheckCheck',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+      },
+    ],
+
+    // ══ fulfilled ═════════════════════════════════════════════════════════════
+    [SalesOrderStatus.enum.fulfilled]: [
+      // Terminal state. Fulfilled orders are immutable.
+    ],
+
+    // ══ cancelled ═════════════════════════════════════════════════════════════
+    [SalesOrderStatus.enum.cancelled]: [
+      // Terminal state.
+    ],
+
+    // ══ reversed ══════════════════════════════════════════════════════════════
+    [SalesOrderStatus.enum.reversed]: [
+      // Terminal state.
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Payment
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: posted → refunded | reversed
+//
+// Commands:
+//   allocatePayment   — posted: allocate to open/partial invoice (operator)
+//   unallocatePayment — posted: reverse allocation (manager)
+//   refundPayment     — posted → refunded (manager, requires confirmation)
+
+export const paymentActions: EntityActionConfig = {
+  entity: 'payment',
+  label: 'Payment',
+  states: {
+    // ══ posted ═════════════════════════════════════════════════════════════════
+    [PaymentStatus.enum.posted]: [
+      {
+        id: 'allocatePayment',
+        label: 'Allocate',
+        icon: 'ArrowRightLeft',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'unallocatePayment',
+        label: 'Unallocate',
+        icon: 'Undo2',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'refundPayment',
+        label: 'Refund',
+        icon: 'Undo',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ refunded ══════════════════════════════════════════════════════════════
+    [PaymentStatus.enum.refunded]: [
+      // Terminal state. Refunded payments are immutable.
+    ],
+
+    // ══ reversed ══════════════════════════════════════════════════════════════
+    [PaymentStatus.enum.reversed]: [
+      // Terminal state.
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Invoice
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: open → partial → paid
+//   any → reversed (terminal — command-bus reversal)
+//
+// Invoice status is driven by payment allocations, not direct invoice commands:
+//   - open: no allocations (amountPaid = 0)
+//   - partial: partially allocated (0 < amountPaid < total)
+//   - paid: fully allocated (amountPaid = total)
+//
+// Commands:
+//   allocatePayment       — open/partial: allocate payment to invoice
+//   unallocatePayment     — partial/paid: reverse an allocation
+//   resolveInvoiceDispute — open: resolve a dispute (manager)
+//   rejectInvoiceDispute  — open: reject a dispute (manager)
+
+export const invoiceActions: EntityActionConfig = {
+  entity: 'invoice',
+  label: 'Invoice',
+  states: {
+    // ══ open ═══════════════════════════════════════════════════════════════════
+    [InvoiceStatus.enum.open]: [
+      {
+        id: 'allocatePayment',
+        label: 'Record payment',
+        icon: 'CreditCard',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ partial ═══════════════════════════════════════════════════════════════
+    [InvoiceStatus.enum.partial]: [
+      {
+        id: 'allocatePayment',
+        label: 'Record payment',
+        icon: 'CreditCard',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'unallocatePayment',
+        label: 'Reverse allocation',
+        icon: 'Undo2',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ paid ══════════════════════════════════════════════════════════════════
+    [InvoiceStatus.enum.paid]: [
+      {
+        id: 'unallocatePayment',
+        label: 'Reverse allocation',
+        icon: 'Undo2',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ reversed ══════════════════════════════════════════════════════════════
+    [InvoiceStatus.enum.reversed]: [
+      // Terminal state.
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VendorBill
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: open → approved → scheduled → partial → paid
+//   any → void (terminal)
+//   any → reversed (terminal — command-bus reversal)
+//
+// Commands:
+//   approveVendorBill      — open → approved (manager)
+//   scheduleVendorPayment  — approved → scheduled (manager)
+//   recordVendorPayment    — scheduled/partial → partial/paid (manager)
+//   voidVendorPayment      — posted vendor payment → void (manager)
+
+export const vendorBillActions: EntityActionConfig = {
+  entity: 'vendorBill',
+  label: 'Vendor Bill',
+  states: {
+    // ══ open ═══════════════════════════════════════════════════════════════════
+    [VendorBillStatus.enum.open]: [
+      {
+        id: 'approveVendorBill',
+        label: 'Approve',
+        icon: 'ClipboardCheck',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ approved ══════════════════════════════════════════════════════════════
+    [VendorBillStatus.enum.approved]: [
+      {
+        id: 'scheduleVendorPayment',
+        label: 'Schedule payment',
+        icon: 'CalendarClock',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'recordVendorPayment',
+        label: 'Record payment',
+        icon: 'CreditCard',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ scheduled ═════════════════════════════════════════════════════════════
+    [VendorBillStatus.enum.scheduled]: [
+      {
+        id: 'recordVendorPayment',
+        label: 'Record payment',
+        icon: 'CreditCard',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ partial ═══════════════════════════════════════════════════════════════
+    [VendorBillStatus.enum.partial]: [
+      {
+        id: 'recordVendorPayment',
+        label: 'Record payment',
+        icon: 'CreditCard',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'voidVendorPayment',
+        label: 'Void last payment',
+        icon: 'Ban',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ paid ══════════════════════════════════════════════════════════════════
+    [VendorBillStatus.enum.paid]: [
+      {
+        id: 'voidVendorPayment',
+        label: 'Void last payment',
+        icon: 'Ban',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ void ══════════════════════════════════════════════════════════════════
+    [VendorBillStatus.enum.void]: [
+      // Terminal state.
+    ],
+
+    // ══ reversed ══════════════════════════════════════════════════════════════
+    [VendorBillStatus.enum.reversed]: [
+      // Terminal state.
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PurchaseReceipt
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: posted → reversed (terminal)
+//
+// Purchase receipts are created by postPurchaseReceipt and are immutable once
+// posted. Reversal happens via reverseCommandById on the command journal entry,
+// not through a direct entity action.
+
+export const purchaseReceiptActions: EntityActionConfig = {
+  entity: 'purchaseReceipt',
+  label: 'Purchase Receipt',
+  states: {
+    // ══ posted ═════════════════════════════════════════════════════════════════
+    [PurchaseReceiptStatus.enum.posted]: [
+      // Posted receipts are immutable. Reversal via command journal recovery.
+    ],
+
+    // ══ reversed ══════════════════════════════════════════════════════════════
+    [PurchaseReceiptStatus.enum.reversed]: [
+      // Terminal state.
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VendorPayment
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: posted → void (terminal)
+//
+// Commands:
+//   recordVendorPayment  — creates payment with status 'posted' (manager)
+//   voidVendorPayment    — posted → void (manager)
+
+export const vendorPaymentActions: EntityActionConfig = {
+  entity: 'vendorPayment',
+  label: 'Vendor Payment',
+  states: {
+    // ══ posted ═════════════════════════════════════════════════════════════════
+    [VendorPaymentStatus.enum.posted]: [
+      {
+        id: 'voidVendorPayment',
+        label: 'Void',
+        icon: 'Ban',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ void ══════════════════════════════════════════════════════════════════
+    [VendorPaymentStatus.enum.void]: [
+      // Terminal state.
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Batch
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow (intake lifecycle):
+//   draft → ready → posted → (held | damaged | returned | in_transit)
+//   any → needs_fix (validation flagged)
+//   any → reversed (terminal — command-bus reversal)
+//
+// Non-intake paths: batches can also be created directly in posted status
+// (via adjustBatchQuantity, transferInventoryOwnership with new batches).
+//
+// Commands:
+//   updateBatch               — draft/ready/needs_fix: edit fields (operator)
+//   deleteBatch               — draft/ready: delete (manager)
+//   rejectBatch               — draft/needs_fix: reject (operator)
+//   flagBatch                 — needs_fix: flag for attention (operator)
+//   adjustBatchQuantity       — posted: adjust quantity (manager)
+//   setInventoryStatus        — posted/held/damaged/returned/in_transit: set status (manager)
+//   transferInventoryLocation — posted/held/in_transit: move location (operator)
+//   transferInventoryOwnership— posted: change ownership (manager)
+//   setBatchLotInfo           — posted: set lot info (operator)
+//   setBatchPrice             — posted: set price (operator)
+
+export const batchActions: EntityActionConfig = {
+  entity: 'batch',
+  label: 'Batch',
+  states: {
+    // ══ draft ══════════════════════════════════════════════════════════════════
+    [BatchStatus.enum.draft]: [
+      {
+        id: 'updateBatch',
+        label: 'Edit',
+        icon: 'Pencil',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'deleteBatch',
+        label: 'Delete',
+        icon: 'Trash2',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ ready ═════════════════════════════════════════════════════════════════
+    [BatchStatus.enum.ready]: [
+      {
+        id: 'updateBatch',
+        label: 'Edit',
+        icon: 'Pencil',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'deleteBatch',
+        label: 'Delete',
+        icon: 'Trash2',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'rejectBatch',
+        label: 'Reject',
+        icon: 'XCircle',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ needs_fix ═════════════════════════════════════════════════════════════
+    [BatchStatus.enum.needs_fix]: [
+      {
+        id: 'updateBatch',
+        label: 'Edit',
+        icon: 'Pencil',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'flagBatch',
+        label: 'Flag',
+        icon: 'Flag',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'rejectBatch',
+        label: 'Reject',
+        icon: 'XCircle',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ posted ═════════════════════════════════════════════════════════════════
+    [BatchStatus.enum.posted]: [
+      {
+        id: 'setInventoryStatus',
+        label: 'Set status',
+        icon: 'Tag',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'transferInventoryLocation',
+        label: 'Move',
+        icon: 'ArrowRightLeft',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'transferInventoryOwnership',
+        label: 'Transfer',
+        icon: 'Users',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'adjustBatchQuantity',
+        label: 'Adjust qty',
+        icon: 'Scale',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'setBatchLotInfo',
+        label: 'Lot info',
+        icon: 'Barcode',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'setBatchPrice',
+        label: 'Set price',
+        icon: 'DollarSign',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ held ══════════════════════════════════════════════════════════════════
+    [BatchStatus.enum.held]: [
+      {
+        id: 'setInventoryStatus',
+        label: 'Set status',
+        icon: 'Tag',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'transferInventoryLocation',
+        label: 'Move',
+        icon: 'ArrowRightLeft',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ damaged ═══════════════════════════════════════════════════════════════
+    [BatchStatus.enum.damaged]: [
+      {
+        id: 'setInventoryStatus',
+        label: 'Set status',
+        icon: 'Tag',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ returned ══════════════════════════════════════════════════════════════
+    [BatchStatus.enum.returned]: [
+      {
+        id: 'setInventoryStatus',
+        label: 'Set status',
+        icon: 'Tag',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+    ],
+
+    // ══ in_transit ════════════════════════════════════════════════════════════
+    [BatchStatus.enum.in_transit]: [
+      {
+        id: 'setInventoryStatus',
+        label: 'Set status',
+        icon: 'Tag',
+        commandRoute: 'commands.run',
+        minRole: 'manager',
+      },
+      {
+        id: 'transferInventoryLocation',
+        label: 'Move',
+        icon: 'ArrowRightLeft',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ reversed ══════════════════════════════════════════════════════════════
+    [BatchStatus.enum.reversed]: [
+      // Terminal state.
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FulfillmentLine
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: open → packed
+//
+// Cancellation is recorded on `status_extended`, not `status`.
+//
+// Commands:
+//   recordWeighAndPack   — open: record weigh and pack (operator)
+//   adjustFulfillmentLine— open: adjust qty/weight (operator)
+//   cancelFulfillmentLine— open/packed: mark cancelled (operator, sets statusExtended)
+//   returnPickedUnits    — packed: return units (operator)
+//   acknowledgeWarehouseAlert — acknowledge alerts (operator)
+
+export const fulfillmentLineActions: EntityActionConfig = {
+  entity: 'fulfillmentLine',
+  label: 'Fulfillment Line',
+  states: {
+    // ══ open ═══════════════════════════════════════════════════════════════════
+    [FulfillmentLineStatus.enum.open]: [
+      {
+        id: 'recordWeighAndPack',
+        label: 'Weigh & pack',
+        icon: 'PackageCheck',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'adjustFulfillmentLine',
+        label: 'Adjust',
+        icon: 'SlidersHorizontal',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'cancelFulfillmentLine',
+        label: 'Cancel line',
+        icon: 'Trash2',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+      },
+      {
+        id: 'acknowledgeWarehouseAlert',
+        label: 'Acknowledge',
+        icon: 'BellOff',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ packed ════════════════════════════════════════════════════════════════
+    [FulfillmentLineStatus.enum.packed]: [
+      {
+        id: 'returnPickedUnits',
+        label: 'Return units',
+        icon: 'Undo2',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'cancelFulfillmentLine',
+        label: 'Cancel line',
+        icon: 'Trash2',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+      },
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ConnectorRequest
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: open → approved | rejected | routed
+//
+// Commands:
+//   approveConnectorRequest  — open → approved (operator)
+//   rejectConnectorRequest   — open → rejected (operator)
+//   routeConnectorRequest    — open → routed (operator)
+
+export const connectorRequestActions: EntityActionConfig = {
+  entity: 'connectorRequest',
+  label: 'Connector Request',
+  states: {
+    // ══ open ═══════════════════════════════════════════════════════════════════
+    [ConnectorRequestStatus.enum.open]: [
+      {
+        id: 'approveConnectorRequest',
+        label: 'Approve',
+        icon: 'Check',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'rejectConnectorRequest',
+        label: 'Reject',
+        icon: 'XCircle',
+        commandRoute: 'commands.run',
+      },
+      {
+        id: 'routeConnectorRequest',
+        label: 'Route',
+        icon: 'ArrowRightLeft',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ approved ══════════════════════════════════════════════════════════════
+    [ConnectorRequestStatus.enum.approved]: [
+      // Terminal state. Reversal via command journal recovery.
+    ],
+
+    // ══ rejected ══════════════════════════════════════════════════════════════
+    [ConnectorRequestStatus.enum.rejected]: [
+      // Terminal state.
+    ],
+
+    // ══ routed ════════════════════════════════════════════════════════════════
+    [ConnectorRequestStatus.enum.routed]: [
+      // Terminal state. Reversal via command journal recovery.
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PickList
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: open → fulfilled (terminal)
+//
+// Pick lists are created by allocateOrderToFulfillment and fulfill when the
+// entire order is packed (markOrderFulfilled).
+//
+// Commands:
+//   recordWeighAndPack   — per fulfillment line (operator)
+//   markOrderFulfilled   — open → fulfilled (operator, requires all lines packed)
+//   createPickList       — creates pick list with status 'open' (operator)
+
+export const pickListActions: EntityActionConfig = {
+  entity: 'pickList',
+  label: 'Pick List',
+  states: {
+    // ══ open ═══════════════════════════════════════════════════════════════════
+    [PickListStatus.enum.open]: [
+      // Individual fulfillment lines are packed via recordWeighAndPack.
+      // The overall pick list is fulfilled via markOrderFulfilled.
+      {
+        id: 'markOrderFulfilled',
+        label: 'Mark fulfilled',
+        icon: 'CheckCheck',
+        commandRoute: 'commands.run',
+        confirmationRequired: true,
+      },
+      {
+        id: 'printLabels',
+        label: 'Print labels',
+        icon: 'Printer',
+        commandRoute: 'commands.run',
+      },
+    ],
+
+    // ══ fulfilled ═════════════════════════════════════════════════════════════
+    [PickListStatus.enum.fulfilled]: [
+      // Terminal state.
+    ],
+  },
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ACTION LOOKUP
@@ -246,11 +1018,16 @@ export const purchaseOrderActions: EntityActionConfig = {
 /** Full registry of entity action configs. */
 export const entityActionConfigs: Record<string, EntityActionConfig> = {
   purchaseOrder: purchaseOrderActions,
-  // TODO: add remaining entity action configs
-  // sale: saleActions,
-  // intake: intakeActions,
-  // payment: paymentActions,
-  // closeout: closeoutActions,
+  salesOrder: salesOrderActions,
+  payment: paymentActions,
+  invoice: invoiceActions,
+  vendorBill: vendorBillActions,
+  purchaseReceipt: purchaseReceiptActions,
+  vendorPayment: vendorPaymentActions,
+  batch: batchActions,
+  fulfillmentLine: fulfillmentLineActions,
+  connectorRequest: connectorRequestActions,
+  pickList: pickListActions,
 };
 
 /**
