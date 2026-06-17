@@ -57,6 +57,8 @@ export interface ViewEntry {
   title: string;
   /** Slide-over entity types available in this view (empty = no slide-over). */
   allowedSlideOvers: string[];
+  /** Optional filter preset buttons shown in the FilterToolbar. */
+  filterPresets?: { key: string; label: string; filter: Record<string, unknown> }[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -76,6 +78,11 @@ const purchaseOrdersView: ViewEntry = {
     'purchaseOrder',   // PO detail (lines, vendor, history tabs)
     'vendor',          // Vendor context
     'intakeBatch',     // Receipt detail (when viewing a received PO's intake)
+  ],
+  filterPresets: [
+    { key: 'active', label: 'Active', filter: { status: ['draft', 'finalized', 'approved', 'ordered', 'partially_received'] } },
+    { key: 'ordered', label: 'Ordered', filter: { status: ['ordered', 'partially_received'] } },
+    { key: 'finalized', label: 'Finalized', filter: { status: ['finalized', 'approved'] } },
   ],
 };
 
