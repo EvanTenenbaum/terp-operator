@@ -383,6 +383,23 @@ export const statusCountsOutputSchema = z.object({
 export type StatusCountsOutput = z.infer<typeof statusCountsOutputSchema>;
 
 // ---------------------------------------------------------------------------
+// entityTabs — Per-entity tab query output (T-B-08)
+// ---------------------------------------------------------------------------
+
+export const entityTabsOutputSchema = z.object({
+  entityId: z.string().uuid(),
+  entityType: statusCountsEntityTypeSchema,
+  tabs: z.array(z.object({
+    tabKey: z.string(),
+    label: z.string(),
+    status: z.string().nullable(),
+    count: z.number(),
+  })),
+  defaultTab: z.string(),
+});
+export type EntityTabsOutput = z.infer<typeof entityTabsOutputSchema>;
+
+// ---------------------------------------------------------------------------
 // gridSummary — Aggregate summary for grid view toolbar (T-B-03)
 // ---------------------------------------------------------------------------
 

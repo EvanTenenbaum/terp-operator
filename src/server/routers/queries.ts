@@ -3384,6 +3384,9 @@ export const queriesRouter = router({
       }
       return map;
     }),
+
+  // -- Entity tab queries (T-B-08) --
+  ...entityTabsRouter,
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
