@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { trpc } from '../api/trpc';
 import type { GridSummaryEntityType } from '../../shared/schemas';
+import { formatNumber, formatMoney } from '../utils/format';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,20 +47,14 @@ const DELTA_COLORS: Record<DeltaDirection, string> = {
   neutral: 'text-zinc-400',
 };
 
-/** Format a currency number. Mirrors existing codebase patterns. */
+/** Format a currency number. Delegates to the canonical format.ts. */
 function formatCurrency(n: number): string {
-  return (
-    '$' +
-    n.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    })
-  );
+  return formatMoney(n);
 }
 
-/** Format a count number. */
+/** Format a count number. Delegates to the canonical format.ts. */
 function formatCount(n: number): string {
-  return n.toLocaleString('en-US');
+  return formatNumber(n, { maximumFractionDigits: 0 });
 }
 
 /**

@@ -15,6 +15,26 @@ import { parseTagInput } from '../../shared/tags';
 import { PAYMENT_TERMS_OPTIONS } from '../../shared/paymentTerms';
 import { dateish, moneyish } from './operations/shared';
 
+// ── Typed interfaces for reference query results ────────────────────────────
+interface RefereeRelationshipRow {
+  id: string;
+  refereeId: string;
+  refereeName: string;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  feeType: string;
+  feePercentage: number | null;
+  feeFixedAmount: number | null;
+  applyByDefault: boolean;
+  active: boolean;
+}
+
+interface RefereeRow {
+  id: string;
+  name: string;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PO LINE COLUMNS (preserved export — used by authoring workspace + tests)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -399,8 +419,8 @@ export function PurchaseOrdersView() {
                 <select className="select" value={refereeRelationshipId} onChange={(event) => setRefereeRelationshipId(event.target.value)}>
                   <option value="">No referee credit</option>
                   {(reference.data?.refereeRelationships ?? [])
-                    .filter((rel: any) => rel.entityType === 'vendor' && rel.entityId === defaultVendorId)
-                    .map((rel: any) => (
+                    .filter((rel: RefereeRelationshipRow) => rel.entityType === 'vendor' && rel.entityId === defaultVendorId)
+                    .map((rel: RefereeRelationshipRow) => (
                       <option key={rel.id} value={rel.id}>
                         {rel.refereeName} ({rel.feeType === 'percentage' ? `${rel.feePercentage}%` : rel.feeType === 'fixed' ? `$${rel.feeFixedAmount}` : `${rel.feePercentage}% + $${rel.feeFixedAmount}`})
                       </option>
@@ -583,7 +603,7 @@ export function PurchaseOrdersView() {
           isOpen={addRefereeOpen}
           vendorId={defaultVendorId}
           vendorName={selectedVendor?.name ?? ''}
-          referees={(reference.data?.referees ?? []).map((r: any) => ({ id: r.id, name: r.name }))}
+          referees={(reference.data?.referees ?? []).map((r: RefereeRow) => ({ id: r.id, name: r.name }))}
           onSuccess={async (newRelationshipId) => {
             await reference.refetch();
             setRefereeRelationshipId(newRelationshipId);

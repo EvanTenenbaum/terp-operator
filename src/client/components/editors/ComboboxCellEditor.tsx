@@ -454,40 +454,18 @@ const ComboboxCellEditor = forwardRef<
   return (
     <div
       ref={containerRef}
-      className="combobox-cell-editor"
-      style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        width: '100%',
-        height: '100%',
-        border:
-          status === 'error'
-            ? '2px solid #ef4444'
-            : '2px solid transparent',
-        borderRadius: '4px',
-        background: disabled ? '#f5f5f5' : '#fff',
-        opacity: disabled ? 0.6 : 1,
-        outline: 'none',
-        boxSizing: 'border-box',
-      }}
+      className={[
+        'combobox-cell-editor relative flex items-center w-full h-full rounded outline-none box-border',
+        status === 'error' ? 'border-2 border-red-500' : 'border-2 border-transparent',
+        disabled ? 'bg-zinc-100 opacity-60' : 'bg-white',
+      ].join(' ')}
       data-status={status}
     >
       {/* Screen reader live region */}
       <span
         role="status"
         aria-live="polite"
-        style={{
-          position: 'absolute',
-          width: '1px',
-          height: '1px',
-          padding: 0,
-          margin: '-1px',
-          overflow: 'hidden',
-          clip: 'rect(0, 0, 0, 0)',
-          whiteSpace: 'nowrap',
-          border: 0,
-        }}
+        className="sr-only"
       >
         {srAnnouncement}
       </span>
@@ -502,7 +480,10 @@ const ComboboxCellEditor = forwardRef<
         aria-activedescendant={activeDescendant}
         aria-label={placeholder}
         type="text"
-        className="combobox-cell-editor-input"
+        className={[
+          'combobox-cell-editor-input flex-1 h-full border-none outline-none bg-transparent text-[13px] px-2 min-w-0 font-[inherit]',
+          disabled ? 'text-zinc-400' : 'text-zinc-900',
+        ].join(' ')}
         value={displayValue}
         placeholder={!selectedValue && !isOpen ? placeholder : ''}
         disabled={disabled}
@@ -518,52 +499,21 @@ const ComboboxCellEditor = forwardRef<
             setIsOpen(true);
           }
         }}
-        style={{
-          flex: 1,
-          height: '100%',
-          border: 'none',
-          outline: 'none',
-          background: 'transparent',
-          fontSize: '13px',
-          color: disabled ? '#9ca3af' : '#18181b',
-          padding: '0 8px',
-          minWidth: 0,
-          fontFamily: 'inherit',
-        }}
       />
 
       {/* Action buttons container */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2px',
-          paddingRight: '4px',
-          flexShrink: 0,
-        }}
+        className="flex items-center gap-0.5 pr-1 shrink-0"
       >
         {/* Clear button */}
         {selectedValue && !disabled && status === 'idle' && (
           <button
             type="button"
             aria-label="Clear selection"
-            className="combobox-cell-editor-clear"
+            className="combobox-cell-editor-clear flex items-center justify-center w-5 h-5 border-none bg-transparent cursor-pointer rounded-sm p-0 text-zinc-500"
             onClick={(e) => {
               e.stopPropagation();
               clearValue();
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '20px',
-              height: '20px',
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              borderRadius: '3px',
-              padding: 0,
-              color: '#71717a',
             }}
           >
             <X size={14} />
@@ -574,13 +524,12 @@ const ComboboxCellEditor = forwardRef<
         {status === 'saving' && (
           <Loader2
             size={14}
-            className="animate-spin"
-            style={{ color: '#71717a' }}
+            className="animate-spin text-zinc-500"
           />
         )}
-        {savedFlash && <Check size={14} style={{ color: '#22c55e' }} />}
+        {savedFlash && <Check size={14} className="text-green-500" />}
         {status === 'error' && (
-          <AlertTriangle size={14} style={{ color: '#ef4444' }} />
+          <AlertTriangle size={14} className="text-red-500" />
         )}
 
         {/* Toggle button */}
@@ -588,26 +537,13 @@ const ComboboxCellEditor = forwardRef<
           <button
             type="button"
             aria-label="Open combobox menu"
-            className="combobox-cell-editor-toggle"
+            className="combobox-cell-editor-toggle flex items-center justify-center w-5 h-5 border-none bg-transparent cursor-pointer rounded-sm p-0 text-zinc-500"
             onClick={(e) => {
               e.stopPropagation();
               if (!disabled) {
                 setIsOpen((prev) => !prev);
                 if (!isOpen) inputRef.current?.focus();
               }
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '20px',
-              height: '20px',
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              borderRadius: '3px',
-              padding: 0,
-              color: '#71717a',
             }}
           >
             <ChevronDown size={14} />
@@ -619,20 +555,7 @@ const ComboboxCellEditor = forwardRef<
       {status === 'error' && errorMessage && (
         <div
           role="alert"
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            zIndex: 60,
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '4px',
-            padding: '4px 8px',
-            fontSize: '11px',
-            color: '#dc2626',
-            whiteSpace: 'nowrap',
-            marginTop: '2px',
-          }}
+          className="absolute top-full left-0 z-[60] mt-0.5 bg-red-50 border border-red-200 rounded px-2 py-1 text-[11px] text-red-600 whitespace-nowrap"
         >
           {errorMessage}
         </div>
@@ -644,23 +567,8 @@ const ComboboxCellEditor = forwardRef<
           ref={listboxRef}
           role="listbox"
           id="combobox-listbox"
-          className="combobox-cell-editor-listbox"
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            zIndex: 50,
-            minWidth: '200px',
-            maxHeight: MAX_DROPDOWN_HEIGHT,
-            overflowY: 'auto',
-            background: '#fff',
-            border: '1px solid #d4d4d8',
-            borderRadius: '6px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-            margin: 0,
-            padding: '4px 0',
-            listStyle: 'none',
-          }}
+          className="combobox-cell-editor-listbox absolute top-full left-0 z-50 min-w-[200px] overflow-y-auto bg-white border border-zinc-300 rounded-lg shadow-lg m-0 py-1 list-none"
+          style={{ maxHeight: MAX_DROPDOWN_HEIGHT }}
         >
           {/* Empty state */}
           {filteredOptions.length === 0 && !asyncLoading && !showCreate && (
@@ -668,11 +576,7 @@ const ComboboxCellEditor = forwardRef<
               role="option"
               aria-selected={false}
               aria-disabled={true}
-              style={{
-                padding: '6px 12px',
-                fontSize: '13px',
-                color: '#a1a1aa',
-              }}
+              className="px-3 py-1.5 text-[13px] text-zinc-400"
             >
               {emptyMessage}
             </li>
@@ -683,14 +587,7 @@ const ComboboxCellEditor = forwardRef<
             <li
               role="option"
               aria-selected={false}
-              style={{
-                padding: '6px 12px',
-                fontSize: '13px',
-                color: '#a1a1aa',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
+              className="px-3 py-1.5 text-[13px] text-zinc-400 flex items-center gap-1.5"
             >
               <Loader2 size={12} className="animate-spin" />
               Loading...
@@ -714,44 +611,24 @@ const ComboboxCellEditor = forwardRef<
                 aria-disabled={option.disabled ?? false}
                 onClick={() => handleOptionClick(option)}
                 onMouseEnter={() => setHighlightIndex(index)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  height: OPTION_HEIGHT,
-                  padding: '0 12px',
-                  fontSize: '13px',
-                  color: option.disabled ? '#a1a1aa' : '#18181b',
-                  cursor: option.disabled ? 'not-allowed' : 'pointer',
-                  background: isHighlighted ? '#f4f4f5' : 'transparent',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
+                className={[
+                  'flex items-center justify-between px-3 text-[13px] whitespace-nowrap overflow-hidden text-ellipsis',
+                  option.disabled ? 'text-zinc-400 cursor-not-allowed' : 'text-zinc-900 cursor-pointer',
+                  isHighlighted ? 'bg-zinc-100' : 'bg-transparent',
+                ].join(' ')}
+                style={{ height: OPTION_HEIGHT }}
               >
                 <span
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    overflow: 'hidden',
-                  }}
+                  className="flex items-center gap-1.5 overflow-hidden"
                 >
                   {option.icon && <span>{option.icon}</span>}
                   <span
-                    style={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
+                    className="overflow-hidden text-ellipsis"
                   >
                     {option.label}
                     {option.description && (
                       <span
-                        style={{
-                          color: '#a1a1aa',
-                          marginLeft: '6px',
-                          fontSize: '12px',
-                        }}
+                        className="text-zinc-400 ml-1.5 text-xs"
                       >
                         {option.description}
                       </span>
@@ -761,11 +638,7 @@ const ComboboxCellEditor = forwardRef<
                 {isSelected && (
                   <Check
                     size={14}
-                    style={{
-                      color: '#3b82f6',
-                      flexShrink: 0,
-                      marginLeft: '8px',
-                    }}
+                    className="text-blue-500 shrink-0 ml-2"
                   />
                 )}
               </li>
@@ -785,24 +658,12 @@ const ComboboxCellEditor = forwardRef<
               aria-selected={highlightIndex === filteredOptions.length}
               onClick={handleCreateClick}
               onMouseEnter={() => setHighlightIndex(filteredOptions.length)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: OPTION_HEIGHT,
-                padding: '0 12px',
-                fontSize: '13px',
-                color: '#3b82f6',
-                cursor: 'pointer',
-                background:
-                  highlightIndex === filteredOptions.length
-                    ? '#eff6ff'
-                    : 'transparent',
-                borderTop:
-                  filteredOptions.length > 0
-                    ? '1px solid #e4e4e7'
-                    : 'none',
-                fontWeight: 500,
-              }}
+              className={[
+                'flex items-center px-3 text-[13px] text-blue-500 cursor-pointer font-medium',
+                filteredOptions.length > 0 ? 'border-t border-zinc-200' : '',
+                highlightIndex === filteredOptions.length ? 'bg-blue-50' : 'bg-transparent',
+              ].join(' ')}
+              style={{ height: OPTION_HEIGHT }}
             >
               {createLabel.replace('{value}', filterText)}
             </li>

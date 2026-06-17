@@ -8,6 +8,7 @@ import {
   X,
   ArrowUpDown,
   GripHorizontal,
+  Check,
 } from 'lucide-react';
 import type { ViewKey } from '../../shared/types';
 import type { FilterGroupInput } from '../../shared/filterSchemas';
@@ -33,6 +34,11 @@ export interface DataView {
   label: string;
 }
 
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
 export interface FilterToolbarProps {
   view: ViewKey;
   /** Quick filter presets (statuses, flags) */
@@ -55,6 +61,12 @@ export interface FilterToolbarProps {
   hasComplexFilter?: boolean;
   /** Whether the toolbar is disabled (e.g. no data) */
   disabled?: boolean;
+  /** Status counts for the multi-select status filter pill (replaces ViewTabBar). */
+  statusCounts?: StatusCount[];
+  /** Active status filter string (e.g. "draft,confirmed"). Empty = all. */
+  activeStatusFilter?: string;
+  /** Called when status filter changes. Pass comma-separated statuses or empty string. */
+  onStatusFilterChange?: (statusFilter: string) => void;
 }
 
 // ============================================================================
@@ -91,6 +103,9 @@ export function FilterToolbar({
   onAdvancedClick,
   hasComplexFilter = false,
   disabled = false,
+  statusCounts,
+  activeStatusFilter,
+  onStatusFilterChange,
 }: FilterToolbarProps) {
   // ── Store ──────────────────────────────────────────────────────────
   const storedGridFilter = useUiStore((s) => s.gridFilters[view] ?? '');
@@ -100,7 +115,7 @@ export function FilterToolbar({
   const clearGridAdvancedFilter = useUiStore((s) => s.clearGridAdvancedFilter);
 
   // ── Popover state ──────────────────────────────────────────────────
-  type PopoverId = 'dataViews' | 'date' | 'keyword' | 'amount' | 'group' | 'sort' | 'export';
+  type PopoverId = 'dataViews' | 'date' | 'keyword' | 'amount' | 'group' | 'sort' | 'export' | 'status';
 
   const [openPopover, setOpenPopover] = useState<PopoverId | null>(null);
 
@@ -122,6 +137,35 @@ export function FilterToolbar({
   const amountActive = amountFilter.min !== '' || amountFilter.max !== '';
   const groupActive = groupBy !== '';
   const sortActive = sortBy !== '';
+
+  // ── Status multi-select filter (replaces ViewTabBar) ─────────────────
+  const hasStatusCounts = Boolean(statusCounts && statusCounts.length > 0);
+  const selectedStatuses = useCallback((): string[] => {
+    if (!activeStatusFilter) return [];
+    return activeStatusFilter.split(',').filter(Boolean);
+  }, [activeStatusFilter])();
+  const statusActive = hasStatusCounts && selectedStatuses.length > 0;
+  const statusBadgeCount = selectedStatuses.length;
+  const allStatusesTotal = hasStatusCounts
+    ? statusCounts!.reduce((sum, s) => sum + s.count, 0)
+    : 0;
+
+  const handleStatusToggle = useCallback(
+    (status: string) => {
+      if (!onStatusFilterChange) return;
+      const current = selectedStatuses;
+      const next = current.includes(status)
+        ? current.filter((s) => s !== status)
+        : [...current, status];
+      onStatusFilterChange(next.join(','));
+    },
+    [selectedStatuses, onStatusFilterChange],
+  );
+
+  const handleStatusClearAll = useCallback(() => {
+    onStatusFilterChange?.('');
+    setOpenPopover(null);
+  }, [onStatusFilterChange]);
 
   const quickFilterActiveCount = [
     dateActive,
@@ -277,11 +321,23 @@ export function FilterToolbar({
     });
   }
 
+  // ── Status filter pills ─────────────────────────────────────────────
+  const statusFilterPills: { key: string; label: string; onRemove: () => void }[] = [];
+  if (hasStatusCounts && selectedStatuses.length > 0) {
+    for (const status of selectedStatuses) {
+      statusFilterPills.push({
+        key: `status-${status}`,
+        label: status.replace(/_/g, ' '),
+        onRemove: () => handleStatusToggle(status),
+      });
+    }
+  }
+
   // ── Complex filter pill ─────────────────────────────────────────────
   const showComplexPill = complexActive;
 
   // ── Compute if we need to show filter pills row ─────────────────────
-  const showPillsRow = activeQuickPills.length > 0 || showComplexPill;
+  const showPillsRow = activeQuickPills.length > 0 || showComplexPill || statusFilterPills.length > 0;
 
   return (
     <div
@@ -355,8 +411,64 @@ export function FilterToolbar({
           );
         })}
 
+        {/* Status multi-select filter pill (replaces ViewTabBar) */}
+        {hasStatusCounts && (
+          <div className="relative">
+            <button
+              type="button"
+              data-filter-chip="status"
+              className={chipClass(statusActive, true)}
+              disabled={disabled}
+              aria-expanded={openPopover === 'status'}
+              aria-haspopup="listbox"
+              onClick={() => togglePopover('status')}
+              ref={(el) => { chipRefs.current.set('status', el); }}
+            >
+              <span>Status</span>
+              {statusBadgeCount > 0 && <span className={badgeClass}>{statusBadgeCount}</span>}
+              <ChevronDown className="h-3 w-3" aria-hidden="true" />
+            </button>
+            {openPopover === 'status' && (
+              <FilterPopover id="status">
+                <div className="text-xs font-medium text-zinc-700 mb-2">Filter by status</div>
+                {/* "All" quick-select */}
+                <button
+                  type="button"
+                  className={`w-full rounded px-2 py-1 text-left text-xs ${selectedStatuses.length === 0 ? 'bg-blue-50 text-blue-700' : 'hover:bg-zinc-100'}`}
+                  onClick={handleStatusClearAll}
+                >
+                  <span className="flex items-center justify-between">
+                    <span>All</span>
+                    <span className="tabular-nums text-zinc-400">{allStatusesTotal}</span>
+                  </span>
+                </button>
+                <div className="border-t border-line my-1" />
+                {statusCounts!.map((sc) => {
+                  const isSelected = selectedStatuses.includes(sc.status);
+                  return (
+                    <button
+                      key={sc.status}
+                      type="button"
+                      className={`w-full rounded px-2 py-1 text-left text-xs flex items-center justify-between ${isSelected ? 'bg-blue-50 text-blue-700' : 'hover:bg-zinc-100'}`}
+                      onClick={() => handleStatusToggle(sc.status)}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {isSelected && <Check className="h-3 w-3 text-blue-600" />}
+                        <span className={isSelected ? '' : 'ml-[18px]'}>
+                          {sc.status.replace(/_/g, ' ')}
+                        </span>
+                      </span>
+                      <span className="tabular-nums text-zinc-400">{sc.count}</span>
+                    </button>
+                  );
+                })}
+              </FilterPopover>
+            )}
+          </div>
+        )}
+
         {/* Separator */}
-        {(presets?.length ?? 0) > 0 && (quickFilters?.length ?? 0) > 0 && (
+        {((presets?.length ?? 0) > 0 || hasStatusCounts) && (quickFilters?.length ?? 0) > 0 && (
           <div className="mx-0.5 h-5 w-px bg-line" aria-hidden="true" />
         )}
 
@@ -698,6 +810,32 @@ export function FilterToolbar({
               title="Clear all quick filters"
               aria-label="Clear all quick filters"
               onClick={clearQuickFilters}
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
+
+          {/* Status filter pills (from multi-select popover) */}
+          {statusFilterPills.map((pill) => (
+            <button
+              key={pill.key}
+              type="button"
+              className="selection-pill text-xs"
+              title={`Remove ${pill.label} status filter`}
+              aria-label={`Remove ${pill.label} status filter`}
+              onClick={pill.onRemove}
+            >
+              {pill.label}
+              <X className="ml-1 inline h-3 w-3" aria-hidden="true" />
+            </button>
+          ))}
+          {statusFilterPills.length > 0 && (
+            <button
+              type="button"
+              className="icon-button"
+              title="Clear all status filters"
+              aria-label="Clear all status filters"
+              onClick={handleStatusClearAll}
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>

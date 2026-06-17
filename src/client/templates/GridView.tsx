@@ -10,7 +10,7 @@
  * Phase 2+ adds masterDetail, dashboard, wizard, and report templates.
  */
 
-import { useMemo, useCallback, type ReactNode } from 'react';
+import { useMemo, useCallback, useEffect, type ReactNode } from 'react';
 import type { ColDef } from 'ag-grid-community';
 import { useShallow } from 'zustand/shallow';
 import { trpc } from '../api/trpc';
@@ -26,7 +26,7 @@ import { useEntityActions } from '../hooks/useEntityActions';
 import { viewRegistry, type ViewEntry } from '../config/view-registry';
 import type { GridRow, ViewKey, Role } from '../../shared/types';
 import type { CommandName } from '../../shared/commandCatalog';
-import type { BulkCommandRow } from '../../shared/schemas';
+import type { BulkCommandRow, StatusCountsEntityType } from '../../shared/schemas';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -137,6 +137,21 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
   const setDrawerEntity = useUiStore((s) => s.setDrawerEntity);
   const setDrawerState = useUiStore((s) => s.setDrawerState);
   const setGridFilter = useUiStore((s) => s.setGridFilter);
+  const gridFilter = useUiStore((s) => s.gridFilters[viewKey] ?? '');
+
+  // ── Status counts for FilterToolbar StatusFilterPill (replaces ViewTabBar) ──
+  const statusCountsEntity = VIEW_TO_STATUS_COUNTS[viewKey] ?? null;
+  const statusCountsQuery = trpc.queries.statusCounts.useQuery(
+    { entityType: statusCountsEntity as StatusCountsEntityType },
+    { enabled: statusCountsEntity !== null },
+  );
+  const statusCounts = statusCountsQuery.data?.statuses ?? [];
+
+  // ── Extract active status filter from grid filter string ───────────────────
+  const activeStatusFilter = useMemo(() => {
+    const match = gridFilter.match(/^status:(.+)$/);
+    return match ? match[1] : '';
+  }, [gridFilter]);
 
   // ── Selected rows with definite id + status (for entity action resolution) ─
   const selectionForActions: { id: string; status: string }[] = useMemo(
@@ -219,7 +234,7 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
     setSelectedRows(viewKey, []);
   }, [viewKey, setSelectedRows]);
 
-  // ── Tab change → status filter ─────────────────────────────────────────────
+  // ── Tab change → status filter (ViewTabBar compat) ────────────────────────
   const handleTabChange = useCallback(
     (key: string) => {
       if (key === 'all') {
@@ -230,6 +245,29 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
     },
     [viewKey, setGridFilter],
   );
+
+  // ── Multi-select status filter (FilterToolbar StatusFilterPill) ────────────
+  const handleStatusFilterChange = useCallback(
+    (statusFilter: string) => {
+      if (!statusFilter) {
+        setGridFilter(viewKey, '');
+      } else {
+        setGridFilter(viewKey, `status:${statusFilter}`);
+      }
+    },
+    [viewKey, setGridFilter],
+  );
+
+  // ── URL serialization: persist status filter to URL params (ARCH-6) ────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (activeStatusFilter) {
+      params.set('status', activeStatusFilter);
+    } else {
+      params.delete('status');
+    }
+    window.history.replaceState(null, '', `?${params.toString()}`);
+  }, [activeStatusFilter]);
 
   // ── Drawer close ───────────────────────────────────────────────────────────
   const handleDrawerClose = useCallback(() => {
@@ -254,6 +292,9 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
         view={viewKey}
         quickFilters={['date', 'keyword', 'amount']}
         exportFormats={['csv']}
+        statusCounts={statusCounts}
+        activeStatusFilter={activeStatusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
       />
 
       {/* GridSummaryStrip — auto-fetches from queries.gridSummary. Hidden when BulkActionBar is mounted (ARCH-4). */}
