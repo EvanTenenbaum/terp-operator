@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { commandNames } from './commandCatalog';
 import { BELOW_FLOOR_REASONS } from './saleLineCostExceptions';
+import { gridFiltersSchema } from './gridFilters';
 
 export const roleSchema = z.enum(['owner', 'manager', 'operator', 'viewer']);
 export const ownershipSchema = z.enum(['C', 'OFC', 'UNKNOWN']);
@@ -380,3 +381,42 @@ export const statusCountsOutputSchema = z.object({
   counts: z.array(statusCountSchema),
 });
 export type StatusCountsOutput = z.infer<typeof statusCountsOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// gridSummary — Aggregate summary for grid view toolbar (T-B-03)
+// ---------------------------------------------------------------------------
+
+export const gridSummaryEntityTypeSchema = z.enum([
+  'purchaseOrder', 'salesOrder', 'batch', 'payment', 'invoice',
+  'purchaseReceipt', 'vendorBill', 'vendorPayment', 'fulfillmentLine',
+]);
+export type GridSummaryEntityType = z.infer<typeof gridSummaryEntityTypeSchema>;
+
+export const gridSummaryInputSchema = z.object({
+  entityType: gridSummaryEntityTypeSchema,
+  filters: gridFiltersSchema.optional(),
+});
+export type GridSummaryInput = z.infer<typeof gridSummaryInputSchema>;
+
+export const gridSummaryStatusCountSchema = z.object({
+  status: z.string(),
+  count: z.number(),
+});
+
+export const gridSummaryMetricLabelSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+});
+
+export const gridSummaryOutputSchema = z.object({
+  entityType: gridSummaryEntityTypeSchema,
+  count: z.number(),
+  currencyTotal: z.number().optional(),
+  summary: z.object({
+    totalRows: z.number(),
+    currencyTotal: z.number().optional(),
+    statusCounts: z.array(gridSummaryStatusCountSchema),
+    metricLabels: z.array(gridSummaryMetricLabelSchema),
+  }),
+});
+export type GridSummaryOutput = z.infer<typeof gridSummaryOutputSchema>;

@@ -8,7 +8,7 @@ import { getCloseoutSafety } from '../services/closeout';
 import { getExternalReceipt, getInternalReceipt, renderPrintHtml, renderSignalText } from '../services/documentSnapshots';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
 import type { GridRow } from '../../shared/types';
-import { statusCountsInputSchema, comboboxOptionsInputSchema } from '../../shared/schemas';
+import { statusCountsInputSchema, comboboxOptionsInputSchema, gridSummaryInputSchema } from '../../shared/schemas';
 import { comboboxEntityTypeSchema } from '../../shared/schemas';
 type ComboboxEntityType = z.infer<typeof comboboxEntityTypeSchema>;
 import {
@@ -688,6 +688,125 @@ export const queriesRouter = router({
       }));
 
       return { entityType: input.entityType, statuses };
+    }),
+  // ─── gridSummary — Aggregate summary for grid view toolbar (T-B-03) ──────
+  gridSummary: protectedProcedure
+    .input(gridSummaryInputSchema)
+    .query(async ({ input }) => {
+      const { entityType, filters: filtersInput } = input;
+
+      const ENTITY_MAP: Record<string, { table: string; currencyCol?: string; qtyCol?: string }> = {
+        purchaseOrder:   { table: 'purchase_orders',   currencyCol: 'total' },
+        salesOrder:      { table: 'sales_orders',      currencyCol: 'total' },
+        batch:           { table: 'batches',           qtyCol: 'available_qty' },
+        payment:         { table: 'payments',          currencyCol: 'amount' },
+        invoice:         { table: 'invoices',          currencyCol: 'total' },
+        purchaseReceipt: { table: 'purchase_receipts' },
+        vendorBill:      { table: 'vendor_bills',      currencyCol: 'amount' },
+        vendorPayment:   { table: 'vendor_payments',   currencyCol: 'amount' },
+        fulfillmentLine: { table: 'fulfillment_lines' },
+      };
+
+      const mapping = ENTITY_MAP[entityType];
+      if (!mapping) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: `Unknown entity type: ${entityType}` });
+      }
+
+      const { table, currencyCol, qtyCol } = mapping;
+
+      // Build WHERE clause from grid v2 filter shape
+      const conditions: string[] = [];
+      const params: unknown[] = [];
+      let p = 1;
+
+      const escapeLike = (s: string) => s.replace(/[%_]/g, '\\$&');
+
+      if (filtersInput?.status) {
+        conditions.push(`status = $${p++}`);
+        params.push(filtersInput.status);
+      }
+
+      if (filtersInput?.text) {
+        const textCols = ['name', 'notes'];
+        const ors: string[] = [];
+        const pat = `%${escapeLike(filtersInput.text)}%`;
+        for (const col of textCols) {
+          ors.push(`${col} ILIKE $${p++}`);
+          params.push(pat);
+        }
+        conditions.push(`(${ors.join(' OR ')})`);
+      }
+
+      if (filtersInput?.dateRange) {
+        const field = filtersInput.dateRange.field;
+        if (filtersInput.dateRange.from) {
+          conditions.push(`${field} >= $${p++}`);
+          params.push(filtersInput.dateRange.from);
+        }
+        if (filtersInput.dateRange.to) {
+          conditions.push(`${field} <= $${p++}`);
+          params.push(filtersInput.dateRange.to);
+        }
+      }
+
+      if (filtersInput?.eq) {
+        for (const [key, value] of Object.entries(filtersInput.eq)) {
+          if (value === null) {
+            conditions.push(`${key} IS NULL`);
+          } else {
+            conditions.push(`${key} = $${p++}`);
+            params.push(value);
+          }
+        }
+      }
+
+      if (filtersInput?.tags) {
+        conditions.push(`tags && $${p++}::varchar[]`);
+        params.push(filtersInput.tags);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      // Build aggregate SELECT
+      const selects: string[] = ['count(*)::int as cnt'];
+      if (currencyCol) {
+        selects.push(`COALESCE(SUM(${currencyCol}), 0)::numeric(14,2) as currency_total`);
+      }
+      if (qtyCol) {
+        selects.push(`COALESCE(SUM(${qtyCol}), 0)::numeric(12,3) as qty_sum`);
+      }
+
+      const aggSql = `SELECT ${selects.join(', ')} FROM ${table} ${whereClause}`;
+      const aggResult = await pool.query(aggSql, params);
+      const aggRow = (aggResult.rows[0] ?? {}) as Record<string, unknown>;
+      const count = Number(aggRow.cnt ?? 0);
+      const currencyTotal = currencyCol ? Number(aggRow.currency_total ?? 0) : undefined;
+
+      // Status breakdown
+      const statusSql = `SELECT status, count(*)::int as count FROM ${table} ${whereClause} GROUP BY status ORDER BY status`;
+      const statusResult = await pool.query(statusSql, params);
+      const statusCounts = ((statusResult.rows ?? []) as Array<{ status: string; count: number }>).map(r => ({
+        status: String(r.status),
+        count: Number(r.count),
+      }));
+
+      // Metric labels
+      const metricLabels: Array<{ label: string; value: string }> = [];
+      if (qtyCol && aggRow.qty_sum !== undefined) {
+        metricLabels.push({ label: 'Available Qty', value: Number(aggRow.qty_sum).toFixed(3) });
+      }
+
+      return {
+        entityType,
+        count,
+        currencyTotal,
+        summary: {
+          totalRows: count,
+          currencyTotal,
+          statusCounts,
+          metricLabels,
+        },
+      };
     }),
   transactionLedger: protectedProcedure.query(async () => {
     const rows = (
