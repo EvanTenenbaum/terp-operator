@@ -220,6 +220,12 @@ export const gridInputSchema = gridInputSchemaRaw.transform((input) => ({
 
 export type GridInput = z.infer<typeof gridInputSchema>;
 
+// Strip non-procedure router properties (_def, createCaller, getErrorShape)
+// before spreading sub-routers into the top-level router. Spreading them raw
+// causes tRPC's recursiveGetPaths to choke on `'router' in undefined`.
+const { _def: _etDef, createCaller: _etCC, getErrorShape: _etES, ...entityTabProcedures } = entityTabsRouter;
+const { _def: _dqDef, createCaller: _dqCC, getErrorShape: _dqES, ...detailQueryProcedures } = detailQueriesRouter;
+
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(({ ctx }) => getDashboardData(ctx.user.role)),
   // GH #359: Credit watch watchlist — top customers by credit risk.
@@ -3388,10 +3394,10 @@ export const queriesRouter = router({
     }),
 
   // -- Entity tab queries (T-B-08) --
-  ...entityTabsRouter,
+  ...entityTabProcedures,
 
   // -- Detail queries for slide-over entities (T-B-09) --
-  ...detailQueriesRouter,
+  ...detailQueryProcedures,
 });
 
 async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
