@@ -1,6 +1,5 @@
 import { PackageCheck, ShieldCheck, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { trpc } from '../api/trpc';
 import { GridView } from '../templates/GridView';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useConfirm } from '../hooks/useConfirm';

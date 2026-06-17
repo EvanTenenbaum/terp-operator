@@ -1,4 +1,4 @@
-import { Pencil, Plus, Power, PowerOff } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { trpc } from '../api/trpc';
 import { GridView } from '../templates/GridView';

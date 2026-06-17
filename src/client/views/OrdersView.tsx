@@ -1,6 +1,5 @@
 import { Receipt } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { trpc } from '../api/trpc';
 import { GridView } from '../templates/GridView';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';

@@ -1,15 +1,12 @@
-import { Check } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
-import { FilterPresetStrip, StatusActionBar, type StatusActionTable } from '../components/templates';
+import { FilterPresetStrip } from '../components/templates';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { GridView } from '../templates/GridView';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
-import { ReceiptPanel } from '../components/ReceiptPanel';
-import { PaymentLinkedOrdersTab } from '../components/drawerTabs/PaymentLinkedOrdersTab';
 import type { GridRow } from '../../shared/types';
 import { moneyish, dateish } from './operations/shared';
 
