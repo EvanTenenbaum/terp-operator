@@ -640,6 +640,50 @@ export const reversibleCommands = new Set<CommandName>(
   commandNames.filter((name) => reversalPolicies[name].disposition === 'reversible')
 );
 
+// ─── Money-Mutating Command Cohort ───────────────────────────────────────────
+// Canonical set of commands whose handlers write to financial tables.
+// Defined per run-bulk.md §1.3. Used by runBulk to determine full-rollback cohort.
+//
+// CI must fail if a new command writes to ledger/payments/allocations/invoices/
+// vendor-bills/vendor-payments/credit/referee-credits/processor-fees/period-locks
+// tables without being in this set.
+export const MONEY_MUTATING_COMMANDS: ReadonlySet<CommandName> = new Set([
+  // Client receivables / cash in
+  'logPayment',
+  'allocatePayment',
+  'unallocatePayment',
+  'refundPayment',
+  'applyDiscount',
+  'applyClientCredit',
+  // Customer credit overrides
+  'setCustomerCreditLimit',
+  'revertCustomerCreditToEngine',
+  'setCustomerEngineMax',
+  'bulkRevertCustomersToEngine',
+  // Vendor payables / cash out
+  'createVendorBill',
+  'approveVendorBill',
+  'scheduleVendorPayment',
+  'recordVendorPayment',
+  'voidVendorPayment',
+  'recordVendorPrepayment',
+  // Order posting / financial closeout
+  'postSalesOrder',          // issues invoice
+  'postPurchaseReceipt',     // issues vendor bill
+  'verifyAllIntake',         // same posting path as postPurchaseReceipt
+  // Ledger direct
+  'postTransactionLedgerRow',
+  'createCorrectionJournalEntry',
+  'postPeriodAdjustments',
+  // Period closeout
+  'lockPeriod',
+  'archivePeriod',
+  // Referee credit money movement
+  'voidRefereeCredit',
+  // Processor fees
+  'markUserFeeCollected'
+]);
+
 export function commandLabelFor(name: unknown) {
   if (typeof name !== 'string') return '';
   if (commandNames.includes(name as CommandName)) return commandLabels[name as CommandName];

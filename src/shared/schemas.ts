@@ -304,3 +304,79 @@ export const approveMergeCandidatePayloadSchema = z.object({
 export const dismissMergeCandidatePayloadSchema = z.object({
   candidateId: z.string().uuid()
 });
+
+// ---------------------------------------------------------------------------
+// comboboxOptions — Entity-aware autocomplete (T-B-02)
+// ---------------------------------------------------------------------------
+
+export const comboboxEntityTypeSchema = z.enum([
+  'customer',
+  'vendor',
+  'staff',
+  'item',
+  'batch',
+  'tag',
+  'transactionType',
+  'purchaseOrder',
+  'salesOrder',
+  'invoice',
+  'vendorBill',
+]);
+export type ComboboxEntityType = z.infer<typeof comboboxEntityTypeSchema>;
+
+export const comboboxOptionsInputSchema = z.object({
+  entityType: comboboxEntityTypeSchema,
+  search: z.string().max(200).default(''),
+  limit: z.number().int().min(1).max(100).default(20),
+  filters: z.record(z.string(), z.unknown()).optional(),
+});
+export type ComboboxOptionsInput = z.infer<typeof comboboxOptionsInputSchema>;
+
+export const comboboxOptionSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  sublabel: z.string().nullable().optional(),
+  status: z.string().nullable().optional(),
+  availableQty: z.number().nullable().optional(),
+  balance: z.number().nullable().optional(),
+  disabledReason: z.string().nullable().optional(),
+  noResultsHint: z.string().nullable().optional(),
+});
+export type ComboboxOption = z.infer<typeof comboboxOptionSchema>;
+
+export const comboboxOptionsOutputSchema = z.object({
+  entityType: comboboxEntityTypeSchema,
+  options: z.array(comboboxOptionSchema),
+  truncated: z.boolean(),
+});
+export type ComboboxOptionsOutput = z.infer<typeof comboboxOptionsOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// statusCounts — Per-entity status distribution for ViewTabBar (T-B-04)
+// ---------------------------------------------------------------------------
+
+export const statusCountsEntityTypeSchema = z.enum([
+  'purchaseOrder', 'salesOrder', 'batch', 'payment', 'invoice',
+  'purchaseReceipt', 'vendorBill', 'vendorPayment', 'fulfillmentLine',
+  'pickList', 'connectorRequest', 'matchmakingMatch', 'photographyQueue',
+  'invoiceDispute', 'correctionJournalEntry', 'commandJournal',
+  'documentSnapshot', 'refereeCredit', 'batchMedia',
+]);
+export type StatusCountsEntityType = z.infer<typeof statusCountsEntityTypeSchema>;
+
+export const statusCountsInputSchema = z.object({
+  entityType: statusCountsEntityTypeSchema,
+});
+export type StatusCountsInput = z.infer<typeof statusCountsInputSchema>;
+
+export const statusCountSchema = z.object({
+  status: z.string(),
+  count: z.number().int().min(0),
+});
+export type StatusCount = z.infer<typeof statusCountSchema>;
+
+export const statusCountsOutputSchema = z.object({
+  entityType: statusCountsEntityTypeSchema,
+  counts: z.array(statusCountSchema),
+});
+export type StatusCountsOutput = z.infer<typeof statusCountsOutputSchema>;
