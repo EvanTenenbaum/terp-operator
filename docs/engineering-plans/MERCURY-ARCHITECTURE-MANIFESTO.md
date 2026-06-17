@@ -710,3 +710,19 @@ That is the bar. Hold it.
 ---
 
 *End of Mercury Architecture Manifesto. Append corrections as a new section at the top with date; do not edit history.*
+
+---
+
+## Domain Requirements (2026-06-17 — Evan)
+
+These are operator-specified domain rules that carry the weight of ARCH rules. Any implementation that violates them must be rejected in review.
+
+### DR-1: Subcategory > Category Priority
+If a subcategory is present on an item/SKU/batch/lot, **always prioritize it over the category**. In display, filtering, and sorting — the subcategory is the primary classifier. The category is secondary.
+
+### DR-2: No Collapsed Tables Below Main Table
+The anti-pattern of collapsed/expandable context tables stacked below the primary grid is forbidden. Context that an operator MAY want must be presented as: (a) a slide-over tab, (b) a tooltip/popover on the row, or (c) a side-by-side split view (master-detail). Never as a vertically stacked collapsed section.
+
+### DR-3: Intake / Pick / Pack — Speed Over Spoon-Feeding
+The Intake, Pick, and Pack views must not slow the operator down. No wizards with confirmations between steps. No "are you sure?" dialogs on routine actions. CSV paste must be supported. The system should feel like a tool, not a form. Operators move quick and the system must keep up.
+
