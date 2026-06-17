@@ -11,18 +11,10 @@ import {
   formatInventoryUnitCost,
   inventoryUnitCostSortValue
 } from '../../shared/inventoryPricing';
-// UX-O02: PhotographyQueuePanel surfaces media-readiness CountPills in the
-// Inventory lane so catalog decisions (blocking batches needing photos) are
-// visible without switching to the Photography lane.
-import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 
 export function InventoryView() {
   return (
     <div className="h-full flex flex-col">
-      {/* UX-O02: PhotographyQueuePanel in the Inventory lane surfaces CountPills
-          (needs-media / ready counts) so catalog decisions are informed without
-          navigating away to the Photography view. */}
-      <PhotographyQueuePanel />
       {/* ── Main grid — GridView template handles column defs, filtering, bulk actions, slide-over ── */}
       <div className="flex-1 min-h-0">
         <GridView viewKey="inventory" entityType="intake" />

@@ -89,3 +89,15 @@ Before implementing any view, check:
 - [ ] DR-3: Cell range selection enabled? (Phase 4)
 - [ ] DR-4: No barcode features designed or implemented?
 - [ ] DR-5: Intake/Pick/Pack views let operator move fast?
+
+---
+
+## DR-6: No Photography Queue in Inventory View
+
+**Rule:** The PhotographyQueuePanel must **not** appear in InventoryView. Photography queue belongs in the Photography view only.
+
+**Why:** Inventory operators need batch quantities, locations, and status — not media readiness. Photography queue adds noise that distracts from the inventory task.
+
+**Action taken:** Removed from `src/client/views/InventoryView.tsx` (2026-06-17).
+
+**Applies to:** InventoryView only. IntakeView may still show photography context for received batches.
