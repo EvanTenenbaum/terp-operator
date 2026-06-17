@@ -60,7 +60,7 @@ function collectAllStatusValues(): Set<string> {
 
 function extractCommandBusStatuses(source: string): Array<{ value: string; line: number }> {
   const lineStarts = computeLineStarts(source);
-  const toLine = (offset: number): number => lineStarts.findLastIndex((s) => s <= offset) + 1;
+  const toLine = (offset: number): number => { for (let i = lineStarts.length - 1; i >= 0; i--) { if (lineStarts[i] <= offset) return i + 1; } return 1; };
 
   const results: Array<{ value: string; line: number }> = [];
 
@@ -87,7 +87,7 @@ function extractCommandBusStatuses(source: string): Array<{ value: string; line:
 
 function extractSchemaDefaults(source: string): Array<{ value: string; line: number }> {
   const lineStarts = computeLineStarts(source);
-  const toLine = (offset: number): number => lineStarts.findLastIndex((s) => s <= offset) + 1;
+  const toLine = (offset: number): number => { for (let i = lineStarts.length - 1; i >= 0; i--) { if (lineStarts[i] <= offset) return i + 1; } return 1; };
 
   const results: Array<{ value: string; line: number }> = [];
 

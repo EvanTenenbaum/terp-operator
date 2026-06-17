@@ -88,7 +88,7 @@ describe('queries.gridSummary', () => {
   it('returns currency total for all money entities', async () => {
     const moneyEntities = [
       'purchaseOrder', 'salesOrder', 'payment', 'invoice', 'vendorBill', 'vendorPayment',
-    ];
+    ] as const;
 
     for (const entityType of moneyEntities) {
       vi.restoreAllMocks(); // reset call count per entity

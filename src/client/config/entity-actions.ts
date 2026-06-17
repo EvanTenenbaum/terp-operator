@@ -107,6 +107,7 @@ export const purchaseOrderActions: EntityActionConfig = {
         label: 'Save draft',
         icon: 'Save',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'finalizePurchaseOrder',
@@ -114,6 +115,7 @@ export const purchaseOrderActions: EntityActionConfig = {
         icon: 'Check',
         commandRoute: 'commands.run',
         confirmationRequired: true,
+        minRole: 'operator',
       },
       {
         id: 'cancelPurchaseOrder',
@@ -141,6 +143,7 @@ export const purchaseOrderActions: EntityActionConfig = {
         icon: 'Undo2',
         commandRoute: 'commands.run',
         confirmationRequired: true,
+        minRole: 'operator',
       },
       {
         id: 'cancelPurchaseOrder',
@@ -160,6 +163,7 @@ export const purchaseOrderActions: EntityActionConfig = {
         icon: 'CreditCard',
         commandRoute: 'commands.run',
         slidesOver: 'RecordPrepaymentForm',
+        minRole: 'manager',
       },
       {
         id: 'cancelPurchaseOrder',
@@ -179,6 +183,7 @@ export const purchaseOrderActions: EntityActionConfig = {
         icon: 'PackagePlus',
         commandRoute: 'commands.run',
         slidesOver: 'ReceiveLinesForm',
+        minRole: 'operator',
       },
       {
         id: 'recordVendorPrepayment',
@@ -186,6 +191,7 @@ export const purchaseOrderActions: EntityActionConfig = {
         icon: 'CreditCard',
         commandRoute: 'commands.run',
         slidesOver: 'RecordPrepaymentForm',
+        minRole: 'manager',
       },
       {
         id: 'cancelPurchaseOrder',
@@ -205,6 +211,7 @@ export const purchaseOrderActions: EntityActionConfig = {
         icon: 'PackagePlus',
         commandRoute: 'commands.run',
         slidesOver: 'ReceiveLinesForm',
+        minRole: 'operator',
       },
       {
         id: 'cancelPurchaseOrder',
@@ -231,6 +238,11 @@ export const purchaseOrderActions: EntityActionConfig = {
     // ══ cancelled ═════════════════════════════════════════════════════════════
     [PurchaseOrderStatus.enum.cancelled]: [
       // Terminal state. Cancelled POs are immutable.
+    ],
+
+    // ══ reversed ══════════════════════════════════════════════════════════════
+    [PurchaseOrderStatus.enum.reversed]: [
+      // No actions — reversed is a terminal state
     ],
   },
 };
@@ -266,6 +278,7 @@ export const salesOrderActions: EntityActionConfig = {
         icon: 'Check',
         commandRoute: 'commands.run',
         confirmationRequired: true,
+        minRole: 'operator',
       },
       {
         id: 'priceSalesOrder',
@@ -273,6 +286,7 @@ export const salesOrderActions: EntityActionConfig = {
         icon: 'DollarSign',
         commandRoute: 'commands.run',
         slidesOver: 'PriceOrderForm',
+        minRole: 'operator',
       },
       {
         id: 'applyClientCredit',
@@ -286,6 +300,7 @@ export const salesOrderActions: EntityActionConfig = {
         label: 'Delivery window',
         icon: 'Calendar',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'cancelSalesOrder',
@@ -305,6 +320,7 @@ export const salesOrderActions: EntityActionConfig = {
         icon: 'Send',
         commandRoute: 'commands.run',
         confirmationRequired: true,
+        minRole: 'operator',
       },
       {
         id: 'repriceOrder',
@@ -318,6 +334,7 @@ export const salesOrderActions: EntityActionConfig = {
         label: 'Fulfill',
         icon: 'Package',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'applyClientCredit',
@@ -343,6 +360,7 @@ export const salesOrderActions: EntityActionConfig = {
         label: 'Fulfill',
         icon: 'Package',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'markOrderFulfilled',
@@ -350,6 +368,7 @@ export const salesOrderActions: EntityActionConfig = {
         icon: 'CheckCheck',
         commandRoute: 'commands.run',
         confirmationRequired: true,
+        minRole: 'operator',
       },
     ],
 
@@ -392,6 +411,7 @@ export const paymentActions: EntityActionConfig = {
         label: 'Allocate',
         icon: 'ArrowRightLeft',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'unallocatePayment',
@@ -451,6 +471,7 @@ export const invoiceActions: EntityActionConfig = {
         label: 'Record payment',
         icon: 'CreditCard',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
@@ -461,6 +482,7 @@ export const invoiceActions: EntityActionConfig = {
         label: 'Record payment',
         icon: 'CreditCard',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'unallocatePayment',
@@ -685,6 +707,7 @@ export const batchActions: EntityActionConfig = {
         label: 'Edit',
         icon: 'Pencil',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'deleteBatch',
@@ -702,6 +725,7 @@ export const batchActions: EntityActionConfig = {
         label: 'Edit',
         icon: 'Pencil',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'deleteBatch',
@@ -715,6 +739,7 @@ export const batchActions: EntityActionConfig = {
         label: 'Reject',
         icon: 'XCircle',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
@@ -725,18 +750,21 @@ export const batchActions: EntityActionConfig = {
         label: 'Edit',
         icon: 'Pencil',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'flagBatch',
         label: 'Flag',
         icon: 'Flag',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'rejectBatch',
         label: 'Reject',
         icon: 'XCircle',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
@@ -754,6 +782,7 @@ export const batchActions: EntityActionConfig = {
         label: 'Move',
         icon: 'ArrowRightLeft',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'transferInventoryOwnership',
@@ -774,12 +803,14 @@ export const batchActions: EntityActionConfig = {
         label: 'Lot info',
         icon: 'Barcode',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'setBatchPrice',
         label: 'Set price',
         icon: 'DollarSign',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
@@ -797,6 +828,7 @@ export const batchActions: EntityActionConfig = {
         label: 'Move',
         icon: 'ArrowRightLeft',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
@@ -836,6 +868,7 @@ export const batchActions: EntityActionConfig = {
         label: 'Move',
         icon: 'ArrowRightLeft',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
@@ -872,12 +905,14 @@ export const fulfillmentLineActions: EntityActionConfig = {
         label: 'Weigh & pack',
         icon: 'PackageCheck',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'adjustFulfillmentLine',
         label: 'Adjust',
         icon: 'SlidersHorizontal',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'cancelFulfillmentLine',
@@ -885,12 +920,14 @@ export const fulfillmentLineActions: EntityActionConfig = {
         icon: 'Trash2',
         commandRoute: 'commands.run',
         confirmationRequired: true,
+        minRole: 'operator',
       },
       {
         id: 'acknowledgeWarehouseAlert',
         label: 'Acknowledge',
         icon: 'BellOff',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
@@ -901,6 +938,7 @@ export const fulfillmentLineActions: EntityActionConfig = {
         label: 'Return units',
         icon: 'Undo2',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'cancelFulfillmentLine',
@@ -908,6 +946,7 @@ export const fulfillmentLineActions: EntityActionConfig = {
         icon: 'Trash2',
         commandRoute: 'commands.run',
         confirmationRequired: true,
+        minRole: 'operator',
       },
     ],
   },
@@ -935,18 +974,21 @@ export const connectorRequestActions: EntityActionConfig = {
         label: 'Approve',
         icon: 'Check',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'rejectConnectorRequest',
         label: 'Reject',
         icon: 'XCircle',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
       {
         id: 'routeConnectorRequest',
         label: 'Route',
         icon: 'ArrowRightLeft',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
@@ -995,12 +1037,14 @@ export const pickListActions: EntityActionConfig = {
         icon: 'CheckCheck',
         commandRoute: 'commands.run',
         confirmationRequired: true,
+        minRole: 'operator',
       },
       {
         id: 'printLabels',
         label: 'Print labels',
         icon: 'Printer',
         commandRoute: 'commands.run',
+        minRole: 'operator',
       },
     ],
 
