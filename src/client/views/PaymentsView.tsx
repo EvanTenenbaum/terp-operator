@@ -1,18 +1,20 @@
+import { Check } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
-import { FilterPresetStrip } from '../components/templates';
+import { FilterPresetStrip, StatusActionBar, type StatusActionTable } from '../components/templates';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
-import { GridView } from '../templates/GridView';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
+import { ReceiptPanel } from '../components/ReceiptPanel';
+import { PaymentLinkedOrdersTab } from '../components/drawerTabs/PaymentLinkedOrdersTab';
 import type { GridRow } from '../../shared/types';
-import { moneyish, dateish } from './operations/shared';
+import { GridJourney, moneyish, dateish } from './operations/shared';
 
 /**
  * UX-J03: Live count of payment rows with unapplied > 0, computed from the
- * payments grid query that GridView already fetches.  Because tRPC deduplicates
+ * payments grid query that GridJourney already fetches.  Because tRPC deduplicates
  * queries by (procedure + input), calling the same `.grid({ view: 'payments' })`
  * here reuses the in-flight or cached response — it does NOT issue a second
  * network request.
@@ -62,46 +64,91 @@ export function PaymentsView() {
   const openPaymentDeepLink = usePaymentDeepLink();
 
   return (
-    <div className="h-full flex flex-col">
-      {/* ── Quick Ledger entry + allocation tools ────────────────────────── */}
-      <QuickLedgerGrid />
-      {/* Selection-bound allocation tools live in consistent WorkspacePanel
-          chrome (collapsible, focusable) instead of a bare inline panel. */}
-      {selectedPayment ? (
-        <WorkspacePanel panelId="payments-allocations" title="Payment allocations" subtitle="Uses the selected payment row below." headingLevel={2}>
-          <PaymentAllocationTools selectedPayment={selectedPayment} />
-        </WorkspacePanel>
-      ) : null}
-
-      {/* ── Filter presets + unapplied badge ─────────────────────────────── */}
-      <div className="flex items-center gap-2 px-4 py-1">
-        {/* GH #354 presets, now via the shared template.
-            UX-J03: "Unapplied (N)" preset surfaces the standing unapplied queue. */}
-        <FilterPresetStrip
-          view="payments"
-          ariaLabel="Filter payments"
-          presets={[
-            // SX-J04: Presets updated to use field values the grid filter can
-            // evaluate (simple string matching via applyGridFilter).
-            { label: 'Unpaid', filter: 'status:posted' },
-            { label: 'Overdue', filter: 'direction:paying', title: 'Payment direction:paying (proxy for outgoing/bill payments; true overdue requires vendor_bill due-date filter — server-side filter needed)' },
-            {
-              key: 'unapplied',
-              label: 'Unapplied',
-              filter: 'allocationIntent:unapplied',
-              title: 'Payment allocationIntent:unapplied (explicitly-unapplied only; partially-applied payments not covered — server-side numeric filter needed)'
-            }
-          ]}
-        />
-        {/* UX-J03: standing count pill — always visible next to the preset strip. */}
-        <UnappliedCountBadge />
-      </div>
-
-      {/* ── Main grid — GridView template handles column defs, filtering, bulk actions, slide-over ── */}
-      <div className="flex-1 min-h-0">
-        <GridView viewKey="payments" entityType="payment" />
-      </div>
-    </div>
+    <GridJourney
+      view="payments"
+      title="Payments"
+      // UX-D03: tailored empty state names the producing verb and surface.
+      emptyTitle="No payments yet — press Money In"
+      emptyChildren="Use the Quick Ledger above to log a cash, check, wire, or crypto receipt. Payments appear here once posted."
+      prelude={() => (
+        <>
+          <QuickLedgerGrid />
+          {/* Selection-bound allocation tools live in consistent WorkspacePanel
+              chrome (collapsible, focusable) instead of a bare inline panel. */}
+          {selectedPayment ? (
+            <WorkspacePanel panelId="payments-allocations" title="Payment allocations" subtitle="Uses the selected payment row below." headingLevel={2}>
+              <PaymentAllocationTools selectedPayment={selectedPayment} />
+            </WorkspacePanel>
+          ) : null}
+        </>
+      )}
+      inspectorTabs={(row) =>
+        row.id
+          ? [
+              {
+                key: 'receipt',
+                label: 'Receipt',
+                render: () => <ReceiptPanel kind="payment" paymentId={String(row.id)} />
+              },
+              {
+                // UX-J06: invoice→order cross-links in the payment inspector.
+                key: 'linked-orders',
+                label: 'Linked Orders',
+                render: () => <PaymentLinkedOrdersTab paymentId={String(row.id)} />
+              }
+            ]
+          : []
+      }
+      actions={() => (
+        <>
+          {/* GH #354 presets, now via the shared template.
+              UX-J03: "Unapplied (N)" preset surfaces the standing unapplied queue. */}
+          <FilterPresetStrip
+            view="payments"
+            ariaLabel="Filter payments"
+            presets={[
+              // SX-J04: Presets updated to use field values the grid filter can
+              // evaluate (simple string matching via applyGridFilter).
+              { label: 'Unpaid', filter: 'status:posted' },
+              { label: 'Overdue', filter: 'direction:paying', title: 'Payment direction:paying (proxy for outgoing/bill payments; true overdue requires vendor_bill due-date filter — server-side filter needed)' },
+              {
+                key: 'unapplied',
+                label: 'Unapplied',
+                filter: 'allocationIntent:unapplied',
+                title: 'Payment allocationIntent:unapplied (explicitly-unapplied only; partially-applied payments not covered — server-side numeric filter needed)'
+              }
+            ]}
+          />
+          {/* UX-J03: standing count pill — always visible next to the preset strip. */}
+          <UnappliedCountBadge />
+        </>
+      )}
+      selectionActions={(rows, runCommand, setNextSuccessActions) => {
+        // Spec §10.5 — status-aware primary for payments.
+        const unappliedOf = (row: GridRow) => Number(row.unappliedAmount ?? 0);
+        const amountOf = (row: GridRow) => Math.abs(Number(row.amount ?? 0));
+        const allocate = (label: string) => ({
+          key: 'allocate',
+          label,
+          icon: <Check className="h-4 w-4" aria-hidden="true" />,
+          run: (r: GridRow[]) => {
+            const paymentId = String(r[0].id ?? '');
+            setNextSuccessActions?.([{ label: 'View payment', onAction: () => openPaymentDeepLink(paymentId) }]);
+            return runCommand('allocatePayment', { paymentId: r[0].id }, 'Auto-apply payment to oldest open orders');
+          }
+        });
+        const paymentsTable: StatusActionTable = {
+          rules: [
+            { when: (row) => ['reversed', 'refunded'].includes(String(row.status ?? '')), primary: null, tray: [] },
+            { when: (row) => unappliedOf(row) > 0 && unappliedOf(row) >= amountOf(row), primary: allocate('Auto-apply oldest'), tray: [] },
+            { when: (row) => unappliedOf(row) > 0, primary: allocate('Allocate remaining'), tray: [] },
+            { when: (row) => unappliedOf(row) <= 0, primary: null, tray: [] },
+            { when: () => true, primary: null, tray: [allocate('Auto-apply oldest')] }
+          ]
+        };
+        return <StatusActionBar rows={rows} table={paymentsTable} />;
+      }}
+    />
   );
 }
 
