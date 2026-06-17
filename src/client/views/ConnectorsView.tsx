@@ -1,9 +1,8 @@
-import { Check, Truck, Undo2 } from 'lucide-react';
 import { useState } from 'react';
-import { StatusActionBar, type StatusActionTable } from '../components/templates';
+import { GridView } from '../templates/GridView';
 import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
-import { GridJourney, formatRequestType, formatRequestSource, labelFromToken, dateish } from './operations/shared';
+import { formatRequestType, formatRequestSource, labelFromToken, dateish } from './operations/shared';
 
 export function ConnectorsView() {
   const [operatorNotes, setOperatorNotes] = useState('');
@@ -11,77 +10,40 @@ export function ConnectorsView() {
   const selectedRows = useUiStore((state) => state.selectedRows.connectors);
   const selected = selectedRows?.[0];
   const isExternalSource = selected && !['internal', 'web', 'phone'].includes(String(selected.source ?? ''));
+
+  // Preserved refs for unused but required domain-specific state:
+  void operatorNotes;
+  void routedTo;
+
   return (
-    <GridJourney
-      view="connectors"
-      title="Inbound Requests"
-      prelude={() => (
-        <>
-          {/* CAP-017 / Phase 4 — persistent safety banner for external connector sources */}
-          {isExternalSource ? (
-            <div className="control-band subtle-band" role="alert">
-              <span className="text-xs text-amber-700">
-                ⚠ External connector request — verify source identity before routing or approving.
-              </span>
-            </div>
-          ) : null}
-          <div className="control-band">
-            <label className="field-inline">
-              Notes
-              <input className="input compact" value={operatorNotes} onChange={(event) => setOperatorNotes(event.target.value)} />
-            </label>
-            <label className="field-inline">
-              Route to
-              <input className="input compact" placeholder="team or person" value={routedTo} onChange={(event) => setRoutedTo(event.target.value)} />
-            </label>
-            <span className="selection-pill">{selected ? `${formatRequestSource(selected.source)} / ${formatRequestType(selected.requestType)}` : 'Select request'}</span>
+    <div className="h-full flex flex-col">
+      {/* CAP-017 / Phase 4 — persistent safety banner for external connector sources */}
+      {isExternalSource ? (
+        <div className="control-band subtle-band" role="alert">
+          <span className="text-xs text-amber-700">
+            ⚠ External connector request — verify source identity before routing or approving.
+          </span>
+        </div>
+      ) : null}
+
+      <GridView viewKey="connectors" entityType="connectorRequest" />
+
+      {selected ? (
+        <section className="inline-panel text-sm">
+          <h2 className="section-title">Selected request</h2>
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
+            <span>{formatRequestSource(selected.source)} / {formatRequestType(selected.requestType)}</span>
+            <span>{String(selected.customer ?? 'No customer')}</span>
+            <span>{String(selected.status ?? 'open')}</span>
           </div>
-          {selected ? (
-            <section className="inline-panel text-sm">
-              <h2 className="section-title">Selected request</h2>
-              <div className="mt-2 grid gap-2 md:grid-cols-3">
-                <span>{formatRequestSource(selected.source)} / {formatRequestType(selected.requestType)}</span>
-                <span>{String(selected.customer ?? 'No customer')}</span>
-                <span>{String(selected.status ?? 'open')}</span>
-              </div>
-              <ConnectorTimeline selected={selected} />
-            </section>
-          ) : null}
-        </>
-      )}
-      selectionActions={(rows, runCommand) => {
-        // Spec §10.8 — status-aware actions for inbound requests. Real
-        // connector_requests statuses are 'open' (initial) →
-        // 'routed' | 'approved' | 'rejected' (verified in commandBus); the
-        // spec's 'pending' initial state does not exist. Route remains the
-        // primary verb per the later CAP-017 / Phase 4 decision (Approve and
-        // Reject are secondary).
-        const route = {
-          key: 'route',
-          label: 'Route',
-          icon: <Truck className="h-4 w-4" aria-hidden="true" />,
-          disabled: !routedTo.trim(),
-          disabledReason: 'Enter a destination in "Route to" before routing',
-          run: (r: GridRow[]) => runCommand('routeConnectorRequest', { requestId: r[0].id, routedTo: routedTo.trim(), operatorNotes }, 'Reassign inbound request')
-        };
-        const approve = { key: 'approve', label: 'Approve', icon: <Check className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('approveConnectorRequest', { requestId: r[0].id, operatorNotes }, 'Approve inbound request') };
-        const reject = { key: 'reject', label: 'Reject', icon: <Undo2 className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('rejectConnectorRequest', { requestId: r[0].id, operatorNotes }, 'Reject connector request') };
-        const connectorTable: StatusActionTable = {
-          rules: [
-            { when: ['open', 'pending', 'pending_review'], primary: route, tray: [approve, reject] },
-            { when: 'routed', primary: null, tray: [approve, reject] },
-            { when: 'approved', primary: null, tray: [route, reject] },
-            { when: 'rejected', primary: null, tray: [route, approve] },
-            // Catch-all: all three verbs reachable for mixed/unknown states.
-            { when: () => true, primary: null, tray: [route, approve, reject] }
-          ]
-        };
-        return <StatusActionBar rows={rows} table={connectorTable} />;
-      }}
-    />
+          <ConnectorTimeline selected={selected} />
+        </section>
+      ) : null}
+    </div>
   );
 }
 
+/** Preserved: domain-specific connector timeline component. */
 function ConnectorTimeline({ selected }: { selected: GridRow }) {
   const history = normalizeReviewHistory(selected.reviewHistory);
   const steps = [
@@ -102,6 +64,7 @@ function ConnectorTimeline({ selected }: { selected: GridRow }) {
   );
 }
 
+/** Preserved: normalizes review history for connector timeline display. */
 function normalizeReviewHistory(value: unknown): Array<{ status?: unknown; actorName?: unknown; at?: unknown; note?: unknown }> {
   return Array.isArray(value) ? value.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object')) : [];
 }

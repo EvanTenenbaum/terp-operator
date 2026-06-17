@@ -1,20 +1,18 @@
 import { Ban, CalendarClock, Landmark, Pencil, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { StatusActionBar, type StatusActionTable, FormDialog, FormField } from '../components/templates';
 import { WorkspacePanel } from '../components/WorkspacePanel';
+import { GridView } from '../templates/GridView';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { useConfirm } from '../hooks/useConfirm';
 import { ReceiptPanel } from '../components/ReceiptPanel';
 import type { GridRow } from '../../shared/types';
-import { GridJourney, labelFromToken, moneyish } from './operations/shared';
+import { labelFromToken, moneyish } from './operations/shared';
 
 // ─── UX-Q04: UpdateVendorDialog ─────────────────────────────────────────────
-// Edit affordance for vendor rows: name, alias, terms, consignment default,
-// contact info, notes.  Payload matches updateVendorPayloadSchema.
 interface UpdateVendorDialogProps {
   vendorId: string;
   initialName: string;
@@ -161,306 +159,29 @@ export function VendorPayablesView() {
     enabled: matchSettings.data?.showVendorsColumn ?? false,
   });
 
-  const vendorMatchColumns = useMemo((): ColDef<GridRow>[] => {
-    // UX-K01: dueReason and scheduledFor render as badge columns so operators
-    // can scan "why due / when scheduled" inline without opening the drawer.
-    // dueReason badge: amber for consignment signals, zinc for standard reasons.
-    // scheduledFor badge: indigo when a payout event exists, zinc dash otherwise.
-    const base: ColDef<GridRow>[] = [
-      {
-        field: 'vendor',
-        pinned: 'left',
-        width: 190,
-        // UX-B03: (1) when linked, vendor name links to the contact profile;
-        // (2) when unlinked, show a compact "Link contact" action that dispatches
-        // linkContactToExistingEntity with entityType='vendor'.
-        cellRenderer: (params: { data?: GridRow; value: string }) => {
-          if (params.data?.contactId) {
-            return (
-              <button
-                className="text-button font-medium text-left"
-                onClick={() => navigate(`/contacts/${String(params.data!.contactId)}`)}
-                type="button"
-              >
-                {params.value}
-              </button>
-            );
-          }
-          return (
-            <span className="flex items-center gap-2">
-              <span>{params.value}</span>
-              <button
-                type="button"
-                className="compact-action text-xs text-blue-600 hover:text-blue-800"
-                title="Link this vendor to a contact profile"
-                onClick={() => {
-                  const vendorId = String(params.data?.vendorId ?? params.data?.id ?? '');
-                  if (!vendorId) return;
-                  void runCommand(
-                    'linkContactToExistingEntity',
-                    { contactId: '', entityType: 'vendor', entityId: vendorId },
-                    'Link vendor to contact'
-                  );
-                }}
-              >
-                Link contact
-              </button>
-            </span>
-          );
-        }
-      },
-      { field: 'billNo', width: 150 },
-      { field: 'amount', type: 'numericColumn', width: 120 },
-      { field: 'amountPaid', type: 'numericColumn', width: 130 },
-      { field: 'status', width: 125 },
-      { field: 'dueDate', width: 180 },
-      {
-        field: 'scheduledFor',
-        headerName: 'Scheduled',
-        width: 190,
-        cellRenderer: (params: { value: unknown; data?: GridRow }) => {
-          const raw = params.value;
-          if (!raw) {
-            return <span className="text-xs text-zinc-400">— not scheduled</span>;
-          }
-          const d = new Date(String(raw));
-          const label = Number.isNaN(d.getTime()) ? String(raw) : d.toLocaleDateString('en-US');
-          return (
-            <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-800">
-              {label}
-            </span>
-          );
-        }
-      },
-      {
-        field: 'dueReason',
-        headerName: 'Due reason',
-        minWidth: 240,
-        cellRenderer: (params: { value: unknown; data?: GridRow }) => {
-          const raw = params.value;
-          if (!raw) return <span className="text-xs text-zinc-400">—</span>;
-          const text = String(raw);
-          const isConsignment = Boolean(params.data?.consignmentTriggered) ||
-            text.toLowerCase().includes('consign');
-          const cls = isConsignment
-            ? 'inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800'
-            : 'inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700';
-          return <span className={cls}>{text}</span>;
-        }
-      },
-      { field: 'consignmentTriggered', width: 170 }
-    ];
-    if (!matchSettings.data?.showVendorsColumn) return base;
-    return [
-      ...base,
-      {
-        headerName: 'Matchmaking',
-        width: 140,
-        cellRenderer: (params: { data?: GridRow }) => {
-          const counts = matchCounts.data?.vendors[String(params.data?.vendorId ?? '')];
-          if (!counts) return <span className="text-xs text-zinc-400">No activity</span>;
-          return (
-            <a
-              href={`/matchmaking?vendor=${params.data?.id}`}
-              className="text-xs text-blue-600 hover:underline"
-              onClick={(e) => { e.preventDefault(); navigate(`/matchmaking?vendor=${params.data?.id}`); }}
-            >
-              {counts.supply} stock listed
-            </a>
-          );
-        },
-      },
-    ];
-  }, [matchSettings.data?.showVendorsColumn, matchCounts.data, navigate, runCommand]);
-
   const confirm = useConfirm();
 
-  const vendorBillExpansionConfig = useMemo(
-    () => ({
-      enabled: true,
-      // CMD-VENDOR / TER-1517: status-aware inline actions — show only the
-      // action that is valid for the current bill status. Void is visible to
-      // manager+ for any non-terminal status. Viewer role sees a read-only note.
-      actionsRenderer: (row: GridRow) => {
-        const rowStatus = String(row.status ?? '');
-        const isTerminal = rowStatus === 'paid' || rowStatus === 'voided';
-        const showApprove = rowStatus === 'open' || rowStatus === 'pending';
-        const showSchedule = rowStatus === 'approved';
-        const showRecord = rowStatus === 'scheduled';
-
-        if (!canWrite) {
-          return (
-            <span className="text-xs text-zinc-400">
-              Manager or owner required to act on this bill.
-            </span>
-          );
-        }
-
-        return (
-          <>
-            {showApprove ? (
-              <button
-                className="primary-button compact-action"
-                disabled={isRunning}
-                onClick={() => {
-                  if (!row.id || String(row.id).trim() === '') return;
-                  runCommand('approveVendorBill', { vendorBillId: row.id }, 'Approve vendor bill');
-                }}
-                type="button"
-              >
-                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                Approve
-              </button>
-            ) : null}
-
-            {showSchedule ? (
-              <button
-                className="primary-button compact-action"
-                disabled={isRunning}
-                onClick={() => {
-                  if (!row.id || String(row.id).trim() === '') return;
-                  runCommand('scheduleVendorPayment', { vendorBillId: row.id, scheduledFor: new Date(Date.now() + MS_PER_DAY).toISOString() }, 'Schedule vendor payment');
-                }}
-                type="button"
-              >
-                <CalendarClock className="h-4 w-4" aria-hidden="true" />
-                Schedule
-              </button>
-            ) : null}
-
-            {showRecord ? (
-              <button
-                className="primary-button compact-action"
-                disabled={isRunning}
-                onClick={() => {
-                  if (!row.id || String(row.id).trim() === '') return;
-                  runCommand('recordVendorPayment', { vendorBillId: row.id }, 'Record vendor payout');
-                }}
-                type="button"
-              >
-                <Landmark className="h-4 w-4" aria-hidden="true" />
-                Pay
-              </button>
-            ) : null}
-
-            {!isTerminal && canVoid ? (
-              // Void requires a vendorPaymentId — open the Payments drawer tab
-              // (Details tab also surfaces Void) to select the specific payment.
-              // This inline indicator is intentionally read-only; it confirms
-              // void access and directs the operator to the drawer for the action.
-              <span
-                className="text-xs text-zinc-500"
-                title="Open the Payments or Details drawer tab to void a specific payment"
-              >
-                <Ban className="inline h-3 w-3 mr-1 text-zinc-400" aria-hidden="true" />
-                Void via drawer
-              </span>
-            ) : null}
-
-            {isTerminal ? (
-              <span className="text-xs text-zinc-400">
-                {rowStatus === 'paid' ? 'Paid in full' : 'Voided'}
-              </span>
-            ) : null}
-          </>
-        );
-      }
-    }),
-    [isRunning, runCommand, canWrite, canVoid]
-  );
-
   return (
-    <GridJourney
-      view="vendors"
-      title="Vendor Payouts"
-      columns={vendorMatchColumns}
-      // UX-D03: tailored empty state names the producing verb + surface.
-      emptyTitle="No vendor bills — create a bill to schedule a payout"
-      emptyChildren="Vendor bills are created from posted purchase receipts or manually via 'Create bill' above. Bills appear here once created."
-      prelude={() => (
-        <>
-          {/* Pre/post-selection band swap (spec §1.4 #2): the payout commit
-              row appears only once a bill is selected — no disabled-control
-              strip before that. Both tools use WorkspacePanel chrome
-              (collapsible, persisted) like Payments allocations. */}
-          {selectedBill ? (
-            <WorkspacePanel panelId="vendors-money-out" title="Record payout" subtitle="Commits against the selected bill." headingLevel={2}>
-              <VendorMoneyOutStrip selectedBill={selectedBill} />
-            </WorkspacePanel>
-          ) : null}
-          <WorkspacePanel panelId="vendors-bill-tools" title="Vendor bill and payout tools" subtitle="Manual bill creation and payout voiding — no selection required." headingLevel={2}>
-            <VendorBillTools selectedBill={selectedBill} />
-          </WorkspacePanel>
-        </>
-      )}
-      selectionActions={(rows) => {
-        // Spec §10.6 — status-aware primary decision table for vendor bills.
-        // Status values verified against schema + commandBus (NOT the spec's
-        // names): open → approved → scheduled → (partial →) paid, with
-        // 'reversed' from reversals. There is no 'void' BILL status — void
-        // applies to vendor_payments (TER-1517 expansion + VendorBillTools).
-        // recordVendorPayment requires status 'scheduled', so Pay actions on
-        // unscheduled bills schedule first (same sequence as the Money-out
-        // commit row).
-        // UX-D01: "View bill" action on pay success toast. Call
-        // setNextSuccessActions immediately before runCommand so the hook
-        // attaches the action to the success toast. runCommand stays 3-arg,
-        // preserving the existing test contract in statusTables.test.tsx.
-        // UX-K02: for open/pending bills the operator is bypassing the normal
-        // approve → schedule → pay flow by clicking "Pay now" directly from the
-        // tray. Show a confirm dialog whose body states exactly what the server
-        // will do (schedule first, then record).
-        // Scope: open + pending only — bills in 'approved' or 'partial' are
-        // already further in the flow and the two-step is expected; 'scheduled'
-        // bills go straight to recordVendorPayment (no scheduling step needed).
-        // Copy verified against commandBus.ts:4238-4270: scheduleVendorPayment
-        // sets status 'scheduled', then recordVendorPayment creates the payment
-        // row and transitions to 'paid' (or 'partial'). The confirm copy is honest.
-        const payBill = async (bill: GridRow | undefined) => {
-          if (!bill?.id) return;
-          const billId = String(bill.id);
-          const billStatus = String(bill.status ?? '');
-          const needsScheduleConfirm = billStatus === 'open' || billStatus === 'pending';
-          if (needsScheduleConfirm) {
-            const ok = await confirm({
-              title: 'Confirm payout',
-              body: 'This will schedule an immediate payout event, then record payment.',
-              primaryLabel: 'Pay',
-            });
-            if (!ok) return;
-          }
-          if (billStatus !== 'scheduled') {
-            const scheduled = await runCommand('scheduleVendorPayment', { vendorBillId: bill.id, scheduledFor: new Date().toISOString() }, 'Auto-schedule before payout');
-            if (!scheduled.ok) return;
-          }
-          setNextSuccessActions?.([{ label: 'View bill', onAction: () => openVendorBillDeepLink(billId) }]);
-          await runCommand('recordVendorPayment', { vendorBillId: bill.id }, 'Record vendor payout');
-        };
-        // UX-D01: "View bill" action on schedule success toast.
-        const vAct = {
-          approve: { key: 'approve', label: 'Approve', icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => runCommand('approveVendorBill', { vendorBillId: r[0].id }, 'Approve vendor bill') },
-          schedule: (label: string) => ({ key: 'schedule', label, icon: <CalendarClock className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => {
-            const billId = String(r[0].id ?? '');
-            setNextSuccessActions?.([{ label: 'View bill', onAction: () => openVendorBillDeepLink(billId) }]);
-            return runCommand('scheduleVendorPayment', { vendorBillId: r[0].id, scheduledFor: new Date(Date.now() + MS_PER_DAY).toISOString() }, 'Schedule vendor payment');
-          }}),
-          pay: (label: string) => ({ key: 'pay', label, icon: <Landmark className="h-4 w-4" aria-hidden="true" />, run: (r: GridRow[]) => payBill(r[0]) })
-        };
-        const vendorBillTable: StatusActionTable = {
-          rules: [
-            { when: ['open', 'pending'], primary: vAct.approve, tray: [vAct.schedule('Schedule'), vAct.pay('Pay now')] },
-            { when: 'approved', primary: vAct.schedule('Schedule'), tray: [vAct.pay('Pay now')] },
-            { when: 'scheduled', primary: vAct.pay('Pay'), tray: [vAct.schedule('Reschedule')] },
-            { when: 'partial', primary: vAct.pay('Pay remaining'), tray: [vAct.schedule('Reschedule')] },
-            { when: ['paid', 'reversed'], primary: null, tray: [] },
-            // Catch-all: every verb stays reachable on mixed/unknown statuses.
-            { when: () => true, primary: null, tray: [vAct.approve, vAct.schedule('Schedule'), vAct.pay('Pay (schedules first)')] }
-          ]
-        };
-        return <StatusActionBar rows={rows} table={vendorBillTable} busy={isRunning} />;
-      }}
-      expansionConfig={vendorBillExpansionConfig}
-    />
+    <div className="h-full flex flex-col">
+      {/* ── Pre/post-selection workspace panels ───────────────────────────── */}
+      {/* Pre/post-selection band swap (spec §1.4 #2): the payout commit
+          row appears only once a bill is selected — no disabled-control
+          strip before that. Both tools use WorkspacePanel chrome
+          (collapsible, persisted) like Payments allocations. */}
+      {selectedBill ? (
+        <WorkspacePanel panelId="vendors-money-out" title="Record payout" subtitle="Commits against the selected bill." headingLevel={2}>
+          <VendorMoneyOutStrip selectedBill={selectedBill} />
+        </WorkspacePanel>
+      ) : null}
+      <WorkspacePanel panelId="vendors-bill-tools" title="Vendor bill and payout tools" subtitle="Manual bill creation and payout voiding — no selection required." headingLevel={2}>
+        <VendorBillTools selectedBill={selectedBill} />
+      </WorkspacePanel>
+
+      {/* ── Main grid — GridView template handles column defs, filtering, bulk actions, slide-over ── */}
+      <div className="flex-1 min-h-0">
+        <GridView viewKey="vendors" entityType="vendorBill" />
+      </div>
+    </div>
   );
 }
 
@@ -545,7 +266,6 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
     { enabled: Boolean(selectedBill?.id || selectedBill?.vendorId) }
   );
   const { runCommand, isRunning } = useCommandRunner();
-  // UX-K04: useConfirm for void tray verb — keeps reversal-policy guidance in the dialog body.
   const confirm = useConfirm();
   const [vendorId, setVendorId] = useState('');
   const [amount, setAmount] = useState('');
@@ -560,10 +280,6 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
     (v: { id: string; name: string; termsDays: number }) => v.id === activeVendorId
   );
 
-  // UX-K04: void is a per-payment-row tray verb (TER-1517 expansion), not a
-  // top-band button. The confirm dialog states the reversal policy: voiding
-  // restores the bill to 'approved' and reverses amountPaid so the bill
-  // can be rescheduled. Verified against commandBus.ts:4276-4298.
   async function handleVoidPayment(paymentId: string, paymentAmount: unknown) {
     const ok = await confirm({
       title: 'Void this payout?',
@@ -576,8 +292,6 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
   }
 
   return (
-    /* Title/subtitle chrome is owned by the wrapping WorkspacePanel
-       ("Vendor bill and payout tools") — this body keeps data + controls. */
     <section>
       <div className="flex flex-wrap items-center gap-2">
         <span className="selection-pill">{vendorPayments.data?.length ?? 0} payout(s)</span>
@@ -622,8 +336,7 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
         <span className="selection-pill success">{selectedBill ? String(selectedBill.dueReason ?? 'Due reason not recorded') : 'Select bill to see due reason'}</span>
       </div>
 
-      {/* UX-Q04: Edit vendor affordance — opens UpdateVendorDialog for the vendor
-          associated with the selected bill (or the vendor chosen in the dropdown). */}
+      {/* UX-Q04: Edit vendor affordance */}
       {activeVendorId && activeVendorRef && (
         <div className="mt-3 flex items-center gap-2">
           <button
@@ -647,11 +360,6 @@ function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
           onClose={() => setShowEditVendor(false)}
         />
       )}
-      {/* UX-K04: payment rows are the primary surface for voidVendorPayment.
-          Each non-void payment row exposes a "Void" tray-verb button inline.
-          The top-band payout selector + void button is removed — operators
-          act directly on the row they can see, with policy guidance in the
-          confirm dialog (not in the button label). */}
       {vendorPayments.data?.length ? (
         <div className="finder-table-wrap max-h-48">
           <table className="finder-table">

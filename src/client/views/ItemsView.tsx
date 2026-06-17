@@ -1,8 +1,7 @@
 import { Pencil, Plus, Power, PowerOff } from 'lucide-react';
 import { useState } from 'react';
-import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
-import { OperatorGrid } from '../components/OperatorGrid';
+import { GridView } from '../templates/GridView';
 import { FormDialog, FormField } from '../components/templates/FormDialog';
 import { useCommandRunner } from '../components/useCommandRunner';
 import type { GridRow } from '../../shared/types';
@@ -16,7 +15,6 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export function ItemsView() {
-  const grid = trpc.queries.grid.useQuery({ view: 'items' }, { refetchInterval: 120_000 });
   const reference = trpc.queries.reference.useQuery();
   const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
@@ -46,40 +44,6 @@ export function ItemsView() {
   const referenceItems = (reference.data?.items ?? []) as any[];
   const activeCount = referenceItems.filter((r: any) => r.status !== 'inactive').length;
   const inactiveCount = referenceItems.filter((r: any) => r.status === 'inactive').length;
-
-  const columns: ColDef<GridRow>[] = [
-    {
-      field: 'name',
-      headerName: 'Item Name',
-      pinned: 'left',
-      minWidth: 200,
-      cellRenderer: (params: { data: GridRow; value: string }) => (
-        <span>
-          {params.data?.alias ? (
-            <span title="Customer-facing alias active" className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
-          ) : null}
-          {params.value}
-        </span>
-      )
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 110,
-      cellRenderer: (params: { value: string }) => {
-        const badge = STATUS_BADGE[String(params.value ?? 'active')] ?? STATUS_BADGE.active;
-        return <span className={badge.cls}>{badge.label}</span>;
-      }
-    },
-    { field: 'sku', width: 140 },
-    { field: 'alias', headerName: 'Alias', width: 160 },
-    { field: 'category', width: 120 },
-    { field: 'tags', minWidth: 180 },
-    { field: 'batchCount', headerName: 'Batches', type: 'numericColumn', width: 100 },
-    { field: 'totalAvailableQty', headerName: 'Avail Qty', type: 'numericColumn', width: 120 },
-    { field: 'description', minWidth: 220 },
-    { field: 'createdAt', width: 180 }
-  ];
 
   function openEdit(row: GridRow) {
     setEditName(String(row.name ?? ''));
@@ -157,6 +121,7 @@ export function ItemsView() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* ── Header with counts + New Item button ─────────────────────────── */}
       <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold text-zinc-900">Items / SKU Catalog</h1>
@@ -182,60 +147,12 @@ export function ItemsView() {
         </div>
       </div>
 
-      <div className="flex-1">
-        <OperatorGrid
-          view="items"
-          title="Items / SKU Catalog"
-          rows={(grid.data ?? []) as GridRow[]}
-          columns={columns}
-          loading={grid.isLoading}
-          isError={grid.isError}
-          onRetry={() => grid.refetch()}
-          selectionActions={(rows) => {
-            const first = rows[0];
-            if (!first) return null;
-            return (
-              <>
-                {canWrite ? (
-                  <button
-                    className="secondary-button compact-action"
-                    disabled={!first}
-                    onClick={() => openEdit(first)}
-                    type="button"
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </button>
-                ) : null}
-                {canManage ? (
-                  <button
-                    className="secondary-button compact-action"
-                    disabled={!first}
-                    onClick={() => {
-                      if (String(first.status) === 'inactive') {
-                        void handleActivate(first);
-                      } else {
-                        setDeactivatingRow(first);
-                      }
-                    }}
-                    type="button"
-                    title={String(first.status) === 'inactive' ? 'Activate this item' : 'Deactivate this item'}
-                  >
-                    {String(first.status) === 'inactive' ? (
-                      <Power className="h-4 w-4" />
-                    ) : (
-                      <PowerOff className="h-4 w-4" />
-                    )}
-                    {String(first.status) === 'inactive' ? 'Activate' : 'Deactivate'}
-                  </button>
-                ) : null}
-              </>
-            );
-          }}
-        />
+      {/* ── Main grid — GridView template handles column defs, filtering, bulk actions, slide-over ── */}
+      <div className="flex-1 min-h-0">
+        <GridView viewKey="items" entityType="item" />
       </div>
 
-      {/* Create Item dialog — UX-Q01 */}
+      {/* ── Create Item dialog — UX-Q01 ──────────────────────────────────── */}
       {showCreate ? (
         <FormDialog
           title="New Item / SKU"
@@ -298,7 +215,7 @@ export function ItemsView() {
         </FormDialog>
       ) : null}
 
-      {/* Edit Item dialog — UX-Q01 */}
+      {/* ── Edit Item dialog — UX-Q01 ────────────────────────────────────── */}
       {editingRow ? (
         <FormDialog
           title={`Edit: ${String(editingRow.name ?? 'Item')}`}
@@ -363,7 +280,7 @@ export function ItemsView() {
         </FormDialog>
       ) : null}
 
-      {/* Deactivate confirmation dialog — UX-Q01 (tone='danger') */}
+      {/* ── Deactivate confirmation dialog — UX-Q01 (tone='danger') ──────── */}
       {deactivatingRow ? (
         <FormDialog
           title="Deactivate Item"
