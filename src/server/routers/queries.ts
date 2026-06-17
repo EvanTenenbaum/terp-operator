@@ -52,6 +52,7 @@ import {
   GROUP_BY_ALLOWLIST,
   buildGridWhereClause,
 } from './gridWhere';
+import { entityTabsRouter } from './queries.entityTabs';
 
 // Exported so the HTTP CSV export route (`/api/export/:view.csv`, see #35
 // FE-M1) can share the same view whitelist, SQL, and column ordering as the

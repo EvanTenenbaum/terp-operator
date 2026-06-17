@@ -437,3 +437,81 @@ export const gridSummaryOutputSchema = z.object({
   }),
 });
 export type GridSummaryOutput = z.infer<typeof gridSummaryOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// runBulk — Bulk command execution schemas (T-B-06)
+// ---------------------------------------------------------------------------
+
+export const bulkCommandRowSchema = z.object({
+  entityType: z.string().min(1).max(40),
+  entityId: z.string().uuid(),
+  commandName: commandNameSchema,
+  payload: z.record(z.unknown()).default({}),
+  idempotencyKey: z.string().min(8).max(180),
+});
+
+export const bulkCommandInputSchema = z.object({
+  groupKey: z.string().uuid(),
+  reason: z.string().trim().min(3).max(500),
+  commands: z.array(bulkCommandRowSchema).min(1).max(500),
+}).superRefine((input, ctx) => {
+  // Validate idempotencyKey prefix: must be `${groupKey}:...`
+  for (let i = 0; i < input.commands.length; i++) {
+    const row = input.commands[i];
+    if (!row.idempotencyKey.startsWith(`${input.groupKey}:`)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['commands', i, 'idempotencyKey'],
+        message: `Bulk row idempotencyKey must start with ${input.groupKey}:`,
+      });
+    }
+  }
+  // Detect duplicates within same submission
+  const seen = new Set<string>();
+  for (let i = 0; i < input.commands.length; i++) {
+    const k = input.commands[i].idempotencyKey;
+    if (seen.has(k)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['commands', i, 'idempotencyKey'],
+        message: 'Duplicate idempotencyKey within bulk submission.',
+      });
+    }
+    seen.add(k);
+  }
+});
+
+export const bulkCommandRowResultSchema = z.object({
+  idempotencyKey: z.string(),
+  status: z.enum(['success', 'failed', 'skipped', 'rolled_back']),
+  bulkSequence: z.number().int().min(0),
+  commandResult: z.object({
+    ok: z.boolean(),
+    commandId: z.string().uuid(),
+    affectedIds: z.array(z.string()),
+    toast: z.string().optional(),
+    delta: z.record(z.unknown()).optional(),
+    orderId: z.string().optional(),
+    warnings: z.array(z.string()).optional(),
+  }).optional(),
+  error: z.object({
+    code: z.enum(['VALIDATION_FAILED', 'UNAUTHORIZED', 'COMMAND_FAILED', 'ROLLED_BACK', 'JOURNAL_WRITE_FAILED']),
+    message: z.string(),
+  }).optional(),
+});
+
+export const bulkCommandResultSchema = z.object({
+  groupKey: z.string().uuid(),
+  totalCommands: z.number().int().min(1),
+  succeeded: z.number().int().min(0),
+  failed: z.number().int().min(0),
+  skipped: z.number().int().min(0),
+  rolledBack: z.number().int().min(0),
+  moneyCohort: z.enum(['na', 'committed', 'rolled_back']),
+  results: z.array(bulkCommandRowResultSchema),
+});
+
+export type BulkCommandInput = z.infer<typeof bulkCommandInputSchema>;
+export type BulkCommandRow = z.infer<typeof bulkCommandRowSchema>;
+export type BulkCommandResult = z.infer<typeof bulkCommandResultSchema>;
+export type BulkCommandRowResult = z.infer<typeof bulkCommandRowResultSchema>;
