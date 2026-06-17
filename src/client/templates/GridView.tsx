@@ -12,6 +12,7 @@
 
 import { useMemo, useCallback, type ReactNode } from 'react';
 import type { ColDef } from 'ag-grid-community';
+import { useShallow } from 'zustand/shallow';
 import { trpc } from '../api/trpc';
 import { useUiStore } from '../store/uiStore';
 import { FilterToolbar } from '../components/FilterToolbar';
@@ -41,6 +42,48 @@ interface GridViewProps {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const EMPTY_ROWS: GridRow[] = [] as const;
+
+// ─── Entity type mappings ─────────────────────────────────────────────────────
+// The view-registry entity field uses domain-level names (payment, sale, batch),
+// but the backend statusCounts and gridSummary procedures each use their own
+// naming conventions.  Map from viewKey → the canonical entity type each
+// procedure expects so view files don't need to know backend naming details.
+
+type StatusCountsEntity = string | null;
+type GridSummaryEntity = string | null;
+
+const VIEW_TO_STATUS_COUNTS: Partial<Record<ViewKey, StatusCountsEntity>> = {
+  purchaseOrders: 'purchaseOrder',
+  sales: 'salesOrder',
+  orders: 'salesOrder',
+  payments: 'payment',
+  inventory: 'batch',
+  intake: 'batch',
+  items: 'item',
+  fulfillment: 'fulfillmentLine',
+  'fulfillment-picks': 'pickList',
+  'fulfillment-lines': 'fulfillmentLine',
+  connectors: 'connectorRequest',
+  photography: 'photographyQueue',
+  purchaseReceipts: 'purchaseReceipt',
+  disputes: 'invoiceDispute',
+  'credit-review': 'invoiceDispute',
+  pick: 'pickList',
+  matchmaking: 'matchmakingMatch',
+  referees: 'refereeCredit',
+};
+
+const VIEW_TO_GRID_SUMMARY: Partial<Record<ViewKey, GridSummaryEntity>> = {
+  purchaseOrders: 'purchaseOrder',
+  sales: 'salesOrder',
+  orders: 'salesOrder',
+  payments: 'payment',
+  inventory: 'batch',
+  intake: 'batch',
+  fulfillment: 'fulfillmentLine',
+  purchaseReceipts: 'purchaseReceipt',
+  connectors: 'connectorRequest',
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,11 +127,11 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
 
   // ── Selection state ────────────────────────────────────────────────────────
   const selectedRows: GridRow[] =
-    useUiStore((s) => s.selectedRows[viewKey] ?? EMPTY_ROWS);
+    useUiStore(useShallow((s) => s.selectedRows[viewKey] ?? EMPTY_ROWS));
   const setSelectedRows = useUiStore((s) => s.setSelectedRows);
 
   // ── Drawer / slideover state ───────────────────────────────────────────────
-  const activeDrawerEntity = useUiStore((s) => s.activeDrawerEntityByView[viewKey]);
+  const activeDrawerEntity = useUiStore(useShallow((s) => s.activeDrawerEntityByView[viewKey]));
   const drawerState: SlideoverState =
     (useUiStore((s) => s.drawerByView[viewKey]?.state) as SlideoverState | undefined) ?? 'closed';
   const setDrawerEntity = useUiStore((s) => s.setDrawerEntity);
@@ -207,11 +250,11 @@ export function GridView({ viewKey, entityType, entityLabel }: GridViewProps): R
       />
 
       {/* GridSummaryStrip — auto-fetches from queries.gridSummary */}
-      <GridSummaryStrip entityType={entityType} />
+      <GridSummaryStrip entityType={VIEW_TO_GRID_SUMMARY[viewKey] ?? entityType} />
 
       {/* ViewTabBar — auto-fetches status counts from queries.statusCounts */}
       <ViewTabBar
-        entityType={entityType}
+        entityType={VIEW_TO_STATUS_COUNTS[viewKey] ?? entityType}
         onChange={handleTabChange}
         autoFetch
       />

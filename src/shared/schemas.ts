@@ -361,7 +361,7 @@ export const statusCountsEntityTypeSchema = z.enum([
   'purchaseReceipt', 'vendorBill', 'vendorPayment', 'fulfillmentLine',
   'pickList', 'connectorRequest', 'matchmakingMatch', 'photographyQueue',
   'invoiceDispute', 'correctionJournalEntry', 'commandJournal',
-  'documentSnapshot', 'refereeCredit', 'batchMedia',
+  'documentSnapshot', 'refereeCredit', 'batchMedia', 'item',
 ]);
 export type StatusCountsEntityType = z.infer<typeof statusCountsEntityTypeSchema>;
 

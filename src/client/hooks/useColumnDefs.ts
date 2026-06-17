@@ -5,9 +5,13 @@ import {
   type FieldDefinition,
   type FieldType,
 } from '../config/entity-schemas';
-import { useUiStore } from '../store/uiStore';
+import { useUiStore, type GridColumnPref } from '../store/uiStore';
 import { formatMoney, formatTs, formatBool, formatNumber } from '../utils/format';
 import ComboboxCellEditor from '../components/editors/ComboboxCellEditor';
+
+// Module-level stable reference to avoid infinite re-render cycles
+// from getSnapshot-cache warnings in zustand v5 + useSyncExternalStore.
+const EMPTY_PREFS: GridColumnPref[] = [];
 
 // ── Type → filter mapping ────────────────────────────────────────────────────
 
@@ -59,7 +63,7 @@ export function useColumnDefs(
   overrides?: Partial<ColDef>[],
 ): ColDef[] {
   const prefs = useUiStore(
-    (state) => state.gridColumnPrefs[entityType] ?? [],
+    (state) => state.gridColumnPrefs[entityType] ?? EMPTY_PREFS,
   );
 
   return useMemo(() => {
