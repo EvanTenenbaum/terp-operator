@@ -32,13 +32,16 @@ import type { ViewKey } from '../../shared/types';
  * - `dashboard`: Multi-zone widget composition. Used for DashboardView only.
  * - `wizard`: Step-by-step flow. Used for Pick, guided workflows.
  * - `report`: Read-only table with export. No cell editing, no bulk actions.
+ * - `settings`: Multi-tab admin page with vertical left-rail navigation.
+ *     Used for SettingsView only. Not an operator grid — admin configuration surface.
  */
 export type ViewTemplate =
   | 'primaryGrid'
   | 'masterDetail'
   | 'dashboard'
   | 'wizard'
-  | 'report';
+  | 'report'
+  | 'settings';
 
 // ─── View entry type ────────────────────────────────────────────────────────
 
@@ -332,12 +335,16 @@ const contactsCustomerOrdersView: ViewEntry = {
 };
 
 // ─── SettingsView ────────────────────────────────────────────────────────────
+//
+// SettingsView is a multi-tab admin page (not an operator grid). It uses the
+// `settings` template type — a vertical left-rail shell with tabbed content
+// panes. No primaryProcedure required; each tab owns its own data fetching.
 
 const settingsView: ViewEntry = {
   viewKey: 'settings',
   entity: '',
-  template: 'primaryGrid',
-  primaryProcedure: 'queries.grid',
+  template: 'settings',
+  primaryProcedure: '',
   urlPath: '/settings',
   title: 'Settings',
   allowedSlideOvers: [],
