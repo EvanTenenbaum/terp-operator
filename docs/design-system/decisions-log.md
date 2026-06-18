@@ -1142,3 +1142,29 @@ This means:
 **Artifacts**: `docs/design-system/taste/demo.mercury.com.md` + `demo.mercury.com.json`
 
 **Skill integration**: Taste skill installed for OpenCode at `~/.config/opencode/skills/taste/`. Export target "TERP Operator" → writes to `docs/design-system/taste/{domain}.md` + `.json`. Playwright MCP enabled.
+
+## 2026-06-18 — StatusFilterPill Extraction from FilterToolbar (R-09)
+
+**Context.** The status filter chip, popover, and selected-status pills were embedded inline inside `FilterToolbar.tsx` (~130 lines of status-specific logic mixed with toolbar concerns). The reflection-reviewer amendment for R-08 called for a typed `StatusFilterPill` component usable standalone (e.g., in MatchmakingView or RecoveryView without the full FilterToolbar shelf). R-09 in `REMAINING-WORK-EXECUTION-PLAN.md` defined the extraction.
+
+**Decision: Extract to `src/client/components/StatusFilterPill.tsx` as a standalone, self-contained component.** The component owns its own `trpc.queries.statusCounts` query, popover state, keyboard/outside-click handling, and active-pill rendering. The FilterToolbar now delegates to `<StatusFilterPill>` and no longer manages status state internally. The `activePills` prop (external consumer pills like customer/vendor URL params) passes through to StatusFilterPill.
+
+**Rationale.**
+1. **Standalone reusability** — MatchmakingView and RecoveryView can render `<StatusFilterPill>` without the full FilterToolbar. This was the primary AC.
+2. **Clean separation** — FilterToolbar was 938 lines with status logic mixed into chip state, popover state, and pills rendering. The extraction removed 144 lines and makes FilterToolbar's responsibility clearer: it composes filter chips, not manages them.
+3. **Self-contained state** — The component owns its own query, popover, and selection state. No parent coordination needed beyond `entityType` / `activeFilter` / `onFilterChange` props.
+4. **Pill rendering lives with the chip** — Unlike the previous layout where status pills appeared in FilterToolbar's shared second-row pills section, the extracted component renders pills adjacent to its chip. This is closer to Mercury's filter pattern where each filter shows its active values proximal to its trigger.
+
+**Props contract:**
+```ts
+interface StatusFilterPillProps {
+  entityType: string;                      // for queries.statusCounts
+  activeFilter?: string;                    // comma-separated statuses
+  onFilterChange: (status: string | null) => void;
+  activePills?: { key: string; label: string; onRemove: () => void }[];
+  disabled?: boolean;
+}
+```
+
+**Author:** OpenCode (build agent) via Evan
+**Related:** R-08 (slot contracts), R-09, R-11 (ViewTabBar vs. StatusFilterPill audit), R-22 (deprecated component removal).
