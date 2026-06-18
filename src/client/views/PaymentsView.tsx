@@ -153,6 +153,32 @@ function buildPaymentBulkActions(
         }
       },
     },
+    {
+      key: 'markUnapplied',
+      label: 'Mark unapplied',
+      variant: 'secondary',
+      onAction: async (): Promise<BulkActionResult> => {
+        const paymentId = String(rows[0].id ?? '');
+        setNextSuccessActions?.([
+          {
+            label: 'View payment',
+            onAction: () => openPaymentDeepLink(paymentId),
+          },
+        ]);
+        try {
+          await runCommand(
+            'markPaymentUnapplied',
+            { paymentId: rows[0].id },
+            `Mark payment as unapplied`,
+          );
+          return { succeeded: 1, failed: 0 };
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : 'Mark unapplied failed';
+          return { succeeded: 0, failed: 1, error: message };
+        }
+      },
+    },
   ];
 }
 

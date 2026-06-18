@@ -133,3 +133,73 @@ describe('applyClientCredit', () => {
     expect(result.toast).toContain('Customer not found');
   });
 });
+
+describe('markPaymentUnapplied', () => {
+  const PAYMENT_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+
+  function seedPayment(overrides: Partial<Record<string, unknown>> = {}) {
+    inMemoryState.payments.push({
+      id: PAYMENT_ID,
+      customerId: CUSTOMER_ID,
+      method: 'cash',
+      amount: '500.00',
+      unappliedAmount: '500.00',
+      reference: 'REF-001',
+      locationBucket: null,
+      notes: null,
+      direction: 'money_in',
+      category: 'client_payment',
+      allocationIntent: 'fifo',
+      impactPreview: null,
+      status: 'posted',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    });
+  }
+
+  beforeEach(() => {
+    seedCustomer();
+  });
+
+  it('sets allocationIntent to unapplied on a posted payment', async () => {
+    seedPayment();
+    const result = await executeCommand(
+      { name: 'markPaymentUnapplied', payload: { paymentId: PAYMENT_ID }, idempotencyKey: 'k9', reason: '' } as any,
+      operatorUser, ioStub
+    );
+    expect(result.ok).toBe(true);
+    expect(result.toast).toBe('Payment marked as unapplied.');
+    expect(inMemoryState.payments[0].allocationIntent).toBe('unapplied');
+    expect(inMemoryState.commandJournal[0].status).toBe('ok');
+  });
+
+  it('returns ok:false when payment is not found', async () => {
+    const result = await executeCommand(
+      { name: 'markPaymentUnapplied', payload: { paymentId: PAYMENT_ID }, idempotencyKey: 'k10', reason: '' } as any,
+      operatorUser, ioStub
+    );
+    expect(result.ok).toBe(false);
+    expect(result.toast).toContain('Payment not found');
+  });
+
+  it('returns ok:false for refunded payment', async () => {
+    seedPayment({ status: 'refunded' });
+    const result = await executeCommand(
+      { name: 'markPaymentUnapplied', payload: { paymentId: PAYMENT_ID }, idempotencyKey: 'k11', reason: '' } as any,
+      operatorUser, ioStub
+    );
+    expect(result.ok).toBe(false);
+    expect(result.toast).toContain('Cannot mark a refunded or reversed payment');
+  });
+
+  it('returns ok:false for reversed payment', async () => {
+    seedPayment({ status: 'reversed' });
+    const result = await executeCommand(
+      { name: 'markPaymentUnapplied', payload: { paymentId: PAYMENT_ID }, idempotencyKey: 'k12', reason: '' } as any,
+      operatorUser, ioStub
+    );
+    expect(result.ok).toBe(false);
+    expect(result.toast).toContain('Cannot mark a refunded or reversed payment');
+  });
+});

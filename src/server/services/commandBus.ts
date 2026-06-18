@@ -366,6 +366,10 @@ const refundPaymentPayloadSchema = z.object({
   paymentId: z.string().uuid(),
 });
 
+const markPaymentUnappliedPayloadSchema = z.object({
+  paymentId: z.string().uuid(),
+});
+
 const applyClientCreditPayloadSchema = z.object({
   customerId: z.string().uuid(),
   amount: z.coerce.number(),
@@ -1129,6 +1133,8 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return unallocatePayment(tx, payload, commandId);
     case 'refundPayment':
       return refundPayment(tx, payload, commandId);
+    case 'markPaymentUnapplied':
+      return markPaymentUnapplied(tx, payload, commandId);
     case 'applyDiscount':
       return applyDiscount(tx, payload, commandId);
     case 'createVendorBill':
@@ -4322,6 +4328,30 @@ async function refundPayment(tx: Tx, payload: Payload, commandId: string): Promi
   }
 
   return { ok: true, commandId, affectedIds: affected, toast: 'Payment refunded.' };
+}
+
+async function markPaymentUnapplied(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+  markPaymentUnappliedPayloadSchema.parse(payload);
+  const paymentId = requiredId(payload.paymentId, 'paymentId');
+
+  // Lock payment row to prevent concurrent races.
+  // Raw `SELECT *` returns Postgres column names (snake_case), so status
+  // must be read via bracket notation — camelCase dot access would silently
+  // produce `undefined`.
+  const paymentRows = await tx.execute(
+    sql`SELECT * FROM ${payments} WHERE ${payments.id} = ${paymentId} FOR UPDATE`
+  );
+  const payment = paymentRows.rows[0];
+  if (!payment) throw new Error('Payment not found.');
+  if (payment['status'] === 'refunded' || payment['status'] === 'reversed') {
+    throw new Error('Cannot mark a refunded or reversed payment as unapplied.');
+  }
+
+  await tx.update(payments)
+    .set({ allocationIntent: 'unapplied', updatedAt: new Date() })
+    .where(eq(payments.id, paymentId));
+
+  return { ok: true, commandId, affectedIds: [paymentId], toast: 'Payment marked as unapplied.' };
 }
 
 // TER-1662: applyEarlyPayDiscount → applyDiscount. The "early payment" gate

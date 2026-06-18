@@ -48,6 +48,7 @@ export const commandNames = [
   'allocatePayment',
   'unallocatePayment',
   'refundPayment',
+  'markPaymentUnapplied',
   'applyDiscount',
   'postTransactionLedgerRow',
   'upsertTransactionType',
@@ -250,6 +251,7 @@ export const commandLabels: Record<CommandName, string> = {
   allocatePayment: 'Allocate payment',
   unallocatePayment: 'Unallocate payment',
   refundPayment: 'Refund payment',
+  markPaymentUnapplied: 'Mark payment unapplied',
   applyDiscount: 'Apply discount',
   postTransactionLedgerRow: 'Post transaction ledger row',
   upsertTransactionType: 'Save transaction type',
@@ -393,6 +395,7 @@ export const commandMinRole: Record<CommandName, Role> = {
   allocatePayment: 'operator',
   unallocatePayment: 'manager',
   refundPayment: 'manager',
+  markPaymentUnapplied: 'operator',
   applyDiscount: 'manager',
   postTransactionLedgerRow: 'manager',
   upsertTransactionType: 'manager',
@@ -541,6 +544,7 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   allocatePayment: { disposition: 'reversible', guidance: 'Deletes payment allocations and restores invoice/payment/customer balances.' },
   unallocatePayment: { disposition: 'terminal', guidance: 'Re-allocate the payment if this was accidental.' },
   refundPayment: { disposition: 'terminal', guidance: 'Refunds are terminal money movement records; use a correction entry for mistakes.' },
+  markPaymentUnapplied: { disposition: 'offsettable', guidance: 'Run logPayment with an explicit allocationIntent or use the Quick Ledger to set the intended allocation mode.' },
   applyDiscount: { disposition: 'offsettable', guidance: 'Use a correction journal or invoice adjustment to offset the discount.' },
   postTransactionLedgerRow: { disposition: 'offsettable', guidance: 'Use source-specific reversal, void, or correction depending on the row trace.' },
   upsertTransactionType: { disposition: 'terminal', guidance: 'Edit the transaction type again or deactivate it.' },
@@ -653,6 +657,7 @@ export const MONEY_MUTATING_COMMANDS: ReadonlySet<CommandName> = new Set([
   'allocatePayment',
   'unallocatePayment',
   'refundPayment',
+  'markPaymentUnapplied',
   'applyDiscount',
   'applyClientCredit',
   // Customer credit overrides
@@ -723,6 +728,7 @@ export const commandFamilies: Record<string, CommandName[]> = {
   ],
   Payments: [
     'logPayment', 'allocatePayment', 'unallocatePayment', 'refundPayment',
+    'markPaymentUnapplied',
     'applyDiscount', 'postTransactionLedgerRow', 'upsertTransactionType',
   ],
   Vendor: [

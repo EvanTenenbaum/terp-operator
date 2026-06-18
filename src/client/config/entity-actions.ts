@@ -429,6 +429,13 @@ export const paymentActions: EntityActionConfig = {
         confirmationRequired: true,
         minRole: 'manager',
       },
+      {
+        id: 'markPaymentUnapplied',
+        label: 'Mark unapplied',
+        icon: 'Ban',
+        commandRoute: 'commands.run',
+        minRole: 'operator',
+      },
     ],
 
     // ══ refunded ══════════════════════════════════════════════════════════════
