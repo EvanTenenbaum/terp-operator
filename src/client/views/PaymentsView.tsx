@@ -1,8 +1,6 @@
-import { Check } from 'lucide-react';
 import { useId, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../api/trpc';
-import { WorkspacePanel } from '../components/WorkspacePanel';
 import { QuickLedgerGrid } from '../components/QuickLedgerGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
@@ -31,7 +29,6 @@ const PAYMENT_PRESETS: FilterPreset[] = [
     label: 'Unapplied',
     filter: 'allocationIntent:unapplied',
   },
-  { key: 'overdue', label: 'Overdue', filter: 'direction:paying' },
   { key: 'posted', label: 'Posted', filter: 'status:posted' },
   { key: 'reversed', label: 'Reversed', filter: 'status:reversed' },
 ];
@@ -148,11 +145,11 @@ function buildPaymentBulkActions(
             { paymentId: rows[0].id },
             `Auto-apply payment to oldest open orders`,
           );
-          return { succeeded: rows.length, failed: 0 };
+          return { succeeded: 1, failed: 0 };
         } catch (err) {
           const message =
             err instanceof Error ? err.message : 'Allocation failed';
-          return { succeeded: 0, failed: rows.length, error: message };
+          return { succeeded: 0, failed: 1, error: message };
         }
       },
     },
@@ -162,10 +159,8 @@ function buildPaymentBulkActions(
 // ── PaymentsView ─────────────────────────────────────────────────────────────
 
 export function PaymentsView() {
-  const selectedRows = useUiStore((state) => state.selectedRows.payments);
   const setSelectedRows = useUiStore((state) => state.setSelectedRows);
   const setGridFilter = useUiStore((state) => state.setGridFilter);
-  const selectedPayment = selectedRows?.[0];
   const openPaymentDeepLink = usePaymentDeepLink();
 
   // ── Status counts for FilterToolbar status filter pill ──────────────────
@@ -184,8 +179,6 @@ export function PaymentsView() {
     },
     [setGridFilter],
   );
-
-  const me = trpc.auth.me.useQuery();
 
   return (
     <GridJourney
@@ -208,19 +201,6 @@ export function PaymentsView() {
             <UnappliedCountBadge />
           </div>
           <QuickLedgerGrid />
-          {/* Selection-bound allocation tools live in a WorkspacePanel
-              (collapsible, focusable) instead of a bare inline panel.
-              The same tools are also available in the row inspector Allocations tab. */}
-          {selectedPayment ? (
-            <WorkspacePanel
-              panelId="payments-allocations"
-              title="Payment allocations"
-              subtitle="Uses the selected payment row below."
-              headingLevel={2}
-            >
-              <PaymentAllocationTools selectedPayment={selectedPayment} />
-            </WorkspacePanel>
-          ) : null}
         </>
       )}
       inspectorTabs={(row) =>
