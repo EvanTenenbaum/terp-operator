@@ -1652,6 +1652,115 @@ export const tagSchema: EntityFieldSchema = {
   ],
 };
 
+// ─── CustomerNeed ─────────────────────────────────────────────────────────────
+// Source table: customer_needs (schema.ts:533), column map: customerNeedColumnMap
+// NOTE: Fields use the custom query field names from matchmakingBoard query,
+// which may differ from direct DB column names (e.g. 'customer' vs 'customerName').
+
+export const customerNeedSchema: EntityFieldSchema = {
+  entity: 'customerNeed',
+  label: 'Customer Need',
+  fields: [
+    t0('needCode', 'Need', 'text', {
+      width: 120,
+      pinned: 'left',
+      rationale: 'Primary need identifier — operators scan by need code to reference requests.',
+    }),
+    t0('customer', 'Customer', 'text', {
+      width: 170,
+      rationale: 'Who needs the product — the counterparty context. Derived from customer_id join.',
+    }),
+    t0('productName', 'Request', 'text', {
+      width: 180,
+      editable: true,
+      rationale: 'What product the customer needs — the core demand signal.',
+    }),
+    t1('category', 'Category', 'text', {
+      width: 120,
+      editable: true,
+      rationale: 'Product taxonomy group — secondary to product name.',
+    }),
+    t1('subcategory', 'Subcategory', 'text', {
+      width: 120,
+      editable: true,
+      rationale: 'Refined product classification — secondary to category.',
+    }),
+    t1('qtyMin', 'Qty', 'numeric', {
+      width: 100,
+      editable: true,
+      rationale: 'Minimum quantity needed — operators scan to match against available supply.',
+    }),
+    t1('targetPrice', 'Target $', 'numeric', {
+      width: 110,
+      editable: true,
+      rationale: 'Price ceiling the customer is willing to pay — match pricing signal.',
+    }),
+    t1('neededBy', 'By', 'date', {
+      width: 130,
+      editable: true,
+      rationale: 'When the customer needs it — urgency signal for sourcing priority.',
+    }),
+    t0('status', 'Status', 'enum', {
+      width: 115,
+      rationale: 'Whether the need is open, filled, or cancelled — drives matchmaking.',
+    }),
+  ],
+};
+
+// ─── VendorSupply ─────────────────────────────────────────────────────────────
+// Source table: vendor_supply (schema.ts:562), column map: vendorSupplyColumnMap
+// NOTE: Fields use the custom query field names from matchmakingBoard query.
+
+export const vendorSupplySchema: EntityFieldSchema = {
+  entity: 'vendorSupply',
+  label: 'Vendor Stock',
+  fields: [
+    t0('supplyCode', 'Stock', 'text', {
+      width: 120,
+      pinned: 'left',
+      rationale: 'Primary supply identifier — operators reference by supply code.',
+    }),
+    t0('vendor', 'Vendor', 'text', {
+      width: 170,
+      rationale: 'Who is offering the stock — the counterparty context. Derived from vendor_id join.',
+    }),
+    t0('productName', 'Product', 'text', {
+      width: 180,
+      editable: true,
+      rationale: 'What product the vendor is offering — the core supply signal.',
+    }),
+    t1('category', 'Category', 'text', {
+      width: 120,
+      editable: true,
+      rationale: 'Product taxonomy group — secondary to product name.',
+    }),
+    t1('subcategory', 'Subcategory', 'text', {
+      width: 120,
+      editable: true,
+      rationale: 'Refined product classification — secondary to category.',
+    }),
+    t1('availableQty', 'Qty', 'numeric', {
+      width: 100,
+      editable: true,
+      rationale: 'How much is available — operators scan to match against customer needs.',
+    }),
+    t1('askingPrice', 'Ask $', 'numeric', {
+      width: 110,
+      editable: true,
+      rationale: 'Vendor asking price — price-fit signal for match scoring.',
+    }),
+    t1('availableDate', 'Available', 'date', {
+      width: 130,
+      editable: true,
+      rationale: 'When the stock is available — timeline fit signal for match scoring.',
+    }),
+    t0('status', 'Status', 'enum', {
+      width: 115,
+      rationale: 'Whether the supply is open, committed, or cancelled — drives matchmaking.',
+    }),
+  ],
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENTITY SCHEMA MAP
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1688,4 +1797,6 @@ export const entitySchemas: Record<string, EntityFieldSchema> = {
   salesOrderLine: salesOrderLineSchema,
   paymentAllocation: paymentAllocationSchema,
   tag: tagSchema,
+  customerNeed: customerNeedSchema,
+  vendorSupply: vendorSupplySchema,
 };

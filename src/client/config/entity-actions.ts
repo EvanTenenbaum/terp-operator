@@ -1057,6 +1057,68 @@ export const pickListActions: EntityActionConfig = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// MatchmakingMatch
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Status flow: open → accepted | dismissed
+//   accepted/dismissed → open (via reopen)
+//
+// Commands:
+//   acceptMatchmakingMatch   — open → accepted (operator)
+//   dismissMatchmakingMatch  — open → dismissed (operator)
+//   reopenMatchmakingMatch   — accepted/dismissed → open (operator)
+//
+// Note: "Create PO" and "Create Sale" are navigation actions from the expansion
+// config, not state-machine commands. They navigate to Purchasing/Sales views
+// with quick-launch prefill — they don't mutate the match entity.
+
+export const matchmakingMatchActions: EntityActionConfig = {
+  entity: 'matchmakingMatch',
+  label: 'Matchmaking Match',
+  states: {
+    // ══ open ═══════════════════════════════════════════════════════════════════
+    open: [
+      {
+        id: 'acceptMatchmakingMatch',
+        label: 'Accept',
+        icon: 'Check',
+        commandRoute: 'commands.run',
+        minRole: 'operator',
+      },
+      {
+        id: 'dismissMatchmakingMatch',
+        label: 'Dismiss',
+        icon: 'X',
+        commandRoute: 'commands.run',
+        minRole: 'operator',
+      },
+    ],
+
+    // ══ accepted ══════════════════════════════════════════════════════════════
+    accepted: [
+      {
+        id: 'reopenMatchmakingMatch',
+        label: 'Reopen',
+        icon: 'RotateCcw',
+        commandRoute: 'commands.run',
+        minRole: 'operator',
+      },
+    ],
+
+    // ══ dismissed ═════════════════════════════════════════════════════════════
+    dismissed: [
+      {
+        id: 'reopenMatchmakingMatch',
+        label: 'Reopen',
+        icon: 'RotateCcw',
+        commandRoute: 'commands.run',
+        minRole: 'operator',
+      },
+    ],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // ACTION LOOKUP
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1073,6 +1135,7 @@ export const entityActionConfigs: Record<string, EntityActionConfig> = {
   fulfillmentLine: fulfillmentLineActions,
   connectorRequest: connectorRequestActions,
   pickList: pickListActions,
+  matchmakingMatch: matchmakingMatchActions,
 };
 
 /**

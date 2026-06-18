@@ -108,9 +108,9 @@ export function FilterToolbar({
   onStatusFilterChange,
 }: FilterToolbarProps) {
   // ── Store ──────────────────────────────────────────────────────────
-  const storedGridFilter = useUiStore((s) => s.gridFilters[view] ?? '');
+  const storedGridFilter = useUiStore((s) => s.gridFilters?.[view] ?? '');
   const setGridFilter = useUiStore((s) => s.setGridFilter);
-  const storedAdvancedFilter = useUiStore((s) => s.gridAdvancedFilters[view]);
+  const storedAdvancedFilter = useUiStore((s) => s.gridAdvancedFilters?.[view]);
   const setGridAdvancedFilter = useUiStore((s) => s.setGridAdvancedFilter);
   const clearGridAdvancedFilter = useUiStore((s) => s.clearGridAdvancedFilter);
 

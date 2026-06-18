@@ -1,14 +1,16 @@
-import { Check, ExternalLink, Plus, RotateCcw, X } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ExternalLink, Plus, RotateCcw, Settings, X } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
-import { WorkspacePanel } from '../components/WorkspacePanel';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
-import type { GridRow } from '../../shared/types';
+import { useEntityActions } from '../hooks/useEntityActions';
+import { ViewTabBar, type TabDef } from '../components/ViewTabBar';
+import { FilterToolbar, type StatusCount } from '../components/FilterToolbar';
+import { BulkActionBar, type BulkAction } from '../components/BulkActionBar';
+import type { GridRow, Role } from '../../shared/types';
 import { whyShownCol, type RuleMap } from '../components/columns';
 
 // Rule maps for "Why shown" audit column — signal field in matchmaking grids.
@@ -23,6 +25,15 @@ const TO_SOURCE_SIGNAL_MAP: RuleMap = {
   supply:  'A vendor has posted available supply in this category matching an open customer need.',
   history: 'Purchase history shows consistent demand in this category; consider sourcing to replenish.',
 };
+
+// ─── Column definitions ────────────────────────────────────────────────────────
+// NOTE: These use custom field names from matchmakingBoard / matchmakingOpportunities
+// queries. The canonical schema definitions live in entity-schemas.ts
+// (customerNeedSchema, vendorSupplySchema) and are the source of truth for
+// field documentation and tier classification. These ColDef arrays are kept here
+// because the custom queries produce field names (e.g. 'customer' vs 'customerName')
+// that differ from the standard entity-schema → ColDef pipeline.
+
 const needColumns: ColDef<GridRow>[] = [
   { field: 'needCode', headerName: 'Need', pinned: 'left', width: 120 },
   { field: 'customer', width: 170 },
@@ -47,14 +58,24 @@ const supplyColumns: ColDef<GridRow>[] = [
   { field: 'status', width: 115 },
 ];
 
+// ─── Tab keys ──────────────────────────────────────────────────────────────────
+const TAB_MATCHES = 'matches';
+const TAB_TO_MOVE = 'toMove';
+const TAB_GAPS = 'gapsToFill';
+const TAB_NEEDS = 'customerNeeds';
+const TAB_STOCK = 'vendorStock';
+
 export function MatchmakingView() {
+  // ── Queries ──────────────────────────────────────────────────────────────
   const reference = trpc.queries.reference.useQuery();
   const board = trpc.queries.matchmakingBoard.useQuery();
   const settings = trpc.queries.matchmakingSettings.useQuery();
   const opportunities = trpc.queries.matchmakingOpportunities.useQuery();
   const me = trpc.auth.me.useQuery();
-  const canWrite = me.data?.role !== 'viewer';
-  const canManageSettings = me.data?.role === 'manager' || me.data?.role === 'owner';
+  const userRole = (me.data?.role ?? 'viewer') as Role;
+  const canWrite = userRole !== 'viewer';
+  const canManageSettings = userRole === 'manager' || userRole === 'owner';
+
   const s = settings.data ?? {
     matchQualityFloor: 35,
     workQueueThreshold: 75,
@@ -65,15 +86,25 @@ export function MatchmakingView() {
     showVendorsColumn: false,
     workQueueEnabled: true,
   };
+
+  // ── Store ────────────────────────────────────────────────────────────────
   const activeQuickLaunch = useUiStore((state) => state.activeQuickLaunch);
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setActiveQuickLaunch = useUiStore((state) => state.setActiveQuickLaunch);
   const { runCommand, isRunning } = useCommandRunner();
   const navigate = useNavigate();
+
+  // ── Refs ──────────────────────────────────────────────────────────────────
   const needProductRef = useRef<HTMLInputElement | null>(null);
   const supplyProductRef = useRef<HTMLInputElement | null>(null);
+
+  // ── Local state ───────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<string>(TAB_MATCHES);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showEntry, setShowEntry] = useState(false);
   const [selectedMatches, setSelectedMatches] = useState<GridRow[]>([]);
 
+  // ── Entry form state ─────────────────────────────────────────────────────
   const [customerId, setCustomerId] = useState('');
   const [needProduct, setNeedProduct] = useState('');
   const [needCategory, setNeedCategory] = useState('');
@@ -90,7 +121,7 @@ export function MatchmakingView() {
   const [askingPrice, setAskingPrice] = useState('');
   const [availableDate, setAvailableDate] = useState('');
 
-  // C1: controlled state for number inputs — synced from server on load
+  // ── Settings controlled state ─────────────────────────────────────────────
   const [localFloor, setLocalFloor] = useState(s.matchQualityFloor);
   const [localThreshold, setLocalThreshold] = useState(s.workQueueThreshold);
   const [localGapFloor, setLocalGapFloor] = useState(s.gapFloorQty);
@@ -101,11 +132,13 @@ export function MatchmakingView() {
     setLocalGapFloor(s.gapFloorQty);
   }, [s.matchQualityFloor, s.workQueueThreshold, s.gapFloorQty]);
 
+  // ── Quick-launch focus ───────────────────────────────────────────────────
   useEffect(() => {
     if (activeQuickLaunch === 'customerNeed') needProductRef.current?.focus();
     if (activeQuickLaunch === 'vendorSupply') supplyProductRef.current?.focus();
   }, [activeQuickLaunch]);
 
+  // ── URL params for customer/vendor filter ────────────────────────────────
   const [searchParams, setSearchParams] = useSearchParams();
   const filterCustomerId = searchParams.get('customer') ?? '';
   const filterVendorId = searchParams.get('vendor') ?? '';
@@ -115,6 +148,7 @@ export function MatchmakingView() {
     setSearchParams({});
   }
 
+  // ── Settings mutation ────────────────────────────────────────────────────
   async function updateSettings(patch: Record<string, unknown>) {
     try {
       await runCommand('updateMatchmakingSettings', patch, 'Update matchmaking settings');
@@ -124,6 +158,7 @@ export function MatchmakingView() {
     }
   }
 
+  // ── Entry form mutations ─────────────────────────────────────────────────
   async function createNeed() {
     await runCommand(
       'createCustomerNeed',
@@ -166,6 +201,7 @@ export function MatchmakingView() {
     supplyProductRef.current?.focus();
   }
 
+  // ── Cell edit handlers ───────────────────────────────────────────────────
   async function updateNeedCell(event: CellValueChangedEvent<GridRow>) {
     if (!event.data?.id || event.colDef.field == null || event.oldValue === event.newValue) return;
     await runCommand('updateCustomerNeed', { customerNeedId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline customer need edit: ${event.colDef.field}`);
@@ -176,6 +212,7 @@ export function MatchmakingView() {
     await runCommand('updateVendorSupply', { vendorSupplyId: event.data.id, [String(event.colDef.field)]: event.newValue }, `Inline vendor stock edit: ${event.colDef.field}`);
   }
 
+  // ── Bulk actions (preserved for BulkActionBar) ───────────────────────────
   async function acceptSelected() {
     for (const row of selectedMatches) await runCommand('acceptMatchmakingMatch', { matchId: row.id }, 'Accept matchmaking row');
   }
@@ -184,6 +221,7 @@ export function MatchmakingView() {
     for (const row of selectedMatches) await runCommand('dismissMatchmakingMatch', { matchId: row.id }, 'Dismiss matchmaking row');
   }
 
+  // ── Column definitions ───────────────────────────────────────────────────
   const matchColumns = useMemo<ColDef<GridRow>[]>(() => [
     {
       field: 'score',
@@ -241,6 +279,7 @@ export function MatchmakingView() {
     },
   }), [s.matchQualityFloor]);
 
+  // ── Expansion config (per-row actions) ───────────────────────────────────
   const matchExpansionConfig = useMemo(
     () => ({
       enabled: true,
@@ -345,6 +384,7 @@ export function MatchmakingView() {
     [isRunning, runCommand, canWrite, navigate, setActiveView, setActiveQuickLaunch]
   );
 
+  // ── Opportunity column definitions ───────────────────────────────────────
   const toMoveColumns = useMemo<ColDef<GridRow>[]>(() => [
     { field: 'product', minWidth: 180, pinned: 'left' },
     { field: 'category', width: 120 },
@@ -370,8 +410,6 @@ export function MatchmakingView() {
       width: 140,
       valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString('en-US') : '—',
     },
-    // Why shown audit column — hidden by default (Signal already shows the key visually).
-    // Unhide via column menu to see plain-language descriptions with tooltip context.
     { ...whyShownCol('signal', TO_MOVE_SIGNAL_MAP), hide: true },
     {
       headerName: 'Action',
@@ -440,8 +478,6 @@ export function MatchmakingView() {
       valueFormatter: (params) => params.value ? new Date(params.value as string).toLocaleDateString('en-US') : '—',
     },
     { field: 'postedQty', headerName: 'Posted qty', type: 'numericColumn', width: 110 },
-    // Why shown audit column — hidden by default (already at 8 visible cols).
-    // Unhide via column menu to see full signal descriptions with tooltip context.
     { ...whyShownCol('signal', TO_SOURCE_SIGNAL_MAP), hide: true },
     {
       headerName: 'Action',
@@ -470,6 +506,7 @@ export function MatchmakingView() {
     },
   ], [isRunning, canWrite, runCommand, opportunities]);
 
+  // ── Filtered data ────────────────────────────────────────────────────────
   const filteredNeeds = useMemo(() => {
     const rows = (board.data?.needs ?? []) as GridRow[];
     if (!filterCustomerId) return rows;
@@ -492,88 +529,233 @@ export function MatchmakingView() {
     });
   }, [board.data?.matches, filterCustomerId, filterVendorId]);
 
+  // ── Status counts for FilterToolbar status pill ──────────────────────────
+  const matchStatusCounts = useMemo<StatusCount[]>(() => {
+    const counts: Record<string, number> = {};
+    for (const match of filteredMatches) {
+      const status = typeof match.status === 'string' ? match.status : 'unknown';
+      counts[status] = (counts[status] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => a.status.localeCompare(b.status));
+  }, [filteredMatches]);
+
+  // ── Status filter state for FilterToolbar ────────────────────────────────
+  const [activeStatusFilter, setActiveStatusFilter] = useState('');
+
+  // ── Client-side status filter for matches ────────────────────────────────
+  const statusFilteredMatches = useMemo(() => {
+    if (!activeStatusFilter) return filteredMatches;
+    const allowed = activeStatusFilter.split(',').filter(Boolean);
+    return filteredMatches.filter((r) => {
+      const status = typeof r.status === 'string' ? r.status : '';
+      return allowed.includes(status);
+    });
+  }, [filteredMatches, activeStatusFilter]);
+
+  // ── Tab definitions ──────────────────────────────────────────────────────
+  const toMoveCount = (opportunities.data?.toMove ?? []).length;
+  const toSourceCount = (opportunities.data?.toSource ?? []).length;
+
+  const tabDefs = useMemo<TabDef[]>(() => [
+    { key: TAB_MATCHES, label: 'Matches', count: filteredMatches.length },
+    { key: TAB_TO_MOVE, label: 'To Move', count: toMoveCount },
+    { key: TAB_GAPS, label: 'Gaps to Fill', count: toSourceCount },
+    { key: TAB_NEEDS, label: 'Customer Needs', count: filteredNeeds.length },
+    { key: TAB_STOCK, label: 'Vendor Stock', count: filteredSupplies.length },
+  ], [filteredMatches.length, toMoveCount, toSourceCount, filteredNeeds.length, filteredSupplies.length]);
+
+  // ── Bulk action resolution ───────────────────────────────────────────────
+  const bulkActionDefs = useEntityActions(
+    'matchmakingMatch',
+    selectedMatches.map((r) => ({ id: String(r.id), status: String(r.status) })),
+    userRole,
+  );
+
+  const bulkActions = useMemo<BulkAction[]>(() =>
+    bulkActionDefs.map((def) => ({
+      ...def,
+      onAction: async () => {
+        if (def.key === 'acceptMatchmakingMatch') {
+          await acceptSelected();
+          return { succeeded: selectedMatches.length, failed: 0 };
+        }
+        if (def.key === 'dismissMatchmakingMatch') {
+          await dismissSelected();
+          return { succeeded: selectedMatches.length, failed: 0 };
+        }
+        return { succeeded: 0, failed: 0, error: 'Unknown action' };
+      },
+    })),
+  [bulkActionDefs, selectedMatches]);
+
+  // ── Filtered customer/vendor name for display ────────────────────────────
+  const filterLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (filterCustomerId) {
+      const name = reference.data?.customers.find((c) => c.id === filterCustomerId)?.name;
+      if (name) parts.push(name);
+    }
+    if (filterVendorId) {
+      const name = reference.data?.vendors.find((v) => v.id === filterVendorId)?.name;
+      if (name) parts.push(name);
+    }
+    return parts.join(' · ');
+  }, [filterCustomerId, filterVendorId, reference.data]);
+
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="view-stack">
-      <WorkspacePanel
-        panelId="matchmaking:settings"
-        title="⚙ Matchmaking Settings"
-        collapsedSummary={`Showing matches ≥ ${s.matchQualityFloor} · Work queue alerts ≥ ${s.workQueueThreshold} · ${s.historyLookbackDays}-day history`}
-        contentClassName="p-3"
-      >
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <label className="field-inline">
-              Show matches scoring at least
-              <input className="input compact" type="number" min={0} max={100}
-                disabled={!canManageSettings || isRunning}
-                value={localFloor}
-                onChange={(e) => setLocalFloor(Number(e.target.value))}
-                onBlur={() => updateSettings({ matchQualityFloor: localFloor })} />
-              pts
-            </label>
-            <label className="field-inline">
-              Add to work queue at
-              <input className="input compact" type="number" min={0} max={100}
-                disabled={!canManageSettings || isRunning}
-                value={localThreshold}
-                onChange={(e) => setLocalThreshold(Number(e.target.value))}
-                onBlur={() => updateSettings({ workQueueThreshold: localThreshold })} />
-              pts
-            </label>
-            <label className="field-inline">
-              Look back
-              <select className="select compact" disabled={!canManageSettings || isRunning}
-                value={s.historyLookbackDays}
-                onChange={(e) => updateSettings({ historyLookbackDays: Number(e.target.value) })}>
-                <option value={30}>30 days</option>
-                <option value={60}>60 days</option>
-                <option value={90}>90 days</option>
-                <option value={180}>180 days</option>
-              </select>
-            </label>
-            <label className="field-inline">
-              Flag as repeat after
-              <select className="select compact" disabled={!canManageSettings || isRunning}
-                value={s.repeatThreshold}
-                onChange={(e) => updateSettings({ repeatThreshold: Number(e.target.value) })}>
-                <option value={2}>2 purchases</option>
-                <option value={3}>3 purchases</option>
-                <option value={5}>5 purchases</option>
-              </select>
-            </label>
-            <label className="field-inline">
-              Flag gaps when on hand drops to
-              <input className="input compact" type="number" min={0}
-                disabled={!canManageSettings || isRunning}
-                value={localGapFloor}
-                onChange={(e) => setLocalGapFloor(Number(e.target.value))}
-                onBlur={() => updateSettings({ gapFloorQty: localGapFloor })} />
-              units
-            </label>
+      {/* ── Filter toolbar ── */}
+      <FilterToolbar
+        view="matchmaking"
+        quickFilters={['keyword']}
+        statusCounts={matchStatusCounts}
+        activeStatusFilter={activeStatusFilter}
+        onStatusFilterChange={setActiveStatusFilter}
+      />
+
+      {/* ── View tab bar (grid switcher) ── */}
+      <ViewTabBar
+        entityType="matchmaking"
+        tabs={tabDefs}
+        activeKey={activeTab}
+        onChange={(key) => {
+          setActiveTab(key);
+          // Clear match selection when switching away from matches tab
+          if (key !== TAB_MATCHES) setSelectedMatches([]);
+        }}
+      />
+
+      {/* ── Toolbar action bar (settings toggle, entry toggle, filter info) ── */}
+      <div className="flex items-center gap-2 border-b border-line bg-panel px-3 py-1.5">
+        {/* Settings toggle */}
+        <button
+          type="button"
+          className={`inline-flex h-8 items-center gap-1.5 rounded border px-2.5 text-xs font-medium transition-colors ${
+            showSettings
+              ? 'border-blue-300 bg-blue-50 text-blue-700'
+              : 'border-line text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+          }`}
+          onClick={() => setShowSettings((v) => !v)}
+        >
+          <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+          Settings
+        </button>
+
+        {/* Add Need / Add Stock toggles (write-only) */}
+        {canWrite && (
+          <>
+            <button
+              type="button"
+              className={`inline-flex h-8 items-center gap-1.5 rounded border px-2.5 text-xs font-medium transition-colors ${
+                showEntry
+                  ? 'border-blue-300 bg-blue-50 text-blue-700'
+                  : 'border-line text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+              }`}
+              onClick={() => setShowEntry((v) => !v)}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Add Need / Stock
+            </button>
+          </>
+        )}
+
+        {/* Filter indicator */}
+        {hasFilter && (
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm text-zinc-500">
+              Filtered to: {filterLabel}
+            </span>
+            <button
+              className="text-xs text-zinc-400 hover:text-zinc-700 underline"
+              onClick={clearFilter}
+              type="button"
+            >
+              Clear filter
+            </button>
           </div>
-          <div className="flex flex-wrap gap-4 text-sm">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
-                checked={s.showClientsColumn}
-                onChange={(e) => updateSettings({ showClientsColumn: e.target.checked })} />
-              Show matchmaking signals in Clients grid
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
-                checked={s.showVendorsColumn}
-                onChange={(e) => updateSettings({ showVendorsColumn: e.target.checked })} />
-              Show matchmaking signals in Vendors grid
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
-                checked={s.workQueueEnabled}
-                onChange={(e) => updateSettings({ workQueueEnabled: e.target.checked })} />
-              Show matchmaking opportunities in work queue
-            </label>
-          </div>
-          <details className="text-sm text-zinc-500">
-            <summary className="cursor-pointer select-none hover:text-zinc-700">How scores are calculated</summary>
-            <pre className="mt-2 font-mono text-xs leading-relaxed">
+        )}
+      </div>
+
+      {/* ── Settings panel (collapsible) ── */}
+      {showSettings && (
+        <div className="border-b border-line bg-panel p-3">
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="field-inline">
+                Show matches scoring at least
+                <input className="input compact" type="number" min={0} max={100}
+                  disabled={!canManageSettings || isRunning}
+                  value={localFloor}
+                  onChange={(e) => setLocalFloor(Number(e.target.value))}
+                  onBlur={() => updateSettings({ matchQualityFloor: localFloor })} />
+                pts
+              </label>
+              <label className="field-inline">
+                Add to work queue at
+                <input className="input compact" type="number" min={0} max={100}
+                  disabled={!canManageSettings || isRunning}
+                  value={localThreshold}
+                  onChange={(e) => setLocalThreshold(Number(e.target.value))}
+                  onBlur={() => updateSettings({ workQueueThreshold: localThreshold })} />
+                pts
+              </label>
+              <label className="field-inline">
+                Look back
+                <select className="select compact" disabled={!canManageSettings || isRunning}
+                  value={s.historyLookbackDays}
+                  onChange={(e) => updateSettings({ historyLookbackDays: Number(e.target.value) })}>
+                  <option value={30}>30 days</option>
+                  <option value={60}>60 days</option>
+                  <option value={90}>90 days</option>
+                  <option value={180}>180 days</option>
+                </select>
+              </label>
+              <label className="field-inline">
+                Flag as repeat after
+                <select className="select compact" disabled={!canManageSettings || isRunning}
+                  value={s.repeatThreshold}
+                  onChange={(e) => updateSettings({ repeatThreshold: Number(e.target.value) })}>
+                  <option value={2}>2 purchases</option>
+                  <option value={3}>3 purchases</option>
+                  <option value={5}>5 purchases</option>
+                </select>
+              </label>
+              <label className="field-inline">
+                Flag gaps when on hand drops to
+                <input className="input compact" type="number" min={0}
+                  disabled={!canManageSettings || isRunning}
+                  value={localGapFloor}
+                  onChange={(e) => setLocalGapFloor(Number(e.target.value))}
+                  onBlur={() => updateSettings({ gapFloorQty: localGapFloor })} />
+                units
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                  checked={s.showClientsColumn}
+                  onChange={(e) => updateSettings({ showClientsColumn: e.target.checked })} />
+                Show matchmaking signals in Clients grid
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                  checked={s.showVendorsColumn}
+                  onChange={(e) => updateSettings({ showVendorsColumn: e.target.checked })} />
+                Show matchmaking signals in Vendors grid
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                  checked={s.workQueueEnabled}
+                  onChange={(e) => updateSettings({ workQueueEnabled: e.target.checked })} />
+                Show matchmaking opportunities in work queue
+              </label>
+            </div>
+            <details className="text-sm text-zinc-500">
+              <summary className="cursor-pointer select-none hover:text-zinc-700">How scores are calculated</summary>
+              <pre className="mt-2 font-mono text-xs leading-relaxed">
 {`Category match:                    +35
 Tag overlap (per shared tag):       +8  (capped at +24)
 Product name token overlap:        +10
@@ -582,26 +764,15 @@ Asking price ≤ target price:       +12
 Supply available by needed-by:      +7
 ────────────────────────────────────
 Maximum score:                     100`}
-            </pre>
-          </details>
-        </div>
-      </WorkspacePanel>
-
-      {hasFilter && (
-        <div className="flex items-center gap-2 px-1 py-1">
-          <span className="text-sm text-zinc-500">
-            Filtered to:{' '}
-            {filterCustomerId && reference.data?.customers.find((c) => c.id === filterCustomerId)?.name}
-            {filterVendorId && reference.data?.vendors.find((v) => v.id === filterVendorId)?.name}
-          </span>
-          <button className="text-xs text-zinc-400 hover:text-zinc-700 underline" onClick={clearFilter} type="button">
-            Clear filter
-          </button>
+              </pre>
+            </details>
+          </div>
         </div>
       )}
 
-      {canWrite ? (
-        <WorkspacePanel panelId="matchmaking:entry" title="Matchmaking Entry" contentClassName="p-3">
+      {/* ── Entry panel (collapsible) ── */}
+      {showEntry && canWrite && (
+        <div className="border-b border-line bg-panel p-3">
           <div className="grid gap-3 xl:grid-cols-2">
             <div className="control-band subtle-band">
               <label className="field-inline">
@@ -698,40 +869,26 @@ Maximum score:                     100`}
               </button>
             </div>
           </div>
-        </WorkspacePanel>
-      ) : null}
+        </div>
+      )}
 
-      <OperatorGrid
-        view="matchmaking"
-        title="Deterministic Matches"
-        rows={filteredMatches}
-        columns={matchColumns}
-        rowClassRules={matchRowClassRules}
-        loading={board.isLoading || isRunning}
-        onSelectionChange={setSelectedMatches}
-        actions={
-          <>
-            <button className="primary-button compact-action" type="button" disabled={!selectedMatches.length || isRunning} onClick={acceptSelected}>
-              <Check className="h-4 w-4" aria-hidden="true" />
-              Accept
-            </button>
-            <button className="secondary-button compact-action" type="button" disabled={!selectedMatches.length || isRunning} onClick={dismissSelected}>
-              <X className="h-4 w-4" aria-hidden="true" />
-              Dismiss
-            </button>
-          </>
-        }
-        emptyTitle="No matches yet"
-        emptyChildren="Add a customer need and vendor stock with matching category or tags."
-        expansionConfig={matchExpansionConfig}
-      />
+      {/* ── Active grid (one at a time, driven by ViewTabBar) ── */}
+      {activeTab === TAB_MATCHES && (
+        <OperatorGrid
+          view="matchmaking"
+          title="Deterministic Matches"
+          rows={statusFilteredMatches}
+          columns={matchColumns}
+          rowClassRules={matchRowClassRules}
+          loading={board.isLoading || isRunning}
+          onSelectionChange={setSelectedMatches}
+          emptyTitle="No matches yet"
+          emptyChildren="Add a customer need and vendor stock with matching category or tags."
+          expansionConfig={matchExpansionConfig}
+        />
+      )}
 
-      <WorkspacePanel
-        panelId="matchmaking:proactive-opportunities"
-        title="Proactive opportunities"
-        defaultCollapsed
-        collapsedSummary={`${(opportunities.data?.toMove ?? []).length} to move · ${(opportunities.data?.toSource ?? []).length} gaps to fill`}
-      >
+      {activeTab === TAB_TO_MOVE && (
         <OperatorGrid
           view="matchmaking"
           title="Inventory to Move"
@@ -742,7 +899,9 @@ Maximum score:                     100`}
           emptyTitle="No opportunities yet"
           emptyChildren="Inventory opportunities appear once customers have purchase history or posted needs."
         />
+      )}
 
+      {activeTab === TAB_GAPS && (
         <OperatorGrid
           view="matchmaking"
           title="Gaps to Fill"
@@ -753,33 +912,37 @@ Maximum score:                     100`}
           emptyTitle="No gaps detected"
           emptyChildren="Sourcing suggestions appear when inventory in a category drops to or below the gap threshold."
         />
-      </WorkspacePanel>
+      )}
 
-      <WorkspacePanel
-        panelId="matchmaking:input-registry"
-        title="Input registry"
-        defaultCollapsed
-        collapsedSummary={`${filteredNeeds.length} need${filteredNeeds.length !== 1 ? 's' : ''} · ${filteredSupplies.length} stock${filteredSupplies.length !== 1 ? 's' : ''}`}
-      >
-        <div className="grid gap-3 xl:grid-cols-2">
-          <OperatorGrid
-            view="matchmaking"
-            title="Customer Needs"
-            rows={filteredNeeds}
-            columns={needColumns}
-            loading={board.isLoading || isRunning}
-            onCellCommit={canWrite ? updateNeedCell : undefined}
-          />
-          <OperatorGrid
-            view="matchmaking"
-            title="Vendor Stock"
-            rows={filteredSupplies}
-            columns={supplyColumns}
-            loading={board.isLoading || isRunning}
-            onCellCommit={canWrite ? updateSupplyCell : undefined}
-          />
-        </div>
-      </WorkspacePanel>
+      {activeTab === TAB_NEEDS && (
+        <OperatorGrid
+          view="matchmaking"
+          title="Customer Needs"
+          rows={filteredNeeds}
+          columns={needColumns}
+          loading={board.isLoading || isRunning}
+          onCellCommit={canWrite ? updateNeedCell : undefined}
+        />
+      )}
+
+      {activeTab === TAB_STOCK && (
+        <OperatorGrid
+          view="matchmaking"
+          title="Vendor Stock"
+          rows={filteredSupplies}
+          columns={supplyColumns}
+          loading={board.isLoading || isRunning}
+          onCellCommit={canWrite ? updateSupplyCell : undefined}
+        />
+      )}
+
+      {/* ── Bulk action bar (on match selection) ── */}
+      <BulkActionBar
+        selectedCount={selectedMatches.length}
+        entityLabel="match"
+        actions={bulkActions}
+        onClear={() => setSelectedMatches([])}
+      />
     </div>
   );
 }
