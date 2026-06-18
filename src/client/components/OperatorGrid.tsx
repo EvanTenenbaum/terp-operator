@@ -723,6 +723,7 @@ export function OperatorGrid({
             rowSelection={rowSelection}
             animateRows={false}
             cellSelection={cellSelection}
+            enableCellTextSelection={true}
             undoRedoCellEditing
             tabToNextCell={tabToNextCell}
             sideBar={sideBar}

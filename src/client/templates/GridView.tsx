@@ -1,5 +1,5 @@
 /**
- * GridView — Mercury UX primary layout template.
+ * GridView — Mercury UX primary layout template (canonical name: PrimaryGridView).
  *
  * Composes the full Mercury UX shell for primary grid views:
  * FilterToolbar → GridSummaryStrip → ViewTabBar → OperatorGrid → BulkActionBar
@@ -8,6 +8,12 @@
  * This is the canonical template for all `primaryGrid` views in the
  * view-registry.ts. Phase 1 delivers this as the single layout shell;
  * Phase 2+ adds masterDetail, dashboard, wizard, and report templates.
+ *
+ * **Naming:** The architecture documents (Manifesto §2.1, slot contracts, migration plan)
+ * refer to this component as `PrimaryGridView`. The exported name `GridView` is the
+ * runtime name; `PrimaryGridView` is a re-export alias matching the architecture docs.
+ * After the GridJourney deprecation completes in Phase 4, GridView will be renamed to
+ * PrimaryGridView as the canonical export.
  */
 
 import { useMemo, useCallback, useEffect, type ReactNode } from 'react';
@@ -350,3 +356,10 @@ export function GridView({ viewKey, entityType, entityLabel, summarySlot }: Grid
     </div>
   );
 }
+
+/**
+ * PrimaryGridView — canonical name matching architecture docs (Manifesto §2.1, slot contracts).
+ * Re-export of GridView. After Phase 4 GridJourney deprecation completes, this becomes the
+ * sole canonical export and GridView becomes the deprecated alias.
+ */
+export const PrimaryGridView = GridView;
