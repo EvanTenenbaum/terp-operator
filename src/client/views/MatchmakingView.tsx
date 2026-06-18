@@ -102,6 +102,7 @@ export function MatchmakingView() {
   const [activeTab, setActiveTab] = useState<string>(TAB_MATCHES);
   const [showSettings, setShowSettings] = useState(false);
   const [showEntry, setShowEntry] = useState(false);
+  const [activeEntryTab, setActiveEntryTab] = useState<'need' | 'stock'>('need');
   const [selectedMatches, setSelectedMatches] = useState<GridRow[]>([]);
 
   // ── Entry form state ─────────────────────────────────────────────────────
@@ -142,11 +143,6 @@ export function MatchmakingView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const filterCustomerId = searchParams.get('customer') ?? '';
   const filterVendorId = searchParams.get('vendor') ?? '';
-  const hasFilter = Boolean(filterCustomerId || filterVendorId);
-
-  function clearFilter() {
-    setSearchParams({});
-  }
 
   // ── Settings mutation ────────────────────────────────────────────────────
   async function updateSettings(patch: Record<string, unknown>) {
@@ -590,19 +586,35 @@ export function MatchmakingView() {
     })),
   [bulkActionDefs, selectedMatches]);
 
-  // ── Filtered customer/vendor name for display ────────────────────────────
-  const filterLabel = useMemo(() => {
-    const parts: string[] = [];
+  // ── Customer/vendor filter pills for FilterToolbar ──────────────────────
+  const filterPills = useMemo(() => {
+    const pills: { key: string; label: string; onRemove: () => void }[] = [];
     if (filterCustomerId) {
       const name = reference.data?.customers.find((c) => c.id === filterCustomerId)?.name;
-      if (name) parts.push(name);
+      pills.push({
+        key: 'customer',
+        label: name ? `Customer: ${name}` : 'Customer filter',
+        onRemove: () => setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('customer');
+          return next;
+        }),
+      });
     }
     if (filterVendorId) {
       const name = reference.data?.vendors.find((v) => v.id === filterVendorId)?.name;
-      if (name) parts.push(name);
+      pills.push({
+        key: 'vendor',
+        label: name ? `Vendor: ${name}` : 'Vendor filter',
+        onRemove: () => setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('vendor');
+          return next;
+        }),
+      });
     }
-    return parts.join(' · ');
-  }, [filterCustomerId, filterVendorId, reference.data]);
+    return pills;
+  }, [filterCustomerId, filterVendorId, reference.data, setSearchParams]);
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -614,6 +626,7 @@ export function MatchmakingView() {
         statusCounts={matchStatusCounts}
         activeStatusFilter={activeStatusFilter}
         onStatusFilterChange={setActiveStatusFilter}
+        activePills={filterPills}
       />
 
       {/* ── View tab bar (grid switcher) ── */}
@@ -628,7 +641,7 @@ export function MatchmakingView() {
         }}
       />
 
-      {/* ── Toolbar action bar (settings toggle, entry toggle, filter info) ── */}
+      {/* ── Toolbar action bar (settings toggle, entry toggles) ── */}
       <div className="flex items-center gap-2 border-b border-line bg-panel px-3 py-1.5">
         {/* Settings toggle */}
         <button
@@ -644,118 +657,161 @@ export function MatchmakingView() {
           Settings
         </button>
 
-        {/* Add Need / Add Stock toggles (write-only) */}
+        {/* Add Need / Add Stock buttons (write-only) — each opens the entry slide-over to its tab */}
         {canWrite && (
           <>
             <button
               type="button"
               className={`inline-flex h-8 items-center gap-1.5 rounded border px-2.5 text-xs font-medium transition-colors ${
-                showEntry
+                showEntry && activeEntryTab === 'need'
                   ? 'border-blue-300 bg-blue-50 text-blue-700'
                   : 'border-line text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
               }`}
-              onClick={() => setShowEntry((v) => !v)}
+              onClick={() => {
+                if (showEntry && activeEntryTab === 'need') {
+                  setShowEntry(false);
+                } else {
+                  setActiveEntryTab('need');
+                  setShowEntry(true);
+                  setTimeout(() => needProductRef.current?.focus(), 50);
+                }
+              }}
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              Add Need / Stock
+              Add Need
+            </button>
+            <button
+              type="button"
+              className={`inline-flex h-8 items-center gap-1.5 rounded border px-2.5 text-xs font-medium transition-colors ${
+                showEntry && activeEntryTab === 'stock'
+                  ? 'border-blue-300 bg-blue-50 text-blue-700'
+                  : 'border-line text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+              }`}
+              onClick={() => {
+                if (showEntry && activeEntryTab === 'stock') {
+                  setShowEntry(false);
+                } else {
+                  setActiveEntryTab('stock');
+                  setShowEntry(true);
+                  setTimeout(() => supplyProductRef.current?.focus(), 50);
+                }
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Add Stock
             </button>
           </>
         )}
-
-        {/* Filter indicator */}
-        {hasFilter && (
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-sm text-zinc-500">
-              Filtered to: {filterLabel}
-            </span>
-            <button
-              className="text-xs text-zinc-400 hover:text-zinc-700 underline"
-              onClick={clearFilter}
-              type="button"
-            >
-              Clear filter
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* ── Settings panel (collapsible) ── */}
+      {/* ── Settings slide-over (Tier 2, triggered by ⚙ button) ── */}
       {showSettings && (
-        <div className="border-b border-line bg-panel p-3">
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <label className="field-inline">
-                Show matches scoring at least
-                <input className="input compact" type="number" min={0} max={100}
-                  disabled={!canManageSettings || isRunning}
-                  value={localFloor}
-                  onChange={(e) => setLocalFloor(Number(e.target.value))}
-                  onBlur={() => updateSettings({ matchQualityFloor: localFloor })} />
-                pts
-              </label>
-              <label className="field-inline">
-                Add to work queue at
-                <input className="input compact" type="number" min={0} max={100}
-                  disabled={!canManageSettings || isRunning}
-                  value={localThreshold}
-                  onChange={(e) => setLocalThreshold(Number(e.target.value))}
-                  onBlur={() => updateSettings({ workQueueThreshold: localThreshold })} />
-                pts
-              </label>
-              <label className="field-inline">
-                Look back
-                <select className="select compact" disabled={!canManageSettings || isRunning}
-                  value={s.historyLookbackDays}
-                  onChange={(e) => updateSettings({ historyLookbackDays: Number(e.target.value) })}>
-                  <option value={30}>30 days</option>
-                  <option value={60}>60 days</option>
-                  <option value={90}>90 days</option>
-                  <option value={180}>180 days</option>
-                </select>
-              </label>
-              <label className="field-inline">
-                Flag as repeat after
-                <select className="select compact" disabled={!canManageSettings || isRunning}
-                  value={s.repeatThreshold}
-                  onChange={(e) => updateSettings({ repeatThreshold: Number(e.target.value) })}>
-                  <option value={2}>2 purchases</option>
-                  <option value={3}>3 purchases</option>
-                  <option value={5}>5 purchases</option>
-                </select>
-              </label>
-              <label className="field-inline">
-                Flag gaps when on hand drops to
-                <input className="input compact" type="number" min={0}
-                  disabled={!canManageSettings || isRunning}
-                  value={localGapFloor}
-                  onChange={(e) => setLocalGapFloor(Number(e.target.value))}
-                  onBlur={() => updateSettings({ gapFloorQty: localGapFloor })} />
-                units
-              </label>
+        <>
+          <div
+            className="slideover-backdrop"
+            aria-hidden="true"
+            onClick={() => setShowSettings(false)}
+          />
+          <aside
+            className="slideover slideover--wide"
+            aria-label="Matchmaking settings"
+            role="dialog"
+            aria-modal="true"
+            data-testid="settings-slideover"
+          >
+            <div className="slideover-header">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setShowSettings(false)}
+                aria-label="Close settings"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-ink">
+                  Matchmaking Settings
+                </div>
+                <div className="truncate text-[11px] uppercase text-zinc-500">
+                  Matchmaking
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-4 text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
-                  checked={s.showClientsColumn}
-                  onChange={(e) => updateSettings({ showClientsColumn: e.target.checked })} />
-                Show matchmaking signals in Clients grid
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
-                  checked={s.showVendorsColumn}
-                  onChange={(e) => updateSettings({ showVendorsColumn: e.target.checked })} />
-                Show matchmaking signals in Vendors grid
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
-                  checked={s.workQueueEnabled}
-                  onChange={(e) => updateSettings({ workQueueEnabled: e.target.checked })} />
-                Show matchmaking opportunities in work queue
-              </label>
-            </div>
-            <details className="text-sm text-zinc-500">
-              <summary className="cursor-pointer select-none hover:text-zinc-700">How scores are calculated</summary>
-              <pre className="mt-2 font-mono text-xs leading-relaxed">
+            <div className="slideover-body">
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <label className="field-inline">
+                    Show matches scoring at least
+                    <input className="input compact" type="number" min={0} max={100}
+                      disabled={!canManageSettings || isRunning}
+                      value={localFloor}
+                      onChange={(e) => setLocalFloor(Number(e.target.value))}
+                      onBlur={() => updateSettings({ matchQualityFloor: localFloor })} />
+                    pts
+                  </label>
+                  <label className="field-inline">
+                    Add to work queue at
+                    <input className="input compact" type="number" min={0} max={100}
+                      disabled={!canManageSettings || isRunning}
+                      value={localThreshold}
+                      onChange={(e) => setLocalThreshold(Number(e.target.value))}
+                      onBlur={() => updateSettings({ workQueueThreshold: localThreshold })} />
+                    pts
+                  </label>
+                  <label className="field-inline">
+                    Look back
+                    <select className="select compact" disabled={!canManageSettings || isRunning}
+                      value={s.historyLookbackDays}
+                      onChange={(e) => updateSettings({ historyLookbackDays: Number(e.target.value) })}>
+                      <option value={30}>30 days</option>
+                      <option value={60}>60 days</option>
+                      <option value={90}>90 days</option>
+                      <option value={180}>180 days</option>
+                    </select>
+                  </label>
+                  <label className="field-inline">
+                    Flag as repeat after
+                    <select className="select compact" disabled={!canManageSettings || isRunning}
+                      value={s.repeatThreshold}
+                      onChange={(e) => updateSettings({ repeatThreshold: Number(e.target.value) })}>
+                      <option value={2}>2 purchases</option>
+                      <option value={3}>3 purchases</option>
+                      <option value={5}>5 purchases</option>
+                    </select>
+                  </label>
+                  <label className="field-inline">
+                    Flag gaps when on hand drops to
+                    <input className="input compact" type="number" min={0}
+                      disabled={!canManageSettings || isRunning}
+                      value={localGapFloor}
+                      onChange={(e) => setLocalGapFloor(Number(e.target.value))}
+                      onBlur={() => updateSettings({ gapFloorQty: localGapFloor })} />
+                    units
+                  </label>
+                </div>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                      checked={s.showClientsColumn}
+                      onChange={(e) => updateSettings({ showClientsColumn: e.target.checked })} />
+                    Show matchmaking signals in Clients grid
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                      checked={s.showVendorsColumn}
+                      onChange={(e) => updateSettings({ showVendorsColumn: e.target.checked })} />
+                    Show matchmaking signals in Vendors grid
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="h-4 w-4" disabled={!canManageSettings || isRunning}
+                      checked={s.workQueueEnabled}
+                      onChange={(e) => updateSettings({ workQueueEnabled: e.target.checked })} />
+                    Show matchmaking opportunities in work queue
+                  </label>
+                </div>
+                <details className="text-sm text-zinc-500">
+                  <summary className="cursor-pointer select-none hover:text-zinc-700">How scores are calculated</summary>
+                  <pre className="mt-2 font-mono text-xs leading-relaxed">
 {`Category match:                    +35
 Tag overlap (per shared tag):       +8  (capped at +24)
 Product name token overlap:        +10
@@ -764,112 +820,171 @@ Asking price ≤ target price:       +12
 Supply available by needed-by:      +7
 ────────────────────────────────────
 Maximum score:                     100`}
-              </pre>
-            </details>
-          </div>
-        </div>
+                  </pre>
+                </details>
+              </div>
+            </div>
+          </aside>
+        </>
       )}
 
-      {/* ── Entry panel (collapsible) ── */}
+      {/* ── Entry slide-over (Tier 2, triggered by + Add Need / + Add Stock) ── */}
       {showEntry && canWrite && (
-        <div className="border-b border-line bg-panel p-3">
-          <div className="grid gap-3 xl:grid-cols-2">
-            <div className="control-band subtle-band">
-              <label className="field-inline">
-                Customer
-                <select className="select" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-                  <option value="">Select customer</option>
-                  {reference.data?.customers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field-inline grow">
-                Need
-                <input ref={needProductRef} className="input" value={needProduct}
-                  onChange={(e) => setNeedProduct(e.target.value)} placeholder="e.g. Indica flower" />
-              </label>
-              <label className="field-inline">
-                Category
-                <select className="select compact" value={needCategory} onChange={(e) => setNeedCategory(e.target.value)}>
-                  <option value="">Category</option>
-                  {reference.data?.categories.map((cat) => <option key={cat}>{cat}</option>)}
-                </select>
-              </label>
-              <label className="field-inline">
-                Qty
-                <input className="input compact" value={qtyMin} inputMode="decimal"
-                  onChange={(e) => setQtyMin(e.target.value)} />
-              </label>
-              <label className="field-inline">
-                Target $
-                <input className="input compact" value={targetPrice} inputMode="decimal"
-                  onChange={(e) => setTargetPrice(e.target.value)} />
-              </label>
-              <label className="field-inline">
-                By
-                <input className="input compact" type="date" value={neededBy}
-                  onChange={(e) => setNeededBy(e.target.value)} />
-              </label>
+        <>
+          <div
+            className="slideover-backdrop"
+            aria-hidden="true"
+            onClick={() => setShowEntry(false)}
+          />
+          <aside
+            className="slideover slideover--wide"
+            aria-label="Add entry"
+            role="dialog"
+            aria-modal="true"
+            data-testid="entry-slideover"
+          >
+            <div className="slideover-header">
               <button
-                className="primary-button"
                 type="button"
-                disabled={!customerId || !needProduct.trim() || !needCategory || Number(qtyMin) <= 0 || isRunning}
-                onClick={createNeed}
+                className="icon-button"
+                onClick={() => setShowEntry(false)}
+                aria-label="Close entry form"
               >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add Need
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-ink">
+                  {activeEntryTab === 'need' ? 'New Customer Need' : 'New Vendor Stock'}
+                </div>
+                <div className="truncate text-[11px] uppercase text-zinc-500">
+                  Matchmaking
+                </div>
+              </div>
             </div>
-            <div className="control-band subtle-band">
-              <label className="field-inline">
-                Vendor
-                <select className="select" value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
-                  <option value="">Select vendor</option>
-                  {reference.data?.vendors.map((v) => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field-inline grow">
-                Stock
-                <input ref={supplyProductRef} className="input" value={supplyProduct}
-                  onChange={(e) => setSupplyProduct(e.target.value)} placeholder="e.g. Blue Dream 28g" />
-              </label>
-              <label className="field-inline">
-                Category
-                <select className="select compact" value={supplyCategory} onChange={(e) => setSupplyCategory(e.target.value)}>
-                  <option value="">Category</option>
-                  {reference.data?.categories.map((cat) => <option key={cat}>{cat}</option>)}
-                </select>
-              </label>
-              <label className="field-inline">
-                Qty
-                <input className="input compact" value={availableQty} inputMode="decimal"
-                  onChange={(e) => setAvailableQty(e.target.value)} />
-              </label>
-              <label className="field-inline">
-                Ask $
-                <input className="input compact" value={askingPrice} inputMode="decimal"
-                  onChange={(e) => setAskingPrice(e.target.value)} />
-              </label>
-              <label className="field-inline">
-                Date
-                <input className="input compact" type="date" value={availableDate}
-                  onChange={(e) => setAvailableDate(e.target.value)} />
-              </label>
-              <button
-                className="primary-button"
-                type="button"
-                disabled={!vendorId || !supplyProduct.trim() || !supplyCategory || Number(availableQty) <= 0 || isRunning}
-                onClick={createSupply}
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Add Stock
-              </button>
+
+            {/* Tab bar */}
+            <div className="slideover-tabs" role="tablist" aria-label="Entry form sections">
+              {([
+                { key: 'need' as const, label: 'New Customer Need' },
+                { key: 'stock' as const, label: 'New Vendor Stock' },
+              ]).map((tab, index) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeEntryTab === tab.key}
+                  className={`slideover-tab${activeEntryTab === tab.key ? ' slideover-tab--active' : ''}`}
+                  onClick={() => setActiveEntryTab(tab.key)}
+                >
+                  <span className="slideover-tab-index">{index + 1}</span>
+                  {tab.label}
+                </button>
+              ))}
             </div>
-          </div>
-        </div>
+
+            {/* Body */}
+            <div className="slideover-body">
+              {activeEntryTab === 'need' && (
+                <div role="tabpanel" aria-label="New Customer Need" className="control-band subtle-band">
+                  <label className="field-inline">
+                    Customer
+                    <select className="select" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                      <option value="">Select customer</option>
+                      {reference.data?.customers.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-inline grow">
+                    Need
+                    <input ref={needProductRef} className="input" value={needProduct}
+                      onChange={(e) => setNeedProduct(e.target.value)} placeholder="e.g. Indica flower" />
+                  </label>
+                  <label className="field-inline">
+                    Category
+                    <select className="select compact" value={needCategory} onChange={(e) => setNeedCategory(e.target.value)}>
+                      <option value="">Category</option>
+                      {reference.data?.categories.map((cat) => <option key={cat}>{cat}</option>)}
+                    </select>
+                  </label>
+                  <label className="field-inline">
+                    Qty
+                    <input className="input compact" value={qtyMin} inputMode="decimal"
+                      onChange={(e) => setQtyMin(e.target.value)} />
+                  </label>
+                  <label className="field-inline">
+                    Target $
+                    <input className="input compact" value={targetPrice} inputMode="decimal"
+                      onChange={(e) => setTargetPrice(e.target.value)} />
+                  </label>
+                  <label className="field-inline">
+                    By
+                    <input className="input compact" type="date" value={neededBy}
+                      onChange={(e) => setNeededBy(e.target.value)} />
+                  </label>
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={!customerId || !needProduct.trim() || !needCategory || Number(qtyMin) <= 0 || isRunning}
+                    onClick={createNeed}
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Add Need
+                  </button>
+                </div>
+              )}
+              {activeEntryTab === 'stock' && (
+                <div role="tabpanel" aria-label="New Vendor Stock" className="control-band subtle-band">
+                  <label className="field-inline">
+                    Vendor
+                    <select className="select" value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+                      <option value="">Select vendor</option>
+                      {reference.data?.vendors.map((v) => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-inline grow">
+                    Stock
+                    <input ref={supplyProductRef} className="input" value={supplyProduct}
+                      onChange={(e) => setSupplyProduct(e.target.value)} placeholder="e.g. Blue Dream 28g" />
+                  </label>
+                  <label className="field-inline">
+                    Category
+                    <select className="select compact" value={supplyCategory} onChange={(e) => setSupplyCategory(e.target.value)}>
+                      <option value="">Category</option>
+                      {reference.data?.categories.map((cat) => <option key={cat}>{cat}</option>)}
+                    </select>
+                  </label>
+                  <label className="field-inline">
+                    Qty
+                    <input className="input compact" value={availableQty} inputMode="decimal"
+                      onChange={(e) => setAvailableQty(e.target.value)} />
+                  </label>
+                  <label className="field-inline">
+                    Ask $
+                    <input className="input compact" value={askingPrice} inputMode="decimal"
+                      onChange={(e) => setAskingPrice(e.target.value)} />
+                  </label>
+                  <label className="field-inline">
+                    Date
+                    <input className="input compact" type="date" value={availableDate}
+                      onChange={(e) => setAvailableDate(e.target.value)} />
+                  </label>
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={!vendorId || !supplyProduct.trim() || !supplyCategory || Number(availableQty) <= 0 || isRunning}
+                    onClick={createSupply}
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Add Stock
+                  </button>
+                </div>
+              )}
+            </div>
+          </aside>
+        </>
       )}
 
       {/* ── Active grid (one at a time, driven by ViewTabBar) ── */}

@@ -67,6 +67,8 @@ export interface FilterToolbarProps {
   activeStatusFilter?: string;
   /** Called when status filter changes. Pass comma-separated statuses or empty string. */
   onStatusFilterChange?: (statusFilter: string) => void;
+  /** External active filter pills (e.g., customer/vendor URL param filters from MatchmakingView). */
+  activePills?: { key: string; label: string; onRemove: () => void }[];
 }
 
 // ============================================================================
@@ -106,6 +108,7 @@ export function FilterToolbar({
   statusCounts,
   activeStatusFilter,
   onStatusFilterChange,
+  activePills,
 }: FilterToolbarProps) {
   // ── Store ──────────────────────────────────────────────────────────
   const storedGridFilter = useUiStore((s) => s.gridFilters?.[view] ?? '');
@@ -336,8 +339,15 @@ export function FilterToolbar({
   // ── Complex filter pill ─────────────────────────────────────────────
   const showComplexPill = complexActive;
 
+  // ── External active filter pills (from consumer view) ────────────────
+  const externalActivePills = activePills ?? [];
+
   // ── Compute if we need to show filter pills row ─────────────────────
-  const showPillsRow = activeQuickPills.length > 0 || showComplexPill || statusFilterPills.length > 0;
+  const showPillsRow =
+    activeQuickPills.length > 0 ||
+    showComplexPill ||
+    statusFilterPills.length > 0 ||
+    externalActivePills.length > 0;
 
   return (
     <div
@@ -840,6 +850,21 @@ export function FilterToolbar({
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
           )}
+
+          {/* External active filter pills (e.g., customer/vendor URL params) */}
+          {externalActivePills.map((pill) => (
+            <button
+              key={pill.key}
+              type="button"
+              className="selection-pill text-xs"
+              title={`Remove ${pill.label} filter`}
+              aria-label={`Remove ${pill.label} filter`}
+              onClick={pill.onRemove}
+            >
+              {pill.label}
+              <X className="ml-1 inline h-3 w-3" aria-hidden="true" />
+            </button>
+          ))}
 
           {showComplexPill && (
             <button
