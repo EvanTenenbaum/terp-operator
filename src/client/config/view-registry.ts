@@ -348,7 +348,7 @@ const settingsView: ViewEntry = {
 const pickView: ViewEntry = {
   viewKey: 'pick',
   entity: 'pickList',
-  template: 'primaryGrid',
+  template: 'wizard',
   primaryProcedure: 'queries.grid',
   urlPath: '/pick-lists',
   title: 'Pick Lists',

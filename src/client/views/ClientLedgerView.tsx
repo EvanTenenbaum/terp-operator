@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { ReportView } from '../templates/ReportView';
 import type { GridRow } from '../../shared/types';
 import { GridJourney } from './operations/shared';
 
@@ -120,5 +121,14 @@ export function ClientLedgerView() {
       },
     ];
   }, [matchSettings.data?.showClientsColumn, matchCounts.data, navigate, runCommand]);
-  return <GridJourney view="clients" title="Client Balances" columns={clientColumns} />;
+
+  return (
+    <ReportView
+      viewKey="clients"
+      title="Client Balances"
+      subtitle="Financial ledger summary — customer balances, credit limits, and invoice history"
+    >
+      <GridJourney view="clients" title="Client Balances" columns={clientColumns} />
+    </ReportView>
+  );
 }

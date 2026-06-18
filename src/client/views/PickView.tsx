@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 import { trpc } from '../api/trpc';
 import { usePickWorkLoopGuard } from '../hooks/usePickWorkLoopGuard';
 import { useCommandRunner } from '../components/useCommandRunner';
+import { WizardView } from '../templates/WizardView';
+import type { WizardStep } from '../templates/WizardView';
 import { QueueScreen } from '../components/pick/QueueScreen';
 import { PickListScreen } from '../components/pick/PickListScreen';
 import { PickLineScreen } from '../components/pick/PickLineScreen';
@@ -183,46 +185,89 @@ export function PickView() {
     void utils.queries.pickQueue.invalidate();
   }
 
-  if (screen === 'line') {
-    return (
-      <PickLineScreen
-        line={selectedLine}
-        pickNo={selectedPickList?.pickNo ?? ''}
-        customer={selectedPickList?.customer ?? ''}
-        interrupt={activeInterrupt}
-        recalled={Boolean(recalledLineItem)}
-        recalledItemName={recalledLineItem ?? ''}
-        onBack={() => {
-          setActiveInterrupt(null);
-          setRecalledLineItem(null);
-          // Use history.back() so popstate handles the state restoration
-          // and the stack stays consistent with browser history.
-          history.back();
-        }}
-        onPicked={handleLinePicked}
-      />
-    );
+  // Handle step changes from the wizard step indicator and prev/next buttons.
+  function handleStepChange(key: string) {
+    if (key === 'queue') {
+      setScreen('queue');
+      setSelectedPickList(null);
+      setSelectedLine(null);
+      // Navigate back to queue by resetting history stack
+      screenHistoryRef.current = ['queue'];
+    } else if (key === 'list') {
+      if (selectedPickList) {
+        setScreen('list');
+        pushPickScreen('list');
+      }
+      // If no pick list is selected, stay on queue (cannot navigate forward without data)
+    } else if (key === 'line') {
+      if (selectedLine) {
+        setScreen('line');
+        pushPickScreen('line');
+      }
+      // If no line is selected, stay on current screen
+    }
   }
 
-  if (screen === 'list') {
-    return (
-      <PickListScreen
-        pickList={pickList}
-        loading={pickListLoading}
-        onBack={() => history.back()}
-        onSelectLine={handleSelectLine}
-        onCompleteOrder={handleCompleteOrder}
-        isCompletingOrder={isCompletingOrder}
-      />
-    );
-  }
+  const steps: WizardStep[] = [
+    {
+      key: 'queue',
+      label: 'Queue',
+      description: 'Select a pick list from the queue',
+      render: () => (
+        <QueueScreen
+          items={queueItems}
+          loading={queueLoading}
+          onRefresh={handleRefreshQueue}
+          onSelect={handleSelectPickList}
+        />
+      ),
+    },
+    {
+      key: 'list',
+      label: 'Pick List',
+      description: 'Review pick list lines and select one to work on',
+      render: () => (
+        <PickListScreen
+          pickList={pickList}
+          loading={pickListLoading}
+          onBack={() => history.back()}
+          onSelectLine={handleSelectLine}
+          onCompleteOrder={handleCompleteOrder}
+          isCompletingOrder={isCompletingOrder}
+        />
+      ),
+    },
+    {
+      key: 'line',
+      label: 'Pick Line',
+      description: 'Pick the line item, handle alerts, and confirm',
+      render: () => (
+        <PickLineScreen
+          line={selectedLine}
+          pickNo={selectedPickList?.pickNo ?? ''}
+          customer={selectedPickList?.customer ?? ''}
+          interrupt={activeInterrupt}
+          recalled={Boolean(recalledLineItem)}
+          recalledItemName={recalledLineItem ?? ''}
+          onBack={() => {
+            setActiveInterrupt(null);
+            setRecalledLineItem(null);
+            // Use history.back() so popstate handles the state restoration
+            // and the stack stays consistent with browser history.
+            history.back();
+          }}
+          onPicked={handleLinePicked}
+        />
+      ),
+    },
+  ];
 
   return (
-    <QueueScreen
-      items={queueItems}
-      loading={queueLoading}
-      onRefresh={handleRefreshQueue}
-      onSelect={handleSelectPickList}
+    <WizardView
+      viewKey="pick"
+      steps={steps}
+      activeStep={screen}
+      onStepChange={handleStepChange}
     />
   );
 }

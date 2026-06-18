@@ -16,6 +16,7 @@ import { trpc } from '../api/trpc';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
 import { VerifyAllPreviewBody } from '../components/VerifyAllPreviewBody';
+import { MasterDetailView } from '../templates/MasterDetailView';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useConfirm } from '../hooks/useConfirm';
 import { useUiStore } from '../store/uiStore';
@@ -379,11 +380,22 @@ export function IntakeView() {
   }
 
   return (
-    // UX-C02: onPaste intercepts TSV clipboard data pasted onto the intake
-    // panel and produces a summary toast. Actual row creation remains
-    // PO-gated (see handlePaste above).
-    <div className="flex flex-row min-h-0 flex-1" onPaste={handlePaste}>
-      <div className="view-stack flex-1 min-w-0">
+    <MasterDetailView
+      viewKey="intake"
+      entityType="intake"
+      useLegacyIntake
+      detailOpen={Boolean(previewOrder)}
+      detailContent={previewOrder ? (
+        <ReceiptPreviewDrawer
+          order={previewOrder}
+          onClose={() => setPreviewOrder(null)}
+        />
+      ) : undefined}
+    >
+      {/* UX-C02: onPaste intercepts TSV clipboard data pasted onto the intake
+          panel and produces a summary toast. Actual row creation remains
+          PO-gated (see handlePaste above). */}
+      <div className="view-stack" onPaste={handlePaste}>
         {/* UX-H03: Selection totals strip — shown when one or more PO groups
             are selected in the master grid. Sticky above the Process action. */}
         {selectedOrders.length > 0 ? (
@@ -448,11 +460,7 @@ export function IntakeView() {
         </WorkspacePanel>
 
       </div>
-      <ReceiptPreviewDrawer
-        order={previewOrder}
-        onClose={() => setPreviewOrder(null)}
-      />
-    </div>
+    </MasterDetailView>
   );
 }
 
