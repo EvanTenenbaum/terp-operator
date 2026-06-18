@@ -8,11 +8,11 @@ import {
   X,
   ArrowUpDown,
   GripHorizontal,
-  Check,
 } from 'lucide-react';
 import type { ViewKey } from '../../shared/types';
 import type { FilterGroupInput } from '../../shared/filterSchemas';
 import { useUiStore } from '../store/uiStore';
+import { StatusFilterPill, type StatusCount } from './StatusFilterPill';
 
 // ============================================================================
 // TYPES
@@ -34,10 +34,8 @@ export interface DataView {
   label: string;
 }
 
-export interface StatusCount {
-  status: string;
-  count: number;
-}
+// StatusCount re-exported from StatusFilterPill
+export type { StatusCount };
 
 export interface FilterToolbarProps {
   view: ViewKey;
@@ -141,34 +139,7 @@ export function FilterToolbar({
   const groupActive = groupBy !== '';
   const sortActive = sortBy !== '';
 
-  // ── Status multi-select filter (replaces ViewTabBar) ─────────────────
-  const hasStatusCounts = Boolean(statusCounts && statusCounts.length > 0);
-  const selectedStatuses = useCallback((): string[] => {
-    if (!activeStatusFilter) return [];
-    return activeStatusFilter.split(',').filter(Boolean);
-  }, [activeStatusFilter])();
-  const statusActive = hasStatusCounts && selectedStatuses.length > 0;
-  const statusBadgeCount = selectedStatuses.length;
-  const allStatusesTotal = hasStatusCounts
-    ? statusCounts!.reduce((sum, s) => sum + s.count, 0)
-    : 0;
-
-  const handleStatusToggle = useCallback(
-    (status: string) => {
-      if (!onStatusFilterChange) return;
-      const current = selectedStatuses;
-      const next = current.includes(status)
-        ? current.filter((s) => s !== status)
-        : [...current, status];
-      onStatusFilterChange(next.join(','));
-    },
-    [selectedStatuses, onStatusFilterChange],
-  );
-
-  const handleStatusClearAll = useCallback(() => {
-    onStatusFilterChange?.('');
-    setOpenPopover(null);
-  }, [onStatusFilterChange]);
+  // ── Status multi-select filter (delegated to StatusFilterPill component) ──
 
   const quickFilterActiveCount = [
     dateActive,
@@ -324,30 +295,15 @@ export function FilterToolbar({
     });
   }
 
-  // ── Status filter pills ─────────────────────────────────────────────
-  const statusFilterPills: { key: string; label: string; onRemove: () => void }[] = [];
-  if (hasStatusCounts && selectedStatuses.length > 0) {
-    for (const status of selectedStatuses) {
-      statusFilterPills.push({
-        key: `status-${status}`,
-        label: status.replace(/_/g, ' '),
-        onRemove: () => handleStatusToggle(status),
-      });
-    }
-  }
-
   // ── Complex filter pill ─────────────────────────────────────────────
   const showComplexPill = complexActive;
 
-  // ── External active filter pills (from consumer view) ────────────────
-  const externalActivePills = activePills ?? [];
+  // ── External active filter pills (delegated to StatusFilterPill) ─────
 
   // ── Compute if we need to show filter pills row ─────────────────────
   const showPillsRow =
     activeQuickPills.length > 0 ||
-    showComplexPill ||
-    statusFilterPills.length > 0 ||
-    externalActivePills.length > 0;
+    showComplexPill;
 
   return (
     <div
@@ -422,63 +378,18 @@ export function FilterToolbar({
         })}
 
         {/* Status multi-select filter pill (replaces ViewTabBar) */}
-        {hasStatusCounts && (
-          <div className="relative">
-            <button
-              type="button"
-              data-filter-chip="status"
-              className={chipClass(statusActive, true)}
-              disabled={disabled}
-              aria-expanded={openPopover === 'status'}
-              aria-haspopup="listbox"
-              onClick={() => togglePopover('status')}
-              ref={(el) => { chipRefs.current.set('status', el); }}
-            >
-              <span>Status</span>
-              {statusBadgeCount > 0 && <span className={badgeClass}>{statusBadgeCount}</span>}
-              <ChevronDown className="h-3 w-3" aria-hidden="true" />
-            </button>
-            {openPopover === 'status' && (
-              <FilterPopover id="status">
-                <div className="text-xs font-medium text-zinc-700 mb-2">Filter by status</div>
-                {/* "All" quick-select */}
-                <button
-                  type="button"
-                  className={`w-full rounded px-2 py-1 text-left text-xs ${selectedStatuses.length === 0 ? 'bg-blue-50 text-blue-700' : 'hover:bg-zinc-100'}`}
-                  onClick={handleStatusClearAll}
-                >
-                  <span className="flex items-center justify-between">
-                    <span>All</span>
-                    <span className="tabular-nums text-zinc-400">{allStatusesTotal}</span>
-                  </span>
-                </button>
-                <div className="border-t border-line my-1" />
-                {statusCounts!.map((sc) => {
-                  const isSelected = selectedStatuses.includes(sc.status);
-                  return (
-                    <button
-                      key={sc.status}
-                      type="button"
-                      className={`w-full rounded px-2 py-1 text-left text-xs flex items-center justify-between ${isSelected ? 'bg-blue-50 text-blue-700' : 'hover:bg-zinc-100'}`}
-                      onClick={() => handleStatusToggle(sc.status)}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        {isSelected && <Check className="h-3 w-3 text-blue-600" />}
-                        <span className={isSelected ? '' : 'ml-[18px]'}>
-                          {sc.status.replace(/_/g, ' ')}
-                        </span>
-                      </span>
-                      <span className="tabular-nums text-zinc-400">{sc.count}</span>
-                    </button>
-                  );
-                })}
-              </FilterPopover>
-            )}
-          </div>
+        {statusCounts && statusCounts.length > 0 && (
+          <StatusFilterPill
+            entityType={view}
+            activeFilter={activeStatusFilter}
+            onFilterChange={(status) => onStatusFilterChange?.(status ?? '')}
+            disabled={disabled}
+            activePills={activePills}
+          />
         )}
 
         {/* Separator */}
-        {((presets?.length ?? 0) > 0 || hasStatusCounts) && (quickFilters?.length ?? 0) > 0 && (
+        {((presets?.length ?? 0) > 0 || (statusCounts && statusCounts.length > 0)) && (quickFilters?.length ?? 0) > 0 && (
           <div className="mx-0.5 h-5 w-px bg-line" aria-hidden="true" />
         )}
 
@@ -825,46 +736,7 @@ export function FilterToolbar({
             </button>
           )}
 
-          {/* Status filter pills (from multi-select popover) */}
-          {statusFilterPills.map((pill) => (
-            <button
-              key={pill.key}
-              type="button"
-              className="selection-pill text-xs"
-              title={`Remove ${pill.label} status filter`}
-              aria-label={`Remove ${pill.label} status filter`}
-              onClick={pill.onRemove}
-            >
-              {pill.label}
-              <X className="ml-1 inline h-3 w-3" aria-hidden="true" />
-            </button>
-          ))}
-          {statusFilterPills.length > 0 && (
-            <button
-              type="button"
-              className="icon-button"
-              title="Clear all status filters"
-              aria-label="Clear all status filters"
-              onClick={handleStatusClearAll}
-            >
-              <X className="h-3 w-3" aria-hidden="true" />
-            </button>
-          )}
-
-          {/* External active filter pills (e.g., customer/vendor URL params) */}
-          {externalActivePills.map((pill) => (
-            <button
-              key={pill.key}
-              type="button"
-              className="selection-pill text-xs"
-              title={`Remove ${pill.label} filter`}
-              aria-label={`Remove ${pill.label} filter`}
-              onClick={pill.onRemove}
-            >
-              {pill.label}
-              <X className="ml-1 inline h-3 w-3" aria-hidden="true" />
-            </button>
-          ))}
+          {/* Status filter pills + external pills are now rendered by StatusFilterPill */}
 
           {showComplexPill && (
             <button
