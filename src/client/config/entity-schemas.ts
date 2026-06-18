@@ -1675,15 +1675,15 @@ export const customerNeedSchema: EntityFieldSchema = {
       editable: true,
       rationale: 'What product the customer needs — the core demand signal.',
     }),
+    t0('subcategory', 'Subcategory', 'text', {
+      width: 120,
+      editable: true,
+      rationale: 'Refined product classification — DR-1: subcategory prioritized over category for scanning and matching.',
+    }),
     t1('category', 'Category', 'text', {
       width: 120,
       editable: true,
-      rationale: 'Product taxonomy group — secondary to product name.',
-    }),
-    t1('subcategory', 'Subcategory', 'text', {
-      width: 120,
-      editable: true,
-      rationale: 'Refined product classification — secondary to category.',
+      rationale: 'Product taxonomy group — DR-1: secondary to subcategory in attention priority.',
     }),
     t1('qtyMin', 'Qty', 'numeric', {
       width: 100,
@@ -1729,15 +1729,15 @@ export const vendorSupplySchema: EntityFieldSchema = {
       editable: true,
       rationale: 'What product the vendor is offering — the core supply signal.',
     }),
+    t0('subcategory', 'Subcategory', 'text', {
+      width: 120,
+      editable: true,
+      rationale: 'Refined product classification — DR-1: subcategory prioritized over category for scanning and matching.',
+    }),
     t1('category', 'Category', 'text', {
       width: 120,
       editable: true,
-      rationale: 'Product taxonomy group — secondary to product name.',
-    }),
-    t1('subcategory', 'Subcategory', 'text', {
-      width: 120,
-      editable: true,
-      rationale: 'Refined product classification — secondary to category.',
+      rationale: 'Product taxonomy group — DR-1: secondary to subcategory in attention priority.',
     }),
     t1('availableQty', 'Qty', 'numeric', {
       width: 100,
