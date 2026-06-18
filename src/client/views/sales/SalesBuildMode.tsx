@@ -49,6 +49,7 @@ import { useSalePrePostChecks } from './useSalePrePostChecks';
 import { SalesCustomerContextHeader } from './SalesCustomerContextHeader';
 import { registerSalesTabs } from '../../components/tabs/registerSalesTabs';
 import { SaleLineItemTypeahead, buildBindLinePayload, resolveUniqueBatch } from '../SalesView.ux-f03';
+import { buildConfirmPayload, deriveCustomerRefereeRelationships } from '../SalesView.ux-f06';
 import { DisplayNameCell } from '../../components/cells/sales/DisplayNameCell';
 import { BatchCodeCell } from '../../components/cells/sales/BatchCodeCell';
 import { MarkupCell, markupValueSetter } from '../../components/cells/sales/MarkupCell';
@@ -242,13 +243,19 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
   const [draftItem, setDraftItem] = useState('');
   const [draftQty, setDraftQty] = useState('1');
   const [addedBatchIds, setAddedBatchIds] = useState<Set<string>>(new Set());
+  // UX-F06 — referee relationship selected for credit accrual at confirm time.
+  // Cleared when the order is confirmed or the customer changes.
+  const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
 
   // ── Customer / order context sync ─────────────────────────────────────
   // Mirror legacy effect at SalesView.tsx ~ line 821: keep the global
   // activeCustomerId in sync with the URL-derived customerId so shared store
   // consumers (PhotographyQueuePanel, etc.) keep working.
+  // UX-F06: also clear referee selection when customer changes so stale
+  // relationships from a previous customer don't carry over.
   useEffect(() => {
     setActiveCustomerId(customerId || null);
+    setRefereeRelationshipId('');
     return () => {
       setActiveCustomerId(null);
     };
@@ -310,6 +317,18 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
   const finderBatches = useMemo(
     () => (reference.data?.availableBatches ?? []) as InventoryFinderBatch[],
     [reference.data?.availableBatches],
+  );
+
+  // UX-F06 — derive active referee relationships for the current customer so
+  // the confirm-time pill can show "Referee: <name> — credit will accrue".
+  // Reference query already loaded (staleTime 60s). Uses
+  // deriveCustomerRefereeRelationships helper from SalesView.ux-f06.ts.
+  const customerRefereeRelationships = useMemo(
+    () => deriveCustomerRefereeRelationships(
+      (reference.data?.refereeRelationships ?? []) as any[],
+      customerId,
+    ),
+    [reference.data?.refereeRelationships, customerId],
   );
 
   // ── Pre-post checks — conditional render (UX-5) ───────────────────────
@@ -402,9 +421,8 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
     [addFinderBatch, selectedOrderId, draftQty, orderLines],
   );
 
-  // Confirm-and-price (no referee credit wiring in this wedge; covered by
-  // brief's "scope deferred" note — referee selection lives on the sheet
-  // preview panel which has not yet moved to slide-over).
+  // Confirm-and-price — UX-F06: wire referee relationship into confirm when
+  // operator selected one. Uses buildConfirmPayload helper (SalesView.ux-f06.ts).
   const priceAndConfirm = useCallback(async () => {
     if (!selectedOrderId) return;
     await runCommand(
@@ -412,12 +430,14 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
       { orderId: selectedOrderId, strategy: 'standard' },
       'Sales view pricing preview (Mercury Build Mode)',
     );
+    const confirmPayload = buildConfirmPayload(selectedOrderId, refereeRelationshipId);
     await runCommand(
       'confirmSalesOrder',
-      { orderId: selectedOrderId },
+      confirmPayload,
       'Confirm sales order (Mercury Build Mode)',
     );
-  }, [runCommand, selectedOrderId]);
+    setRefereeRelationshipId('');
+  }, [runCommand, selectedOrderId, refereeRelationshipId]);
 
   // ── Line cell commit (item-cell shorthand + standard fields) ─────────
   const onLineCommit = useCallback(
@@ -562,6 +582,33 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
                   Price + Confirm
                 </button>
               ) : null}
+            </div>
+          ) : null}
+
+          {/* UX-F06 — referee credit pill: confirm-time referee selection
+              (like the legacy sheet preview panel pill at SalesView.tsx:1731). */}
+          {canWrite && customerId && selectedOrderStatus === 'draft' && customerRefereeRelationships.length > 0 ? (
+            <div className="mt-2 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-900" data-testid="referee-credit-pill">
+              <span className="font-medium">Referee credit:</span>
+              <select
+                className="select text-xs"
+                value={refereeRelationshipId}
+                onChange={(e) => setRefereeRelationshipId(e.target.value)}
+                data-testid="referee-credit-select"
+              >
+                <option value="">None — no credit will accrue</option>
+                {customerRefereeRelationships.map((rel: any) => (
+                  <option key={rel.id} value={rel.id}>
+                    {rel.refereeName} — credit will accrue
+                    {' ▸ '}
+                    {rel.feeType === 'percentage'
+                      ? `${rel.feePercentage}%`
+                      : rel.feeType === 'fixed'
+                      ? `$${rel.feeFixedAmount}`
+                      : `${rel.feePercentage}% + $${rel.feeFixedAmount}`}
+                  </option>
+                ))}
+              </select>
             </div>
           ) : null}
 

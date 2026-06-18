@@ -27,6 +27,7 @@
  */
 import { registerTabs, type SlideOverTab, type SlideOverTabProps } from './registry';
 import type { GridRow } from '../../../shared/types';
+import { registerCustomerTabs } from './registerCustomerTabs';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -244,4 +245,7 @@ export function registerSalesTabs(): void {
     salesOrderJournalTab,
     salesOrderSuggestionsTab,
   ]);
+  // Register customer tabs as well so the credit panel (openCreditPanel)
+  // surfaces proper detail content when it opens with entityType='customer'.
+  registerCustomerTabs();
 }

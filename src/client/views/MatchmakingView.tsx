@@ -1,12 +1,13 @@
 import { Check, ExternalLink, Plus, RotateCcw, Settings, X } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { useEntityActions } from '../hooks/useEntityActions';
+import { useColumnDefs } from '../hooks/useColumnDefs';
 import { ViewTabBar, type TabDef } from '../components/ViewTabBar';
 import { FilterToolbar, type StatusCount } from '../components/FilterToolbar';
 import { BulkActionBar, type BulkAction } from '../components/BulkActionBar';
@@ -26,37 +27,12 @@ const TO_SOURCE_SIGNAL_MAP: RuleMap = {
   history: 'Purchase history shows consistent demand in this category; consider sourcing to replenish.',
 };
 
-// ─── Column definitions ────────────────────────────────────────────────────────
-// NOTE: These use custom field names from matchmakingBoard / matchmakingOpportunities
-// queries. The canonical schema definitions live in entity-schemas.ts
-// (customerNeedSchema, vendorSupplySchema) and are the source of truth for
-// field documentation and tier classification. These ColDef arrays are kept here
-// because the custom queries produce field names (e.g. 'customer' vs 'customerName')
-// that differ from the standard entity-schema → ColDef pipeline.
-
-const needColumns: ColDef<GridRow>[] = [
-  { field: 'needCode', headerName: 'Need', pinned: 'left', width: 120 },
-  { field: 'customer', width: 170 },
-  { field: 'productName', headerName: 'Request', editable: true, minWidth: 180 },
-  { field: 'category', editable: true, width: 120 },
-  { field: 'subcategory', editable: true, width: 120 },
-  { field: 'qtyMin', headerName: 'Qty', editable: true, type: 'numericColumn', width: 100 },
-  { field: 'targetPrice', headerName: 'Target $', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'neededBy', headerName: 'By', editable: true, width: 130 },
-  { field: 'status', width: 115 },
-];
-
-const supplyColumns: ColDef<GridRow>[] = [
-  { field: 'supplyCode', headerName: 'Stock', pinned: 'left', width: 120 },
-  { field: 'vendor', width: 170 },
-  { field: 'productName', headerName: 'Product', editable: true, minWidth: 180 },
-  { field: 'category', editable: true, width: 120 },
-  { field: 'subcategory', editable: true, width: 120 },
-  { field: 'availableQty', headerName: 'Qty', editable: true, type: 'numericColumn', width: 100 },
-  { field: 'askingPrice', headerName: 'Ask $', editable: true, type: 'numericColumn', width: 110 },
-  { field: 'availableDate', headerName: 'Available', editable: true, width: 130 },
-  { field: 'status', width: 115 },
-];
+// ─── Column definitions (from entity-schemas via useColumnDefs) ──────────────────
+// customerNeedSchema and vendorSupplySchema are the canonical source of truth
+// for field metadata, tier classification, and rationale. The query field names
+// (e.g. 'customer', 'vendor', 'needCode', 'productName') already match the
+// schema field names, so no field mapping is needed.
+// R-06: ARCH-8 / UX-8 — no per-view ColDef arrays.
 
 // ─── Tab keys ──────────────────────────────────────────────────────────────────
 const TAB_MATCHES = 'matches';
@@ -218,6 +194,13 @@ export function MatchmakingView() {
   }
 
   // ── Column definitions ───────────────────────────────────────────────────
+  // R-06: Customer Needs and Vendor Stock grids consume entity-schemas via useColumnDefs.
+  const needOverrides = useMemo(() => [{ field: 'productName', minWidth: 180 }], []);
+  const needCols = useColumnDefs('customerNeed', needOverrides);
+
+  const supplyOverrides = useMemo(() => [{ field: 'productName', minWidth: 180 }], []);
+  const supplyCols = useColumnDefs('vendorSupply', supplyOverrides);
+
   const matchColumns = useMemo<ColDef<GridRow>[]>(() => [
     {
       field: 'score',
@@ -1034,7 +1017,7 @@ Maximum score:                     100`}
           view="matchmaking"
           title="Customer Needs"
           rows={filteredNeeds}
-          columns={needColumns}
+          columns={needCols}
           loading={board.isLoading || isRunning}
           onCellCommit={canWrite ? updateNeedCell : undefined}
         />
@@ -1045,7 +1028,7 @@ Maximum score:                     100`}
           view="matchmaking"
           title="Vendor Stock"
           rows={filteredSupplies}
-          columns={supplyColumns}
+          columns={supplyCols}
           loading={board.isLoading || isRunning}
           onCellCommit={canWrite ? updateSupplyCell : undefined}
         />

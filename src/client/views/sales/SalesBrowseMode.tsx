@@ -17,7 +17,7 @@
  */
 import { PackagePlus, Search, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import type { CellValueChangedEvent } from 'ag-grid-community';
+import type { CellClickedEvent, CellValueChangedEvent } from 'ag-grid-community';
 import { useShallow } from 'zustand/react/shallow';
 import { trpc } from '../../api/trpc';
 import { OperatorGrid } from '../../components/OperatorGrid';
@@ -85,7 +85,7 @@ const orderColumns: ColDef<GridRow>[] = [
 // Avoid unused import (boolCol may be used by extended columns later)
 void boolCol;
 
-export function SalesBrowseMode(_props: SalesBrowseModeProps) {
+export function SalesBrowseMode(props: SalesBrowseModeProps) {
   const me = trpc.auth.me.useQuery();
   const role: Role = (me.data?.role as Role | undefined) ?? 'viewer';
   const canWrite = role !== 'viewer';
@@ -158,6 +158,19 @@ export function SalesBrowseMode(_props: SalesBrowseModeProps) {
     [runCommand, orders],
   );
 
+  // Customer cell click → Mode A → Mode B transition (R-04).
+  const handleCellClick = useCallback(
+    (event: CellClickedEvent<GridRow>) => {
+      if (event.colDef.field === 'customer') {
+        const customerId = event.data?.customerId;
+        if (typeof customerId === 'string' && customerId) {
+          props.onCustomerSelect?.(customerId);
+        }
+      }
+    },
+    [props.onCustomerSelect],
+  );
+
   // Inventory Finder slide-over: in browse mode there is no active order,
   // so adding a batch is a no-op until the operator selects a customer.
   // We surface a helpful empty state inside the slide-over header.
@@ -209,6 +222,7 @@ export function SalesBrowseMode(_props: SalesBrowseModeProps) {
           onRetry={() => orders.refetch()}
           onSelectionChange={handleSelectionChange}
           onCellCommit={canWrite ? onOrderCellCommit : undefined}
+          onCellClicked={handleCellClick}
           emptyTitle="No open sales shown"
           emptyChildren="Choose a customer from the keel bar to start a sale."
         />

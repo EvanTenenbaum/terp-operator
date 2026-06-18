@@ -55,6 +55,7 @@ vi.mock('../store/uiStore', () => ({
       gridAdvancedFilters: {} as Record<string, unknown>,
       setGridAdvancedFilter: vi.fn(),
       clearGridAdvancedFilter: vi.fn(),
+      gridColumnPrefs: {} as Record<string, unknown>,
     })
 }));
 
