@@ -1,3 +1,4 @@
+import { logger } from '@/client/services/logger';
 import { Filter, PackagePlus, Plus, Search, Settings, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { trpc } from '../api/trpc';
@@ -271,7 +272,7 @@ export function InventoryFinderPanel({
     // Circuit breaker for large datasets
     let rowsToFilter = rows;
     if (rows.length > 10000) {
-      console.warn(`Large dataset (${rows.length} products) - truncating to 10,000 for performance`);
+      logger.warn('Large dataset truncated', { count: rows.length, limit: 10000 });
       rowsToFilter = rows.slice(0, 10000);
     }
 

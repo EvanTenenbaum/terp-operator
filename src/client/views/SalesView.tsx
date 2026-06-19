@@ -1,3 +1,4 @@
+import { logger } from '@/client/services/logger';
 import { Check, ChevronDown, ChevronRight, Clipboard, Eye, EyeOff, FileText, PackageCheck, PackagePlus, RotateCcw, Search, Send, X } from 'lucide-react';
 import { boolCol } from '../utils/format';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -609,7 +610,7 @@ export function LegacySalesView() {
         pushToast('No items from last order are currently available.', 'info');
       }
     } catch (err) {
-      console.error('Repeat last order failed', err);
+      logger.error('Repeat last order failed', { error: String(err) });
       pushToast('Failed to repeat last order.', 'error');
     } finally {
       setRepeatLoading(false);
@@ -1679,7 +1680,7 @@ export function LegacySalesView() {
                   title={!sheetRows.length ? 'Add lines to the sheet before exporting' : undefined}
                   onClick={() => {
                     void exportSheet().catch((err) => {
-                      console.error('exportSheet failed', err);
+                      logger.error('exportSheet failed', { error: String(err) });
                       setExportError('Sheet downloaded, but Recent Sheets snapshot failed.');
                     });
                   }}

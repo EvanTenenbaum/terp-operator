@@ -1,3 +1,4 @@
+import { logger } from '@/client/services/logger';
 /**
  * ReportsRouteShell — Phase 6 live implementation
  *
@@ -486,7 +487,7 @@ function buildRowsValidated(reportKey: string, data: BuildRowsInput): ReportRow[
     if (def && def.columns.length > 0) {
       const missingKeys = def.columns.filter((col) => !(col in rows[0]));
       if (missingKeys.length > 0) {
-        console.error(
+        logger.error(
           `[ReportsRouteShell] Column key mismatch for "${reportKey}": ` +
             `missing keys in row output: ${missingKeys.join(', ')}. ` +
             `CSV export will produce empty columns.`

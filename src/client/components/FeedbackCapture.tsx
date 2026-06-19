@@ -1,3 +1,4 @@
+import { logger } from '@/client/services/logger';
 import { useEffect } from 'react';
 
 type CrikketCaptureApi = {
@@ -148,7 +149,7 @@ export function FeedbackCapture() {
         });
       })
       .catch((error) => {
-        console.warn('[feedback] Crikket capture unavailable', error);
+        logger.warn('Crikket capture unavailable', { error: String(error) });
       });
 
     return () => {

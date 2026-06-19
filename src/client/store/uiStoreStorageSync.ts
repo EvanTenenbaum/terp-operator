@@ -1,3 +1,4 @@
+import { logger } from '@/client/services/logger';
 /**
  * FE-L3 (issue #36): cross-tab uiStore sync.
  *
@@ -60,11 +61,11 @@ export function registerUiStoreStorageSync(): () => void {
       const result = useUiStore.persist.rehydrate();
       if (result && typeof (result as Promise<unknown>).catch === 'function') {
         (result as Promise<unknown>).catch((err) => {
-          console.warn('Failed to rehydrate uiStore from storage event', err);
+          logger.warn('uiStore storage rehydration failed', { error: String(err) });
         });
       }
     } catch (err) {
-      console.warn('Failed to rehydrate uiStore from storage event', err);
+      logger.warn('uiStore storage rehydration failed', { error: String(err) });
     }
   };
 

@@ -107,7 +107,7 @@ function evaluateCondition(row: Record<string, any>, condition: FilterCondition)
 
       // Validate min/max are numbers
       if (typeof min !== 'number' || typeof max !== 'number') {
-        console.warn('Between operator requires numeric min/max values');
+        logger.warn('Between operator requires numeric min/max values');
         return false;
       }
 
@@ -165,7 +165,7 @@ function evaluateCondition(row: Record<string, any>, condition: FilterCondition)
       return new Date(value) > new Date(condition.value);
 
     default:
-      console.warn(`Unsupported operator: ${(condition as any).operator}`);
+      logger.warn('Unsupported filter operator', { operator: String((condition as any).operator) });
       return false;
   }
 }
