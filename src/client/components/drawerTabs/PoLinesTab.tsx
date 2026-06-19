@@ -27,7 +27,7 @@ function qtyish(value: unknown): string {
 
 export function PoLinesTab({ poId }: PoLinesTabProps) {
   const enabled = Boolean(poId);
-  const lines = trpc.queries.purchaseOrderLines.useQuery(
+  const lines = trpc.purchaseOrders.purchaseOrderLines.useQuery(
     { purchaseOrderId: poId ?? '00000000-0000-0000-0000-000000000000' },
     { enabled }
   );

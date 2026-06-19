@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { logger } from './logger';
 import { createDraftSnapshot, finalizeSnapshot } from './documentSnapshots';
 import { paymentReceived } from './projections/paymentReceived';
 import type { Audience, PaymentReceivedInput } from './projections/types';
@@ -15,7 +16,7 @@ export async function createPaymentReceivedReceipts(pool: Pool, paymentId: strin
       [paymentId]
     );
     const pay = payRes.rows[0] as { id: string; amount: string; reference: string | null; method: string; notes: string | null; created_at: Date; customer_name: string | null; } | undefined;
-    if (!pay) { console.warn(`[paymentReceivedReceipts] payment ${paymentId} not found; skipping snapshot.`); return; }
+    if (!pay) { logger.warn('Payment not found; skipping snapshot.', { module: 'paymentReceivedReceipts', paymentId }); return; }
     const input: PaymentReceivedInput = {
       customerName: pay.customer_name ?? 'Unknown customer',
       paymentRef: pay.reference ?? pay.id,
@@ -25,7 +26,7 @@ export async function createPaymentReceivedReceipts(pool: Pool, paymentId: strin
     };
     await emitSnapshot(pool, 'external', input, paymentId, commandId, userId);
     await emitSnapshot(pool, 'internal', input, paymentId, commandId, userId);
-  } catch (err) { console.warn('[paymentReceivedReceipts] receipt creation failed (non-fatal):', err instanceof Error ? err.message : err); }
+  } catch (err) { logger.warn('Receipt creation failed (non-fatal)', { module: 'paymentReceivedReceipts', error: err instanceof Error ? err.message : String(err) }); }
 }
 
 async function emitSnapshot(pool: Pool, audience: Audience, input: PaymentReceivedInput, paymentId: string, commandId: string, userId: string): Promise<void> {

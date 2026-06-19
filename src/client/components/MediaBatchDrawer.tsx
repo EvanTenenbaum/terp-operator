@@ -20,7 +20,7 @@ interface UploadEntry {
 }
 
 export function MediaBatchDrawer({ batchId, batchCode, batchName, onClose }: MediaBatchDrawerProps) {
-  const query = trpc.queries.batchMediaList.useQuery(
+  const query = trpc.intake.batchMediaList.useQuery(
     { batchId: batchId ?? '' },
     { enabled: !!batchId }
   );

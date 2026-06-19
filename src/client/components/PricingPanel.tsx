@@ -40,7 +40,7 @@ interface CustomerPricingPanelProps {
 }
 
 export function CustomerPricingPanel({ customerId }: CustomerPricingPanelProps) {
-  const relationship = trpc.queries.relationshipSummary.useQuery(
+  const relationship = trpc.context.relationshipSummary.useQuery(
     { customerId },
     { enabled: Boolean(customerId) }
   );

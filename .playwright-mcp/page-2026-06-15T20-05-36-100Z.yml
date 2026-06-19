@@ -1,0 +1,343 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e11]:
+      - generic [ref=e13]:
+        - generic [ref=e15]:
+          - img [ref=e16]
+          - generic [ref=e18]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e20] [cursor=pointer]
+        - generic [ref=e21]:
+          - button "Viewing as Admin" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e26] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e27]: Open account
+      - generic [ref=e28]:
+        - navigation [ref=e29]:
+          - button "Mercury Demo Pro" [ref=e32] [cursor=pointer]:
+            - generic [ref=e34]: Mercury Demo
+            - generic [ref=e36]: Pro
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - link "Home" [ref=e41] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e42]:
+                  - img [ref=e43]
+                  - img [ref=e45]
+                - generic [ref=e48]: Home
+              - link "Tasks 10" [ref=e51] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e52]:
+                  - img [ref=e53]
+                  - img [ref=e55]
+                - generic [ref=e57]:
+                  - generic [ref=e58]: Tasks
+                  - generic [ref=e59]: "10"
+            - separator [ref=e60]
+            - generic [ref=e61]:
+              - generic [ref=e63]:
+                - link "Accounts" [expanded] [ref=e64] [cursor=pointer]:
+                  - /url: /accounts
+                  - generic [ref=e65]:
+                    - img [ref=e66]
+                    - img [ref=e68]
+                  - generic [ref=e71]: Accounts
+                - list [ref=e75]:
+                  - listitem [ref=e76]:
+                    - link "Treasury" [ref=e77] [cursor=pointer]:
+                      - /url: /accounts/treasury/party-treasury-id-0
+                      - generic [ref=e80]: Treasury
+                  - listitem [ref=e81]:
+                    - link "Financing" [ref=e82] [cursor=pointer]:
+                      - /url: /capital/redirect
+                      - generic [ref=e85]: Financing
+              - link "Transactions" [ref=e88] [cursor=pointer]:
+                - /url: /transactions
+                - generic [ref=e89]:
+                  - img [ref=e90]
+                  - img [ref=e92]
+                - generic [ref=e95]: Transactions
+              - link "Cards" [ref=e98] [cursor=pointer]:
+                - /url: /cards
+                - generic [ref=e99]:
+                  - img [ref=e100]
+                  - img [ref=e102]
+                - generic [ref=e105]: Cards
+              - link "Payments" [ref=e108] [cursor=pointer]:
+                - /url: /payments
+                - generic [ref=e109]:
+                  - img [ref=e110]
+                  - img [ref=e112]
+                - generic [ref=e115]: Payments
+              - link "Invoicing" [ref=e118] [cursor=pointer]:
+                - /url: /invoicing
+                - generic [ref=e119]:
+                  - img [ref=e120]
+                  - img [ref=e122]
+                - generic [ref=e125]: Invoicing
+              - link "Reimbursements" [ref=e128] [cursor=pointer]:
+                - /url: /expenses/all-expenses
+                - generic [ref=e129]:
+                  - img [ref=e130]
+                  - img [ref=e132]
+                - generic [ref=e135]: Reimbursements
+            - separator [ref=e136]
+            - group "Bookmarks" [ref=e137]:
+              - generic [ref=e138]:
+                - generic [ref=e139]: Bookmarks
+                - button "Learn about bookmarks" [ref=e140] [cursor=pointer]:
+                  - img [ref=e141]
+              - list "Bookmarks" [ref=e143]:
+                - listitem [ref=e144] [cursor=pointer]:
+                  - button "Reorder Ops / Payroll bookmark" [ref=e145]:
+                    - img [ref=e146]
+                  - link "Ops / Payroll $2,023,267.12" [ref=e148]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e149]:
+                      - generic [ref=e150]: Ops / Payroll
+                      - generic [ref=e152]:
+                        - text: $2,023,267
+                        - generic [ref=e153]: ".12"
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e154] [cursor=pointer]:
+                  - button "Reorder Credit Card bookmark" [ref=e155]:
+                    - img [ref=e156]
+                  - link "Credit Card" [ref=e158]:
+                    - /url: /accounts/credit
+                    - generic [ref=e160]: Credit Card
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e161] [cursor=pointer]:
+                  - button "Reorder Bill Pay bookmark" [ref=e162]:
+                    - img [ref=e163]
+                  - link "Bill Pay" [ref=e165]:
+                    - /url: /bill-pay
+                    - generic [ref=e167]: Bill Pay
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e168] [cursor=pointer]:
+                  - button "Reorder Insights bookmark" [ref=e169]:
+                    - img [ref=e170]
+                  - link "Insights" [ref=e172]:
+                    - /url: /insights/overview
+                    - generic [ref=e174]: Insights
+                  - button "Remove bookmark":
+                    - img
+              - status [ref=e175]
+        - generic [ref=e176]:
+          - generic [ref=e178]:
+            - button "Search for anything" [ref=e180] [cursor=pointer]:
+              - img
+              - generic [ref=e181]: Search for anything
+            - button "Move money" [ref=e183] [cursor=pointer]:
+              - img
+              - generic [ref=e184]: Move money
+            - generic [ref=e185]:
+              - button "Toggle Private Mode" [ref=e186] [cursor=pointer]:
+                - img
+              - link "Navigate to Settings" [ref=e189] [cursor=pointer]:
+                - /url: /settings
+                - img
+              - button "updates" [ref=e192] [cursor=pointer]:
+                - img
+              - button [ref=e195] [cursor=pointer]
+          - generic [ref=e197]:
+            - generic [ref=e199]:
+              - generic [ref=e200]:
+                - heading "Accounts" [level=1] [ref=e201]
+                - button "Feedback" [ref=e203] [cursor=pointer]:
+                  - generic [ref=e205]:
+                    - img [ref=e206]
+                    - generic [ref=e208]: Feedback
+              - generic [ref=e210]:
+                - link "Transfer funds" [ref=e212] [cursor=pointer]:
+                  - /url: /send-money/transfer
+                  - img
+                  - generic [ref=e213]: Transfer funds
+                - button "Add account" [ref=e215] [cursor=pointer]:
+                  - generic [ref=e216]: Add account
+                  - img
+            - generic [ref=e217]:
+              - generic [ref=e218]: Mercury accounts
+              - generic [ref=e219] [cursor=pointer]: Linked accounts
+              - generic [ref=e220] [cursor=pointer]: Auto transfer rules
+            - generic [ref=e221]:
+              - generic [ref=e223]:
+                - heading "Available" [level=2] [ref=e225]
+                - generic "Available" [ref=e227]:
+                  - img [ref=e228]
+              - generic [ref=e230]:
+                - generic [ref=e232]:
+                  - text: $5,144,707
+                  - generic [ref=e233]: ".08"
+                - button [ref=e237] [cursor=pointer]:
+                  - img [ref=e238]
+                - generic [ref=e240]:
+                  - paragraph [ref=e241]: Pending deposits
+                  - generic [ref=e243]:
+                    - text: $1,000
+                    - generic [ref=e244]: ".00"
+                - generic [ref=e245]:
+                  - paragraph [ref=e246]: Pending transfers
+                  - generic [ref=e248]:
+                    - text: $71,764
+                    - generic [ref=e249]: ".10"
+              - generic [ref=e250]:
+                - table "Mercury Accounts" [ref=e251]:
+                  - caption [ref=e252]: Mercury Accounts
+                  - rowgroup [ref=e253]:
+                    - row "Drag Handle Account Balance Auto transfer rules" [ref=e254]:
+                      - columnheader "Drag Handle" [ref=e255]
+                      - columnheader "Account" [ref=e256]
+                      - columnheader "Balance" [ref=e257]
+                      - columnheader "Auto transfer rules" [ref=e258]
+                  - rowgroup [ref=e259]:
+                    - row "Credit Card Mercury IO $12,505.87 Autopay from Ops / Payroll Every 22nd of the month or if <80% of limit left" [ref=e260] [cursor=pointer]:
+                      - button [ref=e261]:
+                        - img [ref=e262]
+                      - cell "Credit Card Mercury IO" [ref=e264]:
+                        - link "Credit Card Mercury IO" [ref=e266]:
+                          - /url: /accounts/credit
+                          - img [ref=e268]
+                          - generic [ref=e270]:
+                            - paragraph [ref=e272]: Credit Card
+                            - generic [ref=e273]: Mercury IO
+                      - cell "$12,505.87" [ref=e274]:
+                        - link "$12,505.87" [ref=e276]:
+                          - /url: /accounts/credit
+                          - generic [ref=e278]:
+                            - text: $12,505
+                            - generic [ref=e279]: ".87"
+                      - cell "Autopay from Ops / Payroll Every 22nd of the month or if <80% of limit left" [ref=e280]:
+                        - link "Autopay from Ops / Payroll Every 22nd of the month or if <80% of limit left" [ref=e282]:
+                          - /url: /accounts/credit?action=editAutopay
+                          - img [ref=e284]
+                          - generic [ref=e286]:
+                            - text: Autopay from Ops / Payroll
+                            - generic [ref=e287]: Every 22nd of the month or if <80% of limit left
+                    - row "Treasury $200,000.00 Create rule" [ref=e288] [cursor=pointer]:
+                      - button [ref=e289]:
+                        - img [ref=e290]
+                      - cell "Treasury" [ref=e292]:
+                        - link "Treasury" [ref=e294]:
+                          - /url: /accounts/treasury/party-treasury-id-0
+                          - img [ref=e296]
+                          - paragraph [ref=e300]: Treasury
+                      - cell "$200,000.00" [ref=e301]:
+                        - link "$200,000.00" [ref=e303]:
+                          - /url: /accounts/treasury/party-treasury-id-0
+                          - generic [ref=e305]:
+                            - text: $200,000
+                            - generic [ref=e306]: ".00"
+                      - cell "Create rule" [ref=e307]:
+                        - button "Create rule" [ref=e308]:
+                          - img
+                          - generic [ref=e309]: Create rule
+                    - row "Ops / Payroll Checking ••1038 $2,023,267.12 Create rule" [ref=e310] [cursor=pointer]:
+                      - button [ref=e311]:
+                        - img [ref=e312]
+                      - cell "Ops / Payroll Checking ••1038" [ref=e314]:
+                        - link "Ops / Payroll Checking ••1038" [ref=e316]:
+                          - /url: /accounts/depository/party-mercurybankid2
+                          - img [ref=e318]
+                          - generic [ref=e320]:
+                            - paragraph [ref=e322]: Ops / Payroll
+                            - generic [ref=e323]: Checking ••1038
+                      - cell "$2,023,267.12" [ref=e324]:
+                        - link "$2,023,267.12" [ref=e326]:
+                          - /url: /accounts/depository/party-mercurybankid2
+                          - generic [ref=e328]:
+                            - text: $2,023,267
+                            - generic [ref=e329]: ".12"
+                      - cell "Create rule" [ref=e330]:
+                        - button "Create rule" [ref=e331]:
+                          - img
+                          - generic [ref=e332]: Create rule
+                    - row "AP Checking ••1794 $226,767.82 Create rule" [ref=e333] [cursor=pointer]:
+                      - button [ref=e334]:
+                        - img [ref=e335]
+                      - cell "AP Checking ••1794" [ref=e337]:
+                        - link "AP Checking ••1794" [ref=e339]:
+                          - /url: /accounts/depository/party-mercurybankid3
+                          - img [ref=e341]
+                          - generic [ref=e343]:
+                            - paragraph [ref=e345]: AP
+                            - generic [ref=e346]: Checking ••1794
+                      - cell "$226,767.82" [ref=e347]:
+                        - link "$226,767.82" [ref=e349]:
+                          - /url: /accounts/depository/party-mercurybankid3
+                          - generic [ref=e351]:
+                            - text: $226,767
+                            - generic [ref=e352]: ".82"
+                      - cell "Create rule" [ref=e353]:
+                        - button "Create rule" [ref=e354]:
+                          - img
+                          - generic [ref=e355]: Create rule
+                    - row "AR Checking ••4296 $0.00 Create rule" [ref=e356] [cursor=pointer]:
+                      - button [ref=e357]:
+                        - img [ref=e358]
+                      - cell "AR Checking ••4296" [ref=e360]:
+                        - link "AR Checking ••4296" [ref=e362]:
+                          - /url: /accounts/depository/party-mercurybankid0
+                          - img [ref=e364]
+                          - generic [ref=e366]:
+                            - paragraph [ref=e368]: AR
+                            - generic [ref=e369]: Checking ••4296
+                      - cell "$0.00" [ref=e370]:
+                        - link "$0.00" [ref=e372]:
+                          - /url: /accounts/depository/party-mercurybankid0
+                          - generic [ref=e374]:
+                            - text: $0
+                            - generic [ref=e375]: ".00"
+                      - cell "Create rule" [ref=e376]:
+                        - button "Create rule" [ref=e377]:
+                          - img
+                          - generic [ref=e378]: Create rule
+                    - row "Checking ••0297 $1,374,471.14 Create rule" [ref=e379] [cursor=pointer]:
+                      - button [ref=e380]:
+                        - img [ref=e381]
+                      - cell "Checking ••0297" [ref=e383]:
+                        - link "Checking ••0297" [ref=e385]:
+                          - /url: /accounts/depository/party-mercurybankid1
+                          - img [ref=e387]
+                          - paragraph [ref=e391]: Checking ••0297
+                      - cell "$1,374,471.14" [ref=e392]:
+                        - link "$1,374,471.14" [ref=e394]:
+                          - /url: /accounts/depository/party-mercurybankid1
+                          - generic [ref=e396]:
+                            - text: $1,374,471
+                            - generic [ref=e397]: ".14"
+                      - cell "Create rule" [ref=e398]:
+                        - button "Create rule" [ref=e399]:
+                          - img
+                          - generic [ref=e400]: Create rule
+                    - row "Savings ••7658 $1,320,201.00 Create rule" [ref=e401] [cursor=pointer]:
+                      - button [ref=e402]:
+                        - img [ref=e403]
+                      - cell "Savings ••7658" [ref=e405]:
+                        - link "Savings ••7658" [ref=e407]:
+                          - /url: /accounts/depository/party-mercurybankid4
+                          - img [ref=e409]
+                          - paragraph [ref=e413]: Savings ••7658
+                      - cell "$1,320,201.00" [ref=e414]:
+                        - link "$1,320,201.00" [ref=e416]:
+                          - /url: /accounts/depository/party-mercurybankid4
+                          - generic [ref=e418]:
+                            - text: $1,320,201
+                            - generic [ref=e419]: ".00"
+                      - cell "Create rule" [ref=e420]:
+                        - button "Create rule" [ref=e421]:
+                          - img
+                          - generic [ref=e422]: Create rule
+                    - row "Create account" [ref=e423] [cursor=pointer]:
+                      - cell "Create account" [ref=e424]:
+                        - img [ref=e426]
+                        - generic [ref=e428]: Create account
+                - generic [ref=e429]: This table row is also a link. Click on the row with your cursor or press the Enter key to activate the link.
+              - status [ref=e430]
+      - button [ref=e433] [cursor=pointer]:
+        - img [ref=e434]
+  - alert

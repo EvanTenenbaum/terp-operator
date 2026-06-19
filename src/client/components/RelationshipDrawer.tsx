@@ -20,7 +20,7 @@ export function relationshipAvailable(row: GridRow | null, view: ViewKey) {
 export function RelationshipSummaryBody({ row, view }: { row: GridRow; view: ViewKey }) {
   const customerId = inferCustomerId(row, view);
   const vendorId = inferVendorId(row, view);
-  const summary = trpc.queries.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
+  const summary = trpc.context.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
   const data = summary.data;
   const customerOpen = (data?.invoices ?? []).reduce((sum, invoice) => sum + Number(invoice.total ?? 0) - Number(invoice.amountPaid ?? 0), 0);
   const vendorOpen = (data?.bills ?? []).reduce((sum, bill) => sum + Number(bill.amount ?? 0) - Number(bill.amountPaid ?? 0), 0);

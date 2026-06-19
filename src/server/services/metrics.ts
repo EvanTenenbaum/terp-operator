@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { db, pingDatabase, pool } from '../db';
 import { getSocketHealth } from '../sockets';
 import { batches, commandJournal, invoices, salesOrders, vendorBills } from '../schema';
-import { checkJournalWritable } from './journal';
+import { checkJournalWritable } from '@/domains/shared/journal';
 import { backgroundWorkersEnabled, getWorkerStatus } from './backgroundWorkers';
 import type { DashboardData, HealthStatus, KpiMetric, Role } from '../../shared/types';
 import { canRole } from '../rbac';

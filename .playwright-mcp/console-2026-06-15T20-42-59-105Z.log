@@ -1,0 +1,6 @@
+[    1147ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ https://terp-agro-staging-5asc2.ondigitalocean.app/assets/grid-DMWiLBJZ.js:31
+[    1147ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ https://terp-agro-staging-5asc2.ondigitalocean.app/assets/grid-DMWiLBJZ.js:31
+[   13005ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ https://terp-agro-staging-5asc2.ondigitalocean.app/assets/grid-DMWiLBJZ.js:31
+[   13005ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ https://terp-agro-staging-5asc2.ondigitalocean.app/assets/grid-DMWiLBJZ.js:31
+[   13005ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ https://terp-agro-staging-5asc2.ondigitalocean.app/assets/grid-DMWiLBJZ.js:31
+[   13006ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ https://terp-agro-staging-5asc2.ondigitalocean.app/assets/grid-DMWiLBJZ.js:31

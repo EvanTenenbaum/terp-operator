@@ -244,6 +244,19 @@ export const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
 
 export const EMPTY_ROWS: GridRow[] = [];
 
+/**
+ * @deprecated GridJourney is being refactored into PrimaryGridView (src/client/templates/GridView.tsx)
+ * as part of the Mercury UX retrofit. See docs/design-system/decisions-log.md (2026-06-16 entry).
+ *
+ * **Strategy:** Refactor in place — no parallel build. GridJourney's body moves to
+ * templates/GridView.tsx, the export is renamed to PrimaryGridView, and GridJourney
+ * is re-exported as a @deprecated alias for one release cycle.
+ *
+ * **Current callers:** ClientLedgerView, CloseoutView, PaymentsView.
+ * **Already migrated:** PurchaseOrdersView (uses templates/GridView.tsx directly).
+ *
+ * **Do not add new features to this component.** New views use GridView/PrimaryGridView.
+ */
 export function GridJourney({
   view,
   title,

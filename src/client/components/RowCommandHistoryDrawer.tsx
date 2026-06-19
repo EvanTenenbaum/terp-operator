@@ -14,7 +14,7 @@ import { InspectorDrawer } from './templates';
  */
 export function RowCommandHistoryBody({ row }: { row: GridRow }) {
   const commands = trpc.queries.relatedCommands.useQuery({ entityId: String(row.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(row.id) });
-  const movements = trpc.queries.inventoryMovements.useQuery({ batchId: String(row.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(row.id) });
+  const movements = trpc.inventory.inventoryMovements.useQuery({ batchId: String(row.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(row.id) });
   const me = trpc.auth.me.useQuery();
   const { runCommand, isRunning } = useCommandRunner();
   const canReverse = me.data?.role === 'manager' || me.data?.role === 'owner';

@@ -51,7 +51,7 @@ export function VendorBillDetailsTab({ vendorBillId, row, role }: VendorBillDeta
   const canWrite = effectiveRole !== 'viewer';
   const canVoid = effectiveRole === 'manager' || effectiveRole === 'owner';
 
-  const paymentsQuery = trpc.queries.vendorPayments.useQuery(
+  const paymentsQuery = trpc.payments.vendorPayments.useQuery(
     { vendorBillId },
     { enabled: Boolean(vendorBillId) }
   );

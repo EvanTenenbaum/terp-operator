@@ -1,0 +1,90 @@
+{
+  "source": "https://demo.mercury.com/dashboard",
+  "tokens": {
+    "spacing": {
+      "scale": [4, 8, 12, 16, 24],
+      "base_unit": 4
+    },
+    "typography": {
+      "families": ["Arcadia Text", "Arcadia Display"],
+      "scale": [
+        { "role": "h1", "size": "28px", "weight": "380", "family": "Arcadia Display", "lineHeight": "36px" },
+        { "role": "table", "size": "16px", "weight": "400", "family": "Arcadia Text", "lineHeight": "16px" },
+        { "role": "body", "size": "15px", "weight": "400", "family": "Arcadia Text", "lineHeight": "24px" }
+      ]
+    },
+    "colors": [
+      { "role": "page-background", "value": "#FBFCFD" },
+      { "role": "card-surface", "value": "#FFFFFF" },
+      { "role": "text-primary", "value": "#1E1E2A" },
+      { "role": "text-secondary", "value": "#535461" },
+      { "role": "text-muted", "value": "#70707D" },
+      { "role": "accent", "value": "#5266EB" },
+      { "role": "success", "value": "#036E43" },
+      { "role": "error", "value": "#B0175F" },
+      { "role": "divider", "value": "rgba(112,115,147,0.1)" },
+      { "role": "hover-fill", "value": "rgba(112,115,147,0.16)" }
+    ],
+    "radius": ["4px", "5px", "8px", "12px", "16px", "50%", "100%"],
+    "shadows": [
+      {
+        "tier": "card",
+        "value": "rgba(175,178,206,0.56) 0px 0px 2px 0px, rgba(4,4,52,0.1) 0px 1px 4px 0px",
+        "layers": 2
+      },
+      {
+        "tier": "elevated",
+        "value": "rgba(183,187,219,0.14) 0px 1px 4px 0px, rgba(175,178,206,0.9) 0px 0px 1px 0px, rgba(14,14,45,0.08) 0px 8px 12px 0px, rgba(4,4,52,0.02) 0px 14px 20px 0px",
+        "layers": 4
+      }
+    ],
+    "image_ratios": [
+      { "usage": "avatar", "ratio": "1:1" },
+      { "usage": "merchant-logo", "ratio": "1:1" }
+    ],
+    "grid": {
+      "container_width": "1440px",
+      "max_width": "none",
+      "columns_variable": "2-5",
+      "gutter": ["16px", "24px"]
+    },
+    "table": {
+      "row_height": "51px",
+      "row_font_size": "16px",
+      "row_line_height": "16px",
+      "header_columns": ["checkbox", "Date", "To/From", "Amount", "Account", "Method", "Category", "GL Code", "Attachment"],
+      "sortable_columns": ["Date", "To/From", "Amount", "Account"],
+      "actions": ["click-to-navigate", "multi-select", "inline-category-edit", "inline-gl-code-edit"]
+    }
+  },
+  "taste": [
+    {
+      "name": "Rows Over Cards — The Table IS the Interface",
+      "trigger": "When displaying hundreds of financial transactions, payments, and invoices requiring rapid scanning and comparison",
+      "decision": "Chose dense 51px table rows as the primary interaction surface on every functional page over card-based browsing layouts (Linear, Notion style) or list views",
+      "reason": "Financial operators scan for patterns across amounts, dates, and counterparties — not browse visually. A card layout shows 4-5 items per viewport; a table shows 13-14. Mercury trusts that operators know what they're looking for and optimizes for finding it fast rather than making it look explorable.",
+      "evidence": ["51px row height (3.2:1 height-to-font ratio)", "16px font at 16px line-height", "9-column table with 100 rows on Transactions page", "5 of 5 functional pages use <table> as primary surface", "No card/list view toggle exists — there is no alternative view"]
+    },
+    {
+      "name": "Blue-Tinted Atmosphere — No Pure Gray Anywhere",
+      "trigger": "When choosing neutral colors for a banking interface that needs to feel trustworthy without feeling decorative",
+      "decision": "Chose systematic blue-violet tinting across every neutral color over pure mathematical grays (#888, #CCC, #F5F5F5)",
+      "reason": "Pure gray feels like a spreadsheet — functional but anonymous and mechanical. A product handling millions in financial transactions needs implicit trust signals. Blue-tinted neutrals at low saturation register as 'this feels right' rather than 'this is blue' — they're an atmospheric choice that signals care without decoration. A bank that cares about its neutral palette is implicitly a bank that cares about precision.",
+      "evidence": ["Near-black text: rgb(30,30,42) — blue-shifted, not #1A1A1A", "Page background: rgb(251,252,253) — blue-tinted, not #FAFAFA", "Dividers: rgba(112,115,147,0.1) — explicitly blue-violet", "All shadow colors use blue/navy tints: rgba(175,178,206,...), rgba(4,4,52,...)", "Zero pure-gray hex values detected across 5 pages analyzed"]
+    },
+    {
+      "name": "Stillness as Polish — Motion Only Where It's Felt, Never Where It's Watched",
+      "trigger": "When adding interactive feedback to a tool used daily for hours by professional operators",
+      "decision": "Chose 0.14-0.20s transform/opacity-only transitions over longer, richer, or layout-affecting animations. No width, height, or margin is ever animated. prefers-reduced-motion is respected.",
+      "reason": "In a daily-use professional tool, animation that demands attention becomes exhausting by hour two. A 300ms dropdown animation feels snappy on first use but sluggish by the hundredth. Mercury's motion acknowledges that the operator isn't here to watch — they're here to work. Animations confirm actions (hover, press, expand) without stealing focus. Respecting reduced motion means operators with vestibular sensitivity aren't excluded from professional use of the product.",
+      "evidence": ["All transitions: 0.14-0.20s duration", "Only composite properties animated: transform, opacity, color, filter", "Zero width/height/margin/padding animations detected", "Custom cubic-bezier(0.35, 0, 0.25, 1) on panel transitions only", "prefers-reduced-motion: true — media query detected and respected"]
+    },
+    {
+      "name": "Two Fonts, One Unusual Weight — Brand Voice Without Brand Noise",
+      "trigger": "When establishing typographic personality for a financial product that must feel credible, not playful",
+      "decision": "Chose exactly two fonts — Arcadia Text (body/UI) and Arcadia Display (headings only) — with only two weights (400 and a custom 380) over a multi-weight system or additional typefaces",
+      "reason": "Most SaaS products differentiate through color or illustration; Mercury does it through typographic restraint. The 380-weight Display heading is the single distinguishing typographic gesture — noticeably lighter than Regular but not thin, it feels 'designed' without feeling decorated. Using only two weights across two fonts means every text element has exactly one correct style, eliminating the weight proliferation that makes interfaces feel heavy. The body text at 400-weight Arcadia Text is maximally readable at 15-16px for long data-entry and data-review sessions.",
+      "evidence": ["Only 2 font families detected across 5 pages: Arcadia Text, Arcadia Display", "Only 2 weights: 380 (h1 only) and 400 (all other text)", "h1: 28px/380/Arcadia Display — the only use of Display face", "Body: 15px/400/Arcadia Text", "Table rows: 16px/400/Arcadia Text", "No bold, italic, or third font family detected", "No mathematical type scale — sizes are functionally chosen (28→16→15)"]
+    }
+  ]
+}

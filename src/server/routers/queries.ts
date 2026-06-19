@@ -5,18 +5,67 @@ import { db, pool } from '../db';
 import { protectedProcedure, publicProcedure, router } from '../trpc';
 import { getDashboardData, getHealth } from '../services/metrics';
 import { getCloseoutSafety } from '../services/closeout';
-import { getExternalReceipt, getInternalReceipt, renderPrintHtml, renderSignalText } from '../services/documentSnapshots';
 import { commandLabels, commandMinRole, commandNames, internalOnlyCommandNames, reversalPolicies } from '../../shared/commandCatalog';
+import type { GridRow } from '../../shared/types';
+import { statusCountsInputSchema, comboboxOptionsInputSchema, gridSummaryInputSchema } from '../../shared/schemas';
+import { comboboxEntityTypeSchema } from '../../shared/schemas';
+type ComboboxEntityType = z.infer<typeof comboboxEntityTypeSchema>;
+import {
+  PurchaseOrderStatus,
+  PurchaseOrderLineStatus,
+  SalesOrderStatus,
+  SalesOrderLineStatus,
+  PurchaseReceiptStatus,
+  BatchStatus,
+  InvoiceStatus,
+  PaymentStatus,
+  VendorBillStatus,
+  VendorPaymentStatus,
+  PickListStatus,
+  FulfillmentLineStatus,
+  ConnectorRequestStatus,
+  CustomerNeedStatus,
+  VendorSupplyStatus,
+  MatchmakingMatchStatus,
+  InvoiceDisputeStatus,
+  PhotographyQueueStatus,
+  ItemStatus,
+  CorrectionJournalEntryStatus,
+  CommandJournalStatus,
+  DocumentSnapshotStatus,
+  RefereeCreditStatus,
+  BatchMediaStatus,
+} from '../../shared/statuses';
 import { getViewerSafeSnapshot } from '../../shared/customerSheetSnapshot';
 import { commandJournal, paymentProcessors, processorFees } from '../schema';
 import { assertRole, canRole } from '../rbac';
 import { projectLandedCostException } from '../projections/landedCostException';
 import { LANDED_COST_EXCEPTION_LATERAL_JOIN_SQL } from '../projections/landedCostExceptionSql';
+import {
+  gridFiltersSchema,
+  gridSortSchema,
+  type GridFilters,
+  type GridSort,
+} from '../../shared/gridFilters';
+import {
+  BASE_WHERE,
+  statusSchemaFor,
+  EQ_ALLOWLIST,
+  DATE_RANGE_ALLOWLIST,
+  SORT_ALLOWLIST,
+  GROUP_BY_ALLOWLIST,
+  buildGridWhereClause,
+} from './gridWhere';
+import { entityTabsRouter } from './queries.entityTabs';
+import { detailQueriesRouter } from './queries.detail';
 
-// Exported so the HTTP CSV export route (`/api/export/:view.csv`, see #35
-// FE-M1) can share the same view whitelist, SQL, and column ordering as the
-// in-app tRPC export, keeping the two surfaces in lockstep.
-export const viewSchema = z.enum(['reports', 'intake', 'purchaseOrders', 'sales', 'matchmaking', 'orders', 'payments', 'inventory', 'clients', 'vendors', 'fulfillment', 'connectors', 'recovery', 'closeout', 'referees', 'processors', 'photography', 'purchaseReceipts', 'items', 'disputes']);
+// viewSchema is now the canonical source in src/shared/grid-types.ts
+// (extracted to break circular dependency between queries.ts <-> gridWhere.ts).
+// Re-exported here for backward compat — existing callers (exportCsvRoute,
+// commandBus) are migrated, but tests and downstream consumers may still
+// reference this path.
+import { viewSchema } from '../../shared/grid-types';
+export { viewSchema };
 
 // GH #309: server-side TTL cache for reference data (lookup tables that rarely change).
 // Avoids firing 15 parallel DB queries on every page load/refetch.
@@ -121,6 +170,74 @@ export function invalidateReferenceCache() {
   _referenceCacheAt = 0;
 }
 
+// ─── statusCounts per-entity registry (§1.4 of procedures/statusCounts.md) ──
+
+type StatusCountsEntry = {
+  table: string;
+  statusEnum: z.ZodEnum<[string, ...string[]]>;
+  minRole: 'operator' | 'manager';
+  baseWhere?: string;
+};
+
+const STATUS_COUNTS_REGISTRY: Record<string, StatusCountsEntry> = {
+  purchaseOrder:        { table: 'purchase_orders',      statusEnum: PurchaseOrderStatus,         minRole: 'operator' },
+  purchaseOrderLines:   { table: 'purchase_order_lines',  statusEnum: PurchaseOrderLineStatus,     minRole: 'operator' },
+  salesOrder:           { table: 'sales_orders',          statusEnum: SalesOrderStatus,            minRole: 'operator' },
+  salesOrderLines:      { table: 'sales_order_lines',     statusEnum: SalesOrderLineStatus,        minRole: 'operator' },
+  purchaseReceipt:      { table: 'purchase_receipts',     statusEnum: PurchaseReceiptStatus,       minRole: 'operator' },
+  batch:                { table: 'batches',               statusEnum: BatchStatus,                 minRole: 'operator', baseWhere: 'archived_at IS NULL' },
+  invoice:              { table: 'invoices',              statusEnum: InvoiceStatus,               minRole: 'operator' },
+  payment:              { table: 'payments',              statusEnum: PaymentStatus,               minRole: 'operator' },
+  vendorBill:           { table: 'vendor_bills',          statusEnum: VendorBillStatus,            minRole: 'operator' },
+  vendorPayment:        { table: 'vendor_payments',       statusEnum: VendorPaymentStatus,         minRole: 'manager' },
+  pickList:             { table: 'pick_lists',            statusEnum: PickListStatus,              minRole: 'operator' },
+  fulfillmentLine:      { table: 'fulfillment_lines',     statusEnum: FulfillmentLineStatus,       minRole: 'operator' },
+  connectorRequest:     { table: 'connector_requests',    statusEnum: ConnectorRequestStatus,      minRole: 'operator' },
+  customerNeeds:        { table: 'customer_needs',        statusEnum: CustomerNeedStatus,          minRole: 'operator' },
+  vendorSupply:         { table: 'vendor_supply',         statusEnum: VendorSupplyStatus,          minRole: 'operator' },
+  matchmakingMatch:     { table: 'matchmaking_matches',   statusEnum: MatchmakingMatchStatus,      minRole: 'operator' },
+  invoiceDispute:       { table: 'invoice_disputes',      statusEnum: InvoiceDisputeStatus,        minRole: 'operator' },
+  photographyQueue:     { table: 'photography_queue',     statusEnum: PhotographyQueueStatus,      minRole: 'operator' },
+  item:                 { table: 'items',                 statusEnum: ItemStatus,                  minRole: 'operator' },
+  correctionJournalEntry: { table: 'correction_journal_entries', statusEnum: CorrectionJournalEntryStatus, minRole: 'operator' },
+  commandJournal:       { table: 'command_journal',       statusEnum: CommandJournalStatus,         minRole: 'manager' },
+  documentSnapshot:     { table: 'document_snapshots',    statusEnum: DocumentSnapshotStatus,       minRole: 'operator' },
+  refereeCredit:        { table: 'referee_credits',       statusEnum: RefereeCreditStatus,          minRole: 'operator' },
+  batchMedia:           { table: 'batch_media',           statusEnum: BatchMediaStatus,             minRole: 'operator' },
+};
+
+// ─── gridInputSchema — extended input for grid v2, with backwards-compat
+// `view` alias accepted alongside new `entityType`.
+export const gridInputSchemaRaw = z.object({
+  entityType: viewSchema.optional(),
+  view: viewSchema.optional(), // deprecated alias; removed in Phase 4
+  filters: gridFiltersSchema.optional(),
+  sort: gridSortSchema.optional(),
+  groupBy: z.string().min(1).max(40).optional(),
+  limit: z.number().int().min(1).max(1000).nullable().default(null),
+  offset: z.number().int().min(0).default(0)
+}).superRefine((input, ctx) => {
+  if (!input.entityType && !input.view) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['entityType'], message: 'entityType is required.' });
+  }
+  if (input.offset > 0 && !input.sort) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sort'], message: 'sort is required when offset > 0 (deterministic pagination).' });
+  }
+});
+
+export const gridInputSchema = gridInputSchemaRaw.transform((input) => ({
+  ...input,
+  entityType: (input.entityType ?? input.view)!,
+}));
+
+export type GridInput = z.infer<typeof gridInputSchema>;
+
+// Strip non-procedure router properties (_def, createCaller, getErrorShape)
+// before spreading sub-routers into the top-level router. Spreading them raw
+// causes tRPC's recursiveGetPaths to choke on `'router' in undefined`.
+const { _def: _etDef, createCaller: _etCC, getErrorShape: _etES, ...entityTabProcedures } = entityTabsRouter;
+const { _def: _dqDef, createCaller: _dqCC, getErrorShape: _dqES, ...detailQueryProcedures } = detailQueriesRouter;
+
 export const queriesRouter = router({
   dashboard: protectedProcedure.query(({ ctx }) => getDashboardData(ctx.user.role)),
   // GH #359: Credit watch watchlist — top customers by credit risk.
@@ -199,17 +316,526 @@ export const queriesRouter = router({
     _referenceCacheAt = Date.now();
     return _referenceCache;
   }),
-  grid: protectedProcedure.input(z.object({ view: viewSchema })).query(async ({ input, ctx }) => {
-    const rows = (await pool.query(gridSql(input.view))).rows;
+  // P0-2 / T-B-02: Entity-aware autocomplete — one endpoint for 11 entity
+  // types with per-entity search columns, status narrowing, and role gating.
+  // Feeds ComboboxCellEditor, FilterToolbar, VendorSearch, CustomerSearch.
+  comboboxOptions: protectedProcedure
+    .input(comboboxOptionsInputSchema)
+    .query(async ({ input, ctx }) => {
+      const { entityType, search, limit, filters } = input;
+
+      // All supported entities require operator+ (matching queries.grid parity).
+      assertRole(ctx.user, 'operator');
+
+      // Per-entity allowed filter keys — reject anything not in the set.
+      const ALLOWED_FILTERS: Record<ComboboxEntityType, readonly string[]> = {
+        customer:        ['tags'],
+        vendor:          ['tags'],
+        staff:           ['roles'],
+        item:            ['status', 'category'],
+        batch:           ['status', 'availableQty'],
+        tag:             [],
+        transactionType: ['direction'],
+        purchaseOrder:   ['status'],
+        salesOrder:      ['status'],
+        invoice:         ['status'],
+        vendorBill:      ['status'],
+      };
+      const allowed = new Set(ALLOWED_FILTERS[entityType]);
+      if (filters) {
+        for (const key of Object.keys(filters)) {
+          if (!allowed.has(key)) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Filter '${key}' not allowed for entityType '${entityType}'.`,
+            });
+          }
+        }
+      }
+
+      // Status narrowing: re-parse against the canonical per-entity enum.
+      let validatedStatus: string | undefined;
+      if (filters?.status) {
+        const STATUS_SCHEMA: Partial<Record<ComboboxEntityType, z.ZodTypeAny>> = {
+          item:          ItemStatus,
+          batch:         BatchStatus,
+          purchaseOrder: PurchaseOrderStatus,
+          salesOrder:    SalesOrderStatus,
+          invoice:       InvoiceStatus,
+          vendorBill:    VendorBillStatus,
+        };
+        const schema = STATUS_SCHEMA[entityType];
+        if (!schema) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Status filter not supported for entityType '${entityType}'.`,
+          });
+        }
+        const parsed = schema.safeParse(filters.status);
+        if (!parsed.success) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Invalid status '${filters.status}' for entityType '${entityType}'.`,
+          });
+        }
+        validatedStatus = parsed.data;
+      }
+
+      // Escape LIKE/ILIKE special characters.
+      const escapeLike = (s: string) => s.replace(/[%_]/g, '\\$&');
+      const hasSearch = search.length > 0;
+
+      // Build parameterized query.
+      const params: unknown[] = [];
+      const add = (v: unknown) => { params.push(v); return `$${params.length}`; };
+
+      let select = '';
+      let from = '';
+      const where: string[] = [];
+      const searchCols: string[] = [];
+      let order = '';
+
+      switch (entityType) {
+        case 'customer': {
+          select = `c.id::text as id, c.name as label, null::text as sublabel, null::text as status, null::numeric as "availableQty", c.balance::numeric(14,2) as balance`;
+          from = `customers c`;
+          where.push(`c.name not like 'reaper-test-%'`);
+          const customerTags = filters?.tags as string[] | undefined;
+          if (customerTags?.length) where.push(`c.tags && ${add(customerTags)}::text[]`);
+          searchCols.push('c.name', 'c.id::text');
+          order = `c.balance desc, c.name asc`;
+          break;
+        }
+        case 'vendor': {
+          select = `v.id::text as id, v.name as label, null::text as sublabel, null::text as status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `vendors v`;
+          const vendorTags = filters?.tags as string[] | undefined;
+          if (vendorTags?.length) where.push(`v.tags && ${add(vendorTags)}::text[]`);
+          searchCols.push('v.name', 'v.id::text');
+          order = `v.name asc`;
+          break;
+        }
+        case 'staff': {
+          select = `u.id::text as id, u.name as label, u.role::text as sublabel, null::text as status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `users u`;
+          where.push(`u.active`);
+          const rolesFilter = filters?.roles as string[] | undefined;
+          if (rolesFilter?.length) where.push(`u.role = any(${add(rolesFilter)}::text[])`);
+          searchCols.push('u.name', 'u.email');
+          order = `u.role asc, u.name asc`;
+          break;
+        }
+        case 'item': {
+          select = `i.id::text as id, i.name as label, case when i.alias <> i.name then i.alias else null end as sublabel, i.status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `items i`;
+          if (validatedStatus) {
+            where.push(`i.status = ${add(validatedStatus)}`);
+          } else {
+            where.push(`i.status = 'active'`);
+          }
+          if (filters?.category) where.push(`i.category = ${add(filters.category)}`);
+          searchCols.push('i.name', 'i.alias', 'i.sku');
+          order = `i.name asc`;
+          break;
+        }
+        case 'batch': {
+          select = `b.id::text as id, coalesce(i.alias, b.name) as label, concat(b.batch_code, ' · ', v.name) as sublabel, b.status, b.available_qty::numeric(12,3) as "availableQty", null::numeric as balance, case when b.available_qty <= 0 then 'Out of stock' else null end as "disabledReason"`;
+          from = `batches b left join items i on i.id = b.item_id left join vendors v on v.id = b.vendor_id`;
+          if (validatedStatus) {
+            where.push(`b.status = ${add(validatedStatus)}`);
+          }
+          if (filters?.availableQty === 'positive') {
+            where.push(`b.available_qty > 0`);
+          }
+          searchCols.push('b.batch_code', 'b.name', 'b.lot_code', 'b.shorthand', 'b.source_code');
+          order = `b.created_at desc`;
+          break;
+        }
+        case 'tag': {
+          select = `t.id::text as id, t.label, t.slug as sublabel, null::text as status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `tag_catalog t`;
+          where.push(`t.is_active`);
+          searchCols.push('t.label', 't.slug');
+          order = `t.label asc`;
+          break;
+        }
+        case 'transactionType': {
+          select = `tt.id::text as id, tt.label, tt.direction as sublabel, null::text as status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `transaction_types tt`;
+          where.push(`tt.is_active`);
+          if (filters?.direction) where.push(`tt.direction = ${add(filters.direction)}`);
+          searchCols.push('tt.label', 'tt.slug');
+          order = `tt.is_system desc, tt.direction, tt.label`;
+          break;
+        }
+        case 'purchaseOrder': {
+          select = `po.id::text as id, po.po_no as label, concat(v.name, ' · ', po.status) as sublabel, po.status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `purchase_orders po left join vendors v on v.id = po.vendor_id`;
+          if (validatedStatus) where.push(`po.status = ${add(validatedStatus)}`);
+          searchCols.push('po.po_no', 'v.name');
+          order = `po.created_at desc`;
+          break;
+        }
+        case 'salesOrder': {
+          select = `so.id::text as id, so.order_no as label, concat(c.name, ' · ', so.status) as sublabel, so.status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `sales_orders so left join customers c on c.id = so.customer_id`;
+          if (validatedStatus) where.push(`so.status = ${add(validatedStatus)}`);
+          searchCols.push('so.order_no', 'c.name');
+          order = `so.created_at desc`;
+          break;
+        }
+        case 'invoice': {
+          select = `i.id::text as id, i.invoice_no as label, concat(c.name, ' · ', i.status, ' · ', (i.total - i.amount_paid)::numeric(14,2)) as sublabel, i.status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `invoices i left join customers c on c.id = i.customer_id`;
+          if (validatedStatus) where.push(`i.status = ${add(validatedStatus)}`);
+          searchCols.push('i.invoice_no', 'c.name');
+          order = `i.created_at desc`;
+          break;
+        }
+        case 'vendorBill': {
+          select = `vb.id::text as id, vb.bill_no as label, concat(v.name, ' · ', vb.status) as sublabel, vb.status, null::numeric as "availableQty", null::numeric as balance`;
+          from = `vendor_bills vb left join vendors v on v.id = vb.vendor_id`;
+          if (validatedStatus) where.push(`vb.status = ${add(validatedStatus)}`);
+          searchCols.push('vb.bill_no', 'v.name');
+          order = `vb.created_at desc`;
+          break;
+        }
+      }
+
+      // Search condition — single ILIKE across all searchable columns.
+      if (hasSearch) {
+        const pattern = `%${escapeLike(search)}%`;
+        const p = add(pattern);
+        where.push(`(${searchCols.map((col) => `${col} ilike ${p}`).join(' or ')})`);
+
+        // Anchored-priority: rows where the primary label column starts with
+        // the search term sort first.
+        const anchored = `${escapeLike(search)}%`;
+        const ap = add(anchored);
+        order = `case when ${searchCols[0]} ilike ${ap} then 0 else 1 end, ${order}`;
+      }
+
+      const fetchLimit = limit + 1; // fetch one extra for truncation detection
+      const limitP = add(fetchLimit);
+      const whereClause = where.length ? `where ${where.join(' and ')}` : '';
+
+      const sql = `select ${select} from ${from} ${whereClause} order by ${order} limit ${limitP}`;
+
+      const result = await pool.query(sql, params);
+      const rows = result.rows;
+      const truncated = rows.length > limit;
+      if (truncated) rows.pop();
+
+      interface LookupResultRow {
+        id: string;
+        label: string;
+        sublabel?: string;
+        status?: string;
+        availableQty?: number;
+        balance?: number;
+        disabledReason?: string;
+      }
+      const options: LookupResultRow[] = rows.map((row: Record<string, unknown>) => ({
+        id:             String(row.id),
+        label:          String(row.label ?? ''),
+        sublabel:       row.sublabel != null ? String(row.sublabel) : undefined,
+        status:         row.status != null ? String(row.status) : undefined,
+        availableQty:   row.availableQty != null ? Number(row.availableQty) : undefined,
+        balance:        row.balance != null ? Number(row.balance) : undefined,
+        disabledReason: row.disabledReason != null ? String(row.disabledReason) : undefined,
+      }));
+
+      let noResultsHint: string | undefined;
+      if (options.length === 0) {
+        const parts: string[] = [];
+        if (hasSearch) parts.push(`No results for "${search}".`);
+        else parts.push('No matching records.');
+        if (filters && Object.keys(filters).length > 0) parts.push('Try clearing filters.');
+        else if (hasSearch) parts.push('Try a different search term.');
+        noResultsHint = parts.join(' ');
+      }
+
+      return {
+        entityType,
+        options,
+        noResultsHint,
+        truncated,
+      };
+    }),
+  grid: protectedProcedure.input(gridInputSchema).query(async ({ input, ctx }) => {
+    const entityType = input.entityType;
+    const filtersInput = input.filters;
+    const sortInput = input.sort;
+    const groupBy = input.groupBy;
+    const limit = input.limit;
+    const offset = input.offset;
+
+    // ── Per-entity allowlist enforcement (§3.1–3.4) ──
+
+    // 3.1 Status: re-parse against canonical status enum
+    if (filtersInput?.status) {
+      const schema = statusSchemaFor(entityType);
+      if (schema) {
+        const parsed = schema.safeParse(filtersInput.status);
+        if (!parsed.success) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Invalid status "${filtersInput.status}" for entity "${entityType}".`,
+          });
+        }
+      }
+    }
+
+    // 3.2 eq: each key must be in the allowlist
+    if (filtersInput?.eq) {
+      const allowed = EQ_ALLOWLIST[entityType] ?? [];
+      for (const key of Object.keys(filtersInput.eq)) {
+        if (!allowed.includes(key)) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `eq key "${key}" is not allowed for entity "${entityType}".`,
+          });
+        }
+      }
+    }
+
+    // 3.3 dateRange.field must be in allowlist
+    if (filtersInput?.dateRange?.field) {
+      const allowed = DATE_RANGE_ALLOWLIST[entityType] ?? [];
+      if (!allowed.includes(filtersInput.dateRange.field)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `dateRange field "${filtersInput.dateRange.field}" is not allowed for entity "${entityType}".`,
+        });
+      }
+    }
+
+    // 3.4 sort.field must be in allowlist
+    if (sortInput) {
+      const allowed = SORT_ALLOWLIST[entityType] ?? [];
+      if (!allowed.includes(sortInput.field)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `sort field "${sortInput.field}" is not allowed for entity "${entityType}".`,
+        });
+      }
+    }
+
+    // 3.4 groupBy must be in allowlist
+    if (groupBy) {
+      const allowed = GROUP_BY_ALLOWLIST[entityType] ?? [];
+      if (!allowed.includes(groupBy)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `groupBy field "${groupBy}" is not allowed for entity "${entityType}".`,
+        });
+      }
+    }
+
+    // ── Build and execute ──
+    const { sql, params } = buildGridV2Query(
+      entityType,
+      filtersInput,
+      sortInput,
+      groupBy,
+      limit,
+      offset,
+    );
+    const result = await pool.query<Record<string, unknown>>(sql, params.length > 0 ? params : undefined);
+    const allRows = result.rows;
+
+    // Extract __totalRows from the first row (it's the same on every row)
+    const totalRows = allRows.length > 0
+      ? Number(allRows[0]?.['__totalRows'] ?? allRows.length)
+      : 0;
+
+    // Strip the internal column from the response
+    const rows: GridRow[] = allRows.map((row) => {
+      const { __totalRows: _total, ...rest } = row as Record<string, unknown>;
+      return rest as GridRow;
+    });
+
+    // ── Role projection (v1 parity, §6) ──
     const canViewSensitive = canRole(ctx.user.role, 'manager');
-    if (input.view === 'sales' && !canViewSensitive) {
-      return rows.map((row) => ({ ...row, internalMargin: null, marginWaivedTotal: null }));
+    let projectedRows: GridRow[];
+    if (entityType === 'sales' && !canViewSensitive) {
+      projectedRows = rows.map((row) => ({ ...row, internalMargin: null, marginWaivedTotal: null } as GridRow));
+    } else if (entityType === 'inventory' && !canViewSensitive) {
+      projectedRows = rows.map((row) => ({ ...row, unitCost: null } as GridRow));
+    } else {
+      projectedRows = rows as GridRow[];
     }
-    if (input.view === 'inventory' && !canViewSensitive) {
-      return rows.map((row) => ({ ...row, unitCost: null }));
-    }
-    return rows;
+
+    // Return array with metadata properties for backwards compat:
+    // existing callers access .length/.map()/etc. as before;
+    // new callers access .entityType and .totalRows.
+    const gridResult = projectedRows as GridRow[] & { entityType: string; totalRows: number };
+    gridResult.entityType = entityType;
+    gridResult.totalRows = totalRows;
+    return gridResult;
   }),
+  // ─── statusCounts — per-entity status distribution for ViewTabBar ────────
+  statusCounts: protectedProcedure
+    .input(statusCountsInputSchema)
+    .query(async ({ input, ctx }) => {
+      const entry = STATUS_COUNTS_REGISTRY[input.entityType];
+      if (!entry) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: `Unknown entity type: ${input.entityType}` });
+      }
+      assertRole(ctx.user, entry.minRole);
+
+      const { table, statusEnum, baseWhere } = entry;
+      const whereClause = baseWhere ? `WHERE ${baseWhere}` : '';
+
+      const { rows } = await pool.query<{ status: string; cnt: number }>(
+        `SELECT status, count(*)::int AS cnt FROM ${table} ${whereClause} GROUP BY status`
+      );
+
+      // Build lookup from DB results
+      const dbCounts = new Map<string, number>();
+      for (const row of rows) {
+        dbCounts.set(row.status, row.cnt);
+      }
+
+      const enumValues = statusEnum.options as readonly string[];
+
+      // §4.1 invariant 4: phantom status in DB → INTERNAL_SERVER_ERROR
+      for (const row of rows) {
+        if (!enumValues.includes(row.status)) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Status '${row.status}' on ${input.entityType} is not in canonical enum.`
+          });
+        }
+      }
+
+      // §4.1 invariants 2–3: zero-fill, enum declaration order
+      const statuses = enumValues.map((status) => ({
+        status,
+        count: dbCounts.get(status) ?? 0,
+      }));
+
+      return { entityType: input.entityType, statuses };
+    }),
+  // ─── gridSummary — Aggregate summary for grid view toolbar (T-B-03) ──────
+  gridSummary: protectedProcedure
+    .input(gridSummaryInputSchema)
+    .query(async ({ input }) => {
+      const { entityType, filters: filtersInput } = input;
+
+      const ENTITY_MAP: Record<string, { table: string; currencyCol?: string; qtyCol?: string }> = {
+        purchaseOrder:   { table: 'purchase_orders',   currencyCol: 'total' },
+        salesOrder:      { table: 'sales_orders',      currencyCol: 'total' },
+        batch:           { table: 'batches',           qtyCol: 'available_qty' },
+        payment:         { table: 'payments',          currencyCol: 'amount' },
+        invoice:         { table: 'invoices',          currencyCol: 'total' },
+        purchaseReceipt: { table: 'purchase_receipts' },
+        vendorBill:      { table: 'vendor_bills',      currencyCol: 'amount' },
+        vendorPayment:   { table: 'vendor_payments',   currencyCol: 'amount' },
+        fulfillmentLine: { table: 'fulfillment_lines' },
+      };
+
+      const mapping = ENTITY_MAP[entityType];
+      if (!mapping) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: `Unknown entity type: ${entityType}` });
+      }
+
+      const { table, currencyCol, qtyCol } = mapping;
+
+      // Build WHERE clause from grid v2 filter shape
+      const conditions: string[] = [];
+      const params: unknown[] = [];
+      let p = 1;
+
+      const escapeLike = (s: string) => s.replace(/[%_]/g, '\\$&');
+
+      if (filtersInput?.status) {
+        conditions.push(`status = $${p++}`);
+        params.push(filtersInput.status);
+      }
+
+      if (filtersInput?.text) {
+        const textCols = ['name', 'notes'];
+        const ors: string[] = [];
+        const pat = `%${escapeLike(filtersInput.text)}%`;
+        for (const col of textCols) {
+          ors.push(`${col} ILIKE $${p++}`);
+          params.push(pat);
+        }
+        conditions.push(`(${ors.join(' OR ')})`);
+      }
+
+      if (filtersInput?.dateRange) {
+        const field = filtersInput.dateRange.field;
+        if (filtersInput.dateRange.from) {
+          conditions.push(`${field} >= $${p++}`);
+          params.push(filtersInput.dateRange.from);
+        }
+        if (filtersInput.dateRange.to) {
+          conditions.push(`${field} <= $${p++}`);
+          params.push(filtersInput.dateRange.to);
+        }
+      }
+
+      if (filtersInput?.eq) {
+        for (const [key, value] of Object.entries(filtersInput.eq)) {
+          if (value === null) {
+            conditions.push(`${key} IS NULL`);
+          } else {
+            conditions.push(`${key} = $${p++}`);
+            params.push(value);
+          }
+        }
+      }
+
+      if (filtersInput?.tags) {
+        conditions.push(`tags && $${p++}::varchar[]`);
+        params.push(filtersInput.tags);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      // Build aggregate SELECT
+      const selects: string[] = ['count(*)::int as cnt'];
+      if (currencyCol) {
+        selects.push(`COALESCE(SUM(${currencyCol}), 0)::numeric(14,2) as currency_total`);
+      }
+      if (qtyCol) {
+        selects.push(`COALESCE(SUM(${qtyCol}), 0)::numeric(12,3) as qty_sum`);
+      }
+
+      const aggSql = `SELECT ${selects.join(', ')} FROM ${table} ${whereClause}`;
+      const aggResult = await pool.query(aggSql, params);
+      const aggRow = (aggResult.rows[0] ?? {}) as Record<string, unknown>;
+      const count = Number(aggRow.cnt ?? 0);
+      const currencyTotal = currencyCol ? Number(aggRow.currency_total ?? 0) : undefined;
+
+      // Status breakdown
+      const statusSql = `SELECT status, count(*)::int as count FROM ${table} ${whereClause} GROUP BY status ORDER BY status`;
+      const statusResult = await pool.query(statusSql, params);
+      const statusCounts = ((statusResult.rows ?? []) as Array<{ status: string; count: number }>).map(r => ({
+        status: String(r.status),
+        count: Number(r.count),
+      }));
+
+      // Metric labels
+      const metricLabels: Array<{ label: string; value: string }> = [];
+      if (qtyCol && aggRow.qty_sum !== undefined) {
+        metricLabels.push({ label: 'Available Qty', value: Number(aggRow.qty_sum).toFixed(3) });
+      }
+
+      return {
+        entityType,
+        count,
+        currencyTotal,
+        summary: {
+          totalRows: count,
+          currencyTotal,
+          statusCounts,
+          metricLabels,
+        },
+      };
+    }),
   transactionLedger: protectedProcedure.query(async () => {
     const rows = (
       await pool.query(
@@ -536,14 +1162,12 @@ export const queriesRouter = router({
     ]);
 
     const customers: Record<string, { needs: number; matches: number }> = {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const row of customerCounts.rows as any[]) {
+    for (const row of customerCounts.rows as Array<{ id: string; needs: string; matches: string }>) {
       customers[row.id] = { needs: Number(row.needs), matches: Number(row.matches) };
     }
 
     const vendors: Record<string, { supply: number }> = {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const row of vendorCounts.rows as any[]) {
+    for (const row of vendorCounts.rows as Array<{ id: string; supply: string }>) {
       vendors[row.id] = { supply: Number(row.supply) };
     }
 
@@ -585,8 +1209,19 @@ export const queriesRouter = router({
         [q]
       )
     ).rows;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return rows.map((row: any) => ({
+    interface RecoverySearchRow {
+      id: string;
+      commandName: string;
+      actorName: string;
+      status: string;
+      error: string | null;
+      createdAt: string;
+      result: unknown;
+      inputPayload: unknown;
+      affectedIds: string[];
+      reversedByCommandId: string | null;
+    }
+    return (rows as RecoverySearchRow[]).map((row) => ({
       ...row,
       inputPayload: canViewPayload ? row.inputPayload : undefined,
     }));
@@ -929,34 +1564,6 @@ export const queriesRouter = router({
       const raw = result.rows[0] ?? null;
       return getViewerSafeSnapshot(raw, ctx.user?.role ?? null);
     }),
-  receiptPreview: protectedProcedure.input(z.object({ batchIds: z.array(z.string().uuid()).min(1) })).query(async ({ input }) => {
-    const rows = (
-      await pool.query(
-        `select b.id, b.batch_code as "batchCode", b.name, b.vendor_id as "vendorId", v.name as vendor,
-                b.intake_qty as "intakeQty", b.unit_cost as "unitCost", b.status, b.intake_date as "intakeDate",
-                b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
-                (b.intake_qty * b.unit_cost) as subtotal
-         from batches b
-         left join vendors v on v.id = b.vendor_id
-         where b.id = any($1::uuid[])
-         order by b.created_at`,
-        [input.batchIds]
-      )
-    ).rows;
-    const vendorIds = new Set(rows.map((row) => row.vendorId).filter(Boolean));
-    const statuses = new Set(rows.map((row) => row.status));
-    const total = rows.reduce((sum, row) => sum + Number(row.subtotal ?? 0), 0);
-    const conflicts: string[] = [];
-    if (rows.length !== input.batchIds.length) conflicts.push('One or more selected rows no longer exists.');
-    if (vendorIds.size !== 1) conflicts.push('Selected rows must share one vendor.');
-    if ([...statuses].some((status) => !['draft', 'ready'].includes(String(status)))) conflicts.push('Only Draft or Ready rows can be receipted.');
-    for (const row of rows) {
-      if (!row.vendorId) conflicts.push(`${row.name} needs a vendor.`);
-      if (Number(row.intakeQty ?? 0) <= 0) conflicts.push(`${row.name} needs intake quantity above zero.`);
-      if (Number(row.unitCost ?? 0) < 0) conflicts.push(`${row.name} cannot have negative cost.`);
-    }
-    return { rows, total: total.toFixed(2), conflicts, ok: conflicts.length === 0, vendor: rows[0]?.vendor ?? '' };
-  }),
   relatedCommands: protectedProcedure.input(z.object({ entityId: z.string().uuid().optional(), contactId: z.string().uuid().optional() })).query(async ({ input }) => {
     let entityIds: string[] = [];
     if (input.entityId) entityIds.push(input.entityId);
@@ -1918,151 +2525,6 @@ export const queriesRouter = router({
       pricing: priceRows.rows
     };
   }),
-  purchaseOrderExternalReceipt: protectedProcedure
-    .input(z.object({ purchaseOrderId: z.string().uuid() }))
-    .query(async ({ input }) => {
-      return getExternalReceipt(pool, 'purchase_order', input.purchaseOrderId);
-    }),
-  purchaseOrderInternalReceipt: protectedProcedure
-    .input(z.object({ purchaseOrderId: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      // Role gate is enforced inside getInternalReceipt via assertRole(user, 'manager').
-      // We pass ctx.user through unchanged — the service throws TRPCError(FORBIDDEN)
-      // when role < manager.
-      return getInternalReceipt(pool, ctx.user, 'purchase_order', input.purchaseOrderId);
-    }),
-  purchaseOrderSignalText: protectedProcedure
-    .input(z.object({ purchaseOrderId: z.string().uuid() }))
-    .query(async ({ input }) => {
-      const projection = await getExternalReceipt(pool, 'purchase_order', input.purchaseOrderId);
-      if (!projection) return null;
-      return renderSignalText(projection);
-    }),
-  salesOrderExternalReceipt: protectedProcedure
-    .input(z.object({ salesOrderId: z.string().uuid() }))
-    .query(async ({ input }) => {
-      const invoiceId = await latestInvoiceIdForOrder(input.salesOrderId);
-      if (invoiceId) {
-        const fromInvoice = await getExternalReceipt(pool, 'invoice', invoiceId);
-        if (fromInvoice) return fromInvoice;
-      }
-      return getExternalReceipt(pool, 'sales_order', input.salesOrderId);
-    }),
-  salesOrderInternalReceipt: protectedProcedure
-    .input(z.object({ salesOrderId: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      const invoiceId = await latestInvoiceIdForOrder(input.salesOrderId);
-      if (invoiceId) {
-        const fromInvoice = await getInternalReceipt(pool, ctx.user, 'invoice', invoiceId);
-        if (fromInvoice) return fromInvoice;
-      }
-      return getInternalReceipt(pool, ctx.user, 'sales_order', input.salesOrderId);
-    }),
-  salesOrderSignalText: protectedProcedure
-    .input(z.object({ salesOrderId: z.string().uuid() }))
-    .query(async ({ input }) => {
-      const invoiceId = await latestInvoiceIdForOrder(input.salesOrderId);
-      if (invoiceId) {
-        const fromInvoice = await getExternalReceipt(pool, 'invoice', invoiceId);
-        if (fromInvoice) return renderSignalText(fromInvoice);
-      }
-      const fromConfirmation = await getExternalReceipt(pool, 'sales_order', input.salesOrderId);
-      if (!fromConfirmation) return null;
-      return renderSignalText(fromConfirmation);
-    }),
-  paymentExternalReceipt: protectedProcedure
-    .input(z.object({ paymentId: z.string().uuid() }))
-    .query(async ({ input }) => {
-      return getExternalReceipt(pool, 'payment', input.paymentId);
-    }),
-  paymentInternalReceipt: protectedProcedure
-    .input(z.object({ paymentId: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      return getInternalReceipt(pool, ctx.user, 'payment', input.paymentId);
-    }),
-  paymentSignalText: protectedProcedure
-    .input(z.object({ paymentId: z.string().uuid() }))
-    .query(async ({ input }) => {
-      const projection = await getExternalReceipt(pool, 'payment', input.paymentId);
-      if (!projection) return null;
-      return renderSignalText(projection);
-    }),
-  vendorPaymentExternalReceipt: protectedProcedure
-    .input(z.object({ vendorPaymentId: z.string().uuid() }))
-    .query(async ({ input }) => {
-      return getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
-    }),
-  vendorPaymentInternalReceipt: protectedProcedure
-    .input(z.object({ vendorPaymentId: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      return getInternalReceipt(pool, ctx.user, 'vendor_payment', input.vendorPaymentId);
-    }),
-  vendorPaymentSignalText: protectedProcedure
-    .input(z.object({ vendorPaymentId: z.string().uuid() }))
-    .query(async ({ input }) => {
-      const projection = await getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
-      if (!projection) return null;
-      return renderSignalText(projection);
-    }),
-  purchaseOrderPrintHtml: protectedProcedure
-    .input(z.object({
-      purchaseOrderId: z.string().uuid(),
-      audience: z.enum(['external', 'internal']).optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      const aud = input.audience ?? 'external';
-      const projection = aud === 'internal'
-        ? await getInternalReceipt(pool, ctx.user, 'purchase_order', input.purchaseOrderId)
-        : await getExternalReceipt(pool, 'purchase_order', input.purchaseOrderId);
-      if (!projection) return null;
-      return renderPrintHtml(projection);
-    }),
-  salesOrderPrintHtml: protectedProcedure
-    .input(z.object({
-      salesOrderId: z.string().uuid(),
-      audience: z.enum(['external', 'internal']).optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      const aud = input.audience ?? 'external';
-      const invoiceId = await latestInvoiceIdForOrder(input.salesOrderId);
-      if (invoiceId) {
-        const fromInvoice = aud === 'internal'
-          ? await getInternalReceipt(pool, ctx.user, 'invoice', invoiceId)
-          : await getExternalReceipt(pool, 'invoice', invoiceId);
-        if (fromInvoice) return renderPrintHtml(fromInvoice);
-      }
-      const fromConfirmation = aud === 'internal'
-        ? await getInternalReceipt(pool, ctx.user, 'sales_order', input.salesOrderId)
-        : await getExternalReceipt(pool, 'sales_order', input.salesOrderId);
-      if (!fromConfirmation) return null;
-      return renderPrintHtml(fromConfirmation);
-    }),
-  paymentPrintHtml: protectedProcedure
-    .input(z.object({
-      paymentId: z.string().uuid(),
-      audience: z.enum(['external', 'internal']).optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      const aud = input.audience ?? 'external';
-      const projection = aud === 'internal'
-        ? await getInternalReceipt(pool, ctx.user, 'payment', input.paymentId)
-        : await getExternalReceipt(pool, 'payment', input.paymentId);
-      if (!projection) return null;
-      return renderPrintHtml(projection);
-    }),
-  vendorPaymentPrintHtml: protectedProcedure
-    .input(z.object({
-      vendorPaymentId: z.string().uuid(),
-      audience: z.enum(['external', 'internal']).optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      const aud = input.audience ?? 'external';
-      const projection = aud === 'internal'
-        ? await getInternalReceipt(pool, ctx.user, 'vendor_payment', input.vendorPaymentId)
-        : await getExternalReceipt(pool, 'vendor_payment', input.vendorPaymentId);
-      if (!projection) return null;
-      return renderPrintHtml(projection);
-    }),
   // CAP-030 (TER-1498): Warehouse pick queue. Returns one row per pick_list that
   // has at least one pick-released, non-cancelled fulfillment line. Fully-packed
   // picks stay visible as "ready to close" so the operator can "Complete Order"
@@ -2786,16 +3248,13 @@ export const queriesRouter = router({
       }
       return map;
     }),
-});
 
-async function latestInvoiceIdForOrder(salesOrderId: string): Promise<string | null> {
-  const res = await pool.query(
-    `SELECT id FROM invoices WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1`,
-    [salesOrderId]
-  );
-  const row = res.rows[0] as { id: string } | undefined;
-  return row?.id ?? null;
-}
+  // -- Entity tab queries (T-B-08) --
+  ...entityTabProcedures,
+
+  // -- Detail queries for slide-over entities (T-B-09) --
+  ...detailQueryProcedures,
+});
 
 type ReplaceTable = 'batches' | 'customers' | 'vendors' | 'sales_orders' | 'connector_requests';
 
@@ -2808,6 +3267,433 @@ function replaceFields(table: ReplaceTable) {
     connector_requests: ['operator_notes']
   };
   return map[table];
+}
+
+// ─── gridSqlParts — structured builder returning body + default order-by.
+// Used by gridSql (backwards compat) and buildGridV2Query (new filter/sort/paginate).
+export interface GridSqlParts {
+  body: string;
+  defaultOrderBy: string;
+}
+
+function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
+  switch (view) {
+    case 'reports':
+      return {
+        body: `select key as id, label, value, definition, severity, checked_at as "createdAt"
+               from (
+                 select 'inventory_value' as key, 'Inventory value' as label, coalesce(sum(available_qty * unit_cost), 0)::text as value,
+                        'Available quantity multiplied by unit cost' as definition, 'neutral' as severity, now() as checked_at
+                 from batches where archived_at is null
+                 union all
+                 select 'receivables' as key, 'Receivables' as label, coalesce(sum(total - amount_paid), 0)::text as value,
+                        'Open invoice balance' as definition, 'watch' as severity, now() as checked_at
+                 from invoices where status in ('open','partial')
+                 union all
+                 select 'payables' as key, 'Payables' as label, coalesce(sum(amount - amount_paid), 0)::text as value,
+                        'Open vendor bill balance' as definition, 'watch' as severity, now() as checked_at
+                 from vendor_bills where status in ('open','approved','scheduled','partial')
+               ) reports`,
+        defaultOrderBy: 'label',
+      };
+    case 'intake':
+      return {
+        body: `select b.id, b.batch_code as "batchCode", b.shorthand, b.name, b.category, v.name as vendor, b.vendor_id as "vendorId",
+                      po.po_no as "poNo", b.purchase_order_id as "purchaseOrderId", b.purchase_order_line_id as "purchaseOrderLineId",
+                      b.source_code as "sourceCode", b.intake_date as "intakeDate", b.ticket_cost as "ticketCost", b.price_range as "priceRange",
+                      b.tags, b.intake_qty as "intakeQty", b.available_qty as "availableQty", b.uom, b.unit_cost as "unitCost",
+                      b.unit_price as "unitPrice", b.location, b.lot_code as "lotCode", b.ownership_status as "ownershipStatus",
+                      b.legacy_marker as "legacyMarker", b.arrival_confirmed as "arrivalConfirmed", b.arrival_status as "arrivalStatus",
+                      b.validation_issues as "validationIssues", b.media_status as "mediaStatus", b.expiration_date as "expirationDate",
+                      b.item_id as "itemId", i.alias as "itemAlias",
+                      b.notes, b.status, b.created_at as "createdAt"
+               from batches b
+               left join vendors v on v.id = b.vendor_id
+               left join purchase_orders po on po.id = b.purchase_order_id
+               left join items i on i.id = b.item_id
+               where b.archived_at is null`,
+        defaultOrderBy: 'b.created_at desc',
+      };
+    case 'purchaseOrders':
+      return {
+        body: `select po.id, po.po_no as "poNo", v.name as vendor, po.vendor_id as "vendorId", po.status,
+                      po.expected_date as "expectedDate", po.ordered_at as "orderedAt", po.received_at as "receivedAt",
+                      po.cancelled_at as "cancelledAt", po.total, po.prepayment_amount as "prepaymentAmount",
+                      coalesce((select sum(vp.amount) from vendor_payments vp where vp.purchase_order_id = po.id and vp.status = 'posted'), 0) as "prepaidAmount",
+                      greatest(0, po.prepayment_amount - coalesce((select sum(vp.amount) from vendor_payments vp where vp.purchase_order_id = po.id and vp.status = 'posted'), 0)) as "remainingPrepay",
+                      count(pol.id)::int as lines,
+                      coalesce(sum(pol.qty), 0) as "orderedQty", coalesce(sum(pol.received_qty), 0) as "receivedQty",
+                      po.buyer_notes as "buyerNotes", po.internal_notes as "internalNotes", po.created_at as "createdAt"
+               from purchase_orders po
+               left join vendors v on v.id = po.vendor_id
+               left join purchase_order_lines pol on pol.purchase_order_id = po.id
+               group by po.id, v.name`,
+        defaultOrderBy: `case po.status when 'draft' then 0 when 'approved' then 1 when 'partially_received' then 2 when 'received' then 3 else 4 end,
+                         po.created_at desc`,
+      };
+    case 'sales':
+      return {
+        body: `select so.id, so.order_no as "orderNo", c.name as customer, so.customer_id as "customerId", so.status,
+                      so.pricing_strategy as "pricingStrategy", so.total, so.internal_margin as "internalMargin",
+                      count(sol.id)::int as lines, so.delivery_window as "deliveryWindow", so.notes,
+                      bool_or(coalesce(sol.packed, false)) as packed,
+                      bool_or(coalesce(sol.inventory_posted, false)) as "inventoryPosted",
+                      bool_or(coalesce(sol.payment_followup, false)) as "paymentFollowup",
+                      string_agg(distinct sol.legacy_status_marker, ', ') filter (where sol.legacy_status_marker is not null) as "legacyStatusMarkers",
+                      so.validation_issues as "validationIssues", so.created_at as "createdAt"
+               from sales_orders so
+               left join customers c on c.id = so.customer_id
+               left join sales_order_lines sol on sol.order_id = so.id
+               group by so.id, c.name`,
+        defaultOrderBy: 'so.created_at desc',
+      };
+    case 'matchmaking':
+      return {
+        body: `select mm.id, mm.customer_need_id as "customerNeedId", cn.need_code as "needCode",
+                      cn.customer_id as "customerId", c.name as customer, cn.product_name as "needProduct",
+                      cn.category, cn.tags as "needTags", cn.qty_min as "qtyMin", cn.qty_max as "qtyMax",
+                      cn.target_price as "targetPrice", cn.needed_by as "neededBy", cn.urgency,
+                      mm.vendor_supply_id as "vendorSupplyId", vs.supply_code as "supplyCode",
+                      vs.vendor_id as "vendorId", v.name as vendor, vs.product_name as "vendorProduct",
+                      vs.tags as "supplyTags", vs.available_qty as "availableQty", vs.asking_price as "askingPrice",
+                      vs.available_date as "availableDate", vs.location, mm.score, mm.reasons, mm.status,
+                      mm.created_at as "createdAt", mm.updated_at as "updatedAt"
+               from matchmaking_matches mm
+               join customer_needs cn on cn.id = mm.customer_need_id
+               join vendor_supply vs on vs.id = mm.vendor_supply_id
+               left join customers c on c.id = cn.customer_id
+               left join vendors v on v.id = vs.vendor_id`,
+        defaultOrderBy: `case mm.status when 'open' then 0 when 'accepted' then 1 when 'dismissed' then 2 else 3 end,
+                         mm.score desc, mm.updated_at desc`,
+      };
+    case 'orders':
+      return {
+        body: `select so.id, so.order_no as "orderNo", c.name as customer, so.status, so.total, so.delivery_window as "deliveryWindow", so.notes,
+                      so.packed, so.inventory_posted as "inventoryPosted", so.payment_followup as "paymentFollowup",
+                      so.legacy_status_markers as "legacyStatusMarkers", so.validation_issues as "validationIssues",
+                      i.id as "invoiceId", i.invoice_no as "invoiceNo", i.status as "invoiceStatus", so.posted_at as "postedAt", so.fulfilled_at as "fulfilledAt",
+                      (select d.id from invoice_disputes d where d.invoice_id = i.id and d.status = 'open' limit 1) as "openDisputeId",
+                      (select string_agg(distinct so2.order_no, ', ')
+                         from sales_order_lines sol
+                         join sales_order_lines sol2
+                           on coalesce(sol2.source_row_key, sol2.batch_id::text) = coalesce(sol.source_row_key, sol.batch_id::text)
+                          and sol2.order_id <> sol.order_id
+                         join sales_orders so2 on so2.id = sol2.order_id
+                        where sol.order_id = so.id
+                          and coalesce(sol.source_row_key, sol.batch_id::text) is not null
+                          and so2.status in ('draft', 'confirmed')) as "crossOrderSourceOrders"
+               from sales_orders so
+               left join customers c on c.id = so.customer_id
+               left join invoices i on i.order_id = so.id`,
+        defaultOrderBy: 'so.created_at desc',
+      };
+    case 'payments':
+      return {
+        body: `select p.id, c.name as customer, p.customer_id as "customerId", p.direction, p.category, p.method, p.amount, p.unapplied_amount as "unappliedAmount",
+                      p.allocation_intent as "allocationIntent", p.impact_preview as "impactPreview",
+                      p.reference, p.location_bucket as "locationBucket", p.notes, p.status, p.created_at as "createdAt"
+               from payments p left join customers c on c.id = p.customer_id`,
+        defaultOrderBy: 'p.created_at desc',
+      };
+    case 'inventory':
+      return {
+        body: `select b.id, b.batch_code as "batchCode", b.name, b.category, b.subcategory, v.name as vendor, b.vendor_id as "vendorId",
+                      b.item_id as "itemId", i.alias as "itemAlias",
+                      coalesce(i.alias, b.name) as "displayName",
+                      b.available_qty as "availableQty",
+                      b.reserved_qty as "reservedQty", b.uom, b.unit_cost as "unitCost", b.unit_price as "unitPrice",
+                      b.price_range as "priceRange",
+                      b.tags, b.location, b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
+                      b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus", b.status, b.lot_code as "lotCode", b.expiration_date as "expirationDate",
+                      floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays"
+               from batches b
+               left join vendors v on v.id = b.vendor_id
+               left join items i on i.id = b.item_id
+               where b.archived_at is null`,
+        defaultOrderBy: 'b.category, b.name',
+      };
+    case 'clients':
+      return {
+        body: `select c.id, c.name, c.credit_limit as "creditLimit", c.balance, c.tags, c.notes,
+                      c.contact_id AS "contactId",
+                      c.credit_limit - c.balance as "headroom",
+                      count(i.id)::int as "invoiceCount",
+                      count(case when i.status in ('open','partial') then 1 end)::int as "openInvoiceCount",
+                      coalesce(round(dp."avgDaysToPay"::numeric, 1), null) as "avgDaysToPay",
+                      coalesce(floor(extract(epoch from (now() - min(case when i.status in ('open','partial') then i.due_date end))) / 86400)::int, 0) as "daysPastDue",
+                      coalesce(sum(case when i.status in ('open','partial') then i.total - i.amount_paid end), 0) as "unpaidBalance",
+                      (c.contact_id is not null and vdr.id is not null) as "isDualRole"
+               from customers c
+               left join invoices i on i.customer_id = c.id
+               left join lateral (
+                 select avg(extract(epoch from (p.created_at - invp.created_at)) / 86400) as "avgDaysToPay"
+                 from payment_allocations pa
+                 join payments p on p.id = pa.payment_id and p.status not in ('reversed', 'refunded')
+                 join invoices invp on invp.id = pa.invoice_id
+                 where invp.customer_id = c.id
+               ) dp on true
+               left join lateral (
+                 select id from vendors where contact_id = c.contact_id limit 1
+               ) vdr on c.contact_id is not null
+               group by c.id, dp."avgDaysToPay", vdr.id`,
+        defaultOrderBy: 'c.balance desc, c.name',
+      };
+    case 'vendors':
+      return {
+        body: `select vb.id, v.name as vendor, vb.vendor_id as "vendorId", vb.bill_no as "billNo", po.po_no as "poNo", vb.purchase_order_id as "purchaseOrderId",
+                      vb.amount, vb.amount_paid as "amountPaid", vb.status, vb.due_date as "dueDate", vb.scheduled_for as "scheduledFor",
+                      vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered",
+                      v.contact_id AS "contactId",
+                      pr.id AS "receiptId", pr.receipt_no AS "receiptNo",
+                      (v.contact_id is not null and cust.id is not null) as "isDualRole"
+               from vendor_bills vb
+               left join vendors v on v.id = vb.vendor_id
+               left join purchase_orders po on po.id = vb.purchase_order_id
+               left join lateral (
+                 select id, receipt_no
+                 from purchase_receipts
+                 where purchase_order_id = vb.purchase_order_id
+                 order by created_at
+                 limit 1
+               ) pr on vb.purchase_order_id is not null
+               left join lateral (
+                 select id from customers where contact_id = v.contact_id limit 1
+               ) cust on v.contact_id is not null`,
+        defaultOrderBy: 'vb.due_date, v.name',
+      };
+    case 'fulfillment':
+      return {
+        body: `select pl.id, pl.order_id as "orderId", pl.pick_no as "pickNo", so.order_no as "orderNo", c.name as customer, pl.status,
+                      pl.units_per_bag as "unitsPerBag", pl.label_format as "labelFormat", pl.labels_printed as "labelsPrinted",
+                      pl.manifest_path as "manifestPath", pl.tracking, count(fl.id)::int as lines,
+                      coalesce(sum(jsonb_array_length(fl.warehouse_alerts)), 0)::int as "alertCount"
+               from pick_lists pl
+               join sales_orders so on so.id = pl.order_id
+               left join customers c on c.id = so.customer_id
+               left join fulfillment_lines fl on fl.pick_list_id = pl.id
+               group by pl.id, so.order_no, c.name`,
+        defaultOrderBy: 'pl.created_at desc',
+      };
+    case 'connectors':
+      return {
+        body: `select cr.id, cr.source, cr.request_type as "requestType", c.name as customer, cr.customer_id as "customerId", cr.status, cr.routed_to as "routedTo",
+                      cr.operator_notes as "operatorNotes", cr.safety_note as "safetyNote", cr.payload, cr.review_history as "reviewHistory", cr.created_at as "createdAt"
+               from connector_requests cr left join customers c on c.id = cr.customer_id`,
+        defaultOrderBy: 'cr.created_at desc',
+      };
+    case 'recovery':
+      return {
+        body: `select id, command_name as "commandName", actor_name as "actorName", status, error, affected_ids as "affectedIds",
+                      input_payload as "inputPayload", reversed_by_command_id as "reversedByCommandId", created_at as "createdAt"
+               from command_journal`,
+        defaultOrderBy: 'created_at desc',
+      };
+    case 'closeout':
+      return {
+        body: `select id, period, status, control_totals as "controlTotals", csv_path as "csvPath", jsonl_path as "jsonlPath", pdf_path as "pdfPath", created_at as "createdAt"
+               from archive_runs`,
+        defaultOrderBy: 'created_at desc',
+      };
+    case 'referees':
+      return {
+        body: `select r.id, r.name, r.email, r.phone, r.balance, r.lifetime_earned as "lifetimeEarned",
+                      r.payment_method as "paymentMethod", r.payment_details as "paymentDetails",
+                      r.notes, r.active, r.created_at as "createdAt",
+                      r.contact_id AS "contactId",
+                      count(distinct rr.id)::int as "relationshipsCount"
+               from referees r
+               left join referee_relationships rr on rr.referee_id = r.id and rr.active = true
+               group by r.id`,
+        defaultOrderBy: 'r.created_at desc',
+      };
+    case 'processors':
+      return {
+        body: `select p.id, p.name, p.processor_type as "processorType", p.fee_type as "feeType",
+                      p.fee_percentage as "feePercentage", p.fee_fixed_amount as "feeFixedAmount",
+                      p.default_user_split as "defaultUserSplit", p.default_processor_split as "defaultProcessorSplit",
+                      p.notes, p.active, p.created_at as "createdAt",
+                      p.contact_id AS "contactId",
+                      coalesce(sum(pf.processing_fee_total), 0) as "totalFeesProcessed",
+                      coalesce(sum(case when pf.user_fee_status = 'collectible' then pf.user_fee_share else 0 end), 0) as "userFeesCollectible",
+                      coalesce(sum(case when pf.user_fee_status = 'collected' then pf.user_fee_share else 0 end), 0) as "userFeesCollected",
+                      coalesce(sum(case when pf.processor_fee_status = 'unpaid' then pf.processor_fee_share else 0 end), 0) as "processorFeesUnpaid",
+                      count(pf.id)::int as "relationshipsCount"
+               from payment_processors p
+               left join processor_fees pf on pf.processor_id = p.id
+               group by p.id`,
+        defaultOrderBy: 'p.name',
+      };
+    case 'photography':
+      return {
+        body: `select
+                 b.id,
+                 b.id as "batchId",
+                 b.batch_code as "batchCode",
+                 b.name,
+                 b.media_status as "mediaStatus",
+                 bms.media_updated_at as "mediaUpdatedAt",
+                 bms.published_media_count as "publishedMediaCount",
+                 bms.draft_media_count as "draftMediaCount",
+                 bms.has_primary_photo as "hasPrimaryPhoto",
+                 bms.has_primary_video as "hasPrimaryVideo",
+                 b.created_at as "createdAt"
+               from batches b
+               left join batch_media_summary bms on bms.batch_id = b.id
+               where b.archived_at is null`,
+        defaultOrderBy: `case when bms.has_primary_photo then 1 else 0 end asc,
+                         bms.media_updated_at asc nulls first,
+                         b.created_at asc`,
+      };
+    case 'purchaseReceipts':
+      return {
+        body: `select pr.id, pr.receipt_no as "receiptNo", v.name as vendor, pr.vendor_id as "vendorId",
+                      po.po_no as "poNo", pr.purchase_order_id as "purchaseOrderId",
+                      pr.total, pr.status, pr.created_at as "createdAt",
+                      count(prl.id)::int as lines
+               from purchase_receipts pr
+               left join vendors v on v.id = pr.vendor_id
+               left join purchase_orders po on po.id = pr.purchase_order_id
+               left join purchase_receipt_lines prl on prl.receipt_id = pr.id
+               group by pr.id, v.name, po.po_no`,
+        defaultOrderBy: 'pr.created_at desc',
+      };
+    case 'items':
+      return {
+        body: `select i.id, i.sku, i.name, i.alias, i.category, i.tags,
+                      i.pricing_rule as "pricingRule", i.status,
+                      i.description,
+                      count(distinct b.id)::int as "batchCount",
+                      coalesce(sum(b.available_qty), 0)::numeric(12,3) as "totalAvailableQty",
+                      i.created_at as "createdAt", i.updated_at as "updatedAt"
+               from items i
+               left join batches b on b.item_id = i.id and b.archived_at is null
+               group by i.id`,
+        defaultOrderBy: 'i.name',
+      };
+    case 'disputes':
+      return {
+        body: `select d.id, d.invoice_id as "invoiceId", d.status, d.reason, d.resolution,
+                      d.created_at as "createdAt", d.updated_at as "updatedAt",
+                      i.invoice_no as "invoiceNo", i.total as "invoiceAmount", i.status as "invoiceStatus",
+                      c.name as customer, c.id as "customerId"
+               from invoice_disputes d
+               join invoices i on i.id = d.invoice_id
+               left join customers c on c.id = i.customer_id`,
+        defaultOrderBy: 'd.created_at desc',
+      };
+  }
+}
+
+// ─── buildGridV2Query — composes the full SQL for the grid v2 procedure.
+// Wraps the entity's base SQL in a subquery, injects `count(*) OVER ()` for
+// pagination metadata, applies filter WHERE, sort ORDER BY, and LIMIT/OFFSET.
+// @param startParam — the next available $n parameter index (after the caller's
+//   own params, if any). Defaults to 1.
+export function buildGridV2Query(
+  entityType: z.infer<typeof viewSchema>,
+  filtersInput: GridFilters | undefined,
+  sortInput: GridSort | undefined,
+  groupBy: string | undefined,
+  limit: number | null,
+  offset: number,
+  startParam: number = 1,
+): { sql: string; params: unknown[] } {
+  const parts = gridSqlParts(entityType);
+
+  // Compile filter conditions
+  const whereResult = buildGridWhereClause(entityType, filtersInput);
+  const filterParams = whereResult.params;
+  const filterConditions = whereResult.conditions;
+
+  // Build filter WHERE string with parameter offsets
+  let p = startParam;
+  const filterWhereParts: string[] = [];
+  const finalParams: unknown[] = [];
+
+  // Re-index filter conditions starting from startParam
+  for (const cond of whereResult.conditions) {
+    // Replace $1, $2, etc. with offset values
+    const reindexed = cond.replace(/\$(\d+)/g, (_match, num) => {
+      const newNum = parseInt(num, 10) + p - 1;
+      return `$${newNum}`;
+    });
+    filterWhereParts.push(reindexed);
+  }
+  finalParams.push(...filterParams);
+  p += filterParams.length;
+
+  // Build ORDER BY
+  let orderBy: string;
+  if (sortInput) {
+    orderBy = `${sortInput.field} ${sortInput.direction}`;
+  } else if (groupBy) {
+    orderBy = `${groupBy} asc, ${parts.defaultOrderBy}`;
+  } else {
+    orderBy = parts.defaultOrderBy;
+  }
+
+  // Build GROUP BY
+  let groupByClause = '';
+  let selectExtra = '';
+
+  if (groupBy) {
+    groupByClause = `group by "${groupBy}"`;
+    selectExtra = `, count(*) as "_groupCount"`;
+  }
+
+  // Compose the final SQL
+  // Strategy: wrap base SQL in a subquery, add count(*) OVER () for totalRows,
+  // then apply user filters, sort, pagination on the outer query.
+  const innerSql = parts.body;
+  const filterWhere = filterWhereParts.length > 0
+    ? `where ${filterWhereParts.join(' AND ')}`
+    : '';
+
+  const limitClause = limit !== null && limit > 0
+    ? `limit $${p++}`
+    : '';
+  if (limit !== null && limit > 0) {
+    finalParams.push(limit);
+  }
+
+  const offsetClause = offset > 0
+    ? `offset $${p++}`
+    : '';
+  if (offset > 0) {
+    finalParams.push(offset);
+  }
+
+  // For groupBy: we use a CTE approach
+  if (groupBy) {
+    const sql = `
+with grouped_data as (
+  ${innerSql}
+),
+group_counts as (
+  select "${groupBy}" as "_groupKey", count(*)::int as "_groupCount"
+  from grouped_data
+  group by "${groupBy}"
+)
+select *, count(*) over () as "__totalRows"
+from grouped_data
+${filterWhere}
+order by ${orderBy}
+${limitClause}
+${offsetClause}`;
+    return { sql, params: finalParams };
+  }
+
+  // Standard subquery wrapper
+  const sql = `
+select *, count(*) over () as "__totalRows"
+from (
+  ${innerSql}
+) sub
+${filterWhere}
+order by ${orderBy}
+${limitClause}
+${offsetClause}`;
+  return { sql, params: finalParams };
 }
 
 function customerNeedsSql() {
@@ -2833,300 +3719,20 @@ function vendorSupplySql() {
 }
 
 function matchmakingSql() {
-  return `select mm.id, mm.customer_need_id as "customerNeedId", cn.need_code as "needCode",
-                 cn.customer_id as "customerId", c.name as customer, cn.product_name as "needProduct",
-                 cn.category, cn.tags as "needTags", cn.qty_min as "qtyMin", cn.qty_max as "qtyMax",
-                 cn.target_price as "targetPrice", cn.needed_by as "neededBy", cn.urgency,
-                 mm.vendor_supply_id as "vendorSupplyId", vs.supply_code as "supplyCode",
-                 vs.vendor_id as "vendorId", v.name as vendor, vs.product_name as "vendorProduct",
-                 vs.tags as "supplyTags", vs.available_qty as "availableQty", vs.asking_price as "askingPrice",
-                 vs.available_date as "availableDate", vs.location, mm.score, mm.reasons, mm.status,
-                 mm.created_at as "createdAt", mm.updated_at as "updatedAt"
-          from matchmaking_matches mm
-          join customer_needs cn on cn.id = mm.customer_need_id
-          join vendor_supply vs on vs.id = mm.vendor_supply_id
-          left join customers c on c.id = cn.customer_id
-          left join vendors v on v.id = vs.vendor_id
-          order by case mm.status when 'open' then 0 when 'accepted' then 1 when 'dismissed' then 2 else 3 end,
-                   mm.score desc, mm.updated_at desc`;
+  const parts = gridSqlParts('matchmaking');
+  return parts.body + '\norder by ' + parts.defaultOrderBy;
 }
 
 export function gridSql(view: z.infer<typeof viewSchema>) {
-  switch (view) {
-    case 'reports':
-      return `select key as id, label, value, definition, severity, checked_at as "createdAt"
-              from (
-                select 'inventory_value' as key, 'Inventory value' as label, coalesce(sum(available_qty * unit_cost), 0)::text as value,
-                       'Available quantity multiplied by unit cost' as definition, 'neutral' as severity, now() as checked_at
-                from batches where archived_at is null
-                union all
-                select 'receivables' as key, 'Receivables' as label, coalesce(sum(total - amount_paid), 0)::text as value,
-                       'Open invoice balance' as definition, 'watch' as severity, now() as checked_at
-                from invoices where status in ('open','partial')
-                union all
-                select 'payables' as key, 'Payables' as label, coalesce(sum(amount - amount_paid), 0)::text as value,
-                       'Open vendor bill balance' as definition, 'watch' as severity, now() as checked_at
-                from vendor_bills where status in ('open','approved','scheduled','partial')
-              ) reports
-              order by label`;
-    case 'intake':
-      return `select b.id, b.batch_code as "batchCode", b.shorthand, b.name, b.category, v.name as vendor, b.vendor_id as "vendorId",
-                     po.po_no as "poNo", b.purchase_order_id as "purchaseOrderId", b.purchase_order_line_id as "purchaseOrderLineId",
-                     b.source_code as "sourceCode", b.intake_date as "intakeDate", b.ticket_cost as "ticketCost", b.price_range as "priceRange",
-                     b.tags, b.intake_qty as "intakeQty", b.available_qty as "availableQty", b.uom, b.unit_cost as "unitCost",
-                     b.unit_price as "unitPrice", b.location, b.lot_code as "lotCode", b.ownership_status as "ownershipStatus",
-                     b.legacy_marker as "legacyMarker", b.arrival_confirmed as "arrivalConfirmed", b.arrival_status as "arrivalStatus",
-                     b.validation_issues as "validationIssues", b.media_status as "mediaStatus", b.expiration_date as "expirationDate",
-                     b.item_id as "itemId", i.alias as "itemAlias",
-                     b.notes, b.status, b.created_at as "createdAt"
-              from batches b
-              left join vendors v on v.id = b.vendor_id
-              left join purchase_orders po on po.id = b.purchase_order_id
-              left join items i on i.id = b.item_id
-              where b.archived_at is null
-              order by b.created_at desc`;
-    case 'purchaseOrders':
-      // UX-H08: prepaid + remaining columns derived from vendor_payments linked
-      // to this PO (additive — no new procedure, subquery on the existing grid
-      // query per the ADDITIVE-INSERTION-ONLY protocol on queries.ts).
-      return `select po.id, po.po_no as "poNo", v.name as vendor, po.vendor_id as "vendorId", po.status,
-                     po.expected_date as "expectedDate", po.ordered_at as "orderedAt", po.received_at as "receivedAt",
-                     po.cancelled_at as "cancelledAt", po.total, po.prepayment_amount as "prepaymentAmount",
-                     coalesce((select sum(vp.amount) from vendor_payments vp where vp.purchase_order_id = po.id and vp.status = 'posted'), 0) as "prepaidAmount",
-                     greatest(0, po.prepayment_amount - coalesce((select sum(vp.amount) from vendor_payments vp where vp.purchase_order_id = po.id and vp.status = 'posted'), 0)) as "remainingPrepay",
-                     count(pol.id)::int as lines,
-                     coalesce(sum(pol.qty), 0) as "orderedQty", coalesce(sum(pol.received_qty), 0) as "receivedQty",
-                     po.buyer_notes as "buyerNotes", po.internal_notes as "internalNotes", po.created_at as "createdAt"
-              from purchase_orders po
-              left join vendors v on v.id = po.vendor_id
-              left join purchase_order_lines pol on pol.purchase_order_id = po.id
-              group by po.id, v.name
-              order by case po.status when 'draft' then 0 when 'approved' then 1 when 'partially_received' then 2 when 'received' then 3 else 4 end,
-                       po.created_at desc`;
-    case 'sales':
-      return `select so.id, so.order_no as "orderNo", c.name as customer, so.customer_id as "customerId", so.status,
-                     so.pricing_strategy as "pricingStrategy", so.total, so.internal_margin as "internalMargin",
-                     count(sol.id)::int as lines, so.delivery_window as "deliveryWindow", so.notes,
-                     bool_or(coalesce(sol.packed, false)) as packed,
-                     bool_or(coalesce(sol.inventory_posted, false)) as "inventoryPosted",
-                     bool_or(coalesce(sol.payment_followup, false)) as "paymentFollowup",
-                     string_agg(distinct sol.legacy_status_marker, ', ') filter (where sol.legacy_status_marker is not null) as "legacyStatusMarkers",
-                     so.validation_issues as "validationIssues", so.created_at as "createdAt"
-              from sales_orders so
-              left join customers c on c.id = so.customer_id
-              left join sales_order_lines sol on sol.order_id = so.id
-              group by so.id, c.name
-              order by so.created_at desc`;
-    case 'matchmaking':
-      return matchmakingSql();
-    case 'orders':
-      // UX-G02 — allowlist field extension on the EXISTING orders grid query
-      // (same pattern as the UX-O01 media_status extension; no new procedure).
-      // "crossOrderSourceOrders": other OPEN orders (draft/confirmed — the
-      // Orders "All Open" preset set) sharing a source key with this order,
-      // where the source key mirrors the server's duplicate-source guard key
-      // `sourceRowKey || batchId` (commandBus.ts postSalesOrder, sourceKey at
-      // ~line 3638). Surfaced as a row chip so the operator sees the
-      // shared-source risk BEFORE post-time availability refusals
-      // (commandBus.ts ~3646-3650: availableQty < qty → refuse).
-      return `select so.id, so.order_no as "orderNo", c.name as customer, so.status, so.total, so.delivery_window as "deliveryWindow", so.notes,
-                     so.packed, so.inventory_posted as "inventoryPosted", so.payment_followup as "paymentFollowup",
-                     so.legacy_status_markers as "legacyStatusMarkers", so.validation_issues as "validationIssues",
-                     i.id as "invoiceId", i.invoice_no as "invoiceNo", i.status as "invoiceStatus", so.posted_at as "postedAt", so.fulfilled_at as "fulfilledAt",
-                     (select d.id from invoice_disputes d where d.invoice_id = i.id and d.status = 'open' limit 1) as "openDisputeId",
-                     (select string_agg(distinct so2.order_no, ', ')
-                        from sales_order_lines sol
-                        join sales_order_lines sol2
-                          on coalesce(sol2.source_row_key, sol2.batch_id::text) = coalesce(sol.source_row_key, sol.batch_id::text)
-                         and sol2.order_id <> sol.order_id
-                        join sales_orders so2 on so2.id = sol2.order_id
-                       where sol.order_id = so.id
-                         and coalesce(sol.source_row_key, sol.batch_id::text) is not null
-                         and so2.status in ('draft', 'confirmed')) as "crossOrderSourceOrders"
-              from sales_orders so
-              left join customers c on c.id = so.customer_id
-              left join invoices i on i.order_id = so.id
-              order by so.created_at desc`;
-    case 'payments':
-      return `select p.id, c.name as customer, p.customer_id as "customerId", p.direction, p.category, p.method, p.amount, p.unapplied_amount as "unappliedAmount",
-                     p.allocation_intent as "allocationIntent", p.impact_preview as "impactPreview",
-                     p.reference, p.location_bucket as "locationBucket", p.notes, p.status, p.created_at as "createdAt"
-              from payments p left join customers c on c.id = p.customer_id
-              order by p.created_at desc`;
-    case 'inventory':
-      return `select b.id, b.batch_code as "batchCode", b.name, b.category, b.subcategory, v.name as vendor, b.vendor_id as "vendorId",
-                     b.item_id as "itemId", i.alias as "itemAlias",
-                     coalesce(i.alias, b.name) as "displayName",
-                     b.available_qty as "availableQty",
-                     b.reserved_qty as "reservedQty", b.uom, b.unit_cost as "unitCost", b.unit_price as "unitPrice",
-                     b.price_range as "priceRange",
-                     b.tags, b.location, b.ownership_status as "ownershipStatus", b.legacy_marker as "legacyMarker",
-                     b.arrival_status as "arrivalStatus", b.media_status as "mediaStatus", b.status, b.lot_code as "lotCode", b.expiration_date as "expirationDate",
-                     floor(extract(epoch from (now() - coalesce(b.intake_date, b.created_at))) / 86400)::int as "ageDays"
-              from batches b
-              left join vendors v on v.id = b.vendor_id
-              left join items i on i.id = b.item_id
-              where b.archived_at is null
-              order by b.category, b.name`;
-    case 'clients':
-      return `select c.id, c.name, c.credit_limit as "creditLimit", c.balance, c.tags, c.notes,
-                     c.contact_id AS "contactId",
-                     c.credit_limit - c.balance as "headroom",
-                     count(i.id)::int as "invoiceCount",
-                     count(case when i.status in ('open','partial') then 1 end)::int as "openInvoiceCount",
-                     coalesce(round(dp."avgDaysToPay"::numeric, 1), null) as "avgDaysToPay",
-                     coalesce(floor(extract(epoch from (now() - min(case when i.status in ('open','partial') then i.due_date end))) / 86400)::int, 0) as "daysPastDue",
-                     coalesce(sum(case when i.status in ('open','partial') then i.total - i.amount_paid end), 0) as "unpaidBalance",
-                     -- UX-B03 (part 3): dual-role flag — true when this customer's contact_id
-                     -- is also linked to a vendor, making them both AR and AP counterparties.
-                     (c.contact_id is not null and vdr.id is not null) as "isDualRole"
-              from customers c
-              left join invoices i on i.customer_id = c.id
-              left join lateral (
-                select avg(extract(epoch from (p.created_at - invp.created_at)) / 86400) as "avgDaysToPay"
-                from payment_allocations pa
-                join payments p on p.id = pa.payment_id and p.status not in ('reversed', 'refunded')
-                join invoices invp on invp.id = pa.invoice_id
-                where invp.customer_id = c.id
-              ) dp on true
-              left join lateral (
-                select id from vendors where contact_id = c.contact_id limit 1
-              ) vdr on c.contact_id is not null
-              group by c.id, dp."avgDaysToPay", vdr.id
-              order by c.balance desc, c.name`;
-    case 'vendors':
-      // UX-K03: extend with receiptNo + receiptId for Trace tab source links.
-      // purchase_receipts.purchase_order_id links the receipt to the bill's PO.
-      // Uses the FIRST receipt against that PO (ordered by created_at) as the
-      // primary source document. No new procedure — extends existing query fields.
-      return `select vb.id, v.name as vendor, vb.vendor_id as "vendorId", vb.bill_no as "billNo", po.po_no as "poNo", vb.purchase_order_id as "purchaseOrderId",
-                     vb.amount, vb.amount_paid as "amountPaid", vb.status, vb.due_date as "dueDate", vb.scheduled_for as "scheduledFor",
-                     vb.due_reason as "dueReason", vb.consignment_triggered as "consignmentTriggered",
-                     v.contact_id AS "contactId",
-                     pr.id AS "receiptId", pr.receipt_no AS "receiptNo",
-                     -- UX-B03 (part 3): dual-role flag — true when this vendor's contact_id
-                     -- is also linked to a customer, making them both AP and AR counterparties.
-                     (v.contact_id is not null and cust.id is not null) as "isDualRole"
-              from vendor_bills vb
-              left join vendors v on v.id = vb.vendor_id
-              left join purchase_orders po on po.id = vb.purchase_order_id
-              left join lateral (
-                select id, receipt_no
-                from purchase_receipts
-                where purchase_order_id = vb.purchase_order_id
-                order by created_at
-                limit 1
-              ) pr on vb.purchase_order_id is not null
-              left join lateral (
-                select id from customers where contact_id = v.contact_id limit 1
-              ) cust on v.contact_id is not null
-              order by vb.due_date, v.name`;
-    case 'fulfillment':
-      return `select pl.id, pl.order_id as "orderId", pl.pick_no as "pickNo", so.order_no as "orderNo", c.name as customer, pl.status,
-                     pl.units_per_bag as "unitsPerBag", pl.label_format as "labelFormat", pl.labels_printed as "labelsPrinted",
-                     pl.manifest_path as "manifestPath", pl.tracking, count(fl.id)::int as lines,
-                     coalesce(sum(jsonb_array_length(fl.warehouse_alerts)), 0)::int as "alertCount"
-              from pick_lists pl
-              join sales_orders so on so.id = pl.order_id
-              left join customers c on c.id = so.customer_id
-              left join fulfillment_lines fl on fl.pick_list_id = pl.id
-              group by pl.id, so.order_no, c.name
-              order by pl.created_at desc`;
-    case 'connectors':
-      return `select cr.id, cr.source, cr.request_type as "requestType", c.name as customer, cr.customer_id as "customerId", cr.status, cr.routed_to as "routedTo",
-                     cr.operator_notes as "operatorNotes", cr.safety_note as "safetyNote", cr.payload, cr.review_history as "reviewHistory", cr.created_at as "createdAt"
-              from connector_requests cr left join customers c on c.id = cr.customer_id
-              order by cr.created_at desc`;
-    case 'recovery':
-      return `select id, command_name as "commandName", actor_name as "actorName", status, error, affected_ids as "affectedIds",
-                     input_payload as "inputPayload", reversed_by_command_id as "reversedByCommandId", created_at as "createdAt"
-              from command_journal order by created_at desc limit 100`;
-    case 'closeout':
-      return `select id, period, status, control_totals as "controlTotals", csv_path as "csvPath", jsonl_path as "jsonlPath", pdf_path as "pdfPath", created_at as "createdAt"
-              from archive_runs order by created_at desc`;
-    case 'referees':
-      return `select r.id, r.name, r.email, r.phone, r.balance, r.lifetime_earned as "lifetimeEarned",
-                     r.payment_method as "paymentMethod", r.payment_details as "paymentDetails",
-                     r.notes, r.active, r.created_at as "createdAt",
-                     r.contact_id AS "contactId",
-                     count(distinct rr.id)::int as "relationshipsCount"
-              from referees r
-              left join referee_relationships rr on rr.referee_id = r.id and rr.active = true
-              group by r.id
-              order by r.created_at desc`;
-    case 'processors':
-      return `select p.id, p.name, p.processor_type as "processorType", p.fee_type as "feeType",
-                     p.fee_percentage as "feePercentage", p.fee_fixed_amount as "feeFixedAmount",
-                     p.default_user_split as "defaultUserSplit", p.default_processor_split as "defaultProcessorSplit",
-                     p.notes, p.active, p.created_at as "createdAt",
-                     p.contact_id AS "contactId",
-                     coalesce(sum(pf.processing_fee_total), 0) as "totalFeesProcessed",
-                     coalesce(sum(case when pf.user_fee_status = 'collectible' then pf.user_fee_share else 0 end), 0) as "userFeesCollectible",
-                     coalesce(sum(case when pf.user_fee_status = 'collected' then pf.user_fee_share else 0 end), 0) as "userFeesCollected",
-                     coalesce(sum(case when pf.processor_fee_status = 'unpaid' then pf.processor_fee_share else 0 end), 0) as "processorFeesUnpaid",
-                     count(pf.id)::int as "relationshipsCount"
-              from payment_processors p
-              left join processor_fees pf on pf.processor_id = p.id
-              group by p.id
-              order by p.name`;
-    case 'photography':
-      // Batches needing photos surface first (no primary photo, oldest first),
-      // then batches that already have a primary photo trail behind. Uses the
-      // batch_media_summary view (migration 0036) for aggregate counts.
-      // UX-O01: include b.media_status (canonical gate field used by customer-sheet
-      // export) so MediaView can render it as the primary status column.
-      return `select
-                b.id,
-                b.id as "batchId",
-                b.batch_code as "batchCode",
-                b.name,
-                b.media_status as "mediaStatus",
-                bms.media_updated_at as "mediaUpdatedAt",
-                bms.published_media_count as "publishedMediaCount",
-                bms.draft_media_count as "draftMediaCount",
-                bms.has_primary_photo as "hasPrimaryPhoto",
-                bms.has_primary_video as "hasPrimaryVideo",
-                b.created_at as "createdAt"
-              from batches b
-              left join batch_media_summary bms on bms.batch_id = b.id
-              where b.archived_at is null
-              order by
-                case when bms.has_primary_photo then 1 else 0 end asc,
-                bms.media_updated_at asc nulls first,
-                b.created_at asc`;
-    case 'purchaseReceipts':
-      return `select pr.id, pr.receipt_no as "receiptNo", v.name as vendor, pr.vendor_id as "vendorId",
-                     po.po_no as "poNo", pr.purchase_order_id as "purchaseOrderId",
-                     pr.total, pr.status, pr.created_at as "createdAt",
-                     count(prl.id)::int as lines
-              from purchase_receipts pr
-              left join vendors v on v.id = pr.vendor_id
-              left join purchase_orders po on po.id = pr.purchase_order_id
-              left join purchase_receipt_lines prl on prl.receipt_id = pr.id
-              group by pr.id, v.name, po.po_no
-               order by pr.created_at desc`;
-    case 'items':
-      return `select i.id, i.sku, i.name, i.alias, i.category, i.tags,
-                     i.pricing_rule as "pricingRule", i.status,
-                     i.description,
-                     count(distinct b.id)::int as "batchCount",
-                     coalesce(sum(b.available_qty), 0)::numeric(12,3) as "totalAvailableQty",
-                     i.created_at as "createdAt", i.updated_at as "updatedAt"
-              from items i
-              left join batches b on b.item_id = i.id and b.archived_at is null
-              group by i.id
-               order by i.name`;
-     case 'disputes':
-       return `select d.id, d.invoice_id as "invoiceId", d.status, d.reason, d.resolution,
-                      d.created_at as "createdAt", d.updated_at as "updatedAt",
-                      i.invoice_no as "invoiceNo", i.total as "invoiceAmount", i.status as "invoiceStatus",
-                      c.name as customer, c.id as "customerId"
-               from invoice_disputes d
-               join invoices i on i.id = d.invoice_id
-               left join customers c on c.id = i.customer_id
-               order by d.created_at desc`;
-   }
- }
+  const parts = gridSqlParts(view);
+  if (view === 'recovery') {
+    return parts.body + '\norder by ' + parts.defaultOrderBy + '\nlimit 100';
+  }
+  if (view === 'matchmaking') {
+    return parts.body + '\norder by ' + parts.defaultOrderBy;
+  }
+  return parts.body + '\norder by ' + parts.defaultOrderBy;
+}
 
 function drilldownSql(metricKey: string) {
   switch (metricKey) {

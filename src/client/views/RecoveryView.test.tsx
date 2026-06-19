@@ -51,6 +51,12 @@ vi.mock('../store/uiStore', () => ({
       focusedPanelId: null,
       togglePanelCollapsed: vi.fn(),
       setFocusedPanel: vi.fn(),
+      activeDrawerEntityByView: { recovery: undefined },
+      drawerByView: {},
+      setDrawerEntity: vi.fn(),
+      setDrawerState: vi.fn(),
+      gridFilters: {},
+      setGridFilter: vi.fn(),
     };
     return selector(store);
   },

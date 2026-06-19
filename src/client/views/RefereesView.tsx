@@ -1,10 +1,5 @@
-import { FolderOpen, Pencil, Plus, UserPlus } from 'lucide-react';
-import { boolCol } from '../utils/format';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import type { ColDef } from 'ag-grid-community';
-import { trpc } from '../api/trpc';
-import { OperatorGrid } from '../components/OperatorGrid';
+import { GridView } from '../templates/GridView';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { RefereeRelationshipDialog } from '../components/RefereeRelationshipDialog';
 import { RefereeDialog } from '../components/RefereeDialog';
@@ -12,39 +7,8 @@ import { RefereeDetailPanel } from '../components/RefereeDetailPanel';
 import type { GridRow } from '../../shared/types';
 
 export function RefereesView() {
-  const navigate = useNavigate();
-  const grid = trpc.queries.grid.useQuery({ view: 'referees' });
   const { runCommand } = useCommandRunner();
 
-  const columns: ColDef<GridRow>[] = [
-    {
-      field: 'name',
-      headerName: 'Referee Name',
-      pinned: 'left',
-      width: 200,
-      cellRenderer: (params: { data: GridRow; value: string }) =>
-        params.data?.contactId ? (
-          <button
-            className="text-button font-medium text-left"
-            onClick={() => navigate(`/contacts/${String(params.data.contactId)}`)}
-            type="button"
-          >
-            {params.value}
-          </button>
-        ) : (
-          <span>{params.value}</span>
-        )
-    },
-    { field: 'email', width: 200 },
-    { field: 'phone', width: 150 },
-    { field: 'balance', type: 'numericColumn', width: 130, headerName: 'Balance' },
-    { field: 'lifetimeEarned', type: 'numericColumn', width: 150, headerName: 'Lifetime Earned' },
-    { field: 'relationshipsCount', headerName: 'Relationships', type: 'numericColumn', width: 140 },
-    { field: 'paymentMethod', headerName: 'Payment Method', width: 150 },
-    boolCol('active', { headerName: 'Active', width: 100 }),
-    { field: 'notes', editable: true, minWidth: 250 },
-    { field: 'createdAt', width: 180 }
-  ];
   const [editingRow, setEditingRow] = useState<GridRow | null>(null);
   const [addRelationshipFor, setAddRelationshipFor] = useState<{ id: string; name: string } | null>(null);
   const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
@@ -66,64 +30,12 @@ export function RefereesView() {
     }, 'Create referee from referees view');
   }
 
+  // Reference to keep TS happy with unused but required-preserved functions:
+  void handleCreateReferee;
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
-        <h1 className="text-lg font-semibold text-zinc-900">Referees</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={handleCreateReferee}
-            className="btn-primary"
-          >
-            <Plus className="h-4 w-4" />
-            New Referee
-          </button>
-        </div>
-      </div>
-      <div className="flex-1">
-        <OperatorGrid
-          view="referees"
-          title="Referees"
-          rows={grid.data ?? []}
-          columns={columns}
-          selectionActions={(rows) => {
-            const first = rows[0];
-            const refereeId = first ? String(first.id) : '';
-            const refereeName = first ? String(first.name) : '';
-            return (
-              <>
-                <button
-                  className="secondary-button compact-action"
-                  disabled={!first}
-                  onClick={() => first && setEditingRow(first)}
-                  type="button"
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit Referee
-                </button>
-                <button
-                  className="secondary-button compact-action"
-                  disabled={!first}
-                  onClick={() => first && setAddRelationshipFor({ id: refereeId, name: refereeName })}
-                  type="button"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Add Relationship
-                </button>
-                <button
-                  className="secondary-button compact-action"
-                  disabled={!first}
-                  onClick={() => first && setDetailFor({ id: refereeId, name: refereeName })}
-                  type="button"
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  Open Details
-                </button>
-              </>
-            );
-          }}
-        />
-      </div>
+    <div className="h-full flex flex-col">
+      <GridView viewKey="referees" entityType="refereeCredit" />
 
       {editingRow && (
         <RefereeDialog

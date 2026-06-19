@@ -1,0 +1,542 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - generic [ref=e7]: TERP Operator
+          - generic [ref=e8]: Operator Console
+        - button "Collapse navigation" [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: Decide
+          - button "Dashboard" [ref=e16] [cursor=pointer]:
+            - img [ref=e17]
+            - generic [ref=e20]: Dashboard
+            - generic [ref=e21]: ⌘1
+          - button "Reports" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - generic [ref=e25]: Reports
+        - generic [ref=e26]:
+          - generic [ref=e27]: Procure
+          - button "Purchase Orders" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic [ref=e33]: Purchase Orders
+          - button "Intake" [ref=e34] [cursor=pointer]:
+            - img [ref=e35]
+            - generic [ref=e38]: Intake
+            - generic [ref=e39]: ⌘2
+          - button "Inventory" [ref=e40] [cursor=pointer]:
+            - img [ref=e41]
+            - generic [ref=e51]: Inventory
+            - generic [ref=e52]: ⌘5
+          - button "More" [ref=e53] [cursor=pointer]:
+            - img [ref=e54]
+            - generic [ref=e56]: More
+          - group "More Procure items" [ref=e57]:
+            - button "Receipts" [ref=e58] [cursor=pointer]:
+              - img [ref=e59]
+              - generic [ref=e61]: Receipts
+            - button "Photography" [ref=e62] [cursor=pointer]:
+              - img [ref=e63]
+              - generic [ref=e66]: Photography
+        - generic [ref=e67]:
+          - generic [ref=e68]: Sell
+          - button "Sales" [ref=e69] [cursor=pointer]:
+            - img [ref=e70]
+            - generic [ref=e74]: Sales
+            - generic [ref=e75]: ⌘3
+          - button "Matchmaking" [ref=e76] [cursor=pointer]:
+            - img [ref=e77]
+            - generic [ref=e80]: Matchmaking
+          - button "Orders" [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
+            - generic [ref=e85]: Orders
+          - button "Fulfillment" [ref=e86] [cursor=pointer]:
+            - img [ref=e87]
+            - generic [ref=e92]: Fulfillment
+          - button "Client Balances" [ref=e93] [cursor=pointer]:
+            - img [ref=e94]
+            - generic [ref=e96]: Client Balances
+            - generic [ref=e97]: ⌘6
+          - button "More" [ref=e98] [cursor=pointer]:
+            - img [ref=e99]
+            - generic [ref=e101]: More
+          - group "More Sell items" [ref=e102]:
+            - button "Credit Review" [ref=e103] [cursor=pointer]:
+              - img [ref=e104]
+              - generic [ref=e108]: Credit Review
+        - generic [ref=e109]:
+          - generic [ref=e110]: Money
+          - button "Payments" [ref=e111] [cursor=pointer]:
+            - img [ref=e112]
+            - generic [ref=e115]: Payments
+            - generic [ref=e116]: ⌘4
+          - button "Vendor Payouts" [ref=e117] [cursor=pointer]:
+            - img [ref=e118]
+            - generic [ref=e120]: Vendor Payouts
+          - button "Contacts" [ref=e121] [cursor=pointer]:
+            - img [ref=e122]
+            - generic [ref=e127]: Contacts
+          - button "More" [ref=e128] [cursor=pointer]:
+            - img [ref=e129]
+            - generic [ref=e131]: More
+          - group "More Money items" [ref=e132]:
+            - button "Disputes" [ref=e133] [cursor=pointer]:
+              - img [ref=e134]
+              - generic [ref=e136]: Disputes
+            - button "Referees" [ref=e137] [cursor=pointer]:
+              - img [ref=e138]
+              - generic [ref=e143]: Referees
+        - generic [ref=e144]:
+          - generic [ref=e145]: Admin
+          - button "Recovery" [ref=e146] [cursor=pointer]:
+            - img [ref=e147]
+            - generic [ref=e150]: Recovery
+          - button "Closeout" [ref=e151] [cursor=pointer]:
+            - img [ref=e152]
+            - generic [ref=e155]: Closeout
+          - button "Settings" [ref=e156] [cursor=pointer]:
+            - img [ref=e157]
+            - generic [ref=e160]: Settings
+      - link "Switch to mobile view" [ref=e162] [cursor=pointer]:
+        - /url: /mobile/dashboard
+        - img [ref=e163]
+        - generic [ref=e165]: Mobile view
+    - generic [ref=e166]:
+      - banner "Global workspace keel" [ref=e167]:
+        - button "Search ⌘K" [ref=e168] [cursor=pointer]:
+          - img [ref=e169]
+          - generic [ref=e172]: Search
+          - generic [ref=e173]: ⌘K
+        - generic "Quick actions and tools" [ref=e174]:
+          - button "Quick actions" [ref=e176] [cursor=pointer]:
+            - img [ref=e177]
+            - generic [ref=e181]: Quick actions
+            - img [ref=e182]
+          - combobox "Choose customer" [ref=e184]:
+            - option "Choose customer" [selected]
+            - option "Cobalt Reserve"
+            - option "DBFinal-Contact-1780357843"
+            - option "DBFinal-Contact-1780427928"
+            - option "DBFinal-Contact-1780428015"
+            - option "DBVerify-Contact-1780357545"
+            - option "Harbor Wellness"
+            - option "Sunset Collective"
+            - option "Test Contact DB v3 1780355986"
+            - option "Test Contact DB Verify"
+            - option "Test Contact DB Verify 1780355318"
+            - option "Test Contact DB Verify 1780355612"
+            - option "Valley Meds"
+          - button "Sign out" [ref=e185] [cursor=pointer]
+        - generic [ref=e186]:
+          - generic [ref=e189]: Healthy
+          - generic [ref=e190]: Evan Owner
+      - main [ref=e192]:
+        - generic [ref=e193]:
+          - generic [ref=e194]:
+            - button "New Sale" [disabled] [ref=e195]:
+              - img [ref=e196]
+              - text: New Sale
+            - button "Hide margin" [pressed] [ref=e199] [cursor=pointer]:
+              - img [ref=e200]
+            - button "Sale tray" [ref=e203] [cursor=pointer]:
+              - img [ref=e204]
+              - text: Sale tray
+          - generic [ref=e206]:
+            - generic [ref=e207]:
+              - tablist "Sales source tabs" [ref=e208]:
+                - tab "Inventory Finder" [selected] [ref=e209] [cursor=pointer]
+                - tab "Recent Sheets" [ref=e210] [cursor=pointer]
+              - tabpanel "Inventory Finder" [ref=e211]:
+                - region "Inventory Finder" [ref=e212]:
+                  - generic [ref=e213]:
+                    - button "Inventory Finder Posted batches on hand" [expanded] [ref=e214] [cursor=pointer]:
+                      - img [ref=e215]
+                      - generic [ref=e217]:
+                        - heading "Inventory Finder" [level=2] [ref=e218]
+                        - generic [ref=e219]: Posted batches on hand
+                    - generic [ref=e220]:
+                      - generic [ref=e221]:
+                        - generic [ref=e222]: 4 / 4 shown
+                        - generic [ref=e223]: 0 filters
+                      - button "Expand Inventory Finder" [ref=e224] [cursor=pointer]:
+                        - img [ref=e225]
+                  - generic [ref=e231]:
+                    - generic [ref=e232]:
+                      - generic [ref=e233]:
+                        - img [ref=e234]
+                        - textbox [ref=e237]:
+                          - /placeholder: Search code, notes, lot, vendor, tag…
+                      - button "Add filter" [ref=e239] [cursor=pointer]:
+                        - img [ref=e240]
+                        - text: Add filter
+                      - button "Advanced" [ref=e241] [cursor=pointer]:
+                        - img [ref=e242]
+                        - text: Advanced
+                        - generic [ref=e244]: ▾
+                    - generic "Saved inventory views" [ref=e245]:
+                      - generic [ref=e246]: Views
+                      - button "Aging premium" [ref=e247] [cursor=pointer]
+                      - button "Consignment risk" [ref=e248] [cursor=pointer]
+                      - button "Low stock" [ref=e249] [cursor=pointer]
+                      - button "Office owned" [ref=e250] [cursor=pointer]
+                      - button "Value buyers" [ref=e251] [cursor=pointer]
+                      - button "DBFinal-Filter-1780428015" [ref=e252] [cursor=pointer]
+                      - button "Test DB v3 Filter 1780355986" [ref=e253] [cursor=pointer]
+                      - button "Test DB Verify Filter v3" [ref=e254] [cursor=pointer]
+                      - button "Manage saved filters" [ref=e255] [cursor=pointer]:
+                        - img [ref=e256]
+                        - text: Manage views
+                    - table "Filtered inventory batches" [ref=e260]:
+                      - caption [ref=e261]: Filtered inventory batches
+                      - rowgroup [ref=e262]:
+                        - row "Qty Select Batch Lot / date Product Subcat Source Avail Ticket / Price Marker Media Why shown" [ref=e263]:
+                          - columnheader "Qty" [ref=e264]
+                          - columnheader "Select" [ref=e265]:
+                            - generic [ref=e266]: Select
+                          - columnheader "Batch" [ref=e267]
+                          - columnheader "Lot / date" [ref=e268]
+                          - columnheader "Product" [ref=e269]
+                          - columnheader "Subcat" [ref=e270]
+                          - columnheader "Source" [ref=e271]
+                          - columnheader "Avail" [ref=e272]
+                          - columnheader "Ticket / Price" [ref=e273]
+                          - columnheader "Marker" [ref=e274]
+                          - columnheader "Media" [ref=e275]
+                          - columnheader "Why shown" [ref=e276]
+                      - rowgroup [ref=e277]:
+                        - row "1 Add Select BATCH-DEMO-004 BATCH-DEMO-004 UP-0505-P 5/18/2026 House Pre-roll 1g Pre-roll / value, pre-roll - Upland Craft B3 / lot UP-PR-0505 736 unit in draft $2,100 $4 / 3-5 ofc Queued catalog media not ready" [ref=e278]:
+                          - cell "1 Add" [ref=e279]:
+                            - generic [ref=e280]:
+                              - textbox "Quantity for House Pre-roll 1g" [disabled] [ref=e281]: "1"
+                              - button "Add" [disabled] [ref=e282]:
+                                - img [ref=e283]
+                                - text: Add
+                          - cell "Select BATCH-DEMO-004" [ref=e287]:
+                            - checkbox "Select BATCH-DEMO-004" [ref=e288]
+                          - cell "BATCH-DEMO-004" [ref=e289]:
+                            - generic [ref=e290]: BATCH-DEMO-004
+                          - cell "UP-0505-P 5/18/2026" [ref=e291]:
+                            - generic [ref=e292]: UP-0505-P
+                            - generic [ref=e293]: 5/18/2026
+                          - cell "House Pre-roll 1g Pre-roll / value, pre-roll" [ref=e294]:
+                            - generic [ref=e295]: House Pre-roll 1g
+                            - generic [ref=e296]: Pre-roll / value, pre-roll
+                          - cell "-" [ref=e297]
+                          - cell "Upland Craft B3 / lot UP-PR-0505" [ref=e298]:
+                            - generic [ref=e299]: Upland Craft
+                            - generic [ref=e300]: B3 / lot UP-PR-0505
+                          - cell "736 unit in draft" [ref=e301]:
+                            - generic "736 avail (4 unit in draft)" [ref=e302]: 736 unit in draft
+                          - cell "$2,100 $4 / 3-5" [ref=e303]:
+                            - generic [ref=e304]: $2,100
+                            - generic [ref=e305]: $4 / 3-5
+                          - cell "ofc" [ref=e306]
+                          - cell "Queued" [ref=e307]
+                          - cell "catalog media not ready" [ref=e308]
+                        - row "1 Add Select BATCH-DEMO-003 BATCH-DEMO-003 EM-0504-R 5/14/2026 Live Rosin 1g Extract / extract, live, premium - Emerald Processing Co QA-Hold / lot EM-LR-0504 168 unit in draft $4,800 $27 / 25-34 OFC In progress catalog media not ready" [ref=e309]:
+                          - cell "1 Add" [ref=e310]:
+                            - generic [ref=e311]:
+                              - textbox "Quantity for Live Rosin 1g" [disabled] [ref=e312]: "1"
+                              - button "Add" [disabled] [ref=e313]:
+                                - img [ref=e314]
+                                - text: Add
+                          - cell "Select BATCH-DEMO-003" [ref=e318]:
+                            - checkbox "Select BATCH-DEMO-003" [ref=e319]
+                          - cell "BATCH-DEMO-003" [ref=e320]:
+                            - generic [ref=e321]: BATCH-DEMO-003
+                          - cell "EM-0504-R 5/14/2026" [ref=e322]:
+                            - generic [ref=e323]: EM-0504-R
+                            - generic [ref=e324]: 5/14/2026
+                          - cell "Live Rosin 1g Extract / extract, live, premium" [ref=e325]:
+                            - generic [ref=e326]: Live Rosin 1g
+                            - generic [ref=e327]: Extract / extract, live, premium
+                          - cell "-" [ref=e328]
+                          - cell "Emerald Processing Co QA-Hold / lot EM-LR-0504" [ref=e329]:
+                            - generic [ref=e330]: Emerald Processing Co
+                            - generic [ref=e331]: QA-Hold / lot EM-LR-0504
+                          - cell "168 unit in draft" [ref=e332]:
+                            - generic "168 avail (20 unit in draft)" [ref=e333]: 168 unit in draft
+                          - cell "$4,800 $27 / 25-34" [ref=e334]:
+                            - generic [ref=e335]: $4,800
+                            - generic [ref=e336]: $27 / 25-34
+                          - cell "OFC" [ref=e337]
+                          - cell "In progress" [ref=e338]
+                          - cell "catalog media not ready" [ref=e339]
+                        - row "1 Add Select BATCH-DEMO-001 BATCH-DEMO-001 NC-0426-A 5/4/2026 Infused Candy 10mg Infused / infused, candy, premium - North Coast Gardens QA-Hold / lot NC-IC-0426 87 case in draft $5,040 $68 / 60-72 C Ready available posted lot" [ref=e340]:
+                          - cell "1 Add" [ref=e341]:
+                            - generic [ref=e342]:
+                              - textbox "Quantity for Infused Candy 10mg" [disabled] [ref=e343]: "1"
+                              - button "Add" [disabled] [ref=e344]:
+                                - img [ref=e345]
+                                - text: Add
+                          - cell "Select BATCH-DEMO-001" [ref=e349]:
+                            - checkbox "Select BATCH-DEMO-001" [ref=e350]
+                          - cell "BATCH-DEMO-001" [ref=e351]:
+                            - generic [ref=e352]: BATCH-DEMO-001
+                          - cell "NC-0426-A 5/4/2026" [ref=e353]:
+                            - generic [ref=e354]: NC-0426-A
+                            - generic [ref=e355]: 5/4/2026
+                          - cell "Infused Candy 10mg Infused / infused, candy, premium" [ref=e356]:
+                            - generic [ref=e357]: Infused Candy 10mg
+                            - generic [ref=e358]: Infused / infused, candy, premium
+                          - cell "-" [ref=e359]
+                          - cell "North Coast Gardens QA-Hold / lot NC-IC-0426" [ref=e360]:
+                            - generic [ref=e361]: North Coast Gardens
+                            - generic [ref=e362]: QA-Hold / lot NC-IC-0426
+                          - cell "87 case in draft" [ref=e363]:
+                            - generic "87 avail (9 case in draft)" [ref=e364]: 87 case in draft
+                          - cell "$5,040 $68 / 60-72" [ref=e365]:
+                            - generic [ref=e366]: $5,040
+                            - generic [ref=e367]: $68 / 60-72
+                          - cell "C" [ref=e368]
+                          - cell "Ready" [ref=e369]
+                          - cell "available posted lot" [ref=e370]
+                        - row "1 Add Select BATCH-DEMO-002 BATCH-DEMO-002 M15-NC-0501-F 4/17/2026 Gelato Flower Flower / flower, premium - North Coast Gardens QA-Hold / lot NC-GEL-0501 31.5 lb $35,100 $1,120 / 1000-1200 C Ready available posted lot" [ref=e371]:
+                          - cell "1 Add" [ref=e372]:
+                            - generic [ref=e373]:
+                              - textbox "Quantity for Gelato Flower" [disabled] [ref=e374]: "1"
+                              - button "Add" [disabled] [ref=e375]:
+                                - img [ref=e376]
+                                - text: Add
+                          - cell "Select BATCH-DEMO-002" [ref=e380]:
+                            - checkbox "Select BATCH-DEMO-002" [ref=e381]
+                          - cell "BATCH-DEMO-002" [ref=e382]:
+                            - generic [ref=e383]: BATCH-DEMO-002
+                          - cell "M15-NC-0501-F 4/17/2026" [ref=e384]:
+                            - generic [ref=e385]: M15-NC-0501-F
+                            - generic [ref=e386]: 4/17/2026
+                          - cell "Gelato Flower Flower / flower, premium" [ref=e387]:
+                            - generic [ref=e388]: Gelato Flower
+                            - generic [ref=e389]: Flower / flower, premium
+                          - cell "-" [ref=e390]
+                          - cell "North Coast Gardens QA-Hold / lot NC-GEL-0501" [ref=e391]:
+                            - generic [ref=e392]: North Coast Gardens
+                            - generic [ref=e393]: QA-Hold / lot NC-GEL-0501
+                          - cell "31.5 lb" [ref=e394]
+                          - cell "$35,100 $1,120 / 1000-1200" [ref=e395]:
+                            - generic [ref=e396]: $35,100
+                            - generic [ref=e397]: $1,120 / 1000-1200
+                          - cell "C" [ref=e398]
+                          - cell "Ready" [ref=e399]
+                          - cell "available posted lot" [ref=e400]
+            - region "Sales Orders" [ref=e402]:
+              - generic [ref=e403]:
+                - button "Sales Orders 0 row(s)" [expanded] [ref=e404] [cursor=pointer]:
+                  - img [ref=e405]
+                  - generic [ref=e407]:
+                    - heading "Sales Orders" [level=2] [ref=e408]
+                    - generic [ref=e409]: 0 row(s)
+                - generic [ref=e410]:
+                  - button "Advanced filters" [ref=e411] [cursor=pointer]:
+                    - img [ref=e412]
+                    - generic [ref=e414]: Advanced filters
+                  - generic [ref=e415]:
+                    - img [ref=e416]
+                    - generic [ref=e419]: Filter Sales Orders grid
+                    - textbox "Filter Sales Orders grid" [ref=e420]:
+                      - /placeholder: Filter grid (field:value)
+                  - group "Filter by status" [ref=e421]:
+                    - button "All Open" [ref=e422] [cursor=pointer]
+                    - button "Confirmed" [ref=e423] [cursor=pointer]
+                    - button "Posted" [ref=e424] [cursor=pointer]
+                  - button "Columns" [ref=e426] [cursor=pointer]:
+                    - img [ref=e427]
+                    - generic [ref=e429]: Columns
+                  - button "Export visible grid CSV" [ref=e430] [cursor=pointer]:
+                    - img [ref=e431]
+                    - generic [ref=e434]: Export visible grid CSV
+                  - button "Expand Sales Orders" [ref=e435] [cursor=pointer]:
+                    - img [ref=e436]
+              - generic [ref=e443]:
+                - text:  
+                - treegrid:
+                  - rowgroup [ref=e445]:
+                    - row "# Order No" [ref=e446]:
+                      - columnheader "#" [ref=e447]:
+                        - text: 
+                        - generic [ref=e448] [cursor=pointer]: 
+                        - generic: "#"
+                        - text: 
+                        - generic: 
+                      - columnheader [ref=e449]:
+                        - text: 
+                        - generic [ref=e450] [cursor=pointer]: 
+                        - text: 
+                        - generic: 
+                      - columnheader "Order No" [ref=e451]:
+                        - text: 
+                        - generic [ref=e453] [cursor=pointer]: 
+                        - generic [ref=e454] [cursor=pointer]: 
+                        - generic [ref=e455] [cursor=pointer]: Order No
+                        - generic:    
+                  - rowgroup [ref=e456]:
+                    - row "Customer Status Pricing Strategy Total Internal margin Lines Lines picked" [ref=e457]:
+                      - columnheader "Customer" [ref=e458]:
+                        - text: 
+                        - generic [ref=e460] [cursor=pointer]: 
+                        - generic [ref=e461] [cursor=pointer]: 
+                        - generic [ref=e462] [cursor=pointer]: Customer
+                        - generic:    
+                      - columnheader "Status" [ref=e463]:
+                        - text: 
+                        - generic [ref=e465] [cursor=pointer]: 
+                        - generic [ref=e466] [cursor=pointer]: 
+                        - generic [ref=e467] [cursor=pointer]: Status
+                        - generic:    
+                      - columnheader "Pricing Strategy" [ref=e468]:
+                        - text: 
+                        - generic [ref=e470] [cursor=pointer]: 
+                        - generic [ref=e471] [cursor=pointer]: 
+                        - generic [ref=e472] [cursor=pointer]: Pricing Strategy
+                        - generic:    
+                      - columnheader "Total" [ref=e473]:
+                        - text: 
+                        - generic [ref=e475] [cursor=pointer]: 
+                        - generic [ref=e476] [cursor=pointer]: 
+                        - generic [ref=e477] [cursor=pointer]: Total
+                        - generic:    
+                      - columnheader "Internal margin" [ref=e478]:
+                        - text: 
+                        - generic [ref=e480] [cursor=pointer]: 
+                        - generic [ref=e481] [cursor=pointer]: 
+                        - generic [ref=e482] [cursor=pointer]: Internal margin
+                        - generic:    
+                      - columnheader "Lines" [ref=e483]:
+                        - text: 
+                        - generic [ref=e485] [cursor=pointer]: 
+                        - generic [ref=e486] [cursor=pointer]: 
+                        - generic [ref=e487] [cursor=pointer]: Lines
+                        - generic:    
+                      - columnheader "Lines picked" [ref=e488]:
+                        - text: 
+                        - generic [ref=e490] [cursor=pointer]: 
+                        - generic [ref=e491] [cursor=pointer]: 
+                        - generic [ref=e492] [cursor=pointer]: Lines picked
+                        - generic:    
+                  - rowgroup [ref=e493]
+                  - rowgroup [ref=e494]
+                  - rowgroup
+                  - rowgroup
+                  - rowgroup [ref=e496]
+                  - rowgroup
+                  - generic [ref=e502]: Loading...
+                - text:                                                                             
+                - text:    
+    - generic [ref=e503]: Opened sales.
+  - button "v3.0.2 Output Detail Standard React Components Hide Until Restart Marker Color Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e505] [cursor=pointer]:
+    - img [ref=e507]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - link:
+              - /url: https://agentation.com
+              - img
+            - paragraph: v3.0.2
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - img
+              - generic:
+                - checkbox [checked]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Color
+            - generic:
+              - button "Indigo"
+              - button "Blue"
+              - button "Cyan"
+              - button "Green"
+              - button "Yellow"
+              - button "Orange"
+              - button "Red"
+          - generic:
+            - generic:
+              - generic:
+                - checkbox "Clear on copy/send"
+                - img
+              - generic: Clear on copy/send
+              - generic:
+                - img
+            - generic:
+              - generic:
+                - checkbox "Block page interactions" [checked]
+                - img
+              - generic: Block page interactions
+          - button "Manage MCP & Webhooks":
+            - generic: Manage MCP & Webhooks
+            - generic:
+              - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - img
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox "Auto-Send" [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"
+  - button "Report an issue" [ref=e510] [cursor=pointer]: Report Issue

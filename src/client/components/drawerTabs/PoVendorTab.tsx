@@ -30,7 +30,7 @@ function dateish(value: unknown): string {
 
 export function PoVendorTab({ vendorId, vendorName }: PoVendorTabProps) {
   const enabled = Boolean(vendorId);
-  const summary = trpc.queries.relationshipSummary.useQuery(
+  const summary = trpc.context.relationshipSummary.useQuery(
     { vendorId: vendorId ?? undefined, customerId: undefined },
     { enabled }
   );

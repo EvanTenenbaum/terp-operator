@@ -1,0 +1,422 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e11]:
+      - generic [ref=e13]:
+        - generic [ref=e15]:
+          - img [ref=e16]
+          - generic [ref=e18]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e20] [cursor=pointer]
+        - generic [ref=e21]:
+          - button "Viewing as Admin" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e26] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e27]: Open account
+      - generic [ref=e28]:
+        - navigation [ref=e29]:
+          - button "Mercury Demo Pro" [ref=e32] [cursor=pointer]:
+            - generic [ref=e34]: Mercury Demo
+            - generic [ref=e36]: Pro
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - link "Home" [ref=e41] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e42]:
+                  - img [ref=e43]
+                  - img [ref=e45]
+                - generic [ref=e48]: Home
+              - link "Tasks 10" [ref=e51] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e52]:
+                  - img [ref=e53]
+                  - img [ref=e55]
+                - generic [ref=e57]:
+                  - generic [ref=e58]: Tasks
+                  - generic [ref=e59]: "10"
+            - separator [ref=e60]
+            - generic [ref=e61]:
+              - link "Accounts" [ref=e64] [cursor=pointer]:
+                - /url: /accounts
+                - generic [ref=e65]:
+                  - img [ref=e66]
+                  - img [ref=e68]
+                - generic [ref=e71]: Accounts
+              - link "Transactions" [ref=e74] [cursor=pointer]:
+                - /url: /transactions
+                - generic [ref=e75]:
+                  - img [ref=e76]
+                  - img [ref=e78]
+                - generic [ref=e81]: Transactions
+              - link "Cards" [ref=e84] [cursor=pointer]:
+                - /url: /cards
+                - generic [ref=e85]:
+                  - img [ref=e86]
+                  - img [ref=e88]
+                - generic [ref=e91]: Cards
+              - link "Payments" [ref=e94] [cursor=pointer]:
+                - /url: /payments
+                - generic [ref=e95]:
+                  - img [ref=e96]
+                  - img [ref=e98]
+                - generic [ref=e101]: Payments
+              - link "Invoicing" [ref=e104] [cursor=pointer]:
+                - /url: /invoicing
+                - generic [ref=e105]:
+                  - img [ref=e106]
+                  - img [ref=e108]
+                - generic [ref=e111]: Invoicing
+              - link "Reimbursements" [ref=e114] [cursor=pointer]:
+                - /url: /expenses/all-expenses
+                - generic [ref=e115]:
+                  - img [ref=e116]
+                  - img [ref=e118]
+                - generic [ref=e121]: Reimbursements
+            - separator [ref=e122]
+            - group "Bookmarks" [ref=e123]:
+              - generic [ref=e124]:
+                - generic [ref=e125]: Bookmarks
+                - button "Learn about bookmarks" [ref=e126] [cursor=pointer]:
+                  - img [ref=e127]
+              - list "Bookmarks" [ref=e129]:
+                - listitem [ref=e130] [cursor=pointer]:
+                  - button "Reorder Ops / Payroll bookmark" [ref=e131]:
+                    - img [ref=e132]
+                  - link "Ops / Payroll $2,023,267.12" [ref=e134]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e135]:
+                      - generic [ref=e136]: Ops / Payroll
+                      - generic [ref=e138]:
+                        - text: $2,023,267
+                        - generic [ref=e139]: ".12"
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e140] [cursor=pointer]:
+                  - button "Reorder Credit Card bookmark" [ref=e141]:
+                    - img [ref=e142]
+                  - link "Credit Card" [ref=e144]:
+                    - /url: /accounts/credit
+                    - generic [ref=e146]: Credit Card
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e147] [cursor=pointer]:
+                  - button "Reorder Bill Pay bookmark" [ref=e148]:
+                    - img [ref=e149]
+                  - link "Bill Pay" [ref=e151]:
+                    - /url: /bill-pay
+                    - generic [ref=e153]: Bill Pay
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e154] [cursor=pointer]:
+                  - button "Reorder Insights bookmark" [ref=e155]:
+                    - img [ref=e156]
+                  - link "Insights" [ref=e158]:
+                    - /url: /insights/overview
+                    - generic [ref=e160]: Insights
+                  - button "Remove bookmark":
+                    - img
+              - status [ref=e161]
+        - generic [ref=e162]:
+          - generic [ref=e164]:
+            - button "Search for anything" [ref=e166] [cursor=pointer]:
+              - img
+              - generic [ref=e167]: Search for anything
+            - button "Move money" [ref=e169] [cursor=pointer]:
+              - img
+              - generic [ref=e170]: Move money
+            - generic [ref=e171]:
+              - button "Toggle Private Mode" [ref=e172] [cursor=pointer]:
+                - img
+              - link "Navigate to Settings" [ref=e175] [cursor=pointer]:
+                - /url: /settings
+                - img
+              - button "updates" [ref=e178] [cursor=pointer]:
+                - img
+              - button [ref=e181] [cursor=pointer]
+          - generic [ref=e183]:
+            - generic [ref=e185]:
+              - generic [ref=e186]:
+                - heading "Reimbursements" [level=1] [ref=e187]
+                - generic [ref=e190]:
+                  - img [ref=e191]
+                  - generic [ref=e194]: Mercury Pro
+              - generic [ref=e195]:
+                - button "Settings" [ref=e196] [cursor=pointer]:
+                  - img
+                  - generic [ref=e197]: Settings
+                - button "Submit expense" [ref=e199] [cursor=pointer]:
+                  - img
+                  - generic [ref=e200]: Submit expense
+            - generic [ref=e202]:
+              - generic [ref=e203]:
+                - text: All expenses
+                - generic [ref=e205]: "5"
+              - generic [ref=e207] [cursor=pointer]:
+                - text: My expenses
+                - generic [ref=e209]: "1"
+            - generic [ref=e211]:
+              - generic [ref=e212]:
+                - menubar [ref=e213]:
+                  - generic [ref=e214]:
+                    - generic [ref=e215]:
+                      - menuitem "All" [ref=e217] [cursor=pointer]:
+                        - generic [ref=e218]: All
+                      - menuitem "Pending Review" [ref=e220] [cursor=pointer]:
+                        - generic [ref=e221]: Pending Review
+                    - menuitem "Add filter" [ref=e224] [cursor=pointer]:
+                      - img [ref=e226]
+                      - generic [ref=e228]: Add filter
+                - generic [ref=e229]:
+                  - generic [ref=e231]:
+                    - button [disabled]
+                    - button [disabled]
+                  - button "Export all" [ref=e233] [cursor=pointer]:
+                    - img
+                    - generic [ref=e234]: Export all
+              - generic [ref=e236]:
+                - table "All Expenses" [ref=e237]:
+                  - caption [ref=e238]: All Expenses
+                  - rowgroup [ref=e239]:
+                    - row "Date Team Member Status Amount Category Receipt Policy" [ref=e240]:
+                      - columnheader [ref=e241]:
+                        - checkbox [ref=e243] [cursor=pointer]
+                      - columnheader "Date" [ref=e244]:
+                        - generic [ref=e245]:
+                          - generic [ref=e246]: Date
+                          - generic "Date" [ref=e248]:
+                            - img [ref=e249]
+                      - columnheader "Team Member" [ref=e251]
+                      - columnheader "Status" [ref=e252]
+                      - columnheader "Amount" [ref=e253]
+                      - columnheader "Category" [ref=e254]
+                      - columnheader "Receipt" [ref=e255]
+                      - columnheader "Policy" [ref=e256]
+                  - rowgroup [ref=e257]:
+                    - row "Jun 14 Jane Black Payment Pending $50.25 Travel - Vehicles —" [ref=e258] [cursor=pointer]:
+                      - cell [ref=e259]:
+                        - checkbox [ref=e261]
+                      - cell "Jun 14" [ref=e262]:
+                        - generic [ref=e263]: Jun 14
+                      - cell "Jane Black" [ref=e264]:
+                        - generic [ref=e267]: Jane Black
+                      - cell "Payment Pending" [ref=e268]:
+                        - generic [ref=e270]: Payment Pending
+                      - cell "$50.25" [ref=e272]:
+                        - generic [ref=e274]:
+                          - text: $50
+                          - generic [ref=e275]: ".25"
+                      - cell "Travel - Vehicles" [ref=e276]:
+                        - generic [ref=e279]: Travel - Vehicles
+                      - cell "—" [ref=e280]:
+                        - generic [ref=e281]: —
+                      - cell [ref=e282]:
+                        - img [ref=e283]
+                    - row "Jun 14 Jane Black Pending Review $16.75 Travel - Vehicles —" [ref=e285] [cursor=pointer]:
+                      - cell [ref=e286]:
+                        - checkbox [ref=e288]
+                      - cell "Jun 14" [ref=e289]:
+                        - generic [ref=e290]: Jun 14
+                      - cell "Jane Black" [ref=e291]:
+                        - generic [ref=e294]: Jane Black
+                      - cell "Pending Review" [ref=e295]:
+                        - generic [ref=e297]: Pending Review
+                      - cell "$16.75" [ref=e299]:
+                        - generic [ref=e301]:
+                          - text: $16
+                          - generic [ref=e302]: ".75"
+                      - cell "Travel - Vehicles" [ref=e303]:
+                        - generic [ref=e306]: Travel - Vehicles
+                      - cell "—" [ref=e307]:
+                        - generic [ref=e308]: —
+                      - cell [ref=e309]:
+                        - img [ref=e310]
+                    - row "Jun 12 Jane Black Declined $35.00 Travel - Flights" [ref=e312] [cursor=pointer]:
+                      - cell [ref=e313]:
+                        - checkbox [ref=e315]
+                      - cell "Jun 12" [ref=e316]:
+                        - generic [ref=e317]: Jun 12
+                      - cell "Jane Black" [ref=e318]:
+                        - generic [ref=e321]: Jane Black
+                      - cell "Declined" [ref=e322]:
+                        - generic [ref=e324]: Declined
+                      - cell "$35.00" [ref=e326]:
+                        - generic [ref=e328]:
+                          - text: $35
+                          - generic [ref=e329]: ".00"
+                      - cell "Travel - Flights" [ref=e330]:
+                        - generic [ref=e333]: Travel - Flights
+                      - cell [ref=e334]:
+                        - button [ref=e336]:
+                          - img [ref=e337]
+                      - cell [ref=e339]:
+                        - img [ref=e340]
+                    - row "Jun 12 Jane Black Payment Pending $15.82 Business Client Meals" [ref=e342] [cursor=pointer]:
+                      - cell [ref=e343]:
+                        - checkbox [ref=e345]
+                      - cell "Jun 12" [ref=e346]:
+                        - generic [ref=e347]: Jun 12
+                      - cell "Jane Black" [ref=e348]:
+                        - generic [ref=e351]: Jane Black
+                      - cell "Payment Pending" [ref=e352]:
+                        - generic [ref=e354]: Payment Pending
+                      - cell "$15.82" [ref=e356]:
+                        - generic [ref=e358]:
+                          - text: $15
+                          - generic [ref=e359]: ".82"
+                      - cell "Business Client Meals" [ref=e360]:
+                        - generic [ref=e363]: Business Client Meals
+                      - cell [ref=e364]:
+                        - button [ref=e366]:
+                          - img [ref=e367]
+                      - cell [ref=e369]:
+                        - img [ref=e370]
+                    - row "Jun 12 Jane Black Payment Pending $724.75 Travel - Flights" [ref=e372] [cursor=pointer]:
+                      - cell [ref=e373]:
+                        - checkbox [ref=e375]
+                      - cell "Jun 12" [ref=e376]:
+                        - generic [ref=e377]: Jun 12
+                      - cell "Jane Black" [ref=e378]:
+                        - generic [ref=e381]: Jane Black
+                      - cell "Payment Pending" [ref=e382]:
+                        - generic [ref=e384]: Payment Pending
+                      - cell "$724.75" [ref=e386]:
+                        - generic [ref=e388]:
+                          - text: $724
+                          - generic [ref=e389]: ".75"
+                      - cell "Travel - Flights" [ref=e390]:
+                        - generic [ref=e393]: Travel - Flights
+                      - cell [ref=e394]:
+                        - button [ref=e396]:
+                          - img [ref=e397]
+                      - cell [ref=e399]:
+                        - img [ref=e400]
+                    - row "Jun 11 Jane Black Details Requested $480.50 Travel - Flights" [ref=e402] [cursor=pointer]:
+                      - cell [ref=e403]:
+                        - checkbox [ref=e405]
+                      - cell "Jun 11" [ref=e406]:
+                        - generic [ref=e407]: Jun 11
+                      - cell "Jane Black" [ref=e408]:
+                        - generic [ref=e411]: Jane Black
+                      - cell "Details Requested" [ref=e412]:
+                        - generic [ref=e414]: Details Requested
+                      - cell "$480.50" [ref=e416]:
+                        - generic [ref=e418]:
+                          - text: $480
+                          - generic [ref=e419]: ".50"
+                      - cell "Travel - Flights" [ref=e420]:
+                        - generic [ref=e423]: Travel - Flights
+                      - cell [ref=e424]:
+                        - button [ref=e426]:
+                          - img [ref=e427]
+                      - cell [ref=e429]:
+                        - img [ref=e430]
+                    - row "Oct 1 Mary Metcalfe Pending Review $338.62 Travel - Accommodation" [ref=e432] [cursor=pointer]:
+                      - cell [ref=e433]:
+                        - checkbox [ref=e435]
+                      - cell "Oct 1" [ref=e436]:
+                        - generic [ref=e437]: Oct 1
+                      - cell "Mary Metcalfe" [ref=e438]:
+                        - generic [ref=e441]: Mary Metcalfe
+                      - cell "Pending Review" [ref=e442]:
+                        - generic [ref=e444]: Pending Review
+                      - cell "$338.62" [ref=e446]:
+                        - generic [ref=e448]:
+                          - text: $338
+                          - generic [ref=e449]: ".62"
+                      - cell "Travel - Accommodation" [ref=e450]:
+                        - generic [ref=e453]: Travel - Accommodation
+                      - cell [ref=e454]:
+                        - button [ref=e456]:
+                          - img [ref=e457]
+                      - cell [ref=e459]:
+                        - img [ref=e460]
+                    - row "Oct 1 Mary Metcalfe Pending Review $27.50 Travel - Vehicles" [ref=e462] [cursor=pointer]:
+                      - cell [ref=e463]:
+                        - checkbox [ref=e465]
+                      - cell "Oct 1" [ref=e466]:
+                        - generic [ref=e467]: Oct 1
+                      - cell "Mary Metcalfe" [ref=e468]:
+                        - generic [ref=e471]: Mary Metcalfe
+                      - cell "Pending Review" [ref=e472]:
+                        - generic [ref=e474]: Pending Review
+                      - cell "$27.50" [ref=e476]:
+                        - generic [ref=e478]:
+                          - text: $27
+                          - generic [ref=e479]: ".50"
+                      - cell "Travel - Vehicles" [ref=e480]:
+                        - generic [ref=e483]: Travel - Vehicles
+                      - cell [ref=e484]:
+                        - button [ref=e486]:
+                          - img [ref=e487]
+                      - cell [ref=e489]:
+                        - img [ref=e490]
+                    - row "Oct 1 Team Member Pending Review $215.78 Travel - Vehicles" [ref=e492] [cursor=pointer]:
+                      - cell [ref=e493]:
+                        - checkbox [ref=e495]
+                      - cell "Oct 1" [ref=e496]:
+                        - generic [ref=e497]: Oct 1
+                      - cell "Team Member" [ref=e498]:
+                        - generic [ref=e501]: Team Member
+                      - cell "Pending Review" [ref=e502]:
+                        - generic [ref=e504]: Pending Review
+                      - cell "$215.78" [ref=e506]:
+                        - generic [ref=e508]:
+                          - text: $215
+                          - generic [ref=e509]: ".78"
+                      - cell "Travel - Vehicles" [ref=e510]:
+                        - generic [ref=e513]: Travel - Vehicles
+                      - cell [ref=e514]:
+                        - button [ref=e516]:
+                          - img [ref=e517]
+                      - cell [ref=e519]:
+                        - img [ref=e520]
+                    - row "Oct 1 Alice Chen Action Required $167.50 Travel - Vehicles —" [ref=e522] [cursor=pointer]:
+                      - cell [ref=e523]:
+                        - checkbox [ref=e525]
+                      - cell "Oct 1" [ref=e526]:
+                        - generic [ref=e527]: Oct 1
+                      - cell "Alice Chen" [ref=e528]:
+                        - generic [ref=e531]: Alice Chen
+                      - cell "Action Required" [ref=e532]:
+                        - generic [ref=e534]: Action Required
+                      - cell "$167.50" [ref=e536]:
+                        - generic [ref=e538]:
+                          - text: $167
+                          - generic [ref=e539]: ".50"
+                      - cell "Travel - Vehicles" [ref=e540]:
+                        - generic [ref=e543]: Travel - Vehicles
+                      - cell "—" [ref=e544]:
+                        - generic [ref=e545]: —
+                      - cell [ref=e546]:
+                        - img [ref=e547]
+                    - row "Jul 5 Jessica Awad Pending Review $375.87 Business Client Meals —" [ref=e549] [cursor=pointer]:
+                      - cell [ref=e550]:
+                        - checkbox [ref=e552]
+                      - cell "Jul 5" [ref=e553]:
+                        - generic [ref=e554]: Jul 5
+                      - cell "Jessica Awad" [ref=e555]:
+                        - generic [ref=e558]: Jessica Awad
+                      - cell "Pending Review" [ref=e559]:
+                        - generic [ref=e561]: Pending Review
+                      - cell "$375.87" [ref=e563]:
+                        - generic [ref=e565]:
+                          - text: $375
+                          - generic [ref=e566]: ".87"
+                      - cell "Business Client Meals" [ref=e567]:
+                        - generic [ref=e570]: Business Client Meals
+                      - cell "—" [ref=e571]:
+                        - generic [ref=e572]: —
+                      - cell [ref=e573]:
+                        - img [ref=e576]
+                - generic [ref=e578]: This table row is also a link. Click on the row with your cursor or press the Enter key to activate the link.
+              - dialog "0 requests selected" [ref=e579]:
+                - generic [ref=e581]:
+                  - generic [ref=e582]:
+                    - generic [ref=e583]: 0 requests selected
+                    - generic [ref=e584]: $0.00 total
+                  - button "Approve" [ref=e587] [cursor=pointer]:
+                    - generic [ref=e588]: Approve
+      - button [ref=e591] [cursor=pointer]:
+        - img [ref=e592]
+  - alert

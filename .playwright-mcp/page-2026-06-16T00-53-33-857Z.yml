@@ -1,0 +1,42 @@
+- generic [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - link "Home" [ref=e10] [cursor=pointer]:
+          - /url: /home
+          - generic [ref=e11]: Home
+          - img [ref=e12]
+        - link "Open Account" [ref=e15] [cursor=pointer]:
+          - /url: /signup
+          - text: Open Account
+          - img [ref=e16]
+      - generic [ref=e26]:
+        - heading "Log in" [level=1] [ref=e28]
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - generic [ref=e32]:
+              - generic [ref=e33]: Email
+              - textbox "Email" [active] [ref=e36]
+            - generic [ref=e38]:
+              - generic [ref=e39]: Password
+              - generic [ref=e40]:
+                - textbox "Password" [ref=e42]
+                - button "Show password" [ref=e44] [cursor=pointer]:
+                  - img [ref=e45]
+            - link "Forgot password?" [ref=e49] [cursor=pointer]:
+              - /url: /forgot-password
+          - button "Log in" [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]: Log in
+        - generic [ref=e53]:
+          - button "Continue with passkey" [ref=e54] [cursor=pointer]:
+            - img
+            - generic [ref=e55]: Continue with passkey
+          - paragraph [ref=e56]:
+            - text: Log in securely using one click, your face, or your fingerprint.
+            - link "Learn how to set it up" [ref=e58] [cursor=pointer]:
+              - /url: https://support.mercury.com/hc/en-us/articles/28772291469204
+              - text: Learn how to set it up
+              - img [ref=e59]
+  - alert
+  - iframe [ref=e62]:
+    

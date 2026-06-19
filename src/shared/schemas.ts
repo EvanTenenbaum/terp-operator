@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { commandNames } from './commandCatalog';
 import { BELOW_FLOOR_REASONS } from './saleLineCostExceptions';
+import { gridFiltersSchema } from './gridFilters';
 
 export const roleSchema = z.enum(['owner', 'manager', 'operator', 'viewer']);
 export const ownershipSchema = z.enum(['C', 'OFC', 'UNKNOWN']);
@@ -304,3 +305,213 @@ export const approveMergeCandidatePayloadSchema = z.object({
 export const dismissMergeCandidatePayloadSchema = z.object({
   candidateId: z.string().uuid()
 });
+
+// ---------------------------------------------------------------------------
+// comboboxOptions — Entity-aware autocomplete (T-B-02)
+// ---------------------------------------------------------------------------
+
+export const comboboxEntityTypeSchema = z.enum([
+  'customer',
+  'vendor',
+  'staff',
+  'item',
+  'batch',
+  'tag',
+  'transactionType',
+  'purchaseOrder',
+  'salesOrder',
+  'invoice',
+  'vendorBill',
+]);
+export type ComboboxEntityType = z.infer<typeof comboboxEntityTypeSchema>;
+
+export const comboboxOptionsInputSchema = z.object({
+  entityType: comboboxEntityTypeSchema,
+  search: z.string().max(200).default(''),
+  limit: z.number().int().min(1).max(100).default(20),
+  filters: z.record(z.string(), z.unknown()).optional(),
+});
+export type ComboboxOptionsInput = z.infer<typeof comboboxOptionsInputSchema>;
+
+export const comboboxOptionSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  sublabel: z.string().nullable().optional(),
+  status: z.string().nullable().optional(),
+  availableQty: z.number().nullable().optional(),
+  balance: z.number().nullable().optional(),
+  disabledReason: z.string().nullable().optional(),
+  noResultsHint: z.string().nullable().optional(),
+});
+export type ComboboxOption = z.infer<typeof comboboxOptionSchema>;
+
+export const comboboxOptionsOutputSchema = z.object({
+  entityType: comboboxEntityTypeSchema,
+  options: z.array(comboboxOptionSchema),
+  truncated: z.boolean(),
+});
+export type ComboboxOptionsOutput = z.infer<typeof comboboxOptionsOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// statusCounts — Per-entity status distribution for ViewTabBar (T-B-04)
+// ---------------------------------------------------------------------------
+
+export const statusCountsEntityTypeSchema = z.enum([
+  'purchaseOrder', 'salesOrder', 'batch', 'payment', 'invoice',
+  'purchaseReceipt', 'vendorBill', 'vendorPayment', 'fulfillmentLine',
+  'pickList', 'connectorRequest', 'matchmakingMatch', 'photographyQueue',
+  'invoiceDispute', 'correctionJournalEntry', 'commandJournal',
+  'documentSnapshot', 'refereeCredit', 'batchMedia', 'item',
+]);
+export type StatusCountsEntityType = z.infer<typeof statusCountsEntityTypeSchema>;
+
+export const statusCountsInputSchema = z.object({
+  entityType: statusCountsEntityTypeSchema,
+});
+export type StatusCountsInput = z.infer<typeof statusCountsInputSchema>;
+
+export const statusCountSchema = z.object({
+  status: z.string(),
+  count: z.number().int().min(0),
+});
+export type StatusCount = z.infer<typeof statusCountSchema>;
+
+export const statusCountsOutputSchema = z.object({
+  entityType: statusCountsEntityTypeSchema,
+  counts: z.array(statusCountSchema),
+});
+export type StatusCountsOutput = z.infer<typeof statusCountsOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// entityTabs — Per-entity tab query output (T-B-08)
+// ---------------------------------------------------------------------------
+
+export const entityTabsOutputSchema = z.object({
+  entityId: z.string().uuid(),
+  entityType: statusCountsEntityTypeSchema,
+  tabs: z.array(z.object({
+    tabKey: z.string(),
+    label: z.string(),
+    status: z.string().nullable(),
+    count: z.number(),
+  })),
+  defaultTab: z.string(),
+});
+export type EntityTabsOutput = z.infer<typeof entityTabsOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// gridSummary — Aggregate summary for grid view toolbar (T-B-03)
+// ---------------------------------------------------------------------------
+
+export const gridSummaryEntityTypeSchema = z.enum([
+  'purchaseOrder', 'salesOrder', 'batch', 'payment', 'invoice',
+  'purchaseReceipt', 'vendorBill', 'vendorPayment', 'fulfillmentLine',
+]);
+export type GridSummaryEntityType = z.infer<typeof gridSummaryEntityTypeSchema>;
+
+export const gridSummaryInputSchema = z.object({
+  entityType: gridSummaryEntityTypeSchema,
+  filters: gridFiltersSchema.optional(),
+});
+export type GridSummaryInput = z.infer<typeof gridSummaryInputSchema>;
+
+export const gridSummaryStatusCountSchema = z.object({
+  status: z.string(),
+  count: z.number(),
+});
+
+export const gridSummaryMetricLabelSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+});
+
+export const gridSummaryOutputSchema = z.object({
+  entityType: gridSummaryEntityTypeSchema,
+  count: z.number(),
+  currencyTotal: z.number().optional(),
+  summary: z.object({
+    totalRows: z.number(),
+    currencyTotal: z.number().optional(),
+    statusCounts: z.array(gridSummaryStatusCountSchema),
+    metricLabels: z.array(gridSummaryMetricLabelSchema),
+  }),
+});
+export type GridSummaryOutput = z.infer<typeof gridSummaryOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// runBulk — Bulk command execution schemas (T-B-06)
+// ---------------------------------------------------------------------------
+
+export const bulkCommandRowSchema = z.object({
+  entityType: z.string().min(1).max(40),
+  entityId: z.string().uuid(),
+  commandName: commandNameSchema,
+  payload: z.record(z.unknown()).default({}),
+  idempotencyKey: z.string().min(8).max(180),
+});
+
+export const bulkCommandInputSchema = z.object({
+  groupKey: z.string().uuid(),
+  reason: z.string().trim().min(3).max(500),
+  commands: z.array(bulkCommandRowSchema).min(1).max(500),
+}).superRefine((input, ctx) => {
+  // Validate idempotencyKey prefix: must be `${groupKey}:...`
+  for (let i = 0; i < input.commands.length; i++) {
+    const row = input.commands[i];
+    if (!row.idempotencyKey.startsWith(`${input.groupKey}:`)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['commands', i, 'idempotencyKey'],
+        message: `Bulk row idempotencyKey must start with ${input.groupKey}:`,
+      });
+    }
+  }
+  // Detect duplicates within same submission
+  const seen = new Set<string>();
+  for (let i = 0; i < input.commands.length; i++) {
+    const k = input.commands[i].idempotencyKey;
+    if (seen.has(k)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['commands', i, 'idempotencyKey'],
+        message: 'Duplicate idempotencyKey within bulk submission.',
+      });
+    }
+    seen.add(k);
+  }
+});
+
+export const bulkCommandRowResultSchema = z.object({
+  idempotencyKey: z.string(),
+  status: z.enum(['success', 'failed', 'skipped', 'rolled_back']),
+  bulkSequence: z.number().int().min(0),
+  commandResult: z.object({
+    ok: z.boolean(),
+    commandId: z.string().uuid(),
+    affectedIds: z.array(z.string()),
+    toast: z.string().optional(),
+    delta: z.record(z.unknown()).optional(),
+    orderId: z.string().optional(),
+    warnings: z.array(z.string()).optional(),
+  }).optional(),
+  error: z.object({
+    code: z.enum(['VALIDATION_FAILED', 'UNAUTHORIZED', 'COMMAND_FAILED', 'ROLLED_BACK', 'JOURNAL_WRITE_FAILED']),
+    message: z.string(),
+  }).optional(),
+});
+
+export const bulkCommandResultSchema = z.object({
+  groupKey: z.string().uuid(),
+  totalCommands: z.number().int().min(1),
+  succeeded: z.number().int().min(0),
+  failed: z.number().int().min(0),
+  skipped: z.number().int().min(0),
+  rolledBack: z.number().int().min(0),
+  moneyCohort: z.enum(['na', 'committed', 'rolled_back']),
+  results: z.array(bulkCommandRowResultSchema),
+});
+
+export type BulkCommandInput = z.infer<typeof bulkCommandInputSchema>;
+export type BulkCommandRow = z.infer<typeof bulkCommandRowSchema>;
+export type BulkCommandResult = z.infer<typeof bulkCommandResultSchema>;
+export type BulkCommandRowResult = z.infer<typeof bulkCommandRowResultSchema>;

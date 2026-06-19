@@ -35,6 +35,7 @@
  * visible, monitorable condition instead of a silent one.
  */
 import type { Pool } from 'pg';
+import { logger } from './logger';
 import { reapStaleProcessingRows } from './creditEngine/reaper';
 import { processOneRecompute } from './creditEngine/worker';
 import { runNightlyCreditEngineAudit } from './creditEngine/nightlyCron';
@@ -175,15 +176,13 @@ const timers: ReturnType<typeof setInterval>[] = [];
  */
 export function startBackgroundWorkers(pool: Pool): void {
   if (!backgroundWorkersEnabled()) {
-    console.log('[workers] BACKGROUND_WORKERS=false — in-process scheduler disabled (external cron expected).');
+    logger.info('BACKGROUND_WORKERS=false — in-process scheduler disabled (external cron expected).', { module: 'workers' });
     return;
   }
   if (status.enabled) return; // idempotent
   status.enabled = true;
   status.startedAt = new Date().toISOString();
-  console.log(
-    `[workers] started: drain=${DRAIN_INTERVAL_MS}ms reaper=${REAPER_INTERVAL_MS}ms nightly@${NIGHTLY_UTC_HOUR}:00 UTC`
-  );
+  logger.info(`Workers started: drain=${DRAIN_INTERVAL_MS}ms reaper=${REAPER_INTERVAL_MS}ms nightly@${NIGHTLY_UTC_HOUR}:00 UTC`, { module: 'workers' });
 
   timers.push(
     setInterval(() => {
@@ -192,10 +191,10 @@ export function startBackgroundWorkers(pool: Pool): void {
         status.lastDrainAt = new Date().toISOString();
         status.lastDrainProcessed = processed;
         await refreshQueueDepth(pool);
-        if (processed > 0) console.log(`[workers] credit drain processed ${processed} row(s)`);
+        if (processed > 0) logger.info(`Credit drain processed ${processed} row(s)`, { module: 'workers' });
       }).catch((err) => {
         status.lastError = err instanceof Error ? err.message : String(err);
-        console.error('[workers] drain tick failed:', err);
+        logger.error('Drain tick failed', { module: 'workers', error: err instanceof Error ? err.message : String(err) });
       });
     }, DRAIN_INTERVAL_MS)
   );
@@ -207,7 +206,7 @@ export function startBackgroundWorkers(pool: Pool): void {
         status.lastReaperAt = new Date().toISOString();
       }).catch((err) => {
         status.lastError = err instanceof Error ? err.message : String(err);
-        console.error('[workers] reaper tick failed:', err);
+        logger.error('Reaper tick failed', { module: 'workers', error: err instanceof Error ? err.message : String(err) });
       });
     }, REAPER_INTERVAL_MS)
   );
@@ -219,22 +218,20 @@ export function startBackgroundWorkers(pool: Pool): void {
       void withAdvisoryLock(pool, LOCK_NIGHTLY, async () => {
         // Re-check inside the lock — a peer may have just completed today's run.
         if (!nightlyDue(new Date(), status.lastNightlyDay)) return;
-        console.log('[workers] nightly jobs starting');
+        logger.info('Nightly jobs starting', { module: 'workers' });
         const audit = await runNightlyCreditEngineAudit(pool, now);
         const recon = await reconcileCustomerBalances(pool, now);
         status.lastNightlyDay = utcDay(now);
-        console.log(
-          JSON.stringify({
-            level: 'info',
-            event: 'workers_nightly_complete',
-            day: status.lastNightlyDay,
-            creditDecisions: audit.decisionsIssued,
-            balanceDrift: recon.customersDrifted
-          })
-        );
+        logger.info('Nightly jobs completed', {
+          module: 'workers',
+          event: 'workers_nightly_complete',
+          day: status.lastNightlyDay,
+          creditDecisions: audit.decisionsIssued,
+          balanceDrift: recon.customersDrifted
+        });
       }).catch((err) => {
         status.lastError = err instanceof Error ? err.message : String(err);
-        console.error('[workers] nightly tick failed:', err);
+        logger.error('Nightly tick failed', { module: 'workers', error: err instanceof Error ? err.message : String(err) });
       });
     }, NIGHTLY_CHECK_INTERVAL_MS)
   );

@@ -8,7 +8,7 @@ import { CountPill } from './CountPill';
 
 export function PhotographyQueuePanel() {
   const inventory = trpc.queries.grid.useQuery({ view: 'inventory' });
-  const queue = trpc.queries.photographyQueue.useQuery();
+  const queue = trpc.intake.photographyQueue.useQuery();
   const [batchId, setBatchId] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
   const [filterMode, setFilterMode] = useState<'needs-media' | 'all'>('needs-media');

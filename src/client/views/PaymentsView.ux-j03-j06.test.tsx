@@ -66,6 +66,9 @@ vi.mock('../store/uiStore', () => ({
       pushToast: vi.fn(),
       gridFilters: { payments: storedGridFilter },
       setGridFilter: mockSetGridFilter,
+      gridAdvancedFilters: {},
+      setGridAdvancedFilter: vi.fn(),
+      clearGridAdvancedFilter: vi.fn(),
       collapsedPanels: {},
       focusedPanelId: null,
       togglePanelCollapsed: vi.fn(),
@@ -218,7 +221,10 @@ describe('UX-J06 — Payment inspector "Linked Orders" cross-link tab', () => {
       { id: 'alloc1', paymentId: 'pay1', invoiceId: 'inv-uuid-1', invoiceNo: 'INV-001', amount: '100.00' }
     ];
     render(<PaymentsView />);
-    expect(screen.getByText('INV-001')).toBeTruthy();
+    // INV-001 appears in both the Allocations tab and Linked Orders tab —
+    // scope the query to the linked-orders tab.
+    const linkedOrdersTab = screen.getByTestId('tab-linked-orders');
+    expect(linkedOrdersTab.textContent).toContain('INV-001');
     // Button accessible name is its text content "Open order"; title provides
     // the tooltip with the invoice context (not the aria-label).
     const openBtn = screen.getByRole('button', { name: 'Open order' });

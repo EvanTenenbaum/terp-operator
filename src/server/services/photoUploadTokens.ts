@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { Pool } from 'pg';
+import { logger } from './logger';
 
 /**
  * Photo Upload Tokens — tokenized share links for the photographer mobile
@@ -161,8 +162,8 @@ export async function verifyUploadToken(
     );
   } catch (err) {
     // Audit bump failed; auth itself stays valid.
-    // eslint-disable-next-line no-console
-    console.error('photoUploadTokens: audit bump failed', {
+    logger.error('Audit bump failed', {
+      module: 'photoUploadTokens',
       tokenId: row.id,
       error: err instanceof Error ? err.message : String(err)
     });

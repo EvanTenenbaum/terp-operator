@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { Pool } from 'pg';
+import { logger } from './services/logger';
 import { pool as defaultPool } from './db';
 
 /**
@@ -196,7 +197,7 @@ export interface RunMigrationsOptions {
  */
 export async function runMigrations(options: RunMigrationsOptions): Promise<void> {
   const { pool, migrationDir } = options;
-  const log = options.log ?? ((message: string) => console.log(message));
+  const log = options.log ?? ((message: string) => logger.info(message, { module: 'migrate' }));
 
   await pool.query(
     'create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())'
@@ -245,7 +246,7 @@ export async function runMigrations(options: RunMigrationsOptions): Promise<void
           try {
             await client.query('rollback');
           } catch (rollbackError) {
-            console.error(`Rollback failed for ${file}:`, rollbackError);
+            logger.error(`Rollback failed for ${file}`, { module: 'migrate', rollbackError: rollbackError instanceof Error ? rollbackError.message : String(rollbackError) });
           }
           throw new Error(
             `Migration ${file} failed and was rolled back: ${
@@ -274,7 +275,7 @@ if (isMainModule) {
       await defaultPool.end();
     })
     .catch(async (error) => {
-      console.error(error);
+      logger.error('Migration failed', { module: 'migrate', error: error instanceof Error ? error.message : String(error) });
       await defaultPool.end();
       process.exit(1);
     });

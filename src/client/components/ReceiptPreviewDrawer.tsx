@@ -19,7 +19,7 @@ export function ReceiptPreviewDrawer({ order, onClose }: ReceiptPreviewDrawerPro
         .map((batch) => batch.id)
     : [];
 
-  const receiptPreview = trpc.queries.receiptPreview.useQuery(
+  const receiptPreview = trpc.inventory.receiptPreview.useQuery(
     { batchIds: previewBatchIds },
     { enabled: previewBatchIds.length > 0 }
   );

@@ -1,3 +1,4 @@
+import { logger } from '@/client/services/logger';
 // CAP-030 / TER-1513 — Pick line detail mobile screen (weigh, scan, submit)
 // TODO: depends on CAP-030 backend merge (TER-1498/TER-1488)
 import { useState, useEffect, useRef } from 'react';
@@ -87,7 +88,7 @@ export function PickLineScreen({ line, pickNo, customer, interrupt, recalled, re
       }
     } catch (err) {
       setScanError('Camera access denied or scan failed. Enter bag code manually.');
-      console.error('Barcode scan error:', err);
+      logger.error('Barcode scan error', { error: String(err) });
     }
   }
 

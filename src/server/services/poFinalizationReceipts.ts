@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { logger } from './logger';
 import { createDraftSnapshot, finalizeSnapshot } from './documentSnapshots';
 import { purchaseFinalization } from './projections/purchaseFinalization';
 import type { Audience, PurchaseFinalizationInput } from './projections/types';
@@ -51,9 +52,7 @@ export async function createPoFinalizationReceipts(
       vendor_name: string | null;
     } | undefined;
     if (!po) {
-      console.warn(
-        `[poFinalizationReceipts] purchase order ${purchaseOrderId} not found at post-commit time; skipping snapshot.`
-      );
+      logger.warn('Purchase order not found at post-commit time; skipping snapshot.', { module: 'poFinalizationReceipts', purchaseOrderId });
       return;
     }
 
@@ -115,10 +114,7 @@ export async function createPoFinalizationReceipts(
     await emitSnapshot(pool, 'external', input, purchaseOrderId, commandId, userId);
     await emitSnapshot(pool, 'internal', input, purchaseOrderId, commandId, userId);
   } catch (err) {
-    console.warn(
-      '[poFinalizationReceipts] receipt creation failed (non-fatal):',
-      err instanceof Error ? err.message : err
-    );
+    logger.warn('Receipt creation failed (non-fatal)', { module: 'poFinalizationReceipts', error: err instanceof Error ? err.message : String(err) });
   }
 }
 

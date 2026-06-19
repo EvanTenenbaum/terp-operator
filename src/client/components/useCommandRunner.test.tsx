@@ -45,7 +45,7 @@ describe('buildAffectedQueryPredicate', () => {
     const predicate = buildAffectedQueryPredicate(['11111111-2222-3333-4444-555555555555']);
     expect(
       predicate({
-        queryKey: [['queries', 'salesOrderLines'], { input: { orderId: '11111111-2222-3333-4444-555555555555' }, type: 'query' }]
+        queryKey: [['salesOrders', 'salesOrderLines'], { input: { orderId: '11111111-2222-3333-4444-555555555555' }, type: 'query' }]
       } as never)
     ).toBe(true);
   });
@@ -82,7 +82,7 @@ describe('buildAffectedQueryPredicate', () => {
     ).toBe(true);
     expect(
       predicate({
-        queryKey: [['queries', 'batchMediaList'], { input: { batchId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' }, type: 'query' }]
+        queryKey: [['intake', 'batchMediaList'], { input: { batchId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' }, type: 'query' }]
       } as never)
     ).toBe(true);
   });
@@ -120,7 +120,7 @@ describe('useCommandRunner', () => {
     const targetId = '11111111-2222-3333-4444-555555555555';
 
     // Seed two queries: one references the affected id, one does not.
-    const affectedKey = [['queries', 'salesOrderLines'], { input: { orderId: targetId }, type: 'query' }] as const;
+    const affectedKey = [['salesOrders', 'salesOrderLines'], { input: { orderId: targetId }, type: 'query' }] as const;
     const unrelatedKey = [['queries', 'reference'], { type: 'query' }] as const;
 
     queryClient.setQueryData(affectedKey, { stale: false });
@@ -167,7 +167,7 @@ describe('useCommandRunner', () => {
   it('invalidates queries that match any of several affectedIds', async () => {
     const idA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
     const idB = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
-    const keyA = [['queries', 'salesOrderLines'], { input: { orderId: idA }, type: 'query' }] as const;
+    const keyA = [['salesOrders', 'salesOrderLines'], { input: { orderId: idA }, type: 'query' }] as const;
     const keyB = [['queries', 'customerWorkspace'], { input: { customerId: idB }, type: 'query' }] as const;
     const keyOther = [['queries', 'reference'], { type: 'query' }] as const;
 

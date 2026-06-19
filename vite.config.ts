@@ -1,8 +1,17 @@
+import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@/domains': path.resolve(__dirname, 'src/domains'),
+      '@/client': path.resolve(__dirname, 'src/client'),
+      '@/server': path.resolve(__dirname, 'src/server'),
+      '@/shared': path.resolve(__dirname, 'src/shared'),
+    },
+  },
   build: {
     outDir: 'dist/client',
     sourcemap: process.env.BUILD_SOURCEMAP === 'true',

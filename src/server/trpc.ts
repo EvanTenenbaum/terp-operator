@@ -4,6 +4,7 @@ import superjson from 'superjson';
 import type { Request, Response } from 'express';
 import type { Server as SocketServer } from 'socket.io';
 import { getSessionUser } from './auth';
+import { logger } from './services/logger';
 
 export interface TrpcContext {
   req: Request;
@@ -78,9 +79,9 @@ export function scrubDatabaseError(error: unknown): { safeMessage: string; reque
   const isPg = looksLikePostgresError(error) || messageLooksLikeSql(message);
   if (!isPg) return { safeMessage: message, requestId: null };
   const requestId = randomUUID();
-  // eslint-disable-next-line no-console
-  console.error(`[command-error] request id=${requestId}`, {
+  logger.error(`Command error (request id: ${requestId})`, {
     message,
+    requestId,
     pgCode: (error as { code?: string } | undefined)?.code,
     stack: error instanceof Error ? error.stack : undefined
   });
@@ -100,9 +101,8 @@ const t = initTRPC.context<TrpcContext>().create({
     if (isPgError || messageLeaksSql) {
       const requestId = randomUUID();
       // Preserve full details server-side; the client only gets the opaque id.
-      // Use console.error so the logs still capture stack + cause for triage.
-      // eslint-disable-next-line no-console
-      console.error(`[trpc-error] request id=${requestId}`, {
+      logger.error(`tRPC error (request id: ${requestId})`, {
+        requestId,
         code: error.code,
         message: error.message,
         causeMessage: (cause as Error | undefined)?.message,

@@ -151,7 +151,9 @@ export function QuickLedgerGrid() {
     ) {
       setLedgerDrafts([makeRow(expectedDirection)]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // ledgerDrafts intentionally excluded: adding it would create a cycle
+    // (effect updates drafts → re-render → effect fires again).
+    // setLedgerDrafts (useState) and makeRow (module-level function) are stable.
   }, [activeQuickLaunch]);
   const [typeDrawerOpen, setTypeDrawerOpen] = useState(false);
   const [typeDraft, setTypeDraft] = useState<TypeDraft>(() => makeTypeDraft('paying'));
@@ -166,7 +168,7 @@ export function QuickLedgerGrid() {
   const canPostLedgerRow = ['owner', 'manager'].includes(me.data?.role ?? '');
 
   const activeRow = drafts.find((row) => row.id === activeRowId);
-  const preview = trpc.queries.paymentAllocationPreview.useQuery(
+  const preview = trpc.payments.paymentAllocationPreview.useQuery(
     {
       customerId: activeRow?.entityType === 'customer' ? activeRow.entityId || blankId : blankId,
       amount: Number(activeRow?.amount || 0),
@@ -366,7 +368,8 @@ export function QuickLedgerGrid() {
       setLedgerDrafts([...newDrafts, ...drafts]);
       pushToast(summary, tone);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // parseTsv, mapTsvToFields, methods, buckets are module-level constants.
+    // Only closure-captured variables need to be in the deps array.
     [drafts, setLedgerDrafts, pushToast]
   );
 

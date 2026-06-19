@@ -1,0 +1,425 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e11]:
+      - generic [ref=e13]:
+        - generic [ref=e15]:
+          - img [ref=e16]
+          - generic [ref=e18]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e20] [cursor=pointer]
+        - generic [ref=e21]:
+          - button "Viewing as Admin" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e26] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e27]: Open account
+      - generic [ref=e28]:
+        - navigation [ref=e29]:
+          - button "Mercury Demo Pro" [ref=e32] [cursor=pointer]:
+            - generic [ref=e34]: Mercury Demo
+            - generic [ref=e36]: Pro
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - link "Home" [ref=e41] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e42]:
+                  - img [ref=e43]
+                  - img [ref=e45]
+                - generic [ref=e48]: Home
+              - link "Tasks 10" [ref=e51] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e52]:
+                  - img [ref=e53]
+                  - img [ref=e55]
+                - generic [ref=e57]:
+                  - generic [ref=e58]: Tasks
+                  - generic [ref=e59]: "10"
+            - separator [ref=e60]
+            - generic [ref=e61]:
+              - link "Accounts" [ref=e64] [cursor=pointer]:
+                - /url: /accounts
+                - generic [ref=e65]:
+                  - img [ref=e66]
+                  - img [ref=e68]
+                - generic [ref=e71]: Accounts
+              - link "Transactions" [ref=e74] [cursor=pointer]:
+                - /url: /transactions
+                - generic [ref=e75]:
+                  - img [ref=e76]
+                  - img [ref=e78]
+                - generic [ref=e81]: Transactions
+              - generic [ref=e83]:
+                - link "Cards" [expanded] [ref=e84] [cursor=pointer]:
+                  - /url: /cards
+                  - generic [ref=e85]:
+                    - img [ref=e86]
+                    - img [ref=e88]
+                  - generic [ref=e91]: Cards
+                - list [ref=e95]:
+                  - listitem [ref=e96]:
+                    - link "Credit Card" [ref=e97] [cursor=pointer]:
+                      - /url: /accounts/credit
+                      - generic [ref=e100]: Credit Card
+              - link "Payments" [ref=e103] [cursor=pointer]:
+                - /url: /payments
+                - generic [ref=e104]:
+                  - img [ref=e105]
+                  - img [ref=e107]
+                - generic [ref=e110]: Payments
+              - link "Invoicing" [ref=e113] [cursor=pointer]:
+                - /url: /invoicing
+                - generic [ref=e114]:
+                  - img [ref=e115]
+                  - img [ref=e117]
+                - generic [ref=e120]: Invoicing
+              - link "Reimbursements" [ref=e123] [cursor=pointer]:
+                - /url: /expenses/all-expenses
+                - generic [ref=e124]:
+                  - img [ref=e125]
+                  - img [ref=e127]
+                - generic [ref=e130]: Reimbursements
+            - separator [ref=e131]
+            - group "Bookmarks" [ref=e132]:
+              - generic [ref=e133]:
+                - generic [ref=e134]: Bookmarks
+                - button "Learn about bookmarks" [ref=e135] [cursor=pointer]:
+                  - img [ref=e136]
+              - list "Bookmarks" [ref=e138]:
+                - listitem [ref=e139] [cursor=pointer]:
+                  - button "Reorder Ops / Payroll bookmark" [ref=e140]:
+                    - img [ref=e141]
+                  - link "Ops / Payroll $2,023,267.12" [ref=e143]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e144]:
+                      - generic [ref=e145]: Ops / Payroll
+                      - generic [ref=e147]:
+                        - text: $2,023,267
+                        - generic [ref=e148]: ".12"
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e149] [cursor=pointer]:
+                  - button "Reorder Credit Card bookmark" [ref=e150]:
+                    - img [ref=e151]
+                  - link "Credit Card" [ref=e153]:
+                    - /url: /accounts/credit
+                    - generic [ref=e155]: Credit Card
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e156] [cursor=pointer]:
+                  - button "Reorder Bill Pay bookmark" [ref=e157]:
+                    - img [ref=e158]
+                  - link "Bill Pay" [ref=e160]:
+                    - /url: /bill-pay
+                    - generic [ref=e162]: Bill Pay
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e163] [cursor=pointer]:
+                  - button "Reorder Insights bookmark" [ref=e164]:
+                    - img [ref=e165]
+                  - link "Insights" [ref=e167]:
+                    - /url: /insights/overview
+                    - generic [ref=e169]: Insights
+                  - button "Remove bookmark":
+                    - img
+              - status [ref=e170]
+        - generic [ref=e171]:
+          - generic [ref=e173]:
+            - button "Search for anything" [ref=e175] [cursor=pointer]:
+              - img
+              - generic [ref=e176]: Search for anything
+            - button "Move money" [ref=e178] [cursor=pointer]:
+              - img
+              - generic [ref=e179]: Move money
+            - generic [ref=e180]:
+              - button "Toggle Private Mode" [ref=e181] [cursor=pointer]:
+                - img
+              - link "Navigate to Settings" [ref=e184] [cursor=pointer]:
+                - /url: /settings
+                - img
+              - button "updates" [ref=e187] [cursor=pointer]:
+                - img
+              - button [ref=e190] [cursor=pointer]
+          - generic [ref=e192]:
+            - generic [ref=e194]:
+              - heading "Cards" [level=1] [ref=e196]
+              - link "Create card" [ref=e199] [cursor=pointer]:
+                - /url: /issue-card
+                - img
+                - generic [ref=e200]: Create card
+            - generic [ref=e201]:
+              - generic [ref=e202]:
+                - generic [ref=e204]: Recommended
+                - generic [ref=e206]:
+                  - generic [ref=e207]: Require receipts for card transactions over $75
+                  - generic [ref=e208]:
+                    - generic [ref=e209] [cursor=pointer]: Require receipts for card transactions over $75
+                    - switch "Require receipts for card transactions over $75" [ref=e210] [cursor=pointer]
+                - generic [ref=e211]:
+                  - text: Recommended because the IRS requires receipts for transactions $75 and over to be eligible for tax deductions. Change this setting at any time from your
+                  - link "Policies page" [ref=e213] [cursor=pointer]:
+                    - /url: /settings/policies/card-spend
+                  - text: .
+              - generic [ref=e214]:
+                - img [ref=e215]
+                - button [ref=e250] [cursor=pointer]:
+                  - img [ref=e252]
+            - generic [ref=e255]:
+              - generic [ref=e257]: Manage
+              - generic [ref=e259] [cursor=pointer]: Subscriptions
+            - generic [ref=e261]:
+              - button "Add filter" [ref=e263] [cursor=pointer]:
+                - img
+                - generic [ref=e264]: Add filter
+              - generic [ref=e266]: No filters applied
+            - table [ref=e268]:
+              - rowgroup [ref=e269]:
+                - row "Cardholder Card Spent this month Type Account" [ref=e270]:
+                  - columnheader "Cardholder" [ref=e271]
+                  - columnheader "Card" [ref=e272]
+                  - columnheader "Spent this month" [ref=e273]
+                  - columnheader "Type" [ref=e274]
+                  - columnheader "Account" [ref=e275]
+                  - columnheader [ref=e276]
+              - rowgroup [ref=e277]:
+                - 'row "Jane Black You Card ending with: 5555 Jane''s IO card $0.00 Physical Credit Card Expand details for Jane Black’s card ending with 5555" [ref=e278]':
+                  - cell "Jane Black You" [ref=e279]:
+                    - generic [ref=e280]:
+                      - generic [ref=e281]: Jane Black
+                      - generic [ref=e283]: You
+                  - 'cell "Card ending with: 5555 Jane''s IO card" [ref=e285]':
+                    - generic [ref=e286]:
+                      - img [ref=e287]
+                      - generic [ref=e292]:
+                        - text: ••
+                        - 'generic "Card ending with: 5555" [ref=e293]': "5555"
+                        - text: Jane's IO card
+                  - cell "$0.00" [ref=e294]:
+                    - generic [ref=e296]:
+                      - text: $0
+                      - generic [ref=e297]: ".00"
+                  - cell "Physical" [ref=e298]
+                  - cell "Credit Card" [ref=e299]
+                  - cell "Expand details for Jane Black’s card ending with 5555" [ref=e300]:
+                    - button "Expand details for Jane Black’s card ending with 5555" [ref=e301] [cursor=pointer]:
+                      - img [ref=e302]
+                - 'row "Card ending with: 0330 AWS billing $1,500.00 Virtual Credit Card Expand details for Jane Black’s card ending with 0330" [ref=e306]':
+                  - cell [ref=e307]
+                  - 'cell "Card ending with: 0330 AWS billing" [ref=e308]':
+                    - generic [ref=e309]:
+                      - img [ref=e310]
+                      - generic [ref=e314]:
+                        - text: ••
+                        - 'generic "Card ending with: 0330" [ref=e315]': "0330"
+                        - text: AWS billing
+                  - cell "$1,500.00" [ref=e316]:
+                    - generic [ref=e318]:
+                      - text: $1,500
+                      - generic [ref=e319]: ".00"
+                  - cell "Virtual" [ref=e320]
+                  - cell "Credit Card" [ref=e321]
+                  - cell "Expand details for Jane Black’s card ending with 0330" [ref=e322]:
+                    - button "Expand details for Jane Black’s card ending with 0330" [ref=e323] [cursor=pointer]:
+                      - img [ref=e324]
+                - 'row "Card ending with: 3054 Facebook ads $1,500.00 Virtual Credit Card Expand details for Jane Black’s card ending with 3054" [ref=e328]':
+                  - cell [ref=e329]
+                  - 'cell "Card ending with: 3054 Facebook ads" [ref=e330]':
+                    - generic [ref=e331]:
+                      - img [ref=e332]
+                      - generic [ref=e336]:
+                        - text: ••
+                        - 'generic "Card ending with: 3054" [ref=e337]': "3054"
+                        - text: Facebook ads
+                  - cell "$1,500.00" [ref=e338]:
+                    - generic [ref=e340]:
+                      - text: $1,500
+                      - generic [ref=e341]: ".00"
+                  - cell "Virtual" [ref=e342]
+                  - cell "Credit Card" [ref=e343]
+                  - cell "Expand details for Jane Black’s card ending with 3054" [ref=e344]:
+                    - button "Expand details for Jane Black’s card ending with 3054" [ref=e345] [cursor=pointer]:
+                      - img [ref=e346]
+                - 'row "Card ending with: 3745 $879.00 Physical Checking ••0297 Expand details for Jane Black’s card ending with 3745" [ref=e350]':
+                  - cell [ref=e351]
+                  - 'cell "Card ending with: 3745" [ref=e352]':
+                    - generic [ref=e353]:
+                      - img [ref=e354]
+                      - generic [ref=e359]:
+                        - text: ••
+                        - 'generic "Card ending with: 3745" [ref=e360]': "3745"
+                  - cell "$879.00" [ref=e361]:
+                    - generic [ref=e363]:
+                      - text: $879
+                      - generic [ref=e364]: ".00"
+                  - cell "Physical" [ref=e365]
+                  - cell "Checking ••0297" [ref=e366]
+                  - cell "Expand details for Jane Black’s card ending with 3745" [ref=e367]:
+                    - button "Expand details for Jane Black’s card ending with 3745" [ref=e368] [cursor=pointer]:
+                      - img [ref=e369]
+                - 'row "Card ending with: 4928 Grocery/Meals $0.00 Virtual Ops / Payroll Expand details for Jane Black’s card ending with 4928" [ref=e373]':
+                  - cell [ref=e374]
+                  - 'cell "Card ending with: 4928 Grocery/Meals" [ref=e375]':
+                    - generic [ref=e376]:
+                      - img [ref=e377]
+                      - generic [ref=e381]:
+                        - text: ••
+                        - 'generic "Card ending with: 4928" [ref=e382]': "4928"
+                        - text: Grocery/Meals
+                  - cell "$0.00" [ref=e383]:
+                    - generic [ref=e385]:
+                      - text: $0
+                      - generic [ref=e386]: ".00"
+                  - cell "Virtual" [ref=e387]
+                  - cell "Ops / Payroll" [ref=e388]
+                  - cell "Expand details for Jane Black’s card ending with 4928" [ref=e389]:
+                    - button "Expand details for Jane Black’s card ending with 4928" [ref=e390] [cursor=pointer]:
+                      - img [ref=e391]
+                - 'row "Card ending with: 6112 Column Card $2,987.00 Virtual Checking Expand details for Jane Black’s card ending with 6112" [ref=e395]':
+                  - cell [ref=e396]
+                  - 'cell "Card ending with: 6112 Column Card" [ref=e397]':
+                    - generic [ref=e398]:
+                      - img [ref=e399]
+                      - generic [ref=e403]:
+                        - text: ••
+                        - 'generic "Card ending with: 6112" [ref=e404]': "6112"
+                        - text: Column Card
+                  - cell "$2,987.00" [ref=e405]:
+                    - generic [ref=e407]:
+                      - text: $2,987
+                      - generic [ref=e408]: ".00"
+                  - cell "Virtual" [ref=e409]
+                  - cell "Checking" [ref=e410]
+                  - cell "Expand details for Jane Black’s card ending with 6112" [ref=e411]:
+                    - button "Expand details for Jane Black’s card ending with 6112" [ref=e412] [cursor=pointer]:
+                      - img [ref=e413]
+                - 'row "Card ending with: 6871 Suspended $110.00 Physical Checking ••0297 Expand details for Jane Black’s card ending with 6871" [ref=e417]':
+                  - cell [ref=e418]
+                  - 'cell "Card ending with: 6871 Suspended" [ref=e419]':
+                    - generic [ref=e420]:
+                      - img [ref=e421]
+                      - generic [ref=e426]:
+                        - text: ••
+                        - 'generic "Card ending with: 6871" [ref=e427]': "6871"
+                      - generic [ref=e429]: Suspended
+                  - cell "$110.00" [ref=e431]:
+                    - generic [ref=e433]:
+                      - text: $110
+                      - generic [ref=e434]: ".00"
+                  - cell "Physical" [ref=e435]
+                  - cell "Checking ••0297" [ref=e436]
+                  - cell "Expand details for Jane Black’s card ending with 6871" [ref=e437]:
+                    - button "Expand details for Jane Black’s card ending with 6871" [ref=e438] [cursor=pointer]:
+                      - img [ref=e439]
+                - 'row "Card ending with: 8628 Travel expenses Suspended $0.00 Virtual Credit Card Expand details for Jane Black’s card ending with 8628" [ref=e443]':
+                  - cell [ref=e444]
+                  - 'cell "Card ending with: 8628 Travel expenses Suspended" [ref=e445]':
+                    - generic [ref=e446]:
+                      - img [ref=e447]
+                      - generic [ref=e451]:
+                        - text: ••
+                        - 'generic "Card ending with: 8628" [ref=e452]': "8628"
+                        - text: Travel expenses
+                      - generic [ref=e454]: Suspended
+                  - cell "$0.00" [ref=e456]:
+                    - generic [ref=e458]:
+                      - text: $0
+                      - generic [ref=e459]: ".00"
+                  - cell "Virtual" [ref=e460]
+                  - cell "Credit Card" [ref=e461]
+                  - cell "Expand details for Jane Black’s card ending with 8628" [ref=e462]:
+                    - button "Expand details for Jane Black’s card ending with 8628" [ref=e463] [cursor=pointer]:
+                      - img [ref=e464]
+                - 'row "Alice Chen Card ending with: 7840 $0.00 Physical Checking ••0297 Expand details for Alice Chen’s card ending with 7840" [ref=e468]':
+                  - cell "Alice Chen" [ref=e469]:
+                    - generic [ref=e471]: Alice Chen
+                  - 'cell "Card ending with: 7840" [ref=e472]':
+                    - generic [ref=e473]:
+                      - img [ref=e474]
+                      - generic [ref=e479]:
+                        - text: ••
+                        - 'generic "Card ending with: 7840" [ref=e480]': "7840"
+                  - cell "$0.00" [ref=e481]:
+                    - generic [ref=e483]:
+                      - text: $0
+                      - generic [ref=e484]: ".00"
+                  - cell "Physical" [ref=e485]
+                  - cell "Checking ••0297" [ref=e486]
+                  - cell "Expand details for Alice Chen’s card ending with 7840" [ref=e487]:
+                    - button "Expand details for Alice Chen’s card ending with 7840" [ref=e488] [cursor=pointer]:
+                      - img [ref=e489]
+                - 'row "Card ending with: 1234 Office Card $10,789.00 Virtual Checking ••0297 Expand details for Alice Chen’s card ending with 1234" [ref=e493]':
+                  - cell [ref=e494]
+                  - 'cell "Card ending with: 1234 Office Card" [ref=e495]':
+                    - generic [ref=e496]:
+                      - img [ref=e497]
+                      - generic [ref=e501]:
+                        - text: ••
+                        - 'generic "Card ending with: 1234" [ref=e502]': "1234"
+                        - text: Office Card
+                  - cell "$10,789.00" [ref=e503]:
+                    - generic [ref=e505]:
+                      - text: $10,789
+                      - generic [ref=e506]: ".00"
+                  - cell "Virtual" [ref=e507]
+                  - cell "Checking ••0297" [ref=e508]
+                  - cell "Expand details for Alice Chen’s card ending with 1234" [ref=e509]:
+                    - button "Expand details for Alice Chen’s card ending with 1234" [ref=e510] [cursor=pointer]:
+                      - img [ref=e511]
+                - 'row "Card ending with: 6231 $110.00 Physical Checking ••0297 Expand details for Alice Chen’s card ending with 6231" [ref=e515]':
+                  - cell [ref=e516]
+                  - 'cell "Card ending with: 6231" [ref=e517]':
+                    - generic [ref=e518]:
+                      - img [ref=e519]
+                      - generic [ref=e524]:
+                        - text: ••
+                        - 'generic "Card ending with: 6231" [ref=e525]': "6231"
+                  - cell "$110.00" [ref=e526]:
+                    - generic [ref=e528]:
+                      - text: $110
+                      - generic [ref=e529]: ".00"
+                  - cell "Physical" [ref=e530]
+                  - cell "Checking ••0297" [ref=e531]
+                  - cell "Expand details for Alice Chen’s card ending with 6231" [ref=e532]:
+                    - button "Expand details for Alice Chen’s card ending with 6231" [ref=e533] [cursor=pointer]:
+                      - img [ref=e534]
+                - 'row "Card ending with: 0330 Contractor Expenses Frozen $199.00 Physical Credit Card Expand details for Alice Chen’s card ending with 0330" [ref=e538]':
+                  - cell [ref=e539]
+                  - 'cell "Card ending with: 0330 Contractor Expenses Frozen" [ref=e540]':
+                    - generic [ref=e541]:
+                      - img [ref=e542]
+                      - generic [ref=e547]:
+                        - text: ••
+                        - 'generic "Card ending with: 0330" [ref=e548]': "0330"
+                        - text: Contractor Expenses
+                      - generic [ref=e550]: Frozen
+                  - cell "$199.00" [ref=e552]:
+                    - generic [ref=e554]:
+                      - text: $199
+                      - generic [ref=e555]: ".00"
+                  - cell "Physical" [ref=e556]
+                  - cell "Credit Card" [ref=e557]
+                  - cell "Expand details for Alice Chen’s card ending with 0330" [ref=e558]:
+                    - button "Expand details for Alice Chen’s card ending with 0330" [ref=e559] [cursor=pointer]:
+                      - img [ref=e560]
+                - row "Bruce Collins Office supplies Pending $0.00 Virtual Credit Card Expand details for Bruce Collins’s card" [ref=e564]:
+                  - cell "Bruce Collins" [ref=e565]:
+                    - generic [ref=e567]: Bruce Collins
+                  - cell "Office supplies Pending" [ref=e568]:
+                    - generic [ref=e569]:
+                      - img [ref=e570]
+                      - generic [ref=e574]: Office supplies
+                      - generic [ref=e576]: Pending
+                  - cell "$0.00" [ref=e578]:
+                    - generic [ref=e580]:
+                      - text: $0
+                      - generic [ref=e581]: ".00"
+                  - cell "Virtual" [ref=e582]
+                  - cell "Credit Card" [ref=e583]
+                  - cell "Expand details for Bruce Collins’s card" [ref=e584]:
+                    - button "Expand details for Bruce Collins’s card" [ref=e585] [cursor=pointer]:
+                      - img [ref=e586]
+                - row [ref=e590]:
+                  - cell [ref=e591]
+      - button [ref=e594] [cursor=pointer]:
+        - img [ref=e595]
+  - alert

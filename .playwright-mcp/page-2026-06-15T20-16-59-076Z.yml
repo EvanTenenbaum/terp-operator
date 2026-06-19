@@ -1,0 +1,321 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e12]:
+      - generic [ref=e14]:
+        - generic [ref=e16]:
+          - img [ref=e17]
+          - generic [ref=e19]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e21] [cursor=pointer]
+        - generic [ref=e22]:
+          - button "Viewing as Admin" [ref=e24] [cursor=pointer]:
+            - generic [ref=e25]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e27] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e28]: Open account
+      - generic [ref=e29]:
+        - navigation [ref=e30]:
+          - button "Mercury Demo Pro" [ref=e33] [cursor=pointer]:
+            - generic [ref=e35]: Mercury Demo
+            - generic [ref=e37]: Pro
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - link "Home" [ref=e42] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e43]:
+                  - img [ref=e44]
+                  - img [ref=e46]
+                - generic [ref=e49]: Home
+              - link "Tasks 10" [ref=e52] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e53]:
+                  - img [ref=e54]
+                  - img [ref=e56]
+                - generic [ref=e58]:
+                  - generic [ref=e59]: Tasks
+                  - generic [ref=e60]: "10"
+            - separator [ref=e61]
+            - generic [ref=e62]:
+              - link "Accounts" [ref=e65] [cursor=pointer]:
+                - /url: /accounts
+                - generic [ref=e66]:
+                  - img [ref=e67]
+                  - img [ref=e69]
+                - generic [ref=e72]: Accounts
+              - link "Transactions" [ref=e75] [cursor=pointer]:
+                - /url: /transactions
+                - generic [ref=e76]:
+                  - img [ref=e77]
+                  - img [ref=e79]
+                - generic [ref=e82]: Transactions
+              - link "Cards" [ref=e85] [cursor=pointer]:
+                - /url: /cards
+                - generic [ref=e86]:
+                  - img [ref=e87]
+                  - img [ref=e89]
+                - generic [ref=e92]: Cards
+              - generic [ref=e94]:
+                - link "Payments" [expanded] [ref=e95] [cursor=pointer]:
+                  - /url: /payments
+                  - generic [ref=e96]:
+                    - img [ref=e97]
+                    - img [ref=e99]
+                  - generic [ref=e102]: Payments
+                - list [ref=e106]:
+                  - listitem [ref=e107]:
+                    - link "Bill Pay" [ref=e108] [cursor=pointer]:
+                      - /url: /bill-pay
+                      - generic [ref=e111]: Bill Pay
+                  - listitem [ref=e112]:
+                    - link "Recipients" [ref=e113] [cursor=pointer]:
+                      - /url: /payments/recipients
+                      - generic [ref=e116]: Recipients
+                  - listitem [ref=e117]:
+                    - link "Taxes" [ref=e118] [cursor=pointer]:
+                      - /url: /taxes
+                      - generic [ref=e121]: Taxes
+                  - listitem [ref=e122]:
+                    - link "Wire Drawdowns" [ref=e123] [cursor=pointer]:
+                      - /url: /payments/wire-drawdowns
+                      - generic [ref=e126]: Wire Drawdowns
+                  - listitem [ref=e127]:
+                    - link "ACH Authorizations" [ref=e128] [cursor=pointer]:
+                      - /url: /payments/authorizations
+                      - generic [ref=e131]: ACH Authorizations
+              - link "Invoicing" [ref=e134] [cursor=pointer]:
+                - /url: /invoicing
+                - generic [ref=e135]:
+                  - img [ref=e136]
+                  - img [ref=e138]
+                - generic [ref=e141]: Invoicing
+              - link "Reimbursements" [ref=e144] [cursor=pointer]:
+                - /url: /expenses/all-expenses
+                - generic [ref=e145]:
+                  - img [ref=e146]
+                  - img [ref=e148]
+                - generic [ref=e151]: Reimbursements
+            - separator [ref=e152]
+            - group "Bookmarks" [ref=e153]:
+              - generic [ref=e154]:
+                - generic [ref=e155]: Bookmarks
+                - button "Learn about bookmarks" [ref=e156] [cursor=pointer]:
+                  - img [ref=e157]
+              - list "Bookmarks" [ref=e159]:
+                - listitem [ref=e160] [cursor=pointer]:
+                  - button "Reorder Ops / Payroll bookmark" [ref=e161]:
+                    - img [ref=e162]
+                  - link "Ops / Payroll $2,023,267.12" [ref=e164]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e165]:
+                      - generic [ref=e166]: Ops / Payroll
+                      - generic [ref=e168]:
+                        - text: $2,023,267
+                        - generic [ref=e169]: ".12"
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e170] [cursor=pointer]:
+                  - button "Reorder Credit Card bookmark" [ref=e171]:
+                    - img [ref=e172]
+                  - link "Credit Card" [ref=e174]:
+                    - /url: /accounts/credit
+                    - generic [ref=e176]: Credit Card
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e177] [cursor=pointer]:
+                  - button "Reorder Bill Pay bookmark" [ref=e178]:
+                    - img [ref=e179]
+                  - link "Bill Pay" [ref=e181]:
+                    - /url: /bill-pay
+                    - generic [ref=e183]: Bill Pay
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e184] [cursor=pointer]:
+                  - button "Reorder Insights bookmark" [ref=e185]:
+                    - img [ref=e186]
+                  - link "Insights" [ref=e188]:
+                    - /url: /insights/overview
+                    - generic [ref=e190]: Insights
+                  - button "Remove bookmark":
+                    - img
+              - status [ref=e191]
+        - generic [ref=e192]:
+          - generic [ref=e194]:
+            - button "Search for anything" [ref=e196] [cursor=pointer]:
+              - img
+              - generic [ref=e197]: Search for anything
+            - button "Move money" [ref=e199] [cursor=pointer]:
+              - img
+              - generic [ref=e200]: Move money
+            - generic [ref=e201]:
+              - button "Toggle Private Mode" [ref=e202] [cursor=pointer]:
+                - img
+              - link "Navigate to Settings" [ref=e205] [cursor=pointer]:
+                - /url: /settings
+                - img
+              - button "updates" [ref=e208] [cursor=pointer]:
+                - img
+              - button [ref=e211] [cursor=pointer]
+          - generic [ref=e213]:
+            - generic [ref=e215]:
+              - generic [ref=e216]:
+                - heading "Payments" [level=1] [ref=e217]
+                - generic [ref=e220] [cursor=pointer]:
+                  - img [ref=e221]
+                  - generic [ref=e223]: Feedback
+              - generic [ref=e225]:
+                - link "Send money" [ref=e227] [cursor=pointer]:
+                  - /url: /send-money/pay/start
+                  - img
+                  - generic [ref=e228]: Send money
+                - button "Upload bill" [ref=e230] [cursor=pointer]:
+                  - img
+                  - generic [ref=e231]: Upload bill
+            - generic [ref=e232]:
+              - generic [ref=e233]:
+                - generic [ref=e234]:
+                  - generic [ref=e236]:
+                    - text: Inbox
+                    - generic [ref=e238]: New
+                  - generic [ref=e240] [cursor=pointer]:
+                    - text: Needs Approval
+                    - generic [ref=e242]: "6"
+                  - generic [ref=e244] [cursor=pointer]:
+                    - text: Scheduled
+                    - generic [ref=e246]: "7"
+                  - generic [ref=e248] [cursor=pointer]: Paid
+                - generic [ref=e249]:
+                  - button "my-company-name@ap.mercury.com" [ref=e250] [cursor=pointer]:
+                    - generic [ref=e251]:
+                      - generic [ref=e252]:
+                        - img [ref=e253]
+                        - img [ref=e255]
+                        - img [ref=e257]
+                        - img [ref=e259]
+                        - img [ref=e261]
+                      - generic [ref=e264]: my-company-name@ap.mercury.com
+                  - button [ref=e265] [cursor=pointer]:
+                    - img
+              - generic [ref=e267]:
+                - menubar [ref=e270]:
+                  - menuitem "Status" [ref=e275] [cursor=pointer]:
+                    - generic [ref=e276]: Status
+                    - generic [ref=e277]:
+                      - img
+                - generic [ref=e280]:
+                  - table "Draft bills" [ref=e281]:
+                    - caption [ref=e282]: Draft bills
+                    - rowgroup [ref=e283]:
+                      - row "Due date Status Recipient Amount Invoice no. Last updated" [ref=e284]:
+                        - columnheader [ref=e285]:
+                          - checkbox [ref=e287] [cursor=pointer]
+                        - columnheader "Due date" [ref=e288] [cursor=pointer]:
+                          - text: Due date
+                          - img [ref=e289]
+                        - columnheader "Status" [ref=e291] [cursor=pointer]:
+                          - text: Status
+                          - img [ref=e292]
+                        - columnheader "Recipient" [ref=e294] [cursor=pointer]:
+                          - text: Recipient
+                          - img [ref=e295]
+                        - columnheader "Amount" [ref=e297] [cursor=pointer]:
+                          - text: Amount
+                          - img [ref=e298]
+                        - columnheader "Invoice no." [ref=e300] [cursor=pointer]:
+                          - text: Invoice no.
+                          - img [ref=e301]
+                        - columnheader "Last updated" [ref=e303] [cursor=pointer]:
+                          - text: Last updated
+                          - img [ref=e304]
+                    - rowgroup [ref=e306]:
+                      - row "Apr 2025 Overdue Debug LLC $220.00 INV-902 Jun 15 Review" [ref=e307] [cursor=pointer]:
+                        - cell [ref=e308]:
+                          - checkbox [ref=e310]
+                        - cell "Apr 2025" [ref=e311]:
+                          - generic [ref=e312]: Apr 2025
+                        - cell "Overdue" [ref=e313]:
+                          - generic [ref=e315]: Overdue
+                        - cell "Debug LLC" [ref=e317]:
+                          - generic [ref=e318]:
+                            - img [ref=e322]
+                            - generic [ref=e324]: Debug LLC
+                        - cell "$220.00" [ref=e325]:
+                          - generic [ref=e328]:
+                            - text: $220
+                            - generic [ref=e329]: ".00"
+                        - cell "INV-902" [ref=e330]:
+                          - generic [ref=e333]: INV-902
+                        - cell "Jun 15" [ref=e334]:
+                          - generic [ref=e335]: Jun 15
+                        - cell "Review":
+                          - button:
+                            - img
+                          - button "Review":
+                            - generic: Review
+                            - img
+                      - row "Dec 2025 Overdue Nano Tech LLC $1,290.00 INV-001 Jun 15 Review" [ref=e336] [cursor=pointer]:
+                        - cell [ref=e337]:
+                          - checkbox [ref=e339]
+                        - cell "Dec 2025" [ref=e340]:
+                          - generic [ref=e341]: Dec 2025
+                        - cell "Overdue" [ref=e342]:
+                          - generic [ref=e344]: Overdue
+                        - cell "Nano Tech LLC" [ref=e346]:
+                          - generic [ref=e347]:
+                            - img [ref=e351]
+                            - generic [ref=e353]: Nano Tech LLC
+                        - cell "$1,290.00" [ref=e354]:
+                          - generic [ref=e357]:
+                            - text: $1,290
+                            - generic [ref=e358]: ".00"
+                        - cell "INV-001" [ref=e359]:
+                          - generic [ref=e362]: INV-001
+                        - cell "Jun 15" [ref=e363]:
+                          - generic [ref=e364]: Jun 15
+                        - cell "Review":
+                          - button:
+                            - img
+                          - button "Review":
+                            - generic: Review
+                            - img
+                      - row "Jan 17 Overdue Tax Bureau Inc $11,600.00 INV-883346 Jun 15 Review" [ref=e365] [cursor=pointer]:
+                        - cell [ref=e366]:
+                          - checkbox [ref=e368]
+                        - cell "Jan 17" [ref=e369]:
+                          - generic [ref=e370]: Jan 17
+                        - cell "Overdue" [ref=e371]:
+                          - generic [ref=e373]: Overdue
+                        - cell "Tax Bureau Inc" [ref=e375]:
+                          - generic [ref=e376]:
+                            - img [ref=e380]
+                            - generic [ref=e382]: Tax Bureau Inc
+                        - cell "$11,600.00" [ref=e383]:
+                          - generic [ref=e386]:
+                            - text: $11,600
+                            - generic [ref=e387]: ".00"
+                        - cell "INV-883346" [ref=e388]:
+                          - generic [ref=e391]: INV-883346
+                        - cell "Jun 15" [ref=e392]:
+                          - generic [ref=e393]: Jun 15
+                        - cell "Review":
+                          - button:
+                            - img
+                          - button "Review":
+                            - generic: Review
+                            - img
+                  - generic [ref=e394]: This table row is also a link. Click on the row with your cursor or press the Enter key to activate the link.
+                - dialog "0 items selected" [ref=e395]:
+                  - generic [ref=e397]:
+                    - generic [ref=e398]:
+                      - generic [ref=e399]: 0 items selected
+                      - generic [ref=e400]: $0.00 total
+                    - generic [ref=e401]:
+                      - button "Delete" [ref=e402] [cursor=pointer]:
+                        - generic [ref=e403]: Delete
+                      - button "Review" [ref=e404] [cursor=pointer]:
+                        - generic [ref=e405]: Review
+                        - img
+                - button "Choose File"
+      - button [ref=e408] [cursor=pointer]:
+        - img [ref=e409]
+  - alert

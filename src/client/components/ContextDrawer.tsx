@@ -143,6 +143,21 @@ const DRAWER_STATE_GLYPH: Record<DrawerStateName, string> = {
 // reachable from the cycle button (the close button exists for that).
 const DRAWER_CYCLE_ORDER: ReadonlyArray<DrawerStateName> = ['peek', 'standard', 'wide', 'focus'];
 
+/**
+ * @deprecated ContextDrawer is superseded by {@link DetailSlideover} (src/client/components/DetailSlideover.tsx).
+ *
+ * **Current usage:** Rendered in App.tsx:166 behind `CANVAS_GRAMMAR_ENABLED` feature flag.
+ * When the canvas grammar shell is disabled (`VITE_CANVAS_GRAMMAR_ENABLED=false`), ContextDrawer
+ * is not mounted and the operator sees the pre-canvas UI.
+ *
+ * **Removal plan:** Phase 4 of the Mercury UX retrofit removes the feature flag and
+ * the ContextDrawer component entirely. The DetailSlideover provides all drawer/slide-over
+ * functionality: 4-state sizing (closed/peek/standard/wide), URL-synced entity state,
+ * registered tab rendering, and focus trapping.
+ *
+ * **Do not add new features to this component.** New drawer tabs should register with
+ * the tab registry (src/client/components/tabs/registry.ts) and render inside DetailSlideover.
+ */
 export function ContextDrawer() {
   const activeView = useUiStore((state) => state.activeView);
   const selectedRows = useUiStore((state) => state.selectedRows);
@@ -296,7 +311,7 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   const navigate = useNavigate();
   const customerId = inferCustomerId(row, activeView, entityType, entityId);
   const vendorId = inferVendorId(row, activeView, entityType, entityId);
-  const relationship = trpc.queries.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
+  const relationship = trpc.context.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
   const facts = compactFacts(row, entityType, relationship.data);
 
   // contactId may be present on the row when the grid query includes it (added in 9.3).
@@ -325,7 +340,7 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   const setSalesSheetState = useUiStore((state) => state.setSalesSheetState);
   const showMargin = useUiStore((state) => state.showMargin);
   // TER-1570: live orderLines for the active salesOrder entity.
-  const salesOrderLinesQuery = trpc.queries.salesOrderLines.useQuery(
+  const salesOrderLinesQuery = trpc.salesOrders.salesOrderLines.useQuery(
     { orderId: salesOrderId || '00000000-0000-0000-0000-000000000000' },
     { enabled: isSalesOrderEntity && Boolean(salesOrderId) }
   );

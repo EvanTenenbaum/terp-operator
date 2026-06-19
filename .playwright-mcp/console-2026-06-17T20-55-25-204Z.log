@@ -1,0 +1,155 @@
+[     118ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:21608
+[     137ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:159
+[     137ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:159
+[     215ms] [ERROR] Warning: The result of getSnapshot should be cached to avoid an infinite loop%s 
+    at GridView (http://localhost:5173/src/client/templates/GridView.tsx:39:28)
+    at div
+    at div
+    at InventoryView
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7491:26)
+    at main
+    at div
+    at div
+    at div
+    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)
+    at AppContent (http://localhost:5173/src/client/App.tsx:104:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7561:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7500:13)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:10787:3)
+    at ErrorBoundary (http://localhost:5173/src/client/components/ErrorBoundary.tsx:5:8)
+    at App
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:2838:3)
+    at TRPCProvider (http://localhost:5173/node_modules/.vite/deps/@trpc_react-query.js?v=dc679a6b:226:13) @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:520
+[     229ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     229ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     229ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     229ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     247ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     460ms] Error: Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate. React limits the number of nested updates to prevent infinite loops.
+    at checkForNestedUpdates (http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:19712:19)
+    at scheduleUpdateOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:18583:11)
+    at dispatchSetState (http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:12451:15)
+    at Object.addOrRemoveCssClass (http://localhost:5173/node_modules/.vite/deps/ag-grid-react.js?v=dc679a6b:1274:42)
+    at GridHeaderCtrl.onDisplayedColumnsChanged (http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:19736:15)
+    at callback (http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:70:124)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:74:9
+    at Set.forEach (<anonymous>)
+    at processEventListeners (http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:66:82)
+    at LocalEventService.dispatchToListeners (http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:80:7)
+[     460ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at DetailSlideover (http://localhost:5173/src/client/components/DetailSlideover.tsx:31:3)
+    at div
+    at GridView (http://localhost:5173/src/client/templates/GridView.tsx:39:28)
+    at div
+    at div
+    at InventoryView
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7491:26)
+    at main
+    at div
+    at div
+    at div
+    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)
+    at AppContent (http://localhost:5173/src/client/App.tsx:104:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7561:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7500:13)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:10787:3)
+    at ErrorBoundary (http://localhost:5173/src/client/components/ErrorBoundary.tsx:5:8)
+    at App
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:2838:3)
+    at TRPCProvider (http://localhost:5173/node_modules/.vite/deps/@trpc_react-query.js?v=dc679a6b:226:13) @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:520
+[     462ms] [ERROR] The above error occurred in the <AgGridReactUi> component:
+
+    at AgGridReactUi (http://localhost:5173/node_modules/.vite/deps/ag-grid-react.js?v=dc679a6b:2461:43)
+    at AgGridReact (http://localhost:5173/node_modules/.vite/deps/ag-grid-react.js?v=dc679a6b:2792:5)
+    at div
+    at div
+    at section
+    at WorkspacePanel (http://localhost:5173/src/client/components/WorkspacePanel.tsx:22:34)
+    at OperatorGrid (http://localhost:5173/src/client/components/OperatorGrid.tsx:46:3)
+    at div
+    at div
+    at GridView (http://localhost:5173/src/client/templates/GridView.tsx:39:28)
+    at div
+    at div
+    at InventoryView
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7491:26)
+    at main
+    at div
+    at div
+    at div
+    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)
+    at AppContent (http://localhost:5173/src/client/App.tsx:104:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7561:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7500:13)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:10787:3)
+    at ErrorBoundary (http://localhost:5173/src/client/components/ErrorBoundary.tsx:5:8)
+    at App
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:2838:3)
+    at TRPCProvider (http://localhost:5173/node_modules/.vite/deps/@trpc_react-query.js?v=dc679a6b:226:13)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:14079
+[    1063ms] [ERROR] TRPCClientError: Database error (request id: ef107051-71e8-4d89-84ce-b5f01f5889bf)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:947
+[    1063ms] [ERROR] TRPCClientError: [
+  {
+    "received": "intake",
+    "code": "invalid_enum_value",
+    "options": [
+      "purchaseOrder",
+      "salesOrder",
+      "batch",
+      "payment",
+      "invoice",
+      "purchaseReceipt",
+      "vendorBill",
+      "vendorPayment",
+      "fulfillmentLine"
+    ],
+    "path": [
+      "entityType"
+    ],
+    "message": "Invalid enum value. Expected 'purchaseOrder' | 'salesOrder' | 'batch' | 'payment' | 'invoice' | 'purchaseReceipt' | 'vendorBill' | 'vendorPayment' | 'fulfillmentLine', received 'intake'"
+  }
+]
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:947
+[    1063ms] [ERROR] TRPCClientError: [
+  {
+    "received": "intake",
+    "code": "invalid_enum_value",
+    "options": [
+      "purchaseOrder",
+      "salesOrder",
+      "batch",
+      "payment",
+      "invoice",
+      "purchaseReceipt",
+      "vendorBill",
+      "vendorPayment",
+      "fulfillmentLine",
+      "pickList",
+      "connectorRequest",
+      "matchmakingMatch",
+      "photographyQueue",
+      "invoiceDispute",
+      "correctionJournalEntry",
+      "commandJournal",
+      "documentSnapshot",
+      "refereeCredit",
+      "batchMedia"
+    ],
+    "path": [
+      "entityType"
+    ],
+    "message": "Invalid enum value. Expected 'purchaseOrder' | 'salesOrder' | 'batch' | 'payment' | 'invoice' | 'purchaseReceipt' | 'vendorBill' | 'vendorPayment' | 'fulfillmentLine' | 'pickList' | 'connectorRequest' | 'matchmakingMatch' | 'photographyQueue' | 'invoiceDispute' | 'correctionJournalEntry' | 'commandJournal' | 'documentSnapshot' | 'refereeCredit' | 'batchMedia', received 'intake'"
+  }
+]
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:947

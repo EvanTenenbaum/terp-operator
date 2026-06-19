@@ -159,7 +159,7 @@ function VendorHistoryTab({
   purchaseOrders: NonNullable<VendorContextDrawerProps['relationshipData']>['purchaseOrders'];
 }) {
   const [expandedPoId, setExpandedPoId] = useState<string | null>(null);
-  const lineItemsQuery = trpc.queries.purchaseOrderLines.useQuery(
+  const lineItemsQuery = trpc.purchaseOrders.purchaseOrderLines.useQuery(
     { purchaseOrderId: expandedPoId ?? '00000000-0000-0000-0000-000000000000' },
     { enabled: Boolean(expandedPoId) }
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { logger } from './services/logger';
 import { trpc, trpcClient } from './api/trpc';
 import { App } from './App';
 import { registerUiStoreStorageSync } from './store/uiStoreStorageSync';
@@ -34,7 +35,7 @@ async function loadClientConfig(): Promise<ClientConfig> {
     return (await response.json()) as ClientConfig;
   } catch {
     // Timeout or network error — proceed without license key
-    console.warn('[loadClientConfig] Timed out or failed, proceeding without AG Grid license');
+    logger.warn('Timed out or failed, proceeding without AG Grid license', { module: 'loadClientConfig' });
     return {};
   } finally {
     clearTimeout(timeoutId);
@@ -72,8 +73,8 @@ void loadClientConfig().then((config) => {
   }
 
   // Polyfill: crypto.randomUUID for non-secure contexts (e.g. Tailscale HTTP)
-if (typeof crypto !== 'undefined' && !crypto.randomUUID) {
-  (crypto as any).randomUUID = function randomUUID() {
+if (typeof crypto !== 'undefined' && !(crypto as { randomUUID?: () => string }).randomUUID) {
+  (crypto as { randomUUID: () => string }).randomUUID = function randomUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
       const r = Math.random() * 16 | 0;
       const v = c === 'x' ? r : (r & 0x3 | 0x8);

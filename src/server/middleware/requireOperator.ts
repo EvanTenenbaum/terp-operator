@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { logger } from '../services/logger';
 import { getSessionUser } from '../auth';
 import { canRole } from '../rbac';
 import type { SessionUser } from '../../shared/types';
@@ -32,7 +33,7 @@ export async function requireOperator(
     req.user = user;
     next();
   } catch (error) {
-    console.error('requireOperator auth check failed:', error);
+    logger.error('Auth check failed', { module: 'requireOperator', error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({ error: 'Authentication check failed' });
   }
 }

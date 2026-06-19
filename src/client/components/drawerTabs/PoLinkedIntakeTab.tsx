@@ -34,7 +34,7 @@ function statusTone(status: unknown): string {
 
 export function PoLinkedIntakeTab({ poId }: PoLinkedIntakeTabProps) {
   const enabled = Boolean(poId);
-  const intake = trpc.queries.intakeQueue.useQuery(undefined, { enabled });
+  const intake = trpc.intake.intakeQueue.useQuery(undefined, { enabled });
 
   if (!enabled) {
     return (

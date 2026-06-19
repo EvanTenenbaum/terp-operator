@@ -1,0 +1,785 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - generic [ref=e7]: TERP Operator
+          - generic [ref=e8]: Operator Console
+        - button "Collapse navigation" [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: Decide
+          - button "Dashboard" [ref=e16] [cursor=pointer]:
+            - img [ref=e17]
+            - generic [ref=e20]: Dashboard
+            - generic [ref=e21]: ⌘1
+          - button "Reports" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - generic [ref=e25]: Reports
+        - generic [ref=e26]:
+          - generic [ref=e27]: Procure
+          - button "Purchase Orders" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic [ref=e33]: Purchase Orders
+          - button "Intake" [ref=e34] [cursor=pointer]:
+            - img [ref=e35]
+            - generic [ref=e38]: Intake
+            - generic [ref=e39]: ⌘2
+          - button "Inventory" [ref=e40] [cursor=pointer]:
+            - img [ref=e41]
+            - generic [ref=e51]: Inventory
+            - generic [ref=e52]: ⌘5
+          - button "More" [ref=e53] [cursor=pointer]:
+            - img [ref=e54]
+            - generic [ref=e56]: More
+          - group "More Procure items" [ref=e57]:
+            - button "Receipts" [ref=e58] [cursor=pointer]:
+              - img [ref=e59]
+              - generic [ref=e61]: Receipts
+            - button "Photography" [ref=e62] [cursor=pointer]:
+              - img [ref=e63]
+              - generic [ref=e66]: Photography
+        - generic [ref=e67]:
+          - generic [ref=e68]: Sell
+          - button "Sales" [ref=e69] [cursor=pointer]:
+            - img [ref=e70]
+            - generic [ref=e74]: Sales
+            - generic [ref=e75]: ⌘3
+          - button "Matchmaking" [ref=e76] [cursor=pointer]:
+            - img [ref=e77]
+            - generic [ref=e80]: Matchmaking
+          - button "Orders" [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
+            - generic [ref=e85]: Orders
+          - button "Fulfillment" [ref=e86] [cursor=pointer]:
+            - img [ref=e87]
+            - generic [ref=e92]: Fulfillment
+          - button "Client Balances" [ref=e93] [cursor=pointer]:
+            - img [ref=e94]
+            - generic [ref=e96]: Client Balances
+            - generic [ref=e97]: ⌘6
+          - button "More" [ref=e98] [cursor=pointer]:
+            - img [ref=e99]
+            - generic [ref=e101]: More
+          - group "More Sell items" [ref=e102]:
+            - button "Credit Review" [ref=e103] [cursor=pointer]:
+              - img [ref=e104]
+              - generic [ref=e108]: Credit Review
+        - generic [ref=e109]:
+          - generic [ref=e110]: Money
+          - button "Payments" [ref=e111] [cursor=pointer]:
+            - img [ref=e112]
+            - generic [ref=e115]: Payments
+            - generic [ref=e116]: ⌘4
+          - button "Vendor Payouts" [ref=e117] [cursor=pointer]:
+            - img [ref=e118]
+            - generic [ref=e120]: Vendor Payouts
+          - button "Contacts" [ref=e121] [cursor=pointer]:
+            - img [ref=e122]
+            - generic [ref=e127]: Contacts
+          - button "More" [ref=e128] [cursor=pointer]:
+            - img [ref=e129]
+            - generic [ref=e131]: More
+          - group "More Money items" [ref=e132]:
+            - button "Disputes" [ref=e133] [cursor=pointer]:
+              - img [ref=e134]
+              - generic [ref=e136]: Disputes
+            - button "Referees" [ref=e137] [cursor=pointer]:
+              - img [ref=e138]
+              - generic [ref=e143]: Referees
+        - generic [ref=e144]:
+          - generic [ref=e145]: Admin
+          - button "Recovery" [ref=e146] [cursor=pointer]:
+            - img [ref=e147]
+            - generic [ref=e150]: Recovery
+          - button "Closeout" [ref=e151] [cursor=pointer]:
+            - img [ref=e152]
+            - generic [ref=e155]: Closeout
+          - button "Settings" [ref=e156] [cursor=pointer]:
+            - img [ref=e157]
+            - generic [ref=e160]: Settings
+      - link "Switch to mobile view" [ref=e162] [cursor=pointer]:
+        - /url: /mobile/dashboard
+        - img [ref=e163]
+        - generic [ref=e165]: Mobile view
+    - generic [ref=e166]:
+      - banner "Global workspace keel" [ref=e167]:
+        - button "Search ⌘K" [ref=e168] [cursor=pointer]:
+          - img [ref=e169]
+          - generic [ref=e172]: Search
+          - generic [ref=e173]: ⌘K
+        - generic "Quick actions and tools" [ref=e174]:
+          - button "Quick actions" [ref=e176] [cursor=pointer]:
+            - img [ref=e177]
+            - generic [ref=e181]: Quick actions
+            - img [ref=e182]
+          - button "Sign out" [ref=e184] [cursor=pointer]
+        - generic [ref=e185]:
+          - generic [ref=e188]: Healthy
+          - generic [ref=e189]: Evan Owner
+      - main [ref=e191]:
+        - generic [ref=e192]:
+          - region "Payment entry" [ref=e193]:
+            - generic [ref=e194]:
+              - button "Payment entry Manual rows, workflow-created payments, PO product payments, and accounting handoff in one audit surface." [expanded] [ref=e195] [cursor=pointer]:
+                - img [ref=e196]
+                - generic [ref=e198]:
+                  - heading "Payment entry" [level=2] [ref=e199]
+                  - generic [ref=e200]: Manual rows, workflow-created payments, PO product payments, and accounting handoff in one audit surface.
+              - generic [ref=e201]:
+                - button "Receiving" [ref=e202] [cursor=pointer]:
+                  - img [ref=e203]
+                  - text: Receiving
+                - button "Paying" [ref=e204] [cursor=pointer]:
+                  - img [ref=e205]
+                  - text: Paying
+                - button "Expand Payment entry" [ref=e206] [cursor=pointer]:
+                  - img [ref=e207]
+            - generic [ref=e213]:
+              - generic [ref=e214]:
+                - generic [ref=e215]:
+                  - button "Money In" [expanded] [ref=e216] [cursor=pointer]:
+                    - img [ref=e217]
+                    - text: Money In
+                  - generic [ref=e219]: 16 posted
+                  - generic [ref=e220]: $2,056.13
+                  - generic [ref=e221]:
+                    - button "Row" [ref=e222] [cursor=pointer]:
+                      - img [ref=e223]
+                      - text: Row
+                    - button "Types" [ref=e224] [cursor=pointer]:
+                      - img [ref=e225]
+                      - text: Types
+                - table "Money In" [ref=e227]:
+                  - caption [ref=e228]: Money In
+                  - rowgroup [ref=e229]:
+                    - row "# Date Entity type Cash received from Payment type Gross Processor Fee Split % Net Applied to Amount Method Bucket Notes Trace Status Source Commit" [ref=e230]:
+                      - columnheader "#" [ref=e231]
+                      - columnheader "Date" [ref=e232]
+                      - columnheader "Entity type" [ref=e233]
+                      - columnheader "Cash received from" [ref=e234]
+                      - columnheader "Payment type" [ref=e235]
+                      - columnheader "Gross" [ref=e236]
+                      - columnheader "Processor" [ref=e237]
+                      - columnheader "Fee" [ref=e238]
+                      - columnheader "Split %" [ref=e239]
+                      - columnheader "Net" [ref=e240]
+                      - columnheader "Applied to" [ref=e241]
+                      - columnheader "Amount" [ref=e242]
+                      - columnheader "Method" [ref=e243]
+                      - columnheader "Bucket" [ref=e244]
+                      - columnheader "Notes" [ref=e245]
+                      - columnheader "Trace" [ref=e246]
+                      - columnheader "Status" [ref=e247]
+                      - columnheader "Source" [ref=e248]
+                      - columnheader "Commit" [ref=e249]
+                  - rowgroup [ref=e250]:
+                    - row "1 2026-06-17 Customer Choose Customer Client payment - - - - - Oldest open orders first Cash Cash file A Enter amount to preview Draft Draft Record payment Discard draft" [ref=e437]:
+                      - cell "1" [ref=e252]
+                      - cell "2026-06-17" [ref=e253]:
+                        - textbox "Date" [ref=e254]: 2026-06-17
+                      - cell "Customer" [ref=e255]:
+                        - combobox "Entity type" [ref=e256]:
+                          - option "Customer" [selected]
+                          - option "Vendor"
+                          - option "Referee"
+                          - option "Staff"
+                          - option "Processor"
+                          - option "Other"
+                      - cell "Choose Customer" [ref=e257]:
+                        - combobox "Customer counterparty" [ref=e258]:
+                          - option "Choose Customer" [selected]
+                          - option "Cobalt Reserve"
+                          - option "DBFinal-Contact-1780357843"
+                          - option "DBFinal-Contact-1780427928"
+                          - option "DBFinal-Contact-1780428015"
+                          - option "DBVerify-Contact-1780357545"
+                          - option "Harbor Wellness"
+                          - option "Sunset Collective"
+                          - option "Test Contact DB v3 1780355986"
+                          - option "Test Contact DB Verify"
+                          - option "Test Contact DB Verify 1780355318"
+                          - option "Test Contact DB Verify 1780355612"
+                          - option "Valley Meds"
+                      - cell "Client payment" [ref=e438]:
+                        - combobox "Transaction type" [ref=e260]:
+                          - option "Buyer credit / down payment"
+                          - option "Check payment (customer)"
+                          - option "Client payment" [selected]
+                          - option "Crypto payment (customer)"
+                          - option "DBFinal"
+                          - option "DBFinal"
+                          - option "DBFinal"
+                          - option "DBVerify 1780357545"
+                          - option "DB Verify Type 1780356369"
+                          - option "Test"
+                          - option "Test DB Verify"
+                          - option "Test DB Verify v2"
+                          - option "Test DB Verify v3"
+                      - cell "-" [ref=e261]
+                      - cell "-" [ref=e262]
+                      - cell "-" [ref=e263]
+                      - cell "-" [ref=e264]
+                      - cell "-" [ref=e265]
+                      - cell "Oldest open orders first" [ref=e266]:
+                        - combobox "Allocation target type" [ref=e267]:
+                          - option "Oldest open orders first" [selected]
+                          - option "Unapplied / down payment"
+                          - option "INV-DEMO-001 / open $3,600.00"
+                      - cell [ref=e268]:
+                        - textbox "Amount" [ref=e269]
+                      - cell "Cash" [ref=e270]:
+                        - combobox "Method" [ref=e271]:
+                          - option "Cash" [selected]
+                          - option "Check"
+                          - option "Other"
+                          - option "Journal"
+                      - cell "Cash file A" [ref=e272]:
+                        - combobox "Bucket" [ref=e273]:
+                          - option "Cash file A" [selected]
+                          - option "Cash file B"
+                          - option "Office"
+                          - option "Accounting"
+                          - option "Crypto wallet"
+                          - option "Wire clearing"
+                      - cell [ref=e274]:
+                        - textbox "Notes" [ref=e275]
+                      - cell "Enter amount to preview" [ref=e276]
+                      - cell "Draft" [ref=e277]
+                      - cell "Draft" [ref=e278]:
+                        - generic [ref=e279]: Draft
+                      - cell "Record payment Discard draft" [ref=e280]:
+                        - generic [ref=e281]:
+                          - button "Record payment" [ref=e282] [cursor=pointer]:
+                            - img [ref=e283]
+                            - generic [ref=e285]: Record payment
+                          - button "Discard draft" [ref=e286] [cursor=pointer]:
+                            - img [ref=e287]
+                            - generic [ref=e290]: Discard draft
+                    - row "2 6/2 Other Manual / other Correction Journal $0.01 Journal Accounting DBFinal 1780428015 DBFinal 1780428015 Posted Correction -" [ref=e439]:
+                      - cell "2" [ref=e440]
+                      - cell "6/2" [ref=e441]
+                      - cell "Other" [ref=e442]
+                      - cell "Manual / other" [ref=e443]
+                      - cell "Correction" [ref=e444]
+                      - cell "Journal" [ref=e445]
+                      - cell "$0.01" [ref=e446]
+                      - cell "Journal" [ref=e447]
+                      - cell "Accounting" [ref=e448]
+                      - cell "DBFinal 1780428015" [ref=e449]
+                      - cell "DBFinal 1780428015" [ref=e450]
+                      - cell "Posted" [ref=e451]
+                      - cell "Correction" [ref=e452]:
+                        - generic [ref=e453]: Correction
+                      - cell "-" [ref=e454]:
+                        - generic [ref=e455]: "-"
+                    - row "3 6/2 Customer Cobalt Reserve Client Payment FIFO oldest invoices $7.77 Cash Cash file A Payment will be available for oldest-open-invoice allocation. Posted Payment -" [ref=e456]:
+                      - cell "3" [ref=e457]
+                      - cell "6/2" [ref=e458]
+                      - cell "Customer" [ref=e459]
+                      - cell "Cobalt Reserve" [ref=e460]
+                      - cell "Client Payment" [ref=e461]
+                      - cell "FIFO oldest invoices" [ref=e462]
+                      - cell "$7.77" [ref=e463]
+                      - cell "Cash" [ref=e464]
+                      - cell "Cash file A" [ref=e465]
+                      - cell [ref=e466]
+                      - cell "Payment will be available for oldest-open-invoice allocation." [ref=e467]
+                      - cell "Posted" [ref=e468]
+                      - cell "Payment" [ref=e469]:
+                        - generic [ref=e470]: Payment
+                      - cell "-" [ref=e471]:
+                        - generic [ref=e472]: "-"
+                    - row "4 6/2 Other Manual / other Correction Journal $0.01 Journal Accounting DBFinal 1780427928 DBFinal 1780427928 Posted Correction -" [ref=e473]:
+                      - cell "4" [ref=e474]
+                      - cell "6/2" [ref=e475]
+                      - cell "Other" [ref=e476]
+                      - cell "Manual / other" [ref=e477]
+                      - cell "Correction" [ref=e478]
+                      - cell "Journal" [ref=e479]
+                      - cell "$0.01" [ref=e480]
+                      - cell "Journal" [ref=e481]
+                      - cell "Accounting" [ref=e482]
+                      - cell "DBFinal 1780427928" [ref=e483]
+                      - cell "DBFinal 1780427928" [ref=e484]
+                      - cell "Posted" [ref=e485]
+                      - cell "Correction" [ref=e486]:
+                        - generic [ref=e487]: Correction
+                      - cell "-" [ref=e488]:
+                        - generic [ref=e489]: "-"
+                    - row "5 6/2 Customer Cobalt Reserve Client Payment FIFO oldest invoices $7.77 Cash Cash file A Payment will be available for oldest-open-invoice allocation. Posted Payment -" [ref=e490]:
+                      - cell "5" [ref=e491]
+                      - cell "6/2" [ref=e492]
+                      - cell "Customer" [ref=e493]
+                      - cell "Cobalt Reserve" [ref=e494]
+                      - cell "Client Payment" [ref=e495]
+                      - cell "FIFO oldest invoices" [ref=e496]
+                      - cell "$7.77" [ref=e497]
+                      - cell "Cash" [ref=e498]
+                      - cell "Cash file A" [ref=e499]
+                      - cell [ref=e500]
+                      - cell "Payment will be available for oldest-open-invoice allocation." [ref=e501]
+                      - cell "Posted" [ref=e502]
+                      - cell "Payment" [ref=e503]:
+                        - generic [ref=e504]: Payment
+                      - cell "-" [ref=e505]:
+                        - generic [ref=e506]: "-"
+                    - row "6 6/1 Other Manual / other Correction Journal $0.01 Journal Accounting DBFinal 1780357843 DBFinal 1780357843 Posted Correction -" [ref=e507]:
+                      - cell "6" [ref=e508]
+                      - cell "6/1" [ref=e509]
+                      - cell "Other" [ref=e510]
+                      - cell "Manual / other" [ref=e511]
+                      - cell "Correction" [ref=e512]
+                      - cell "Journal" [ref=e513]
+                      - cell "$0.01" [ref=e514]
+                      - cell "Journal" [ref=e515]
+                      - cell "Accounting" [ref=e516]
+                      - cell "DBFinal 1780357843" [ref=e517]
+                      - cell "DBFinal 1780357843" [ref=e518]
+                      - cell "Posted" [ref=e519]
+                      - cell "Correction" [ref=e520]:
+                        - generic [ref=e521]: Correction
+                      - cell "-" [ref=e522]:
+                        - generic [ref=e523]: "-"
+                    - row "7 6/1 Customer Cobalt Reserve Client Payment FIFO oldest invoices $7.77 Cash Cash file A Payment will be available for oldest-open-invoice allocation. Posted Payment -" [ref=e524]:
+                      - cell "7" [ref=e525]
+                      - cell "6/1" [ref=e526]
+                      - cell "Customer" [ref=e527]
+                      - cell "Cobalt Reserve" [ref=e528]
+                      - cell "Client Payment" [ref=e529]
+                      - cell "FIFO oldest invoices" [ref=e530]
+                      - cell "$7.77" [ref=e531]
+                      - cell "Cash" [ref=e532]
+                      - cell "Cash file A" [ref=e533]
+                      - cell [ref=e534]
+                      - cell "Payment will be available for oldest-open-invoice allocation." [ref=e535]
+                      - cell "Posted" [ref=e536]
+                      - cell "Payment" [ref=e537]:
+                        - generic [ref=e538]: Payment
+                      - cell "-" [ref=e539]:
+                        - generic [ref=e540]: "-"
+                    - row "8 6/1 Customer Cobalt Reserve Client Payment FIFO oldest invoices $10.00 Cash Cash file A Payment will be available for oldest-open-invoice allocation. Posted Payment -" [ref=e541]:
+                      - cell "8" [ref=e542]
+                      - cell "6/1" [ref=e543]
+                      - cell "Customer" [ref=e544]
+                      - cell "Cobalt Reserve" [ref=e545]
+                      - cell "Client Payment" [ref=e546]
+                      - cell "FIFO oldest invoices" [ref=e547]
+                      - cell "$10.00" [ref=e548]
+                      - cell "Cash" [ref=e549]
+                      - cell "Cash file A" [ref=e550]
+                      - cell [ref=e551]
+                      - cell "Payment will be available for oldest-open-invoice allocation." [ref=e552]
+                      - cell "Posted" [ref=e553]
+                      - cell "Payment" [ref=e554]:
+                        - generic [ref=e555]: Payment
+                      - cell "-" [ref=e556]:
+                        - generic [ref=e557]: "-"
+                    - row "9 6/1 Other Manual / other Correction Journal $0.01 Journal Accounting DBVerify 1780357545 DBVerify 1780357545 Posted Correction -" [ref=e558]:
+                      - cell "9" [ref=e559]
+                      - cell "6/1" [ref=e560]
+                      - cell "Other" [ref=e561]
+                      - cell "Manual / other" [ref=e562]
+                      - cell "Correction" [ref=e563]
+                      - cell "Journal" [ref=e564]
+                      - cell "$0.01" [ref=e565]
+                      - cell "Journal" [ref=e566]
+                      - cell "Accounting" [ref=e567]
+                      - cell "DBVerify 1780357545" [ref=e568]
+                      - cell "DBVerify 1780357545" [ref=e569]
+                      - cell "Posted" [ref=e570]
+                      - cell "Correction" [ref=e571]:
+                        - generic [ref=e572]: Correction
+                      - cell "-" [ref=e573]:
+                        - generic [ref=e574]: "-"
+                    - row "10 6/1 Customer Cobalt Reserve Client Payment FIFO oldest invoices $7.77 Cash Cash file A DBVerify Payment will be available for oldest-open-invoice allocation. Posted Payment -" [ref=e575]:
+                      - cell "10" [ref=e576]
+                      - cell "6/1" [ref=e577]
+                      - cell "Customer" [ref=e578]
+                      - cell "Cobalt Reserve" [ref=e579]
+                      - cell "Client Payment" [ref=e580]
+                      - cell "FIFO oldest invoices" [ref=e581]
+                      - cell "$7.77" [ref=e582]
+                      - cell "Cash" [ref=e583]
+                      - cell "Cash file A" [ref=e584]
+                      - cell "DBVerify" [ref=e585]
+                      - cell "Payment will be available for oldest-open-invoice allocation." [ref=e586]
+                      - cell "Posted" [ref=e587]
+                      - cell "Payment" [ref=e588]:
+                        - generic [ref=e589]: Payment
+                      - cell "-" [ref=e590]:
+                        - generic [ref=e591]: "-"
+                    - row "11 6/1 Customer Cobalt Reserve Client Payment FIFO oldest invoices $5.00 Cash Cash file A Payment will be available for oldest-open-invoice allocation. Posted Payment -" [ref=e592]:
+                      - cell "11" [ref=e593]
+                      - cell "6/1" [ref=e594]
+                      - cell "Customer" [ref=e595]
+                      - cell "Cobalt Reserve" [ref=e596]
+                      - cell "Client Payment" [ref=e597]
+                      - cell "FIFO oldest invoices" [ref=e598]
+                      - cell "$5.00" [ref=e599]
+                      - cell "Cash" [ref=e600]
+                      - cell "Cash file A" [ref=e601]
+                      - cell [ref=e602]
+                      - cell "Payment will be available for oldest-open-invoice allocation." [ref=e603]
+                      - cell "Posted" [ref=e604]
+                      - cell "Payment" [ref=e605]:
+                        - generic [ref=e606]: Payment
+                      - cell "-" [ref=e607]:
+                        - generic [ref=e608]: "-"
+                    - row "12 6/1 Other Manual / other Correction Journal $0.01 Journal Accounting DB verification test 1780356369 DB verification test 1780356369 Posted Correction -" [ref=e609]:
+                      - cell "12" [ref=e610]
+                      - cell "6/1" [ref=e611]
+                      - cell "Other" [ref=e612]
+                      - cell "Manual / other" [ref=e613]
+                      - cell "Correction" [ref=e614]
+                      - cell "Journal" [ref=e615]
+                      - cell "$0.01" [ref=e616]
+                      - cell "Journal" [ref=e617]
+                      - cell "Accounting" [ref=e618]
+                      - cell "DB verification test 1780356369" [ref=e619]
+                      - cell "DB verification test 1780356369" [ref=e620]
+                      - cell "Posted" [ref=e621]
+                      - cell "Correction" [ref=e622]:
+                        - generic [ref=e623]: Correction
+                      - cell "-" [ref=e624]:
+                        - generic [ref=e625]: "-"
+                    - row "13 6/1 Other Manual / other Correction Journal $1.00 Journal Accounting DB v3 verification test entry DB v3 verification test entry Posted Correction -" [ref=e626]:
+                      - cell "13" [ref=e627]
+                      - cell "6/1" [ref=e628]
+                      - cell "Other" [ref=e629]
+                      - cell "Manual / other" [ref=e630]
+                      - cell "Correction" [ref=e631]
+                      - cell "Journal" [ref=e632]
+                      - cell "$1.00" [ref=e633]
+                      - cell "Journal" [ref=e634]
+                      - cell "Accounting" [ref=e635]
+                      - cell "DB v3 verification test entry" [ref=e636]
+                      - cell "DB v3 verification test entry" [ref=e637]
+                      - cell "Posted" [ref=e638]
+                      - cell "Correction" [ref=e639]:
+                        - generic [ref=e640]: Correction
+                      - cell "-" [ref=e641]:
+                        - generic [ref=e642]: "-"
+                    - row "14 6/1 Other Manual / other Correction Journal $1.00 Journal Accounting DB verification test entry DB verification test entry Posted Correction -" [ref=e643]:
+                      - cell "14" [ref=e644]
+                      - cell "6/1" [ref=e645]
+                      - cell "Other" [ref=e646]
+                      - cell "Manual / other" [ref=e647]
+                      - cell "Correction" [ref=e648]
+                      - cell "Journal" [ref=e649]
+                      - cell "$1.00" [ref=e650]
+                      - cell "Journal" [ref=e651]
+                      - cell "Accounting" [ref=e652]
+                      - cell "DB verification test entry" [ref=e653]
+                      - cell "DB verification test entry" [ref=e654]
+                      - cell "Posted" [ref=e655]
+                      - cell "Correction" [ref=e656]:
+                        - generic [ref=e657]: Correction
+                      - cell "-" [ref=e658]:
+                        - generic [ref=e659]: "-"
+                    - row "15 6/1 Other Manual / other Correction Journal $1.00 Journal Accounting DB verification test entry DB verification test entry Posted Correction -" [ref=e660]:
+                      - cell "15" [ref=e661]
+                      - cell "6/1" [ref=e662]
+                      - cell "Other" [ref=e663]
+                      - cell "Manual / other" [ref=e664]
+                      - cell "Correction" [ref=e665]
+                      - cell "Journal" [ref=e666]
+                      - cell "$1.00" [ref=e667]
+                      - cell "Journal" [ref=e668]
+                      - cell "Accounting" [ref=e669]
+                      - cell "DB verification test entry" [ref=e670]
+                      - cell "DB verification test entry" [ref=e671]
+                      - cell "Posted" [ref=e672]
+                      - cell "Correction" [ref=e673]:
+                        - generic [ref=e674]: Correction
+                      - cell "-" [ref=e675]:
+                        - generic [ref=e676]: "-"
+                    - row "16 5/22 Customer Harbor Wellness Client Payment Selected invoice $2,000.00 Cash Cash file A Seed partial payment with oldest-invoice allocation. Applied to INV-DEMO-001. Posted Payment -" [ref=e677]:
+                      - cell "16" [ref=e678]
+                      - cell "5/22" [ref=e679]
+                      - cell "Customer" [ref=e680]
+                      - cell "Harbor Wellness" [ref=e681]
+                      - cell "Client Payment" [ref=e682]
+                      - cell "Selected invoice" [ref=e683]
+                      - cell "$2,000.00" [ref=e684]
+                      - cell "Cash" [ref=e685]
+                      - cell "Cash file A" [ref=e686]
+                      - cell "Seed partial payment with oldest-invoice allocation." [ref=e687]
+                      - cell "Applied to INV-DEMO-001." [ref=e688]
+                      - cell "Posted" [ref=e689]
+                      - cell "Payment" [ref=e690]:
+                        - generic [ref=e691]: Payment
+                      - cell "-" [ref=e692]:
+                        - generic [ref=e693]: "-"
+                    - row "17 5/13 Customer Cobalt Reserve Client Payment Unapplied $7.00 Cash Cash file A QA ledger 1779597408561 selected invoice path should normalize into payment allocation Payment will stay unapplied as buyer credit until allocated. Posted Payment -" [ref=e694]:
+                      - cell "17" [ref=e695]
+                      - cell "5/13" [ref=e696]
+                      - cell "Customer" [ref=e697]
+                      - cell "Cobalt Reserve" [ref=e698]
+                      - cell "Client Payment" [ref=e699]
+                      - cell "Unapplied" [ref=e700]
+                      - cell "$7.00" [ref=e701]
+                      - cell "Cash" [ref=e702]
+                      - cell "Cash file A" [ref=e703]
+                      - cell "QA ledger 1779597408561 selected invoice path should normalize into payment allocation" [ref=e704]
+                      - cell "Payment will stay unapplied as buyer credit until allocated." [ref=e705]
+                      - cell "Posted" [ref=e706]
+                      - cell "Payment" [ref=e707]:
+                        - generic [ref=e708]: Payment
+                      - cell "-" [ref=e709]:
+                        - generic [ref=e710]: "-"
+              - generic [ref=e291]:
+                - generic [ref=e292]:
+                  - button "Money Out" [expanded] [ref=e293] [cursor=pointer]:
+                    - img [ref=e294]
+                    - text: Money Out
+                  - generic [ref=e296]: 4 posted
+                  - generic [ref=e297]: $8.00
+                  - generic [ref=e298]:
+                    - button "Row" [ref=e299] [cursor=pointer]:
+                      - img [ref=e300]
+                      - text: Row
+                    - button "Types" [ref=e301] [cursor=pointer]:
+                      - img [ref=e302]
+                      - text: Types
+                - table "Money Out" [ref=e304]:
+                  - caption [ref=e305]: Money Out
+                  - rowgroup [ref=e306]:
+                    - row "# Date Entity type Entity paying cash to Payment type Gross Processor Fee Split % Net Applied to Amount Method Bucket Notes Trace Status Source Commit" [ref=e307]:
+                      - columnheader "#" [ref=e308]
+                      - columnheader "Date" [ref=e309]
+                      - columnheader "Entity type" [ref=e310]
+                      - columnheader "Entity paying cash to" [ref=e311]
+                      - columnheader "Payment type" [ref=e312]
+                      - columnheader "Gross" [ref=e313]
+                      - columnheader "Processor" [ref=e314]
+                      - columnheader "Fee" [ref=e315]
+                      - columnheader "Split %" [ref=e316]
+                      - columnheader "Net" [ref=e317]
+                      - columnheader "Applied to" [ref=e318]
+                      - columnheader "Amount" [ref=e319]
+                      - columnheader "Method" [ref=e320]
+                      - columnheader "Bucket" [ref=e321]
+                      - columnheader "Notes" [ref=e322]
+                      - columnheader "Trace" [ref=e323]
+                      - columnheader "Status" [ref=e324]
+                      - columnheader "Source" [ref=e325]
+                      - columnheader "Commit" [ref=e326]
+                  - rowgroup [ref=e711]:
+                    - row "1 6/2 Vendor Emerald Processing Co Vendor Payout VBILL-MPX0VUL5-275 $2.00 Cash Accounting Paid in full Pays 2.00 on VBILL-MPX0VUL5-275 Posted Vendor Payment -" [ref=e712]:
+                      - cell "1" [ref=e713]
+                      - cell "6/2" [ref=e714]
+                      - cell "Vendor" [ref=e715]
+                      - cell "Emerald Processing Co" [ref=e716]
+                      - cell "Vendor Payout" [ref=e717]
+                      - cell "VBILL-MPX0VUL5-275" [ref=e718]
+                      - cell "$2.00" [ref=e719]
+                      - cell "Cash" [ref=e720]
+                      - cell "Accounting" [ref=e721]
+                      - cell "Paid in full" [ref=e722]
+                      - cell "Pays 2.00 on VBILL-MPX0VUL5-275" [ref=e723]
+                      - cell "Posted" [ref=e724]
+                      - cell "Vendor Payment" [ref=e725]:
+                        - generic [ref=e726]: Vendor Payment
+                      - cell "-" [ref=e727]:
+                        - generic [ref=e728]: "-"
+                    - row "2 6/2 Vendor Emerald Processing Co Vendor Payout VBILL-MPX0TYOC-821 $2.00 Cash Accounting Paid in full Pays 2.00 on VBILL-MPX0TYOC-821 Posted Vendor Payment -" [ref=e729]:
+                      - cell "2" [ref=e730]
+                      - cell "6/2" [ref=e731]
+                      - cell "Vendor" [ref=e732]
+                      - cell "Emerald Processing Co" [ref=e733]
+                      - cell "Vendor Payout" [ref=e734]
+                      - cell "VBILL-MPX0TYOC-821" [ref=e735]
+                      - cell "$2.00" [ref=e736]
+                      - cell "Cash" [ref=e737]
+                      - cell "Accounting" [ref=e738]
+                      - cell "Paid in full" [ref=e739]
+                      - cell "Pays 2.00 on VBILL-MPX0TYOC-821" [ref=e740]
+                      - cell "Posted" [ref=e741]
+                      - cell "Vendor Payment" [ref=e742]:
+                        - generic [ref=e743]: Vendor Payment
+                      - cell "-" [ref=e744]:
+                        - generic [ref=e745]: "-"
+                    - row "3 6/1 Vendor Emerald Processing Co Vendor Payout VBILL-MPVV3TG7-259 $2.00 Cash Accounting Paid in full Pays 2.00 on VBILL-MPVV3TG7-259 Posted Vendor Payment -" [ref=e746]:
+                      - cell "3" [ref=e747]
+                      - cell "6/1" [ref=e748]
+                      - cell "Vendor" [ref=e749]
+                      - cell "Emerald Processing Co" [ref=e750]
+                      - cell "Vendor Payout" [ref=e751]
+                      - cell "VBILL-MPVV3TG7-259" [ref=e752]
+                      - cell "$2.00" [ref=e753]
+                      - cell "Cash" [ref=e754]
+                      - cell "Accounting" [ref=e755]
+                      - cell "Paid in full" [ref=e756]
+                      - cell "Pays 2.00 on VBILL-MPVV3TG7-259" [ref=e757]
+                      - cell "Posted" [ref=e758]
+                      - cell "Vendor Payment" [ref=e759]:
+                        - generic [ref=e760]: Vendor Payment
+                      - cell "-" [ref=e761]:
+                        - generic [ref=e762]: "-"
+                    - row "4 6/1 Vendor Emerald Processing Co Vendor Payout VBILL-MPVV0B68-153 $2.00 Cash Accounting Paid in full Pays 2.00 on VBILL-MPVV0B68-153 Posted Vendor Payment -" [ref=e763]:
+                      - cell "4" [ref=e764]
+                      - cell "6/1" [ref=e765]
+                      - cell "Vendor" [ref=e766]
+                      - cell "Emerald Processing Co" [ref=e767]
+                      - cell "Vendor Payout" [ref=e768]
+                      - cell "VBILL-MPVV0B68-153" [ref=e769]
+                      - cell "$2.00" [ref=e770]
+                      - cell "Cash" [ref=e771]
+                      - cell "Accounting" [ref=e772]
+                      - cell "Paid in full" [ref=e773]
+                      - cell "Pays 2.00 on VBILL-MPVV0B68-153" [ref=e774]
+                      - cell "Posted" [ref=e775]
+                      - cell "Vendor Payment" [ref=e776]:
+                        - generic [ref=e777]: Vendor Payment
+                      - cell "-" [ref=e778]:
+                        - generic [ref=e779]: "-"
+          - region "Payments" [ref=e327]:
+            - generic [ref=e328]:
+              - button "Payments 0 row(s)" [expanded] [ref=e329] [cursor=pointer]:
+                - img [ref=e330]
+                - generic [ref=e332]:
+                  - heading "Payments" [level=2] [ref=e333]
+                  - generic [ref=e334]: 0 row(s)
+              - generic [ref=e335]:
+                - button "Advanced filters" [ref=e336] [cursor=pointer]:
+                  - img [ref=e337]
+                  - generic [ref=e339]: Advanced filters
+                - generic [ref=e340]:
+                  - img [ref=e341]
+                  - generic [ref=e344]: Filter Payments grid
+                  - textbox "Filter Payments grid" [ref=e345]:
+                    - /placeholder: Filter grid (field:value)
+                - group "Filter payments" [ref=e346]:
+                  - button "Unpaid" [ref=e347] [cursor=pointer]
+                  - button "Overdue" [ref=e348] [cursor=pointer]
+                  - button "Unapplied" [ref=e349] [cursor=pointer]
+                - button "Columns" [ref=e351] [cursor=pointer]:
+                  - img [ref=e352]
+                  - generic [ref=e354]: Columns
+                - button "Export visible grid CSV" [ref=e355] [cursor=pointer]:
+                  - img [ref=e356]
+                  - generic [ref=e359]: Export visible grid CSV
+                - button "Expand Payments" [ref=e360] [cursor=pointer]:
+                  - img [ref=e361]
+            - generic [ref=e780]:
+              - paragraph [ref=e781]: Failed to load data
+              - paragraph [ref=e782]: Server error or connection issue
+              - button "Retry" [ref=e783] [cursor=pointer]
+    - generic [ref=e426]: Opened payments.
+  - button "v3.0.2 Output Detail Standard React Components Hide Until Restart Marker Color Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e428] [cursor=pointer]:
+    - img [ref=e430]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - link:
+              - /url: https://agentation.com
+              - img
+            - paragraph: v3.0.2
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - img
+              - generic:
+                - checkbox [checked]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Color
+            - generic:
+              - button "Indigo"
+              - button "Blue"
+              - button "Cyan"
+              - button "Green"
+              - button "Yellow"
+              - button "Orange"
+              - button "Red"
+          - generic:
+            - generic:
+              - generic:
+                - checkbox "Clear on copy/send"
+                - img
+              - generic: Clear on copy/send
+              - generic:
+                - img
+            - generic:
+              - generic:
+                - checkbox "Block page interactions" [checked]
+                - img
+              - generic: Block page interactions
+          - button "Manage MCP & Webhooks":
+            - generic: Manage MCP & Webhooks
+            - generic:
+              - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - img
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox "Auto-Send" [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"
+  - button "Report an issue" [ref=e436] [cursor=pointer]: Report Issue

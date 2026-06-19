@@ -1,0 +1,17 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e7]
+      - generic [ref=e22]
+      - button [ref=e931] [cursor=pointer]
+  - alert
+  - dialog "0 selected" [ref=e934]:
+    - generic [ref=e935]:
+      - generic [ref=e936]
+      - button "Unselect" [ref=e968] [cursor=pointer]
+  - alert "We categorized past transactions for you" [ref=e5878]:
+    - generic [ref=e5880]:
+      - generic [ref=e5881]
+      - paragraph [ref=e5887]: Update or add your own categories to help improve your business insights.
+      - link "View categorized transactions" [ref=e5890] [cursor=pointer]:
+        - /url: /transactions?q=%7B%22groupsKind%22%3A%22transactionGroupsCustomCategoryKind%22%7D

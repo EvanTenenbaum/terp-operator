@@ -76,8 +76,12 @@ export function IdentityRibbon() {
     if (activeView === 'sales' && !selectedRows['sales']?.length) {
       setActiveCustomerId(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeView]);
+    // selectedRows intentionally excluded from deps: including it would cause
+    // the ribbon to clear the current view's selection on every row click.
+    // Zustand setters (setSelectedRows, setDrawerEntity, setActiveCustomerId)
+    // are stable references — including them documents the dependency without
+    // causing extra renders.
+  }, [activeView, setSelectedRows, setDrawerEntity, setActiveCustomerId]);
 
   const row = selectedRows[activeView]?.[0];
   const identity = useMemo(() => buildIdentity(activeView, row, activeCustomerId, activeCustomerName), [activeCustomerId, activeCustomerName, activeView, row]);

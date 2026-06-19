@@ -1,0 +1,365 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e12]:
+    - navigation [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]: TERP Operator
+          - generic [ref=e17]: Operator Console
+        - button "Collapse navigation" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: Decide
+          - button "Dashboard" [ref=e25] [cursor=pointer]:
+            - img [ref=e26]
+            - generic [ref=e29]: Dashboard
+            - generic [ref=e30]: ⌘1
+          - button "Reports" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e34]: Reports
+        - generic [ref=e35]:
+          - generic [ref=e36]: Procure
+          - button "Purchase Orders" [ref=e37] [cursor=pointer]:
+            - img [ref=e38]
+            - generic [ref=e42]: Purchase Orders
+          - button "Intake" [ref=e43] [cursor=pointer]:
+            - img [ref=e44]
+            - generic [ref=e47]: Intake
+            - generic [ref=e48]: ⌘2
+          - button "Inventory" [ref=e49] [cursor=pointer]:
+            - img [ref=e50]
+            - generic [ref=e60]: Inventory
+            - generic [ref=e61]: ⌘5
+          - button "More" [ref=e62] [cursor=pointer]:
+            - img [ref=e63]
+            - generic [ref=e65]: More
+          - group "More Procure items" [ref=e66]:
+            - button "Receipts" [ref=e67] [cursor=pointer]:
+              - img [ref=e68]
+              - generic [ref=e70]: Receipts
+            - button "Photography" [ref=e71] [cursor=pointer]:
+              - img [ref=e72]
+              - generic [ref=e75]: Photography
+        - generic [ref=e76]:
+          - generic [ref=e77]: Sell
+          - button "Sales" [ref=e78] [cursor=pointer]:
+            - img [ref=e79]
+            - generic [ref=e83]: Sales
+            - generic [ref=e84]: ⌘3
+          - button "Matchmaking" [ref=e85] [cursor=pointer]:
+            - img [ref=e86]
+            - generic [ref=e89]: Matchmaking
+          - button "Orders" [ref=e90] [cursor=pointer]:
+            - img [ref=e91]
+            - generic [ref=e94]: Orders
+          - button "Fulfillment" [ref=e95] [cursor=pointer]:
+            - img [ref=e96]
+            - generic [ref=e101]: Fulfillment
+          - button "Client Balances" [ref=e102] [cursor=pointer]:
+            - img [ref=e103]
+            - generic [ref=e105]: Client Balances
+            - generic [ref=e106]: ⌘6
+          - button "More" [ref=e107] [cursor=pointer]:
+            - img [ref=e108]
+            - generic [ref=e110]: More
+          - group "More Sell items" [ref=e111]:
+            - button "Credit Review" [ref=e112] [cursor=pointer]:
+              - img [ref=e113]
+              - generic [ref=e117]: Credit Review
+        - generic [ref=e118]:
+          - generic [ref=e119]: Money
+          - button "Payments" [ref=e120] [cursor=pointer]:
+            - img [ref=e121]
+            - generic [ref=e124]: Payments
+            - generic [ref=e125]: ⌘4
+          - button "Vendor Payouts" [ref=e126] [cursor=pointer]:
+            - img [ref=e127]
+            - generic [ref=e129]: Vendor Payouts
+          - button "Contacts" [ref=e130] [cursor=pointer]:
+            - img [ref=e131]
+            - generic [ref=e136]: Contacts
+          - button "More" [ref=e137] [cursor=pointer]:
+            - img [ref=e138]
+            - generic [ref=e140]: More
+          - group "More Money items" [ref=e141]:
+            - button "Disputes" [ref=e142] [cursor=pointer]:
+              - img [ref=e143]
+              - generic [ref=e145]: Disputes
+            - button "Referees" [ref=e146] [cursor=pointer]:
+              - img [ref=e147]
+              - generic [ref=e152]: Referees
+        - generic [ref=e153]:
+          - generic [ref=e154]: Admin
+          - button "Recovery" [ref=e155] [cursor=pointer]:
+            - img [ref=e156]
+            - generic [ref=e159]: Recovery
+          - button "Closeout" [ref=e160] [cursor=pointer]:
+            - img [ref=e161]
+            - generic [ref=e164]: Closeout
+          - button "Settings" [ref=e165] [cursor=pointer]:
+            - img [ref=e166]
+            - generic [ref=e169]: Settings
+      - link "Switch to mobile view" [ref=e171] [cursor=pointer]:
+        - /url: /mobile/dashboard
+        - img [ref=e172]
+        - generic [ref=e174]: Mobile view
+    - generic [ref=e175]:
+      - banner "Global workspace keel" [ref=e176]:
+        - button "Search ⌘K" [ref=e177] [cursor=pointer]:
+          - img [ref=e178]
+          - generic [ref=e181]: Search
+          - generic [ref=e182]: ⌘K
+        - generic "Quick actions and tools" [ref=e183]:
+          - button "Quick actions" [ref=e185] [cursor=pointer]:
+            - img [ref=e186]
+            - generic [ref=e190]: Quick actions
+            - img [ref=e191]
+          - button "Sign out" [ref=e193] [cursor=pointer]
+        - generic [ref=e194]:
+          - generic [ref=e197]: Needs attention
+          - generic [ref=e198]: Evan Owner
+      - main [ref=e200]:
+        - generic [ref=e201]:
+          - generic [ref=e202]:
+            - generic [ref=e203]:
+              - heading "Owner Daily Decision View" [level=1] [ref=e204]
+              - paragraph [ref=e205]: Today’s money, inventory, open work, and recent activity.
+            - button "Refresh" [ref=e206] [cursor=pointer]:
+              - img [ref=e207]
+              - text: Refresh
+          - region "Today Focus" [ref=e218]:
+            - generic [ref=e219]:
+              - button "Today Focus What needs your attention today" [expanded] [ref=e220] [cursor=pointer]:
+                - img [ref=e221]
+                - generic [ref=e223]:
+                  - heading "Today Focus" [level=2] [ref=e224]
+                  - generic [ref=e225]: What needs your attention today
+              - button "Expand Today Focus" [ref=e227] [cursor=pointer]:
+                - img [ref=e228]
+            - generic [ref=e234]:
+              - heading "Today's Top Decisions" [level=3] [ref=e236]
+              - generic [ref=e237]:
+                - button "View Open Orders" [ref=e238] [cursor=pointer]:
+                  - text: Open Orders
+                  - generic [ref=e239]: "--"
+                  - generic [ref=e240]: View
+                - button "View Intake ready" [ref=e241] [cursor=pointer]:
+                  - text: Intake ready
+                  - generic [ref=e242]: "--"
+                  - generic [ref=e243]: View
+          - region "Pending work queues" [ref=e244]:
+            - generic [ref=e245]:
+              - button "Pending work queues" [expanded] [ref=e246] [cursor=pointer]:
+                - img [ref=e247]
+                - heading "Pending work queues" [level=2] [ref=e250]
+              - button "Expand Pending work queues" [ref=e252] [cursor=pointer]:
+                - img [ref=e253]
+            - generic [ref=e260]:
+              - img [ref=e261]
+              - generic [ref=e263]: "Warning:"
+              - text: needs fix
+          - generic "My Open Work grid" [ref=e264]:
+            - region "My Open Work" [ref=e265]:
+              - generic [ref=e266]:
+                - button "My Open Work 0 row(s)" [expanded] [ref=e267] [cursor=pointer]:
+                  - img [ref=e268]
+                  - generic [ref=e270]:
+                    - heading "My Open Work" [level=2] [ref=e271]
+                    - generic [ref=e272]: 0 row(s)
+                - generic [ref=e273]:
+                  - button "Advanced filters" [ref=e274] [cursor=pointer]:
+                    - img [ref=e275]
+                    - generic [ref=e277]: Advanced filters
+                  - generic [ref=e278]:
+                    - img [ref=e279]
+                    - generic [ref=e282]: Filter My Open Work grid
+                    - textbox "Filter My Open Work grid" [ref=e283]:
+                      - /placeholder: Filter grid (field:value)
+                  - button "Open top item" [ref=e284] [cursor=pointer]
+                  - button "Columns" [ref=e286] [cursor=pointer]:
+                    - img [ref=e287]
+                    - generic [ref=e289]: Columns
+                  - button "Export visible grid CSV" [ref=e290] [cursor=pointer]:
+                    - img [ref=e291]
+                    - generic [ref=e294]: Export visible grid CSV
+                  - button "Expand My Open Work" [ref=e295] [cursor=pointer]:
+                    - img [ref=e296]
+              - generic [ref=e303]:
+                - text:  
+                - treegrid:
+                  - rowgroup [ref=e305]:
+                    - row "# Lane" [ref=e306]:
+                      - columnheader "#" [ref=e307]:
+                        - text: 
+                        - generic [ref=e308] [cursor=pointer]: 
+                        - generic: "#"
+                        - text: 
+                        - generic: 
+                      - columnheader [ref=e309]:
+                        - text: 
+                        - generic [ref=e310] [cursor=pointer]: 
+                        - text: 
+                        - generic: 
+                      - columnheader "Lane" [ref=e311]:
+                        - text: 
+                        - generic [ref=e313] [cursor=pointer]: 
+                        - generic [ref=e314] [cursor=pointer]: 
+                        - generic [ref=e315] [cursor=pointer]: Lane
+                        - generic:    
+                  - rowgroup [ref=e316]:
+                    - row "Title Status Detail Created At" [ref=e317]:
+                      - columnheader "Title" [ref=e318]:
+                        - text: 
+                        - generic [ref=e320] [cursor=pointer]: 
+                        - generic [ref=e321] [cursor=pointer]: 
+                        - generic [ref=e322] [cursor=pointer]: Title
+                        - generic:    
+                      - columnheader "Status" [ref=e323]:
+                        - text: 
+                        - generic [ref=e325] [cursor=pointer]: 
+                        - generic [ref=e326] [cursor=pointer]: 
+                        - generic [ref=e327] [cursor=pointer]: Status
+                        - generic:    
+                      - columnheader "Detail" [ref=e328]:
+                        - text: 
+                        - generic [ref=e330] [cursor=pointer]: 
+                        - generic [ref=e331] [cursor=pointer]: 
+                        - generic [ref=e332] [cursor=pointer]: Detail
+                        - generic:    
+                      - columnheader "Created At" [ref=e333]:
+                        - text: 
+                        - generic [ref=e335] [cursor=pointer]: 
+                        - generic [ref=e336] [cursor=pointer]: 
+                        - generic [ref=e337] [cursor=pointer]: Created At
+                        - generic:    
+                  - rowgroup [ref=e338]
+                  - rowgroup [ref=e339]
+                  - rowgroup
+                  - rowgroup
+                  - rowgroup [ref=e341]
+                  - rowgroup
+                  - generic [ref=e342]: Loading...
+                - text:                                                 
+                - text:    
+          - region "Recent activity" [ref=e343]:
+            - generic [ref=e344]:
+              - button "Recent activity" [expanded] [ref=e345] [cursor=pointer]:
+                - img [ref=e346]
+                - heading "Recent activity" [level=2] [ref=e349]
+              - button "Expand Recent activity" [ref=e351] [cursor=pointer]:
+                - img [ref=e352]
+    - generic [ref=e358]: Opened dashboard.
+  - button "v3.0.2 Output Detail Standard React Components Hide Until Restart Marker Color Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e360] [cursor=pointer]:
+    - img [ref=e362]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - link:
+              - /url: https://agentation.com
+              - img
+            - paragraph: v3.0.2
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - img
+              - generic:
+                - checkbox [disabled]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Color
+            - generic:
+              - button "Indigo"
+              - button "Blue"
+              - button "Cyan"
+              - button "Green"
+              - button "Yellow"
+              - button "Orange"
+              - button "Red"
+          - generic:
+            - generic:
+              - generic:
+                - checkbox "Clear on copy/send"
+                - img
+              - generic: Clear on copy/send
+              - generic:
+                - img
+            - generic:
+              - generic:
+                - checkbox "Block page interactions" [checked]
+                - img
+              - generic: Block page interactions
+          - button "Manage MCP & Webhooks":
+            - generic: Manage MCP & Webhooks
+            - generic:
+              - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - img
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox "Auto-Send" [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"

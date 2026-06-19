@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { logger } from '../services/logger';
 import { getSessionUser } from '../auth';
 import { canRole } from '../rbac';
 import { pool } from '../db';
@@ -7,6 +8,9 @@ import { validateBatchIdFormat } from '../services/mediaValidation';
 import type { SessionUser } from '../../shared/types';
 
 declare global {
+  // Augment Express request with TERP-specific auth context.
+  // Namespace merging is the canonical Express pattern for request augmentation;
+  // there is no module-based alternative for `req.user` / `req.uploadContext`.
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
@@ -107,7 +111,7 @@ export async function requireOperatorOrUploadToken(
     req.user = user;
     next();
   } catch (error) {
-    console.error('requireOperatorOrUploadToken session auth failed:', error);
+    logger.error('Session auth failed', { module: 'requireOperatorOrUploadToken', error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({ error: 'Authentication check failed' });
   }
 }

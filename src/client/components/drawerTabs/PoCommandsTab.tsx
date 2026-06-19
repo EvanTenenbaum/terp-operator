@@ -48,13 +48,13 @@ export function PoCommandsTab({ poId, poStatus }: PoCommandsTabProps) {
 
   const handleApprove = async () => {
     await runCommand('approvePurchaseOrder', { purchaseOrderId: poId! }, 'Approve PO');
-    await utils.queries.intakeQueue.invalidate();
+    await utils.intake.intakeQueue.invalidate();
     await utils.queries.grid.invalidate({ view: 'purchaseOrders' });
   };
 
   const handleReceive = async () => {
     await runCommand('receivePurchaseOrder', { purchaseOrderId: poId! }, 'Receive PO to draft intake');
-    await utils.queries.intakeQueue.invalidate();
+    await utils.intake.intakeQueue.invalidate();
     await utils.queries.grid.invalidate({ view: 'purchaseOrders' });
   };
 

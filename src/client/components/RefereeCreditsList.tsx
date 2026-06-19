@@ -27,7 +27,7 @@ interface CreditRow {
 // Per spec: ship a disabled-with-reason action citing the tracked ticket (CAP-039).
 
 export function RefereeCreditsList({ refereeId }: RefereeCreditsListProps) {
-  const credits = trpc.queries.refereeCredits.useQuery({ refereeId });
+  const credits = trpc.payments.refereeCredits.useQuery({ refereeId });
   const [voiding, setVoiding] = useState<CreditRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 

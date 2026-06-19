@@ -1,8 +1,7 @@
 import { PackageCheck, ShieldCheck, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { ColDef } from 'ag-grid-community';
+import { GridView } from '../templates/GridView';
 import { trpc } from '../api/trpc';
-import { FilterPresetStrip } from '../components/templates';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useConfirm } from '../hooks/useConfirm';
 import type { GridRow } from '../../shared/types';
@@ -13,98 +12,64 @@ import {
   formatInventoryUnitCost,
   inventoryUnitCostSortValue
 } from '../../shared/inventoryPricing';
-import { GridJourney } from './operations/shared';
-// UX-O02: PhotographyQueuePanel surfaces media-readiness CountPills in the
-// Inventory lane so catalog decisions (blocking batches needing photos) are
-// visible without switching to the Photography lane.
-import { PhotographyQueuePanel } from '../components/PhotographyQueuePanel';
 
-export function InventoryView() {
-  const reference = trpc.queries.reference.useQuery();
-  const defaultsRule = useMemo(
-    () => asCustomerPricingRule(reference.data?.defaultPricingRule),
-    [reference.data?.defaultPricingRule]
-  );
-  const vendors = reference.data?.vendors ?? [];
+// ─── Inventory subcategory / category summary ────────────────────────────────
+// DR-1: subcategory is prioritized over category. Shows top-5 groups by availableQty.
 
-  const inventoryColumns = useMemo<ColDef<GridRow>[]>(
-    () => buildInventoryColumns(defaultsRule),
-    [defaultsRule]
-  );
+function InventoryCategorySummary({ viewKey }: { viewKey: string }) {
+  type GridQueryInput = Parameters<typeof trpc.queries.grid.useQuery>[0];
+  const grid = trpc.queries.grid.useQuery({ view: viewKey } as GridQueryInput);
+  const rows = (grid.data as GridRow[] | undefined) ?? [];
+
+  const metrics = useMemo(() => {
+    if (!rows.length) return [];
+    const groups: Record<string, number> = {};
+    for (const row of rows) {
+      const key = (row.subcategory as string) || (row.category as string) || 'Other';
+      const qty = Number(row.availableQty ?? 0);
+      groups[key] = (groups[key] ?? 0) + qty;
+    }
+    return Object.entries(groups)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([label, value]) => ({ label, value: String(value) }));
+  }, [rows]);
+
+  if (!metrics.length) return null;
 
   return (
-    <GridJourney
-      view="inventory"
-      title="Inventory Batches"
-      columns={inventoryColumns}
-      actions={() => (
-        /* GH #354 presets, now via the shared template.
-           UX-I02: "No photos" preset surfaces batches lacking any published media. */
-        <FilterPresetStrip
-          view="inventory"
-          ariaLabel="Filter inventory"
-          presets={[
-            { label: 'Available', filter: 'arrivalStatus:arrived' },
-            { label: 'Office Stock', filter: 'ownershipStatus:OFC', title: 'Office-owned batches (ownershipStatus:OFC)' },
-            { label: 'No photos', filter: 'mediaStatus:open', title: 'Batches with no published media (mediaStatus:open)' }
-          ]}
-        />
-      )}
-      // UX-O02: PhotographyQueuePanel in the Inventory lane surfaces CountPills
-      // (needs-media / ready counts) so catalog decisions are informed without
-      // navigating away to the Photography view.
-      prelude={() => <PhotographyQueuePanel />}
-      selectionActions={(rows, runCommand) => (
-        <InventoryRowActions rows={rows} vendors={vendors} runCommand={runCommand} />
-      )}
-      onCellCommit={(event, runCommand) => {
-        if (event.colDef.field === 'unitPrice') {
-          if (event.oldValue === event.newValue) return;
-          // Derived/auto unit price: do not write back. The cell is non-editable in that state,
-          // but guard here too in case ag-grid emits a commit for a no-op interaction.
-          const stored = Number(event.data?.unitPrice);
-          const hasStoredPrice = Number.isFinite(stored) && stored > 0;
-          if (!hasStoredPrice) return;
-          const next = Number(event.newValue);
-          if (!Number.isFinite(next)) return;
-          runCommand('setBatchPrice', { batchId: event.data?.id, unitPrice: next }, 'Inline inventory price edit');
-        }
-        if (event.colDef.field === 'availableQty') {
-          // UX-I03: quantity edits are handled in InventoryRowActions with
-          // before/after preview. The inline cell edit path is kept for parity
-          // but uses a hardcoded reason; operators who want the preview should
-          // use Row Actions → Adjust Qty which surfaces the full before/after strip.
-          runCommand(
-            'adjustBatchQuantity',
-            { batchId: event.data?.id, deltaQty: Number(event.newValue) - Number(event.oldValue), reason: 'Inline inventory adjustment from grid' },
-            'Inline inventory quantity adjustment'
-          );
-        }
-        if (['lotCode', 'expirationDate'].includes(String(event.colDef.field))) {
-          runCommand('setBatchLotInfo', { batchId: event.data?.id, [String(event.colDef.field)]: event.newValue }, `Inline lot info edit: ${event.colDef.field}`);
-        }
-        if (['tags', 'legacyMarker', 'ownershipStatus', 'arrivalStatus', 'mediaStatus'].includes(String(event.colDef.field))) {
-          runCommand('updateBatch', { batchId: event.data?.id, [String(event.colDef.field)]: event.newValue }, `Inline inventory edit: ${event.colDef.field}`);
-        }
-        if (event.colDef.field === 'itemAlias') {
-          const itemId = event.data?.itemId;
-          if (!itemId) return;
-          const next = typeof event.newValue === 'string' ? event.newValue.trim() : '';
-          const prior = typeof event.oldValue === 'string' ? event.oldValue.trim() : '';
-          if (next === prior) return;
-          runCommand('setItemAlias', { itemId, alias: next }, next ? `Set alias to ${next}` : 'Clear strain alias');
-        }
-      }}
-    />
+    <div className="flex gap-3 px-4 py-2 bg-white border-b border-zinc-200 overflow-x-auto">
+      {metrics.map((m) => (
+        <div key={m.label} className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200">
+          <span className="text-[11px] text-zinc-500 block">{m.label}</span>
+          <span className="text-sm font-semibold text-zinc-900 tabular-nums">{m.value} units</span>
+        </div>
+      ))}
+    </div>
   );
 }
+
+export function InventoryView() {
+  return (
+    <div className="h-full flex flex-col">
+      {/* ── Main grid — GridView template handles column defs, filtering, bulk actions, slide-over ── */}
+      <div className="flex-1 min-h-0">
+        <GridView viewKey="inventory" entityType="intake" summarySlot={<InventoryCategorySummary viewKey="inventory" />} />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PRESERVED EXPORTS — used by tests and authoring workspace
+// ═══════════════════════════════════════════════════════════════════════════════
 
 // UX-I01: ≤8 default-visible columns. The inventory grid has grown to 20+
 // columns; hide lower-value ones so operators see a clean default view.
 // All hidden columns remain reachable via the Columns menu. gridColumnPrefs
 // override defaults (mergeColumnDefsWithPrefs honours pref.hide), so
 // existing operator customisations are preserved.
-function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricingRule>): ColDef<GridRow>[] {
+export function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricingRule>): import('ag-grid-community').ColDef<GridRow>[] {
   return [
     // --- Visible by default (8 columns) ---
     { field: 'batchCode', pinned: 'left', width: 150 },
@@ -138,7 +103,7 @@ function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricing
           unitCost: params.data?.unitCost as number | string | null | undefined,
           priceRange: (params.data?.priceRange as string | null | undefined) ?? null
         }),
-      comparator: (_a, _b, nodeA, nodeB) => {
+      comparator: (_a: unknown, _b: unknown, nodeA: any, nodeB: any) => {
         const av = inventoryUnitCostSortValue({
           unitCost: nodeA?.data?.unitCost as number | string | null | undefined,
           priceRange: (nodeA?.data?.priceRange as string | null | undefined) ?? null
@@ -216,7 +181,7 @@ function buildInventoryColumns(defaultsRule: ReturnType<typeof asCustomerPricing
   ];
 }
 
-function InventoryRowActions({
+export function InventoryRowActions({
   rows,
   vendors,
   runCommand

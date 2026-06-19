@@ -33,7 +33,8 @@ vi.mock('../api/trpc', () => ({
       reference: { useQuery: () => ({ data: { customers: [], vendors: [], categories: [] } }) },
       matchmakingBoard: { useQuery: () => ({ data: { needs: [], supplies: [], matches: [] }, isLoading: false }) },
       matchmakingSettings: { useQuery: () => ({ data: null }) },
-      matchmakingOpportunities: { useQuery: () => ({ data: { toMove: [], toSource: [] }, isLoading: false }) }
+      matchmakingOpportunities: { useQuery: () => ({ data: { toMove: [], toSource: [] }, isLoading: false }) },
+      statusCounts: { useQuery: () => ({ data: null, isLoading: false }) },
     },
     auth: { me: { useQuery: () => ({ data: { role: 'owner' } }) } }
   }
@@ -48,7 +49,13 @@ vi.mock('../store/uiStore', () => ({
     selector({
       activeQuickLaunch: null,
       setActiveView: mockSetActiveView,
-      setActiveQuickLaunch: mockSetActiveQuickLaunch
+      setActiveQuickLaunch: mockSetActiveQuickLaunch,
+      gridFilters: {} as Record<string, string>,
+      setGridFilter: vi.fn(),
+      gridAdvancedFilters: {} as Record<string, unknown>,
+      setGridAdvancedFilter: vi.fn(),
+      clearGridAdvancedFilter: vi.fn(),
+      gridColumnPrefs: {} as Record<string, unknown>,
     })
 }));
 

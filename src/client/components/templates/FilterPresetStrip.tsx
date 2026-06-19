@@ -14,6 +14,20 @@ import { useUiStore } from '../../store/uiStore';
  *
  * Filters use the `field:val1,val2` string format consumed by
  * `gridFilterUtils` via `uiStore.setGridFilter`.
+ *
+ * @deprecated FilterPresetStrip is being replaced by {@link FilterToolbar}'s
+ * StatusFilterPill component as part of the Mercury UX retrofit.
+ *
+ * **Remaining usages (not yet migrated):**
+ * - `SalesView.tsx:1540` — auto-status filter presets for sales orders
+ * - `SalesBrowseMode.tsx:202` — same, in the browse-only mode
+ *
+ * These views are scheduled for migration in Phase 3A (SalesView refactoring).
+ * Views already migrated (PaymentsView, RecoveryView) use FilterToolbar's
+ * StatusFilterPill or inline status filter pills instead.
+ *
+ * **Do not add new presets to this component.** New status/filter pills should
+ * be configured through FilterToolbar or the status-filter bridge.
  */
 export interface FilterPreset {
   /** Stable key; defaults to label. */

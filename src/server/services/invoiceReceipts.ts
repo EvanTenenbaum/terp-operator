@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { logger } from './logger';
 import { createDraftSnapshot, finalizeSnapshot } from './documentSnapshots';
 import { invoice } from './projections/invoice';
 import type { Audience, InvoiceInput } from './projections/types';
@@ -32,7 +33,7 @@ export async function createInvoiceReceipts(
       total: string; notes: string | null; customer_name: string | null;
     } | undefined;
     if (!so) {
-      console.warn(`[invoiceReceipts] sales order ${salesOrderId} not found at post-commit time; skipping snapshot.`);
+      logger.warn('Sales order not found at post-commit time; skipping snapshot.', { module: 'invoiceReceipts', salesOrderId });
       return;
     }
 
@@ -65,7 +66,7 @@ export async function createInvoiceReceipts(
       order_id: string; total: string; due_date: Date; created_at: Date;
     } | undefined;
     if (!inv) {
-      console.warn(`[invoiceReceipts] no invoice row found for sales order ${salesOrderId}; skipping snapshot.`);
+      logger.warn('No invoice row found for sales order; skipping snapshot.', { module: 'invoiceReceipts', salesOrderId });
       return;
     }
 
@@ -106,7 +107,7 @@ export async function createInvoiceReceipts(
     await emitSnapshot(pool, 'external', input, inv.id, commandId, userId);
     await emitSnapshot(pool, 'internal', input, inv.id, commandId, userId);
   } catch (err) {
-    console.warn('[invoiceReceipts] receipt creation failed (non-fatal):', err instanceof Error ? err.message : err);
+    logger.warn('Receipt creation failed (non-fatal)', { module: 'invoiceReceipts', error: err instanceof Error ? err.message : String(err) });
   }
 }
 

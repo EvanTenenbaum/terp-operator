@@ -16,6 +16,7 @@ import { trpc } from '../api/trpc';
 import { WorkspacePanel } from '../components/WorkspacePanel';
 import { ReceiptPreviewDrawer } from '../components/ReceiptPreviewDrawer';
 import { VerifyAllPreviewBody } from '../components/VerifyAllPreviewBody';
+import { MasterDetailView } from '../templates/MasterDetailView';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useConfirm } from '../hooks/useConfirm';
 import { useUiStore } from '../store/uiStore';
@@ -42,7 +43,7 @@ const EMPTY: IntakeOrderRow[] = [];
 export function IntakeView() {
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
-  const intakeQueue = trpc.queries.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
+  const intakeQueue = trpc.intake.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
   const { runCommand, isRunning } = useCommandRunner();
   const utils = trpc.useUtils();
   const pushToast = useUiStore((state) => state.pushToast);
@@ -135,7 +136,7 @@ export function IntakeView() {
         { batchIds: [batchId], discrepancyNotes },
         'Verify single batch intake'
       );
-      await utils.queries.intakeQueue.invalidate();
+      await utils.intake.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }
@@ -158,7 +159,7 @@ export function IntakeView() {
     setBusy(true);
     try {
       await runCommand('deleteBatch', { batchId }, 'Delete draft intake row');
-      await utils.queries.intakeQueue.invalidate();
+      await utils.intake.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }
@@ -252,7 +253,10 @@ export function IntakeView() {
         params.successCallback(params.data?.batches ?? []);
       }
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally exclude verifyBatch, setMarketName, deleteDraftBatch from
+    // deps — they are regular functions (not useCallback) and would cause the
+    // grid options to re-create on every render. The inline arrow callbacks
+    // always capture the latest closure state, which is the desired behavior.
     [canWrite, runCommand, me.data?.name, onBatchRowClicked, handleBatchHistory]
   );
 
@@ -356,7 +360,7 @@ export function IntakeView() {
     setBusy(true);
     try {
       await runCommand('verifyAllIntake', { purchaseOrderId: order.id }, `Verify all intake for ${order.poNo}`);
-      await utils.queries.intakeQueue.invalidate();
+      await utils.intake.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }
@@ -379,11 +383,22 @@ export function IntakeView() {
   }
 
   return (
-    // UX-C02: onPaste intercepts TSV clipboard data pasted onto the intake
-    // panel and produces a summary toast. Actual row creation remains
-    // PO-gated (see handlePaste above).
-    <div className="flex flex-row min-h-0 flex-1" onPaste={handlePaste}>
-      <div className="view-stack flex-1 min-w-0">
+    <MasterDetailView
+      viewKey="intake"
+      entityType="intake"
+      useLegacyIntake
+      detailOpen={Boolean(previewOrder)}
+      detailContent={previewOrder ? (
+        <ReceiptPreviewDrawer
+          order={previewOrder}
+          onClose={() => setPreviewOrder(null)}
+        />
+      ) : undefined}
+    >
+      {/* UX-C02: onPaste intercepts TSV clipboard data pasted onto the intake
+          panel and produces a summary toast. Actual row creation remains
+          PO-gated (see handlePaste above). */}
+      <div className="view-stack" onPaste={handlePaste}>
         {/* UX-H03: Selection totals strip — shown when one or more PO groups
             are selected in the master grid. Sticky above the Process action. */}
         {selectedOrders.length > 0 ? (
@@ -448,11 +463,7 @@ export function IntakeView() {
         </WorkspacePanel>
 
       </div>
-      <ReceiptPreviewDrawer
-        order={previewOrder}
-        onClose={() => setPreviewOrder(null)}
-      />
-    </div>
+    </MasterDetailView>
   );
 }
 

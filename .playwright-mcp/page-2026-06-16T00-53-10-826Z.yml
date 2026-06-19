@@ -1,0 +1,6 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: Loading...
+      - img [ref=e6]
+  - alert

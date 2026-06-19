@@ -39,7 +39,7 @@ function dateish(value: unknown): string {
 }
 
 export function VendorBillTraceTab({ vendorBillId, row }: VendorBillTraceTabProps) {
-  const paymentsQuery = trpc.queries.vendorPayments.useQuery(
+  const paymentsQuery = trpc.payments.vendorPayments.useQuery(
     { vendorBillId },
     { enabled: Boolean(vendorBillId) }
   );

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
+import type { QueryResult } from 'pg';
 import { protectedProcedure, router } from '../trpc';
 import { pool } from '../db';
 import {
@@ -110,7 +111,7 @@ export const filtersRouter = router({
         result = await Promise.race([
           pool.query(query, params),
           timeoutPromise
-        ]) as any;
+        ]) as QueryResult;
       } catch (err) {
         throw new TRPCError({
           code: 'TIMEOUT',

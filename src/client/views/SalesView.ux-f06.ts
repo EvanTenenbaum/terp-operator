@@ -37,6 +37,13 @@ export function deriveCustomerRefereeRelationships(
  * Build the confirmSalesOrder command payload.
  * Includes refereeRelationshipId and logRefereeCredit=true when a
  * relationship has been selected; otherwise returns orderId only.
+ *
+ * @phase-3A-audit This function was verified pure (no view-state closure) on
+ *   2026-06-17. Known call sites: SalesView.tsx:987, SalesView.ux-f06.test.tsx.
+ * @phase-3B-target The canonical home for this helper will be
+ *   src/client/config/entity-actions.ts alongside the confirmSalesOrder
+ *   action definition, when entity-schema migration lands in Phase 3B.
+ *   This implementation is the reference for that migration.
  */
 export function buildConfirmPayload(
   orderId: string,

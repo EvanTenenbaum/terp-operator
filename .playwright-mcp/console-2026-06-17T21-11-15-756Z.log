@@ -1,0 +1,605 @@
+[     115ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=0f246867:21608
+[     136ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[     136ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[     538ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     538ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     538ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     539ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     553ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[    3018ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[    3113ms] [ERROR] TRPCClientError: Database error (request id: f6e122d5-2a3b-495f-97c3-0a03ddc5e66e)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[    3114ms] [ERROR] TRPCClientError: Database error (request id: a3a1401b-8cbe-4830-a1dd-f1d167f6acd0)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[   63763ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[   65418ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[   65466ms] [ERROR] TRPCClientError: Database error (request id: 07f01086-75e0-4662-bc4c-e4381f0678fe)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[   65467ms] [ERROR] TRPCClientError: Database error (request id: ddab1ecf-15fb-413c-ad9a-2711e27757ea)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  125711ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  127132ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  127187ms] [ERROR] TRPCClientError: Database error (request id: cea350ec-fe99-45cf-93c6-1739378dc8de)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  127188ms] [ERROR] TRPCClientError: Database error (request id: 2e166ca4-376c-4e8d-a7bf-e4c2c49c4dcf)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  187420ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  188830ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  189016ms] [ERROR] TRPCClientError: Database error (request id: 69cbe53c-338a-4055-92ff-d87f8391b38f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  189016ms] [ERROR] TRPCClientError: Database error (request id: b55958fe-d825-4a21-b734-803fc7605d8c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  249524ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  250900ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  251042ms] [ERROR] TRPCClientError: Database error (request id: 1ab322c7-2ff8-4681-a7dc-ae115fbb44d2)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  251042ms] [ERROR] TRPCClientError: Database error (request id: 8f82ff77-a62c-4b46-9cca-dd715498f157)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  311180ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  312664ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  312887ms] [ERROR] TRPCClientError: Database error (request id: 04cbf4ac-b000-4eca-9a87-00eab39449ba)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  312888ms] [ERROR] TRPCClientError: Database error (request id: 7d86cf9c-10e0-4c60-a8b8-f403ce1078d6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  373124ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  374444ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  374478ms] [ERROR] TRPCClientError: Database error (request id: 94d4cecd-697e-4574-9d98-4afdb1e79c24)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  374478ms] [ERROR] TRPCClientError: Database error (request id: 3a8b6cbc-6c30-4b24-8c68-932d9997c8c9)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  434577ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  435855ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  435886ms] [ERROR] TRPCClientError: Database error (request id: ab3ecfc1-0958-4104-8fc2-98bdf24e9ae6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  435887ms] [ERROR] TRPCClientError: Database error (request id: ce334f24-184c-4b09-9461-3e79e1bf242f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  496133ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  497391ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  497421ms] [ERROR] TRPCClientError: Database error (request id: 5e8c4760-b5e4-4765-a1f4-4f09fa9cfec0)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  497421ms] [ERROR] TRPCClientError: Database error (request id: f2a0f4da-26ea-40c8-9ffe-db8f8b438a77)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  557683ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  558913ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  558947ms] [ERROR] TRPCClientError: Database error (request id: aec8d9f2-e02a-4e58-b517-6968db19e793)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  558947ms] [ERROR] TRPCClientError: Database error (request id: 34fac066-6289-41d3-b532-1943d79a062f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  619237ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  620557ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  620590ms] [ERROR] TRPCClientError: Database error (request id: fe16ec71-7475-4a61-afbc-d7ac244e7b14)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  620590ms] [ERROR] TRPCClientError: Database error (request id: f48079b1-ec42-4568-a076-05dd7ee66ab6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  680851ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  682129ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  682162ms] [ERROR] TRPCClientError: Database error (request id: 91afc2f1-2a50-4734-a476-92b837ec8437)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  682163ms] [ERROR] TRPCClientError: Database error (request id: cb6422b2-5695-474c-bcd3-26a29bf4081e)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  742417ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  743657ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  743697ms] [ERROR] TRPCClientError: Database error (request id: b5585c5f-6afa-473e-8441-75d70bd3eaa1)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  743697ms] [ERROR] TRPCClientError: Database error (request id: b573e0a6-d39c-4a4e-a705-c2ddad99f2c4)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  788003ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  788030ms] [ERROR] TRPCClientError: Database error (request id: 8a38e55b-e320-41dc-a02d-1e9df319cf2a)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  803827ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  805064ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  805094ms] [ERROR] TRPCClientError: Database error (request id: ec9dbd0c-5bc1-4d91-8344-29586194fa07)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  808631ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  808659ms] [ERROR] TRPCClientError: Database error (request id: 964f0be7-c5ec-4aff-8dcc-0c49fe6300ff)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  815748ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  817031ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  817071ms] [ERROR] TRPCClientError: Database error (request id: 74472a47-8fd9-4b0a-ae6a-194fd8dea3fb)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  827015ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  827046ms] [ERROR] TRPCClientError: Database error (request id: b2964554-c62a-4749-b006-e8f887418811)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  832586ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  833707ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  833973ms] [ERROR] TRPCClientError: Database error (request id: 717a7fdf-befc-4ce3-b819-3add2d912869)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  841979ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  841998ms] [ERROR] TRPCClientError: Database error (request id: 9ba3dfd0-18f8-44b1-b7c1-866767da428c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  850645ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  851771ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  851994ms] [ERROR] TRPCClientError: Database error (request id: 16ff8a2d-cc21-4ab6-9caf-40763cb22de6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  861328ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  861358ms] [ERROR] TRPCClientError: Database error (request id: 2d0411d4-a946-48fa-aa7c-f3f862ca9fd8)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  865294ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  866410ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  866443ms] [ERROR] TRPCClientError: Database error (request id: 388c125f-5c29-4896-891a-f1642720c788)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  921612ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  922740ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  922764ms] [ERROR] TRPCClientError: Database error (request id: 7a628c15-47d2-4d27-b6e7-20585682dfd2)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  926531ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  927764ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  927788ms] [ERROR] TRPCClientError: Database error (request id: a14d4603-e26b-414a-b55a-f9f849b988c6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  938610ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  938633ms] [ERROR] TRPCClientError: Database error (request id: 8c7aad23-b762-4967-9d85-e18ea7545031)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  940992ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  942108ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  942401ms] [ERROR] TRPCClientError: Database error (request id: 195122f1-79c6-48e9-8517-9b42f0c468aa)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  988017ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  989257ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  989289ms] [ERROR] TRPCClientError: Database error (request id: 2560b261-d8c8-46d8-a148-4655d7fbe20b)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1002633ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1003765ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1003797ms] [ERROR] TRPCClientError: Database error (request id: cb0df40a-41d6-4463-86d1-6f832d98ca92)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1049527ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1050763ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1050960ms] [ERROR] TRPCClientError: Database error (request id: 82c6dfab-271f-40be-98f9-1ace00887275)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1064010ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1065134ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1065167ms] [ERROR] TRPCClientError: Database error (request id: 2a950188-25e7-4f60-9409-21ce829d2088)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1111172ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1112421ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1112460ms] [ERROR] TRPCClientError: Database error (request id: ec26e4f0-4f55-4043-b9de-25d100242382)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1125438ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1126686ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1126932ms] [ERROR] TRPCClientError: Database error (request id: 22de567b-3a15-4021-8010-41a723d34746)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1172704ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1173966ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1173987ms] [ERROR] TRPCClientError: Database error (request id: 1eab67b0-227f-49e8-9b5c-e3df14cb9131)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1187081ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1188217ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1188502ms] [ERROR] TRPCClientError: Database error (request id: e6a84b52-2216-459a-94ac-ee1e99c35873)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1234224ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1235479ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1235505ms] [ERROR] TRPCClientError: Database error (request id: e69f3223-8e78-49f5-99ae-3170e5a92fcb)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1248671ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1249831ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1250135ms] [ERROR] TRPCClientError: Database error (request id: d1fddb42-99f5-44ee-b324-0eeab35718e6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1295759ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1296888ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1296910ms] [ERROR] TRPCClientError: Database error (request id: 5f0b0bb7-ce6f-4995-881d-bafb2e616443)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1310402ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1311515ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1311727ms] [ERROR] TRPCClientError: Database error (request id: 2bf46882-b25a-4dd1-969b-d88981204152)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1357112ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1358208ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1358232ms] [ERROR] TRPCClientError: Database error (request id: beb6496c-2b7e-4c8d-9d43-3de5839af0a3)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1371976ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1373082ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1373337ms] [ERROR] TRPCClientError: Database error (request id: e9a906e1-390f-4273-a0dc-4dcedb79dc7a)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1418435ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1419637ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1419665ms] [ERROR] TRPCClientError: Database error (request id: 73bb2777-c2fe-4df2-8a95-790bcc80c4e6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1433588ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1434735ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1435010ms] [ERROR] TRPCClientError: Database error (request id: a3883e9c-9c74-4c4b-bf79-3a6e60a7895b)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1479789ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1481037ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1481067ms] [ERROR] TRPCClientError: Database error (request id: 79219ac9-3c2b-4d77-8df0-8156c450d440)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1495263ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1496394ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1496651ms] [ERROR] TRPCClientError: Database error (request id: fffb658a-e653-4554-bcb6-8bf372bc4d58)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1541243ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1542358ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1542383ms] [ERROR] TRPCClientError: Database error (request id: c0a5588a-55d3-407f-8e93-f88e5a73efb2)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1556908ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1558032ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1558311ms] [ERROR] TRPCClientError: Database error (request id: 24aa32da-ded4-48cb-bdc2-74fe6ad4dbce)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1602611ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1603744ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1603773ms] [ERROR] TRPCClientError: Database error (request id: b2480487-3d28-4e5a-8afd-b7619bf16a83)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1618507ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1619717ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1619947ms] [ERROR] TRPCClientError: Database error (request id: 95c10362-16ca-4d3f-b95d-0d32ad5bc2a6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1663955ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1665213ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1665239ms] [ERROR] TRPCClientError: Database error (request id: 5c1be67b-aa24-401f-a07e-8e8a882311ea)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1680199ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1681369ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1681626ms] [ERROR] TRPCClientError: Database error (request id: f0c310fe-d0a8-4cd2-aa83-b4fc43f2b56b)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1725467ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1726609ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1726640ms] [ERROR] TRPCClientError: Database error (request id: 4a186709-d929-4638-bce2-ca918b87c274)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1741800ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1742976ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1743211ms] [ERROR] TRPCClientError: Database error (request id: c2473049-8714-417e-b5fe-6d2e83ffbe9c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1762849ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1762872ms] [ERROR] TRPCClientError: Database error (request id: c660ff80-6317-4c96-b132-d14d2bb73a5f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1786764ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1788149ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 1788244ms] [ERROR] TRPCClientError: Database error (request id: eae7440c-0b20-428d-8cb4-d2ee40c4a696)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1815424ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1815449ms] [ERROR] TRPCClientError: Database error (request id: 313585c8-b4ab-44f2-bab8-03a9081ceafc)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1824096ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1825348ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1825381ms] [ERROR] TRPCClientError: Database error (request id: 796ad59c-25e0-4034-bc33-15805a26b01e)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1825381ms] [ERROR] TRPCClientError: Database error (request id: 1402c684-4a6a-498f-8d9c-fce6f036dcd6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1828228ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1828253ms] [ERROR] TRPCClientError: Database error (request id: 27f331fc-4404-4723-9e2a-30276e996a75)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1828253ms] [ERROR] TRPCClientError: Database error (request id: a04f3534-21e2-4f62-bbc1-089e72f54939)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1832207ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1832432ms] [ERROR] TRPCClientError: Database error (request id: c500e152-faac-442f-a3e1-73169a4d9680)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1832433ms] [ERROR] TRPCClientError: Database error (request id: 43bed5ca-1f91-42d5-8c41-2e49e686537c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1892760ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1893934ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1893965ms] [ERROR] TRPCClientError: Database error (request id: 95b2fd8f-e8fe-43f1-b4ab-127ee290d1f9)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1893965ms] [ERROR] TRPCClientError: Database error (request id: a1b6fa23-8e97-40fc-a235-e7bab75fb69c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1954124ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1955360ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1955397ms] [ERROR] TRPCClientError: Database error (request id: 7dfa5fb3-1391-4aaa-a996-f74835022de3)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1955397ms] [ERROR] TRPCClientError: Database error (request id: e36ec1df-3304-4371-b2d4-f958558d273f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1986894ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1986920ms] [ERROR] TRPCClientError: Database error (request id: 377bff81-d9e7-48ae-85a4-941fcf707e7d)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 1992664ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1994147ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 1994394ms] [ERROR] TRPCClientError: Database error (request id: a06c5dac-cde5-4ee8-bffe-70ba80622d33)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2003118ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2003142ms] [ERROR] TRPCClientError: Database error (request id: 5da871d7-ab23-4aa1-89f2-ef6b55261a45)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2009279ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2010502ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2010699ms] [ERROR] TRPCClientError: Database error (request id: 7625994e-babf-4bdb-ac6d-3f802fa4fc4f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2013709ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2013731ms] [ERROR] TRPCClientError: Database error (request id: 1ff19dc1-c48f-42e9-bca7-3f2af2c44bab)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2015598ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2016842ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2016864ms] [ERROR] TRPCClientError: Database error (request id: 0749701a-e34d-402f-bc61-100e54493951)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2074115ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2075333ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2075362ms] [ERROR] TRPCClientError: Database error (request id: e6ea4c60-7546-48fa-a38c-6c8fa7c0ffd3)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2077032ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2078235ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2078265ms] [ERROR] TRPCClientError: Database error (request id: 212f0b13-be16-40a8-b454-11590a51570c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2135720ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2136820ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2136844ms] [ERROR] TRPCClientError: Database error (request id: 0134aaf8-14b3-4b30-8740-8236ff1cb579)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2138516ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2139983ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2140076ms] [ERROR] TRPCClientError: Database error (request id: abffabbf-8f68-4363-8c7b-93a07aaf3b7f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2197068ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2198166ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2198193ms] [ERROR] TRPCClientError: Database error (request id: 250e0437-7b8f-4307-9eca-d851f97ae8ff)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2200301ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2201542ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2201566ms] [ERROR] TRPCClientError: Database error (request id: 400acb90-a3de-4d36-be69-bfa18a3b0714)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2258469ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2259604ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2259632ms] [ERROR] TRPCClientError: Database error (request id: 7d67a4e8-f109-4eb6-9897-87cd16268080)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2261675ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2262799ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2262823ms] [ERROR] TRPCClientError: Database error (request id: a3bd384b-45fb-426b-a85b-8c1e4f7ac2c3)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2319803ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2321004ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2321034ms] [ERROR] TRPCClientError: Database error (request id: 1f9b8419-f018-4c47-8fff-3a26ff6b1e54)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2323032ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2324267ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2324298ms] [ERROR] TRPCClientError: Database error (request id: 7a735a82-17b9-400a-bca3-5b225828e51c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2381217ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2382434ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2382458ms] [ERROR] TRPCClientError: Database error (request id: 301ac8b6-c1dc-4daa-b2d7-364d9a65c7fa)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2384450ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2385677ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2385706ms] [ERROR] TRPCClientError: Database error (request id: 0e74295b-f3e8-4ebf-97e1-b0117a8f8675)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2442701ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2443944ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2443974ms] [ERROR] TRPCClientError: Database error (request id: 582ffc47-1e9b-4e42-ab2c-53a3a425c24f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2445788ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2447016ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2447046ms] [ERROR] TRPCClientError: Database error (request id: b0d047c7-8e98-4a3f-813e-1ead406ad184)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2504289ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2505560ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2505590ms] [ERROR] TRPCClientError: Database error (request id: 04404933-fe94-47fa-9a29-1a0c956f25c4)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2507133ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2508340ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2508366ms] [ERROR] TRPCClientError: Database error (request id: 25d30772-cf0c-4c82-9826-24f29e7d1bf0)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2565711ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2566846ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2566874ms] [ERROR] TRPCClientError: Database error (request id: a147f43b-e3ff-4b97-a926-99c291ea5523)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2568601ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2569746ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2569772ms] [ERROR] TRPCClientError: Database error (request id: fe501d83-ee52-49d5-baa8-131927f73183)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2627083ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2628214ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2628236ms] [ERROR] TRPCClientError: Database error (request id: be38b549-6f22-4f7b-963f-48ab54725242)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2629975ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2631160ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2631186ms] [ERROR] TRPCClientError: Database error (request id: f9bafed7-b221-4627-a0dc-aa1502a2c0cb)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2688488ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2689668ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2689696ms] [ERROR] TRPCClientError: Database error (request id: 941ca0a7-430a-4087-a079-a093e5fd296d)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2691346ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2692601ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2692625ms] [ERROR] TRPCClientError: Database error (request id: 15bb2aa3-b3c4-42fb-8098-f44159b1dd7e)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2749921ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2751184ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2751210ms] [ERROR] TRPCClientError: Database error (request id: b8d729b5-d355-42bb-bca5-483ed6de033e)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2752797ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2754035ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2754058ms] [ERROR] TRPCClientError: Database error (request id: 2a63ec07-1938-4e19-ab29-447e2c88fdb1)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2811346ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2812568ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2812592ms] [ERROR] TRPCClientError: Database error (request id: 707de00f-68e8-4c35-afdb-0ada4102447a)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2814206ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2815454ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2815480ms] [ERROR] TRPCClientError: Database error (request id: c99cf09f-92b7-403a-9d9b-86d21187cba6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2872800ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2873923ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2873950ms] [ERROR] TRPCClientError: Database error (request id: ff3cb320-c56e-497a-9c95-b093209cf90d)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2875706ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2876949ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[ 2876972ms] [ERROR] TRPCClientError: Database error (request id: 6e03d67d-c62c-4222-8187-c66b9bda9e42)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2897923ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2897957ms] [ERROR] TRPCClientError: Database error (request id: 4487ff86-fde8-4244-8b1f-ec04ae719098)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2897957ms] [ERROR] TRPCClientError: Database error (request id: c7d1b584-e951-41fd-8fbc-dc421f3f35e5)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2908866ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2908895ms] [ERROR] TRPCClientError: Database error (request id: d3fb5393-0c9c-4714-81c0-e23fd1686613)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2908897ms] [ERROR] TRPCClientError: Database error (request id: 29ad177e-0067-47b9-9cc1-c967865260bf)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2969139ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2970284ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 2970320ms] [ERROR] TRPCClientError: Database error (request id: 390ecd35-dce3-4705-a27a-c2c7c9e5385e)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 2970320ms] [ERROR] TRPCClientError: Database error (request id: fcba4937-1e2e-4f2d-8abe-7902b1d76b9b)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3030428ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3031583ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3031605ms] [ERROR] TRPCClientError: Database error (request id: ec1a4db9-428f-46ed-8bcd-4816af19602d)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3031606ms] [ERROR] TRPCClientError: Database error (request id: 4edd31a5-9447-47d4-83ad-240d6e7decc6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3035538ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3036645ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3036670ms] [ERROR] TRPCClientError: Database error (request id: 1f0663ff-d188-45db-86d1-e23bc0013e92)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3041997ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3042024ms] [ERROR] TRPCClientError: Database error (request id: c5e6c4de-0a75-42ec-a09a-d4821de19b71)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3044535ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3045973ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3046250ms] [ERROR] TRPCClientError: Database error (request id: 0f56d921-7620-4f8d-b858-8096dca9d145)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3050116ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3050144ms] [ERROR] TRPCClientError: Database error (request id: bde6f2c4-2a3f-4a1b-a707-64216603e01e)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3050144ms] [ERROR] TRPCClientError: Database error (request id: bbc61dec-7e20-4d06-ac90-508a6121efe4)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3054870ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3054899ms] [ERROR] TRPCClientError: Database error (request id: 718d523f-136d-4cb5-a19c-27d32cbf79d0)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3054899ms] [ERROR] TRPCClientError: Database error (request id: 2fdac2c8-89bb-4910-a41e-fb273221ce90)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3056397ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3057839ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3058067ms] [ERROR] TRPCClientError: Database error (request id: ad95ddd9-b16b-4fce-b188-c22d7d16780a)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3058068ms] [ERROR] TRPCClientError: Database error (request id: 833b36f4-c5df-49af-8d2d-b76be03e77b8)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3118315ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3119494ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3119521ms] [ERROR] TRPCClientError: Database error (request id: 18988ec6-9b62-4883-8352-1e4097b4c22c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3119522ms] [ERROR] TRPCClientError: Database error (request id: befa5b66-cf9f-4c55-810e-3c67dd3307cc)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3179757ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3180957ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[ 3180989ms] [ERROR] TRPCClientError: Database error (request id: 47ca189a-c7a4-4569-80b6-8d4460a7cca8)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[ 3180990ms] [ERROR] TRPCClientError: Database error (request id: c7c0d3ac-cd82-402c-8240-df316940275d)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947

@@ -1,0 +1,765 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e11]:
+      - generic [ref=e13]:
+        - generic [ref=e15]:
+          - img [ref=e16]
+          - generic [ref=e18]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e20] [cursor=pointer]
+        - generic [ref=e21]:
+          - button "Viewing as Admin" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e26] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e27]: Open account
+      - generic [ref=e28]:
+        - navigation [ref=e29]:
+          - button "Mercury Demo Pro" [ref=e32] [cursor=pointer]:
+            - generic [ref=e34]: Mercury Demo
+            - generic [ref=e36]: Pro
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - link "Home" [ref=e41] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e42]:
+                  - img [ref=e43]
+                  - img [ref=e45]
+                - generic [ref=e48]: Home
+              - link "Tasks 10" [ref=e51] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e52]:
+                  - img [ref=e53]
+                  - img [ref=e55]
+                - generic [ref=e57]:
+                  - generic [ref=e58]: Tasks
+                  - generic [ref=e59]: "10"
+            - separator [ref=e60]
+            - generic [ref=e61]:
+              - link "Accounts" [ref=e64] [cursor=pointer]:
+                - /url: /accounts
+                - generic [ref=e65]:
+                  - img [ref=e66]
+                  - img [ref=e68]
+                - generic [ref=e71]: Accounts
+              - link "Transactions" [ref=e74] [cursor=pointer]:
+                - /url: /transactions
+                - generic [ref=e75]:
+                  - img [ref=e76]
+                  - img [ref=e78]
+                - generic [ref=e81]: Transactions
+              - link "Cards" [ref=e84] [cursor=pointer]:
+                - /url: /cards
+                - generic [ref=e85]:
+                  - img [ref=e86]
+                  - img [ref=e88]
+                - generic [ref=e91]: Cards
+              - link "Payments" [ref=e94] [cursor=pointer]:
+                - /url: /payments
+                - generic [ref=e95]:
+                  - img [ref=e96]
+                  - img [ref=e98]
+                - generic [ref=e101]: Payments
+              - link "Invoicing" [ref=e104] [cursor=pointer]:
+                - /url: /invoicing
+                - generic [ref=e105]:
+                  - img [ref=e106]
+                  - img [ref=e108]
+                - generic [ref=e111]: Invoicing
+              - link "Reimbursements" [ref=e114] [cursor=pointer]:
+                - /url: /expenses/all-expenses
+                - generic [ref=e115]:
+                  - img [ref=e116]
+                  - img [ref=e118]
+                - generic [ref=e121]: Reimbursements
+            - separator [ref=e122]
+            - group "Bookmarks" [ref=e123]:
+              - generic [ref=e124]:
+                - generic [ref=e125]: Bookmarks
+                - button "Learn about bookmarks" [ref=e126] [cursor=pointer]:
+                  - img [ref=e127]
+              - list "Bookmarks" [ref=e129]:
+                - listitem [ref=e130] [cursor=pointer]:
+                  - button "Reorder Ops / Payroll bookmark" [ref=e131]:
+                    - img [ref=e132]
+                  - link "Ops / Payroll $2,023,267.12" [ref=e134]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e135]:
+                      - generic [ref=e136]: Ops / Payroll
+                      - generic [ref=e138]:
+                        - text: $2,023,267
+                        - generic [ref=e139]: ".12"
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e140] [cursor=pointer]:
+                  - button "Reorder Credit Card bookmark" [ref=e141]:
+                    - img [ref=e142]
+                  - link "Credit Card" [ref=e144]:
+                    - /url: /accounts/credit
+                    - generic [ref=e146]: Credit Card
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e147] [cursor=pointer]:
+                  - button "Reorder Bill Pay bookmark" [ref=e148]:
+                    - img [ref=e149]
+                  - link "Bill Pay" [ref=e151]:
+                    - /url: /bill-pay
+                    - generic [ref=e153]: Bill Pay
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e154] [cursor=pointer]:
+                  - button "Reorder Insights bookmark" [ref=e155]:
+                    - img [ref=e156]
+                  - link "Insights" [ref=e158]:
+                    - /url: /insights/overview
+                    - generic [ref=e160]: Insights
+                  - button "Remove bookmark":
+                    - img
+              - status [ref=e161]
+        - generic [ref=e162]:
+          - generic [ref=e164]:
+            - button "Search for anything" [ref=e166] [cursor=pointer]:
+              - img
+              - generic [ref=e167]: Search for anything
+            - button "Move money" [ref=e169] [cursor=pointer]:
+              - img
+              - generic [ref=e170]: Move money
+            - generic [ref=e171]:
+              - button "Toggle Private Mode" [ref=e172] [cursor=pointer]:
+                - img
+              - link "Navigate to Settings" [ref=e175] [cursor=pointer]:
+                - /url: /settings
+                - img
+              - button "updates" [ref=e178] [cursor=pointer]:
+                - img
+              - button [ref=e181] [cursor=pointer]
+          - generic [ref=e185]:
+            - heading "Welcome, Jane" [level=1] [ref=e188]
+            - generic [ref=e189]:
+              - generic [ref=e190]:
+                - link "Send" [ref=e192] [cursor=pointer]:
+                  - /url: /send-money/pay/start
+                  - img
+                  - generic [ref=e193]: Send
+                - link "Transfer" [ref=e195] [cursor=pointer]:
+                  - /url: /send-money/transfer
+                  - img
+                  - generic [ref=e196]: Transfer
+                - link "Deposit" [ref=e198] [cursor=pointer]:
+                  - /url: /add-funds
+                  - img
+                  - generic [ref=e199]: Deposit
+                - link "Request" [ref=e201] [cursor=pointer]:
+                  - /url: /invoicing/create-invoice
+                  - img
+                  - generic [ref=e202]: Request
+                - link "Upload bill" [ref=e204] [cursor=pointer]:
+                  - /url: /bill-pay?modal=payBill
+                  - img
+                  - generic [ref=e205]: Upload bill
+              - button "Customize" [ref=e207] [cursor=pointer]:
+                - img
+                - generic [ref=e208]: Customize
+            - generic [ref=e209]:
+              - generic [ref=e210]:
+                - generic [ref=e212]:
+                  - generic [ref=e213]:
+                    - generic [ref=e214]:
+                      - generic [ref=e215]:
+                        - generic [ref=e216]: Mercury balance
+                        - button [ref=e219] [cursor=pointer]:
+                          - img [ref=e220]
+                      - generic [ref=e223]:
+                        - text: $5,216,471
+                        - generic [ref=e224]: ".18"
+                    - generic [ref=e226]:
+                      - generic [ref=e227]: Graph or table
+                      - generic [ref=e228]:
+                        - button "Balance graph" [ref=e230] [cursor=pointer]:
+                          - generic [ref=e231]: Balance graph
+                          - img [ref=e232]
+                        - button "Balance table" [ref=e235] [cursor=pointer]:
+                          - generic [ref=e236]: Balance table
+                          - img [ref=e237]
+                  - generic [ref=e239]:
+                    - button "Last 30 days" [ref=e241] [cursor=pointer]:
+                      - generic [ref=e242]: Last 30 days
+                      - img
+                    - generic [ref=e243]:
+                      - generic [ref=e244]:
+                        - img [ref=e245]
+                        - generic [ref=e248]:
+                          - text: $1
+                          - generic [ref=e249]: .8M
+                      - generic [ref=e250]:
+                        - img [ref=e251]
+                        - generic [ref=e253]:
+                          - text: −
+                          - generic [ref=e254]: $473K
+                  - img [ref=e257]:
+                    - generic [ref=e261]:
+                      - generic [ref=e262]: Jun 10
+                      - generic [ref=e263]: Jun 5
+                      - generic [ref=e264]: May 31
+                      - generic [ref=e265]: May 26
+                      - generic [ref=e266]: May 21
+                - generic [ref=e269]:
+                  - generic [ref=e270]:
+                    - generic [ref=e271]: Accounts
+                    - generic [ref=e272]:
+                      - button [ref=e274] [cursor=pointer]:
+                        - img
+                      - button [ref=e277] [cursor=pointer]:
+                        - img
+                  - link "Credit Card $12,505.87" [ref=e279] [cursor=pointer]:
+                    - /url: /accounts/credit
+                    - generic [ref=e280]:
+                      - img [ref=e281]
+                      - generic [ref=e283]:
+                        - generic [ref=e284]: Credit Card
+                        - generic [ref=e287]:
+                          - text: $12,505
+                          - generic [ref=e288]: ".87"
+                  - link "Treasury $200,000.00" [ref=e289] [cursor=pointer]:
+                    - /url: /accounts/treasury/party-treasury-id-0
+                    - generic [ref=e290]:
+                      - img [ref=e291]
+                      - generic [ref=e293]:
+                        - generic [ref=e294]: Treasury
+                        - generic [ref=e297]:
+                          - text: $200,000
+                          - generic [ref=e298]: ".00"
+                  - link "Ops / Payroll $2,023,267.12" [ref=e299] [cursor=pointer]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e300]:
+                      - img [ref=e301]
+                      - generic [ref=e303]:
+                        - generic [ref=e304]: Ops / Payroll
+                        - generic [ref=e307]:
+                          - text: $2,023,267
+                          - generic [ref=e308]: ".12"
+                  - link "AP $226,767.82" [ref=e309] [cursor=pointer]:
+                    - /url: /accounts/depository/party-mercurybankid3
+                    - generic [ref=e310]:
+                      - img [ref=e311]
+                      - generic [ref=e313]:
+                        - generic [ref=e314]: AP
+                        - generic [ref=e317]:
+                          - text: $226,767
+                          - generic [ref=e318]: ".82"
+                  - link "AR $0.00" [ref=e319] [cursor=pointer]:
+                    - /url: /accounts/depository/party-mercurybankid0
+                    - generic [ref=e320]:
+                      - img [ref=e321]
+                      - generic [ref=e323]:
+                        - generic [ref=e324]: AR
+                        - generic [ref=e327]:
+                          - text: $0
+                          - generic [ref=e328]: ".00"
+                  - link "+2 View all accounts" [ref=e329] [cursor=pointer]:
+                    - /url: /accounts
+                    - generic [ref=e330]:
+                      - generic [ref=e332]: "+2"
+                      - generic [ref=e334]: View all accounts
+              - generic [ref=e335]:
+                - generic [ref=e336]:
+                  - generic [ref=e337]:
+                    - generic [ref=e338]:
+                      - link "Credit Card" [ref=e341] [cursor=pointer]:
+                        - /url: /accounts/credit
+                      - generic [ref=e343]:
+                        - text: $12,505
+                        - generic [ref=e344]: ".87"
+                    - generic [ref=e345]:
+                      - link [ref=e347] [cursor=pointer]:
+                        - /url: /issue-card
+                        - img
+                      - button [ref=e350] [cursor=pointer]:
+                        - img
+                  - generic [ref=e352]:
+                    - generic:
+                      - meter "Pending" [ref=e354]
+                      - meter "Balance" [ref=e355]
+                    - generic [ref=e356]:
+                      - generic [ref=e357]:
+                        - generic [ref=e359]: Balance
+                        - generic [ref=e362]: Pending
+                      - generic [ref=e365]: $21,249 available
+                  - generic [ref=e366]:
+                    - generic [ref=e367]:
+                      - generic [ref=e368]:
+                        - img [ref=e369]
+                        - generic [ref=e371]: Autopay
+                      - link "Jun 20" [ref=e373] [cursor=pointer]:
+                        - /url: /accounts/credit?action=editAutopay
+                    - link "Pay" [ref=e375] [cursor=pointer]:
+                      - /url: /accounts/credit?action=payCredit
+                      - generic [ref=e376]: Pay
+                - generic [ref=e377]:
+                  - generic [ref=e378]:
+                    - link "Bill Pay" [ref=e381] [cursor=pointer]:
+                      - /url: /bill-pay
+                    - generic [ref=e382]:
+                      - link [ref=e384] [cursor=pointer]:
+                        - /url: /bill-pay?modal=payBill
+                        - img
+                      - button [ref=e387] [cursor=pointer]:
+                        - img
+                  - generic [ref=e389]:
+                    - generic [ref=e390]:
+                      - generic [ref=e391]: Outstanding
+                      - generic [ref=e392]: "11"
+                    - generic [ref=e393]:
+                      - generic [ref=e394]: Overdue
+                      - generic [ref=e395]: "1"
+                    - generic [ref=e396]:
+                      - generic [ref=e397]: Due soon
+                      - generic [ref=e398]: "-"
+                  - generic [ref=e399]:
+                    - generic [ref=e400]:
+                      - generic [ref=e401]: Inbox
+                      - generic [ref=e402]:
+                        - generic [ref=e403]: 3 items
+                        - generic [ref=e404]: ·
+                        - generic [ref=e406]: $10K
+                    - link "View" [ref=e409] [cursor=pointer]:
+                      - /url: /bill-pay
+                      - text: View
+                      - img [ref=e410]
+                - generic [ref=e412]:
+                  - generic [ref=e413]:
+                    - link "Invoicing" [ref=e416] [cursor=pointer]:
+                      - /url: /invoicing
+                    - generic [ref=e417]:
+                      - link [ref=e419] [cursor=pointer]:
+                        - /url: /invoicing/create-invoice
+                        - img
+                      - button [ref=e422] [cursor=pointer]:
+                        - img
+                  - generic [ref=e424]:
+                    - generic [ref=e425]:
+                      - generic [ref=e426]: Overdue
+                      - generic [ref=e427]:
+                        - generic [ref=e428]: "4"
+                        - generic [ref=e429]: ·
+                        - generic [ref=e431]:
+                          - text: $950
+                          - generic [ref=e432]: ".00"
+                    - generic [ref=e433]:
+                      - generic [ref=e434]: Paid
+                      - generic [ref=e435]:
+                        - generic [ref=e436]: "12"
+                        - generic [ref=e437]: ·
+                        - generic [ref=e439]: $6K
+                  - generic [ref=e440]:
+                    - generic [ref=e441]:
+                      - generic [ref=e442]: Open
+                      - generic [ref=e443]:
+                        - generic [ref=e444]: 12 items
+                        - generic [ref=e445]: ·
+                        - generic [ref=e447]:
+                          - text: $12
+                          - generic [ref=e448]: .3K
+                    - link "View" [ref=e451] [cursor=pointer]:
+                      - /url: /invoicing
+                      - text: View
+                      - img [ref=e452]
+              - generic [ref=e454]:
+                - generic [ref=e455]:
+                  - generic [ref=e456]: Money movement
+                  - generic [ref=e457]:
+                    - button [ref=e458] [cursor=pointer]:
+                      - img
+                    - generic [ref=e460]: Jun 2026
+                    - button [disabled] [ref=e461]:
+                      - img
+                - generic [ref=e463]:
+                  - generic [ref=e464]:
+                    - generic [ref=e466]:
+                      - generic [ref=e467]: Money in
+                      - generic [ref=e469]:
+                        - text: $1,675,068
+                        - generic [ref=e470]: ".74"
+                    - generic [ref=e471]:
+                      - generic [ref=e472]: Top sources
+                      - link "Venture Debt Loan $1,000,000.00" [ref=e473] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22filters%22%3A%7B%22directions%22%3A%22incoming%22%2C%22searchTerm%22%3A%5B%7B%22partyId%22%3A%22ventureDebtTransactionParty0%22%2C%22type%22%3A%22party%22%7D%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-30-2026%22%2C%22dateRangeName%22%3A%22CustomDateRange%22%2C%22timezone%22%3A%22standard%22%7D%7D%7D
+                        - generic [ref=e474]:
+                          - img [ref=e475]
+                          - generic [ref=e477]: Venture Debt Loan
+                          - generic [ref=e479]:
+                            - text: $1,000,000
+                            - generic [ref=e480]: ".00"
+                      - link "GenPro $414,983.19" [ref=e481] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22filters%22%3A%7B%22directions%22%3A%22incoming%22%2C%22searchTerm%22%3A%5B%7B%22partyId%22%3A%22electronicSenderParty0%22%2C%22type%22%3A%22party%22%7D%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-30-2026%22%2C%22dateRangeName%22%3A%22CustomDateRange%22%2C%22timezone%22%3A%22standard%22%7D%7D%7D
+                        - generic [ref=e482]:
+                          - generic [ref=e484]: G
+                          - generic [ref=e485]: GenPro
+                          - generic [ref=e487]:
+                            - text: $414,983
+                            - generic [ref=e488]: ".19"
+                      - link "Google $48,186.42" [ref=e489] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22filters%22%3A%7B%22directions%22%3A%22incoming%22%2C%22searchTerm%22%3A%5B%7B%22partyId%22%3A%22debit-merchant-incoming8%22%2C%22type%22%3A%22party%22%7D%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-30-2026%22%2C%22dateRangeName%22%3A%22CustomDateRange%22%2C%22timezone%22%3A%22standard%22%7D%7D%7D
+                        - generic [ref=e490]:
+                          - generic [ref=e492]: Google
+                          - generic [ref=e494]:
+                            - text: $48,186
+                            - generic [ref=e495]: ".42"
+                      - link "Jameson Accounting $43,450.50" [ref=e496] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22filters%22%3A%7B%22directions%22%3A%22incoming%22%2C%22searchTerm%22%3A%5B%7B%22partyId%22%3A%22checkDepositParty0%22%2C%22type%22%3A%22party%22%7D%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-30-2026%22%2C%22dateRangeName%22%3A%22CustomDateRange%22%2C%22timezone%22%3A%22standard%22%7D%7D%7D
+                        - generic [ref=e497]:
+                          - generic [ref=e498]:
+                            - generic [ref=e499]: J
+                            - generic [ref=e500]: A
+                          - generic [ref=e501]: Jameson Accounting
+                          - generic [ref=e503]:
+                            - text: $43,450
+                            - generic [ref=e504]: ".50"
+                      - link "View all" [ref=e505] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22savedTransactionViewId%22%3A%22monthlyMoneyIn%22%2C%22filters%22%3A%7B%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-15-2026%22%2C%22dateRangeName%22%3A%22ThisMonth%22%2C%22timezone%22%3A%22standard%22%7D%2C%22directions%22%3A%22incoming%22%7D%7D
+                        - generic [ref=e506]:
+                          - img [ref=e508]
+                          - generic [ref=e510]: View all
+                    - generic [ref=e512]:
+                      - generic [ref=e513]: Last 3 months average
+                      - generic [ref=e515]:
+                        - text: $78
+                        - generic [ref=e516]: .2K
+                  - generic [ref=e524]:
+                    - generic [ref=e526]:
+                      - generic [ref=e527]:
+                        - generic [ref=e528]: Money out
+                        - generic "Money out" [ref=e530]:
+                          - img [ref=e531]
+                      - generic [ref=e533]:
+                        - text: −
+                        - generic [ref=e534]:
+                          - text: $366,515
+                          - generic [ref=e535]: ".20"
+                    - generic [ref=e536]:
+                      - generic [ref=e537]: Top spend
+                      - link "Jordi O'Donnell −$90,797.16" [ref=e538] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22filters%22%3A%7B%22directions%22%3A%22outgoing%22%2C%22searchTerm%22%3A%5B%7B%22partyId%22%3A%22party-mockrecipientid5%22%2C%22type%22%3A%22party%22%7D%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-30-2026%22%2C%22dateRangeName%22%3A%22CustomDateRange%22%2C%22timezone%22%3A%22standard%22%7D%7D%7D
+                        - generic [ref=e539]:
+                          - generic [ref=e540]:
+                            - generic [ref=e541]: J
+                            - generic [ref=e542]: O
+                          - generic [ref=e543]: Jordi O'Donnell
+                          - generic [ref=e544]:
+                            - text: −
+                            - generic [ref=e545]:
+                              - text: $90,797
+                              - generic [ref=e546]: ".16"
+                      - link "Gusto (Payroll) −$90,122.53" [ref=e547] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22filters%22%3A%7B%22directions%22%3A%22outgoing%22%2C%22searchTerm%22%3A%5B%7B%22partyId%22%3A%22achPullerParty0%22%2C%22type%22%3A%22party%22%7D%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-30-2026%22%2C%22dateRangeName%22%3A%22CustomDateRange%22%2C%22timezone%22%3A%22standard%22%7D%7D%7D
+                        - generic [ref=e548]:
+                          - generic [ref=e549]:
+                            - generic [ref=e550]: G
+                            - generic [ref=e551]: P
+                          - generic [ref=e552]: Gusto (Payroll)
+                          - generic [ref=e553]:
+                            - text: −
+                            - generic [ref=e554]:
+                              - text: $90,122
+                              - generic [ref=e555]: ".53"
+                      - link "Google −$46,928.05" [ref=e556] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22filters%22%3A%7B%22directions%22%3A%22outgoing%22%2C%22searchTerm%22%3A%5B%7B%22partyId%22%3A%22debit-merchant-outgoing8%22%2C%22type%22%3A%22party%22%7D%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-30-2026%22%2C%22dateRangeName%22%3A%22CustomDateRange%22%2C%22timezone%22%3A%22standard%22%7D%7D%7D
+                        - generic [ref=e557]:
+                          - generic [ref=e559]: Google
+                          - generic [ref=e560]:
+                            - text: −
+                            - generic [ref=e561]:
+                              - text: $46,928
+                              - generic [ref=e562]: ".05"
+                      - link "Milgram Brokerage −$37,844.57" [ref=e563] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22filters%22%3A%7B%22directions%22%3A%22outgoing%22%2C%22searchTerm%22%3A%5B%7B%22partyId%22%3A%22debit-merchant-outgoing3%22%2C%22type%22%3A%22party%22%7D%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-30-2026%22%2C%22dateRangeName%22%3A%22CustomDateRange%22%2C%22timezone%22%3A%22standard%22%7D%7D%7D
+                        - generic [ref=e564]:
+                          - generic [ref=e565]:
+                            - generic [ref=e566]: M
+                            - generic [ref=e567]: B
+                          - generic [ref=e568]: Milgram Brokerage
+                          - generic [ref=e569]:
+                            - text: −
+                            - generic [ref=e570]:
+                              - text: $37,844
+                              - generic [ref=e571]: ".57"
+                      - link "View all" [ref=e572] [cursor=pointer]:
+                        - /url: /transactions?q=%7B%22savedTransactionViewId%22%3A%22monthlyMoneyOut%22%2C%22filters%22%3A%7B%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-15-2026%22%2C%22dateRangeName%22%3A%22ThisMonth%22%2C%22timezone%22%3A%22standard%22%7D%2C%22directions%22%3A%22outgoing%22%7D%7D
+                        - generic [ref=e573]:
+                          - img [ref=e575]
+                          - generic [ref=e577]: View all
+                    - generic [ref=e579]:
+                      - generic [ref=e580]: Last 3 months average
+                      - generic [ref=e581]:
+                        - text: −
+                        - generic [ref=e582]: $181K
+              - generic [ref=e590]:
+                - generic [ref=e591]:
+                  - generic [ref=e592]: Transactions
+                  - link "View all" [ref=e594] [cursor=pointer]:
+                    - /url: /transactions
+                    - text: View all
+                    - img [ref=e595]
+                - menubar [ref=e597]:
+                  - generic [ref=e599]:
+                    - menuitem "Recent" [ref=e601] [cursor=pointer]:
+                      - generic [ref=e602]: Recent
+                    - menuitem "My transactions" [ref=e604] [cursor=pointer]:
+                      - generic [ref=e605]: My transactions
+                    - menuitem "Monthly money in" [ref=e607] [cursor=pointer]:
+                      - generic [ref=e608]: Monthly money in
+                    - menuitem "Monthly money out" [ref=e610] [cursor=pointer]:
+                      - generic [ref=e611]: Monthly money out
+                    - menuitem "Operating expenses" [ref=e613] [cursor=pointer]:
+                      - generic [ref=e614]: Operating expenses
+                - generic [ref=e616]:
+                  - table "Transactions table" [ref=e617]:
+                    - caption [ref=e618]: Transactions table
+                    - rowgroup [ref=e619]:
+                      - row "Date Click to sort To/From Click to sort Amount Click to sort Account Click to sort Method" [ref=e620]:
+                        - columnheader "Date Click to sort" [ref=e621]:
+                          - button "Date Click to sort" [ref=e623] [cursor=pointer]:
+                            - text: Date
+                            - img [ref=e624]
+                            - generic [ref=e626]: Click to sort
+                        - columnheader "To/From Click to sort" [ref=e627]:
+                          - button "To/From Click to sort" [ref=e629] [cursor=pointer]:
+                            - text: To/From
+                            - generic [ref=e630]: Click to sort
+                        - columnheader "Amount Click to sort" [ref=e631]:
+                          - button "Amount Click to sort" [ref=e633] [cursor=pointer]:
+                            - text: Amount
+                            - generic [ref=e634]: Click to sort
+                        - columnheader "Account Click to sort" [ref=e635]:
+                          - button "Account Click to sort" [ref=e637] [cursor=pointer]:
+                            - text: Account
+                            - generic [ref=e638]: Click to sort
+                        - columnheader "Method" [ref=e639]
+                    - rowgroup [ref=e640]:
+                      - row "Jun 15 Mercury Working Capital −$2,200.00 Ops / Payroll Working Capital Loan Payment" [ref=e641] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e642]:
+                          - generic [ref=e645]: Jun 15
+                        - cell "Mercury Working Capital" [ref=e646]:
+                          - img [ref=e647]
+                          - generic "Mercury Working Capital" [ref=e649]
+                        - cell "−$2,200.00" [ref=e650]:
+                          - generic [ref=e651]:
+                            - text: −
+                            - generic [ref=e652]:
+                              - text: $2,200
+                              - generic [ref=e653]: ".00"
+                        - cell "Ops / Payroll" [ref=e654]:
+                          - generic "Ops / Payroll" [ref=e657]
+                        - cell "Working Capital Loan Payment" [ref=e658]:
+                          - img [ref=e659]
+                          - generic [ref=e661]: Working Capital Loan Payment
+                      - row "Jun 15 Payment from NASA Failed $419.00 AR Request or Invoice Payment" [ref=e662] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e663]:
+                          - generic [ref=e666]: Jun 15
+                        - cell "Payment from NASA Failed" [ref=e667]:
+                          - generic [ref=e669]: P
+                          - generic "Payment from NASA" [ref=e670]
+                          - generic [ref=e672]: Failed
+                        - cell "$419.00" [ref=e674]:
+                          - generic [ref=e676]:
+                            - text: $419
+                            - generic [ref=e677]: ".00"
+                        - cell "AR" [ref=e678]:
+                          - generic "AR" [ref=e681]
+                        - cell "Request or Invoice Payment" [ref=e682]:
+                          - img [ref=e683]
+                          - generic [ref=e685]: Request or Invoice Payment
+                      - row "Jun 15 Payment from Acme Corp $200.00 AR Request or Invoice Payment" [ref=e686] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e687]:
+                          - generic [ref=e690]: Jun 15
+                        - cell "Payment from Acme Corp" [ref=e691]:
+                          - generic [ref=e693]: P
+                          - generic "Payment from Acme Corp" [ref=e694]
+                        - cell "$200.00" [ref=e695]:
+                          - generic [ref=e697]:
+                            - text: $200
+                            - generic [ref=e698]: ".00"
+                        - cell "AR" [ref=e699]:
+                          - generic "AR" [ref=e702]
+                        - cell "Request or Invoice Payment" [ref=e703]:
+                          - img [ref=e704]
+                          - generic [ref=e706]: Request or Invoice Payment
+                      - row "Jun 15 To Ops / Payroll −$55,810.16 AR Transfer" [ref=e707] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e708]:
+                          - generic [ref=e711]: Jun 15
+                        - cell "To Ops / Payroll" [ref=e712]:
+                          - img [ref=e713]
+                          - generic "To Ops / Payroll" [ref=e715]
+                        - cell "−$55,810.16" [ref=e716]:
+                          - generic [ref=e717]:
+                            - text: −
+                            - generic [ref=e718]:
+                              - text: $55,810
+                              - generic [ref=e719]: ".16"
+                        - cell "AR" [ref=e720]:
+                          - generic "AR" [ref=e723]
+                        - cell "Transfer" [ref=e724]:
+                          - img [ref=e725]
+                          - generic [ref=e727]: Transfer
+                      - row "Jun 15 From AR $55,810.16 Ops / Payroll Transfer" [ref=e728] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e729]:
+                          - generic [ref=e732]: Jun 15
+                        - cell "From AR" [ref=e733]:
+                          - img [ref=e734]
+                          - generic "From AR" [ref=e736]
+                        - cell "$55,810.16" [ref=e737]:
+                          - generic [ref=e739]:
+                            - text: $55,810
+                            - generic [ref=e740]: ".16"
+                        - cell "Ops / Payroll" [ref=e741]:
+                          - generic "Ops / Payroll" [ref=e744]
+                        - cell "Transfer" [ref=e745]:
+                          - img [ref=e746]
+                          - generic [ref=e748]: Transfer
+                      - row "Jun 15 Lily's Eatery $0.93 Ops / Payroll Alice C. ••1234" [ref=e749] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e750]:
+                          - generic [ref=e753]: Jun 15
+                        - cell "Lily's Eatery" [ref=e754]:
+                          - generic [ref=e755]:
+                            - generic [ref=e756]: L
+                            - generic [ref=e757]: E
+                          - generic "Lily's Eatery" [ref=e758]
+                        - cell "$0.93" [ref=e759]:
+                          - generic [ref=e761]:
+                            - text: $0
+                            - generic [ref=e762]: ".93"
+                        - cell "Ops / Payroll" [ref=e763]:
+                          - generic "Ops / Payroll" [ref=e766]
+                        - cell "Alice C. ••1234" [ref=e767]:
+                          - img [ref=e768]
+                          - generic [ref=e770]: Alice C. ••1234
+                      - row "Jun 15 Deli 77 $63.53 Credit account Mary M. ••0332" [ref=e771] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e772]:
+                          - generic [ref=e775]: Jun 15
+                        - cell "Deli 77" [ref=e776]:
+                          - generic [ref=e777]:
+                            - generic [ref=e778]: D
+                            - generic [ref=e779]: "7"
+                          - generic "Deli 77" [ref=e780]
+                        - cell "$63.53" [ref=e781]:
+                          - generic [ref=e783]:
+                            - text: $63
+                            - generic [ref=e784]: ".53"
+                        - cell "Credit account" [ref=e785]:
+                          - generic "Credit account" [ref=e788]
+                        - cell "Mary M. ••0332" [ref=e789]:
+                          - img [ref=e790]
+                          - generic [ref=e792]: Mary M. ••0332
+                      - row "Jun 15 Deli 77 $214.06 Ops / Payroll Jane B. ••6112" [ref=e793] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e794]:
+                          - generic [ref=e797]: Jun 15
+                        - cell "Deli 77" [ref=e798]:
+                          - generic [ref=e799]:
+                            - generic [ref=e800]: D
+                            - generic [ref=e801]: "7"
+                          - generic "Deli 77" [ref=e802]
+                        - cell "$214.06" [ref=e803]:
+                          - generic [ref=e805]:
+                            - text: $214
+                            - generic [ref=e806]: ".06"
+                        - cell "Ops / Payroll" [ref=e807]:
+                          - generic "Ops / Payroll" [ref=e810]
+                        - cell "Jane B. ••6112" [ref=e811]:
+                          - img [ref=e812]
+                          - generic [ref=e814]: Jane B. ••6112
+                      - row "Jun 15 Office Stop Co. −$287.89 Ops / Payroll Jessica A. ••9914" [ref=e815] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e816]:
+                          - generic [ref=e819]: Jun 15
+                        - cell "Office Stop Co." [ref=e820]:
+                          - generic [ref=e821]:
+                            - generic [ref=e822]: O
+                            - generic [ref=e823]: S
+                          - generic "Office Stop Co." [ref=e824]
+                        - cell "−$287.89" [ref=e825]:
+                          - generic [ref=e826]:
+                            - text: −
+                            - generic [ref=e827]:
+                              - text: $287
+                              - generic [ref=e828]: ".89"
+                        - cell "Ops / Payroll" [ref=e829]:
+                          - generic "Ops / Payroll" [ref=e832]
+                        - cell "Jessica A. ••9914" [ref=e833]:
+                          - img [ref=e834]
+                          - generic [ref=e836]: Jessica A. ••9914
+                      - row "Jun 15 Trader John's $855.81 Credit account Landon S. ••0331" [ref=e837] [cursor=pointer]:
+                        - cell "Jun 15" [ref=e838]:
+                          - generic [ref=e841]: Jun 15
+                        - cell "Trader John's" [ref=e842]:
+                          - generic "Trader John's" [ref=e844]
+                        - cell "$855.81" [ref=e845]:
+                          - generic [ref=e847]:
+                            - text: $855
+                            - generic [ref=e848]: ".81"
+                        - cell "Credit account" [ref=e849]:
+                          - generic "Credit account" [ref=e852]
+                        - cell "Landon S. ••0331" [ref=e853]:
+                          - img [ref=e854]
+                          - generic [ref=e856]: Landon S. ••0331
+                  - generic [ref=e857]: This table row is also a link. Click on the row with your cursor or press the Enter key to activate the link.
+      - generic [ref=e858]:
+        - generic [ref=e861]:
+          - generic [ref=e862]:
+            - generic [ref=e864]: Try out Mercury for yourself
+            - button [ref=e865] [cursor=pointer]:
+              - img [ref=e866]
+          - generic [ref=e868]:
+            - generic [ref=e870]:
+              - button "Startup" [ref=e871] [cursor=pointer]:
+                - generic [ref=e872]: Startup
+              - button "Ecommerce" [ref=e874] [cursor=pointer]:
+                - generic [ref=e875]: Ecommerce
+              - button "Agency" [ref=e877] [cursor=pointer]:
+                - generic [ref=e878]: Agency
+              - button "More" [ref=e880] [cursor=pointer]:
+                - generic [ref=e881]: More
+            - generic [ref=e883]:
+              - link "Send money to contractors" [ref=e884] [cursor=pointer]:
+                - /url: /send-money/pay/start?journey=startup
+                - generic [ref=e886]:
+                  - generic [ref=e887]:
+                    - img [ref=e889]
+                    - generic [ref=e891]: Send money to contractors
+                  - img [ref=e893]
+              - link "Invite your team members" [ref=e895] [cursor=pointer]:
+                - /url: /settings/users?journey=startup
+                - generic [ref=e897]:
+                  - generic [ref=e898]:
+                    - img [ref=e900]
+                    - generic [ref=e902]: Invite your team members
+                  - img [ref=e904]
+              - link "Create cards for your team" [ref=e906] [cursor=pointer]:
+                - /url: /issue-card?journey=startup
+                - generic [ref=e908]:
+                  - generic [ref=e909]:
+                    - img [ref=e911]
+                    - generic [ref=e913]: Create cards for your team
+                  - img [ref=e915]
+              - link "Request vendor payment details" [ref=e917] [cursor=pointer]:
+                - /url: /payments/recipients/create/request?journey=startup
+                - generic [ref=e919]:
+                  - generic [ref=e920]:
+                    - img [ref=e922]
+                    - generic [ref=e924]: Request vendor payment details
+                  - img [ref=e926]
+              - link "Issue SAFE to investors" [ref=e928] [cursor=pointer]:
+                - /url: /capital/safe?journey=startup
+                - generic [ref=e930]:
+                  - generic [ref=e931]:
+                    - img [ref=e933]
+                    - generic [ref=e935]: Issue SAFE to investors
+                  - img [ref=e937]
+              - button "Ask Mercury AI" [ref=e939] [cursor=pointer]:
+                - generic [ref=e940]:
+                  - generic [ref=e941]:
+                    - img [ref=e943]
+                    - generic [ref=e945]: Ask Mercury AI
+                  - img [ref=e947]
+        - button [ref=e950] [cursor=pointer]:
+          - img [ref=e951]
+  - alert

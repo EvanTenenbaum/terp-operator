@@ -24,7 +24,8 @@ vi.mock('../api/trpc', () => ({
     },
     useUtils: () => ({
       client: { auth: { me: { query: vi.fn() } } },
-      queries: { invalidate: vi.fn(), grid: { invalidate: vi.fn() }, intakeQueue: { invalidate: vi.fn() } }
+      queries: { invalidate: vi.fn(), grid: { invalidate: vi.fn() } },
+      intake: { intakeQueue: { invalidate: vi.fn() } }
     })
   }
 }));

@@ -1,0 +1,3 @@
+[     396ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:21608
+[     441ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:159
+[     441ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:159

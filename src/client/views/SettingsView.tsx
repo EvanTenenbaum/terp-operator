@@ -54,7 +54,7 @@ export function SettingsView() {
   const effectiveTab = visibleTabKeys.has(activeTab) ? activeTab : defaultTab;
   const activeTabLabel = tabs.find((tab) => tab.key === effectiveTab)?.label ?? 'Settings';
   return (
-    <div className="view-stack">
+    <div className="view-stack" data-view-key="settings" data-testid="settings-page-settings">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           {/* UX-Q08 (partial): disambiguate from the standalone nav routes. */}

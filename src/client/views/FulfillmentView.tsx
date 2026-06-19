@@ -1,10 +1,9 @@
-import { ChevronDown, ChevronRight, FileDown, PackageCheck } from 'lucide-react';
-import {  useEffect, useState , useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { PackageCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
-import { FilterPresetStrip, StatusActionBar, type StatusActionTable } from '../components/templates';
+import { GridView } from '../templates/GridView';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -88,23 +87,6 @@ export const fulfillmentPickColumns: ColDef<GridRow>[] = (columnsByView.fulfillm
   }
 );
 
-// UX-D01: navigate to orders view filtered to a specific order after fulfillment.
-function useOrderDeepLink() {
-  const setActiveView = useUiStore((state) => state.setActiveView);
-  const setGridFilter = useUiStore((state) => state.setGridFilter);
-  const setDrawerEntity = useUiStore((state) => state.setDrawerEntity);
-  const setDrawerState = useUiStore((state) => state.setDrawerState);
-  const navigate = useNavigate();
-  return (orderId: string | undefined) => {
-    if (!orderId) return;
-    setGridFilter('orders', `id:${orderId}`);
-    setDrawerEntity('orders', 'order', orderId);
-    setDrawerState('orders', 'standard');
-    navigate('/orders');
-    setActiveView('orders');
-  };
-}
-
 // CAP-030 / TER-1510 — WarehouseAlert interface matches warehouseAlerts JSONB shape in fulfillment_lines
 interface WarehouseAlert {
   id: string;
@@ -118,17 +100,6 @@ interface WarehouseAlert {
   createdAt: string;
 }
 
-interface PickQueueRow {
-  id: string;
-  pickNo: string;
-  orderId: string;
-  customer: string;
-  status: 'needs_picking' | 'in_progress' | 'has_alerts' | 'ready_to_close' | 'closed';
-  alertCount: number;
-  lineCount: number;
-  linesPicked: number;
-}
-
 const fulfillmentLineColumns: ColDef<GridRow>[] = [
   { field: 'itemName', pinned: 'left', minWidth: 180 },
   { field: 'batchCode', width: 140 },
@@ -140,35 +111,21 @@ const fulfillmentLineColumns: ColDef<GridRow>[] = [
 ];
 
 export function FulfillmentView() {
-  const grid = trpc.queries.grid.useQuery({ view: 'fulfillment' });
   const selectedRows = useUiStore((state) => state.selectedRows.fulfillment);
-  const setSelectedRows = useUiStore((state) => state.setSelectedRows);
-  const pickRows = (grid.data ?? []) as GridRow[];
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedPick = selected[0];
-  const lines = trpc.queries.fulfillmentLines.useQuery({ pickListId: String(selectedPick?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedPick?.id) });
+  const lines = trpc.fulfillment.fulfillmentLines.useQuery({ pickListId: String(selectedPick?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedPick?.id) });
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [actualQty, setActualQty] = useState('');
   const [actualWeight, setActualWeight] = useState('');
   const [bagCode, setBagCode] = useState('');
   const [tracking, setTracking] = useState('');
-  const [labelFormat, setLabelFormat] = useState('4x6');
-  const [printTrayOpen, setPrintTrayOpen] = useState(false);
+
   // CAP-030 / TER-1510 — filter chips (non-persisted)
   const pickQueueFilters = useUiStore((state) => state.pickQueueFilters);
   const setPickQueueFilter = useUiStore((state) => state.setPickQueueFilter);
   const clearPickQueueFilters = useUiStore((state) => state.clearPickQueueFilters);
-  // SX-K06: the picks grid and lines grid now use distinct filter slots
-  // ('fulfillment-picks' / 'fulfillment-lines') so their filter state is
-  // independent. Pick filter defaults to status:open on first mount.
-  const fulfillmentGridFilter = useUiStore((state) => state.gridFilters?.['fulfillment-picks'] ?? '');
-  const setGridFilter = useUiStore((state) => state.setGridFilter);
-  useEffect(() => {
-    if (!fulfillmentGridFilter) {
-      setGridFilter('fulfillment-picks', 'status:open');
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // GH #354: grid-filter presets now rendered via FilterPresetStrip template
+
   const [alertsDrawerOpen, setAlertsDrawerOpen] = useState(false);
   const [alertsPickListId, setAlertsPickListId] = useState<string | null>(null);
 
@@ -190,34 +147,15 @@ export function FulfillmentView() {
           }));
       })
     : [];
-  const { runCommand, setNextSuccessActions, isRunning } = useCommandRunner();
+  const { runCommand, isRunning } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
   const line = selectedLines[0];
-  // UX-D01: deep-link for "View order" after fulfillment
-  const openOrderDeepLink = useOrderDeepLink();
   const fulfillmentComplete = Boolean(
     selectedPick?.id &&
       lines.data?.length &&
       lines.data.every((candidate) => String(candidate.status ?? '') === 'packed' || (Number(candidate.actualQty ?? 0) > 0 && Boolean(candidate.bagCode)))
   );
-
-  // CAP-030 / TER-1510 — apply chip filters to pick rows.
-  // SX-I11: Memoized so AG Grid doesn't rebuild its row DOM on every render
-  // (the previous unmemoized .filter() created a new array identity each
-  // time, causing ~2,000 DOM node replacements/sec while idle).
-  const filteredPickRows = useMemo(() => {
-    if (pickQueueFilters.size === 0) return pickRows;
-    return pickRows.filter((row) => {
-      const status = String(row.status ?? '');
-      const alertCount = Number(row.alertCount ?? 0);
-      if (pickQueueFilters.has('needs_picking') && status !== 'needs_picking') return false;
-      if (pickQueueFilters.has('in_progress') && status !== 'in_progress') return false;
-      if (pickQueueFilters.has('has_alerts') && alertCount === 0) return false;
-      if (pickQueueFilters.has('ready_to_close') && status !== 'ready_to_close') return false;
-      return true;
-    });
-  }, [pickRows, pickQueueFilters]);
 
   useEffect(() => {
     if (!line) {
@@ -231,8 +169,13 @@ export function FulfillmentView() {
     setBagCode(String(line.bagCode ?? ''));
   }, [line]);
 
+  // Wire selectedPick from GridView's selection (via useUiStore)
+  useEffect(() => {
+    if (selectedPick?.id) setAlertsPickListId(String(selectedPick.id));
+  }, [selectedPick?.id]);
+
   return (
-    <div className="view-stack">
+    <div className="h-full flex flex-col">
       {/* CAP-030 / TER-1510 — pick queue filter chips */}
       {canWrite ? (
         <div className="control-band subtle-band flex-wrap gap-1">
@@ -261,94 +204,12 @@ export function FulfillmentView() {
           ) : null}
         </div>
       ) : null}
-      <OperatorGrid
-        view="fulfillment-picks"
-        title="Fulfillment"
-        rows={filteredPickRows}
-        columns={fulfillmentPickColumns}
-        loading={grid.isLoading || isRunning}
-        isError={grid.isError}
-        onRetry={() => grid.refetch()}
-        // UX-D03: tailored empty state names the verb + producing surface.
-        emptyTitle="No open picks — post an order to create work"
-        emptyChildren="Pick lists are created when a confirmed sales order is allocated to fulfillment or a pick list is requested from the Orders view."
-        onSelectionChange={(rows) => {
-          setSelectedRows('fulfillment', rows);
-          setSelectedLines([]);
-          if (rows[0]?.id) setAlertsPickListId(String(rows[0].id));
-        }}
-        actions={canWrite ?
-          <>
-            {/* UX-L03: correct DB statuses are 'open' and 'fulfilled' (verified
-                in schema.ts and commandBus). Previous presets used wrong values
-                ('in_progress', 'needs_picking') that never matched any rows.
-                'Open picks' is the default-active preset (seeded by useEffect above). */}
-            <FilterPresetStrip
-              view="fulfillment-picks"
-              ariaLabel="Filter fulfillment"
-              presets={[
-                { label: 'Open picks', filter: 'status:open', title: 'Show only open (active) pick lists' },
-                { label: 'Fulfilled', filter: 'status:fulfilled', title: 'Show fulfilled pick lists' }
-              ]}
-            />
-            <span className={selectedPick ? 'selection-pill' : 'selection-pill warning'}>{selectedPick ? `Showing ${String(selectedPick.pickNo ?? 'pick')}` : 'Select a pick row'}</span>
-            {/* TER-1660: Label printing deferred to backlog. The Print/Labels
-                tray is hidden from the active fulfillment flow; the underlying
-                printLabels command remains in the catalog for future re-enable. */}
-            {/*
-            <button className="secondary-button compact-action" disabled={!selectedPick?.id} onClick={() => setPrintTrayOpen((value) => !value)} type="button" aria-expanded={printTrayOpen}>
-              {printTrayOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
-              Print
-            </button>
-            {printTrayOpen ? (
-              <>
-                <label className="field-inline">
-                  Format
-                  <select className="select compact" value={labelFormat} onChange={(event) => setLabelFormat(event.target.value)}>
-                    <option value="4x6">4x6</option>
-                    <option value="2x1">2x1</option>
-                  </select>
-                </label>
-                <button className="secondary-button compact-action" disabled={!selectedPick?.id} onClick={() => runCommand('printLabels', { pickListId: selectedPick?.id, labelFormat }, 'Print labels')} type="button">
-                  <FileDown className="h-4 w-4" aria-hidden="true" />
-                  Labels
-                </button>
-              </>
-            ) : null}
-            */}
-          </>
-          : null}
-        selectionActions={canWrite ? (rows) => {
-          // Spec §10.7 — status-aware primary for pick rows. Real pick_lists
-          // statuses are 'open' and 'fulfilled' only (verified in schema +
-          // commandBus); the spec's draft/in_pack/packed/labeled states do
-          // not exist — pack progress is derived from the line grid
-          // (fulfillmentComplete). printLabels stays out of the bar per the
-          // TER-1660 deferral.
-          // UX-D01: success toast for fulfillment deep-links to the order.
-          const fulfillAct = {
-            key: 'fulfilled',
-            label: 'Mark fulfilled',
-            icon: <PackageCheck className="h-4 w-4" aria-hidden="true" />,
-            disabled: !fulfillmentComplete,
-            disabledReason: 'Pack every line (qty + bag code) below before fulfilling',
-            run: (r: GridRow[]) => {
-              const orderId = String(r[0]?.orderId ?? '');
-              setNextSuccessActions?.([{ label: 'View order', onAction: () => openOrderDeepLink(orderId) }]);
-              return runCommand('markOrderFulfilled', { orderId: r[0]?.orderId, tracking }, 'Mark order fulfilled');
-            }
-          };
-          const pickTable: StatusActionTable = {
-            rules: [
-              { when: 'open', primary: fulfillAct, tray: [] },
-              { when: 'fulfilled', primary: null, tray: [] },
-              // Catch-all: the verb stays reachable for unknown statuses.
-              { when: () => true, primary: null, tray: [fulfillAct] }
-            ]
-          };
-          return <StatusActionBar rows={rows} table={pickTable} busy={isRunning} />;
-        } : undefined}
-      />
+
+      {/* ── Main grid — GridView template handles picks grid (columns, filtering, bulk actions, slide-over) ── */}
+      <div className="flex-1 min-h-0">
+        <GridView viewKey="fulfillment" entityType="fulfillmentLine" />
+      </div>
+
       {canWrite && line ? (
         <div className="control-band fulfillment-pack-strip">
           <span className="selection-pill">{String(line.itemName ?? 'Selected line')} / {String(line.batchCode ?? 'batch')}</span>

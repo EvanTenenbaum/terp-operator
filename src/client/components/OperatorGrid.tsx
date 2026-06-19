@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import type {
+  CellClickedEvent,
   CellContextMenuEvent,
   CellPosition,
   CellValueChangedEvent,
@@ -72,6 +73,7 @@ interface OperatorGridProps {
   contextMenuItems?: (row: GridRow, canWrite: boolean) => ContextMenuItem[];
   onSelectionChange?: (rows: GridRow[]) => void;
   onCellCommit?: (event: CellValueChangedEvent<GridRow>) => void;
+  onCellClicked?: (event: CellClickedEvent<GridRow>) => void;
   emptyTitle?: string;
   emptyChildren?: ReactNode;
   tableKey?: string;
@@ -101,6 +103,7 @@ export function OperatorGrid({
   contextMenuItems,
   onSelectionChange,
   onCellCommit,
+  onCellClicked,
   emptyTitle,
   emptyChildren,
   tableKey,
@@ -720,6 +723,7 @@ export function OperatorGrid({
             rowSelection={rowSelection}
             animateRows={false}
             cellSelection={cellSelection}
+            enableCellTextSelection={true}
             undoRedoCellEditing
             tabToNextCell={tabToNextCell}
             sideBar={sideBar}
@@ -785,6 +789,7 @@ export function OperatorGrid({
             onCellEditingStarted={() => { useUiStore.getState().setCellEditing(true); }}
             onCellEditingStopped={() => { useUiStore.getState().setCellEditing(false); }}
             onCellValueChanged={onCellCommit}
+            onCellClicked={onCellClicked}
             onCellContextMenu={onCellContextMenuHandler}
           />
         ) : (

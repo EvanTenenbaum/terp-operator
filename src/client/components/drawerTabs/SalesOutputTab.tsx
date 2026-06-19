@@ -1,3 +1,4 @@
+import { logger } from '@/client/services/logger';
 import { FileText } from 'lucide-react';
 import type { GridRow } from '../../../shared/types';
 import { buildCustomerOfferCsv } from '../../views/SalesView.csvExport';
@@ -55,7 +56,7 @@ export function SalesOutputTab({
     const result = onExport();
     if (result instanceof Promise) {
       void result.catch((err: unknown) => {
-        console.error('SalesOutputTab: exportSheet failed', err);
+        logger.error('SalesOutputTab: exportSheet failed', { error: String(err) });
       });
     }
   }

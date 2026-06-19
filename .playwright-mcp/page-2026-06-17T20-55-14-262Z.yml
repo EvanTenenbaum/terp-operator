@@ -1,0 +1,10 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e210]:
+    - generic [ref=e211]:
+      - heading "Something went wrong." [level=1] [ref=e212]
+      - paragraph [ref=e213]: The console hit an unexpected error. Try again to resume; if the issue persists, reload the page or contact support.
+      - generic [ref=e214]: Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate. React limits the number of nested updates to prevent infinite loops.
+      - generic [ref=e215]:
+        - button "Try again" [ref=e216] [cursor=pointer]
+        - button "Reload page" [ref=e217] [cursor=pointer]
+  - button "Report an issue" [ref=e209] [cursor=pointer]: Report Issue
