@@ -4,10 +4,7 @@ export interface CommandCompletedEvent {
   commandId: string;
   commandName: string;
   actorId: string;
-  status: string;
-  comment?: string;
-  affectedCount?: number;
-  totalAffectedRows?: number;
+  affectedIds: string[];
 }
 
 export interface CommandFailedEvent {
