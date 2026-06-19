@@ -356,13 +356,33 @@ export type ComboboxOptionsOutput = z.infer<typeof comboboxOptionsOutputSchema>;
 // statusCounts — Per-entity status distribution for ViewTabBar (T-B-04)
 // ---------------------------------------------------------------------------
 
-export const statusCountsEntityTypeSchema = z.enum([
+// Plural view name → singular entity type normalization
+const normalizeEntityType = (val: unknown): string => {
+  const s = String(val ?? '');
+  const map: Record<string, string> = {
+    purchaseOrders: 'purchaseOrder', sales: 'salesOrder', orders: 'salesOrder',
+    payments: 'payment', inventory: 'batch', intake: 'batch', items: 'item',
+    fulfillment: 'fulfillmentLine', connectors: 'connectorRequest',
+    photography: 'photographyQueue', purchaseReceipts: 'purchaseReceipt',
+    disputes: 'invoiceDispute', matchmaking: 'matchmakingMatch',
+    referees: 'refereeCredit', pick: 'pickList', vendors: 'vendor',
+    clients: 'customer', processors: 'processor', closeout: 'commandJournal',
+    recovery: 'commandJournal', dashboard: 'commandJournal', reports: 'commandJournal',
+    contacts: 'customer', settings: 'systemSettings', 'credit-review': 'invoiceDispute',
+    'fulfillment-picks': 'pickList', 'fulfillment-lines': 'fulfillmentLine',
+  };
+  return map[s] ?? s;
+};
+
+export const statusCountsEntityTypeSchema = z.preprocess(
+  normalizeEntityType,
+  z.enum([
   'purchaseOrder', 'salesOrder', 'batch', 'payment', 'invoice',
   'purchaseReceipt', 'vendorBill', 'vendorPayment', 'fulfillmentLine',
   'pickList', 'connectorRequest', 'matchmakingMatch', 'photographyQueue',
   'invoiceDispute', 'correctionJournalEntry', 'commandJournal',
   'documentSnapshot', 'refereeCredit', 'batchMedia', 'item',
-]);
+]));
 export type StatusCountsEntityType = z.infer<typeof statusCountsEntityTypeSchema>;
 
 export const statusCountsInputSchema = z.object({
