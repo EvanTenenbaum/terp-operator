@@ -36,8 +36,8 @@ import type { Tx } from '@/server/db';
 import type { CommandResult } from '../../shared/types';
 import { validateCostRange } from '../../shared/priceRange';
 
-// Helpers, schemas, the Payload type, and the createBatch handler are kept in
-// commandBus.ts for this phase (see header comment).
+// Helpers, schemas, and the Payload type are kept in commandBus.ts for this
+// phase (see header comment). createBatch moved to @/domains/intake.
 import {
   // Helpers
   addPurchaseOrderLinePayloadSchema,
@@ -47,7 +47,6 @@ import {
   cancelPurchaseOrderPayloadSchema,
   code,
   copyIfPresent,
-  createBatch,
   createPurchaseOrderPayloadSchema,
   dateOrNull,
   decodeShorthand,
@@ -73,6 +72,8 @@ import {
   // Types
   type Payload,
 } from '@/server/services/commandBus';
+
+import { createBatch } from '@/domains/intake';
 
 // Referee credit accrual lives in its own module; safe to import directly.
 import { accrueRefereeCredit } from '@/server/services/refereeCommands';
