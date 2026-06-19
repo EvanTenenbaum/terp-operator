@@ -208,6 +208,43 @@ const STATUS_COUNTS_REGISTRY: Record<string, StatusCountsEntry> = {
 
 // ─── gridInputSchema — extended input for grid v2, with backwards-compat
 // `view` alias accepted alongside new `entityType`.
+
+// ─── View name → canonical entity type mapping ──────────────────────────
+// Some client views pass plural view names (e.g. "purchaseOrders") to the
+// grid query's `view` parameter. The transform at line ~228 sets entityType
+// from view when entityType is not provided. The grid procedure body uses
+// entityType for table routing, which expects canonical singular forms.
+// This map normalizes view names to canonical entity types at the boundary.
+const VIEW_TO_ENTITY: Record<string, string> = {
+  purchaseOrders: 'purchaseOrder',
+  sales: 'salesOrder',
+  orders: 'salesOrder',
+  payments: 'payment',
+  inventory: 'batch',
+  intake: 'batch',
+  items: 'item',
+  fulfillment: 'fulfillmentLine',
+  'fulfillment-picks': 'pickList',
+  'fulfillment-lines': 'fulfillmentLine',
+  connectors: 'connectorRequest',
+  photography: 'photographyQueue',
+  purchaseReceipts: 'purchaseReceipt',
+  disputes: 'invoiceDispute',
+  'credit-review': 'invoiceDispute',
+  pick: 'pickList',
+  matchmaking: 'matchmakingMatch',
+  referees: 'refereeCredit',
+  clients: 'customer',
+  vendors: 'vendor',
+  processors: 'processor',
+  closeout: 'commandJournal',
+  recovery: 'commandJournal',
+  dashboard: 'commandJournal',
+  reports: 'commandJournal',
+  contacts: 'customer',
+  settings: 'systemSettings',
+};
+
 export const gridInputSchemaRaw = z.object({
   entityType: viewSchema.optional(),
   view: viewSchema.optional(), // deprecated alias; removed in Phase 4
@@ -227,7 +264,7 @@ export const gridInputSchemaRaw = z.object({
 
 export const gridInputSchema = gridInputSchemaRaw.transform((input) => ({
   ...input,
-  entityType: (input.entityType ?? input.view)!,
+  entityType: VIEW_TO_ENTITY[(input.entityType ?? input.view)!] ?? (input.entityType ?? input.view)!,
 }));
 
 export type GridInput = z.infer<typeof gridInputSchema>;
@@ -574,7 +611,7 @@ export const queriesRouter = router({
 
     // 3.1 Status: re-parse against canonical status enum
     if (filtersInput?.status) {
-      const schema = statusSchemaFor(entityType);
+      const schema = statusSchemaFor(entityType as Parameters<typeof statusSchemaFor>[0]);
       if (schema) {
         const parsed = schema.safeParse(filtersInput.status);
         if (!parsed.success) {
@@ -634,7 +671,7 @@ export const queriesRouter = router({
 
     // ── Build and execute ──
     const { sql, params } = buildGridV2Query(
-      entityType,
+      entityType as Parameters<typeof buildGridV2Query>[0],
       filtersInput,
       sortInput,
       groupBy,
@@ -678,6 +715,7 @@ export const queriesRouter = router({
   statusCounts: protectedProcedure
     .input(statusCountsInputSchema)
     .query(async ({ input, ctx }) => {
+
       const entry = STATUS_COUNTS_REGISTRY[input.entityType];
       if (!entry) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: `Unknown entity type: ${input.entityType}` });
