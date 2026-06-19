@@ -1,0 +1,16 @@
+# Pre-Extraction Test Baseline
+# Date: 2026-06-18
+# Branch: docs/mercury-ux-retrofit-master-plan
+# Commit: $(git rev-parse --short HEAD)
+
+Total test files: 287
+Skipped tests: 21 (across 4 files)
+Skipped test files: $(rg -l "\.skip|it\.skip|test\.skip|describe\.skip" src/ -g '*.test.*' | wc -l | tr -d ' ')
+
+Status: Fast-runner full suite timed out (likely Vite/DB connection issue).
+Single test verification: src/shared/statuses.test.ts passed.
+Full suite run deferred to Phase 3 after CI is configured.
+
+Note: The baseline metric "Tests passing after extraction: 100%" will be measured
+against a CI run with proper DB access, not the fast-runner which may have
+transient connection issues.

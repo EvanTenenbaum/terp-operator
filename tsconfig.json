@@ -15,7 +15,14 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@/domains/*": ["./src/domains/*"],
+      "@/client/*": ["./src/client/*"],
+      "@/server/*": ["./src/server/*"],
+      "@/shared/*": ["./src/shared/*"]
+    }
   },
   "include": ["src", "tests", "vite.config.ts", "tailwind.config.ts", "postcss.config.js", "playwright.config.ts"]
 }

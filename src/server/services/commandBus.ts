@@ -71,7 +71,8 @@ import {
   vendors
 } from '../schema';
 import { assertCommandAccess } from '../rbac';
-import { appendJsonlJournal } from './journal';
+import { appendJsonlJournal } from '@/domains/shared/journal';
+import { emitCommandCompleted, emitCommandFailed } from '@/domains/shared/socket-emitter';
 import { rowsToCsv, validateBatchCsv } from './csv';
 import { getCloseoutSafety } from './closeout';
 import { applyPricingRule, asCustomerPricingRule, evaluatePrice, resolvePricingProfile, resolvePricingRuleEntry } from './pricing';
@@ -862,7 +863,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       // other operator-specific data that should not be visible to peer operators.
       // Actors receive their own toast via the mutation's onSuccess callback.
       // Peer clients receive only the cache-invalidation signal (affectedIds).
-      io.to('authenticated').emit('command:completed', {
+      emitCommandCompleted(io, {
         commandId,
         commandName: input.name,
         actorId: user.id,
@@ -1014,7 +1015,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     // GH #329: emit only to 'authenticated' room — must use scrubbed
     // message, not the raw one.
     try {
-      io.to('authenticated').emit('command:failed', { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
+      emitCommandFailed(io, { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
     } catch (e) {
       console.warn('[commandBus] socket emit failed on failure path:', e instanceof Error ? e.message : e);
     }
