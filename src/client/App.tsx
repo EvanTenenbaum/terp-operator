@@ -45,9 +45,10 @@ import { PickView } from './views/PickView';
 import { MediaUploadMobileRoute } from './components/MediaUploadMobile';
 import { ContactsView } from './views/ContactsView';
 import { ContactProfileView } from './views/ContactProfileView';
-// BE-014 / TER-1591 DEFERRED: MergeCandidatesView is imported but its route
-// is temporarily redirected to /contacts (see route table below).  Keep the
-// import so the component is wired and ready when BE-014 ships.
+// BE-014 / TER-1591 DEFERRED: MergeCandidatesView route is temporarily
+// redirected to /contacts (see route table below). Import is preserved so
+// the component is wired and ready when BE-014 ships — tree-shaking will
+// exclude it until the route is activated. Suppress the unused-import lint.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { MergeCandidatesView } from './views/MergeCandidatesView';
 import { MobileShell } from './components/mobile/MobileShell';
@@ -130,7 +131,7 @@ function AppContent() {
       const mobileTarget = DESKTOP_TO_MOBILE[firstSegment];
       navigate(mobileTarget ?? '/mobile/dashboard', { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Mount-only: redirect mobile users once on initial load
   }, []);
 
   if (me.isLoading) {

@@ -403,7 +403,7 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
   // deriveCustomerRefereeRelationships helper from SalesView.ux-f06.ts.
   const customerRefereeRelationships = useMemo(
     () => deriveCustomerRefereeRelationships(
-      (reference.data?.refereeRelationships ?? []) as any[],
+      (reference.data?.refereeRelationships ?? []) as Parameters<typeof deriveCustomerRefereeRelationships>[0],
       customerId,
     ),
     [reference.data?.refereeRelationships, customerId],

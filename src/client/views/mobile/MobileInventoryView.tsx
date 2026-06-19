@@ -69,7 +69,7 @@ export function MobileInventoryView() {
     setTimeout(() => {
       rowRefs.current[expandParam]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Mount-only effect: auto-expand on initial load
   }, []);
 
   const filtered = rows.filter(row => {

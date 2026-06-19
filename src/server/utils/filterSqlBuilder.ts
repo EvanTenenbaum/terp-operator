@@ -162,7 +162,7 @@ function buildConditionSql(condition: FilterCondition, params: SqlParams): strin
     default:
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: `Unsupported operator: ${(condition as any).operator}`
+        message: `Unsupported operator: ${(condition as FilterCondition).operator}`
       });
   }
 }

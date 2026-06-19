@@ -41,9 +41,9 @@ export function ItemsView() {
   const [editTags, setEditTags] = useState('');
   const [editDescription, setEditDescription] = useState('');
 
-  const referenceItems = (reference.data?.items ?? []) as any[];
-  const activeCount = referenceItems.filter((r: any) => r.status !== 'inactive').length;
-  const inactiveCount = referenceItems.filter((r: any) => r.status === 'inactive').length;
+  const referenceItems: GridRow[] = (reference.data?.items ?? []) as GridRow[];
+  const activeCount = referenceItems.filter((r) => String(r.status ?? '') !== 'inactive').length;
+  const inactiveCount = referenceItems.filter((r) => String(r.status ?? '') === 'inactive').length;
 
   function openEdit(row: GridRow) {
     setEditName(String(row.name ?? ''));

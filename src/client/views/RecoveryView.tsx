@@ -151,7 +151,7 @@ export function RecoveryView() {
   // ── Slideover row (for DetailSlideover) ────────────────────────────────
   const slideoverRow: GridRow | undefined = useMemo(() => {
     if (!activeDrawerEntity?.entityId) return undefined;
-    return filteredSearchRows.find((r) => String(r.id) === activeDrawerEntity.entityId);
+    return filteredSearchRows.find((r) => String(r.id) === activeDrawerEntity.entityId) as GridRow | undefined;
   }, [activeDrawerEntity, filteredSearchRows]);
 
   // ── Admin tools labels ─────────────────────────────────────────────────

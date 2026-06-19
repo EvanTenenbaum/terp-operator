@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from 'pg';
+import type { Pool, PoolClient, QueryResult } from 'pg';
 
 export type TriggerSource =
   | 'event:postSalesOrder' | 'event:confirmSalesOrder'
@@ -10,6 +10,29 @@ export type TriggerSource =
   | 'nightly' | 'manualTrigger' | 'shadowMode' | 'bulkRevert' | 'reconciliation';
 
 /**
+ * Unwrap the raw pg PoolClient from a Pool, PoolClient, or Drizzle ORM
+ * transaction object. Drizzle NodePgTransaction stores the underlying
+ * PoolClient at `tx.session.client`. Plain Pool / PoolClient callers
+ * are returned as-is. The cast is safe because the runtime check for
+ * `session.client` guards the Drizzle path.
+ */
+function unwrapPgClient(
+  client: Pool | PoolClient | object
+): { query(queryText: string, values?: unknown[]): Promise<QueryResult> } {
+  if (
+    client !== null &&
+    typeof client === 'object' &&
+    'session' in client &&
+    client.session !== null &&
+    typeof client.session === 'object' &&
+    'client' in client.session
+  ) {
+    return client.session as unknown as { query(queryText: string, values?: unknown[]): Promise<QueryResult> };
+  }
+  return client as { query(queryText: string, values?: unknown[]): Promise<QueryResult> };
+}
+
+/**
  * Enqueue a customer for credit-engine recompute. Idempotent at the pending-row
  * level via the `credit_recompute_queue_pending_unique` partial index — at most
  * one pending row per customer. Use ON CONFLICT DO NOTHING so duplicate enqueues
@@ -18,26 +41,14 @@ export type TriggerSource =
  * Callers normally pass a transaction client so the enqueue rolls back with the
  * triggering command if it fails. The Pool overload exists for tests and the
  * nightly bulk path.
- *
- * Implementation note: commandBus passes Drizzle ORM transaction objects (NodePgTransaction),
- * which wrap a raw pg.PoolClient at `tx.session.client`. Drizzle's own `tx.query` property
- * is a relational query-builder object, NOT the pg Pool.query() function. We unwrap to the
- * raw PoolClient so the INSERT uses the same connection as the surrounding transaction
- * (i.e., the enqueue stays transactional and rolls back with the command if it fails).
  */
 export async function enqueueCustomerRecompute(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  client: Pool | PoolClient | any,
+  client: Pool | PoolClient | object,
   customerId: string,
   source: TriggerSource,
   commandId: string | null
 ): Promise<void> {
-  // Unwrap Drizzle ORM transaction objects: NodePgTransaction stores the
-  // underlying pg.PoolClient at client.session.client (inherited from PgDatabase).
-  // Plain Pool / PoolClient callers have no .session, so the nullish fallback
-  // keeps the existing behaviour for those paths.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const pgClient: Pool | PoolClient = (client as any)?.session?.client ?? (client as Pool | PoolClient);
+  const pgClient = unwrapPgClient(client);
   await pgClient.query(
     `INSERT INTO credit_recompute_queue (customer_id, enqueued_by, command_id, status)
        VALUES ($1, $2, $3, 'pending')
@@ -55,22 +66,13 @@ export interface EnqueueAllOptions {
  * Bulk-enqueue every customer (or filtered subset). Uses INSERT ... SELECT with
  * ON CONFLICT DO NOTHING to collapse duplicates against the pending-unique index.
  * Returns the number of rows actually inserted (not the input count).
- *
- * Implementation note: commandBus passes Drizzle ORM transaction objects when calling
- * this inside a transaction. Like enqueueCustomerRecompute, we unwrap the underlying
- * pg.PoolClient from `client.session.client` so the INSERT uses the same connection
- * as the surrounding Drizzle transaction (i.e., the enqueue rolls back with the
- * command if it fails).
  */
 export async function enqueueAllCustomers(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  client: Pool | PoolClient | any,
+  client: Pool | PoolClient | object,
   source: TriggerSource,
   options: EnqueueAllOptions = {}
 ): Promise<{ enqueued: number }> {
-  // Unwrap Drizzle ORM transaction objects (same pattern as enqueueCustomerRecompute).
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const pgClient: Pool | PoolClient = (client as any)?.session?.client ?? (client as Pool | PoolClient);
+  const pgClient = unwrapPgClient(client);
   const filters: string[] = [];
   const params: (string | null)[] = [source];
   if (options.stanceId !== undefined) {

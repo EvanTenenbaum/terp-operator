@@ -175,8 +175,8 @@ export const purchaseOrderActions: EntityActionConfig = {
       },
     ],
 
-    // ══ ordered (orphan — not in PurchaseOrderStatus enum; unreachable) ═══════
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // ══ ordered (orphan — not in PurchaseOrderStatus enum; unreachable at runtime,
+    //     kept as documentation placeholder per ARCH-1 state-machine contract) ═══
     ['ordered']: [
       {
         id: 'receivePurchaseOrder',

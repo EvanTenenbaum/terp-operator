@@ -43,9 +43,7 @@ export function useDrawerUrlSync(view: ViewKey) {
       setDrawerEntity(view, entityTypeParam, entityIdParam ?? null);
       setDrawerState(view, drawerParam);
     }
-    // Run only on initial mount — do not re-run on searchParams changes
-    // (that would create an infinite loop with the write effect below).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Mount-only: read initial drawer state from URL params
   }, []);
 
   // Sync drawer state + entity → URL params on every state change.

@@ -158,7 +158,7 @@ interface FilterGroupComponentProps {
   onAddCondition: (path: number[]) => void;
   onAddGroup: (path: number[]) => void;
   onRemoveCondition: (path: number[], index: number) => void;
-  onUpdateCondition: (path: number[], index: number, updates: any) => void;
+  onUpdateCondition: (path: number[], index: number, updates: Partial<FilterCondition>) => void;
   onToggleLogic: (path: number[]) => void;
   depth: number;
 }
@@ -257,7 +257,7 @@ interface FilterConditionComponentProps {
   conditionIndex: number;
   groupPath: number[];
   facets: any;
-  onUpdate: (updates: any) => void;
+  onUpdate: (updates: Partial<FilterCondition>) => void;
   onRemove: () => void;
 }
 
@@ -302,8 +302,8 @@ function FilterConditionComponent({
               placeholder="Min"
               value={Array.isArray(condition.value) ? condition.value[0] : ''}
               onChange={(e) => {
-                const newValue = [parseFloat(e.target.value) || 0, Array.isArray(condition.value) ? condition.value[1] : 0];
-                onUpdate({ value: newValue as any });
+                const newValue: [number, number] = [parseFloat(e.target.value) || 0, Array.isArray(condition.value) ? Number(condition.value[1]) : 0];
+                onUpdate({ value: newValue });
               }}
               data-testid="filter-value-min"
               aria-label="Minimum value"
@@ -314,8 +314,8 @@ function FilterConditionComponent({
               placeholder="Max"
               value={Array.isArray(condition.value) ? condition.value[1] : ''}
               onChange={(e) => {
-                const newValue = [Array.isArray(condition.value) ? condition.value[0] : 0, parseFloat(e.target.value) || 0];
-                onUpdate({ value: newValue as any });
+                const newValue: [number, number] = [Array.isArray(condition.value) ? Number(condition.value[0]) : 0, parseFloat(e.target.value) || 0];
+                onUpdate({ value: newValue });
               }}
               data-testid="filter-value-max"
               aria-label="Maximum value"
@@ -329,8 +329,8 @@ function FilterConditionComponent({
               type="date"
               value={Array.isArray(condition.value) ? condition.value[0] : ''}
               onChange={(e) => {
-                const newValue = [e.target.value, Array.isArray(condition.value) ? condition.value[1] : ''];
-                onUpdate({ value: newValue as any });
+                const newValue: [string, string] = [e.target.value, Array.isArray(condition.value) ? String(condition.value[1]) : ''];
+                onUpdate({ value: newValue });
               }}
               data-testid="filter-value-date-start"
               aria-label="Start date"
@@ -340,8 +340,8 @@ function FilterConditionComponent({
               type="date"
               value={Array.isArray(condition.value) ? condition.value[1] : ''}
               onChange={(e) => {
-                const newValue = [Array.isArray(condition.value) ? condition.value[0] : '', e.target.value];
-                onUpdate({ value: newValue as any });
+                const newValue: [string, string] = [Array.isArray(condition.value) ? String(condition.value[0]) : '', e.target.value];
+                onUpdate({ value: newValue });
               }}
               data-testid="filter-value-date-end"
               aria-label="End date"
@@ -426,7 +426,7 @@ function FilterConditionComponent({
             value={Array.isArray(condition.value) ? condition.value : []}
             onChange={(e) => {
               const selected = Array.from(e.target.selectedOptions, option => option.value);
-              onUpdate({ value: selected as any });
+              onUpdate({ value: selected });
             }}
             data-testid="filter-value-tags"
             aria-label="Tags value (multi-select)"
@@ -483,7 +483,7 @@ function FilterConditionComponent({
         className="select compact"
         style={{ minWidth: 110 }}
         value={condition.field}
-        onChange={(e) => onUpdate({ field: e.target.value as FilterFieldName, operator: 'equals', value: '' })}
+        onChange={(e) => onUpdate({ field: e.target.value as FilterFieldName, operator: 'equals', value: '' } as Partial<FilterCondition>)}
         data-testid="filter-field-select"
         aria-label="Filter field"
       >
@@ -498,7 +498,7 @@ function FilterConditionComponent({
         className="select compact"
         style={{ minWidth: 110 }}
         value={condition.operator}
-        onChange={(e) => onUpdate({ operator: e.target.value as any })}
+        onChange={(e) => onUpdate({ operator: e.target.value as FilterCondition['operator'] })}
         data-testid="filter-operator-select"
         aria-label="Filter operator"
       >

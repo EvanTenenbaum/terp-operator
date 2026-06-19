@@ -526,8 +526,16 @@ export const queriesRouter = router({
       const truncated = rows.length > limit;
       if (truncated) rows.pop();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const options = rows.map((row: any) => ({
+      interface LookupResultRow {
+        id: string;
+        label: string;
+        sublabel?: string;
+        status?: string;
+        availableQty?: number;
+        balance?: number;
+        disabledReason?: string;
+      }
+      const options: LookupResultRow[] = rows.map((row: Record<string, unknown>) => ({
         id:             String(row.id),
         label:          String(row.label ?? ''),
         sublabel:       row.sublabel != null ? String(row.sublabel) : undefined,
@@ -1154,14 +1162,12 @@ export const queriesRouter = router({
     ]);
 
     const customers: Record<string, { needs: number; matches: number }> = {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const row of customerCounts.rows as any[]) {
+    for (const row of customerCounts.rows as Array<{ id: string; needs: string; matches: string }>) {
       customers[row.id] = { needs: Number(row.needs), matches: Number(row.matches) };
     }
 
     const vendors: Record<string, { supply: number }> = {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const row of vendorCounts.rows as any[]) {
+    for (const row of vendorCounts.rows as Array<{ id: string; supply: string }>) {
       vendors[row.id] = { supply: Number(row.supply) };
     }
 
@@ -1203,8 +1209,19 @@ export const queriesRouter = router({
         [q]
       )
     ).rows;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return rows.map((row: any) => ({
+    interface RecoverySearchRow {
+      id: string;
+      commandName: string;
+      actorName: string;
+      status: string;
+      error: string | null;
+      createdAt: string;
+      result: unknown;
+      inputPayload: unknown;
+      affectedIds: string[];
+      reversedByCommandId: string | null;
+    }
+    return (rows as RecoverySearchRow[]).map((row) => ({
       ...row,
       inputPayload: canViewPayload ? row.inputPayload : undefined,
     }));

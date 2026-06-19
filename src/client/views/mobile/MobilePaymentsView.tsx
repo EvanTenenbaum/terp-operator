@@ -101,7 +101,7 @@ export function MobilePaymentsView() {
   const canPayVendor = role === 'owner' || role === 'manager';
 
   const invoices: InvoiceRow[] = useMemo(() => {
-    const raw = ((invoicesQuery.data ?? []) as any[]).map((row: any) => ({
+    const raw = ((invoicesQuery.data ?? []) as Record<string, unknown>[]).map((row) => ({
       ...row,
       customerId: row.customerId ?? row.customer_id ?? row.id,
     })) as InvoiceRow[];

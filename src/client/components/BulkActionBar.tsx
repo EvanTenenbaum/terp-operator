@@ -159,20 +159,6 @@ export function BulkActionBar({
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
   }, [isVisible]);
 
-  // ── Handle local keyboard events on the bar ───────────────────────────────
-  const handleKeyDown = useCallback(
-    (e: ReactKeyboardEvent, action: BulkAction) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        if (execState.phase === 'idle' && !action.disabled) {
-          executeAction(action);
-        }
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [execState.phase, actions],
-  );
-
   // ── Execute action ──────────────────────────────────────────────────────
   const executeAction = useCallback(
     async (action: BulkAction) => {
@@ -217,6 +203,19 @@ export function BulkActionBar({
       }
     },
     [inputValues, onClear],
+  );
+
+  // ── Handle local keyboard events on the bar ───────────────────────────────
+  const handleKeyDown = useCallback(
+    (e: ReactKeyboardEvent, action: BulkAction) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (execState.phase === 'idle' && !action.disabled) {
+          executeAction(action);
+        }
+      }
+    },
+    [execState.phase, executeAction],
   );
 
   // ── Auto-hide after success green flash ──────────────────────────────────

@@ -228,8 +228,11 @@ export function FilterToolbar({
   useEffect(() => {
     const filterString = buildQuickFilterString();
     setGridFilter(view, filterString);
-    // We intentionally don't include setGridFilter in deps — it's stable from Zustand
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // buildQuickFilterString intentionally excluded: it depends on storedGridFilter,
+    // and including it would cause the effect to re-apply quick filters whenever
+    // the user edits filters manually (feedback loop).
+    // setGridFilter is a stable Zustand setter — no re-render risk, but adding
+    // it to deps would violate the existing convention of omitting Zustand setters.
   }, [dateActive, dateFilter, keywordActive, keywordFilter.text, amountActive, amountFilter, view]);
 
   const clearQuickFilters = useCallback(() => {

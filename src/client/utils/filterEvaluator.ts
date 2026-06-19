@@ -165,7 +165,7 @@ function evaluateCondition(row: Record<string, any>, condition: FilterCondition)
       return new Date(value) > new Date(condition.value);
 
     default:
-      logger.warn('Unsupported filter operator', { operator: String((condition as any).operator) });
+      logger.warn('Unsupported filter operator', { operator: String((condition as FilterCondition).operator) });
       return false;
   }
 }

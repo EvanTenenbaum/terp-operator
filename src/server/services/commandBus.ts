@@ -3054,22 +3054,20 @@ async function updateTaggedEntity(tx: Tx, entityType: string, entityId: string, 
 }
 
 function taggedTable(entityType: string) {
-  switch (entityType) {
-    case 'batch':
-      return batches as any;
-    case 'purchaseOrderLine':
-      return purchaseOrderLines as any;
-    case 'item':
-      return items as any;
-    case 'customer':
-      return customers as any;
-    case 'customerNeed':
-      return customerNeeds as any;
-    case 'vendorSupply':
-      return vendorSupply as any;
-    default:
-      throw new Error('Tags can be applied to item, purchaseOrderLine, batch, customer, customerNeed, or vendorSupply.');
+  const TAGGED_TABLES = {
+    batch: batches,
+    purchaseOrderLine: purchaseOrderLines,
+    item: items,
+    customer: customers,
+    customerNeed: customerNeeds,
+    vendorSupply: vendorSupply,
+  } as const;
+
+  const table = TAGGED_TABLES[entityType as keyof typeof TAGGED_TABLES];
+  if (!table) {
+    throw new Error('Tags can be applied to item, purchaseOrderLine, batch, customer, customerNeed, or vendorSupply.');
   }
+  return table;
 }
 
 function taggedEntityLabel(entityType: string) {
@@ -3121,8 +3119,16 @@ export async function snapshotByAffectedIds(dbLike: typeof db | Tx, ids: string[
   ] as const;
 
   // GH #310: run all table lookups concurrently instead of 22 sequential round-trips.
+  // Each table in tablePairs has a different Drizzle schema type — we cast
+  // through the `batches` table shape since all snapshot tables share an `id`
+  // column and use identical `select().from()` + `inArray()` patterns.
   const results = await Promise.all(
-    tablePairs.map(([, table]) => dbLike.select().from(table as any).where(inArray((table as any).id, unique)))
+    tablePairs.map(([, table]) =>
+      dbLike
+        .select()
+        .from(table as typeof batches)
+        .where(inArray((table as typeof batches).id, unique))
+    )
   );
   for (let i = 0; i < tablePairs.length; i++) {
     const rows = results[i];

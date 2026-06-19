@@ -253,7 +253,10 @@ export function IntakeView() {
         params.successCallback(params.data?.batches ?? []);
       }
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally exclude verifyBatch, setMarketName, deleteDraftBatch from
+    // deps — they are regular functions (not useCallback) and would cause the
+    // grid options to re-create on every render. The inline arrow callbacks
+    // always capture the latest closure state, which is the desired behavior.
     [canWrite, runCommand, me.data?.name, onBatchRowClicked, handleBatchHistory]
   );
 

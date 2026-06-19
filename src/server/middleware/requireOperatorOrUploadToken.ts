@@ -8,6 +8,9 @@ import { validateBatchIdFormat } from '../services/mediaValidation';
 import type { SessionUser } from '../../shared/types';
 
 declare global {
+  // Augment Express request with TERP-specific auth context.
+  // Namespace merging is the canonical Express pattern for request augmentation;
+  // there is no module-based alternative for `req.user` / `req.uploadContext`.
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
