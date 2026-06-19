@@ -22,7 +22,6 @@ import {
   archiveRuns,
   backupSnapshots,
   batches,
-  batchMedia,
   brands,
   clientLedgerEntries,
   commandJournal,
@@ -50,7 +49,6 @@ import {
   paymentProcessors,
   payments,
   periodLocks,
-  photographyQueue,
   pickLists,
   purchaseReceiptLines,
   purchaseReceipts,
@@ -112,13 +110,11 @@ import {
   updateProcessorFeeStatus
 } from './processorCommands';
 import { enqueueAllCustomers, enqueueCustomerRecompute } from './creditEngine';
-import { deleteMedia } from './mediaStorage';
 import { reversalPolicies } from '../../shared/commandCatalog';
 import { invalidateReferenceCache } from '../routers/queries';
-import { photoUploadTokens } from '../schema';
 import { emitPickEvent, emitPickOrderAndQueue, emitSalesLineEvent } from '../sockets';
 
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { CommandResult, SessionUser } from '../../shared/types';
 import { normalizeTagSlug, parseTagInput } from '../../shared/tags';
@@ -253,6 +249,35 @@ export {
   snoozeCustomerCreditReminder,
   updateCreditEngineStance,
 } from '@/domains/credit';
+
+// Media domain commands extracted to @/domains/media (P1.MED.EXTRACT).
+// commandBus retains the shared helpers (requiredId / requiredNumber /
+// requiredString / stringValue / Payload type) these handlers rely on;
+// switch cases below still dispatch to them by name. The
+// ALLOWED_MEDIA_TYPES / ALLOWED_MEDIA_ROLES / PHOTO_UPLOAD_TOKEN_MAX_TTL_MINUTES
+// constants moved with the handlers (domain-internal). The internal helpers
+// previously named `mintPhotoUploadTokenCommand` / `revokePhotoUploadTokenCommand`
+// are renamed to their natural names (`mintPhotoUploadToken` /
+// `revokePhotoUploadToken`) in the domain module.
+import {
+  attachBatchPhoto,
+  deleteBatchMedia,
+  mintPhotoUploadToken,
+  publishBatchMedia,
+  revokePhotoUploadToken,
+  setBatchMediaRole,
+  uploadBatchMedia,
+} from '@/domains/media';
+
+// Re-export media handlers that were previously exported directly from this
+// module so existing test imports (src/tests/mediaCommands.test.ts) keep
+// working after P1.MED.EXTRACT.
+export {
+  deleteBatchMedia,
+  publishBatchMedia,
+  setBatchMediaRole,
+  uploadBatchMedia,
+} from '@/domains/media';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -1369,9 +1394,9 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
     case 'updateSystemSetting':
       return updateSystemSetting(tx, payload, commandId);
     case 'mintPhotoUploadToken':
-      return mintPhotoUploadTokenCommand(tx, payload, user.id, commandId);
+      return mintPhotoUploadToken(tx, payload, user.id, commandId);
     case 'revokePhotoUploadToken':
-      return revokePhotoUploadTokenCommand(tx, payload, commandId);
+      return revokePhotoUploadToken(tx, payload, commandId);
     // ─── Contacts system (CAP-033 / TER-1564) ─────────────────────────────
     case 'createContact':
       return createContact(tx, payload, commandId);
@@ -1799,194 +1824,11 @@ async function transferInventoryOwnership(tx: Tx, payload: Payload, commandId: s
   return { ok: true, commandId, affectedIds: [batchId], toast: `${row.name} ownership moved to ${ownershipStatus}.`, delta: { fromOwnershipStatus: row['ownership_status'], toOwnershipStatus: ownershipStatus } };
 }
 
-async function attachBatchPhoto(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
-  const batchId = requiredId(payload.batchId ?? payload.id, 'batchId');
-  const photoUrl = requiredString(payload.photoUrl, 'photoUrl');
-  if (!/^https?:\/\/.+/.test(photoUrl)) {
-    throw new Error('photoUrl must be a valid http or https URL.');
-  }
-  if (photoUrl.length > 2048) {
-    throw new Error('photoUrl must be 2048 characters or fewer.');
-  }
-  await tx.update(batches).set({ photoUrl, mediaStatus: 'done', updatedAt: new Date() }).where(eq(batches.id, batchId));
-  await tx.insert(photographyQueue).values({ batchId, requestedBy: userId, status: 'done', notes: stringValue(payload.notes) || null });
-  return { ok: true, commandId, affectedIds: [batchId], toast: 'Batch photo attached.' };
-}
-
-// ---------------------------------------------------------------------------
-// Photography Module — file-upload media commands (Phase D Tasks 13-14)
-// These commands manage the batch_media table populated by the /api/upload/media
-// route. They run in parallel with the legacy URL-attach flow (attachBatchPhoto).
-// ---------------------------------------------------------------------------
-
-const ALLOWED_MEDIA_TYPES = new Set(['photo', 'video']);
-const ALLOWED_MEDIA_ROLES = new Set(['primary_photo', 'primary_video', 'additional']);
-
-export async function uploadBatchMedia(
-  tx: Tx,
-  payload: Payload,
-  userId: string,
-  commandId: string
-): Promise<CommandResult> {
-  const batchId = requiredId(payload.batchId, 'batchId');
-  const filePath = requiredString(payload.filePath, 'filePath');
-  const originalFilename = requiredString(payload.originalFilename, 'originalFilename');
-  const fileSize = requiredNumber(payload.fileSize, 'fileSize');
-  if (fileSize < 0) throw new Error('fileSize must be non-negative.');
-  const mimeType = requiredString(payload.mimeType, 'mimeType');
-  const mediaType = requiredString(payload.mediaType, 'mediaType');
-  if (!ALLOWED_MEDIA_TYPES.has(mediaType)) {
-    throw new Error(`mediaType must be one of: ${[...ALLOWED_MEDIA_TYPES].join(', ')}.`);
-  }
-  const thumbnailPath = stringValue(payload.thumbnailPath) || null;
-  const mediumPath = stringValue(payload.mediumPath) || null;
-  const notes = stringValue(payload.notes) || null;
-
-  const [row] = await tx
-    .insert(batchMedia)
-    .values({
-      batchId,
-      filePath,
-      originalFilename,
-      fileSize,
-      mimeType,
-      thumbnailPath,
-      mediumPath,
-      mediaType,
-      role: 'additional',
-      status: 'draft',
-      uploadedBy: userId,
-      notes
-    })
-    .returning();
-
-  return {
-    ok: true,
-    commandId,
-    affectedIds: [row.id],
-    toast: `Media uploaded (${originalFilename}).`
-  };
-}
-
-export async function setBatchMediaRole(
-  tx: Tx,
-  payload: Payload,
-  commandId: string
-): Promise<CommandResult> {
-  const mediaId = requiredId(payload.mediaId, 'mediaId');
-  const role = requiredString(payload.role, 'role');
-  if (!ALLOWED_MEDIA_ROLES.has(role)) {
-    throw new Error(`role must be one of: ${[...ALLOWED_MEDIA_ROLES].join(', ')}.`);
-  }
-
-  // Lock the target row to prevent concurrent role changes on the same row.
-  const targetRows = await tx.execute(
-    sql`SELECT id, batch_id, role, status FROM ${batchMedia} WHERE ${batchMedia.id} = ${mediaId} FOR UPDATE`
-  );
-  const target = targetRows.rows[0];
-  if (!target) throw new Error('Batch media row not found.');
-
-  // If promoting to a primary role, also lock any existing published primary
-  // for the same batch+role so two concurrent ops can't both claim the slot.
-  if (role === 'primary_photo' || role === 'primary_video') {
-    await tx.execute(
-      sql`SELECT id FROM ${batchMedia}
-          WHERE batch_id = ${target.batch_id}
-            AND role = ${role}
-            AND status = 'published'
-            AND replaced_at IS NULL
-          FOR UPDATE`
-    );
-  }
-
-  try {
-    await tx
-      .update(batchMedia)
-      .set({ role, updatedAt: new Date() })
-      .where(eq(batchMedia.id, mediaId))
-      .returning();
-  } catch (err) {
-    const code = (err as { code?: string } | null)?.code;
-    // Defense in depth (GH #24 follow-up): even though the outer dispatcher
-    // catch path scrubs DB error text before it reaches the tRPC envelope, we
-    // also re-throw a scrubbed message here so any intermediate layer that
-    // surfaces err.message cannot leak SQL/Drizzle internals.
-    const { safeMessage } = scrubDatabaseError(err);
-    const rawMessage = err instanceof Error ? err.message : String(err);
-    if (code === '23505' || /unique/i.test(rawMessage)) {
-      throw new Error('Another media row is already the primary for this batch. Demote it first or replace it.');
-    }
-    throw new Error(safeMessage);
-  }
-
-  return {
-    ok: true,
-    commandId,
-    affectedIds: [mediaId],
-    toast: `Media role set to ${role}.`
-  };
-}
-
-export async function publishBatchMedia(
-  tx: Tx,
-  payload: Payload,
-  commandId: string
-): Promise<CommandResult> {
-  const mediaId = requiredId(payload.mediaId, 'mediaId');
-  const now = new Date();
-
-  const updated = await tx
-    .update(batchMedia)
-    .set({ status: 'published', publishedAt: now, updatedAt: now })
-    .where(and(eq(batchMedia.id, mediaId), eq(batchMedia.status, 'draft')))
-    .returning();
-
-  if (!updated.length) {
-    throw new Error('Batch media not found or not in draft status.');
-  }
-
-  return {
-    ok: true,
-    commandId,
-    affectedIds: [mediaId],
-    toast: 'Media published.'
-  };
-}
-
-export async function deleteBatchMedia(
-  tx: Tx,
-  payload: Payload,
-  commandId: string
-): Promise<CommandResult> {
-  const mediaId = requiredId(payload.mediaId, 'mediaId');
-
-  const rows = await tx
-    .select()
-    .from(batchMedia)
-    .where(eq(batchMedia.id, mediaId));
-  const row = rows[0];
-  if (!row) throw new Error('Batch media row not found.');
-
-  await tx.delete(batchMedia).where(eq(batchMedia.id, mediaId));
-
-  // Best-effort: delete files; DB row is source of truth.
-  try {
-    await deleteMedia(row.filePath, row.thumbnailPath ?? undefined, row.mediumPath ?? undefined);
-  } catch (err) {
-    // non-DB error: deleteMedia is filesystem/storage I/O, so err.message is
-    // safe to surface in server-side logs (no SQL text to leak).
-    const message = err instanceof Error ? err.message : String(err);
-    // eslint-disable-next-line no-console
-    console.warn(`[deleteBatchMedia] file cleanup failed for ${mediaId}: ${message}`);
-  }
-
-  return {
-    ok: true,
-    commandId,
-    affectedIds: [mediaId],
-    toast: 'Media deleted.'
-  };
-}
+// attachBatchPhoto, uploadBatchMedia, setBatchMediaRole, publishBatchMedia,
+// and deleteBatchMedia moved to @/domains/media (P1.MED.EXTRACT). They are
+// imported at the top of this file and dispatched from the runCommand switch
+// by case-string. The ALLOWED_MEDIA_TYPES / ALLOWED_MEDIA_ROLES constants
+// moved with the handlers (domain-internal).
 
 async function importBatchesCsv(_tx: Tx, _payload: Payload, _commandId: string): Promise<CommandResult> {
   // TER-1658: CSV import is no longer part of the MVP intake flow.
