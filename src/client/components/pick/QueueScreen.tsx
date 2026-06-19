@@ -3,7 +3,7 @@
 import type { PickQueueItem } from './pickTypes';
 
 interface Props {
-  // TODO: replace with trpc.queries.pickQueue.useQuery() when backend merges
+  // TODO: replace with trpc.fulfillment.pickQueue.useQuery() when backend merges
   items: PickQueueItem[];
   loading: boolean;
   onRefresh: () => void;
@@ -34,7 +34,7 @@ export function QueueScreen({ items, loading, onRefresh, onSelect }: Props) {
         </button>
       </header>
 
-      {/* TODO: depends on CAP-030 backend merge (TER-1498) — items will come from trpc.queries.pickQueue */}
+      {/* TODO: depends on CAP-030 backend merge (TER-1498) — items will come from trpc.fulfillment.pickQueue */}
       {sorted.length === 0 && !loading ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
           <p className="text-base font-medium text-zinc-600">No pick lists in queue</p>

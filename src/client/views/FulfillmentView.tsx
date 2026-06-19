@@ -114,7 +114,7 @@ export function FulfillmentView() {
   const selectedRows = useUiStore((state) => state.selectedRows.fulfillment);
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedPick = selected[0];
-  const lines = trpc.queries.fulfillmentLines.useQuery({ pickListId: String(selectedPick?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedPick?.id) });
+  const lines = trpc.fulfillment.fulfillmentLines.useQuery({ pickListId: String(selectedPick?.id ?? '00000000-0000-0000-0000-000000000000') }, { enabled: Boolean(selectedPick?.id) });
   const [selectedLines, setSelectedLines] = useState<GridRow[]>([]);
   const [actualQty, setActualQty] = useState('');
   const [actualWeight, setActualWeight] = useState('');

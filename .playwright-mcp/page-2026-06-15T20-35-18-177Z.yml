@@ -1,0 +1,389 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e6013]:
+      - generic [ref=e6015]:
+        - generic [ref=e6017]:
+          - img [ref=e6018]
+          - generic [ref=e6020]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e6022] [cursor=pointer]
+        - generic [ref=e6023]:
+          - button "Viewing as Admin" [ref=e6025] [cursor=pointer]:
+            - generic [ref=e6026]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e6028] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e6029]: Open account
+      - generic [ref=e6030]:
+        - navigation [ref=e6031]:
+          - button "Mercury Demo Pro" [ref=e6034] [cursor=pointer]:
+            - generic [ref=e6036]: Mercury Demo
+            - generic [ref=e6038]: Pro
+          - generic [ref=e6039]:
+            - generic [ref=e6040]:
+              - link "Home" [ref=e6043] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e6044]:
+                  - img [ref=e6045]
+                  - img [ref=e6047]
+                - generic [ref=e6050]: Home
+              - link "Tasks 10" [ref=e6053] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e6054]:
+                  - img [ref=e6055]
+                  - img [ref=e6057]
+                - generic [ref=e6059]:
+                  - generic [ref=e6060]: Tasks
+                  - generic [ref=e6061]: "10"
+            - separator [ref=e6062]
+            - generic [ref=e6063]:
+              - link "Accounts" [ref=e6066] [cursor=pointer]:
+                - /url: /accounts
+                - generic [ref=e6067]:
+                  - img [ref=e6068]
+                  - img [ref=e6070]
+                - generic [ref=e6073]: Accounts
+              - link "Transactions" [ref=e6076] [cursor=pointer]:
+                - /url: /transactions
+                - generic [ref=e6077]:
+                  - img [ref=e6078]
+                  - img [ref=e6080]
+                - generic [ref=e6083]: Transactions
+              - link "Cards" [ref=e6086] [cursor=pointer]:
+                - /url: /cards
+                - generic [ref=e6087]:
+                  - img [ref=e6088]
+                  - img [ref=e6090]
+                - generic [ref=e6093]: Cards
+              - link "Payments" [ref=e6096] [cursor=pointer]:
+                - /url: /payments
+                - generic [ref=e6097]:
+                  - img [ref=e6098]
+                  - img [ref=e6100]
+                - generic [ref=e6103]: Payments
+              - link "Invoicing" [ref=e6106] [cursor=pointer]:
+                - /url: /invoicing
+                - generic [ref=e6107]:
+                  - img [ref=e6108]
+                  - img [ref=e6110]
+                - generic [ref=e6113]: Invoicing
+              - link "Reimbursements" [ref=e6116] [cursor=pointer]:
+                - /url: /expenses/all-expenses
+                - generic [ref=e6117]:
+                  - img [ref=e6118]
+                  - img [ref=e6120]
+                - generic [ref=e6123]: Reimbursements
+            - separator [ref=e6124]
+            - group "Bookmarks" [ref=e6125]:
+              - generic [ref=e6126]:
+                - generic [ref=e6127]: Bookmarks
+                - button "Learn about bookmarks" [ref=e6128] [cursor=pointer]:
+                  - img [ref=e6129]
+              - list "Bookmarks" [ref=e6131]:
+                - listitem [ref=e6132] [cursor=pointer]:
+                  - button "Reorder Ops / Payroll bookmark" [ref=e6133]:
+                    - img [ref=e6134]
+                  - link "Ops / Payroll $2,023,267.12" [ref=e6136]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e6137]:
+                      - generic [ref=e6138]: Ops / Payroll
+                      - generic [ref=e6140]:
+                        - text: $2,023,267
+                        - generic [ref=e6141]: ".12"
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e6142] [cursor=pointer]:
+                  - button "Reorder Credit Card bookmark" [ref=e6143]:
+                    - img [ref=e6144]
+                  - link "Credit Card" [ref=e6146]:
+                    - /url: /accounts/credit
+                    - generic [ref=e6148]: Credit Card
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e6149] [cursor=pointer]:
+                  - button "Reorder Bill Pay bookmark" [ref=e6150]:
+                    - img [ref=e6151]
+                  - link "Bill Pay" [ref=e6153]:
+                    - /url: /bill-pay
+                    - generic [ref=e6155]: Bill Pay
+                  - button "Remove bookmark" [ref=e6156]:
+                    - img [ref=e6157]
+                - listitem [ref=e6159] [cursor=pointer]:
+                  - button "Reorder Insights bookmark" [ref=e6160]:
+                    - img [ref=e6161]
+                  - link "Insights" [ref=e6163]:
+                    - /url: /insights/overview
+                    - generic [ref=e6165]: Insights
+                  - button "Remove bookmark":
+                    - img
+              - status [ref=e6166]
+        - generic [ref=e6167]:
+          - generic [ref=e6169]:
+            - button "Search for anything" [ref=e6171] [cursor=pointer]:
+              - img
+              - generic [ref=e6172]: Search for anything
+            - button "Move money" [ref=e6174] [cursor=pointer]:
+              - img
+              - generic [ref=e6175]: Move money
+            - generic [ref=e6176]:
+              - button "Toggle Private Mode" [ref=e6177] [cursor=pointer]:
+                - img
+              - link "Navigate to Settings" [ref=e6180] [cursor=pointer]:
+                - /url: /settings
+                - img
+              - button "updates" [ref=e6183] [cursor=pointer]:
+                - img
+              - button [ref=e6186] [cursor=pointer]
+          - generic [ref=e6188]:
+            - generic [ref=e6191]:
+              - generic [ref=e6193]:
+                - generic [ref=e6194]:
+                  - generic [ref=e6195]: Edit account nickname
+                  - textbox "Edit account nickname" [ref=e6197]:
+                    - /placeholder: Checking ••1038
+                    - text: Ops / Payroll
+                - alert
+                - paragraph
+              - button "Remove from bookmarks" [ref=e6199] [cursor=pointer]:
+                - img
+            - generic [ref=e6201]:
+              - generic [ref=e6202]:
+                - generic [ref=e6203]:
+                  - generic [ref=e6204]:
+                    - generic [ref=e6205]:
+                      - generic [ref=e6206]:
+                        - generic [ref=e6207]:
+                          - generic [ref=e6208]: Available
+                          - generic "Available" [ref=e6210]:
+                            - img [ref=e6211]
+                        - link "$2,023,267.12" [ref=e6214] [cursor=pointer]:
+                          - /url: /transactions?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                          - generic [ref=e6216]:
+                            - text: $2,023,267
+                            - generic [ref=e6217]: ".12"
+                      - generic [ref=e6218]:
+                        - link "Deposit" [ref=e6220] [cursor=pointer]:
+                          - /url: /add-funds
+                          - img
+                          - generic [ref=e6221]: Deposit
+                        - generic [ref=e6224]:
+                          - button "Transfer" [ref=e6225] [cursor=pointer]
+                          - button "Open Menu" [ref=e6226] [cursor=pointer]:
+                            - generic [ref=e6227]: Open Menu
+                            - img
+                    - generic [ref=e6228]:
+                      - generic [ref=e6229]:
+                        - generic [ref=e6230]: Type
+                        - generic [ref=e6231]: Checking
+                      - generic [ref=e6232]:
+                        - generic [ref=e6233]: Current
+                        - generic [ref=e6235]:
+                          - text: $2,023,267
+                          - generic [ref=e6236]: ".12"
+                  - cell "Set up an auto transfer rule" [ref=e6238]:
+                    - link "Set up an auto transfer rule" [ref=e6239] [cursor=pointer]:
+                      - /url: /accounts#auto-transfers
+                      - generic [ref=e6241]:
+                        - paragraph [ref=e6242]: Set up an auto transfer rule
+                        - img [ref=e6244]
+                - generic [ref=e6246]:
+                  - generic [ref=e6248]:
+                    - generic [ref=e6249]:
+                      - generic [ref=e6250]: Routing number
+                      - button "132456789" [ref=e6251] [cursor=pointer]:
+                        - generic [ref=e6252]:
+                          - text: "132456789"
+                          - img [ref=e6253]
+                    - generic [ref=e6255]:
+                      - generic [ref=e6256]:
+                        - generic [ref=e6257]: Account number
+                        - button [ref=e6258] [cursor=pointer]:
+                          - img [ref=e6259]
+                      - button "••••••1038" [ref=e6261] [cursor=pointer]:
+                        - generic [ref=e6262]:
+                          - text: ••••••1038
+                          - img [ref=e6263]
+                    - generic [ref=e6265]:
+                      - generic [ref=e6266]:
+                        - generic [ref=e6267]: Bank
+                        - generic "Bank" [ref=e6269]:
+                          - img [ref=e6270]
+                      - generic [ref=e6272]:
+                        - button "Column N.A." [ref=e6273] [cursor=pointer]:
+                          - paragraph [ref=e6274]:
+                            - text: Column N.A.
+                            - img [ref=e6275]
+                        - button "1 Letterman Drive Building A, Suite A4-700 San Francisco, CA 94129" [ref=e6277] [cursor=pointer]:
+                          - generic [ref=e6278]:
+                            - paragraph [ref=e6279]:
+                              - generic [ref=e6280]: 1 Letterman Drive
+                              - generic [ref=e6281]: Building A, Suite A4-700
+                              - generic [ref=e6282]: San Francisco, CA 94129
+                            - img [ref=e6283]
+                  - button "Documents" [ref=e6287] [cursor=pointer]:
+                    - generic [ref=e6288]: Documents
+                    - img
+              - generic [ref=e6289]:
+                - generic [ref=e6290]: Recent transactions
+                - link "View all" [ref=e6292] [cursor=pointer]:
+                  - /url: /transactions?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                  - text: View all
+                  - img [ref=e6293]
+              - generic [ref=e6296]:
+                - generic [ref=e6297]:
+                  - generic [ref=e6298]: Date
+                  - generic [ref=e6299]: To/From
+                  - generic [ref=e6300]: Amount
+                  - generic [ref=e6301]: Method
+                - generic [ref=e6302]:
+                  - link "Jun 15 Mercury Working Capital −$2,200.00 Working Capital Loan Payment" [ref=e6304] [cursor=pointer]:
+                    - /url: /transactions/lineOfCreditTransaction-3?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6305]:
+                      - generic [ref=e6306]: Jun 15
+                      - generic [ref=e6308]:
+                        - img [ref=e6309]
+                        - generic [ref=e6311]: Mercury Working Capital
+                      - generic [ref=e6313]:
+                        - text: −
+                        - generic [ref=e6314]:
+                          - text: $2,200
+                          - generic [ref=e6315]: ".00"
+                      - generic [ref=e6317]:
+                        - img [ref=e6318]
+                        - generic [ref=e6320]: Working Capital Loan Payment
+                  - link "Jun 15 To Ops / Payroll −$55,810.16 Transfer" [ref=e6322] [cursor=pointer]:
+                    - /url: /transactions/internalTransfer3-b?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6323]:
+                      - generic [ref=e6324]: Jun 15
+                      - generic [ref=e6326]:
+                        - img [ref=e6327]
+                        - generic [ref=e6329]: To Ops / Payroll
+                      - generic [ref=e6331]:
+                        - text: −
+                        - generic [ref=e6332]:
+                          - text: $55,810
+                          - generic [ref=e6333]: ".16"
+                      - generic [ref=e6335]:
+                        - img [ref=e6336]
+                        - generic [ref=e6338]: Transfer
+                  - link "Jun 15 From AR $55,810.16 Transfer" [ref=e6340] [cursor=pointer]:
+                    - /url: /transactions/internalTransfer3-a?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6341]:
+                      - generic [ref=e6342]: Jun 15
+                      - generic [ref=e6344]:
+                        - img [ref=e6345]
+                        - generic [ref=e6347]: From AR
+                      - generic [ref=e6350]:
+                        - text: $55,810
+                        - generic [ref=e6351]: ".16"
+                      - generic [ref=e6353]:
+                        - img [ref=e6354]
+                        - generic [ref=e6356]: Transfer
+                  - link "Jun 15 Lily's Eatery $0.93 Alice C. ••1234" [ref=e6358] [cursor=pointer]:
+                    - /url: /transactions/debit-incoming0-0?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6359]:
+                      - generic [ref=e6360]: Jun 15
+                      - generic [ref=e6362]:
+                        - generic [ref=e6363]:
+                          - generic [ref=e6364]: L
+                          - generic [ref=e6365]: E
+                        - generic [ref=e6366]: Lily's Eatery
+                      - generic [ref=e6369]:
+                        - text: $0
+                        - generic [ref=e6370]: ".93"
+                      - generic [ref=e6372]:
+                        - img [ref=e6373]
+                        - generic [ref=e6375]: Alice C. ••1234
+                  - link "Jun 15 Deli 77 $214.06 Jane B. ••6112" [ref=e6377] [cursor=pointer]:
+                    - /url: /transactions/debit-incoming7-0?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6378]:
+                      - generic [ref=e6379]: Jun 15
+                      - generic [ref=e6381]:
+                        - generic [ref=e6382]:
+                          - generic [ref=e6383]: D
+                          - generic [ref=e6384]: "7"
+                        - generic [ref=e6385]: Deli 77
+                      - generic [ref=e6388]:
+                        - text: $214
+                        - generic [ref=e6389]: ".06"
+                      - generic [ref=e6391]:
+                        - img [ref=e6392]
+                        - generic [ref=e6394]: Jane B. ••6112
+                  - link "Jun 15 Office Stop Co. −$287.89 Jessica A. ••9914" [ref=e6396] [cursor=pointer]:
+                    - /url: /transactions/debit-outgoing2-0?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6397]:
+                      - generic [ref=e6398]: Jun 15
+                      - generic [ref=e6400]:
+                        - generic [ref=e6401]:
+                          - generic [ref=e6402]: O
+                          - generic [ref=e6403]: S
+                        - generic [ref=e6404]: Office Stop Co.
+                      - generic [ref=e6406]:
+                        - text: −
+                        - generic [ref=e6407]:
+                          - text: $287
+                          - generic [ref=e6408]: ".89"
+                      - generic [ref=e6410]:
+                        - img [ref=e6411]
+                        - generic [ref=e6413]: Jessica A. ••9914
+                  - link "Jun 15 The Plant Organic Cafe −$203.03 Landon S. ••4929" [ref=e6415] [cursor=pointer]:
+                    - /url: /transactions/debit-outgoing6-0?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6416]:
+                      - generic [ref=e6417]: Jun 15
+                      - generic [ref=e6419]:
+                        - generic [ref=e6421]: P
+                        - generic [ref=e6422]: The Plant Organic Cafe
+                      - generic [ref=e6424]:
+                        - text: −
+                        - generic [ref=e6425]:
+                          - text: $203
+                          - generic [ref=e6426]: ".03"
+                      - generic [ref=e6428]:
+                        - img [ref=e6429]
+                        - generic [ref=e6431]: Landon S. ••4929
+                  - link "Jun 15 Trader John's −$189.12 Alice C. ••6231" [ref=e6433] [cursor=pointer]:
+                    - /url: /transactions/debit-outgoing4-0?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6434]:
+                      - generic [ref=e6435]: Jun 15
+                      - generic [ref=e6439]: Trader John's
+                      - generic [ref=e6441]:
+                        - text: −
+                        - generic [ref=e6442]:
+                          - text: $189
+                          - generic [ref=e6443]: ".12"
+                      - generic [ref=e6445]:
+                        - img [ref=e6446]
+                        - generic [ref=e6448]: Alice C. ••6231
+                  - link "Jun 15 Milgram Brokerage $2,760.75 Jane B. ••3745" [ref=e6450] [cursor=pointer]:
+                    - /url: /transactions/debit-incoming3-0?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6451]:
+                      - generic [ref=e6452]: Jun 15
+                      - generic [ref=e6454]:
+                        - generic [ref=e6455]:
+                          - generic [ref=e6456]: M
+                          - generic [ref=e6457]: B
+                        - generic [ref=e6458]: Milgram Brokerage
+                      - generic [ref=e6461]:
+                        - text: $2,760
+                        - generic [ref=e6462]: ".75"
+                      - generic [ref=e6464]:
+                        - img [ref=e6465]
+                        - generic [ref=e6467]: Jane B. ••3745
+                  - link "Jun 15 Monarch Books $423.13 Alice C. ••7840" [ref=e6469] [cursor=pointer]:
+                    - /url: /transactions/debit-incoming1-0?q=%7B%22filters%22%3A%7B%22accountPartyIds%22%3A%5B%22party-mercurybankid2%22%5D%7D%7D
+                    - generic [ref=e6470]:
+                      - generic [ref=e6471]: Jun 15
+                      - generic [ref=e6473]:
+                        - generic [ref=e6474]:
+                          - generic [ref=e6475]: M
+                          - generic [ref=e6476]: B
+                        - generic [ref=e6477]: Monarch Books
+                      - generic [ref=e6480]:
+                        - text: $423
+                        - generic [ref=e6481]: ".13"
+                      - generic [ref=e6483]:
+                        - img [ref=e6484]
+                        - generic [ref=e6486]: Alice C. ••7840
+      - button [ref=e6489] [cursor=pointer]:
+        - img [ref=e6490]
+  - alert

@@ -1,0 +1,486 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - generic [ref=e7]: TERP Operator
+          - generic [ref=e8]: Operator Console
+        - button "Collapse navigation" [ref=e9] [cursor=pointer]:
+          - img [ref=e10]
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: Decide
+          - button "Dashboard" [ref=e16] [cursor=pointer]:
+            - img [ref=e17]
+            - generic [ref=e20]: Dashboard
+            - generic [ref=e21]: ⌘1
+          - button "Reports" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - generic [ref=e25]: Reports
+        - generic [ref=e26]:
+          - generic [ref=e27]: Procure
+          - button "Purchase Orders" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic [ref=e33]: Purchase Orders
+          - button "Intake" [ref=e34] [cursor=pointer]:
+            - img [ref=e35]
+            - generic [ref=e38]: Intake
+            - generic [ref=e39]: ⌘2
+          - button "Inventory" [ref=e40] [cursor=pointer]:
+            - img [ref=e41]
+            - generic [ref=e51]: Inventory
+            - generic [ref=e52]: ⌘5
+          - button "More" [ref=e53] [cursor=pointer]:
+            - img [ref=e54]
+            - generic [ref=e56]: More
+          - group "More Procure items" [ref=e57]:
+            - button "Receipts" [ref=e58] [cursor=pointer]:
+              - img [ref=e59]
+              - generic [ref=e61]: Receipts
+            - button "Photography" [ref=e62] [cursor=pointer]:
+              - img [ref=e63]
+              - generic [ref=e66]: Photography
+        - generic [ref=e67]:
+          - generic [ref=e68]: Sell
+          - button "Sales" [ref=e69] [cursor=pointer]:
+            - img [ref=e70]
+            - generic [ref=e74]: Sales
+            - generic [ref=e75]: ⌘3
+          - button "Matchmaking" [ref=e76] [cursor=pointer]:
+            - img [ref=e77]
+            - generic [ref=e80]: Matchmaking
+          - button "Orders" [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
+            - generic [ref=e85]: Orders
+          - button "Fulfillment" [ref=e86] [cursor=pointer]:
+            - img [ref=e87]
+            - generic [ref=e92]: Fulfillment
+          - button "Client Balances" [ref=e93] [cursor=pointer]:
+            - img [ref=e94]
+            - generic [ref=e96]: Client Balances
+            - generic [ref=e97]: ⌘6
+          - button "More" [ref=e98] [cursor=pointer]:
+            - img [ref=e99]
+            - generic [ref=e101]: More
+          - group "More Sell items" [ref=e102]:
+            - button "Credit Review" [ref=e103] [cursor=pointer]:
+              - img [ref=e104]
+              - generic [ref=e108]: Credit Review
+        - generic [ref=e109]:
+          - generic [ref=e110]: Money
+          - button "Payments" [ref=e111] [cursor=pointer]:
+            - img [ref=e112]
+            - generic [ref=e115]: Payments
+            - generic [ref=e116]: ⌘4
+          - button "Vendor Payouts" [ref=e117] [cursor=pointer]:
+            - img [ref=e118]
+            - generic [ref=e120]: Vendor Payouts
+          - button "Contacts" [ref=e121] [cursor=pointer]:
+            - img [ref=e122]
+            - generic [ref=e127]: Contacts
+          - button "More" [ref=e128] [cursor=pointer]:
+            - img [ref=e129]
+            - generic [ref=e131]: More
+          - group "More Money items" [ref=e132]:
+            - button "Disputes" [ref=e133] [cursor=pointer]:
+              - img [ref=e134]
+              - generic [ref=e136]: Disputes
+            - button "Referees" [ref=e137] [cursor=pointer]:
+              - img [ref=e138]
+              - generic [ref=e143]: Referees
+        - generic [ref=e144]:
+          - generic [ref=e145]: Admin
+          - button "Recovery" [ref=e146] [cursor=pointer]:
+            - img [ref=e147]
+            - generic [ref=e150]: Recovery
+          - button "Closeout" [ref=e151] [cursor=pointer]:
+            - img [ref=e152]
+            - generic [ref=e155]: Closeout
+          - button "Settings" [ref=e156] [cursor=pointer]:
+            - img [ref=e157]
+            - generic [ref=e160]: Settings
+      - link "Switch to mobile view" [ref=e162] [cursor=pointer]:
+        - /url: /mobile/dashboard
+        - img [ref=e163]
+        - generic [ref=e165]: Mobile view
+    - generic [ref=e166]:
+      - banner "Global workspace keel" [ref=e167]:
+        - button "Search ⌘K" [ref=e168] [cursor=pointer]:
+          - img [ref=e169]
+          - generic [ref=e172]: Search
+          - generic [ref=e173]: ⌘K
+        - generic "Quick actions and tools" [ref=e174]:
+          - button "Quick actions" [ref=e176] [cursor=pointer]:
+            - img [ref=e177]
+            - generic [ref=e181]: Quick actions
+            - img [ref=e182]
+          - button "Sign out" [ref=e184] [cursor=pointer]
+        - generic [ref=e185]:
+          - generic [ref=e188]: Needs attention
+          - generic [ref=e189]: Evan Owner
+      - main [ref=e191]:
+        - generic [ref=e192]:
+          - region "Payment entry" [ref=e193]:
+            - generic [ref=e194]:
+              - button "Payment entry Manual rows, workflow-created payments, PO product payments, and accounting handoff in one audit surface." [expanded] [ref=e195] [cursor=pointer]:
+                - img [ref=e196]
+                - generic [ref=e198]:
+                  - heading "Payment entry" [level=2] [ref=e199]
+                  - generic [ref=e200]: Manual rows, workflow-created payments, PO product payments, and accounting handoff in one audit surface.
+              - generic [ref=e201]:
+                - button "Receiving" [ref=e202] [cursor=pointer]:
+                  - img [ref=e203]
+                  - text: Receiving
+                - button "Paying" [ref=e204] [cursor=pointer]:
+                  - img [ref=e205]
+                  - text: Paying
+                - button "Expand Payment entry" [ref=e206] [cursor=pointer]:
+                  - img [ref=e207]
+            - generic [ref=e213]:
+              - generic [ref=e214]:
+                - generic [ref=e215]:
+                  - button "Money In" [expanded] [ref=e216] [cursor=pointer]:
+                    - img [ref=e217]
+                    - text: Money In
+                  - generic [ref=e219]: 0 posted
+                  - generic [ref=e220]: $0.00
+                  - generic [ref=e221]:
+                    - button "Row" [ref=e222] [cursor=pointer]:
+                      - img [ref=e223]
+                      - text: Row
+                    - button "Types" [ref=e224] [cursor=pointer]:
+                      - img [ref=e225]
+                      - text: Types
+                - table "Money In" [ref=e227]:
+                  - caption [ref=e228]: Money In
+                  - rowgroup [ref=e229]:
+                    - row "# Date Entity type Cash received from Payment type Gross Processor Fee Split % Net Applied to Amount Method Bucket Notes Trace Status Source Commit" [ref=e230]:
+                      - columnheader "#" [ref=e231]
+                      - columnheader "Date" [ref=e232]
+                      - columnheader "Entity type" [ref=e233]
+                      - columnheader "Cash received from" [ref=e234]
+                      - columnheader "Payment type" [ref=e235]
+                      - columnheader "Gross" [ref=e236]
+                      - columnheader "Processor" [ref=e237]
+                      - columnheader "Fee" [ref=e238]
+                      - columnheader "Split %" [ref=e239]
+                      - columnheader "Net" [ref=e240]
+                      - columnheader "Applied to" [ref=e241]
+                      - columnheader "Amount" [ref=e242]
+                      - columnheader "Method" [ref=e243]
+                      - columnheader "Bucket" [ref=e244]
+                      - columnheader "Notes" [ref=e245]
+                      - columnheader "Trace" [ref=e246]
+                      - columnheader "Status" [ref=e247]
+                      - columnheader "Source" [ref=e248]
+                      - columnheader "Commit" [ref=e249]
+                  - rowgroup [ref=e250]:
+                    - row "1 2026-06-17 Customer Choose Customer Client Payment - - - - - Oldest open orders first Cash Cash file A Enter amount to preview Draft Draft Record payment Discard draft" [ref=e251]:
+                      - cell "1" [ref=e252]
+                      - cell "2026-06-17" [ref=e253]:
+                        - textbox "Date" [ref=e254]: 2026-06-17
+                      - cell "Customer" [ref=e255]:
+                        - combobox "Entity type" [ref=e256]:
+                          - option "Customer" [selected]
+                          - option "Vendor"
+                          - option "Referee"
+                          - option "Staff"
+                          - option "Processor"
+                          - option "Other"
+                      - cell "Choose Customer" [ref=e257]:
+                        - combobox "Customer counterparty" [ref=e258]:
+                          - option "Choose Customer" [selected]
+                      - cell "Client Payment" [ref=e259]:
+                        - combobox "Transaction type" [ref=e260]:
+                          - option "Client Payment" [selected]
+                      - cell "-" [ref=e261]
+                      - cell "-" [ref=e262]
+                      - cell "-" [ref=e263]
+                      - cell "-" [ref=e264]
+                      - cell "-" [ref=e265]
+                      - cell "Oldest open orders first" [ref=e266]:
+                        - combobox "Allocation target type" [ref=e267]:
+                          - option "Oldest open orders first" [selected]
+                          - option "Unapplied / down payment"
+                      - cell [ref=e268]:
+                        - textbox "Amount" [ref=e269]
+                      - cell "Cash" [ref=e270]:
+                        - combobox "Method" [ref=e271]:
+                          - option "Cash" [selected]
+                          - option "Check"
+                          - option "Other"
+                          - option "Journal"
+                      - cell "Cash file A" [ref=e272]:
+                        - combobox "Bucket" [ref=e273]:
+                          - option "Cash file A" [selected]
+                          - option "Cash file B"
+                          - option "Office"
+                          - option "Accounting"
+                          - option "Crypto wallet"
+                          - option "Wire clearing"
+                      - cell [ref=e274]:
+                        - textbox "Notes" [ref=e275]
+                      - cell "Enter amount to preview" [ref=e276]
+                      - cell "Draft" [ref=e277]
+                      - cell "Draft" [ref=e278]:
+                        - generic [ref=e279]: Draft
+                      - cell "Record payment Discard draft" [ref=e280]:
+                        - generic [ref=e281]:
+                          - button "Record payment" [ref=e282] [cursor=pointer]:
+                            - img [ref=e283]
+                            - generic [ref=e285]: Record payment
+                          - button "Discard draft" [ref=e286] [cursor=pointer]:
+                            - img [ref=e287]
+                            - generic [ref=e290]: Discard draft
+              - generic [ref=e291]:
+                - generic [ref=e292]:
+                  - button "Money Out" [expanded] [ref=e293] [cursor=pointer]:
+                    - img [ref=e294]
+                    - text: Money Out
+                  - generic [ref=e296]: 0 posted
+                  - generic [ref=e297]: $0.00
+                  - generic [ref=e298]:
+                    - button "Row" [ref=e299] [cursor=pointer]:
+                      - img [ref=e300]
+                      - text: Row
+                    - button "Types" [ref=e301] [cursor=pointer]:
+                      - img [ref=e302]
+                      - text: Types
+                - table "Money Out" [ref=e304]:
+                  - caption [ref=e305]: Money Out
+                  - rowgroup [ref=e306]:
+                    - row "# Date Entity type Entity paying cash to Payment type Gross Processor Fee Split % Net Applied to Amount Method Bucket Notes Trace Status Source Commit" [ref=e307]:
+                      - columnheader "#" [ref=e308]
+                      - columnheader "Date" [ref=e309]
+                      - columnheader "Entity type" [ref=e310]
+                      - columnheader "Entity paying cash to" [ref=e311]
+                      - columnheader "Payment type" [ref=e312]
+                      - columnheader "Gross" [ref=e313]
+                      - columnheader "Processor" [ref=e314]
+                      - columnheader "Fee" [ref=e315]
+                      - columnheader "Split %" [ref=e316]
+                      - columnheader "Net" [ref=e317]
+                      - columnheader "Applied to" [ref=e318]
+                      - columnheader "Amount" [ref=e319]
+                      - columnheader "Method" [ref=e320]
+                      - columnheader "Bucket" [ref=e321]
+                      - columnheader "Notes" [ref=e322]
+                      - columnheader "Trace" [ref=e323]
+                      - columnheader "Status" [ref=e324]
+                      - columnheader "Source" [ref=e325]
+                      - columnheader "Commit" [ref=e326]
+                  - rowgroup
+          - region "Payments" [ref=e327]:
+            - generic [ref=e328]:
+              - button "Payments 0 row(s)" [expanded] [ref=e329] [cursor=pointer]:
+                - img [ref=e330]
+                - generic [ref=e332]:
+                  - heading "Payments" [level=2] [ref=e333]
+                  - generic [ref=e334]: 0 row(s)
+              - generic [ref=e335]:
+                - button "Advanced filters" [ref=e336] [cursor=pointer]:
+                  - img [ref=e337]
+                  - generic [ref=e339]: Advanced filters
+                - generic [ref=e340]:
+                  - img [ref=e341]
+                  - generic [ref=e344]: Filter Payments grid
+                  - textbox "Filter Payments grid" [ref=e345]:
+                    - /placeholder: Filter grid (field:value)
+                - group "Filter payments" [ref=e346]:
+                  - button "Unpaid" [ref=e347] [cursor=pointer]
+                  - button "Overdue" [ref=e348] [cursor=pointer]
+                  - button "Unapplied" [ref=e349] [cursor=pointer]
+                - button "Columns" [ref=e351] [cursor=pointer]:
+                  - img [ref=e352]
+                  - generic [ref=e354]: Columns
+                - button "Export visible grid CSV" [ref=e355] [cursor=pointer]:
+                  - img [ref=e356]
+                  - generic [ref=e359]: Export visible grid CSV
+                - button "Expand Payments" [ref=e360] [cursor=pointer]:
+                  - img [ref=e361]
+            - generic [ref=e368]:
+              - text:  
+              - treegrid:
+                - rowgroup [ref=e370]:
+                  - row "# Customer" [ref=e371]:
+                    - columnheader "#" [ref=e372]:
+                      - text: 
+                      - generic [ref=e373] [cursor=pointer]: 
+                      - generic: "#"
+                      - text: 
+                      - generic: 
+                    - columnheader "Customer" [ref=e374]:
+                      - text: 
+                      - generic [ref=e376] [cursor=pointer]: 
+                      - generic [ref=e377] [cursor=pointer]: 
+                      - generic [ref=e378] [cursor=pointer]: Customer
+                      - generic:    
+                - rowgroup [ref=e379]:
+                  - row "Method Direction Category Amount Unapplied Amount Allocation Intent Impact Preview" [ref=e380]:
+                    - columnheader "Method" [ref=e381]:
+                      - text: 
+                      - generic [ref=e383] [cursor=pointer]: 
+                      - generic [ref=e384] [cursor=pointer]: 
+                      - generic [ref=e385] [cursor=pointer]: Method
+                      - generic:    
+                    - columnheader "Direction" [ref=e386]:
+                      - text: 
+                      - generic [ref=e388] [cursor=pointer]: 
+                      - generic [ref=e389] [cursor=pointer]: 
+                      - generic [ref=e390] [cursor=pointer]: Direction
+                      - generic:    
+                    - columnheader "Category" [ref=e391]:
+                      - text: 
+                      - generic [ref=e393] [cursor=pointer]: 
+                      - generic [ref=e394] [cursor=pointer]: 
+                      - generic [ref=e395] [cursor=pointer]: Category
+                      - generic:    
+                    - columnheader "Amount" [ref=e396]:
+                      - text: 
+                      - generic [ref=e398] [cursor=pointer]: 
+                      - generic [ref=e399] [cursor=pointer]: 
+                      - generic [ref=e400] [cursor=pointer]: Amount
+                      - generic:    
+                    - columnheader "Unapplied Amount" [ref=e401]:
+                      - text: 
+                      - generic [ref=e403] [cursor=pointer]: 
+                      - generic [ref=e404] [cursor=pointer]: 
+                      - generic [ref=e405] [cursor=pointer]: Unapplied Amount
+                      - generic:    
+                    - columnheader "Allocation Intent" [ref=e406]:
+                      - text: 
+                      - generic [ref=e408] [cursor=pointer]: 
+                      - generic [ref=e409] [cursor=pointer]: 
+                      - generic [ref=e410] [cursor=pointer]: Allocation Intent
+                      - generic:    
+                    - columnheader "Impact Preview" [ref=e411]:
+                      - text: 
+                      - generic [ref=e413] [cursor=pointer]: 
+                      - generic [ref=e414] [cursor=pointer]: 
+                      - generic [ref=e415] [cursor=pointer]: Impact Preview
+                      - generic:    
+                - rowgroup [ref=e416]
+                - rowgroup [ref=e417]
+                - rowgroup
+                - rowgroup
+                - rowgroup [ref=e419]
+                - rowgroup
+                - generic [ref=e425]: Loading...
+              - text:                                                                                                         
+              - text:    
+    - generic [ref=e426]: Opened payments.
+  - button "v3.0.2 Output Detail Standard React Components Hide Until Restart Marker Color Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e428] [cursor=pointer]:
+    - img [ref=e430]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - link:
+              - /url: https://agentation.com
+              - img
+            - paragraph: v3.0.2
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - img
+              - generic:
+                - checkbox [checked]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Color
+            - generic:
+              - button "Indigo"
+              - button "Blue"
+              - button "Cyan"
+              - button "Green"
+              - button "Yellow"
+              - button "Orange"
+              - button "Red"
+          - generic:
+            - generic:
+              - generic:
+                - checkbox "Clear on copy/send"
+                - img
+              - generic: Clear on copy/send
+              - generic:
+                - img
+            - generic:
+              - generic:
+                - checkbox "Block page interactions" [checked]
+                - img
+              - generic: Block page interactions
+          - button "Manage MCP & Webhooks":
+            - generic: Manage MCP & Webhooks
+            - generic:
+              - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - img
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox "Auto-Send" [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"
+  - button "Report an issue" [ref=e436] [cursor=pointer]: Report Issue

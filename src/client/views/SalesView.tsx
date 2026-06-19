@@ -370,7 +370,7 @@ export function LegacySalesView() {
   const orders = trpc.queries.grid.useQuery({ view: 'sales' });
   const reference = trpc.queries.reference.useQuery(undefined, { staleTime: 60_000, refetchOnWindowFocus: false });
   const workspace = trpc.queries.customerWorkspace.useQuery({ customerId: customerId || '00000000-0000-0000-0000-000000000000' }, { enabled: Boolean(customerId) });
-  const suggestions = trpc.queries.salesSuggestions.useQuery({
+  const suggestions = trpc.salesOrders.salesSuggestions.useQuery({
     customerId: customerId || undefined,
     category: suggestionCategory || undefined,
     priceBracket: suggestionPriceBracket || undefined,
@@ -389,7 +389,7 @@ export function LegacySalesView() {
   // UX-F07 — same procedure + input CustomerPurchaseHistoryPanel uses, so
   // React Query shares one cache entry (no new procedures, no extra fetch
   // once the disclosure has loaded). Feeds the finder's history chips.
-  const purchaseHistory = trpc.queries.customerPurchaseHistory.useQuery(
+  const purchaseHistory = trpc.salesOrders.customerPurchaseHistory.useQuery(
     { customerId: customerId || '00000000-0000-0000-0000-000000000000', limit: 200 },
     { enabled: Boolean(customerId), staleTime: 60_000, refetchOnWindowFocus: false }
   );
@@ -419,7 +419,7 @@ export function LegacySalesView() {
   }, [workspace.data?.payments]);
 
   const selectedOrder = selectedOrders[0] ?? workspaceOrder;
-  const orderLines = trpc.queries.salesOrderLines.useQuery(
+  const orderLines = trpc.salesOrders.salesOrderLines.useQuery(
     { orderId: String(selectedOrder?.id ?? '00000000-0000-0000-0000-000000000000') },
     { enabled: Boolean(selectedOrder?.id), refetchInterval: 30_000 }
   );
@@ -456,7 +456,7 @@ export function LegacySalesView() {
 
   // CAP-030 / TER-1508 — release eligibility per order (live — backend merged)
   const blankOrderId = '00000000-0000-0000-0000-000000000000';
-  const releaseEligibility = trpc.queries.releaseEligibility.useQuery(
+  const releaseEligibility = trpc.salesOrders.releaseEligibility.useQuery(
     { orderId: String(selectedOrder?.id ?? blankOrderId) },
     { enabled: Boolean(selectedOrder?.id) }
   );

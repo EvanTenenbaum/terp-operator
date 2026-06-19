@@ -306,7 +306,7 @@ export function Hotkeys() {
           const gridView = gridQueryViewFor(activeView);
           if (gridView) {
             await utils.queries.grid.invalidate({ view: gridView });
-            if (activeView === 'intake') await utils.queries.intakeQueue.invalidate();
+            if (activeView === 'intake') await utils.intake.intakeQueue.invalidate();
             pushToast(`Validate All: refetched the ${activeView} grid from the server.`, 'success');
           } else {
             // Views without a queries.grid projection (dashboard, contacts,

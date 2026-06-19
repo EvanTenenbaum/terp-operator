@@ -40,7 +40,7 @@ function fileSize(bytes: number) {
 
 export function LotPhotosTab({ batchId, mediaStatus }: LotPhotosTabProps) {
   const enabled = Boolean(batchId);
-  const media = trpc.queries.batchMediaList.useQuery(
+  const media = trpc.intake.batchMediaList.useQuery(
     { batchId: batchId! },
     { enabled }
   );

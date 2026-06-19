@@ -16,7 +16,7 @@ export function CloseoutView() {
   const [adjustmentMemo, setAdjustmentMemo] = useState('');
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [expandedBlocker, setExpandedBlocker] = useState<string | null>(null);
-  const preview = trpc.queries.closeoutPreview.useQuery({ period });
+  const preview = trpc.closeout.closeoutPreview.useQuery({ period });
   const { runCommand, setNextSuccessActions, isRunning } = useCommandRunner();
   const setActiveView = useUiStore((state) => state.setActiveView);
   const setActiveSettingsTab = useUiStore((state) => state.setActiveSettingsTab);
@@ -28,7 +28,7 @@ export function CloseoutView() {
   const blockers = preview.data?.blockers ?? [];
   const openWorkCount = preview.data?.openWorkCount ?? preview.data?.unsafeRows ?? 0;
   const readiness = closeoutReadiness(preview.data?.locked, openWorkCount);
-  const blockerRows = trpc.queries.closeoutBlockerRows.useQuery(
+  const blockerRows = trpc.closeout.closeoutBlockerRows.useQuery(
     { period, blockerId: expandedBlocker ?? '' },
     { enabled: Boolean(expandedBlocker) }
   );

@@ -60,7 +60,7 @@ export function VendorPaymentHistoryTab({ vendorBillId, row, role }: VendorPayme
   const effectiveRole = role ?? me.data?.role;
   const canWrite = effectiveRole !== 'viewer';
 
-  const paymentsQuery = trpc.queries.vendorPayments.useQuery(
+  const paymentsQuery = trpc.payments.vendorPayments.useQuery(
     { vendorBillId },
     { enabled: Boolean(vendorBillId) }
   );

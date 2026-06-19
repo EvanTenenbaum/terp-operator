@@ -166,7 +166,7 @@ export function QuickLedgerGrid() {
   const canPostLedgerRow = ['owner', 'manager'].includes(me.data?.role ?? '');
 
   const activeRow = drafts.find((row) => row.id === activeRowId);
-  const preview = trpc.queries.paymentAllocationPreview.useQuery(
+  const preview = trpc.payments.paymentAllocationPreview.useQuery(
     {
       customerId: activeRow?.entityType === 'customer' ? activeRow.entityId || blankId : blankId,
       amount: Number(activeRow?.amount || 0),

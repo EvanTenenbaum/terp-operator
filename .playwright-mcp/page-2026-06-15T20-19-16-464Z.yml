@@ -1,0 +1,602 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e11]:
+      - generic [ref=e13]:
+        - generic [ref=e15]:
+          - img [ref=e16]
+          - generic [ref=e18]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e20] [cursor=pointer]
+        - generic [ref=e21]:
+          - button "Viewing as Admin" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e26] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e27]: Open account
+      - generic [ref=e28]:
+        - navigation [ref=e29]:
+          - button "Mercury Demo Pro" [ref=e32] [cursor=pointer]:
+            - generic [ref=e34]: Mercury Demo
+            - generic [ref=e36]: Pro
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - link "Home" [ref=e41] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e42]:
+                  - img [ref=e43]
+                  - img [ref=e45]
+                - generic [ref=e48]: Home
+              - link "Tasks 10" [ref=e51] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e52]:
+                  - img [ref=e53]
+                  - img [ref=e55]
+                - generic [ref=e57]:
+                  - generic [ref=e58]: Tasks
+                  - generic [ref=e59]: "10"
+            - separator [ref=e60]
+            - generic [ref=e61]:
+              - link "Accounts" [ref=e64] [cursor=pointer]:
+                - /url: /accounts
+                - generic [ref=e65]:
+                  - img [ref=e66]
+                  - img [ref=e68]
+                - generic [ref=e71]: Accounts
+              - link "Transactions" [ref=e74] [cursor=pointer]:
+                - /url: /transactions
+                - generic [ref=e75]:
+                  - img [ref=e76]
+                  - img [ref=e78]
+                - generic [ref=e81]: Transactions
+              - generic [ref=e83]:
+                - link "Cards" [expanded] [ref=e84] [cursor=pointer]:
+                  - /url: /cards
+                  - generic [ref=e85]:
+                    - img [ref=e86]
+                    - img [ref=e88]
+                  - generic [ref=e91]: Cards
+                - list [ref=e95]:
+                  - listitem [ref=e96]:
+                    - link "Credit Card" [ref=e97] [cursor=pointer]:
+                      - /url: /accounts/credit
+                      - generic [ref=e100]: Credit Card
+              - link "Payments" [ref=e103] [cursor=pointer]:
+                - /url: /payments
+                - generic [ref=e104]:
+                  - img [ref=e105]
+                  - img [ref=e107]
+                - generic [ref=e110]: Payments
+              - link "Invoicing" [ref=e113] [cursor=pointer]:
+                - /url: /invoicing
+                - generic [ref=e114]:
+                  - img [ref=e115]
+                  - img [ref=e117]
+                - generic [ref=e120]: Invoicing
+              - link "Reimbursements" [ref=e123] [cursor=pointer]:
+                - /url: /expenses/all-expenses
+                - generic [ref=e124]:
+                  - img [ref=e125]
+                  - img [ref=e127]
+                - generic [ref=e130]: Reimbursements
+            - separator [ref=e131]
+            - group "Bookmarks" [ref=e132]:
+              - generic [ref=e133]:
+                - generic [ref=e134]: Bookmarks
+                - button "Learn about bookmarks" [ref=e135] [cursor=pointer]:
+                  - img [ref=e136]
+              - list "Bookmarks" [ref=e138]:
+                - listitem [ref=e139] [cursor=pointer]:
+                  - button "Reorder Ops / Payroll bookmark" [ref=e140]:
+                    - img [ref=e141]
+                  - link "Ops / Payroll $2,023,267.12" [ref=e143]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e144]:
+                      - generic [ref=e145]: Ops / Payroll
+                      - generic [ref=e147]:
+                        - text: $2,023,267
+                        - generic [ref=e148]: ".12"
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e149] [cursor=pointer]:
+                  - button "Reorder Credit Card bookmark" [ref=e150]:
+                    - img [ref=e151]
+                  - link "Credit Card" [ref=e153]:
+                    - /url: /accounts/credit
+                    - generic [ref=e155]: Credit Card
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e156] [cursor=pointer]:
+                  - button "Reorder Bill Pay bookmark" [ref=e157]:
+                    - img [ref=e158]
+                  - link "Bill Pay" [ref=e160]:
+                    - /url: /bill-pay
+                    - generic [ref=e162]: Bill Pay
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e163] [cursor=pointer]:
+                  - button "Reorder Insights bookmark" [ref=e164]:
+                    - img [ref=e165]
+                  - link "Insights" [ref=e167]:
+                    - /url: /insights/overview
+                    - generic [ref=e169]: Insights
+                  - button "Remove bookmark":
+                    - img
+              - status [ref=e170]
+        - generic [ref=e171]:
+          - generic [ref=e173]:
+            - button "Search for anything" [ref=e175] [cursor=pointer]:
+              - img
+              - generic [ref=e176]: Search for anything
+            - button "Move money" [ref=e178] [cursor=pointer]:
+              - img
+              - generic [ref=e179]: Move money
+            - generic [ref=e180]:
+              - button "Toggle Private Mode" [ref=e181] [cursor=pointer]:
+                - img
+              - link "Navigate to Settings" [ref=e184] [cursor=pointer]:
+                - /url: /settings
+                - img
+              - button "updates" [ref=e187] [cursor=pointer]:
+                - img
+              - button [ref=e190] [cursor=pointer]
+          - generic [ref=e192]:
+            - generic [ref=e194]:
+              - generic [ref=e195]:
+                - heading "Credit Card" [level=1] [ref=e196]
+                - button "Remove from bookmarks" [ref=e198] [cursor=pointer]:
+                  - img
+              - generic [ref=e200]:
+                - button "Request a Limit Increase" [ref=e202] [cursor=pointer]:
+                  - img
+                  - generic [ref=e203]: Request a Limit Increase
+                - button "Pay" [ref=e204] [cursor=pointer]:
+                  - generic [ref=e205]:
+                    - text: Pay
+                    - img [ref=e206]
+            - generic [ref=e209]:
+              - generic [ref=e210]:
+                - generic [ref=e211]:
+                  - generic [ref=e212]:
+                    - generic [ref=e213]:
+                      - generic [ref=e214]: Total Balance
+                      - generic [ref=e215]: $12,505.87
+                    - generic [ref=e216]:
+                      - generic:
+                        - meter "Pending" [ref=e218]
+                        - meter "Balance" [ref=e219]
+                      - generic [ref=e220]:
+                        - generic [ref=e221]:
+                          - generic [ref=e223]: Balance
+                          - generic [ref=e226]: Pending
+                        - generic [ref=e229]: $21,249 available
+                  - generic [ref=e231] [cursor=pointer]:
+                    - img [ref=e232]
+                    - text: Show details
+                - generic [ref=e234]:
+                  - button "Autopay Jun 22 Every 22nd" [ref=e237] [cursor=pointer]:
+                    - img [ref=e238]
+                    - generic [ref=e240]:
+                      - text: Autopay Jun 22
+                      - img [ref=e241]
+                    - generic [ref=e243]: Every 22nd
+                  - button "Linked Accounts 1 account" [ref=e245] [cursor=pointer]:
+                    - img [ref=e246]
+                    - generic [ref=e248]:
+                      - text: Linked Accounts
+                      - img [ref=e249]
+                    - generic [ref=e251]: 1 account
+              - img [ref=e254]:
+                - generic [ref=e255]:
+                  - generic [ref=e256]:
+                    - generic [ref=e259]: Jun 15
+                    - generic [ref=e260]: Jun 8
+                    - generic [ref=e261]: Jun 1
+                    - generic [ref=e262]: May 25
+                  - img [ref=e267] [cursor=pointer]
+            - generic [ref=e273]:
+              - generic [ref=e275]:
+                - generic [ref=e276]:
+                  - generic [ref=e277]: This month
+                  - link "$157.5K cashback" [ref=e279] [cursor=pointer]:
+                    - /url: /transactions?q=%7B%22filters%22%3A%7B%22userFacingKinds%22%3A%5B%22Credit%20Cashback%20Deposit%22%5D%7D%7D
+                    - generic [ref=e280]:
+                      - generic [ref=e281]: $157.5K
+                      - text: cashback
+                      - img [ref=e283]
+                  - link "$10.5M spent" [ref=e286] [cursor=pointer]:
+                    - /url: /transactions?q=%7B%22filters%22%3A%7B%22userFacingKinds%22%3A%5B%22Credit%20Card%22%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-15-2026%22%7D%7D%7D
+                    - generic [ref=e287]:
+                      - generic [ref=e288]: $10.5M
+                      - text: spent
+                      - img [ref=e290]
+                  - link "$31.3K Intl. Transaction Fees" [ref=e293] [cursor=pointer]:
+                    - /url: /transactions?q=%7B%22filters%22%3A%7B%22userFacingKinds%22%3A%5B%22Intl.%20Transaction%20Fee%22%2C%22Intl.%20Transaction%20Fee%20Rebate%22%5D%2C%22accountPartyIds%22%3A%5B%22credit-acct-txn-party-id%22%5D%2C%22date%22%3A%7B%22start%22%3A%2206-01-2026%22%2C%22end%22%3A%2206-15-2026%22%7D%7D%7D
+                    - generic [ref=e294]:
+                      - generic [ref=e295]: $31.3K
+                      - text: Intl. Transaction Fees
+                      - img [ref=e297]
+                  - link "60 cards added" [ref=e300] [cursor=pointer]:
+                    - /url: /cards?filters=%7B%22status%22%3A%5B%22active%22%2C%22frozen%22%2C%22cancelled%22%5D%2C%22types%22%3A%5B%22credit%22%5D%7D
+                    - generic [ref=e301]:
+                      - text: 60 cards added
+                      - img [ref=e303]
+                - paragraph [ref=e305] [cursor=pointer]:
+                  - text: Last Month
+                  - img [ref=e306]
+              - table [ref=e308]:
+                - rowgroup [ref=e309]:
+                  - row "Date Description Amount Ending balance Cashback earned" [ref=e310]:
+                    - cell "Date" [ref=e311]
+                    - cell "Description" [ref=e312]
+                    - cell "Amount" [ref=e313]
+                    - cell "Ending balance" [ref=e314]
+                    - cell "Cashback earned" [ref=e315]:
+                      - generic [ref=e316]: Cashback earned
+                      - link [ref=e319] [cursor=pointer]:
+                        - /url: https://mercury.com/legal/cashback-disclosure
+                        - img [ref=e320]
+                - generic [ref=e323]:
+                  - rowgroup [ref=e325]:
+                    - row "Jun 30 Daily Intl. Transaction Fees $1,043.43 — —" [ref=e326] [cursor=pointer]:
+                      - cell "Jun 30" [ref=e327]
+                      - cell "Daily Intl. Transaction Fees" [ref=e328]:
+                        - img [ref=e329]
+                        - generic [ref=e331]: Daily Intl. Transaction Fees
+                      - cell "$1,043.43" [ref=e332]:
+                        - generic [ref=e333]:
+                          - text: $1,043
+                          - generic [ref=e334]: ".43"
+                      - generic [ref=e335]: —
+                      - generic [ref=e336]: —
+                    - row "Jun 30 Daily spending $350,000.00 $350,000.00 $5,250.00" [ref=e337] [cursor=pointer]:
+                      - cell "Jun 30" [ref=e338]
+                      - cell "Daily spending" [ref=e339]:
+                        - img [ref=e340]
+                        - generic [ref=e342]: Daily spending
+                      - cell "$350,000.00" [ref=e343]:
+                        - generic [ref=e344]:
+                          - text: $350,000
+                          - generic [ref=e345]: ".00"
+                      - cell "$350,000.00" [ref=e346]:
+                        - generic [ref=e347]:
+                          - text: $350,000
+                          - generic [ref=e348]: ".00"
+                      - cell "$5,250.00" [ref=e349]:
+                        - generic [ref=e350]:
+                          - text: $5,250
+                          - generic [ref=e351]: ".00"
+                    - row "Jun 30 2 new cards added — — —" [ref=e352] [cursor=pointer]:
+                      - cell "Jun 30" [ref=e353]
+                      - cell "2 new cards added" [ref=e354]:
+                        - img [ref=e355]
+                        - generic [ref=e357]: 2 new cards added
+                      - generic [ref=e358]: —
+                      - generic [ref=e359]: —
+                      - generic [ref=e360]: —
+                    - row "Jun 30 Cashback deposited $36.00 — —" [ref=e361]:
+                      - cell "Jun 30" [ref=e362]
+                      - cell "Cashback deposited" [ref=e363]:
+                        - img [ref=e364]
+                        - generic [ref=e366]: Cashback deposited
+                      - cell "$36.00" [ref=e367]:
+                        - generic [ref=e368]:
+                          - text: $36
+                          - generic [ref=e369]: ".00"
+                      - generic [ref=e370]: —
+                      - generic [ref=e371]: —
+                    - row "Jun 30 Automatic daily payment $2,400.00 $0.00 —" [ref=e372] [cursor=pointer]:
+                      - cell "Jun 30" [ref=e373]
+                      - cell "Automatic daily payment" [ref=e374]:
+                        - img [ref=e375]
+                        - generic [ref=e377]: Automatic daily payment
+                      - cell "$2,400.00" [ref=e378]:
+                        - generic [ref=e379]:
+                          - text: $2,400
+                          - generic [ref=e380]: ".00"
+                      - cell "$0.00" [ref=e381]:
+                        - generic [ref=e382]:
+                          - text: $0
+                          - generic [ref=e383]: ".00"
+                      - generic [ref=e384]: —
+                    - row "Jun 30 Cashback deposited $1.50 — —" [ref=e385]:
+                      - cell "Jun 30" [ref=e386]
+                      - cell "Cashback deposited" [ref=e387]:
+                        - img [ref=e388]
+                        - generic [ref=e390]: Cashback deposited
+                      - cell "$1.50" [ref=e391]:
+                        - generic [ref=e392]:
+                          - text: $1
+                          - generic [ref=e393]: ".50"
+                      - generic [ref=e394]: —
+                      - generic [ref=e395]: —
+                    - row "Jun 30 Manual payment $100.00 $2,400.00 —" [ref=e396] [cursor=pointer]:
+                      - cell "Jun 30" [ref=e397]
+                      - cell "Manual payment" [ref=e398]:
+                        - img [ref=e399]
+                        - generic [ref=e401]: Manual payment
+                      - cell "$100.00" [ref=e402]:
+                        - generic [ref=e403]:
+                          - text: $100
+                          - generic [ref=e404]: ".00"
+                      - cell "$2,400.00" [ref=e405]:
+                        - generic [ref=e406]:
+                          - text: $2,400
+                          - generic [ref=e407]: ".00"
+                      - generic [ref=e408]: —
+                    - row "Jun 30 Cashback deposited $15.00 — —" [ref=e409]:
+                      - cell "Jun 30" [ref=e410]
+                      - cell "Cashback deposited" [ref=e411]:
+                        - img [ref=e412]
+                        - generic [ref=e414]: Cashback deposited
+                      - cell "$15.00" [ref=e415]:
+                        - generic [ref=e416]:
+                          - text: $15
+                          - generic [ref=e417]: ".00"
+                      - generic [ref=e418]: —
+                      - generic [ref=e419]: —
+                    - row "Jun 30 Automatic payment triggered by limit rule $1,000.00 $2,500.00 —" [ref=e420] [cursor=pointer]:
+                      - cell "Jun 30" [ref=e421]
+                      - cell "Automatic payment triggered by limit rule" [ref=e422]:
+                        - img [ref=e423]
+                        - generic [ref=e425]: Automatic payment triggered by limit rule
+                      - cell "$1,000.00" [ref=e426]:
+                        - generic [ref=e427]:
+                          - text: $1,000
+                          - generic [ref=e428]: ".00"
+                      - cell "$2,500.00" [ref=e429]:
+                        - generic [ref=e430]:
+                          - text: $2,500
+                          - generic [ref=e431]: ".00"
+                      - generic [ref=e432]: —
+                    - row "Jun 30 Limit increased to $75,000 — — —" [ref=e433]:
+                      - cell "Jun 30" [ref=e434]
+                      - cell "Limit increased to $75,000" [ref=e435]:
+                        - img [ref=e436]
+                        - generic [ref=e438]: Limit increased to $75,000
+                      - generic [ref=e439]: —
+                      - generic [ref=e440]: —
+                      - generic [ref=e441]: —
+                  - rowgroup [ref=e443]:
+                    - row "Jun 29 Daily Intl. Transaction Fees $1,043.43 — —" [ref=e444] [cursor=pointer]:
+                      - cell "Jun 29" [ref=e445]
+                      - cell "Daily Intl. Transaction Fees" [ref=e446]:
+                        - img [ref=e447]
+                        - generic [ref=e449]: Daily Intl. Transaction Fees
+                      - cell "$1,043.43" [ref=e450]:
+                        - generic [ref=e451]:
+                          - text: $1,043
+                          - generic [ref=e452]: ".43"
+                      - generic [ref=e453]: —
+                      - generic [ref=e454]: —
+                    - row "Jun 29 Daily spending $350,000.00 $350,000.00 $5,250.00" [ref=e455] [cursor=pointer]:
+                      - cell "Jun 29" [ref=e456]
+                      - cell "Daily spending" [ref=e457]:
+                        - img [ref=e458]
+                        - generic [ref=e460]: Daily spending
+                      - cell "$350,000.00" [ref=e461]:
+                        - generic [ref=e462]:
+                          - text: $350,000
+                          - generic [ref=e463]: ".00"
+                      - cell "$350,000.00" [ref=e464]:
+                        - generic [ref=e465]:
+                          - text: $350,000
+                          - generic [ref=e466]: ".00"
+                      - cell "$5,250.00" [ref=e467]:
+                        - generic [ref=e468]:
+                          - text: $5,250
+                          - generic [ref=e469]: ".00"
+                    - row "Jun 29 2 new cards added — — —" [ref=e470] [cursor=pointer]:
+                      - cell "Jun 29" [ref=e471]
+                      - cell "2 new cards added" [ref=e472]:
+                        - img [ref=e473]
+                        - generic [ref=e475]: 2 new cards added
+                      - generic [ref=e476]: —
+                      - generic [ref=e477]: —
+                      - generic [ref=e478]: —
+                    - row "Jun 29 Cashback deposited $36.00 — —" [ref=e479]:
+                      - cell "Jun 29" [ref=e480]
+                      - cell "Cashback deposited" [ref=e481]:
+                        - img [ref=e482]
+                        - generic [ref=e484]: Cashback deposited
+                      - cell "$36.00" [ref=e485]:
+                        - generic [ref=e486]:
+                          - text: $36
+                          - generic [ref=e487]: ".00"
+                      - generic [ref=e488]: —
+                      - generic [ref=e489]: —
+                    - row "Jun 29 Automatic daily payment $2,400.00 $0.00 —" [ref=e490] [cursor=pointer]:
+                      - cell "Jun 29" [ref=e491]
+                      - cell "Automatic daily payment" [ref=e492]:
+                        - img [ref=e493]
+                        - generic [ref=e495]: Automatic daily payment
+                      - cell "$2,400.00" [ref=e496]:
+                        - generic [ref=e497]:
+                          - text: $2,400
+                          - generic [ref=e498]: ".00"
+                      - cell "$0.00" [ref=e499]:
+                        - generic [ref=e500]:
+                          - text: $0
+                          - generic [ref=e501]: ".00"
+                      - generic [ref=e502]: —
+                    - row "Jun 29 Cashback deposited $1.50 — —" [ref=e503]:
+                      - cell "Jun 29" [ref=e504]
+                      - cell "Cashback deposited" [ref=e505]:
+                        - img [ref=e506]
+                        - generic [ref=e508]: Cashback deposited
+                      - cell "$1.50" [ref=e509]:
+                        - generic [ref=e510]:
+                          - text: $1
+                          - generic [ref=e511]: ".50"
+                      - generic [ref=e512]: —
+                      - generic [ref=e513]: —
+                    - row "Jun 29 Manual payment $100.00 $2,400.00 —" [ref=e514] [cursor=pointer]:
+                      - cell "Jun 29" [ref=e515]
+                      - cell "Manual payment" [ref=e516]:
+                        - img [ref=e517]
+                        - generic [ref=e519]: Manual payment
+                      - cell "$100.00" [ref=e520]:
+                        - generic [ref=e521]:
+                          - text: $100
+                          - generic [ref=e522]: ".00"
+                      - cell "$2,400.00" [ref=e523]:
+                        - generic [ref=e524]:
+                          - text: $2,400
+                          - generic [ref=e525]: ".00"
+                      - generic [ref=e526]: —
+                    - row "Jun 29 Cashback deposited $15.00 — —" [ref=e527]:
+                      - cell "Jun 29" [ref=e528]
+                      - cell "Cashback deposited" [ref=e529]:
+                        - img [ref=e530]
+                        - generic [ref=e532]: Cashback deposited
+                      - cell "$15.00" [ref=e533]:
+                        - generic [ref=e534]:
+                          - text: $15
+                          - generic [ref=e535]: ".00"
+                      - generic [ref=e536]: —
+                      - generic [ref=e537]: —
+                    - row "Jun 29 Automatic payment triggered by limit rule $1,000.00 $2,500.00 —" [ref=e538] [cursor=pointer]:
+                      - cell "Jun 29" [ref=e539]
+                      - cell "Automatic payment triggered by limit rule" [ref=e540]:
+                        - img [ref=e541]
+                        - generic [ref=e543]: Automatic payment triggered by limit rule
+                      - cell "$1,000.00" [ref=e544]:
+                        - generic [ref=e545]:
+                          - text: $1,000
+                          - generic [ref=e546]: ".00"
+                      - cell "$2,500.00" [ref=e547]:
+                        - generic [ref=e548]:
+                          - text: $2,500
+                          - generic [ref=e549]: ".00"
+                      - generic [ref=e550]: —
+                    - row "Jun 29 Limit increased to $75,000 — — —" [ref=e551]:
+                      - cell "Jun 29" [ref=e552]
+                      - cell "Limit increased to $75,000" [ref=e553]:
+                        - img [ref=e554]
+                        - generic [ref=e556]: Limit increased to $75,000
+                      - generic [ref=e557]: —
+                      - generic [ref=e558]: —
+                      - generic [ref=e559]: —
+                  - rowgroup [ref=e561]:
+                    - row "Jun 28 Daily Intl. Transaction Fees $1,043.43 — —" [ref=e562] [cursor=pointer]:
+                      - cell "Jun 28" [ref=e563]
+                      - cell "Daily Intl. Transaction Fees" [ref=e564]:
+                        - img [ref=e565]
+                        - generic [ref=e567]: Daily Intl. Transaction Fees
+                      - cell "$1,043.43" [ref=e568]:
+                        - generic [ref=e569]:
+                          - text: $1,043
+                          - generic [ref=e570]: ".43"
+                      - generic [ref=e571]: —
+                      - generic [ref=e572]: —
+                    - row "Jun 28 Daily spending $350,000.00 $350,000.00 $5,250.00" [ref=e573] [cursor=pointer]:
+                      - cell "Jun 28" [ref=e574]
+                      - cell "Daily spending" [ref=e575]:
+                        - img [ref=e576]
+                        - generic [ref=e578]: Daily spending
+                      - cell "$350,000.00" [ref=e579]:
+                        - generic [ref=e580]:
+                          - text: $350,000
+                          - generic [ref=e581]: ".00"
+                      - cell "$350,000.00" [ref=e582]:
+                        - generic [ref=e583]:
+                          - text: $350,000
+                          - generic [ref=e584]: ".00"
+                      - cell "$5,250.00" [ref=e585]:
+                        - generic [ref=e586]:
+                          - text: $5,250
+                          - generic [ref=e587]: ".00"
+                    - row "Jun 28 2 new cards added — — —" [ref=e588] [cursor=pointer]:
+                      - cell "Jun 28" [ref=e589]
+                      - cell "2 new cards added" [ref=e590]:
+                        - img [ref=e591]
+                        - generic [ref=e593]: 2 new cards added
+                      - generic [ref=e594]: —
+                      - generic [ref=e595]: —
+                      - generic [ref=e596]: —
+                    - row "Jun 28 Cashback deposited $36.00 — —" [ref=e597]:
+                      - cell "Jun 28" [ref=e598]
+                      - cell "Cashback deposited" [ref=e599]:
+                        - img [ref=e600]
+                        - generic [ref=e602]: Cashback deposited
+                      - cell "$36.00" [ref=e603]:
+                        - generic [ref=e604]:
+                          - text: $36
+                          - generic [ref=e605]: ".00"
+                      - generic [ref=e606]: —
+                      - generic [ref=e607]: —
+                    - row "Jun 28 Automatic daily payment $2,400.00 $0.00 —" [ref=e608] [cursor=pointer]:
+                      - cell "Jun 28" [ref=e609]
+                      - cell "Automatic daily payment" [ref=e610]:
+                        - img [ref=e611]
+                        - generic [ref=e613]: Automatic daily payment
+                      - cell "$2,400.00" [ref=e614]:
+                        - generic [ref=e615]:
+                          - text: $2,400
+                          - generic [ref=e616]: ".00"
+                      - cell "$0.00" [ref=e617]:
+                        - generic [ref=e618]:
+                          - text: $0
+                          - generic [ref=e619]: ".00"
+                      - generic [ref=e620]: —
+                    - row "Jun 28 Cashback deposited $1.50 — —" [ref=e621]:
+                      - cell "Jun 28" [ref=e622]
+                      - cell "Cashback deposited" [ref=e623]:
+                        - img [ref=e624]
+                        - generic [ref=e626]: Cashback deposited
+                      - cell "$1.50" [ref=e627]:
+                        - generic [ref=e628]:
+                          - text: $1
+                          - generic [ref=e629]: ".50"
+                      - generic [ref=e630]: —
+                      - generic [ref=e631]: —
+                    - row "Jun 28 Manual payment $100.00 $2,400.00 —" [ref=e632] [cursor=pointer]:
+                      - cell "Jun 28" [ref=e633]
+                      - cell "Manual payment" [ref=e634]:
+                        - img [ref=e635]
+                        - generic [ref=e637]: Manual payment
+                      - cell "$100.00" [ref=e638]:
+                        - generic [ref=e639]:
+                          - text: $100
+                          - generic [ref=e640]: ".00"
+                      - cell "$2,400.00" [ref=e641]:
+                        - generic [ref=e642]:
+                          - text: $2,400
+                          - generic [ref=e643]: ".00"
+                      - generic [ref=e644]: —
+                    - row "Jun 28 Cashback deposited $15.00 — —" [ref=e645]:
+                      - cell "Jun 28" [ref=e646]
+                      - cell "Cashback deposited" [ref=e647]:
+                        - img [ref=e648]
+                        - generic [ref=e650]: Cashback deposited
+                      - cell "$15.00" [ref=e651]:
+                        - generic [ref=e652]:
+                          - text: $15
+                          - generic [ref=e653]: ".00"
+                      - generic [ref=e654]: —
+                      - generic [ref=e655]: —
+                    - row "Jun 28 Automatic payment triggered by limit rule $1,000.00 $2,500.00 —" [ref=e656] [cursor=pointer]:
+                      - cell "Jun 28" [ref=e657]
+                      - cell "Automatic payment triggered by limit rule" [ref=e658]:
+                        - img [ref=e659]
+                        - generic [ref=e661]: Automatic payment triggered by limit rule
+                      - cell "$1,000.00" [ref=e662]:
+                        - generic [ref=e663]:
+                          - text: $1,000
+                          - generic [ref=e664]: ".00"
+                      - cell "$2,500.00" [ref=e665]:
+                        - generic [ref=e666]:
+                          - text: $2,500
+                          - generic [ref=e667]: ".00"
+                      - generic [ref=e668]: —
+                    - row "Jun 28 Limit increased to $75,000 — — —" [ref=e669]:
+                      - cell "Jun 28" [ref=e670]
+                      - cell "Limit increased to $75,000" [ref=e671]:
+                        - img [ref=e672]
+                        - generic [ref=e674]: Limit increased to $75,000
+                      - generic [ref=e675]: —
+                      - generic [ref=e676]: —
+                      - generic [ref=e677]: —
+      - button [ref=e680] [cursor=pointer]:
+        - img [ref=e681]
+  - alert

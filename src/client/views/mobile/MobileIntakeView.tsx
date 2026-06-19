@@ -65,7 +65,7 @@ export function MobileIntakeView() {
   const role: string = (me.data as { role?: string } | undefined)?.role ?? 'viewer';
   const canWrite = role !== 'viewer';
 
-  const intakeQuery = trpc.queries.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
+  const intakeQuery = trpc.intake.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
   const utils = trpc.useUtils();
 
   const orderRows = (intakeQuery.data ?? []) as IntakeOrderRow[];
@@ -101,7 +101,7 @@ export function MobileIntakeView() {
       if (result.ok) {
         addToast(`${batch.name || batch.batchCode} verified`, 'success');
         closeAction();
-        void utils.queries.intakeQueue.invalidate();
+        void utils.intake.intakeQueue.invalidate();
       }
     } catch {
       // useCommandRunner surfaces errors via toast pipeline
@@ -120,7 +120,7 @@ export function MobileIntakeView() {
         const batch = batches.find(b => b.id === batchId);
         addToast(`${batch?.name || batchId} flagged for attention`, 'success');
         closeAction();
-        void utils.queries.intakeQueue.invalidate();
+        void utils.intake.intakeQueue.invalidate();
       }
     } catch {
       // surfaced by useCommandRunner

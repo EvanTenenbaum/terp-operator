@@ -77,12 +77,12 @@ export function PickView() {
     return () => { unsubscribeOrder(orderId); };
   }, [selectedPickList?.orderId, subscribeOrder, unsubscribeOrder]);
 
-  const queueQuery = trpc.queries.pickQueue.useQuery(undefined, { refetchInterval: 30000 });
+  const queueQuery = trpc.fulfillment.pickQueue.useQuery(undefined, { refetchInterval: 30000 });
   const queueItems = (queueQuery.data ?? []) as PickQueueItem[];
   const queueLoading = queueQuery.isLoading;
 
   const blankId = '00000000-0000-0000-0000-000000000000';
-  const pickListQuery = trpc.queries.pickListWithLines.useQuery(
+  const pickListQuery = trpc.fulfillment.pickListWithLines.useQuery(
     { pickListId: selectedPickList?.id ?? blankId },
     { enabled: Boolean(selectedPickList?.id), refetchInterval: 10000 }
   );
@@ -142,7 +142,7 @@ export function PickView() {
   }, [pickListQuery.data, selectedLine, screen]);
 
   function handleRefreshQueue() {
-    void utils.queries.pickQueue.invalidate();
+    void utils.fulfillment.pickQueue.invalidate();
   }
 
   function handleSelectPickList(item: PickQueueItem) {
@@ -163,7 +163,7 @@ export function PickView() {
     const nextLine = currentLines.find(
       (l) => l.id !== selectedLine?.id && l.status !== 'packed' && l.status !== 'cancelled'
     ) ?? null;
-    void utils.queries.pickListWithLines.invalidate({ pickListId: selectedPickList?.id ?? '' });
+    void utils.fulfillment.pickListWithLines.invalidate({ pickListId: selectedPickList?.id ?? '' });
     if (nextLine) {
       // Stay on 'line' screen, just swap to the next line (same depth)
       setSelectedLine(nextLine);
@@ -182,7 +182,7 @@ export function PickView() {
     // Pop all the way back to queue
     screenHistoryRef.current = ['queue'];
     setScreen('queue');
-    void utils.queries.pickQueue.invalidate();
+    void utils.fulfillment.pickQueue.invalidate();
   }
 
   // Handle step changes from the wizard step indicator and prev/next buttons.

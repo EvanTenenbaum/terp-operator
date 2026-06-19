@@ -44,9 +44,9 @@ const TAB_STOCK = 'vendorStock';
 export function MatchmakingView() {
   // ── Queries ──────────────────────────────────────────────────────────────
   const reference = trpc.queries.reference.useQuery();
-  const board = trpc.queries.matchmakingBoard.useQuery();
-  const settings = trpc.queries.matchmakingSettings.useQuery();
-  const opportunities = trpc.queries.matchmakingOpportunities.useQuery();
+  const board = trpc.matchmaking.matchmakingBoard.useQuery();
+  const settings = trpc.matchmaking.matchmakingSettings.useQuery();
+  const opportunities = trpc.matchmaking.matchmakingOpportunities.useQuery();
   const me = trpc.auth.me.useQuery();
   const userRole = (me.data?.role ?? 'viewer') as Role;
   const canWrite = userRole !== 'viewer';

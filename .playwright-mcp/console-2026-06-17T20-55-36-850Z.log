@@ -1,0 +1,301 @@
+[     102ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:21608
+[     121ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:159
+[     121ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:159
+[     235ms] [ERROR] Warning: The result of getSnapshot should be cached to avoid an infinite loop%s 
+    at GridView (http://localhost:5173/src/client/templates/GridView.tsx:39:28)
+    at div
+    at div
+    at PaymentsView (http://localhost:5173/src/client/views/PaymentsView.tsx:77:24)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7491:26)
+    at main
+    at div
+    at div
+    at div
+    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)
+    at AppContent (http://localhost:5173/src/client/App.tsx:104:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7561:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7500:13)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:10787:3)
+    at ErrorBoundary (http://localhost:5173/src/client/components/ErrorBoundary.tsx:5:8)
+    at App
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:2838:3)
+    at TRPCProvider (http://localhost:5173/node_modules/.vite/deps/@trpc_react-query.js?v=dc679a6b:226:13) @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:520
+[     256ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     256ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     257ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     257ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     273ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:156
+[     491ms] Error: Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate. React limits the number of nested updates to prevent infinite loops.
+    at checkForNestedUpdates (http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:19712:19)
+    at scheduleUpdateOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:18583:11)
+    at dispatchSetState (http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:12451:15)
+    at Object.addOrRemoveCssClass (http://localhost:5173/node_modules/.vite/deps/ag-grid-react.js?v=dc679a6b:1274:42)
+    at GridHeaderCtrl.onDisplayedColumnsChanged (http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:19736:15)
+    at callback (http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:70:124)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:74:9
+    at Set.forEach (<anonymous>)
+    at processEventListeners (http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:66:82)
+    at LocalEventService.dispatchToListeners (http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=dc679a6b:80:7)
+[     491ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at DetailSlideover (http://localhost:5173/src/client/components/DetailSlideover.tsx:31:3)
+    at div
+    at GridView (http://localhost:5173/src/client/templates/GridView.tsx:39:28)
+    at div
+    at div
+    at PaymentsView (http://localhost:5173/src/client/views/PaymentsView.tsx:77:24)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7491:26)
+    at main
+    at div
+    at div
+    at div
+    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)
+    at AppContent (http://localhost:5173/src/client/App.tsx:104:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7561:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7500:13)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:10787:3)
+    at ErrorBoundary (http://localhost:5173/src/client/components/ErrorBoundary.tsx:5:8)
+    at App
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:2838:3)
+    at TRPCProvider (http://localhost:5173/node_modules/.vite/deps/@trpc_react-query.js?v=dc679a6b:226:13) @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:520
+[     492ms] [ERROR] The above error occurred in the <AgGridReactUi> component:
+
+    at AgGridReactUi (http://localhost:5173/node_modules/.vite/deps/ag-grid-react.js?v=dc679a6b:2461:43)
+    at AgGridReact (http://localhost:5173/node_modules/.vite/deps/ag-grid-react.js?v=dc679a6b:2792:5)
+    at div
+    at div
+    at section
+    at WorkspacePanel (http://localhost:5173/src/client/components/WorkspacePanel.tsx:22:34)
+    at OperatorGrid (http://localhost:5173/src/client/components/OperatorGrid.tsx:46:3)
+    at div
+    at div
+    at GridView (http://localhost:5173/src/client/templates/GridView.tsx:39:28)
+    at div
+    at div
+    at PaymentsView (http://localhost:5173/src/client/views/PaymentsView.tsx:77:24)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Outlet (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7491:26)
+    at main
+    at div
+    at div
+    at div
+    at SocketProvider (http://localhost:5173/src/client/context/SocketContext.tsx:35:34)
+    at AppContent (http://localhost:5173/src/client/App.tsx:104:27)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:6626:26)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7561:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:7500:13)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=dc679a6b:10787:3)
+    at ErrorBoundary (http://localhost:5173/src/client/components/ErrorBoundary.tsx:5:8)
+    at App
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:2838:3)
+    at TRPCProvider (http://localhost:5173/node_modules/.vite/deps/@trpc_react-query.js?v=dc679a6b:226:13)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary. @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=dc679a6b:14079
+[    1084ms] [ERROR] TRPCClientError: Database error (request id: 774c6864-f7fb-4dca-8ba5-94ff1716bbc6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:947
+[    1084ms] [ERROR] TRPCClientError: Database error (request id: 1b6e8091-a793-42a6-8a18-8a7cdee8e57b)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:947
+[    1084ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=dc679a6b:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=dc679a6b:947
+[  301767ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=0f246867:21608
+[  301798ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  301798ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  301956ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  301956ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  301956ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  301956ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  301976ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  303656ms] [ERROR] TRPCClientError: Database error (request id: 8f87f4a5-9caa-496d-ac43-a39e37f8617f)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  303657ms] [ERROR] TRPCClientError: Database error (request id: d9584db3-e4c9-4718-b662-59217141a11d)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  303657ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  322051ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  322052ms] [ERROR] TRPCClientError: Database error (request id: dd9d54cf-a5fe-4ad5-99e6-5b847cdb4383)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  326653ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  326654ms] [ERROR] TRPCClientError: Database error (request id: 948e284c-87bb-46f2-a54f-c1d24714655e)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  330512ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  330513ms] [ERROR] TRPCClientError: Database error (request id: 2770fb44-2646-4233-9e54-91a4d13bf611)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  363883ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  365008ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  365032ms] [ERROR] TRPCClientError: Database error (request id: b7f7b1b4-3357-4653-b579-fa92b16cd562)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  383678ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  383679ms] [ERROR] TRPCClientError: Database error (request id: 31170bbd-0b74-4a4c-bb9c-35ffded7495d)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  425271ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  426489ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  426511ms] [ERROR] TRPCClientError: Database error (request id: cd184465-cfb0-4894-90f5-4fa26326522b)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  445044ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  445044ms] [ERROR] TRPCClientError: Database error (request id: c43a91a3-1406-4875-90cc-7463cc86ebc5)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  486725ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  487979ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  488006ms] [ERROR] TRPCClientError: Database error (request id: cd479d56-a1ea-44f4-a81e-30741dc94009)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  506401ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  506401ms] [ERROR] TRPCClientError: Database error (request id: 76db95df-22e4-4bb0-81d0-7f457248afe8)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  548151ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  549431ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  549490ms] [ERROR] TRPCClientError: Database error (request id: e198a828-b17f-4298-976e-410d7c85df6b)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  567811ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  567811ms] [ERROR] TRPCClientError: Database error (request id: 014c429e-3724-4b5c-944b-5245b5f06372)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  609593ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  610706ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  610734ms] [ERROR] TRPCClientError: Database error (request id: a90afe45-e546-4243-b6f4-ebbefea91602)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  629093ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  629094ms] [ERROR] TRPCClientError: Database error (request id: 7bcab1e8-c843-43e1-a41e-bb0e32b603c6)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  671030ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  672577ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  672650ms] [ERROR] TRPCClientError: Database error (request id: 146d44a1-c786-4df1-88cb-13cf2dd0887a)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  691669ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  691670ms] [ERROR] TRPCClientError: Database error (request id: e7c2bbb0-adaf-4df2-8a8a-698c695ff4c1)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  714331ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=0f246867:21608
+[  714373ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  714373ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  714449ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/auth.me?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%7D:0
+[  716876ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  716876ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  716876ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  716876ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  716897ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  721770ms] [ERROR] TRPCClientError: Database error (request id: c71ec43c-5558-4284-9630-0b016fd4fbdb)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  721771ms] [ERROR] TRPCClientError: Database error (request id: 294923be-10cf-47b0-beac-597c28552028)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  721771ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  726172ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=0f246867:21608
+[  726199ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  726199ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  726229ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/auth.me?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%7D:0
+[  728586ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  728586ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  728586ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  728586ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  728599ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  730823ms] [ERROR] TRPCClientError: Database error (request id: 79a60852-c21c-4f00-a4b7-dd5957c8b933)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  730823ms] [ERROR] TRPCClientError: Database error (request id: 4c97b8a6-2ce4-4718-8b09-01443dd1159c)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  730824ms] [ERROR] TRPCClientError: Unknown entity type: payment
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  746603ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=0f246867:21608
+[  746637ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  746637ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  746658ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/auth.me?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%7D:0
+[  748190ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  748190ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  748190ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  748190ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  748208ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  750370ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  750417ms] [ERROR] TRPCClientError: Database error (request id: cebdbebd-cd4a-4650-ab21-55934f08f785)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  750418ms] [ERROR] TRPCClientError: Database error (request id: 0a915a02-7bc7-41bb-9ae3-3869c566b441)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  784831ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  784855ms] [ERROR] TRPCClientError: Database error (request id: dd162faa-0e72-43e0-bc6f-118c501a6cf3)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  795501ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  795524ms] [ERROR] TRPCClientError: Database error (request id: aff1d70d-fe78-4b9b-9969-b63cc57d9e03)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  810697ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  811927ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  811965ms] [ERROR] TRPCClientError: Database error (request id: a57739bb-007c-4967-9c8f-c753c0f5f9cc)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  855951ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  857614ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  858776ms] [ERROR] TRPCClientError: Database error (request id: 33b7ec25-98c1-4c6d-8373-b9439bf6cfb8)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  872151ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  873491ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%7D:0
+[  874051ms] [ERROR] TRPCClientError: Database error (request id: 0e922153-abb6-4185-be8e-bd4ccf2664ca)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  896316ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:963
+[  896368ms] [ERROR] WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/@vite/client:1034
+[  897130ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/socket.io/?EIO=4&transport=polling&t=kezuebns:0
+[  897381ms] [ERROR] WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/@vite/client:1034
+[  898527ms] [ERROR] WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:5173/@vite/client:1034
+[  902557ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=0f246867:21608
+[  902603ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  902603ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[  903535ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  903535ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  903535ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  903535ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  903556ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[  906753ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid,queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22vendors%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22view%22%3A%22payments%22%7D%7D%7D:0
+[  906815ms] [ERROR] TRPCClientError: Database error (request id: 83c18c3a-c398-47fd-985e-2305bbd9e195)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947
+[  906817ms] [ERROR] TRPCClientError: Database error (request id: 418cb564-5582-411e-bf3a-92428e445f60)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947

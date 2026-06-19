@@ -21,7 +21,7 @@ export function PurchaseReceiptsView() {
   const selectedRows = useUiStore((state) => state.selectedRows.purchaseReceipts);
   const selected = selectedRows ?? EMPTY_ROWS;
   const selectedReceipt = selected[0];
-  const lines = trpc.queries.purchaseReceiptLines.useQuery(
+  const lines = trpc.purchaseOrders.purchaseReceiptLines.useQuery(
     { purchaseReceiptId: String(selectedReceipt?.id ?? '00000000-0000-0000-0000-000000000000') },
     { enabled: Boolean(selectedReceipt?.id) }
   );

@@ -138,7 +138,7 @@ export function PurchaseOrdersView() {
   const pushToast = useUiStore((state) => state.pushToast);
   const selected = selectedRows ?? [];
   const selectedPo = selected[0];
-  const lines = trpc.queries.purchaseOrderLines.useQuery(
+  const lines = trpc.purchaseOrders.purchaseOrderLines.useQuery(
     { purchaseOrderId: String(selectedPo?.id ?? '00000000-0000-0000-0000-000000000000') },
     { enabled: Boolean(selectedPo?.id) }
   );
@@ -176,8 +176,8 @@ export function PurchaseOrdersView() {
 
   const defaultVendorId = vendorId;
   const selectedVendor = reference.data?.vendors.find((vendor) => vendor.id === defaultVendorId);
-  const vendorRelationship = trpc.queries.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
-  const contextSignals = trpc.queries.poContextSignals.useQuery(undefined, { enabled: authoringOpen });
+  const vendorRelationship = trpc.context.relationshipSummary.useQuery({ vendorId: defaultVendorId }, { enabled: authoringOpen && Boolean(defaultVendorId) });
+  const contextSignals = trpc.purchaseOrders.poContextSignals.useQuery(undefined, { enabled: authoringOpen });
   const historicalProducts = (reference.data?.availableBatches ?? [])
     .filter((row) => !defaultVendorId || row.vendorId === defaultVendorId)
     .slice(0, 8);

@@ -311,7 +311,7 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   const navigate = useNavigate();
   const customerId = inferCustomerId(row, activeView, entityType, entityId);
   const vendorId = inferVendorId(row, activeView, entityType, entityId);
-  const relationship = trpc.queries.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
+  const relationship = trpc.context.relationshipSummary.useQuery({ customerId, vendorId }, { enabled: Boolean(customerId || vendorId) });
   const facts = compactFacts(row, entityType, relationship.data);
 
   // contactId may be present on the row when the grid query includes it (added in 9.3).
@@ -340,7 +340,7 @@ function ContextDrawerContent({ activeView, activeTab, row, entityType, entityId
   const setSalesSheetState = useUiStore((state) => state.setSalesSheetState);
   const showMargin = useUiStore((state) => state.showMargin);
   // TER-1570: live orderLines for the active salesOrder entity.
-  const salesOrderLinesQuery = trpc.queries.salesOrderLines.useQuery(
+  const salesOrderLinesQuery = trpc.salesOrders.salesOrderLines.useQuery(
     { orderId: salesOrderId || '00000000-0000-0000-0000-000000000000' },
     { enabled: isSalesOrderEntity && Boolean(salesOrderId) }
   );

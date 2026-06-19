@@ -40,7 +40,7 @@ function kindTone(kind: unknown): string {
 
 export function LotMovementTab({ batchId }: LotMovementTabProps) {
   const enabled = Boolean(batchId);
-  const movements = trpc.queries.inventoryMovements.useQuery(
+  const movements = trpc.inventory.inventoryMovements.useQuery(
     { batchId: batchId ?? undefined },
     { enabled }
   );

@@ -22,7 +22,7 @@ interface ProcessorTotals {
 }
 
 export function ProcessorDetailPanel({ processorId, processorName, onClose }: ProcessorDetailPanelProps) {
-  const totals = trpc.queries.processorWithTotals.useQuery({ processorId });
+  const totals = trpc.payments.processorWithTotals.useQuery({ processorId });
   const data = totals.data as unknown as ProcessorTotals | null | undefined;
 
   return (

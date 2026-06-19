@@ -40,4 +40,21 @@ export const inventoryRouter = router({
       }
       return { rows, total: total.toFixed(2), conflicts, ok: conflicts.length === 0, vendor: rows[0]?.vendor ?? '' };
     }),
+
+  inventoryMovements: protectedProcedure
+    .input(z.object({ batchId: z.string().uuid().optional() }))
+    .query(async ({ input }) => {
+      return (
+        await pool.query(
+          `select im.id, im.batch_id as "batchId", b.batch_code as "batchCode", im.command_id as "commandId",
+                  im.kind, im.qty_delta as "qtyDelta", im.reason, im.created_at as "createdAt"
+           from inventory_movements im
+           left join batches b on b.id = im.batch_id
+           where ($1::uuid is null or im.batch_id = $1::uuid)
+           order by im.created_at desc
+           limit 100`,
+          [input.batchId ?? null]
+        )
+      ).rows;
+    }),
 });

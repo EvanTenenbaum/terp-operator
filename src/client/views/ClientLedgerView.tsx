@@ -10,8 +10,8 @@ import { GridJourney } from './operations/shared';
 export function ClientLedgerView() {
   const navigate = useNavigate();
   const { runCommand } = useCommandRunner();
-  const matchSettings = trpc.queries.matchmakingSettings.useQuery();
-  const matchCounts = trpc.queries.matchmakingEntityCounts.useQuery(undefined, {
+  const matchSettings = trpc.matchmaking.matchmakingSettings.useQuery();
+  const matchCounts = trpc.matchmaking.matchmakingEntityCounts.useQuery(undefined, {
     enabled: matchSettings.data?.showClientsColumn ?? false,
   });
   const clientColumns = useMemo((): ColDef<GridRow>[] => {

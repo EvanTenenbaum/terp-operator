@@ -1,0 +1,9 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - heading "TERP Operator" [level=1] [ref=e5]
+    - paragraph [ref=e6]: Sign in with a seeded operator account.
+    - generic [ref=e7]: Email
+    - textbox "Email" [ref=e8]
+    - generic [ref=e9]: Password
+    - textbox "Password" [ref=e10]
+    - button "Sign in" [ref=e11] [cursor=pointer]

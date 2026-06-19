@@ -1,0 +1,1066 @@
+- generic [ref=e1]:
+  - generic [ref=e12]:
+    - navigation [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]: TERP Operator
+          - generic [ref=e17]: Operator Console
+        - button "Collapse navigation" [ref=e18]:
+          - img [ref=e19]
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: Decide
+          - button "Dashboard" [ref=e25]:
+            - img [ref=e26]
+            - generic [ref=e29]: Dashboard
+            - generic [ref=e30]: ⌘1
+          - button "Reports" [ref=e31]:
+            - img [ref=e32]
+            - generic [ref=e34]: Reports
+        - generic [ref=e35]:
+          - generic [ref=e36]: Procure
+          - button "Purchase Orders" [ref=e37]:
+            - img [ref=e38]
+            - generic [ref=e42]: Purchase Orders
+          - button "Intake" [ref=e43]:
+            - img [ref=e44]
+            - generic [ref=e47]: Intake
+            - generic [ref=e48]: ⌘2
+          - button "Inventory" [ref=e49]:
+            - img [ref=e50]
+            - generic [ref=e60]: Inventory
+            - generic [ref=e61]: ⌘5
+          - button "More" [ref=e62]:
+            - img [ref=e63]
+            - generic [ref=e65]: More
+          - group "More Procure items" [ref=e66]:
+            - button "Receipts" [ref=e67]:
+              - img [ref=e68]
+              - generic [ref=e70]: Receipts
+            - button "Photography" [ref=e71]:
+              - img [ref=e72]
+              - generic [ref=e75]: Photography
+        - generic [ref=e76]:
+          - generic [ref=e77]: Sell
+          - button "Sales" [ref=e78]:
+            - img [ref=e79]
+            - generic [ref=e83]: Sales
+            - generic [ref=e84]: ⌘3
+          - button "Matchmaking" [ref=e85]:
+            - img [ref=e86]
+            - generic [ref=e89]: Matchmaking
+          - button "Orders" [ref=e90]:
+            - img [ref=e91]
+            - generic [ref=e94]: Orders
+          - button "Fulfillment" [ref=e95]:
+            - img [ref=e96]
+            - generic [ref=e101]: Fulfillment
+          - button "Client Balances" [ref=e102]:
+            - img [ref=e103]
+            - generic [ref=e105]: Client Balances
+            - generic [ref=e106]: ⌘6
+          - button "More" [ref=e107]:
+            - img [ref=e108]
+            - generic [ref=e110]: More
+          - group "More Sell items" [ref=e111]:
+            - button "Credit Review" [ref=e112]:
+              - img [ref=e113]
+              - generic [ref=e117]: Credit Review
+        - generic [ref=e118]:
+          - generic [ref=e119]: Money
+          - button "Payments" [ref=e120]:
+            - img [ref=e121]
+            - generic [ref=e124]: Payments
+            - generic [ref=e125]: ⌘4
+          - button "Vendor Payouts" [ref=e126]:
+            - img [ref=e127]
+            - generic [ref=e129]: Vendor Payouts
+          - button "Contacts" [ref=e130]:
+            - img [ref=e131]
+            - generic [ref=e136]: Contacts
+          - button "More" [ref=e137]:
+            - img [ref=e138]
+            - generic [ref=e140]: More
+          - group "More Money items" [ref=e141]:
+            - button "Disputes" [ref=e142]:
+              - img [ref=e143]
+              - generic [ref=e145]: Disputes
+            - button "Referees" [ref=e146]:
+              - img [ref=e147]
+              - generic [ref=e152]: Referees
+        - generic [ref=e153]:
+          - generic [ref=e154]: Admin
+          - button "Recovery" [ref=e155]:
+            - img [ref=e156]
+            - generic [ref=e159]: Recovery
+          - button "Closeout" [ref=e160]:
+            - img [ref=e161]
+            - generic [ref=e164]: Closeout
+          - button "Settings" [ref=e165]:
+            - img [ref=e166]
+            - generic [ref=e169]: Settings
+      - link "Switch to mobile view" [ref=e171]:
+        - /url: /mobile/dashboard
+        - img [ref=e172]
+        - generic [ref=e174]: Mobile view
+    - generic [ref=e175]:
+      - banner "Global workspace keel" [ref=e176]:
+        - button "Search ⌘K" [ref=e177]:
+          - img [ref=e178]
+          - generic [ref=e181]: Search
+          - generic [ref=e182]: ⌘K
+        - generic "Quick actions and tools" [ref=e183]:
+          - button "Quick actions" [ref=e185]:
+            - img [ref=e186]
+            - generic [ref=e190]: Quick actions
+            - img [ref=e191]
+          - button "Sign out" [ref=e193]
+        - generic [ref=e194]:
+          - generic [ref=e197]: Healthy
+          - generic [ref=e198]: Evan Owner
+      - main [ref=e200]:
+        - generic [ref=e201]:
+          - generic [ref=e202]:
+            - generic [ref=e203]:
+              - heading "Owner Daily Decision View" [level=1] [ref=e204]
+              - paragraph [ref=e205]: Today’s money, inventory, open work, and recent activity.
+            - button "Refresh" [ref=e206]:
+              - img [ref=e207]
+              - text: Refresh
+          - generic [ref=e212]:
+            - button "Cash/files on hand good $2,053 Posted payments recorded in TERP Agro, net of reversals and refunds." [ref=e368]:
+              - generic [ref=e369]:
+                - generic [ref=e370]: Cash/files on hand
+                - generic [ref=e372]: good
+              - generic [ref=e373]: $2,053
+              - paragraph [ref=e374]: Posted payments recorded in TERP Agro, net of reversals and refunds.
+            - button "Payables due/scheduled neutral $18,786 Open, approved, or scheduled vendor bills not fully paid." [ref=e375]:
+              - generic [ref=e376]:
+                - generic [ref=e377]: Payables due/scheduled
+                - generic [ref=e379]: neutral
+              - generic [ref=e380]: $18,786
+              - paragraph [ref=e381]: Open, approved, or scheduled vendor bills not fully paid.
+            - button "Receivables neutral $3,600 Open customer invoice balances after allocations." [ref=e382]:
+              - generic [ref=e383]:
+                - generic [ref=e384]: Receivables
+                - generic [ref=e386]: neutral
+              - generic [ref=e387]: $3,600
+              - paragraph [ref=e388]: Open customer invoice balances after allocations.
+            - button "Inventory value neutral $37,089 Available posted inventory valued at unit cost." [ref=e389]:
+              - generic [ref=e390]:
+                - generic [ref=e391]: Inventory value
+                - generic [ref=e393]: neutral
+              - generic [ref=e394]: $37,089
+              - paragraph [ref=e395]: Available posted inventory valued at unit cost.
+            - button "Aging inventory good 1 lots Posted lots older than 30 days with quantity still available." [ref=e396]:
+              - generic [ref=e397]:
+                - generic [ref=e398]: Aging inventory
+                - generic [ref=e400]: good
+              - generic [ref=e401]: 1 lots
+              - paragraph [ref=e402]: Posted lots older than 30 days with quantity still available.
+            - 'button "Debt leaderboard bad Valley Meds: $21,000 Customer with the highest current balance." [ref=e403]':
+              - generic [ref=e404]:
+                - generic [ref=e405]: Debt leaderboard
+                - generic [ref=e407]: bad
+              - generic [ref=e408]: "Valley Meds: $21,000"
+              - paragraph [ref=e409]: Customer with the highest current balance.
+            - button "Matchmaking good 67 matches Open deterministic matches between customer needs and vendor stock." [ref=e410]:
+              - generic [ref=e411]:
+                - generic [ref=e412]: Matchmaking
+                - generic [ref=e414]: good
+              - generic [ref=e415]: 67 matches
+              - paragraph [ref=e416]: Open deterministic matches between customer needs and vendor stock.
+          - region "Today Focus" [ref=e218]:
+            - generic [ref=e219]:
+              - button "Today Focus What needs your attention today" [expanded] [ref=e220]:
+                - img [ref=e221]
+                - generic [ref=e223]:
+                  - heading "Today Focus" [level=2] [ref=e224]
+                  - generic [ref=e225]: What needs your attention today
+              - button "Expand Today Focus" [ref=e227]:
+                - img [ref=e228]
+            - generic [ref=e234]:
+              - generic [ref=e235]:
+                - heading "Today's Top Decisions" [level=3] [ref=e236]
+                - generic [ref=e417]:
+                  - 'button "Inactive: Sales SO-MPJ99Y34-258 — Cobalt Reserve / 88.50" [ref=e418]':
+                    - generic [ref=e419]:
+                      - generic [ref=e421]: "Inactive:"
+                      - text: Sales
+                    - generic [ref=e422]: SO-MPJ99Y34-258
+                    - generic [ref=e423]: — Cobalt Reserve / 88.50
+                  - 'button "Inactive: Sales SO-DEMO-001 — Sunset Collective / 5940.00" [ref=e424]':
+                    - generic [ref=e425]:
+                      - generic [ref=e427]: "Inactive:"
+                      - text: Sales
+                    - generic [ref=e428]: SO-DEMO-001
+                    - generic [ref=e429]: — Sunset Collective / 5940.00
+                  - 'button "Inactive: Intake Infused Candy Sour — North Coast Gardens / 80.000 case" [ref=e430]':
+                    - generic [ref=e431]:
+                      - generic [ref=e433]: "Inactive:"
+                      - text: Intake
+                    - generic [ref=e434]: Infused Candy Sour
+                    - generic [ref=e435]: — North Coast Gardens / 80.000 case
+                  - button "View all (90)" [ref=e436]
+              - generic [ref=e237]:
+                - button "View Open Orders" [ref=e238]:
+                  - text: Open Orders
+                  - generic [ref=e239]: "2"
+                  - generic [ref=e240]: View
+                - button "View Intake ready" [ref=e241]:
+                  - text: Intake ready
+                  - generic [ref=e242]: "1"
+                  - generic [ref=e243]: View
+          - region "Pending work queues" [ref=e244]:
+            - generic [ref=e245]:
+              - button "Pending work queues" [expanded] [ref=e246]:
+                - img [ref=e247]
+                - heading "Pending work queues" [level=2] [ref=e250]
+              - button "Expand Pending work queues" [ref=e252]:
+                - img [ref=e253]
+            - generic [ref=e258]:
+              - generic [ref=e437]:
+                - button "Intake ready 1" [ref=e438]:
+                  - generic [ref=e439]: Intake ready
+                  - strong [ref=e440]: "1"
+                - button "Sales ready 2" [ref=e441]:
+                  - generic [ref=e442]: Sales ready
+                  - strong [ref=e443]: "2"
+                - button "Payments ready 1" [ref=e444]:
+                  - generic [ref=e445]: Payments ready
+                  - strong [ref=e446]: "1"
+              - generic [ref=e259]:
+                - generic [ref=e260]:
+                  - generic [ref=e263]: "Active:"
+                  - text: posted
+                - generic [ref=e448]: Health checks are green.
+          - generic "My Open Work grid" [ref=e264]:
+            - region "My Open Work" [ref=e265]:
+              - generic [ref=e266]:
+                - button "My Open Work 0 row(s)" [expanded] [ref=e267]:
+                  - img [ref=e268]
+                  - generic [ref=e270]:
+                    - heading "My Open Work" [level=2] [ref=e271]
+                    - generic [ref=e272]: 0 row(s)
+                - generic [ref=e273]:
+                  - button "Advanced filters" [ref=e274]:
+                    - img [ref=e275]
+                    - generic [ref=e277]: Advanced filters
+                  - generic [ref=e278]:
+                    - img [ref=e279]
+                    - generic [ref=e282]: Filter My Open Work grid
+                    - textbox "Filter My Open Work grid" [ref=e283]:
+                      - /placeholder: Filter grid (field:value)
+                  - button "Open top item" [ref=e284]
+                  - button "Columns" [ref=e286]:
+                    - img [ref=e287]
+                    - generic [ref=e289]: Columns
+                  - button "Export visible grid CSV" [ref=e290]:
+                    - img [ref=e291]
+                    - generic [ref=e294]: Export visible grid CSV
+                  - button "Expand My Open Work" [ref=e295]:
+                    - img [ref=e296]
+              - generic [ref=e303]:
+                - text:  
+                - treegrid:
+                  - rowgroup [ref=e305]:
+                    - row "# Lane" [ref=e306]:
+                      - columnheader "#" [ref=e307]:
+                        - text: 
+                        - generic [ref=e308]: 
+                        - generic: "#"
+                        - text: 
+                        - generic: 
+                      - columnheader [ref=e309]:
+                        - text: 
+                        - generic [ref=e310]: 
+                        - text: 
+                        - generic: 
+                      - columnheader "Lane" [ref=e311]:
+                        - text: 
+                        - generic [ref=e313]: 
+                        - generic [ref=e314]: 
+                        - generic [ref=e315]: Lane
+                        - generic:    
+                  - rowgroup [ref=e316]:
+                    - row "Title Status Detail Created At" [ref=e317]:
+                      - columnheader "Title" [ref=e318]:
+                        - text: 
+                        - generic [ref=e320]: 
+                        - generic [ref=e321]: 
+                        - generic [ref=e322]: Title
+                        - generic:    
+                      - columnheader "Status" [ref=e323]:
+                        - text: 
+                        - generic [ref=e325]: 
+                        - generic [ref=e326]: 
+                        - generic [ref=e327]: Status
+                        - generic:    
+                      - columnheader "Detail" [ref=e328]:
+                        - text: 
+                        - generic [ref=e330]: 
+                        - generic [ref=e331]: 
+                        - generic [ref=e332]: Detail
+                        - generic:    
+                      - columnheader "Created At" [ref=e333]:
+                        - text: 
+                        - generic [ref=e335]: 
+                        - generic [ref=e336]: 
+                        - generic [ref=e337]: Created At
+                        - generic:    
+                  - rowgroup [ref=e338]:
+                    - row "Sales Expand row details 1" [ref=e1347]:
+                      - gridcell "Sales" [ref=e1348]
+                      - gridcell "Expand row details" [ref=e1349]:
+                        - button "Expand row details" [ref=e1350]:
+                          - img [ref=e1351]
+                      - gridcell "1" [ref=e1353]
+                    - row "Sales Expand row details 2" [ref=e1354]:
+                      - gridcell "Sales" [ref=e1355]
+                      - gridcell "Expand row details" [ref=e1356]:
+                        - button "Expand row details" [ref=e1357]:
+                          - img [ref=e1358]
+                      - gridcell "2" [ref=e1360]
+                    - row "Intake Expand row details 3" [ref=e1361]:
+                      - gridcell "Intake" [ref=e1362]
+                      - gridcell "Expand row details" [ref=e1363]:
+                        - button "Expand row details" [ref=e1364]:
+                          - img [ref=e1365]
+                      - gridcell "3" [ref=e1367]
+                    - row "Vendor Expand row details 4" [ref=e1368]:
+                      - gridcell "Vendor" [ref=e1369]
+                      - gridcell "Expand row details" [ref=e1370]:
+                        - button "Expand row details" [ref=e1371]:
+                          - img [ref=e1372]
+                      - gridcell "4" [ref=e1374]
+                    - row "Vendor Expand row details 5" [ref=e1375]:
+                      - gridcell "Vendor" [ref=e1376]
+                      - gridcell "Expand row details" [ref=e1377]:
+                        - button "Expand row details" [ref=e1378]:
+                          - img [ref=e1379]
+                      - gridcell "5" [ref=e1381]
+                    - row "Vendor Expand row details 6" [ref=e1382]:
+                      - gridcell "Vendor" [ref=e1383]
+                      - gridcell "Expand row details" [ref=e1384]:
+                        - button "Expand row details" [ref=e1385]:
+                          - img [ref=e1386]
+                      - gridcell "6" [ref=e1388]
+                    - row "Vendor Expand row details 7" [ref=e1389]:
+                      - gridcell "Vendor" [ref=e1390]
+                      - gridcell "Expand row details" [ref=e1391]:
+                        - button "Expand row details" [ref=e1392]:
+                          - img [ref=e1393]
+                      - gridcell "7" [ref=e1395]
+                    - row "Vendor Expand row details 8" [ref=e1396]:
+                      - gridcell "Vendor" [ref=e1397]
+                      - gridcell "Expand row details" [ref=e1398]:
+                        - button "Expand row details" [ref=e1399]:
+                          - img [ref=e1400]
+                      - gridcell "8" [ref=e1402]
+                    - row "Payments Expand row details 9" [ref=e1403]:
+                      - gridcell "Payments" [ref=e1404]
+                      - gridcell "Expand row details" [ref=e1405]:
+                        - button "Expand row details" [ref=e1406]:
+                          - img [ref=e1407]
+                      - gridcell "9" [ref=e1409]
+                    - row "Matchmaking Expand row details 10" [ref=e1410]:
+                      - gridcell "Matchmaking" [ref=e1411]
+                      - gridcell "Expand row details" [ref=e1412]:
+                        - button "Expand row details" [ref=e1413]:
+                          - img [ref=e1414]
+                      - gridcell "10" [ref=e1416]
+                    - row "Sales Expand row details 11" [ref=e1417]:
+                      - gridcell "Sales" [ref=e1418]
+                      - gridcell "Expand row details" [ref=e1419]:
+                        - button "Expand row details" [ref=e1420]:
+                          - img [ref=e1421]
+                      - gridcell "11" [ref=e1423]
+                  - rowgroup [ref=e339]:
+                    - 'row "SO-MPJ99Y34-258 Active: confirmed Cobalt Reserve / 88.50 5/23/2026, 9:06 PM" [ref=e1424]':
+                      - gridcell "SO-MPJ99Y34-258" [ref=e1425]
+                      - 'gridcell "Active: confirmed" [ref=e1426]':
+                        - generic [ref=e1427]:
+                          - generic [ref=e1429]: "Active:"
+                          - text: confirmed
+                      - gridcell "Cobalt Reserve / 88.50" [ref=e1430]
+                      - gridcell "5/23/2026, 9:06 PM" [ref=e1431]
+                    - 'row "SO-DEMO-001 Active: confirmed Sunset Collective / 5940.00 5/22/2026, 12:02 PM" [ref=e1432]':
+                      - gridcell "SO-DEMO-001" [ref=e1433]
+                      - 'gridcell "Active: confirmed" [ref=e1434]':
+                        - generic [ref=e1435]:
+                          - generic [ref=e1437]: "Active:"
+                          - text: confirmed
+                      - gridcell "Sunset Collective / 5940.00" [ref=e1438]
+                      - gridcell "5/22/2026, 12:02 PM" [ref=e1439]
+                    - 'row "Infused Candy Sour Warning: ready North Coast Gardens / 80.000 case 5/22/2026, 12:02 PM" [ref=e1440]':
+                      - gridcell "Infused Candy Sour" [ref=e1441]
+                      - 'gridcell "Warning: ready" [ref=e1442]':
+                        - generic [ref=e1443]:
+                          - img [ref=e1444]
+                          - generic [ref=e1446]: "Warning:"
+                          - text: ready
+                      - gridcell "North Coast Gardens / 80.000 case" [ref=e1447]
+                      - gridcell "5/22/2026, 12:02 PM" [ref=e1448]
+                    - 'row "VBILL-MPVUYPWN-288 Active: open Emerald Processing Co / due 5.00 6/1/2026, 4:47 PM" [ref=e1449]':
+                      - gridcell "VBILL-MPVUYPWN-288" [ref=e1450]
+                      - 'gridcell "Active: open" [ref=e1451]':
+                        - generic [ref=e1452]:
+                          - generic [ref=e1454]: "Active:"
+                          - text: open
+                      - gridcell "Emerald Processing Co / due 5.00" [ref=e1455]
+                      - gridcell "6/1/2026, 4:47 PM" [ref=e1456]
+                    - 'row "VBILL-MPVUXG19-114 Active: open Emerald Processing Co / due 1.00 6/1/2026, 4:46 PM" [ref=e1457]':
+                      - gridcell "VBILL-MPVUXG19-114" [ref=e1458]
+                      - 'gridcell "Active: open" [ref=e1459]':
+                        - generic [ref=e1460]:
+                          - generic [ref=e1462]: "Active:"
+                          - text: open
+                      - gridcell "Emerald Processing Co / due 1.00" [ref=e1463]
+                      - gridcell "6/1/2026, 4:46 PM" [ref=e1464]
+                    - 'row "VBILL-DEMO-001 Inactive: approved North Coast Gardens / due 14280.00 5/22/2026, 12:02 PM" [ref=e1465]':
+                      - gridcell "VBILL-DEMO-001" [ref=e1466]
+                      - 'gridcell "Inactive: approved" [ref=e1467]':
+                        - generic [ref=e1468]:
+                          - generic [ref=e1470]: "Inactive:"
+                          - text: approved
+                      - gridcell "North Coast Gardens / due 14280.00" [ref=e1471]
+                      - gridcell "5/22/2026, 12:02 PM" [ref=e1472]
+                    - 'row "VBILL-DEMO-003 Active: open Upland Craft / due 2100.00 5/22/2026, 12:02 PM" [ref=e1473]':
+                      - gridcell "VBILL-DEMO-003" [ref=e1474]
+                      - 'gridcell "Active: open" [ref=e1475]':
+                        - generic [ref=e1476]:
+                          - generic [ref=e1478]: "Active:"
+                          - text: open
+                      - gridcell "Upland Craft / due 2100.00" [ref=e1479]
+                      - gridcell "5/22/2026, 12:02 PM" [ref=e1480]
+                    - 'row "VBILL-DEMO-002 Active: scheduled Emerald Processing Co / due 2400.00 5/22/2026, 12:02 PM" [ref=e1481]':
+                      - gridcell "VBILL-DEMO-002" [ref=e1482]
+                      - 'gridcell "Active: scheduled" [ref=e1483]':
+                        - generic [ref=e1484]:
+                          - generic [ref=e1486]: "Active:"
+                          - text: scheduled
+                      - gridcell "Emerald Processing Co / due 2400.00" [ref=e1487]
+                      - gridcell "5/22/2026, 12:02 PM" [ref=e1488]
+                    - 'row "INV-DEMO-001 Inactive: partial Harbor Wellness / due 3600.00 5/22/2026, 12:02 PM" [ref=e1489]':
+                      - gridcell "INV-DEMO-001" [ref=e1490]
+                      - 'gridcell "Inactive: partial" [ref=e1491]':
+                        - generic [ref=e1492]:
+                          - generic [ref=e1494]: "Inactive:"
+                          - text: partial
+                      - gridcell "Harbor Wellness / due 3600.00" [ref=e1495]
+                      - gridcell "5/22/2026, 12:02 PM" [ref=e1496]
+                    - 'row "Source Infused from North Coast Gardens Active: open On hand: 0.000 units · Posted supply 6/15/2026, 1:43 PM" [ref=e1497]':
+                      - gridcell "Source Infused from North Coast Gardens" [ref=e1498]
+                      - 'gridcell "Active: open" [ref=e1499]':
+                        - generic [ref=e1500]:
+                          - generic [ref=e1502]: "Active:"
+                          - text: open
+                      - 'gridcell "On hand: 0.000 units · Posted supply" [ref=e1503]'
+                      - gridcell "6/15/2026, 1:43 PM" [ref=e1504]
+                    - 'row "SO-MQFM2KZ8-765 Inactive: draft Test Contact DB v3 1780355986 / 31.00 6/15/2026, 12:33 PM" [ref=e1505]':
+                      - gridcell "SO-MQFM2KZ8-765" [ref=e1506]
+                      - 'gridcell "Inactive: draft" [ref=e1507]':
+                        - generic [ref=e1508]:
+                          - generic [ref=e1510]: "Inactive:"
+                          - text: draft
+                      - gridcell "Test Contact DB v3 1780355986 / 31.00" [ref=e1511]
+                      - gridcell "6/15/2026, 12:33 PM" [ref=e1512]
+                  - rowgroup
+                  - rowgroup
+                  - rowgroup [ref=e341]
+                  - rowgroup
+                - text:                                                 
+                - text:    
+          - region "Credit Watch" [ref=e615]:
+            - generic [ref=e616]:
+              - button "Credit Watch Customers closest to or over their credit limit" [expanded] [ref=e617]:
+                - img [ref=e618]
+                - generic [ref=e620]:
+                  - heading "Credit Watch" [level=2] [ref=e621]
+                  - generic [ref=e622]: Customers closest to or over their credit limit
+              - button "Expand Credit Watch" [ref=e624]:
+                - img [ref=e625]
+            - generic [ref=e632]:
+              - button "At risk Valley Meds $21,000 limit $18,000 53" [ref=e633]:
+                - generic [ref=e634]:
+                  - generic "At risk" [ref=e635]
+                  - generic [ref=e636]: Valley Meds
+                - generic [ref=e637]:
+                  - generic "Outstanding balance" [ref=e638]: $21,000
+                  - 'generic "Credit limit: $18,000" [ref=e639]': limit $18,000
+                  - generic "Credit score" [ref=e640]: "53"
+              - button "Good Sunset Collective $12,850 limit $45,000 60" [ref=e641]:
+                - generic [ref=e642]:
+                  - generic "Good" [ref=e643]
+                  - generic [ref=e644]: Sunset Collective
+                - generic [ref=e645]:
+                  - generic "Outstanding balance" [ref=e646]: $12,850
+                  - 'generic "Credit limit: $45,000" [ref=e647]': limit $45,000
+                  - generic "Credit score" [ref=e648]: "60"
+              - button "Good Harbor Wellness $7,800 limit $30,000 51" [ref=e649]:
+                - generic [ref=e650]:
+                  - generic "Good" [ref=e651]
+                  - generic [ref=e652]: Harbor Wellness
+                - generic [ref=e653]:
+                  - generic "Outstanding balance" [ref=e654]: $7,800
+                  - 'generic "Credit limit: $30,000" [ref=e655]': limit $30,000
+                  - generic "Credit score" [ref=e656]: "51"
+              - button "Good DBFinal-Contact-1780357843 $0 limit $0 53" [ref=e657]:
+                - generic [ref=e658]:
+                  - generic "Good" [ref=e659]
+                  - generic [ref=e660]: DBFinal-Contact-1780357843
+                - generic [ref=e661]:
+                  - generic "Outstanding balance" [ref=e662]: $0
+                  - 'generic "Credit limit: $0" [ref=e663]': limit $0
+                  - generic "Credit score" [ref=e664]: "53"
+              - button "Good Test Contact DB v3 1780355986 $0 limit $0 45" [ref=e665]:
+                - generic [ref=e666]:
+                  - generic "Good" [ref=e667]
+                  - generic [ref=e668]: Test Contact DB v3 1780355986
+                - generic [ref=e669]:
+                  - generic "Outstanding balance" [ref=e670]: $0
+                  - 'generic "Credit limit: $0" [ref=e671]': limit $0
+                  - generic "Credit score" [ref=e672]: "45"
+              - button "View all (10)" [ref=e673]
+          - region "Your drafts (59)" [ref=e674]:
+            - generic [ref=e675]:
+              - button "Your drafts (59)" [expanded] [ref=e676]:
+                - img [ref=e677]
+                - heading "Your drafts (59)" [level=2] [ref=e680]
+              - button "Expand Your drafts (59)" [ref=e682]:
+                - img [ref=e683]
+            - generic [ref=e689]:
+              - 'button "Sales: SO-MQFM2KZ8-765 Inactive: draft" [ref=e690]':
+                - generic [ref=e691]: "Sales: SO-MQFM2KZ8-765"
+                - generic [ref=e692]:
+                  - generic [ref=e694]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MQFM2KZ4-619 Inactive: draft" [ref=e695]':
+                - generic [ref=e696]: "Sales: SO-MQFM2KZ4-619"
+                - generic [ref=e697]:
+                  - generic [ref=e699]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MQE18O2I-992 Inactive: draft" [ref=e700]':
+                - generic [ref=e701]: "Sales: SO-MQE18O2I-992"
+                - generic [ref=e702]:
+                  - generic [ref=e704]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MQE18O2J-750 Inactive: draft" [ref=e705]':
+                - generic [ref=e706]: "Sales: SO-MQE18O2J-750"
+                - generic [ref=e707]:
+                  - generic [ref=e709]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPX0VHNQ-760 Inactive: draft" [ref=e710]':
+                - generic [ref=e711]: "Sales: SO-MPX0VHNQ-760"
+                - generic [ref=e712]:
+                  - generic [ref=e714]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPX0VGDS-878 Inactive: draft" [ref=e715]':
+                - generic [ref=e716]: "Purchase: PO-MPX0VGDS-878"
+                - generic [ref=e717]:
+                  - generic [ref=e719]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPX0TLUR-779 Inactive: draft" [ref=e720]':
+                - generic [ref=e721]: "Sales: SO-MPX0TLUR-779"
+                - generic [ref=e722]:
+                  - generic [ref=e724]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPX0TKIK-585 Inactive: draft" [ref=e725]':
+                - generic [ref=e726]: "Purchase: PO-MPX0TKIK-585"
+                - generic [ref=e727]:
+                  - generic [ref=e729]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPVV3GA7-797 Inactive: draft" [ref=e730]':
+                - generic [ref=e731]: "Sales: SO-MPVV3GA7-797"
+                - generic [ref=e732]:
+                  - generic [ref=e734]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPVV3EYM-457 Inactive: draft" [ref=e735]':
+                - generic [ref=e736]: "Purchase: PO-MPVV3EYM-457"
+                - generic [ref=e737]:
+                  - generic [ref=e739]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPVV098M-822 Inactive: draft" [ref=e740]':
+                - generic [ref=e741]: "Sales: SO-MPVV098M-822"
+                - generic [ref=e742]:
+                  - generic [ref=e744]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPVUYMNW-849 Inactive: draft" [ref=e745]':
+                - generic [ref=e746]: "Sales: SO-MPVUYMNW-849"
+                - generic [ref=e747]:
+                  - generic [ref=e749]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPVUX350-957 Inactive: draft" [ref=e750]':
+                - generic [ref=e751]: "Sales: SO-MPVUX350-957"
+                - generic [ref=e752]:
+                  - generic [ref=e754]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPVUX1O1-597 Inactive: draft" [ref=e755]':
+                - generic [ref=e756]: "Purchase: PO-MPVUX1O1-597"
+                - generic [ref=e757]:
+                  - generic [ref=e759]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPVURQHE-528 Inactive: draft" [ref=e760]':
+                - generic [ref=e761]: "Sales: SO-MPVURQHE-528"
+                - generic [ref=e762]:
+                  - generic [ref=e764]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPVURPSN-128 Inactive: draft" [ref=e765]':
+                - generic [ref=e766]: "Purchase: PO-MPVURPSN-128"
+                - generic [ref=e767]:
+                  - generic [ref=e769]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJAEQTJ-384 Inactive: draft" [ref=e770]':
+                - generic [ref=e771]: "Sales: SO-MPJAEQTJ-384"
+                - generic [ref=e772]:
+                  - generic [ref=e774]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPJACLP1-392 Inactive: draft" [ref=e775]':
+                - generic [ref=e776]: "Purchase: PO-MPJACLP1-392"
+                - generic [ref=e777]:
+                  - generic [ref=e779]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJABST8-235 Inactive: draft" [ref=e780]':
+                - generic [ref=e781]: "Sales: SO-MPJABST8-235"
+                - generic [ref=e782]:
+                  - generic [ref=e784]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ9D4AO-711 Inactive: draft" [ref=e785]':
+                - generic [ref=e786]: "Sales: SO-MPJ9D4AO-711"
+                - generic [ref=e787]:
+                  - generic [ref=e789]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ9CPAZ-094 Inactive: draft" [ref=e790]':
+                - generic [ref=e791]: "Sales: SO-MPJ9CPAZ-094"
+                - generic [ref=e792]:
+                  - generic [ref=e794]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPJ9AYLV-678 Inactive: draft" [ref=e795]':
+                - generic [ref=e796]: "Purchase: PO-MPJ9AYLV-678"
+                - generic [ref=e797]:
+                  - generic [ref=e799]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ99L2F-206 Inactive: draft" [ref=e800]':
+                - generic [ref=e801]: "Sales: SO-MPJ99L2F-206"
+                - generic [ref=e802]:
+                  - generic [ref=e804]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ8KZJQ-307 Inactive: draft" [ref=e805]':
+                - generic [ref=e806]: "Sales: SO-MPJ8KZJQ-307"
+                - generic [ref=e807]:
+                  - generic [ref=e809]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ8KORH-908 Inactive: draft" [ref=e810]':
+                - generic [ref=e811]: "Sales: SO-MPJ8KORH-908"
+                - generic [ref=e812]:
+                  - generic [ref=e814]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPJ8IP8Q-967 Inactive: draft" [ref=e815]':
+                - generic [ref=e816]: "Purchase: PO-MPJ8IP8Q-967"
+                - generic [ref=e817]:
+                  - generic [ref=e819]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ8HR0G-062 Inactive: draft" [ref=e820]':
+                - generic [ref=e821]: "Sales: SO-MPJ8HR0G-062"
+                - generic [ref=e822]:
+                  - generic [ref=e824]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ8HDMO-212 Inactive: draft" [ref=e825]':
+                - generic [ref=e826]: "Sales: SO-MPJ8HDMO-212"
+                - generic [ref=e827]:
+                  - generic [ref=e829]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ7RZHW-754 Inactive: draft" [ref=e830]':
+                - generic [ref=e831]: "Sales: SO-MPJ7RZHW-754"
+                - generic [ref=e832]:
+                  - generic [ref=e834]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ7RMMW-645 Inactive: draft" [ref=e835]':
+                - generic [ref=e836]: "Sales: SO-MPJ7RMMW-645"
+                - generic [ref=e837]:
+                  - generic [ref=e839]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPJ7PJDD-832 Inactive: draft" [ref=e840]':
+                - generic [ref=e841]: "Purchase: PO-MPJ7PJDD-832"
+                - generic [ref=e842]:
+                  - generic [ref=e844]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ7OHQO-546 Inactive: draft" [ref=e845]':
+                - generic [ref=e846]: "Sales: SO-MPJ7OHQO-546"
+                - generic [ref=e847]:
+                  - generic [ref=e849]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ7O6DV-299 Inactive: draft" [ref=e850]':
+                - generic [ref=e851]: "Sales: SO-MPJ7O6DV-299"
+                - generic [ref=e852]:
+                  - generic [ref=e854]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ5QZE5-331 Inactive: draft" [ref=e855]':
+                - generic [ref=e856]: "Sales: SO-MPJ5QZE5-331"
+                - generic [ref=e857]:
+                  - generic [ref=e859]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ5P13G-830 Inactive: draft" [ref=e860]':
+                - generic [ref=e861]: "Sales: SO-MPJ5P13G-830"
+                - generic [ref=e862]:
+                  - generic [ref=e864]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ5OJNO-502 Inactive: draft" [ref=e865]':
+                - generic [ref=e866]: "Sales: SO-MPJ5OJNO-502"
+                - generic [ref=e867]:
+                  - generic [ref=e869]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ5JUDG-421 Inactive: draft" [ref=e870]':
+                - generic [ref=e871]: "Sales: SO-MPJ5JUDG-421"
+                - generic [ref=e872]:
+                  - generic [ref=e874]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ5JJR8-699 Inactive: draft" [ref=e875]':
+                - generic [ref=e876]: "Sales: SO-MPJ5JJR8-699"
+                - generic [ref=e877]:
+                  - generic [ref=e879]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPJ5HSCZ-861 Inactive: draft" [ref=e880]':
+                - generic [ref=e881]: "Purchase: PO-MPJ5HSCZ-861"
+                - generic [ref=e882]:
+                  - generic [ref=e884]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ5H4QA-263 Inactive: draft" [ref=e885]':
+                - generic [ref=e886]: "Sales: SO-MPJ5H4QA-263"
+                - generic [ref=e887]:
+                  - generic [ref=e889]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ5GV4P-563 Inactive: draft" [ref=e890]':
+                - generic [ref=e891]: "Sales: SO-MPJ5GV4P-563"
+                - generic [ref=e892]:
+                  - generic [ref=e894]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ50L1H-789 Inactive: draft" [ref=e895]':
+                - generic [ref=e896]: "Sales: SO-MPJ50L1H-789"
+                - generic [ref=e897]:
+                  - generic [ref=e899]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ4YWOK-901 Inactive: draft" [ref=e900]':
+                - generic [ref=e901]: "Sales: SO-MPJ4YWOK-901"
+                - generic [ref=e902]:
+                  - generic [ref=e904]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ4YEH8-710 Inactive: draft" [ref=e905]':
+                - generic [ref=e906]: "Sales: SO-MPJ4YEH8-710"
+                - generic [ref=e907]:
+                  - generic [ref=e909]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ4TKX2-663 Inactive: draft" [ref=e910]':
+                - generic [ref=e911]: "Sales: SO-MPJ4TKX2-663"
+                - generic [ref=e912]:
+                  - generic [ref=e914]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ4TA45-351 Inactive: draft" [ref=e915]':
+                - generic [ref=e916]: "Sales: SO-MPJ4TA45-351"
+                - generic [ref=e917]:
+                  - generic [ref=e919]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPJ4RJIT-021 Inactive: draft" [ref=e920]':
+                - generic [ref=e921]: "Purchase: PO-MPJ4RJIT-021"
+                - generic [ref=e922]:
+                  - generic [ref=e924]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ4QX10-799 Inactive: draft" [ref=e925]':
+                - generic [ref=e926]: "Sales: SO-MPJ4QX10-799"
+                - generic [ref=e927]:
+                  - generic [ref=e929]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPJ4QI5W-843 Inactive: draft" [ref=e930]':
+                - generic [ref=e931]: "Sales: SO-MPJ4QI5W-843"
+                - generic [ref=e932]:
+                  - generic [ref=e934]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPHVGE9J-624 Inactive: draft" [ref=e935]':
+                - generic [ref=e936]: "Purchase: PO-MPHVGE9J-624"
+                - generic [ref=e937]:
+                  - generic [ref=e939]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPHVFZGC-943 Inactive: draft" [ref=e940]':
+                - generic [ref=e941]: "Sales: SO-MPHVFZGC-943"
+                - generic [ref=e942]:
+                  - generic [ref=e944]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPHVEGTS-884 Inactive: draft" [ref=e945]':
+                - generic [ref=e946]: "Sales: SO-MPHVEGTS-884"
+                - generic [ref=e947]:
+                  - generic [ref=e949]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPHVDY82-545 Inactive: draft" [ref=e950]':
+                - generic [ref=e951]: "Sales: SO-MPHVDY82-545"
+                - generic [ref=e952]:
+                  - generic [ref=e954]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPHVA5FZ-000 Inactive: draft" [ref=e955]':
+                - generic [ref=e956]: "Sales: SO-MPHVA5FZ-000"
+                - generic [ref=e957]:
+                  - generic [ref=e959]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPHV9SRA-304 Inactive: draft" [ref=e960]':
+                - generic [ref=e961]: "Sales: SO-MPHV9SRA-304"
+                - generic [ref=e962]:
+                  - generic [ref=e964]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPHV84AZ-770 Inactive: draft" [ref=e965]':
+                - generic [ref=e966]: "Purchase: PO-MPHV84AZ-770"
+                - generic [ref=e967]:
+                  - generic [ref=e969]: "Inactive:"
+                  - text: draft
+              - 'button "Purchase: PO-MPHV7LJG-081 Inactive: draft" [ref=e970]':
+                - generic [ref=e971]: "Purchase: PO-MPHV7LJG-081"
+                - generic [ref=e972]:
+                  - generic [ref=e974]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPHV6SRK-194 Inactive: draft" [ref=e975]':
+                - generic [ref=e976]: "Sales: SO-MPHV6SRK-194"
+                - generic [ref=e977]:
+                  - generic [ref=e979]: "Inactive:"
+                  - text: draft
+              - 'button "Sales: SO-MPHV6ID0-346 Inactive: draft" [ref=e980]':
+                - generic [ref=e981]: "Sales: SO-MPHV6ID0-346"
+                - generic [ref=e982]:
+                  - generic [ref=e984]: "Inactive:"
+                  - text: draft
+          - region "Recent activity" [ref=e343]:
+            - generic [ref=e344]:
+              - button "Recent activity" [expanded] [ref=e345]:
+                - img [ref=e346]
+                - heading "Recent activity" [level=2] [ref=e349]
+              - button "Expand Recent activity" [ref=e351]:
+                - img [ref=e352]
+            - generic [ref=e985]:
+              - generic [ref=e986]:
+                - generic [ref=e987]: Add sales order line
+                - generic [ref=e988]: Evan Owner
+                - generic "6/15/2026, 12:34:16 PM PDT" [ref=e989]: 1h ago
+                - generic [ref=e990]: Live Rosin 1g draft line saved; resolve 1 issue(s).
+              - generic [ref=e991]:
+                - generic [ref=e992]: Add sales order line
+                - generic [ref=e993]: Evan Owner
+                - generic "6/15/2026, 12:33:42 PM PDT" [ref=e994]: 1h ago
+                - generic [ref=e995]: House Pre-roll 1g draft line saved; resolve 1 issue(s).
+              - generic [ref=e996]:
+                - generic [ref=e997]: Confirm sales order
+                - generic [ref=e998]: Evan Owner
+                - generic "6/15/2026, 12:33:39 PM PDT" [ref=e999]: 1h ago
+                - generic [ref=e1000]: Order needs at least one line.
+              - generic [ref=e1001]:
+                - generic [ref=e1002]: Price sales order
+                - generic [ref=e1003]: Evan Owner
+                - generic "6/15/2026, 12:33:38 PM PDT" [ref=e1004]: 1h ago
+                - generic [ref=e1005]: Sales order priced.
+              - generic [ref=e1006]:
+                - generic [ref=e1007]: Create sales order
+                - generic [ref=e1008]: Evan Owner
+                - generic "6/15/2026, 12:33:35 PM PDT" [ref=e1009]: 1h ago
+                - generic [ref=e1010]: SO-MQFM2KZ8-765 created for Test Contact DB v3 1780355986.
+              - generic [ref=e1011]:
+                - generic [ref=e1012]: Create sales order
+                - generic [ref=e1013]: Evan Owner
+                - generic "6/15/2026, 12:33:35 PM PDT" [ref=e1014]: 1h ago
+                - generic [ref=e1015]: SO-MQFM2KZ4-619 created for Test Contact DB v3 1780355986.
+              - generic [ref=e1016]:
+                - generic [ref=e1017]: Add sales order line
+                - generic [ref=e1018]: Evan Owner
+                - generic "6/14/2026, 10:02:53 AM PDT" [ref=e1019]: 1d ago
+                - generic [ref=e1020]: Infused Candy 10mg draft line saved; resolve 1 issue(s).
+              - generic [ref=e1021]:
+                - generic [ref=e1022]: Add sales order line
+                - generic [ref=e1023]: Evan Owner
+                - generic "6/14/2026, 10:02:44 AM PDT" [ref=e1024]: 1d ago
+                - generic [ref=e1025]: Live Rosin 1g draft line saved; resolve 1 issue(s).
+              - generic [ref=e1026]:
+                - generic [ref=e1027]: Create sales order
+                - generic [ref=e1028]: Evan Owner
+                - generic "6/14/2026, 10:02:41 AM PDT" [ref=e1029]: 1d ago
+                - generic [ref=e1030]: SO-MQE18O2I-992 created for DBVerify-Contact-1780357545.
+              - generic [ref=e1031]:
+                - generic [ref=e1032]: Create sales order
+                - generic [ref=e1033]: Evan Owner
+                - generic "6/14/2026, 10:02:41 AM PDT" [ref=e1034]: 1d ago
+                - generic [ref=e1035]: SO-MQE18O2J-750 created for DBVerify-Contact-1780357545.
+              - generic [ref=e1036]:
+                - generic [ref=e1037]: Persist customer sheet snapshot
+                - generic [ref=e1038]: Evan Owner
+                - generic "6/2/2026, 12:20:41 PM PDT" [ref=e1039]: 13d ago
+                - generic [ref=e1040]: Saved 1 item sheet snapshot.
+              - generic [ref=e1041]:
+                - generic [ref=e1042]: Record vendor payment
+                - generic [ref=e1043]: Evan Owner
+                - generic "6/2/2026, 12:20:39 PM PDT" [ref=e1044]: 13d ago
+                - generic [ref=e1045]: Vendor payout recorded and traceable.
+    - dialog "Command palette" [ref=e1513]:
+      - generic [ref=e1514]:
+        - tablist "Palette mode" [ref=e1515]:
+          - tab "Commands" [active] [selected] [ref=e1516]
+          - tab "Entities" [ref=e1517]
+        - generic [ref=e1518]:
+          - img [ref=e1519]
+          - textbox "Command palette search" [ref=e1522]:
+            - /placeholder: Type a command, table, client, or row ID
+          - button "Close command palette" [ref=e1523]:
+            - img [ref=e1524]
+            - generic [ref=e1527]: Close
+        - generic [ref=e1529]:
+          - generic [ref=e1530]:
+            - generic [ref=e1531]: Start work
+            - button "open New sale Open Sales with the customer-first workspace and inventory finder ready." [ref=e1532]:
+              - generic [ref=e1533]: open
+              - generic [ref=e1534]:
+                - generic [ref=e1535]: New sale
+                - generic [ref=e1536]: Open Sales with the customer-first workspace and inventory finder ready.
+            - button "open New purchase order Open Purchase Orders with vendor and line-entry controls ready." [ref=e1537]:
+              - generic [ref=e1538]: open
+              - generic [ref=e1539]:
+                - generic [ref=e1540]: New purchase order
+                - generic [ref=e1541]: Open Purchase Orders with vendor and line-entry controls ready.
+            - button "open Receive against PO Open Intake for receiving rows, Ready marking, and receipt posting." [ref=e1542]:
+              - generic [ref=e1543]: open
+              - generic [ref=e1544]:
+                - generic [ref=e1545]: Receive against PO
+                - generic [ref=e1546]: Open Intake for receiving rows, Ready marking, and receipt posting.
+            - button "open Money in Open Payments with Quick Ledger in Money In mode." [ref=e1547]:
+              - generic [ref=e1548]: open
+              - generic [ref=e1549]:
+                - generic [ref=e1550]: Money in
+                - generic [ref=e1551]: Open Payments with Quick Ledger in Money In mode.
+            - button "open Money out Open Vendor Payouts with a payout row ready." [ref=e1552]:
+              - generic [ref=e1553]: open
+              - generic [ref=e1554]:
+                - generic [ref=e1555]: Money out
+                - generic [ref=e1556]: Open Vendor Payouts with a payout row ready.
+            - button "open Add customer need Open Matchmaking and focus the customer need row entry." [ref=e1557]:
+              - generic [ref=e1558]: open
+              - generic [ref=e1559]:
+                - generic [ref=e1560]: Add customer need
+                - generic [ref=e1561]: Open Matchmaking and focus the customer need row entry.
+            - button "open Add vendor stock Open Matchmaking and focus vendor stock row entry." [ref=e1562]:
+              - generic [ref=e1563]: open
+              - generic [ref=e1564]:
+                - generic [ref=e1565]: Add vendor stock
+                - generic [ref=e1566]: Open Matchmaking and focus vendor stock row entry.
+          - generic [ref=e1567]:
+            - generic [ref=e1568]: Tools
+            - button "help Keyboard shortcuts View all keyboard shortcuts and hotkeys." [ref=e1569]:
+              - generic [ref=e1570]: help
+              - generic [ref=e1571]:
+                - generic [ref=e1572]: Keyboard shortcuts
+                - generic [ref=e1573]: View all keyboard shortcuts and hotkeys.
+        - generic [ref=e1574]:
+          - generic [ref=e1575]: dashboard
+          - button "Advanced payload" [ref=e1576]:
+            - img [ref=e1577]
+    - generic [ref=e358]: Command palette opened.
+  - generic [ref=e1304]:
+    - generic:
+      - img
+    - generic [ref=e1305]:
+      - button [ref=e1307] [cursor=pointer]:
+        - img [ref=e1308]
+      - button [ref=e1312] [cursor=pointer]:
+        - img [ref=e1313]
+      - button [disabled] [ref=e1316]:
+        - img [ref=e1317]
+      - button [disabled] [ref=e1325]:
+        - img [ref=e1326]
+      - generic:
+        - button [disabled]:
+          - img
+      - button [disabled] [ref=e1334]:
+        - img [ref=e1335]
+      - button [ref=e1338] [cursor=pointer]:
+        - img [ref=e1339]
+      - button [ref=e1344] [cursor=pointer]:
+        - img [ref=e1345]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - link:
+              - /url: https://agentation.com
+              - img
+            - paragraph: v3.0.2
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - img
+              - generic:
+                - checkbox [disabled]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Color
+            - generic:
+              - button "Indigo"
+              - button "Blue"
+              - button "Cyan"
+              - button "Green"
+              - button "Yellow"
+              - button "Orange"
+              - button "Red"
+          - generic:
+            - generic:
+              - generic:
+                - checkbox "Clear on copy/send"
+                - img
+              - generic: Clear on copy/send
+              - generic:
+                - img
+            - generic:
+              - generic:
+                - checkbox "Block page interactions" [checked]
+                - img
+              - generic: Block page interactions
+          - button "Manage MCP & Webhooks":
+            - generic: Manage MCP & Webhooks
+            - generic:
+              - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - img
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox "Auto-Send" [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"
+  - button "Report an issue" [ref=e1113] [cursor=pointer]: Report Issue

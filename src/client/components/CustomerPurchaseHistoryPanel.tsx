@@ -42,7 +42,7 @@ export function CustomerPurchaseHistoryPanel({ customerId, customerName }: Custo
   const [query, setQuery] = useState('');
 
   // Lazy load: only fetch when the disclosure is open AND a customer is selected.
-  const history = trpc.queries.customerPurchaseHistory.useQuery(
+  const history = trpc.salesOrders.customerPurchaseHistory.useQuery(
     { customerId: customerId || '00000000-0000-0000-0000-000000000000', limit: 200 },
     { enabled: open && Boolean(customerId) }
   );

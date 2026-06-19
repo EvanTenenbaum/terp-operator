@@ -28,7 +28,7 @@ export function ProcessorFeesGrid({ processorId }: ProcessorFeesGridProps) {
   const [procFilter, setProcFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
   const { runCommand, isRunning } = useCommandRunner();
 
-  const query = trpc.queries.processorFees.useQuery({
+  const query = trpc.payments.processorFees.useQuery({
     processorId,
     userFeeStatus: userFilter === 'all' ? undefined : userFilter,
     processorFeeStatus: procFilter === 'all' ? undefined : procFilter

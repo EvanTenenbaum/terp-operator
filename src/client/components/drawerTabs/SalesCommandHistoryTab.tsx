@@ -25,7 +25,7 @@ function dateish(value: unknown): string {
 }
 
 export function SalesCommandHistoryTab({ orderId, customerId }: SalesCommandHistoryTabProps) {
-  const relationship = trpc.queries.relationshipSummary.useQuery(
+  const relationship = trpc.context.relationshipSummary.useQuery(
     { customerId: customerId, vendorId: undefined },
     { enabled: Boolean(customerId) }
   );

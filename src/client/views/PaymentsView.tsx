@@ -285,7 +285,7 @@ export function PaymentAllocationTools({
   selectedPayment?: GridRow;
 }) {
   const reference = trpc.queries.reference.useQuery();
-  const allocations = trpc.queries.paymentAllocations.useQuery(
+  const allocations = trpc.payments.paymentAllocations.useQuery(
     { paymentId: selectedPayment?.id },
     { enabled: Boolean(selectedPayment?.id) },
   );
@@ -296,7 +296,7 @@ export function PaymentAllocationTools({
   const paymentCustomerId = selectedPayment?.customerId
     ? String(selectedPayment.customerId)
     : blankCustomerId;
-  const allocationPreview = trpc.queries.paymentAllocationPreview.useQuery(
+  const allocationPreview = trpc.payments.paymentAllocationPreview.useQuery(
     {
       customerId: paymentCustomerId,
       amount: paymentAmount,

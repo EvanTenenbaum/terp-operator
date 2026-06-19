@@ -154,8 +154,8 @@ export function VendorPayablesView() {
   const canWrite = me.data?.role !== 'viewer';
   const canVoid = me.data?.role === 'manager' || me.data?.role === 'owner';
   const navigate = useNavigate();
-  const matchSettings = trpc.queries.matchmakingSettings.useQuery();
-  const matchCounts = trpc.queries.matchmakingEntityCounts.useQuery(undefined, {
+  const matchSettings = trpc.matchmaking.matchmakingSettings.useQuery();
+  const matchCounts = trpc.matchmaking.matchmakingEntityCounts.useQuery(undefined, {
     enabled: matchSettings.data?.showVendorsColumn ?? false,
   });
 
@@ -261,7 +261,7 @@ function moneyBucketLabel(value: string) {
 
 function VendorBillTools({ selectedBill }: { selectedBill?: GridRow }) {
   const reference = trpc.queries.reference.useQuery();
-  const vendorPayments = trpc.queries.vendorPayments.useQuery(
+  const vendorPayments = trpc.payments.vendorPayments.useQuery(
     { vendorBillId: selectedBill?.id as string | undefined, vendorId: selectedBill?.vendorId as string | undefined },
     { enabled: Boolean(selectedBill?.id || selectedBill?.vendorId) }
   );

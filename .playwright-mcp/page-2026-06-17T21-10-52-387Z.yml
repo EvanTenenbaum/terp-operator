@@ -1,0 +1,317 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - navigation [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - generic [ref=e8]: TERP Operator
+          - generic [ref=e9]: Operator Console
+        - button "Collapse navigation" [ref=e10] [cursor=pointer]:
+          - img [ref=e11]
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]: Decide
+          - button "Dashboard" [ref=e17] [cursor=pointer]:
+            - img [ref=e18]
+            - generic [ref=e21]: Dashboard
+            - generic [ref=e22]: ⌘1
+          - button "Reports" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+            - generic [ref=e26]: Reports
+        - generic [ref=e27]:
+          - generic [ref=e28]: Procure
+          - button "Purchase Orders" [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+            - generic [ref=e34]: Purchase Orders
+          - button "Intake" [ref=e35] [cursor=pointer]:
+            - img [ref=e36]
+            - generic [ref=e39]: Intake
+            - generic [ref=e40]: ⌘2
+          - button "Inventory" [ref=e41] [cursor=pointer]:
+            - img [ref=e42]
+            - generic [ref=e52]: Inventory
+            - generic [ref=e53]: ⌘5
+          - button "More" [ref=e54] [cursor=pointer]:
+            - img [ref=e55]
+            - generic [ref=e57]: More
+          - group "More Procure items" [ref=e58]:
+            - button "Receipts" [ref=e59] [cursor=pointer]:
+              - img [ref=e60]
+              - generic [ref=e62]: Receipts
+            - button "Photography" [ref=e63] [cursor=pointer]:
+              - img [ref=e64]
+              - generic [ref=e67]: Photography
+        - generic [ref=e68]:
+          - generic [ref=e69]: Sell
+          - button "Sales" [ref=e70] [cursor=pointer]:
+            - img [ref=e71]
+            - generic [ref=e75]: Sales
+            - generic [ref=e76]: ⌘3
+          - button "Matchmaking" [ref=e77] [cursor=pointer]:
+            - img [ref=e78]
+            - generic [ref=e81]: Matchmaking
+          - button "Orders" [ref=e82] [cursor=pointer]:
+            - img [ref=e83]
+            - generic [ref=e86]: Orders
+          - button "Fulfillment" [ref=e87] [cursor=pointer]:
+            - img [ref=e88]
+            - generic [ref=e93]: Fulfillment
+          - button "Client Balances" [ref=e94] [cursor=pointer]:
+            - img [ref=e95]
+            - generic [ref=e97]: Client Balances
+            - generic [ref=e98]: ⌘6
+          - button "More" [ref=e99] [cursor=pointer]:
+            - img [ref=e100]
+            - generic [ref=e102]: More
+          - group "More Sell items" [ref=e103]:
+            - button "Credit Review" [ref=e104] [cursor=pointer]:
+              - img [ref=e105]
+              - generic [ref=e109]: Credit Review
+        - generic [ref=e110]:
+          - generic [ref=e111]: Money
+          - button "Payments" [ref=e112] [cursor=pointer]:
+            - img [ref=e113]
+            - generic [ref=e116]: Payments
+            - generic [ref=e117]: ⌘4
+          - button "Vendor Payouts" [ref=e118] [cursor=pointer]:
+            - img [ref=e119]
+            - generic [ref=e121]: Vendor Payouts
+          - button "Contacts" [ref=e122] [cursor=pointer]:
+            - img [ref=e123]
+            - generic [ref=e128]: Contacts
+          - button "More" [ref=e129] [cursor=pointer]:
+            - img [ref=e130]
+            - generic [ref=e132]: More
+          - group "More Money items" [ref=e133]:
+            - button "Disputes" [ref=e134] [cursor=pointer]:
+              - img [ref=e135]
+              - generic [ref=e137]: Disputes
+            - button "Referees" [ref=e138] [cursor=pointer]:
+              - img [ref=e139]
+              - generic [ref=e144]: Referees
+        - generic [ref=e145]:
+          - generic [ref=e146]: Admin
+          - button "Recovery" [ref=e147] [cursor=pointer]:
+            - img [ref=e148]
+            - generic [ref=e151]: Recovery
+          - button "Closeout" [ref=e152] [cursor=pointer]:
+            - img [ref=e153]
+            - generic [ref=e156]: Closeout
+          - button "Settings" [ref=e157] [cursor=pointer]:
+            - img [ref=e158]
+            - generic [ref=e161]: Settings
+      - link "Switch to mobile view" [ref=e163] [cursor=pointer]:
+        - /url: /mobile/dashboard
+        - img [ref=e164]
+        - generic [ref=e166]: Mobile view
+    - generic [ref=e167]:
+      - banner "Global workspace keel" [ref=e168]:
+        - button "Search ⌘K" [ref=e169] [cursor=pointer]:
+          - img [ref=e170]
+          - generic [ref=e173]: Search
+          - generic [ref=e174]: ⌘K
+        - generic "Quick actions and tools" [ref=e175]:
+          - button "Quick actions" [ref=e177] [cursor=pointer]:
+            - img [ref=e178]
+            - generic [ref=e182]: Quick actions
+            - img [ref=e183]
+          - button "Sign out" [ref=e185] [cursor=pointer]
+        - generic [ref=e186]:
+          - generic [ref=e189]: Healthy
+          - generic [ref=e190]: Evan Owner
+      - main [ref=e192]:
+        - generic [ref=e193]:
+          - button "New PO" [ref=e195] [cursor=pointer]:
+            - img [ref=e196]
+            - text: New PO
+          - generic [ref=e200]:
+            - toolbar "Filter toolbar for purchaseOrders" [ref=e201]:
+              - generic [ref=e202]:
+                - button "Date" [ref=e204] [cursor=pointer]:
+                  - img [ref=e205]
+                  - generic [ref=e207]: Date
+                  - img [ref=e208]
+                - button "Keyword" [ref=e211] [cursor=pointer]:
+                  - img [ref=e212]
+                  - generic [ref=e215]: Keyword
+                  - img [ref=e216]
+                - button "$ Amount" [ref=e219] [cursor=pointer]:
+                  - generic [ref=e220]: $
+                  - generic [ref=e221]: Amount
+                  - img [ref=e222]
+                - button "Advanced" [ref=e225] [cursor=pointer]:
+                  - img [ref=e226]
+                  - generic [ref=e228]: Advanced
+                - button "Export" [ref=e230] [cursor=pointer]:
+                  - img [ref=e231]
+                  - generic [ref=e234]: Export
+                  - img [ref=e235]
+            - region "Summary for purchaseOrder" [ref=e237]:
+              - 'region "Total: 30" [ref=e238]':
+                - generic [ref=e239]: Total
+                - generic [ref=e240]: "30"
+              - 'region "Total Value: $17,868" [ref=e241]':
+                - generic [ref=e242]: Total Value
+                - generic [ref=e243]: $17,868
+              - 'region "draft: 15" [ref=e244]':
+                - generic [ref=e245]: draft
+                - generic [ref=e246]: "15"
+              - 'region "approved: 14" [ref=e247]':
+                - generic [ref=e248]: approved
+                - generic [ref=e249]: "14"
+              - 'region "finalized: 1" [ref=e250]':
+                - generic [ref=e251]: finalized
+                - generic [ref=e252]: "1"
+            - navigation "Status filter tabs" [ref=e253]:
+              - tablist [ref=e254]:
+                - tab "All30" [selected] [ref=e255] [cursor=pointer]
+                - tab "Draft15" [ref=e256] [cursor=pointer]
+                - tab "Finalized1" [ref=e257] [cursor=pointer]
+                - tab "Approved14" [ref=e258] [cursor=pointer]
+                - tab "Partially Received0" [ref=e259] [cursor=pointer]
+                - tab "Received0" [ref=e260] [cursor=pointer]
+                - tab "Cancelled0" [ref=e261] [cursor=pointer]
+                - tab "Reversed0" [ref=e262] [cursor=pointer]
+            - region "Purchase Orders" [ref=e264]:
+              - generic [ref=e265]:
+                - button "Purchase Orders 0 row(s)" [expanded] [ref=e266] [cursor=pointer]:
+                  - img [ref=e267]
+                  - generic [ref=e269]:
+                    - heading "Purchase Orders" [level=2] [ref=e270]
+                    - generic [ref=e271]: 0 row(s)
+                - generic [ref=e272]:
+                  - button "Advanced filters" [ref=e273] [cursor=pointer]:
+                    - img [ref=e274]
+                    - generic [ref=e276]: Advanced filters
+                  - generic [ref=e277]:
+                    - img [ref=e278]
+                    - generic [ref=e281]: Filter Purchase Orders grid
+                    - textbox "Filter Purchase Orders grid" [ref=e282]:
+                      - /placeholder: Filter grid (field:value)
+                  - button "Columns" [ref=e284] [cursor=pointer]:
+                    - img [ref=e285]
+                    - generic [ref=e287]: Columns
+                  - button "Export visible grid CSV" [ref=e288] [cursor=pointer]:
+                    - img [ref=e289]
+                    - generic [ref=e292]: Export visible grid CSV
+                  - button "Expand Purchase Orders" [ref=e293] [cursor=pointer]:
+                    - img [ref=e294]
+              - generic [ref=e301]:
+                - paragraph [ref=e302]: Failed to load data
+                - paragraph [ref=e303]: Server error or connection issue
+                - button "Retry" [ref=e304] [cursor=pointer]
+    - generic [ref=e305]: Opened purchaseOrders.
+  - button "v3.0.2 Output Detail Standard React Components Hide Until Restart Marker Color Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e307] [cursor=pointer]:
+    - img [ref=e309]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - link:
+              - /url: https://agentation.com
+              - img
+            - paragraph: v3.0.2
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - img
+              - generic:
+                - checkbox [checked]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Color
+            - generic:
+              - button "Indigo"
+              - button "Blue"
+              - button "Cyan"
+              - button "Green"
+              - button "Yellow"
+              - button "Orange"
+              - button "Red"
+          - generic:
+            - generic:
+              - generic:
+                - checkbox "Clear on copy/send"
+                - img
+              - generic: Clear on copy/send
+              - generic:
+                - img
+            - generic:
+              - generic:
+                - checkbox "Block page interactions" [checked]
+                - img
+              - generic: Block page interactions
+          - button "Manage MCP & Webhooks":
+            - generic: Manage MCP & Webhooks
+            - generic:
+              - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - img
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox "Auto-Send" [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"
+  - button "Report an issue" [ref=e312] [cursor=pointer]: Report Issue

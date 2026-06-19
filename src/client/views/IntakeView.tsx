@@ -43,7 +43,7 @@ const EMPTY: IntakeOrderRow[] = [];
 export function IntakeView() {
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
-  const intakeQueue = trpc.queries.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
+  const intakeQueue = trpc.intake.intakeQueue.useQuery(undefined, { refetchOnWindowFocus: false });
   const { runCommand, isRunning } = useCommandRunner();
   const utils = trpc.useUtils();
   const pushToast = useUiStore((state) => state.pushToast);
@@ -136,7 +136,7 @@ export function IntakeView() {
         { batchIds: [batchId], discrepancyNotes },
         'Verify single batch intake'
       );
-      await utils.queries.intakeQueue.invalidate();
+      await utils.intake.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }
@@ -159,7 +159,7 @@ export function IntakeView() {
     setBusy(true);
     try {
       await runCommand('deleteBatch', { batchId }, 'Delete draft intake row');
-      await utils.queries.intakeQueue.invalidate();
+      await utils.intake.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }
@@ -357,7 +357,7 @@ export function IntakeView() {
     setBusy(true);
     try {
       await runCommand('verifyAllIntake', { purchaseOrderId: order.id }, `Verify all intake for ${order.poNo}`);
-      await utils.queries.intakeQueue.invalidate();
+      await utils.intake.intakeQueue.invalidate();
     } finally {
       setBusy(false);
     }

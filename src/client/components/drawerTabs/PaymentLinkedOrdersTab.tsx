@@ -37,7 +37,7 @@ export function PaymentLinkedOrdersTab({ paymentId }: PaymentLinkedOrdersTabProp
   const setActiveView = useUiStore((state) => state.setActiveView);
 
   // Reuses the same query as PaymentAllocationTools — deduplicated by tRPC.
-  const allocations = trpc.queries.paymentAllocations.useQuery(
+  const allocations = trpc.payments.paymentAllocations.useQuery(
     { paymentId },
     { enabled: Boolean(paymentId) }
   );

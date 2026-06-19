@@ -365,7 +365,7 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
   const selectedOrderId = selectedOrder?.id ? String(selectedOrder.id) : '';
   const selectedOrderStatus = String(selectedOrder?.status ?? '');
 
-  const orderLines = trpc.queries.salesOrderLines.useQuery(
+  const orderLines = trpc.salesOrders.salesOrderLines.useQuery(
     { orderId: selectedOrderId || BLANK_ID },
     { enabled: Boolean(selectedOrderId), refetchInterval: 30_000 },
   );

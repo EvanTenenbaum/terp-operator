@@ -5,7 +5,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { ProcessorDetailPanel } from '../components/ProcessorDetailPanel';
 
 export function ProcessorsView() {
-  const activeProcessors = trpc.queries.activeProcessors.useQuery();
+  const activeProcessors = trpc.payments.activeProcessors.useQuery();
   const { runCommand } = useCommandRunner();
   const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
 

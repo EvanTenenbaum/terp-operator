@@ -1,0 +1,694 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e7]:
+        - generic [ref=e9]:
+          - img [ref=e10]
+          - generic [ref=e12]:
+            - text: Explore the Mercury Demo.
+            - button "Customize your experience" [ref=e14] [cursor=pointer]
+        - generic [ref=e15]:
+          - button "Viewing as Admin" [ref=e17] [cursor=pointer]:
+            - generic [ref=e18]: Viewing as Admin
+            - img
+          - link "Open account" [ref=e20] [cursor=pointer]:
+            - /url: https://app.mercury.com/signup?utm_source=mercury&utm_medium=demo&utm_campaign=publicDemoOnlyBanner
+            - generic [ref=e21]: Open account
+      - generic [ref=e22]:
+        - navigation [ref=e23]:
+          - button "Mercury Demo Pro" [ref=e26] [cursor=pointer]:
+            - generic [ref=e28]: Mercury Demo
+            - generic [ref=e30]: Pro
+          - generic [ref=e31]:
+            - generic [ref=e32]:
+              - link "Home" [ref=e35] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e36]:
+                  - img [ref=e37]
+                  - img [ref=e39]
+                - generic [ref=e42]: Home
+              - link "Tasks 10" [ref=e45] [cursor=pointer]:
+                - /url: /tasks
+                - generic [ref=e46]:
+                  - img [ref=e47]
+                  - img [ref=e49]
+                - generic [ref=e51]:
+                  - generic [ref=e52]: Tasks
+                  - generic [ref=e53]: "10"
+            - separator [ref=e54]
+            - generic [ref=e55]:
+              - link "Accounts" [ref=e58] [cursor=pointer]:
+                - /url: /accounts
+                - generic [ref=e59]:
+                  - img [ref=e60]
+                  - img [ref=e62]
+                - generic [ref=e65]: Accounts
+              - generic [ref=e67]:
+                - link "Transactions" [expanded] [ref=e68] [cursor=pointer]:
+                  - /url: /transactions
+                  - generic [ref=e69]:
+                    - img [ref=e70]
+                    - img [ref=e72]
+                  - generic [ref=e75]: Transactions
+                - list [ref=e79]:
+                  - listitem [ref=e80]:
+                    - link "Insights" [ref=e81] [cursor=pointer]:
+                      - /url: /insights/overview
+                      - generic [ref=e84]: Insights
+                  - listitem [ref=e85]:
+                    - link "Accounting" [ref=e86] [cursor=pointer]:
+                      - /url: /accounting
+                      - generic [ref=e89]: Accounting
+              - link "Cards" [ref=e92] [cursor=pointer]:
+                - /url: /cards
+                - generic [ref=e93]:
+                  - img [ref=e94]
+                  - img [ref=e96]
+                - generic [ref=e99]: Cards
+              - link "Payments" [ref=e102] [cursor=pointer]:
+                - /url: /payments
+                - generic [ref=e103]:
+                  - img [ref=e104]
+                  - img [ref=e106]
+                - generic [ref=e109]: Payments
+              - link "Invoicing" [ref=e112] [cursor=pointer]:
+                - /url: /invoicing
+                - generic [ref=e113]:
+                  - img [ref=e114]
+                  - img [ref=e116]
+                - generic [ref=e119]: Invoicing
+              - link "Reimbursements" [ref=e122] [cursor=pointer]:
+                - /url: /expenses/all-expenses
+                - generic [ref=e123]:
+                  - img [ref=e124]
+                  - img [ref=e126]
+                - generic [ref=e129]: Reimbursements
+            - separator [ref=e130]
+            - group "Bookmarks" [ref=e131]:
+              - generic [ref=e132]:
+                - generic [ref=e133]: Bookmarks
+                - button "Learn about bookmarks" [ref=e134] [cursor=pointer]:
+                  - img [ref=e135]
+              - list "Bookmarks" [ref=e137]:
+                - listitem [ref=e138] [cursor=pointer]:
+                  - button "Reorder Ops / Payroll bookmark" [ref=e139]:
+                    - img [ref=e140]
+                  - link "Ops / Payroll $2,023,267.12" [ref=e142]:
+                    - /url: /accounts/depository/party-mercurybankid2
+                    - generic [ref=e143]:
+                      - generic [ref=e144]: Ops / Payroll
+                      - generic [ref=e146]:
+                        - text: $2,023,267
+                        - generic [ref=e147]: ".12"
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e148] [cursor=pointer]:
+                  - button "Reorder Credit Card bookmark" [ref=e149]:
+                    - img [ref=e150]
+                  - link "Credit Card" [ref=e152]:
+                    - /url: /accounts/credit
+                    - generic [ref=e154]: Credit Card
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e155] [cursor=pointer]:
+                  - button "Reorder Bill Pay bookmark" [ref=e156]:
+                    - img [ref=e157]
+                  - link "Bill Pay" [ref=e159]:
+                    - /url: /bill-pay
+                    - generic [ref=e161]: Bill Pay
+                  - button "Remove bookmark":
+                    - img
+                - listitem [ref=e162] [cursor=pointer]:
+                  - button "Reorder Insights bookmark" [ref=e163]:
+                    - img [ref=e164]
+                  - link "Insights" [ref=e166]:
+                    - /url: /insights/overview
+                    - generic [ref=e168]: Insights
+                  - button "Remove bookmark":
+                    - img
+              - status [ref=e169]
+        - generic [ref=e170]:
+          - generic [ref=e172]:
+            - button "Search for anything" [ref=e174] [cursor=pointer]:
+              - img
+              - generic [ref=e175]: Search for anything
+            - button "Move money" [ref=e177] [cursor=pointer]:
+              - img
+              - generic [ref=e178]: Move money
+            - generic [ref=e179]:
+              - button "Toggle Private Mode" [ref=e180] [cursor=pointer]:
+                - img
+              - link "Navigate to Settings" [ref=e183] [cursor=pointer]:
+                - /url: /settings
+                - img
+              - button "updates" [ref=e186] [cursor=pointer]:
+                - img
+              - button [ref=e189] [cursor=pointer]
+          - generic [ref=e191]:
+            - heading "Transactions" [level=1] [ref=e195]
+            - generic [ref=e196]:
+              - generic [ref=e197]:
+                - menubar [ref=e198]:
+                  - generic [ref=e199]:
+                    - menuitem "Data views" [ref=e202] [cursor=pointer]:
+                      - img [ref=e204]
+                      - generic [ref=e206]: Data views
+                      - generic [ref=e207]:
+                        - img
+                    - menuitem "Filters" [ref=e210] [cursor=pointer]:
+                      - img [ref=e212]
+                      - generic [ref=e214]: Filters
+                    - generic [ref=e215]:
+                      - menuitem "Date" [ref=e218] [cursor=pointer]:
+                        - generic [ref=e219]: Date
+                        - generic [ref=e220]:
+                          - img
+                      - menuitem "Keyword" [ref=e223] [cursor=pointer]:
+                        - generic [ref=e224]: Keyword
+                        - generic [ref=e225]:
+                          - img
+                      - menuitem "Amount" [ref=e228] [cursor=pointer]:
+                        - generic [ref=e229]: Amount
+                        - generic [ref=e230]:
+                          - img
+                - generic [ref=e231]:
+                  - button "Group" [ref=e232] [cursor=pointer]:
+                    - img
+                  - button "Sort" [ref=e234] [cursor=pointer]:
+                    - img
+                  - button "Settings" [ref=e236] [cursor=pointer]:
+                    - img
+                - button "Export all" [ref=e238] [cursor=pointer]:
+                  - img
+                  - generic [ref=e239]: Export all
+              - button "Show graphs Net change this month $ 0 . 0 0 Money in $ 0 . 0 0 Money out $ 0 . 0 0" [ref=e240] [cursor=pointer]:
+                - button "Show graphs" [ref=e242]:
+                  - img [ref=e244]
+                - generic [ref=e246]:
+                  - generic [ref=e247]:
+                    - generic [ref=e248]: Net change this month
+                    - generic [ref=e249]:
+                      - text: $
+                      - generic [ref=e251]: "0"
+                      - text: .
+                      - generic [ref=e253]: "0"
+                      - generic [ref=e255]: "0"
+                  - generic [ref=e256]:
+                    - generic [ref=e257]: Money in
+                    - generic [ref=e258]:
+                      - text: $
+                      - generic [ref=e260]: "0"
+                      - text: .
+                      - generic [ref=e262]: "0"
+                      - generic [ref=e264]: "0"
+                  - generic [ref=e265]:
+                    - generic [ref=e266]: Money out
+                    - generic [ref=e267]:
+                      - text: $
+                      - generic [ref=e269]: "0"
+                      - text: .
+                      - generic [ref=e271]: "0"
+                      - generic [ref=e273]: "0"
+            - generic [ref=e275]:
+              - table "Transactions table" [ref=e276]:
+                - caption [ref=e277]: Transactions table
+                - rowgroup [ref=e278]:
+                  - row "Date Click to sort To/From Click to sort Amount Click to sort Account Click to sort Method Category GL Code Attachment" [ref=e279]:
+                    - columnheader [ref=e280]:
+                      - checkbox [disabled] [ref=e282]
+                    - columnheader "Date Click to sort" [ref=e283]:
+                      - button "Date Click to sort" [ref=e285] [cursor=pointer]:
+                        - text: Date
+                        - img [ref=e286]
+                        - generic [ref=e288]: Click to sort
+                    - columnheader "To/From Click to sort" [ref=e289]:
+                      - button "To/From Click to sort" [ref=e291] [cursor=pointer]:
+                        - text: To/From
+                        - generic [ref=e292]: Click to sort
+                    - columnheader "Amount Click to sort" [ref=e293]:
+                      - button "Amount Click to sort" [ref=e295] [cursor=pointer]:
+                        - text: Amount
+                        - generic [ref=e296]: Click to sort
+                    - columnheader "Account Click to sort" [ref=e297]:
+                      - button "Account Click to sort" [ref=e299] [cursor=pointer]:
+                        - text: Account
+                        - generic [ref=e300]: Click to sort
+                    - columnheader "Method" [ref=e301]
+                    - columnheader "Category" [ref=e302]:
+                      - generic [ref=e305]: Category
+                    - columnheader "GL Code" [ref=e306]
+                    - columnheader "Attachment" [ref=e307]
+                - rowgroup [ref=e308]:
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e309]:
+                    - cell "Loading" [ref=e310]:
+                      - generic [ref=e312]: Loading
+                    - cell "Loading" [ref=e313]:
+                      - generic [ref=e315]: Loading
+                    - cell "Loading" [ref=e316]:
+                      - generic [ref=e318]: Loading
+                    - cell "Loading" [ref=e319]:
+                      - generic [ref=e321]: Loading
+                    - cell "Loading" [ref=e322]:
+                      - generic [ref=e324]: Loading
+                    - cell "Loading" [ref=e325]:
+                      - generic [ref=e327]: Loading
+                    - cell "Loading" [ref=e328]:
+                      - generic [ref=e330]: Loading
+                    - cell "Loading" [ref=e331]:
+                      - generic [ref=e333]: Loading
+                    - cell "Loading" [ref=e334]:
+                      - generic [ref=e336]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e337]:
+                    - cell "Loading" [ref=e338]:
+                      - generic [ref=e340]: Loading
+                    - cell "Loading" [ref=e341]:
+                      - generic [ref=e343]: Loading
+                    - cell "Loading" [ref=e344]:
+                      - generic [ref=e346]: Loading
+                    - cell "Loading" [ref=e347]:
+                      - generic [ref=e349]: Loading
+                    - cell "Loading" [ref=e350]:
+                      - generic [ref=e352]: Loading
+                    - cell "Loading" [ref=e353]:
+                      - generic [ref=e355]: Loading
+                    - cell "Loading" [ref=e356]:
+                      - generic [ref=e358]: Loading
+                    - cell "Loading" [ref=e359]:
+                      - generic [ref=e361]: Loading
+                    - cell "Loading" [ref=e362]:
+                      - generic [ref=e364]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e365]:
+                    - cell "Loading" [ref=e366]:
+                      - generic [ref=e368]: Loading
+                    - cell "Loading" [ref=e369]:
+                      - generic [ref=e371]: Loading
+                    - cell "Loading" [ref=e372]:
+                      - generic [ref=e374]: Loading
+                    - cell "Loading" [ref=e375]:
+                      - generic [ref=e377]: Loading
+                    - cell "Loading" [ref=e378]:
+                      - generic [ref=e380]: Loading
+                    - cell "Loading" [ref=e381]:
+                      - generic [ref=e383]: Loading
+                    - cell "Loading" [ref=e384]:
+                      - generic [ref=e386]: Loading
+                    - cell "Loading" [ref=e387]:
+                      - generic [ref=e389]: Loading
+                    - cell "Loading" [ref=e390]:
+                      - generic [ref=e392]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e393]:
+                    - cell "Loading" [ref=e394]:
+                      - generic [ref=e396]: Loading
+                    - cell "Loading" [ref=e397]:
+                      - generic [ref=e399]: Loading
+                    - cell "Loading" [ref=e400]:
+                      - generic [ref=e402]: Loading
+                    - cell "Loading" [ref=e403]:
+                      - generic [ref=e405]: Loading
+                    - cell "Loading" [ref=e406]:
+                      - generic [ref=e408]: Loading
+                    - cell "Loading" [ref=e409]:
+                      - generic [ref=e411]: Loading
+                    - cell "Loading" [ref=e412]:
+                      - generic [ref=e414]: Loading
+                    - cell "Loading" [ref=e415]:
+                      - generic [ref=e417]: Loading
+                    - cell "Loading" [ref=e418]:
+                      - generic [ref=e420]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e421]:
+                    - cell "Loading" [ref=e422]:
+                      - generic [ref=e424]: Loading
+                    - cell "Loading" [ref=e425]:
+                      - generic [ref=e427]: Loading
+                    - cell "Loading" [ref=e428]:
+                      - generic [ref=e430]: Loading
+                    - cell "Loading" [ref=e431]:
+                      - generic [ref=e433]: Loading
+                    - cell "Loading" [ref=e434]:
+                      - generic [ref=e436]: Loading
+                    - cell "Loading" [ref=e437]:
+                      - generic [ref=e439]: Loading
+                    - cell "Loading" [ref=e440]:
+                      - generic [ref=e442]: Loading
+                    - cell "Loading" [ref=e443]:
+                      - generic [ref=e445]: Loading
+                    - cell "Loading" [ref=e446]:
+                      - generic [ref=e448]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e449]:
+                    - cell "Loading" [ref=e450]:
+                      - generic [ref=e452]: Loading
+                    - cell "Loading" [ref=e453]:
+                      - generic [ref=e455]: Loading
+                    - cell "Loading" [ref=e456]:
+                      - generic [ref=e458]: Loading
+                    - cell "Loading" [ref=e459]:
+                      - generic [ref=e461]: Loading
+                    - cell "Loading" [ref=e462]:
+                      - generic [ref=e464]: Loading
+                    - cell "Loading" [ref=e465]:
+                      - generic [ref=e467]: Loading
+                    - cell "Loading" [ref=e468]:
+                      - generic [ref=e470]: Loading
+                    - cell "Loading" [ref=e471]:
+                      - generic [ref=e473]: Loading
+                    - cell "Loading" [ref=e474]:
+                      - generic [ref=e476]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e477]:
+                    - cell "Loading" [ref=e478]:
+                      - generic [ref=e480]: Loading
+                    - cell "Loading" [ref=e481]:
+                      - generic [ref=e483]: Loading
+                    - cell "Loading" [ref=e484]:
+                      - generic [ref=e486]: Loading
+                    - cell "Loading" [ref=e487]:
+                      - generic [ref=e489]: Loading
+                    - cell "Loading" [ref=e490]:
+                      - generic [ref=e492]: Loading
+                    - cell "Loading" [ref=e493]:
+                      - generic [ref=e495]: Loading
+                    - cell "Loading" [ref=e496]:
+                      - generic [ref=e498]: Loading
+                    - cell "Loading" [ref=e499]:
+                      - generic [ref=e501]: Loading
+                    - cell "Loading" [ref=e502]:
+                      - generic [ref=e504]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e505]:
+                    - cell "Loading" [ref=e506]:
+                      - generic [ref=e508]: Loading
+                    - cell "Loading" [ref=e509]:
+                      - generic [ref=e511]: Loading
+                    - cell "Loading" [ref=e512]:
+                      - generic [ref=e514]: Loading
+                    - cell "Loading" [ref=e515]:
+                      - generic [ref=e517]: Loading
+                    - cell "Loading" [ref=e518]:
+                      - generic [ref=e520]: Loading
+                    - cell "Loading" [ref=e521]:
+                      - generic [ref=e523]: Loading
+                    - cell "Loading" [ref=e524]:
+                      - generic [ref=e526]: Loading
+                    - cell "Loading" [ref=e527]:
+                      - generic [ref=e529]: Loading
+                    - cell "Loading" [ref=e530]:
+                      - generic [ref=e532]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e533]:
+                    - cell "Loading" [ref=e534]:
+                      - generic [ref=e536]: Loading
+                    - cell "Loading" [ref=e537]:
+                      - generic [ref=e539]: Loading
+                    - cell "Loading" [ref=e540]:
+                      - generic [ref=e542]: Loading
+                    - cell "Loading" [ref=e543]:
+                      - generic [ref=e545]: Loading
+                    - cell "Loading" [ref=e546]:
+                      - generic [ref=e548]: Loading
+                    - cell "Loading" [ref=e549]:
+                      - generic [ref=e551]: Loading
+                    - cell "Loading" [ref=e552]:
+                      - generic [ref=e554]: Loading
+                    - cell "Loading" [ref=e555]:
+                      - generic [ref=e557]: Loading
+                    - cell "Loading" [ref=e558]:
+                      - generic [ref=e560]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e561]:
+                    - cell "Loading" [ref=e562]:
+                      - generic [ref=e564]: Loading
+                    - cell "Loading" [ref=e565]:
+                      - generic [ref=e567]: Loading
+                    - cell "Loading" [ref=e568]:
+                      - generic [ref=e570]: Loading
+                    - cell "Loading" [ref=e571]:
+                      - generic [ref=e573]: Loading
+                    - cell "Loading" [ref=e574]:
+                      - generic [ref=e576]: Loading
+                    - cell "Loading" [ref=e577]:
+                      - generic [ref=e579]: Loading
+                    - cell "Loading" [ref=e580]:
+                      - generic [ref=e582]: Loading
+                    - cell "Loading" [ref=e583]:
+                      - generic [ref=e585]: Loading
+                    - cell "Loading" [ref=e586]:
+                      - generic [ref=e588]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e589]:
+                    - cell "Loading" [ref=e590]:
+                      - generic [ref=e592]: Loading
+                    - cell "Loading" [ref=e593]:
+                      - generic [ref=e595]: Loading
+                    - cell "Loading" [ref=e596]:
+                      - generic [ref=e598]: Loading
+                    - cell "Loading" [ref=e599]:
+                      - generic [ref=e601]: Loading
+                    - cell "Loading" [ref=e602]:
+                      - generic [ref=e604]: Loading
+                    - cell "Loading" [ref=e605]:
+                      - generic [ref=e607]: Loading
+                    - cell "Loading" [ref=e608]:
+                      - generic [ref=e610]: Loading
+                    - cell "Loading" [ref=e611]:
+                      - generic [ref=e613]: Loading
+                    - cell "Loading" [ref=e614]:
+                      - generic [ref=e616]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e617]:
+                    - cell "Loading" [ref=e618]:
+                      - generic [ref=e620]: Loading
+                    - cell "Loading" [ref=e621]:
+                      - generic [ref=e623]: Loading
+                    - cell "Loading" [ref=e624]:
+                      - generic [ref=e626]: Loading
+                    - cell "Loading" [ref=e627]:
+                      - generic [ref=e629]: Loading
+                    - cell "Loading" [ref=e630]:
+                      - generic [ref=e632]: Loading
+                    - cell "Loading" [ref=e633]:
+                      - generic [ref=e635]: Loading
+                    - cell "Loading" [ref=e636]:
+                      - generic [ref=e638]: Loading
+                    - cell "Loading" [ref=e639]:
+                      - generic [ref=e641]: Loading
+                    - cell "Loading" [ref=e642]:
+                      - generic [ref=e644]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e645]:
+                    - cell "Loading" [ref=e646]:
+                      - generic [ref=e648]: Loading
+                    - cell "Loading" [ref=e649]:
+                      - generic [ref=e651]: Loading
+                    - cell "Loading" [ref=e652]:
+                      - generic [ref=e654]: Loading
+                    - cell "Loading" [ref=e655]:
+                      - generic [ref=e657]: Loading
+                    - cell "Loading" [ref=e658]:
+                      - generic [ref=e660]: Loading
+                    - cell "Loading" [ref=e661]:
+                      - generic [ref=e663]: Loading
+                    - cell "Loading" [ref=e664]:
+                      - generic [ref=e666]: Loading
+                    - cell "Loading" [ref=e667]:
+                      - generic [ref=e669]: Loading
+                    - cell "Loading" [ref=e670]:
+                      - generic [ref=e672]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e673]:
+                    - cell "Loading" [ref=e674]:
+                      - generic [ref=e676]: Loading
+                    - cell "Loading" [ref=e677]:
+                      - generic [ref=e679]: Loading
+                    - cell "Loading" [ref=e680]:
+                      - generic [ref=e682]: Loading
+                    - cell "Loading" [ref=e683]:
+                      - generic [ref=e685]: Loading
+                    - cell "Loading" [ref=e686]:
+                      - generic [ref=e688]: Loading
+                    - cell "Loading" [ref=e689]:
+                      - generic [ref=e691]: Loading
+                    - cell "Loading" [ref=e692]:
+                      - generic [ref=e694]: Loading
+                    - cell "Loading" [ref=e695]:
+                      - generic [ref=e697]: Loading
+                    - cell "Loading" [ref=e698]:
+                      - generic [ref=e700]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e701]:
+                    - cell "Loading" [ref=e702]:
+                      - generic [ref=e704]: Loading
+                    - cell "Loading" [ref=e705]:
+                      - generic [ref=e707]: Loading
+                    - cell "Loading" [ref=e708]:
+                      - generic [ref=e710]: Loading
+                    - cell "Loading" [ref=e711]:
+                      - generic [ref=e713]: Loading
+                    - cell "Loading" [ref=e714]:
+                      - generic [ref=e716]: Loading
+                    - cell "Loading" [ref=e717]:
+                      - generic [ref=e719]: Loading
+                    - cell "Loading" [ref=e720]:
+                      - generic [ref=e722]: Loading
+                    - cell "Loading" [ref=e723]:
+                      - generic [ref=e725]: Loading
+                    - cell "Loading" [ref=e726]:
+                      - generic [ref=e728]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e729]:
+                    - cell "Loading" [ref=e730]:
+                      - generic [ref=e732]: Loading
+                    - cell "Loading" [ref=e733]:
+                      - generic [ref=e735]: Loading
+                    - cell "Loading" [ref=e736]:
+                      - generic [ref=e738]: Loading
+                    - cell "Loading" [ref=e739]:
+                      - generic [ref=e741]: Loading
+                    - cell "Loading" [ref=e742]:
+                      - generic [ref=e744]: Loading
+                    - cell "Loading" [ref=e745]:
+                      - generic [ref=e747]: Loading
+                    - cell "Loading" [ref=e748]:
+                      - generic [ref=e750]: Loading
+                    - cell "Loading" [ref=e751]:
+                      - generic [ref=e753]: Loading
+                    - cell "Loading" [ref=e754]:
+                      - generic [ref=e756]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e757]:
+                    - cell "Loading" [ref=e758]:
+                      - generic [ref=e760]: Loading
+                    - cell "Loading" [ref=e761]:
+                      - generic [ref=e763]: Loading
+                    - cell "Loading" [ref=e764]:
+                      - generic [ref=e766]: Loading
+                    - cell "Loading" [ref=e767]:
+                      - generic [ref=e769]: Loading
+                    - cell "Loading" [ref=e770]:
+                      - generic [ref=e772]: Loading
+                    - cell "Loading" [ref=e773]:
+                      - generic [ref=e775]: Loading
+                    - cell "Loading" [ref=e776]:
+                      - generic [ref=e778]: Loading
+                    - cell "Loading" [ref=e779]:
+                      - generic [ref=e781]: Loading
+                    - cell "Loading" [ref=e782]:
+                      - generic [ref=e784]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e785]:
+                    - cell "Loading" [ref=e786]:
+                      - generic [ref=e788]: Loading
+                    - cell "Loading" [ref=e789]:
+                      - generic [ref=e791]: Loading
+                    - cell "Loading" [ref=e792]:
+                      - generic [ref=e794]: Loading
+                    - cell "Loading" [ref=e795]:
+                      - generic [ref=e797]: Loading
+                    - cell "Loading" [ref=e798]:
+                      - generic [ref=e800]: Loading
+                    - cell "Loading" [ref=e801]:
+                      - generic [ref=e803]: Loading
+                    - cell "Loading" [ref=e804]:
+                      - generic [ref=e806]: Loading
+                    - cell "Loading" [ref=e807]:
+                      - generic [ref=e809]: Loading
+                    - cell "Loading" [ref=e810]:
+                      - generic [ref=e812]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e813]:
+                    - cell "Loading" [ref=e814]:
+                      - generic [ref=e816]: Loading
+                    - cell "Loading" [ref=e817]:
+                      - generic [ref=e819]: Loading
+                    - cell "Loading" [ref=e820]:
+                      - generic [ref=e822]: Loading
+                    - cell "Loading" [ref=e823]:
+                      - generic [ref=e825]: Loading
+                    - cell "Loading" [ref=e826]:
+                      - generic [ref=e828]: Loading
+                    - cell "Loading" [ref=e829]:
+                      - generic [ref=e831]: Loading
+                    - cell "Loading" [ref=e832]:
+                      - generic [ref=e834]: Loading
+                    - cell "Loading" [ref=e835]:
+                      - generic [ref=e837]: Loading
+                    - cell "Loading" [ref=e838]:
+                      - generic [ref=e840]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e841]:
+                    - cell "Loading" [ref=e842]:
+                      - generic [ref=e844]: Loading
+                    - cell "Loading" [ref=e845]:
+                      - generic [ref=e847]: Loading
+                    - cell "Loading" [ref=e848]:
+                      - generic [ref=e850]: Loading
+                    - cell "Loading" [ref=e851]:
+                      - generic [ref=e853]: Loading
+                    - cell "Loading" [ref=e854]:
+                      - generic [ref=e856]: Loading
+                    - cell "Loading" [ref=e857]:
+                      - generic [ref=e859]: Loading
+                    - cell "Loading" [ref=e860]:
+                      - generic [ref=e862]: Loading
+                    - cell "Loading" [ref=e863]:
+                      - generic [ref=e865]: Loading
+                    - cell "Loading" [ref=e866]:
+                      - generic [ref=e868]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e869]:
+                    - cell "Loading" [ref=e870]:
+                      - generic [ref=e872]: Loading
+                    - cell "Loading" [ref=e873]:
+                      - generic [ref=e875]: Loading
+                    - cell "Loading" [ref=e876]:
+                      - generic [ref=e878]: Loading
+                    - cell "Loading" [ref=e879]:
+                      - generic [ref=e881]: Loading
+                    - cell "Loading" [ref=e882]:
+                      - generic [ref=e884]: Loading
+                    - cell "Loading" [ref=e885]:
+                      - generic [ref=e887]: Loading
+                    - cell "Loading" [ref=e888]:
+                      - generic [ref=e890]: Loading
+                    - cell "Loading" [ref=e891]:
+                      - generic [ref=e893]: Loading
+                    - cell "Loading" [ref=e894]:
+                      - generic [ref=e896]: Loading
+                  - row "Loading Loading Loading Loading Loading Loading Loading Loading Loading" [ref=e897]:
+                    - cell "Loading" [ref=e898]:
+                      - generic [ref=e900]: Loading
+                    - cell "Loading" [ref=e901]:
+                      - generic [ref=e903]: Loading
+                    - cell "Loading" [ref=e904]:
+                      - generic [ref=e906]: Loading
+                    - cell "Loading" [ref=e907]:
+                      - generic [ref=e909]: Loading
+                    - cell "Loading" [ref=e910]:
+                      - generic [ref=e912]: Loading
+                    - cell "Loading" [ref=e913]:
+                      - generic [ref=e915]: Loading
+                    - cell "Loading" [ref=e916]:
+                      - generic [ref=e918]: Loading
+                    - cell "Loading" [ref=e919]:
+                      - generic [ref=e921]: Loading
+                    - cell "Loading" [ref=e922]:
+                      - generic [ref=e924]: Loading
+              - generic [ref=e925]: This table row is also a link. Click on the row with your cursor or press the Enter key to activate the link.
+            - generic [ref=e927]:
+              - button [disabled]
+              - button [disabled]
+              - button [disabled]
+      - button [ref=e931] [cursor=pointer]:
+        - img [ref=e932]
+  - alert
+  - dialog "0 selected" [ref=e934]:
+    - generic [ref=e935]:
+      - generic [ref=e936]:
+        - generic [ref=e938]: 0 selected
+        - generic [ref=e939]:
+          - generic [ref=e941]:
+            - generic [ref=e942]: Category
+            - generic [ref=e944]:
+              - combobox "Category" [ref=e945]
+              - generic [ref=e946]:
+                - generic [ref=e947]: Open combobox menu
+                - img [ref=e948]
+          - generic [ref=e952]:
+            - generic [ref=e954]: GL Code
+            - generic [ref=e955]:
+              - combobox "GL Code" [ref=e956]
+              - button "Open combobox menu" [ref=e958] [cursor=pointer]:
+                - img
+          - button "Add file" [ref=e959] [cursor=pointer]:
+            - img
+          - button "Add notes" [ref=e961] [cursor=pointer]:
+            - img
+          - button "More bulk actions" [ref=e964] [cursor=pointer]:
+            - img
+      - button "Unselect" [ref=e968] [cursor=pointer]:
+        - img
+        - generic [ref=e969]: Unselect

@@ -316,7 +316,7 @@ export function InventoryFinderPanel({
     () => (customerId ? filtered.map((row) => row.id) : []),
     [customerId, filtered]
   );
-  const lastOrderedBulk = trpc.queries.customerLastOrderedQtyBulk.useQuery(
+  const lastOrderedBulk = trpc.salesOrders.customerLastOrderedQtyBulk.useQuery(
     { customerId: customerId ?? '', batchIds },
     { enabled: Boolean(customerId && batchIds.length > 0) }
   );

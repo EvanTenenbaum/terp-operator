@@ -1,0 +1,15 @@
+[     170ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-BH4GTE34.js?v=0f246867:21608
+[     199ms] [ERROR] AG Grid: AG Grid: You are mixing modules (i.e. @ag-grid-community/core) and packages (ag-grid-community) - you can only use one or the other of these mechanisms. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[     199ms] [ERROR] AG Grid: Please see https://www.ag-grid.com/javascript-grid/modules/ for more information. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:159
+[     567ms] [WARNING] AG Grid: invalid colDef property 'minRole' did you mean any of these: cellAriaRole, floatingFilterComponent, floatingFilterComponentParams, suppressFiltersToolPanel, headerCheckboxSelectionFilteredOnly, headerCheckboxSelectionCurrentPageOnly, loadingCellRendererSelector, sortingOrder.
+If you are trying to annotate colDef with application data, use the 'colDef.context' property instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     567ms] [WARNING] AG Grid: to see all the valid colDef properties please check: https://www.ag-grid.com/react-data-grid/column-properties/ @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     567ms] [WARNING] AG Grid: As of v32.2, fillHandleDirection is deprecated. Use `cellSelection.handle.direction` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     567ms] [WARNING] AG Grid: As of v32.2, enableFillHandle is deprecated. Use `cellSelection.handle` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     567ms] [WARNING] AG Grid: 'enableFillHandle' requires 'enableRangeSelection' to be true. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     567ms] [WARNING] AG Grid: As of v32.2, onRangeSelectionChanged is deprecated. Use `onCellSelectionChanged` instead. @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[     593ms] [WARNING] AG Grid: colDef.type 'date' does not correspond to defined gridOptions.columnTypes @ http://localhost:5173/node_modules/.vite/deps/chunk-BBZ2GORY.js?v=0f246867:156
+[    3583ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/trpc/queries.grid?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22view%22%3A%22purchaseOrders%22%7D%7D%7D:0
+[    3666ms] [ERROR] TRPCClientError: Database error (request id: a111ca16-3e7c-4f83-a13c-096ec56b5c14)
+    at _TRPCClientError.from (http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:420:14)
+    at http://localhost:5173/node_modules/.vite/deps/chunk-QKDFBB6O.js?v=0f246867:760:46 @ http://localhost:5173/node_modules/.vite/deps/chunk-QKFIK5IS.js?v=0f246867:947

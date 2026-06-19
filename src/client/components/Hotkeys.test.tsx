@@ -42,6 +42,8 @@ vi.mock('../api/trpc', () => ({
       queries: {
         invalidate: h.queriesInvalidate,
         grid: { invalidate: h.gridInvalidate },
+      },
+      intake: {
         intakeQueue: { invalidate: h.intakeQueueInvalidate }
       }
     })
