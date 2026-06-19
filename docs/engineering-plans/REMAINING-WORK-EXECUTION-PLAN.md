@@ -66,7 +66,7 @@ This is the **execution roadmap** to finish the retrofit. It supersedes the open
 | **R-09** | Extract `StatusFilterPill` from `FilterToolbar` into a standalone component | ARCH-DEBT | T2 | S | 3D-close | `build` → `qa-reviewer` | R-08 (slot decision) |
 | **R-10** | URL state: extend `useViewUrlState` (or wrap `useDrawerUrlSync`) to encode `f` (filter), `q` (keyword), `status`, `tab`, `sel`, `cur` | ARCH-DEBT | T2 | M | 4-arch | `claude-architect` writes the URL grammar doc → `build` implements → `qa-reviewer` | none (preserves existing param shape) |
 | **R-11** | ViewTabBar vs. StatusFilterPill co-existence (ARCH-8 / UX-9) — audit & convert remaining tab-as-filter usages | ARCH-DEBT | T2 | M | 4-arch | `qa-reviewer` audits → `build` per-view migration → `qa-reviewer` | R-09 |
-| **R-12** | Per-view ColDef arrays still standalone in SalesBrowseMode/SalesBuildMode → migrate to `entity-schemas.salesOrder` / `salesOrderLine` | ARCH-DEBT | T3 | M | 4-arch | `build` → `qa-reviewer` + `risk-verifier` | R-03 stable tests; ARCH-3 §3.3 invariant |
+| **R-12** | Per-view ColDef arrays still standalone in SalesBrowseMode/SalesBuildMode → migrate to `entity-schemas.salesOrder` / `salesOrderLine` | ~~ARCH-DEBT~~ **DEFERRED** | T3 | M | post-flag | `build` → `qa-reviewer` + `risk-verifier` | R-03 stable tests; ARCH-3 §3.3 invariant. **Deferred** — see §9 Rationale below. |
 | **R-13** | Remove `cellStyle` with raw hex colors in SalesBrowseMode/SalesBuildMode → semantic classes | ARCH-DEBT | T1 | S | 4-arch | `fast-build` → `qa-reviewer` (grep gate) | R-12 (do together) |
 | **R-14** | SalesView deferred surfaces — see §6 below: 10 items, each tracked as `R-14a`..`R-14j` | DEFERRED | mixed | mixed | post-flag | per-item | per-item |
 | **R-15** | DR-1: apply subcategory>category tier ordering to all 27 entity schemas | PRODUCT-GAP | T2 | M | 2-close | `fast-build` (mechanical) → `qa-reviewer` (sample audit) | none |
@@ -76,7 +76,7 @@ This is the **execution roadmap** to finish the retrofit. It supersedes the open
 | **R-19** | AG Grid "mixing modules" pre-existing console error — isolate and fix or document | VERIFY | T1 | S | 4-verify | `build` → `terminal` (verify no regression) | none |
 | **R-20** | Some templates expose features (slots/props) no view exercises — audit + prune or document | POLISH | T1 | S | 4-polish | `fast-build` → `qa-reviewer` | R-08 (after slot contracts land) |
 | **R-21** | Flag flips: `SALES_VIEW_MERCURY` → on; remove legacy SalesView; remove all `FEATURE_*` flags per §11 of master doc | BLOCKING (close-out) | T3 | M | 4-close | `build` → `risk-verifier` (Critical reviewer) | R-01..R-04, R-12, R-17 all green |
-| **R-22** | Remove deprecated components after migration zero-usage check: `WorkspacePanel`, `FilterPresetStrip`, `StatusActionBar`, inline modal forms (per Manifesto §4) | ARCH-DEBT | T2 | M | 4-cleanup | `build` (grep gate + delete) → `qa-reviewer` | R-09, R-11, R-21 |
+| **R-22** | Remove deprecated components after migration zero-usage check: `WorkspacePanel`, `FilterPresetStrip`, `StatusActionBar`, inline modal forms (per Manifesto §4) | ~~ARCH-DEBT~~ **DEFERRED** | T2 | M | post-flag | `build` (grep gate + delete) → `qa-reviewer` | R-09, R-11, **R-21 (BLOCKING: flag flip required first)**. **Deferred** — see §9 Rationale below. Commit `6908cf4` was a smoke-test run only (6 test suites, 58/58 pass); it did NOT perform the deprecated component removal. |
 | **R-23** | Rename `GridJourney` → `PrimaryGridView` (Manifesto §5.2 promise) | ARCH-DEBT | T2 | S | 4-cleanup | `fast-build` (codemod) → `terminal` (typecheck) | R-08 slot contracts shipped |
 | **R-24** | `MatchmakingView`: confirm `entity-schemas.matchmakingMatch`, `customerNeed`, `vendorStock` tier ordering matches DR-1 | PRODUCT-GAP | T1 | S | 2-close | `fast-build` → `qa-reviewer` | R-06, R-15 |
 
@@ -457,3 +457,35 @@ Steps:
 7. Update AI-TODO.md: mark item complete, add evidence path.
 8. If T3: attach to closeout-evidence-bundle entry.
 ```
+
+---
+
+## 9. Deferred Items — Rationale
+
+### R-12: SalesView ColDef migration to entity-schemas (DEFERRED → post-flag)
+
+**Why deferred:** Three blockers must resolve before `SalesBrowseMode` and `SalesBuildMode` can migrate from standalone ColDef arrays to `useColumnDefs`:
+
+1. **No `salesOrder` entity schema exists yet.** The `entitySchemas` registry exports `sale` (SalesView's legacy entity key) and `salesOrderLine` but not `salesOrder`. Creating the `salesOrderSchema` is prerequisite work that was scoped to the entity-schema completion sweep (T-2-01 in the original 108-task registry). That sweep was never executed; the existing 29 schemas were scaffolded for non-SalesView entities.
+
+2. **Custom cellStyle/valueFormatter/valueGetter patterns don't fit the pipeline.** `SalesBrowseMode.orderColumns` uses inline `cellStyle` with raw hex colors (`#15803d`, `#b06915`) and a composite `valueFormatter` accessing `data.linesTotal`/`data.linesPicked`. `SalesBuildMode.lineColumns` uses custom `valueGetter` (markupPct), `valueSetter` (markupValueSetter), `cellRenderer` (DisplayNameCell, BatchCodeCell, MarkupCell, DerivedCogsCell, LandedCostExceptionCell, PickStatusCell), and `boolCol` helpers. These patterns must be extracted into stable cell renderer components and semantic CSS classes (R-13) before the schema pipeline can consume them.
+
+3. **Both modes are behind the `SALES_VIEW_MERCURY` feature flag.** The legacy `SalesView.tsx` remains the production surface with its own standalone ColDef arrays. R-12 migration can only land after R-21 flips the flag and removes the legacy view — otherwise the schema migration would have to support both old and new column shapes simultaneously.
+
+**Unblock path:** R-21 (flag flip) → schema creation for `salesOrder` → R-13 (semantic classes for cellStyle) → R-12 (ColDef migration).
+
+### R-22: Deprecated component removal (DEFERRED → post-flag)
+
+**Why deferred:** The three targeted components are still actively referenced across the codebase:
+
+| Component | Import count | Key consumers |
+|-----------|-------------|---------------|
+| `WorkspacePanel` | 15+ files | `OperatorGrid.tsx`, `SalesView.tsx`, `IntakeView.tsx`, `DashboardView.tsx`, `VendorPayablesView.tsx`, `CreditReviewView.tsx`, `QuickLedgerGrid.tsx`, `PhotographyQueuePanel.tsx`, and 7+ test files |
+| `FilterPresetStrip` | 5+ files | `SalesBrowseMode.tsx`, `SalesView.tsx`, `OperationsViews.ux-d04-l03.test.tsx`, `SalesBrowseMode.test.tsx` |
+| `StatusActionBar` | 3+ files | `SalesView.tsx`, `CloseoutView.tsx`, `Hotkeys.test.tsx` |
+
+R-22's dependency chain is `R-09 → R-11 → R-21 → R-22`. The flag flip (R-21) must remove the legacy `SalesView.tsx` before these components' import counts drop to zero. R-09 (StatusFilterPill extraction) and R-11 (ViewTabBar vs. StatusFilterPill co-existence audit) must also be complete so migrated views no longer import the deprecated strips.
+
+**Commit `6908cf4` correction:** That commit was tagged "R-15/22 — A11y audit + integration smoke test" but it only performed a smoke test pass (6 test suites, 58/58 passed, typecheck clean). It did **not** remove any deprecated components. R-22 remains open and blocked by R-21.
+
+**Unblock path:** R-09 → R-11 → R-21 (flag flip + legacy SalesView deletion) → R-22 (grep-gate delete).
