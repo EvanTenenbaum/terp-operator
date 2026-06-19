@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { logger } from './logger';
 import { createDraftSnapshot, finalizeSnapshot } from './documentSnapshots';
 import { salesConfirmation } from './projections/salesConfirmation';
 import type { Audience, SalesConfirmationInput } from './projections/types';
@@ -39,7 +40,7 @@ export async function createSalesConfirmationReceipts(
       total: string; notes: string | null; customer_name: string | null;
     } | undefined;
     if (!so) {
-      console.warn(`[salesConfirmationReceipts] sales order ${salesOrderId} not found at post-commit time; skipping snapshot.`);
+      logger.warn('Sales order not found at post-commit time; skipping snapshot.', { module: 'salesConfirmationReceipts', salesOrderId });
       return;
     }
 
@@ -95,7 +96,7 @@ export async function createSalesConfirmationReceipts(
     await emitSnapshot(pool, 'external', input, salesOrderId, commandId, userId);
     await emitSnapshot(pool, 'internal', input, salesOrderId, commandId, userId);
   } catch (err) {
-    console.warn('[salesConfirmationReceipts] receipt creation failed (non-fatal):', err instanceof Error ? err.message : err);
+    logger.warn('Receipt creation failed (non-fatal)', { module: 'salesConfirmationReceipts', error: err instanceof Error ? err.message : String(err) });
   }
 }
 

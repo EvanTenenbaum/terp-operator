@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { logger } from './logger';
 import { createDraftSnapshot, finalizeSnapshot } from './documentSnapshots';
 import { vendorPayout } from './projections/vendorPayout';
 import type { Audience, VendorPayoutInput } from './projections/types';
@@ -16,7 +17,7 @@ export async function createVendorPayoutReceipts(pool: Pool, vendorPaymentId: st
       [vendorPaymentId]
     );
     const vp = vpRes.rows[0] as { id: string; amount: string; reference: string | null; method: string; created_at: Date; vendor_name: string | null; discrepancy_notes: string | null; } | undefined;
-    if (!vp) { console.warn(`[vendorPayoutReceipts] vendor_payment ${vendorPaymentId} not found; skipping snapshot.`); return; }
+    if (!vp) { logger.warn('Vendor payment not found; skipping snapshot.', { module: 'vendorPayoutReceipts', vendorPaymentId }); return; }
     const input: VendorPayoutInput = {
       vendorName: vp.vendor_name ?? 'Unknown vendor',
       payoutRef: vp.reference ?? vp.id,
@@ -26,7 +27,7 @@ export async function createVendorPayoutReceipts(pool: Pool, vendorPaymentId: st
     };
     await emitSnapshot(pool, 'external', input, vendorPaymentId, commandId, userId);
     await emitSnapshot(pool, 'internal', input, vendorPaymentId, commandId, userId);
-  } catch (err) { console.warn('[vendorPayoutReceipts] receipt creation failed (non-fatal):', err instanceof Error ? err.message : err); }
+  } catch (err) { logger.warn('Receipt creation failed (non-fatal)', { module: 'vendorPayoutReceipts', error: err instanceof Error ? err.message : String(err) }); }
 }
 
 async function emitSnapshot(pool: Pool, audience: Audience, input: VendorPayoutInput, vendorPaymentId: string, commandId: string, userId: string): Promise<void> {

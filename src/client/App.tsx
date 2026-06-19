@@ -89,7 +89,7 @@ function LocationSync() {
 
   useEffect(() => {
     const path = location.pathname.slice(1).split('/')[0] || 'dashboard';
-    setActiveView(path as any);
+    setActiveView(path as import('../shared/types').ViewKey);
   }, [location, setActiveView]);
 
   return null;

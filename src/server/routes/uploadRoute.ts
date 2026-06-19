@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 
+import { logger } from '../services/logger';
 import { requireOperator } from '../middleware/requireOperator';
 import { requireOperatorOrUploadToken } from '../middleware/requireOperatorOrUploadToken';
 import { uploadRateLimiter } from '../middleware/httpRateLimiters';
@@ -194,7 +195,7 @@ router.post(
         mediaId
       });
     } catch (error) {
-      console.error('Upload route error:', error);
+      logger.error('Upload route error', { module: 'uploadRoute', error: error instanceof Error ? error.message : String(error) });
       if (file?.path) {
         await fsp.unlink(file.path).catch(() => {});
       }
@@ -239,7 +240,7 @@ router.delete(
       await deleteMedia(filePath, thumbnailPath, mediumPath);
       return res.json({ ok: true });
     } catch (error) {
-      console.error('Cleanup route error:', error);
+      logger.error('Cleanup route error', { module: 'uploadRoute', error: error instanceof Error ? error.message : String(error) });
       return res.status(500).json({ error: 'Cleanup failed' });
     }
   }

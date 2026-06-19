@@ -1,4 +1,5 @@
 import { TRPCError } from '@trpc/server';
+import { logger } from '../services/logger';
 
 /**
  * Standardized error handling for tRPC procedures
@@ -13,7 +14,7 @@ export function handleProcedureError(error: unknown, operation: string): never {
   }
 
   // Log the original error for debugging
-  console.error(`Error in ${operation}:`, error);
+  logger.error(`Error in ${operation}`, { error: error instanceof Error ? error.message : String(error) });
 
   // Determine if this is a database error
   const isDatabaseError = error instanceof Error && (

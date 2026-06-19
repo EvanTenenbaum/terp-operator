@@ -50,6 +50,9 @@ import { scrubDatabaseError } from '@/server/trpc';
 // Filesystem media-cleanup helper; safe to import directly.
 import { deleteMedia } from '@/server/services/mediaStorage';
 
+// Structured logger for server-side code.
+import { logger } from '@/server/services/logger';
+
 // Helpers and the Payload type are kept in commandBus.ts for this phase
 // (see header comment).
 import {
@@ -256,8 +259,7 @@ export async function deleteBatchMedia(
     // non-DB error: deleteMedia is filesystem/storage I/O, so err.message is
     // safe to surface in server-side logs (no SQL text to leak).
     const message = err instanceof Error ? err.message : String(err);
-    // eslint-disable-next-line no-console
-    console.warn(`[deleteBatchMedia] file cleanup failed for ${mediaId}: ${message}`);
+    logger.warn(`[deleteBatchMedia] file cleanup failed for ${mediaId}: ${message}`);
   }
 
   return {

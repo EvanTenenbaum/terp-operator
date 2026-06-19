@@ -3,7 +3,7 @@ import type { Server as SocketServer } from 'socket.io';
 import type { Request, Response } from 'express';
 import { TRPCError } from '@trpc/server';
 import * as documentSnapshots from '../services/documentSnapshots';
-import { queriesRouter } from './queries';
+import { paymentsRouter } from './payments.router';
 import type { Role, SessionUser } from '../../shared/types';
 import type { ExternalReceiptProjection, InternalReceiptProjection } from '../services/projections/types';
 
@@ -14,7 +14,7 @@ function makeUser(role: Role = 'manager'): SessionUser {
   return { id: '00000000-0000-0000-0000-000000000001', name: 'Test', email: 't@x', role, workLoop: null };
 }
 function makeCaller(role: Role = 'manager') {
-  return queriesRouter.createCaller({ req: {} as Request, res: {} as Response, io: {} as SocketServer, user: makeUser(role) });
+  return paymentsRouter.createCaller({ req: {} as Request, res: {} as Response, io: {} as SocketServer, user: makeUser(role) });
 }
 
 function makeExternalPayment(): ExternalReceiptProjection {

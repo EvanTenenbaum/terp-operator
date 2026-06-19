@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { logger } from '../services/logger';
 import { getSessionUser } from '../auth';
 import { canRole } from '../rbac';
 import { pool } from '../db';
@@ -107,7 +108,7 @@ export async function requireOperatorOrUploadToken(
     req.user = user;
     next();
   } catch (error) {
-    console.error('requireOperatorOrUploadToken session auth failed:', error);
+    logger.error('Session auth failed', { module: 'requireOperatorOrUploadToken', error: error instanceof Error ? error.message : String(error) });
     res.status(500).json({ error: 'Authentication check failed' });
   }
 }

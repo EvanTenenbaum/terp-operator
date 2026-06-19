@@ -18,6 +18,8 @@
  * `docs/credit-engine-alerts.md` for the migration plan.
  */
 
+import { logger } from '../logger';
+
 export interface Counter {
   name: string;
   labels?: Record<string, string>;
@@ -111,11 +113,5 @@ export function logCreditEngineEvent(
   event: string,
   payload: Record<string, unknown> = {}
 ): void {
-  const line = JSON.stringify({
-    event,
-    ts: new Date().toISOString(),
-    ...payload
-  });
-  // eslint-disable-next-line no-console
-  console.log(line);
+  logger.info(event, { module: 'creditEngine', ...payload });
 }

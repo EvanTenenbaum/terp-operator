@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { viewSchema } from './queries';
+import type { viewSchema } from '../../shared/grid-types';
 import type { GridFilters } from '../../shared/gridFilters';
 import {
   BatchStatus,

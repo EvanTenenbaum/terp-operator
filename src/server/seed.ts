@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
+import { logger } from './services/logger';
 import { db, pool } from './db';
 import { realisticDemoConfigFromEnv, seedRealisticDemoData } from './realisticSeed';
 import {
@@ -40,7 +41,7 @@ async function seed() {
 
   // Guard: ALLOW_DEMO_SEED=false means never seed (useful for alpha/live environments)
   if (process.env.ALLOW_DEMO_SEED === 'false') {
-    console.log('[seed] ALLOW_DEMO_SEED=false — skipping seed entirely');
+    logger.info('ALLOW_DEMO_SEED=false — skipping seed entirely', { module: 'seed' });
     await pool.end();
     return;
   }
@@ -51,7 +52,7 @@ async function seed() {
     const { rows } = await pool.query<{ count: number }>('SELECT COUNT(*)::int AS count FROM users');
     const userCount = rows[0]?.count ?? 0;
     if (userCount > 0 && process.env.FORCE_RESEED !== 'true') {
-      console.log(`[seed] Skipping: ${userCount} users already exist. Set FORCE_RESEED=true to override.`);
+      logger.info(`Skipping: ${userCount} users already exist. Set FORCE_RESEED=true to override.`, { module: 'seed' });
       return;
     }
 
@@ -472,9 +473,9 @@ async function insertSeedData() {
     result: { ok: true, commandId: 'seed-command-journal-0001', affectedIds: [], toast: 'Seed activity loaded.' }
   });
 
-  console.log('Seeded TERP Operator demo data.');
-  console.log('Demo login: owner@terpagro.local / terp-demo');
-  console.log(`Additional users: ${manager.email}, ${inventoryOperator.email}, ${salesOperator.email}, ${viewer.email}`);
+  logger.info('Seeded TERP Operator demo data.');
+  logger.info('Demo login: owner@terpagro.local / terp-demo');
+  logger.info(`Additional users: ${manager.email}, ${inventoryOperator.email}, ${salesOperator.email}, ${viewer.email}`);
 }
 
 function daysAgo(days: number) {
@@ -490,7 +491,7 @@ seed()
     await pool.end();
   })
   .catch(async (error) => {
-    console.error(error);
+    logger.error('Seed failed', { error: error instanceof Error ? error.message : String(error) });
     await pool.end();
     process.exit(1);
   });

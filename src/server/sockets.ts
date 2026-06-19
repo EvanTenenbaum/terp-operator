@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import { env, isProd } from './env';
 import { sessionMiddleware, getSessionUser } from './auth';
 import { ratelimit } from './utils/ratelimit';
+import { logger } from './services/logger';
 
 let _io: Server | null = null;
 
@@ -18,8 +19,8 @@ export function createSocketServer(httpServer: HttpServer) {
 
   // Wrap session middleware for Socket.io
   io.use((socket, next) => {
-    const req = socket.request as any;
-    const res = {} as any; // Socket.io doesn't provide a response object
+    const req = socket.request as import('express').Request;
+    const res = {} as import('express').Response; // Socket.io doesn't provide a response object
     sessionMiddleware(req, res, async (err?: any) => {
       if (err) return next(err);
 
@@ -67,7 +68,7 @@ export function createSocketServer(httpServer: HttpServer) {
       // Rate limiting: prevent rapid subscription abuse
       const { success } = await ratelimit.limit(`order:sub:${user.id}`, { limit: 20, window: '1m' });
       if (!success) {
-        console.warn(`[sockets] order:subscribe rate limit exceeded for user ${user.id}`);
+        logger.warn('Order:subscribe rate limit exceeded', { module: 'sockets', userId: user.id });
         return;
       }
 
@@ -81,7 +82,7 @@ export function createSocketServer(httpServer: HttpServer) {
       if (user?.id) {
         const { success } = await ratelimit.limit(`order:unsub:${user.id}`, { limit: 20, window: '1m' });
         if (!success) {
-          console.warn(`[sockets] order:unsubscribe rate limit exceeded for user ${user.id}`);
+          logger.warn('Order:unsubscribe rate limit exceeded', { module: 'sockets', userId: user.id });
           return;
         }
       }

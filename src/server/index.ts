@@ -1,5 +1,6 @@
 import http from 'node:http';
 import type { Server as SocketServer } from 'socket.io';
+import { logger } from './services/logger';
 import { createApp } from './app';
 import { createSocketServer } from './sockets';
 import { env } from './env';
@@ -16,7 +17,7 @@ io.on('connection', (socket) => {
 });
 
 httpServer.listen(env.PORT, () => {
-  console.log(`TERP Operator server listening on http://localhost:${env.PORT}`);
+  logger.info(`TERP Operator server listening on http://localhost:${env.PORT}`);
   // EXT-REVIEW 2026-06 finding #4: start the in-process background workers
   // (credit recompute drain, stuck-row reaper, nightly audit + reconciliation).
   // Gate with BACKGROUND_WORKERS=false when an external scheduler owns these.
@@ -24,7 +25,7 @@ httpServer.listen(env.PORT, () => {
 });
 
 const shutdown = () => {
-  console.log('TERP Operator shutting down gracefully...');
+  logger.info('TERP Operator shutting down gracefully...');
   stopBackgroundWorkers();
   httpServer.close(() => {
     pool.end().finally(() => process.exit(0));

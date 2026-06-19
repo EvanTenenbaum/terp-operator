@@ -1,5 +1,6 @@
 import { FilterGroupInput, FilterCondition, ALLOWED_FILTER_FIELDS } from '../../shared/filterSchemas';
 import { FILTER_CONFIG } from '../../shared/filterConfig';
+import { logger } from '../services/logger';
 
 export function evaluateFilterGroup(
   row: Record<string, any>,
@@ -8,24 +9,24 @@ export function evaluateFilterGroup(
 ): boolean {
   // Input validation
   if (!group || typeof group !== 'object') {
-    console.warn('Invalid filter: not an object');
+    logger.warn('Invalid filter: not an object', { module: 'filterEvaluator' });
     return false;
   }
 
   if (!Array.isArray(group.conditions)) {
-    console.warn('Invalid filter: conditions is not an array');
+    logger.warn('Invalid filter: conditions is not an array', { module: 'filterEvaluator' });
     return false;
   }
 
   // Recursion protection
   if (depth > FILTER_CONFIG.MAX_CLIENT_RECURSION) {
-    console.error('Filter evaluation recursion limit exceeded');
+    logger.error('Filter evaluation recursion limit exceeded', { module: 'filterEvaluator' });
     return false;
   }
 
   // Runtime validation of logic operator
   if (group.logic !== 'AND' && group.logic !== 'OR') {
-    console.error(`Invalid logic operator: ${group.logic}`);
+    logger.error(`Invalid logic operator: ${group.logic}`, { module: 'filterEvaluator' });
     return false;
   }
 
@@ -57,7 +58,7 @@ export function evaluateFilterGroup(
 function evaluateCondition(row: Record<string, any>, condition: FilterCondition): boolean {
   // Whitelist check (prevents prototype pollution)
   if (!ALLOWED_FILTER_FIELDS.has(condition.field)) {
-    console.warn(`Unauthorized field access attempt: ${condition.field}`);
+    logger.warn('Unauthorized field access attempt', { module: 'filterEvaluator', field: condition.field });
     return false;
   }
 

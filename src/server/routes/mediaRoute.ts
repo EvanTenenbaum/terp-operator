@@ -2,6 +2,7 @@ import express, { type Request, type Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { logger } from '../services/logger';
 import { pool } from '../db';
 import { requireOperator } from '../middleware/requireOperator';
 import { mediaServeRateLimiter } from '../middleware/httpRateLimiters';
@@ -87,7 +88,7 @@ router.get(
 
       return res.sendFile(path.resolve(record.file_path));
     } catch (error) {
-      console.error('Media serving error:', error);
+      logger.error('Media serving error', { module: 'mediaRoute', error: error instanceof Error ? error.message : String(error) });
       return res.status(500).json({ error: 'Failed to serve media' });
     }
   }
@@ -114,7 +115,7 @@ router.get(
       res.setHeader('X-Content-Type-Options', 'nosniff');
       return res.sendFile(path.resolve(thumb));
     } catch (error) {
-      console.error('Thumbnail serving error:', error);
+      logger.error('Thumbnail serving error', { module: 'mediaRoute', error: error instanceof Error ? error.message : String(error) });
       return res.status(500).json({ error: 'Failed to serve thumbnail' });
     }
   }

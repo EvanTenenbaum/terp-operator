@@ -101,6 +101,8 @@ import { accrueRefereeCredit } from '@/server/services/refereeCommands';
 // Credit-engine recompute lives in its own module; safe to import directly.
 import { enqueueCustomerRecompute } from '@/server/services/creditEngine';
 
+import { logger } from '@/server/services/logger';
+
 export async function createSalesOrder(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   createSalesOrderPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
@@ -727,7 +729,7 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
   try {
     await enqueueCustomerRecompute(tx, order.customerId, 'event:confirmSalesOrder', commandId);
   } catch (err) {
-    console.warn(`[confirmSalesOrder] credit recompute enqueue failed for customer ${order.customerId} (non-fatal):`, err);
+    logger.warn(`[confirmSalesOrder] credit recompute enqueue failed for customer ${order.customerId} (non-fatal):`, { error: String(err) });
   }
   return {
     ok: true,

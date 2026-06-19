@@ -6,9 +6,11 @@ Follow `/Users/evantenenbaum/AGENTS.md` first, then this file. If a deeper `AGEN
 
 **Before substantial work, read:**
 
-1. **[docs/agent-orientation/START_HERE.md](docs/agent-orientation/START_HERE.md)** — entry point. Architecture, dev workflow, domain concepts, code organization. ~5 minutes.
+1. **[ONBOARDING.md](ONBOARDING.md)** — entry point. What TERP Operator is, tech stack, quick start, architecture, domain map, conventions. ~5 minutes.
 2. **[docs/design-system/INDEX.md](docs/design-system/INDEX.md)** — frontend patterns. Components, styling, state, AG Grid. Skim the section that matches your task.
 3. **[docs/design-system/decisions-log.md](docs/design-system/decisions-log.md)** — recent design decisions you should respect.
+4. **[ARCHITECTURE.md](ARCHITECTURE.md)** — full module map, data flow, key design decisions.
+5. **[docs/decisions/0001-domain-module-architecture.md](docs/decisions/0001-domain-module-architecture.md)** — domain module decomposition rationale.
 
 These docs are the source of truth for component locations, the hybrid Tailwind+semantic-class styling system, and the `useCommandRunner` / `useUiStore` / tRPC contracts. They were rewritten from the actual codebase on 2026-05-18 (see the first decision-log entry for the spec-vs-reality story).
 

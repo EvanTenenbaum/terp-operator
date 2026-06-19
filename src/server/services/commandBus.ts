@@ -17,6 +17,7 @@ import { db, pool } from '../db';
 import type { Tx } from '../db';
 import { env } from '../env';
 import { scrubDatabaseError } from '../trpc';
+import { logger } from './logger';
 import {
   appointments,
   archiveRuns,
@@ -1077,7 +1078,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         createdAt: new Date().toISOString()
       });
     } catch (e) {
-      console.warn('[commandBus] appendJsonlJournal failed after commit:', e instanceof Error ? e.message : e);
+      logger.warn('appendJsonlJournal failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
     }
 
     try {
@@ -1093,7 +1094,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         affectedIds: commandResult.affectedIds
       });
     } catch (e) {
-      console.warn('[commandBus] socket emit failed after commit:', e instanceof Error ? e.message : e);
+      logger.warn('Socket emit failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
     }
 
     // Issue #113 Phase 2 — best-effort PO finalization receipt creation.
@@ -1112,10 +1113,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
           user.id
         );
       } catch (e) {
-        console.warn(
-          '[commandBus] PO finalization receipt hook failed after commit:',
-          e instanceof Error ? e.message : e
-        );
+        logger.warn('PO finalization receipt hook failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
       }
     }
 
@@ -1129,7 +1127,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
           user.id
         );
       } catch (e) {
-        console.warn('[commandBus] sales-confirmation receipt hook failed after commit:', e instanceof Error ? e.message : e);
+        logger.warn('Sales-confirmation receipt hook failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
       }
     }
 
@@ -1138,7 +1136,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       try {
         await createInvoiceReceipts(pool, commandResult.affectedIds[0], commandId, user.id);
       } catch (e) {
-        console.warn('[commandBus] invoice receipt hook failed after commit:', e instanceof Error ? e.message : e);
+        logger.warn('Invoice receipt hook failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
       }
     }
 
@@ -1147,7 +1145,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       try {
         await createPaymentReceivedReceipts(pool, commandResult.affectedIds[0], commandId, user.id);
       } catch (e) {
-        console.warn('[commandBus] payment_received receipt hook failed after commit:', e instanceof Error ? e.message : e);
+        logger.warn('Payment received receipt hook failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
       }
     }
 
@@ -1156,7 +1154,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
       try {
         await createVendorPayoutReceipts(pool, commandResult.affectedIds[1], commandId, user.id);
       } catch (e) {
-        console.warn('[commandBus] vendor_payout receipt hook failed after commit:', e instanceof Error ? e.message : e);
+        logger.warn('Vendor payout receipt hook failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
       }
     }
 
@@ -1173,7 +1171,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
           emitPickEvent(`pick:order:${commandResult.orderId}`, { kind: input.name, at: new Date().toISOString() });
         }
       } catch (e) {
-        console.warn('[commandBus] pick event emit failed after commit:', e instanceof Error ? e.message : e);
+        logger.warn('Pick event emit failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
       }
     }
 
@@ -1189,7 +1187,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
           at: new Date().toISOString(),
         });
       } catch (e) {
-        console.warn('[commandBus] sales line event emit failed after commit:', e instanceof Error ? e.message : e);
+        logger.warn('Sales line event emit failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
       }
     }
 
@@ -1232,7 +1230,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         createdAt: new Date().toISOString()
       });
     } catch (e) {
-      console.warn('[commandBus] appendJsonlJournal failed on failure path:', e instanceof Error ? e.message : e);
+      logger.warn('appendJsonlJournal failed on failure path', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
     }
 
     // GH #329: emit only to 'authenticated' room — must use scrubbed
@@ -1240,7 +1238,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     try {
       emitCommandFailed(io, { commandId, commandName: input.name, actorId: user.id, toast: safeMessage });
     } catch (e) {
-      console.warn('[commandBus] socket emit failed on failure path:', e instanceof Error ? e.message : e);
+      logger.warn('Socket emit failed on failure path', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
     }
 
     return failed;

@@ -41,8 +41,8 @@ export function ReceiptPreviewOverlay({ purchaseOrderId, onClose }: ReceiptPrevi
   const me = trpc.auth.me.useQuery();
   const isManagerOrOwner = me.data?.role === 'manager' || me.data?.role === 'owner';
 
-  const externalQuery = trpc.queries.purchaseOrderExternalReceipt.useQuery({ purchaseOrderId });
-  const internalQuery = trpc.queries.purchaseOrderInternalReceipt.useQuery(
+  const externalQuery = trpc.purchaseOrders.purchaseOrderExternalReceipt.useQuery({ purchaseOrderId });
+  const internalQuery = trpc.purchaseOrders.purchaseOrderInternalReceipt.useQuery(
     { purchaseOrderId },
     { enabled: isManagerOrOwner }
   );

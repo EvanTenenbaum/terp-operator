@@ -63,6 +63,8 @@ import {
 // Credit-engine recompute lives in its own module; safe to import directly.
 import { enqueueCustomerRecompute } from '@/server/services/creditEngine';
 
+import { logger } from '@/server/services/logger';
+
 export async function applyClientCredit(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   applyClientCreditPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
@@ -331,11 +333,11 @@ export async function refundPayment(tx: Tx, payload: Payload, commandId: string)
       // the customer balance; the status flip above is the complete refund.
     } else {
       // Customer row not found — ledger integrity gap; surface for follow-up.
-      console.error('[refundPayment] WARNING: customer not found for payment — balance not updated, ledger gap:', paymentId);
+      logger.error('[refundPayment] WARNING: customer not found for payment — balance not updated, ledger gap:', { paymentId });
     }
   } else {
     // Payment has no customerId — same gap. No balance to update.
-    console.error('[refundPayment] WARNING: customer balance not updated on refund — no customerId on payment:', paymentId);
+    logger.error('[refundPayment] WARNING: customer balance not updated on refund — no customerId on payment:', { paymentId });
   }
 
   return { ok: true, commandId, affectedIds: affected, toast: 'Payment refunded.' };

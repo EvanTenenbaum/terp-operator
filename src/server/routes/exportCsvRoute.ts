@@ -1,10 +1,11 @@
 import express, { type Request, type Response } from 'express';
 
+import { logger } from '../services/logger';
 import { pool } from '../db';
 import { rowsToCsv } from '../services/csv';
 import { requireOperator } from '../middleware/requireOperator';
+import { viewSchema } from '../../shared/grid-types';
 import {
-  viewSchema,
   gridSql,
   deterministicHeaders
 } from '../routers/queries';
@@ -66,7 +67,7 @@ router.get(
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.status(200).send(csv);
     } catch (error) {
-      console.error('CSV export error:', error);
+      logger.error('CSV export error', { module: 'exportCsvRoute', error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({ error: 'Failed to build CSV export.' });
     }
   }

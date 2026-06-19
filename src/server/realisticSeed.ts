@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
+import { logger } from './services/logger';
 import { db } from './db';
 
 // Resolve persistent storage directories from env so seed data paths survive
@@ -190,8 +191,8 @@ export async function seedRealisticDemoData(config = realisticDemoConfigFromEnv(
     await db.update(customers).set({ balance: money(balance), updatedAt: new Date() }).where(eq(customers.id, customerId));
   }
 
-  console.log(`Seeded TERP Operator realistic demo data: ${config.days} days, ${money(totalRevenue)} revenue, ${money(flowerRevenue)} flower revenue.`);
-  console.log('Demo login: owner@terpagro.local / terp-demo');
+  logger.info(`Seeded TERP Operator realistic demo data: ${config.days} days, ${money(totalRevenue)} revenue, ${money(flowerRevenue)} flower revenue.`);
+  logger.info('Demo login: owner@terpagro.local / terp-demo');
 }
 
 async function seedTags() {

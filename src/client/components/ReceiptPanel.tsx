@@ -31,35 +31,35 @@ export function ReceiptPanel(props: ReceiptPanelProps) {
   const payId = isPayment ? (props.paymentId as string) : PLACEHOLDER_UUID;
   const vpId = isVendorPayment ? (props.vendorPaymentId as string) : PLACEHOLDER_UUID;
 
-  const poExternalQuery = trpc.queries.purchaseOrderExternalReceipt.useQuery({ purchaseOrderId: poId }, { enabled: isPo });
-  const poInternalQuery = trpc.queries.purchaseOrderInternalReceipt.useQuery({ purchaseOrderId: poId }, { enabled: isPo && isManagerOrOwner });
-  const poSignalTextQuery = trpc.queries.purchaseOrderSignalText.useQuery({ purchaseOrderId: poId }, { enabled: isPo });
+  const poExternalQuery = trpc.purchaseOrders.purchaseOrderExternalReceipt.useQuery({ purchaseOrderId: poId }, { enabled: isPo });
+  const poInternalQuery = trpc.purchaseOrders.purchaseOrderInternalReceipt.useQuery({ purchaseOrderId: poId }, { enabled: isPo && isManagerOrOwner });
+  const poSignalTextQuery = trpc.purchaseOrders.purchaseOrderSignalText.useQuery({ purchaseOrderId: poId }, { enabled: isPo });
 
-  const soExternalQuery = trpc.queries.salesOrderExternalReceipt.useQuery({ salesOrderId: soId }, { enabled: isSo });
-  const soInternalQuery = trpc.queries.salesOrderInternalReceipt.useQuery({ salesOrderId: soId }, { enabled: isSo && isManagerOrOwner });
-  const soSignalTextQuery = trpc.queries.salesOrderSignalText.useQuery({ salesOrderId: soId }, { enabled: isSo });
+  const soExternalQuery = trpc.salesOrders.salesOrderExternalReceipt.useQuery({ salesOrderId: soId }, { enabled: isSo });
+  const soInternalQuery = trpc.salesOrders.salesOrderInternalReceipt.useQuery({ salesOrderId: soId }, { enabled: isSo && isManagerOrOwner });
+  const soSignalTextQuery = trpc.salesOrders.salesOrderSignalText.useQuery({ salesOrderId: soId }, { enabled: isSo });
 
-  const payExternalQuery = trpc.queries.paymentExternalReceipt.useQuery({ paymentId: payId }, { enabled: isPayment });
-  const payInternalQuery = trpc.queries.paymentInternalReceipt.useQuery({ paymentId: payId }, { enabled: isPayment && isManagerOrOwner });
-  const paySignalTextQuery = trpc.queries.paymentSignalText.useQuery({ paymentId: payId }, { enabled: isPayment });
+  const payExternalQuery = trpc.payments.paymentExternalReceipt.useQuery({ paymentId: payId }, { enabled: isPayment });
+  const payInternalQuery = trpc.payments.paymentInternalReceipt.useQuery({ paymentId: payId }, { enabled: isPayment && isManagerOrOwner });
+  const paySignalTextQuery = trpc.payments.paymentSignalText.useQuery({ paymentId: payId }, { enabled: isPayment });
 
-  const vpExternalQuery = trpc.queries.vendorPaymentExternalReceipt.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment });
-  const vpInternalQuery = trpc.queries.vendorPaymentInternalReceipt.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment && isManagerOrOwner });
-  const vpSignalTextQuery = trpc.queries.vendorPaymentSignalText.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment });
+  const vpExternalQuery = trpc.payments.vendorPaymentExternalReceipt.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment });
+  const vpInternalQuery = trpc.payments.vendorPaymentInternalReceipt.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment && isManagerOrOwner });
+  const vpSignalTextQuery = trpc.payments.vendorPaymentSignalText.useQuery({ vendorPaymentId: vpId }, { enabled: isVendorPayment });
 
-  const poPrintHtmlQuery = trpc.queries.purchaseOrderPrintHtml.useQuery(
+  const poPrintHtmlQuery = trpc.purchaseOrders.purchaseOrderPrintHtml.useQuery(
     { purchaseOrderId: poId, audience },
     { enabled: isPo }
   );
-  const soPrintHtmlQuery = trpc.queries.salesOrderPrintHtml.useQuery(
+  const soPrintHtmlQuery = trpc.salesOrders.salesOrderPrintHtml.useQuery(
     { salesOrderId: soId, audience },
     { enabled: isSo }
   );
-  const payPrintHtmlQuery = trpc.queries.paymentPrintHtml.useQuery(
+  const payPrintHtmlQuery = trpc.payments.paymentPrintHtml.useQuery(
     { paymentId: payId, audience },
     { enabled: isPayment }
   );
-  const vpPrintHtmlQuery = trpc.queries.vendorPaymentPrintHtml.useQuery(
+  const vpPrintHtmlQuery = trpc.payments.vendorPaymentPrintHtml.useQuery(
     { vendorPaymentId: vpId, audience },
     { enabled: isVendorPayment }
   );
