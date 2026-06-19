@@ -310,7 +310,68 @@ import {
   verifyAllIntake,
 } from '@/domains/intake';
 
+// Matchmaking domain commands extracted to @/domains/matchmaking (P1.MM.EXTRACT).
+// commandBus retains the helpers + schemas these handlers rely on; switch
+// cases below still dispatch to them by name. The rebuildMatchesForNeed /
+// rebuildMatchesForSupply helpers are also re-imported here for use by
+// applyTags and createCustomerNeed / updateCustomerNeed.
+import {
+  dismissMatchmakingWorkQueueItem,
+  noteMatchmakingOutreach,
+  rebuildMatchesForNeed,
+  rebuildMatchesForSupply,
+  reopenMatchmakingMatch,
+  reviewMatchmakingMatch,
+  updateMatchmakingSettings,
+} from '@/domains/matchmaking';
+
+// Vendor Management domain commands extracted to @/domains/vendor-management
+// (P1.VM.EXTRACT). commandBus retains the helpers + schemas these handlers
+// rely on; switch cases below still dispatch to them by name.
+// ensureVendorBrand is re-exported below for existing intake consumers.
+import {
+  createVendor,
+  createVendorBill,
+  createVendorSupply,
+  postVendorLedgerPayment,
+  updateProcessor,
+  updateVendor,
+  updateVendorBillStatus,
+  updateVendorSupply,
+} from '@/domains/vendor-management';
+
+// Contacts domain commands extracted to @/domains/contacts (P1.CT.EXTRACT).
+// commandBus retains the helpers + schemas these handlers rely on; switch
+// cases below still dispatch to them by name.
+import {
+  addContactRole,
+  archiveContact,
+  cancelAppointment,
+  completeAppointment,
+  createAppointment,
+  createContact,
+  linkContactToExistingEntity,
+  linkContactToUser,
+  updateAppointment,
+  updateContact,
+} from '@/domains/contacts';
+
 export type CommandInput = z.infer<typeof commandInputSchema>;
+
+// Re-export ensureVendorBrand from vendor-management so existing intake
+// domain consumers don't need to change their import paths (P1.VM.EXTRACT).
+export { ensureVendorBrand } from '@/domains/vendor-management';
+
+// Re-export matchmaking handlers that were previously exported directly from
+// this module so existing test imports (src/server/services/matchmakingStatus.test.ts)
+// keep working after P1.MM.EXTRACT.
+export {
+  dismissMatchmakingWorkQueueItem,
+  noteMatchmakingOutreach,
+  reopenMatchmakingMatch,
+  reviewMatchmakingMatch,
+  updateMatchmakingSettings,
+} from '@/domains/matchmaking';
 
 // Re-export for other services that import Tx from commandBus (GH #301).
 export type { Tx } from '../db';
@@ -387,7 +448,7 @@ export const createPurchaseOrderPayloadSchema = z.object({
   externalNotes: z.string().optional(),
 });
 
-const createVendorPayloadSchema = z.object({
+export const createVendorPayloadSchema = z.object({
   name: z.string().min(1),
   termsDays: z.coerce.number().optional(),
   contact: z.string().optional(),
@@ -539,7 +600,7 @@ export const applyClientCreditPayloadSchema = z.object({
   reason: z.string().optional(),
 });
 
-const createVendorBillPayloadSchema = z.object({
+export const createVendorBillPayloadSchema = z.object({
   vendorId: z.string().uuid(),
   amount: z.coerce.number(),
   dueDate: z.string().optional(),
@@ -1479,61 +1540,8 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
 
 // deleteBatch → @/domains/intake (P1.INT.EXTRACT)
 
-async function createVendor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  createVendorPayloadSchema.parse(payload);
-  const name = requiredString(payload.name, 'name');
-  if (name.trim().length < 2) throw new Error('Vendor name must be at least 2 characters.');
-  const termsDays = Number(payload.termsDays ?? 14);
-  if (!Number.isFinite(termsDays) || termsDays < 0) throw new Error('Vendor payment terms must be zero or more days.');
-  const [existing] = await tx.select().from(vendors).where(ilike(vendors.name, name.trim())).limit(1);
-  if (existing) return { ok: true, commandId, affectedIds: [existing.id], toast: `${existing.name} already exists.` };
-  const [vendor] = await tx
-    .insert(vendors)
-    .values({
-      name: name.trim(),
-      termsDays: Math.round(termsDays),
-      contact: stringValue(payload.contact) || null,
-      notes: stringValue(payload.notes) || null,
-      consignmentDefault: Boolean(payload.consignmentDefault)
-    })
-    .returning();
-
-  // TER-1585 (CMD-VENDOR auto-brand wiring): auto-create a default brand for
-  // this vendor if one doesn't already exist. This ensures every vendor has at
-  // least one associated brand so intake commands (createBatch) can resolve the
-  // correct brand automatically when no explicit brandId is supplied.
-  await ensureVendorBrand(tx, vendor.id, vendor.name);
-
-  return { ok: true, commandId, affectedIds: [vendor.id], toast: `${vendor.name} added to vendors.` };
-}
-
-/**
- * TER-1585: Ensure a default brand exists for the given vendor.
- *
- * Looks up a brand by vendorId. If none is found, creates one using the
- * vendor's name. Safe to call inside an existing transaction — all writes
- * happen within `tx`.
- *
- * Returns the id of the existing or newly created brand.
- */
-export async function ensureVendorBrand(tx: Tx, vendorId: string, vendorName: string): Promise<string> {
-  const [existingBrand] = await tx
-    .select({ id: brands.id })
-    .from(brands)
-    .where(eq(brands.vendorId, vendorId))
-    .limit(1);
-  if (existingBrand) return existingBrand.id;
-
-  const [newBrand] = await tx
-    .insert(brands)
-    .values({
-      name: vendorName.trim(),
-      alias: vendorName.trim(),
-      vendorId
-    })
-    .returning({ id: brands.id });
-  return newBrand.id;
-}
+// createVendor → @/domains/vendor-management (P1.VM.EXTRACT)
+// ensureVendorBrand → @/domains/vendor-management (P1.VM.EXTRACT)
 
 // rejectBatch → @/domains/intake (P1.INT.EXTRACT)
 
@@ -1906,25 +1914,8 @@ export function validatePricingRulePayload(value: unknown): Record<string, unkno
 // allocateOrderToFulfillment → @/domains/pick (P1.PICK.EXTRACT)
 
 // createVendorBill → stays in commandBus
-async function createVendorBill(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  createVendorBillPayloadSchema.parse(payload);
-  const vendorId = requiredId(payload.vendorId, 'vendorId');
-  const amount = requiredNumber(payload.amount, 'amount');
-  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
-  if (!vendor) throw new Error('Vendor not found.');
-  const dueReason = stringValue(payload.dueReason) || 'Net terms payable';
-  const [bill] = await tx
-    .insert(vendorBills)
-    .values({ vendorId, billNo: code('VBILL'), amount: moneyScale(amount), dueDate: dateOrNull(payload.dueDate) ?? new Date(Date.now() + vendor.termsDays * 24 * 60 * 60 * 1000), termsDays: vendor.termsDays, dueReason })
-    .returning();
-  return { ok: true, commandId, affectedIds: [bill.id], toast: `Vendor bill created for ${vendor.name}.` };
-}
-
-async function updateVendorBillStatus(tx: Tx, payload: Payload, status: string, commandId: string, toast: string): Promise<CommandResult> {
-  const billId = requiredId(payload.vendorBillId ?? payload.id, 'vendorBillId');
-  await tx.update(vendorBills).set({ status, updatedAt: new Date() }).where(eq(vendorBills.id, billId));
-  return { ok: true, commandId, affectedIds: [billId], toast };
-}
+// createVendorBill → @/domains/vendor-management (P1.VM.EXTRACT)
+// updateVendorBillStatus → @/domains/vendor-management (P1.VM.EXTRACT)
 
 // recordWeighAndPack → @/domains/pick (P1.PICK.EXTRACT)
 
@@ -2250,69 +2241,7 @@ async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionU
   );
 }
 
-async function postVendorLedgerPayment(tx: Tx, payload: Payload, transactionDate: Date, commandId: string): Promise<CommandResult> {
-  const vendorId = requiredId(payload.entityId, 'entityId');
-  const amount = Math.abs(requiredNumber(payload.amount, 'amount'));
-  const transactionType = requiredString(payload.transactionType, 'transactionType');
-  const method = stringValue(payload.method) || 'cash';
-  const reference = stringValue(payload.reference) || null;
-  const notes = stringValue(payload.notes);
-  const allocationTargetType = stringValue(payload.allocationTargetType) || stringValue(payload.allocationIntent) || 'unapplied';
-  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
-  if (!vendor) throw new Error('Vendor not found.');
-
-  if (allocationTargetType === 'selected_bill' && payload.allocationTargetId) {
-    return recordVendorPayment(tx, { vendorBillId: requiredId(payload.allocationTargetId, 'allocationTargetId'), amount, method, reference, overrideUnscheduled: true, date: transactionDate }, commandId);
-  }
-
-  let purchaseOrderId: string | null = null;
-  let purchaseOrderLabel = '';
-  if (['vendor_product_payment', 'product_payment', 'vendor_down_payment'].includes(transactionType)) {
-    const targetId = stringValue(payload.allocationTargetId);
-    const purchaseOrderRows = targetId && allocationTargetType === 'selected_po'
-      ? await tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, targetId), eq(purchaseOrders.vendorId, vendorId))).limit(1)
-      : await tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.vendorId, vendorId), sql`${purchaseOrders.status} not in ('cancelled')`)).orderBy(purchaseOrders.createdAt).limit(1);
-    const [po] = purchaseOrderRows;
-    if (!po) throw new Error('No open purchase order found for this vendor payment.');
-    purchaseOrderId = po.id;
-    purchaseOrderLabel = po.poNo;
-  }
-
-  const dueReason = [
-    labelFromToken(transactionType),
-    purchaseOrderLabel ? `against ${purchaseOrderLabel}` : 'manual ledger row',
-    notes
-  ].filter(Boolean).join(' / ');
-  const [bill] = await tx
-    .insert(vendorBills)
-    .values({
-      vendorId,
-      purchaseOrderId,
-      billNo: code('VBILL'),
-      amount: moneyScale(amount),
-      amountPaid: moneyScale(amount),
-      dueDate: transactionDate,
-      scheduledFor: transactionDate,
-      termsDays: vendor.termsDays,
-      status: 'paid',
-      dueReason,
-      createdAt: transactionDate,
-      updatedAt: transactionDate
-    })
-    .returning();
-  const [payment] = await tx
-    .insert(vendorPayments)
-    .values({
-      vendorBillId: bill.id,
-      amount: moneyScale(amount),
-      method,
-      reference: reference || purchaseOrderLabel || labelFromToken(transactionType),
-      status: 'posted',
-      createdAt: transactionDate
-    })
-    .returning();
-  return { ok: true, commandId, affectedIds: [bill.id, payment.id, ...(purchaseOrderId ? [purchaseOrderId] : [])], toast: `Paying ledger row posted for ${vendor.name}.` };
-}
+// postVendorLedgerPayment → @/domains/vendor-management (P1.VM.EXTRACT)
 
 async function upsertTransactionType(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   upsertTransactionTypePayloadSchema.parse(payload);
@@ -3058,70 +2987,8 @@ async function updateCustomerNeed(tx: Tx, payload: Payload, commandId: string): 
   return { ok: true, commandId, affectedIds: [needId, ...matchIds], toast: 'Customer need updated.', delta: { matchCount: matchIds.length } };
 }
 
-async function createVendorSupply(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const vendorId = requiredId(payload.vendorId, 'vendorId');
-  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
-  if (!vendor) throw new Error('Vendor not found.');
-  const productName = requiredString(payload.productName ?? payload.name, 'productName');
-  const category = requiredString(payload.category, 'category');
-  const availableQty = requiredNumber(payload.availableQty ?? payload.qty ?? 1, 'availableQty');
-  if (availableQty <= 0) throw new Error('Vendor stock quantity must be greater than zero.');
-  const tags = tagValue(payload.tags);
-  await ensureTagCatalog(tx, tags);
-  const [row] = await tx
-    .insert(vendorSupply)
-    .values({
-      supplyCode: code('VS'),
-      vendorId,
-      productName,
-      category,
-      tags,
-      availableQty: qtyScale(availableQty),
-      askingPrice: isBlankValue(payload.askingPrice) ? null : moneyScale(payload.askingPrice),
-      availableDate: dateOrNull(payload.availableDate),
-      location: stringValue(payload.location) || null,
-      grade: stringValue(payload.grade) || null,
-      terms: stringValue(payload.terms) || null,
-      notes: stringValue(payload.notes) || null,
-      status: statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open')
-    })
-    .returning();
-  const matchIds = await rebuildMatchesForSupply(tx, row.id);
-  return { ok: true, commandId, affectedIds: [row.id, ...matchIds], toast: `Vendor stock added for ${vendor.name}.`, delta: { matchCount: matchIds.length } };
-}
-
-async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const supplyId = requiredId(payload.vendorSupplyId ?? payload.id, 'vendorSupplyId');
-  const [current] = await tx.select().from(vendorSupply).where(eq(vendorSupply.id, supplyId)).limit(1);
-  if (!current) throw new Error('Vendor stock row not found.');
-  const values: Record<string, unknown> = { updatedAt: new Date() };
-  if (payload.vendorId !== undefined) values.vendorId = stringValue(payload.vendorId) ? requiredId(payload.vendorId, 'vendorId') : null;
-  if (payload.productName !== undefined || payload.name !== undefined) values.productName = requiredString(payload.productName ?? payload.name, 'productName');
-  if (payload.category !== undefined) values.category = requiredString(payload.category, 'category');
-  if (payload.tags !== undefined) {
-    values.tags = tagValue(payload.tags);
-    await ensureTagCatalog(tx, values.tags as string[]);
-  }
-  if (payload.availableQty !== undefined || payload.qty !== undefined) {
-    const availableQty = requiredNumber(payload.availableQty ?? payload.qty, 'availableQty');
-    if (availableQty <= 0) throw new Error('Vendor stock quantity must be greater than zero.');
-    values.availableQty = qtyScale(availableQty);
-  }
-  if (payload.askingPrice !== undefined) values.askingPrice = isBlankValue(payload.askingPrice) ? null : moneyScale(payload.askingPrice);
-  if (payload.availableDate !== undefined) values.availableDate = dateOrNull(payload.availableDate);
-  if (payload.location !== undefined) values.location = stringValue(payload.location) || null;
-  if (payload.grade !== undefined) values.grade = stringValue(payload.grade) || null;
-  if (payload.terms !== undefined) values.terms = stringValue(payload.terms) || null;
-  if (payload.notes !== undefined) values.notes = stringValue(payload.notes) || null;
-  if (payload.status !== undefined) values.status = statusValue(payload.status, ['open', 'held_for_match', 'accepted', 'dismissed', 'closed'], 'open');
-  const normalizedNextSupply = values.status != null ? String(values.status) : null;
-  if (normalizedNextSupply != null && normalizedNextSupply !== current.status) {
-    assertValidSupplyStatusTransition(current.status, normalizedNextSupply);
-  }
-  await tx.update(vendorSupply).set(values).where(eq(vendorSupply.id, supplyId));
-  const matchIds = await rebuildMatchesForSupply(tx, supplyId);
-  return { ok: true, commandId, affectedIds: [supplyId, ...matchIds], toast: 'Vendor stock updated.', delta: { matchCount: matchIds.length } };
-}
+// createVendorSupply → @/domains/vendor-management (P1.VM.EXTRACT)
+// updateVendorSupply → @/domains/vendor-management (P1.VM.EXTRACT)
 
 /**
  * reopenMatchmakingMatch — reverse path for the #27 status guard.
@@ -3140,180 +3007,11 @@ async function updateVendorSupply(tx: Tx, payload: Payload, commandId: string): 
  * the same vendor supply, the supply's status reverts to 'open'. This cascade
  * revert is intentional — the need/supply return to the pool for re-matching.
  */
-export async function updateMatchmakingSettings(
-  tx: Tx,
-  payload: Payload,
-  userId: string,
-  commandId: string
-): Promise<CommandResult> {
-  const floor = payload.matchQualityFloor != null ? Number(payload.matchQualityFloor) : undefined;
-  const threshold = payload.workQueueThreshold != null ? Number(payload.workQueueThreshold) : undefined;
-
-  const [current] = await tx.select().from(matchmakingSettings).limit(1);
-  const effectiveFloor = floor ?? current?.matchQualityFloor ?? 35;
-  const effectiveThreshold = threshold ?? current?.workQueueThreshold ?? 75;
-
-  if (effectiveThreshold < effectiveFloor) {
-    throw new Error('Work queue threshold must be ≥ match quality floor.');
-  }
-
-  const values: Record<string, unknown> = { updatedAt: new Date(), updatedBy: userId };
-  if (floor != null) values.matchQualityFloor = floor;
-  if (threshold != null) values.workQueueThreshold = threshold;
-  if (payload.historyLookbackDays != null) values.historyLookbackDays = Number(payload.historyLookbackDays);
-  if (payload.repeatThreshold != null) values.repeatThreshold = Number(payload.repeatThreshold);
-  if (payload.gapFloorQty != null) values.gapFloorQty = Number(payload.gapFloorQty);
-  if (payload.showClientsColumn != null) values.showClientsColumn = Boolean(payload.showClientsColumn);
-  if (payload.showVendorsColumn != null) values.showVendorsColumn = Boolean(payload.showVendorsColumn);
-  if (payload.workQueueEnabled != null) values.workQueueEnabled = Boolean(payload.workQueueEnabled);
-
-  if (current) {
-    await tx.update(matchmakingSettings).set(values).where(eq(matchmakingSettings.id, current.id));
-  } else {
-    await tx.insert(matchmakingSettings).values({ ...values } as typeof matchmakingSettings.$inferInsert);
-  }
-
-  return { ok: true, commandId, affectedIds: [], toast: 'Matchmaking settings updated.' };
-}
-
-export async function noteMatchmakingOutreach(
-  tx: Tx,
-  payload: Payload,
-  _userId: string,
-  commandId: string
-): Promise<CommandResult> {
-  const entityType = String(payload.entityType ?? '');
-  const entityId = requiredId(payload.entityId, 'entityId');
-  const context = String(payload.context ?? '');
-  const leg = Number(payload.leg ?? 0);
-
-  if (!['customer', 'vendor'].includes(entityType)) {
-    throw new Error('entityType must be customer or vendor');
-  }
-  if (![2, 3].includes(leg)) {
-    throw new Error('leg must be 2 or 3');
-  }
-  if (!context) {
-    throw new Error('context (category slug or batch id) is required');
-  }
-
-  return {
-    ok: true,
-    commandId,
-    affectedIds: [entityId],
-    toast: `Outreach noted. This suggestion will be hidden for 30 days.`,
-  };
-}
-
-export async function dismissMatchmakingWorkQueueItem(
-  tx: Tx,
-  payload: Payload,
-  userId: string,
-  commandId: string
-): Promise<CommandResult> {
-  const itemType = String(payload.itemType ?? '');
-  const itemId = String(payload.itemId ?? '');
-
-  if (!['match', 'opportunity'].includes(itemType)) {
-    throw new Error('itemType must be match or opportunity');
-  }
-
-  if (itemType === 'opportunity' && payload.entityType && payload.entityId && payload.context) {
-    // Re-route to noteMatchmakingOutreach logic for opportunity items.
-    // IMPORTANT: the command journal entry is written by the command bus with
-    // command_name = 'dismissMatchmakingWorkQueueItem'. The Leg 2/3 snooze queries
-    // in matchmakingOpportunities check BOTH command names, so this is safe.
-    return noteMatchmakingOutreach(tx, {
-      entityType: payload.entityType,
-      entityId: payload.entityId,
-      context: payload.context,
-      leg: payload.leg,
-    }, userId, commandId);
-  }
-
-  return {
-    ok: true,
-    commandId,
-    affectedIds: itemId ? [itemId] : [],
-    toast: 'Removed from work queue for 30 days.',
-  };
-}
-
-export async function reopenMatchmakingMatch(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
-  const matchId = requiredId(payload.matchId ?? payload.id, 'matchId');
-  const [match] = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.id, matchId)).limit(1);
-  if (!match) throw new Error('Match not found.');
-  if (match.status === 'open') {
-    throw new Error(`Match ${matchId} is already open; nothing to reopen.`);
-  }
-  await tx.update(matchmakingMatches).set({ status: 'open', reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
-
-  // Revert need to open if no other accepted match exists for this need
-  const [otherAcceptedForNeed] = await tx
-    .select({ id: matchmakingMatches.id })
-    .from(matchmakingMatches)
-    .where(
-      and(
-        eq(matchmakingMatches.customerNeedId, match.customerNeedId),
-        eq(matchmakingMatches.status, 'accepted'),
-        sql`${matchmakingMatches.id} <> ${matchId}`
-      )
-    )
-    .limit(1);
-  if (!otherAcceptedForNeed) {
-    await tx.update(customerNeeds)
-      .set({ status: 'open', updatedAt: new Date() })
-      .where(eq(customerNeeds.id, match.customerNeedId));
-  }
-
-  // Revert supply to open if no other accepted match exists for this supply
-  const [otherAcceptedForSupply] = await tx
-    .select({ id: matchmakingMatches.id })
-    .from(matchmakingMatches)
-    .where(
-      and(
-        eq(matchmakingMatches.vendorSupplyId, match.vendorSupplyId),
-        eq(matchmakingMatches.status, 'accepted'),
-        sql`${matchmakingMatches.id} <> ${matchId}`
-      )
-    )
-    .limit(1);
-  if (!otherAcceptedForSupply) {
-    await tx.update(vendorSupply)
-      .set({ status: 'open', updatedAt: new Date() })
-      .where(eq(vendorSupply.id, match.vendorSupplyId));
-  }
-
-  return { ok: true, commandId, affectedIds: [matchId, match.customerNeedId, match.vendorSupplyId], toast: 'Match reopened.' };
-}
-
-export async function reviewMatchmakingMatch(tx: Tx, payload: Payload, status: 'accepted' | 'dismissed', userId: string, commandId: string): Promise<CommandResult> {
-  const matchId = requiredId(payload.matchId ?? payload.id, 'matchId');
-  const [match] = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.id, matchId)).limit(1);
-  if (!match) throw new Error('Match not found.');
-  if (match.status !== 'open') {
-    throw new Error(`Match ${matchId} is already ${match.status} — use reopenMatchmakingMatch first to change its status.`);
-  }
-  await tx.update(matchmakingMatches).set({ status, reviewedBy: userId, updatedAt: new Date() }).where(eq(matchmakingMatches.id, matchId));
-  const affected = new Set([matchId, match.customerNeedId, match.vendorSupplyId]);
-  if (status === 'accepted') {
-    const siblingMatches = await tx
-      .update(matchmakingMatches)
-      .set({ status: 'dismissed', reviewedBy: userId, updatedAt: new Date() })
-      .where(
-        and(
-          eq(matchmakingMatches.status, 'open'),
-          or(eq(matchmakingMatches.customerNeedId, match.customerNeedId), eq(matchmakingMatches.vendorSupplyId, match.vendorSupplyId)),
-          sql`${matchmakingMatches.id} <> ${matchId}`
-        )
-      )
-      .returning({ id: matchmakingMatches.id });
-    for (const row of siblingMatches) affected.add(row.id);
-    await tx.update(customerNeeds).set({ status: 'matched', updatedAt: new Date() }).where(eq(customerNeeds.id, match.customerNeedId));
-    await tx.update(vendorSupply).set({ status: 'held_for_match', updatedAt: new Date() }).where(eq(vendorSupply.id, match.vendorSupplyId));
-  }
-  return { ok: true, commandId, affectedIds: [...affected], toast: status === 'accepted' ? 'Match accepted. Use existing PO, intake, and sales workspaces for consequences.' : 'Match dismissed.' };
-}
+// updateMatchmakingSettings → @/domains/matchmaking (P1.MM.EXTRACT)
+// noteMatchmakingOutreach → @/domains/matchmaking (P1.MM.EXTRACT)
+// dismissMatchmakingWorkQueueItem → @/domains/matchmaking (P1.MM.EXTRACT)
+// reopenMatchmakingMatch → @/domains/matchmaking (P1.MM.EXTRACT)
+// reviewMatchmakingMatch → @/domains/matchmaking (P1.MM.EXTRACT)
 
 export async function recalcOrder(tx: Tx, orderId: string, strategy?: string) {
   const lines = await tx.select().from(salesOrderLines).where(eq(salesOrderLines.orderId, orderId));
@@ -3466,135 +3164,13 @@ function taggedEntityLabel(entityType: string) {
   return entityType.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
 }
 
-async function rebuildMatchesForNeed(tx: Tx, needId: string) {
-  const [need] = await tx.select().from(customerNeeds).where(eq(customerNeeds.id, needId)).limit(1);
-  if (!need) throw new Error('Customer need not found.');
-  await tx.delete(matchmakingMatches).where(and(eq(matchmakingMatches.customerNeedId, needId), eq(matchmakingMatches.status, 'open')));
-  if (need.status !== 'open') return [];
-  const supplies = await tx.select().from(vendorSupply).where(eq(vendorSupply.status, 'open'));
-  return createBestMatches(tx, need, supplies);
-}
-
-async function rebuildMatchesForSupply(tx: Tx, supplyId: string) {
-  const [supply] = await tx.select().from(vendorSupply).where(eq(vendorSupply.id, supplyId)).limit(1);
-  if (!supply) throw new Error('Vendor stock row not found.');
-  await tx.delete(matchmakingMatches).where(and(eq(matchmakingMatches.vendorSupplyId, supplyId), eq(matchmakingMatches.status, 'open')));
-  if (supply.status !== 'open') return [];
-  const needs = await tx.select().from(customerNeeds).where(eq(customerNeeds.status, 'open'));
-  return createBestMatchesForSupply(tx, supply, needs);
-}
-
-async function createBestMatches(tx: Tx, need: typeof customerNeeds.$inferSelect, supplies: Array<typeof vendorSupply.$inferSelect>) {
-  const chosen = bestSupplyMatchesForNeed(need, supplies);
-  if (!chosen.length) return [];
-  const existingRows = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.customerNeedId, need.id));
-  const existingBySupply = new Map<string, typeof matchmakingMatches.$inferSelect>(
-    (existingRows as Array<typeof matchmakingMatches.$inferSelect>).map((row) => [row.vendorSupplyId, row])
-  );
-  const affected: string[] = [];
-  for (const match of chosen) {
-    const existing = existingBySupply.get(match.supply.id);
-    if (existing && existing.status !== 'open') continue;
-    if (existing) {
-      await tx
-        .update(matchmakingMatches)
-        .set({ score: Math.min(100, match.score), reasons: match.reasons, status: 'open', updatedAt: new Date() })
-        .where(eq(matchmakingMatches.id, existing.id));
-      affected.push(existing.id);
-    } else {
-      const [row] = await tx.insert(matchmakingMatches).values({
-        customerNeedId: need.id,
-        vendorSupplyId: match.supply.id,
-        score: Math.min(100, match.score),
-        reasons: match.reasons,
-        status: 'open'
-      }).returning();
-      affected.push(row.id);
-    }
-  }
-  return affected;
-}
-
-async function createBestMatchesForSupply(tx: Tx, supply: typeof vendorSupply.$inferSelect, needs: Array<typeof customerNeeds.$inferSelect>) {
-  const chosen = needs
-    .map((need) => ({ need, ...scoreMatch(need, supply) }))
-    .filter((match) => match.score > 0);
-  if (!chosen.length) return [];
-  const existingRows = await tx.select().from(matchmakingMatches).where(eq(matchmakingMatches.vendorSupplyId, supply.id));
-  const existingByNeed = new Map<string, typeof matchmakingMatches.$inferSelect>(
-    (existingRows as Array<typeof matchmakingMatches.$inferSelect>).map((row) => [row.customerNeedId, row])
-  );
-  const affected: string[] = [];
-  for (const match of chosen) {
-    const existing = existingByNeed.get(match.need.id);
-    if (existing && existing.status !== 'open') continue;
-    if (existing) {
-      await tx
-        .update(matchmakingMatches)
-        .set({ score: Math.min(100, match.score), reasons: match.reasons, status: 'open', updatedAt: new Date() })
-        .where(eq(matchmakingMatches.id, existing.id));
-      affected.push(existing.id);
-    } else {
-      const [row] = await tx.insert(matchmakingMatches).values({
-        customerNeedId: match.need.id,
-        vendorSupplyId: supply.id,
-        score: Math.min(100, match.score),
-        reasons: match.reasons,
-        status: 'open'
-      }).returning();
-      affected.push(row.id);
-    }
-  }
-  return affected;
-}
-
-function bestSupplyMatchesForNeed(need: typeof customerNeeds.$inferSelect, supplies: Array<typeof vendorSupply.$inferSelect>) {
-  const scored = supplies
-    .map((supply) => ({ supply, ...scoreMatch(need, supply) }))
-    .filter((match) => match.score > 0)
-    .sort((a, b) => b.score - a.score);
-  const candidates = scored.filter((match) => match.score >= 35);
-  return candidates.length ? candidates : scored.slice(0, 1);
-}
-
-function scoreMatch(need: typeof customerNeeds.$inferSelect, supply: typeof vendorSupply.$inferSelect) {
-  let score = 0;
-  const reasons: string[] = [];
-  if (need.category.toLowerCase() === supply.category.toLowerCase()) {
-    score += 35;
-    reasons.push('Category match');
-  }
-  const overlap = tagValue(need.tags).filter((tag) => tagValue(supply.tags).includes(tag));
-  if (overlap.length) {
-    score += Math.min(24, overlap.length * 8);
-    reasons.push(`Tags: ${overlap.join(', ')}`);
-  }
-  if (tokenOverlap(need.productName, supply.productName)) {
-    score += 10;
-    reasons.push('Product wording overlaps');
-  }
-  if (Number(supply.availableQty) >= Number(need.qtyMin)) {
-    score += 12;
-    reasons.push('Quantity covers minimum');
-  }
-  if (need.targetPrice != null && supply.askingPrice != null && Number(supply.askingPrice) <= Number(need.targetPrice)) {
-    score += 12;
-    reasons.push('Ask is within target');
-  }
-  if (need.neededBy && supply.availableDate && new Date(supply.availableDate).getTime() <= new Date(need.neededBy).getTime()) {
-    score += 7;
-    reasons.push('Available before needed-by');
-  }
-  return { score, reasons };
-}
-
-function tokenOverlap(left: string, right: string) {
-  const leftTokens = new Set(left.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2));
-  return right
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .some((token) => token.length > 2 && leftTokens.has(token));
-}
+// rebuildMatchesForNeed → @/domains/matchmaking (P1.MM.EXTRACT)
+// rebuildMatchesForSupply → @/domains/matchmaking (P1.MM.EXTRACT)
+// createBestMatches → @/domains/matchmaking (P1.MM.EXTRACT)
+// createBestMatchesForSupply → @/domains/matchmaking (P1.MM.EXTRACT)
+// bestSupplyMatchesForNeed → @/domains/matchmaking (P1.MM.EXTRACT)
+// scoreMatch → @/domains/matchmaking (P1.MM.EXTRACT)
+// tokenOverlap → @/domains/matchmaking (P1.MM.EXTRACT)
 
 async function snapshotFromPayload(payload: Payload) {
   const ids = collectIds(payload);
@@ -3765,510 +3341,19 @@ export function decodeShorthand(input?: string) {
 // schemas added in src/shared/schemas.ts so the journal-side input matches the
 // type the handler expects.
 
-async function createContact(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = createContactPayloadSchema.parse(payload);
-  const name = parsed.name.trim();
+// createContact → @/domains/contacts (P1.CT.EXTRACT)
+// updateContact → @/domains/contacts (P1.CT.EXTRACT)
+// archiveContact → @/domains/contacts (P1.CT.EXTRACT)
+// addContactRole → @/domains/contacts (P1.CT.EXTRACT)
+// linkContactToExistingEntity → @/domains/contacts (P1.CT.EXTRACT)
+// linkContactToUser → @/domains/contacts (P1.CT.EXTRACT)
+// createAppointment → @/domains/contacts (P1.CT.EXTRACT)
+// updateAppointment → @/domains/contacts (P1.CT.EXTRACT)
+// cancelAppointment → @/domains/contacts (P1.CT.EXTRACT)
+// completeAppointment → @/domains/contacts (P1.CT.EXTRACT)
 
-  const roleFlags = {
-    isCustomer: parsed.roles.includes('customer'),
-    isVendor: parsed.roles.includes('vendor'),
-    isReferee: parsed.roles.includes('referee'),
-    isProcessor: parsed.roles.includes('processor'),
-    isContractor: parsed.roles.includes('contractor'),
-    isEmployee: parsed.roles.includes('employee')
-  };
-
-  const [contact] = await tx
-    .insert(contacts)
-    .values({
-      name,
-      displayName: parsed.displayName ?? null,
-      phone: parsed.phone ?? null,
-      secondaryPhone: parsed.secondaryPhone ?? null,
-      email: parsed.email ?? null,
-      address: parsed.address ?? null,
-      companyName: parsed.companyName ?? null,
-      contactKind: parsed.contactKind,
-      preferredContactMethod: parsed.preferredContactMethod,
-      notes: parsed.notes ?? null,
-      tags: parsed.tags,
-      ...roleFlags
-    })
-    .returning();
-
-  const affectedIds: string[] = [contact.id];
-
-  // Create the customer operational row when 'customer' is included.
-  if (roleFlags.isCustomer) {
-    const [cust] = await tx
-      .insert(customers)
-      .values({
-        name,
-        creditLimit: moneyScale(parsed.creditLimit ?? 0),
-        balance: '0',
-        tags: parsed.tags,
-        notes: parsed.notes ?? null,
-        contactId: contact.id
-      })
-      .returning();
-    affectedIds.push(cust.id);
-  }
-
-  // Create the vendor operational row when 'vendor' is included.
-  if (roleFlags.isVendor) {
-    const [vend] = await tx
-      .insert(vendors)
-      .values({
-        name,
-        termsDays: parsed.termsDays ?? 14,
-        consignmentDefault: parsed.consignmentDefault ?? false,
-        notes: parsed.notes ?? null,
-        contactId: contact.id
-      })
-      .returning();
-    affectedIds.push(vend.id);
-  }
-
-  // Contractor / employee / referee / processor roles set the flag only.
-  // The referees and payment_processors operational tables hold richer
-  // financial data that is intentionally created via their own commands.
-
-  return { ok: true, commandId, affectedIds, toast: `Contact "${name}" created.` };
-}
-
-async function updateContact(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = updateContactPayloadSchema.parse(payload);
-  const { contactId } = parsed;
-  const values: Record<string, unknown> = { updatedAt: new Date() };
-  if (parsed.name !== undefined) values.name = parsed.name;
-  if (parsed.displayName !== undefined) values.displayName = parsed.displayName;
-  if (parsed.phone !== undefined) values.phone = parsed.phone;
-  if (parsed.secondaryPhone !== undefined) values.secondaryPhone = parsed.secondaryPhone;
-  if (parsed.email !== undefined) values.email = parsed.email;
-  if (parsed.address !== undefined) values.address = parsed.address;
-  if (parsed.companyName !== undefined) values.companyName = parsed.companyName;
-  if (parsed.contactKind !== undefined) values.contactKind = parsed.contactKind;
-  if (parsed.preferredContactMethod !== undefined) values.preferredContactMethod = parsed.preferredContactMethod;
-  if (parsed.notes !== undefined) values.notes = parsed.notes;
-
-  const result = await tx.update(contacts).set(values).where(eq(contacts.id, contactId)).returning({ id: contacts.id });
-  if (result.length === 0) throw new Error('Contact not found.');
-  return { ok: true, commandId, affectedIds: [contactId], toast: 'Contact updated.' };
-}
-
-async function archiveContact(tx: Tx, payload: Payload, user: SessionUser, commandId: string): Promise<CommandResult> {
-  const parsed = archiveContactPayloadSchema.parse(payload);
-  const { contactId, reason } = parsed;
-
-  const [contact] = await tx.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
-  if (!contact) throw new Error('Contact not found.');
-  if (!contact.active) throw new Error('Contact is already archived.');
-
-  // Per-role open-work guards. Use raw pool queries for tables that may not
-  // have Drizzle definitions imported here and to keep the predicates close
-  // to the spec.
-  if (contact.isCustomer) {
-    const [custRow] = await tx
-      .select({ id: customers.id })
-      .from(customers)
-      .where(eq(customers.contactId, contactId))
-      .limit(1);
-    if (custRow) {
-      const open = await pool.query(
-        `SELECT 1 FROM invoices WHERE customer_id = $1 AND status IN ('open','partial') LIMIT 1`,
-        [custRow.id]
-      );
-      if (open.rows.length > 0) {
-        throw new Error('Cannot archive: customer has open or partially-paid invoices.');
-      }
-    }
-  }
-
-  if (contact.isVendor) {
-    const [vendRow] = await tx
-      .select({ id: vendors.id })
-      .from(vendors)
-      .where(eq(vendors.contactId, contactId))
-      .limit(1);
-    if (vendRow) {
-      const open = await pool.query(
-        `SELECT 1 FROM vendor_bills WHERE vendor_id = $1 AND status NOT IN ('paid','void','cancelled') LIMIT 1`,
-        [vendRow.id]
-      );
-      if (open.rows.length > 0) {
-        throw new Error('Cannot archive: vendor has unpaid bills.');
-      }
-    }
-  }
-
-  if (contact.isReferee) {
-    const [refRow] = await tx
-      .select({ id: referees.id })
-      .from(referees)
-      .where(eq(referees.contactId, contactId))
-      .limit(1);
-    if (refRow) {
-      const open = await pool.query(
-        `SELECT 1 FROM referee_relationships WHERE referee_id = $1 AND active = true LIMIT 1`,
-        [refRow.id]
-      );
-      if (open.rows.length > 0) {
-        throw new Error('Cannot archive: referee has active relationships.');
-      }
-    }
-  }
-
-  if (contact.isProcessor) {
-    const [procRow] = await tx
-      .select({ id: paymentProcessors.id })
-      .from(paymentProcessors)
-      .where(eq(paymentProcessors.contactId, contactId))
-      .limit(1);
-    if (procRow) {
-      const open = await pool.query(
-        `SELECT 1 FROM processor_fees WHERE processor_id = $1 AND user_fee_status != 'collected' LIMIT 1`,
-        [procRow.id]
-      );
-      if (open.rows.length > 0) {
-        throw new Error('Cannot archive: processor has uncollected user fees.');
-      }
-    }
-  }
-
-  if (contact.isContractor || contact.isEmployee) {
-    // contact_ledger_entries: positive = owed to contact (per
-    // postTransactionLedgerRow's signing for entityType='contact'). A SUM>0
-    // means an outstanding balance still owed to the contact and blocks
-    // archive. SUM<=0 (paid in full or net even) is OK.
-    const bal = await pool.query(
-      `SELECT COALESCE(SUM(amount), 0)::text AS balance FROM contact_ledger_entries WHERE contact_id = $1`,
-      [contactId]
-    );
-    const balance = Number(bal.rows[0]?.balance ?? 0);
-    if (balance > 0) {
-      throw new Error('Cannot archive: contact has outstanding balance owed.');
-    }
-  }
-
-  await tx
-    .update(contacts)
-    .set({
-      active: false,
-      archivedAt: new Date(),
-      archivedBy: user.id,
-      archivedReason: reason,
-      updatedAt: new Date()
-    })
-    .where(eq(contacts.id, contactId));
-
-  return { ok: true, commandId, affectedIds: [contactId], toast: 'Contact archived.' };
-}
-
-async function addContactRole(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = addContactRolePayloadSchema.parse(payload);
-  const { contactId, role } = parsed;
-
-  const [contact] = await tx.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
-  if (!contact) throw new Error('Contact not found.');
-
-  // Map role → flag column.
-  const flagSet: Record<string, unknown> = { updatedAt: new Date() };
-  switch (role) {
-    case 'customer':
-      flagSet.isCustomer = true;
-      break;
-    case 'vendor':
-      flagSet.isVendor = true;
-      break;
-    case 'referee':
-      flagSet.isReferee = true;
-      break;
-    case 'processor':
-      flagSet.isProcessor = true;
-      break;
-    case 'contractor':
-      flagSet.isContractor = true;
-      break;
-    case 'employee':
-      flagSet.isEmployee = true;
-      break;
-  }
-  await tx.update(contacts).set(flagSet).where(eq(contacts.id, contactId));
-
-  const affectedIds: string[] = [contactId];
-
-  // For customer/vendor, also create the operational row if one doesn't
-  // already exist (the contact may have just been migrated to a customer-only
-  // state and is being upgraded to a dual-role contact).
-  if (role === 'customer') {
-    const [existing] = await tx
-      .select({ id: customers.id })
-      .from(customers)
-      .where(eq(customers.contactId, contactId))
-      .limit(1);
-    if (!existing) {
-      const [cust] = await tx
-        .insert(customers)
-        .values({
-          name: contact.name,
-          creditLimit: moneyScale(parsed.creditLimit ?? 0),
-          balance: '0',
-          tags: [],
-          contactId
-        })
-        .returning();
-      affectedIds.push(cust.id);
-    }
-  } else if (role === 'vendor') {
-    const [existing] = await tx
-      .select({ id: vendors.id })
-      .from(vendors)
-      .where(eq(vendors.contactId, contactId))
-      .limit(1);
-    if (!existing) {
-      const [vend] = await tx
-        .insert(vendors)
-        .values({
-          name: contact.name,
-          termsDays: parsed.termsDays ?? 14,
-          consignmentDefault: parsed.consignmentDefault ?? false,
-          contactId
-        })
-        .returning();
-      affectedIds.push(vend.id);
-    }
-  }
-
-  return { ok: true, commandId, affectedIds, toast: `Role "${role}" added to contact.` };
-}
-
-async function linkContactToExistingEntity(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = linkContactToExistingEntityPayloadSchema.parse(payload);
-  const { contactId, entityType, entityId } = parsed;
-
-  const [contact] = await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.id, contactId)).limit(1);
-  if (!contact) throw new Error('Contact not found.');
-
-  if (entityType === 'customer') {
-    const [existing] = await tx
-      .select({ contactId: customers.contactId })
-      .from(customers)
-      .where(eq(customers.id, entityId))
-      .limit(1);
-    if (!existing) throw new Error('Customer not found.');
-    if (existing.contactId) throw new Error('This customer is already linked to a contact.');
-    await tx.update(customers).set({ contactId, updatedAt: new Date() }).where(eq(customers.id, entityId));
-    await tx.update(contacts).set({ isCustomer: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
-  } else if (entityType === 'vendor') {
-    const [existing] = await tx
-      .select({ contactId: vendors.contactId })
-      .from(vendors)
-      .where(eq(vendors.id, entityId))
-      .limit(1);
-    if (!existing) throw new Error('Vendor not found.');
-    if (existing.contactId) throw new Error('This vendor is already linked to a contact.');
-    await tx.update(vendors).set({ contactId, updatedAt: new Date() }).where(eq(vendors.id, entityId));
-    await tx.update(contacts).set({ isVendor: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
-  } else if (entityType === 'referee') {
-    const [existing] = await tx
-      .select({ contactId: referees.contactId })
-      .from(referees)
-      .where(eq(referees.id, entityId))
-      .limit(1);
-    if (!existing) throw new Error('Referee not found.');
-    if (existing.contactId) throw new Error('This referee is already linked to a contact.');
-    await tx.update(referees).set({ contactId, updatedAt: new Date() }).where(eq(referees.id, entityId));
-    await tx.update(contacts).set({ isReferee: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
-  } else if (entityType === 'processor') {
-    const [existing] = await tx
-      .select({ contactId: paymentProcessors.contactId })
-      .from(paymentProcessors)
-      .where(eq(paymentProcessors.id, entityId))
-      .limit(1);
-    if (!existing) throw new Error('Processor not found.');
-    if (existing.contactId) throw new Error('This processor is already linked to a contact.');
-    await tx.update(paymentProcessors).set({ contactId, updatedAt: new Date() }).where(eq(paymentProcessors.id, entityId));
-    await tx.update(contacts).set({ isProcessor: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
-  }
-
-  return { ok: true, commandId, affectedIds: [contactId, entityId], toast: 'Contact linked.' };
-}
-
-async function linkContactToUser(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = linkContactToUserPayloadSchema.parse(payload);
-  const { contactId, userId } = parsed;
-
-  const [contact] = await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.id, contactId)).limit(1);
-  if (!contact) throw new Error('Contact not found.');
-
-  const [user] = await tx.select({ contactId: users.contactId }).from(users).where(eq(users.id, userId)).limit(1);
-  if (!user) throw new Error('User not found.');
-  if (user.contactId) throw new Error('This user is already linked to a contact.');
-
-  await tx.update(users).set({ contactId, updatedAt: new Date() }).where(eq(users.id, userId));
-  await tx.update(contacts).set({ isEmployee: true, updatedAt: new Date() }).where(eq(contacts.id, contactId));
-
-  return { ok: true, commandId, affectedIds: [contactId, userId], toast: 'User account linked to contact.' };
-}
-
-async function createAppointment(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
-  const parsed = createAppointmentPayloadSchema.parse(payload);
-
-  // Verify the contact exists; appointments must always anchor to a contact.
-  const [contact] = await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.id, parsed.contactId)).limit(1);
-  if (!contact) throw new Error('Contact not found.');
-
-  const [appt] = await tx
-    .insert(appointments)
-    .values({
-      contactId: parsed.contactId,
-      title: parsed.title,
-      appointmentType: parsed.appointmentType,
-      startsAt: new Date(parsed.startsAt),
-      endsAt: parsed.endsAt ? new Date(parsed.endsAt) : null,
-      location: parsed.location ?? null,
-      description: parsed.description ?? null,
-      notes: parsed.notes ?? null,
-      createdBy: userId
-    })
-    .returning();
-
-  return { ok: true, commandId, affectedIds: [appt.id, parsed.contactId], toast: 'Appointment added.' };
-}
-
-async function updateAppointment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = updateAppointmentPayloadSchema.parse(payload);
-  const { appointmentId } = parsed;
-
-  const [existing] = await tx
-    .select({ status: appointments.status, contactId: appointments.contactId })
-    .from(appointments)
-    .where(eq(appointments.id, appointmentId))
-    .limit(1);
-  if (!existing) throw new Error('Appointment not found.');
-  if (existing.status !== 'scheduled') {
-    throw new Error('Only scheduled appointments can be updated.');
-  }
-
-  const values: Record<string, unknown> = { updatedAt: new Date() };
-  if (parsed.title !== undefined) values.title = parsed.title;
-  if (parsed.appointmentType !== undefined) values.appointmentType = parsed.appointmentType;
-  if (parsed.startsAt !== undefined) values.startsAt = new Date(parsed.startsAt);
-  if (parsed.endsAt !== undefined) values.endsAt = parsed.endsAt ? new Date(parsed.endsAt) : null;
-  if (parsed.location !== undefined) values.location = parsed.location;
-  if (parsed.description !== undefined) values.description = parsed.description;
-  if (parsed.notes !== undefined) values.notes = parsed.notes;
-
-  await tx.update(appointments).set(values).where(eq(appointments.id, appointmentId));
-  return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment updated.' };
-}
-
-async function cancelAppointment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = cancelAppointmentPayloadSchema.parse(payload);
-  const { appointmentId, reason } = parsed;
-
-  const [existing] = await tx
-    .select({ status: appointments.status, contactId: appointments.contactId, notes: appointments.notes })
-    .from(appointments)
-    .where(eq(appointments.id, appointmentId))
-    .limit(1);
-  if (!existing) throw new Error('Appointment not found.');
-  if (existing.status === 'cancelled') {
-    return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment already cancelled.' };
-  }
-  if (existing.status === 'completed') {
-    throw new Error('Cannot cancel a completed appointment.');
-  }
-
-  // Preserve any existing notes and append the cancellation reason if provided
-  // (the prior notes are operator-authored content; do not clobber them).
-  const nextNotes = reason
-    ? (existing.notes ? `${existing.notes}\n\n[Cancelled] ${reason}` : `[Cancelled] ${reason}`)
-    : existing.notes;
-
-  await tx
-    .update(appointments)
-    .set({ status: 'cancelled', notes: nextNotes ?? null, updatedAt: new Date() })
-    .where(eq(appointments.id, appointmentId));
-
-  return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment cancelled.' };
-}
-
-async function completeAppointment(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = completeAppointmentPayloadSchema.parse(payload);
-  const { appointmentId } = parsed;
-
-  const [existing] = await tx
-    .select({ status: appointments.status, contactId: appointments.contactId, notes: appointments.notes })
-    .from(appointments)
-    .where(eq(appointments.id, appointmentId))
-    .limit(1);
-  if (!existing) throw new Error('Appointment not found.');
-  if (existing.status === 'completed') {
-    return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment already completed.' };
-  }
-  if (existing.status === 'cancelled') {
-    throw new Error('Cannot complete a cancelled appointment.');
-  }
-
-  const completionNote = parsed.notes;
-  const nextNotes = completionNote
-    ? (existing.notes ? `${existing.notes}\n\n[Completed] ${completionNote}` : `[Completed] ${completionNote}`)
-    : existing.notes;
-
-  await tx
-    .update(appointments)
-    .set({ status: 'completed', notes: nextNotes ?? null, updatedAt: new Date() })
-    .where(eq(appointments.id, appointmentId));
-
-  return { ok: true, commandId, affectedIds: [appointmentId, existing.contactId], toast: 'Appointment completed.' };
-}
-
-async function updateVendor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = updateVendorPayloadSchema.parse(payload);
-  const { vendorId } = parsed;
-
-  const values: Record<string, unknown> = { updatedAt: new Date() };
-  if (parsed.name !== undefined) values.name = parsed.name;
-  if (parsed.alias !== undefined) values.alias = parsed.alias;
-  if (parsed.termsDays !== undefined) values.termsDays = parsed.termsDays;
-  if (parsed.consignmentDefault !== undefined) values.consignmentDefault = parsed.consignmentDefault;
-  if (parsed.contact !== undefined) values.contact = parsed.contact;
-  if (parsed.notes !== undefined) values.notes = parsed.notes;
-
-  const result = await tx
-    .update(vendors)
-    .set(values)
-    .where(eq(vendors.id, vendorId))
-    .returning({ id: vendors.id });
-  if (result.length === 0) throw new Error('Vendor not found.');
-  return { ok: true, commandId, affectedIds: [vendorId], toast: 'Vendor updated.' };
-}
-
-async function updateProcessor(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
-  const parsed = updateProcessorPayloadSchema.parse(payload);
-  const { processorId } = parsed;
-
-  // Numeric fields are stored as strings (numeric(p,s)); preserve that contract.
-  const values: Record<string, unknown> = { updatedAt: new Date() };
-  if (parsed.name !== undefined) values.name = parsed.name;
-  if (parsed.processorType !== undefined) values.processorType = parsed.processorType;
-  if (parsed.feeType !== undefined) values.feeType = parsed.feeType;
-  if (parsed.feePercentage !== undefined) values.feePercentage = parsed.feePercentage.toString();
-  if (parsed.feeFixedAmount !== undefined) values.feeFixedAmount = parsed.feeFixedAmount.toString();
-  if (parsed.defaultUserSplit !== undefined) values.defaultUserSplit = parsed.defaultUserSplit.toString();
-  if (parsed.defaultProcessorSplit !== undefined) values.defaultProcessorSplit = parsed.defaultProcessorSplit.toString();
-  if (parsed.notes !== undefined) values.notes = parsed.notes;
-  if (parsed.active !== undefined) values.active = parsed.active;
-
-  const result = await tx
-    .update(paymentProcessors)
-    .set(values)
-    .where(eq(paymentProcessors.id, processorId))
-    .returning({ id: paymentProcessors.id });
-  if (result.length === 0) throw new Error('Processor not found.');
-  return { ok: true, commandId, affectedIds: [processorId], toast: 'Processor updated.' };
-}
+// updateVendor → @/domains/vendor-management (P1.VM.EXTRACT)
+// updateProcessor → @/domains/vendor-management (P1.VM.EXTRACT)
 
 export function stringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
