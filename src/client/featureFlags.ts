@@ -16,7 +16,28 @@
  * by App.tsx — flip this constant to `true` to restore the standalone routes
  * and lane visibility when the connector program (U13) is picked back up.
  */
-export const CONNECTOR_SURFACES_ENABLED = false;
+export const CONNECTOR_SURFACES_ENABLED = queryFlag('ff_connectorSurfaces', false);
+
+/**
+ * URL-overridable feature flag helper.
+ *
+ * For Playwright / manual testing, any feature flag constant can be overridden
+ * by appending ?ff_<flagName>=1 to the URL. When no override is present the
+ * compile-time default is used. SSR / non-browser environments always return
+ * the default.
+ *
+ * Supported overrides:
+ *   ?ff_salesViewMercury=1          →  SALES_VIEW_MERCURY = true
+ *   ?ff_connectorSurfaces=1         →  CONNECTOR_SURFACES_ENABLED = true
+ */
+function queryFlag(param: string, defaultValue: boolean): boolean {
+  if (typeof window === 'undefined') return defaultValue;
+  const raw =
+    new URLSearchParams(window.location.search).get(param);
+  if (raw === '1' || raw === 'true') return true;
+  if (raw === '0' || raw === 'false') return false;
+  return defaultValue;
+}
 
 /**
  * Phase 3B — SalesView Mercury UX retrofit (layout swap behind flag).
@@ -35,4 +56,4 @@ export const CONNECTOR_SURFACES_ENABLED = false;
  * @see docs/engineering-plans/specifications/views/sales-view-refactor-plan.md
  * @see docs/engineering-plans/MASTER-EXECUTION-DOCUMENT.md §Phase 3B
  */
-export const SALES_VIEW_MERCURY = false;
+export const SALES_VIEW_MERCURY = queryFlag('ff_salesViewMercury', false);

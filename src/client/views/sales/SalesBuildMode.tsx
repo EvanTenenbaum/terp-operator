@@ -26,6 +26,84 @@
  * surfaces (sheet export panel, recall flows, warehouse-alert dialog, etc.)
  * remain in LegacySalesView and will migrate in subsequent wedges. The
  * feature flag protects production from this WIP state.
+ *
+ * ── DEFERRED SURFACES: operator impact when Build Mode is active ──
+ *
+ * Each surface below exists in LegacySalesView but is deferred from
+ * SalesBuildMode (Phase 3B). The question answered per-surface:
+ *   "What happens if Build Mode is active and an operator needs this?"
+ *
+ *   1. CustomerPurchaseHistoryPanel
+ *      Operator must clear ?customer= (click [Clear] in header) to return
+ *      to Browse Mode. Purchase history is not accessible inside Build Mode.
+ *      Risk: low — history is a pre-sale research step; operators typically
+ *      review it before entering Build Mode.
+ *
+ *   2. PhotographyQueuePanel
+ *      Only in legacy SalesView. Build Mode operators use the standalone
+ *      /photography view instead. Risk: none — separate route exists.
+ *
+ *   3. ReceiptPanel
+ *      Operator clears customer context (same as #1) to access receipt
+ *      previews. Build Mode does not embed receipt views. Risk: low —
+ *      receipts are a separate workflow; the /fulfillment route has full
+ *      receipt views.
+ *
+ *   4. SaleLineExceptionControls
+ *      Line pricing and COGS exceptions are handled in the Build Mode
+ *      slide-over Pricing tab (DetailSlideover → registered salesOrder
+ *      tabs). Operator clicks "Order detail" → Pricing tab. Risk: resolved.
+ *
+ *   5. SalesSourcePane
+ *      Legacy left-panel inventory finder replaced by the Build Mode
+ *      slide-over Inventory Finder (toolbar-triggered, NOT permanent).
+ *      Same capability, different layout. Risk: resolved — operator clicks
+ *      "Inventory Finder" button in toolbar.
+ *
+ *   6. ShadowModeBanner
+ *      Credit shadow mode indicator appears in the customer context header
+ *      (SalesCustomerContextHeader) when a customer has shadow mode active.
+ *      Build Mode renders this header; shadow visibility is preserved.
+ *      Risk: resolved.
+ *
+ *   7. SnapshotRetryPill
+ *      Retry-pill for failed sheet snapshots is deferred to a follow-up
+ *      wedge. In Build Mode, failed snapshot exports cannot be retried
+ *      within the sales view. Operator must use the legacy view path
+ *      (flag off) or wait for the follow-up wedge. Risk: low — snapshot
+ *      export is a batch/infrequent operation; retry is rare.
+ *
+ *   8. WorkspacePanel
+ *      Legacy workspace panel (totals, pay/f-up, posting) replaced by
+ *      the DetailSlideover registered salesOrder tabs. Same content,
+ *      different container. Risk: resolved — operator clicks "Order detail".
+ *
+ *   9. WhyShownCell / FulfillmentActionsCell (cell renderers)
+ *      Already imported and used in both Browse Mode and Build Mode grid
+ *      column definitions. Risk: none — shared cell renderers.
+ *
+ *  10. StatusActionBar
+ *      Legacy status actions (recall, hold, etc.) replaced by BulkActionBar.
+ *      Build Mode does not yet wire the BulkActionBar for sales lines;
+ *      this is deferred to the Phase 4 bulk-actions wedge. Current impact:
+ *      single-line manual state changes only; bulk status transitions are
+ *      unavailable in Build Mode. Risk: medium — until the Phase 4 wedge,
+ *      operators needing bulk recalls/status changes must use legacy view
+ *      (flag off).
+ *
+ *  11. Sheet snapshot / CSV export
+ *      Deferred to follow-up wedge. Build Mode has no "Export CSV" or
+ *      "Snapshot" button for the draft lines grid. Operator must toggle
+ *      flag off and use LegacySalesView for exports. Risk: medium —
+ *      customer-facing CSV export and compliance snapshots are daily
+ *      workflow items for some roles.
+ *
+ *  Summary: The 5 "resolved" surfaces (#4, #5, #6, #8, #9) have equivalent
+ *  or identical functionality in Build Mode. The 3 "low" risk surfaces
+ *  (#1, #2, #3, #7) require switching context but have alternative access
+ *  paths. The 2 "medium" risk surfaces (#10, #11) are gated behind the
+ *  feature flag — operators revert to LegacySalesView for these until the
+ *  follow-up wedges land.
  */
 import { Check, Search, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
