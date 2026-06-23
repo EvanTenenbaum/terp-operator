@@ -208,42 +208,16 @@ const STATUS_COUNTS_REGISTRY: Record<string, StatusCountsEntry> = {
 
 // ─── gridInputSchema — extended input for grid v2, with backwards-compat
 // `view` alias accepted alongside new `entityType`.
-
-// ─── View name → canonical entity type mapping ──────────────────────────
-// Some client views pass plural view names (e.g. "purchaseOrders") to the
-// grid query's `view` parameter. The transform at line ~228 sets entityType
-// from view when entityType is not provided. The grid procedure body uses
-// entityType for table routing, which expects canonical singular forms.
-// This map normalizes view names to canonical entity types at the boundary.
-const VIEW_TO_ENTITY: Record<string, string> = {
-  purchaseOrders: 'purchaseOrder',
-  sales: 'salesOrder',
-  orders: 'salesOrder',
-  payments: 'payment',
-  inventory: 'batch',
-  intake: 'batch',
-  items: 'item',
-  fulfillment: 'fulfillmentLine',
-  'fulfillment-picks': 'pickList',
-  'fulfillment-lines': 'fulfillmentLine',
-  connectors: 'connectorRequest',
-  photography: 'photographyQueue',
-  purchaseReceipts: 'purchaseReceipt',
-  disputes: 'invoiceDispute',
-  'credit-review': 'invoiceDispute',
-  pick: 'pickList',
-  matchmaking: 'matchmakingMatch',
-  referees: 'refereeCredit',
-  clients: 'customer',
-  vendors: 'vendor',
-  processors: 'processor',
-  closeout: 'commandJournal',
-  recovery: 'commandJournal',
-  dashboard: 'commandJournal',
-  reports: 'commandJournal',
-  contacts: 'customer',
-  settings: 'systemSettings',
-};
+//
+// NOTE: The grid procedure (gridSqlParts, EQ_ALLOWLIST, SORT_ALLOWLIST,
+// statusSchemaFor, etc.) expects VIEW NAMES (e.g. 'sales', 'inventory',
+// 'purchaseOrders'), NOT entity types. Do NOT insert a normalization
+// layer here — it will cause all grid queries to return 500 because
+// gridSqlParts has no case for the entity type form.
+//
+// Separate normalization (if needed for other procedures like
+// statusCounts or gridSummary) should happen at those procedure
+// boundaries, not in the shared gridInputSchema.
 
 export const gridInputSchemaRaw = z.object({
   entityType: viewSchema.optional(),
@@ -264,7 +238,7 @@ export const gridInputSchemaRaw = z.object({
 
 export const gridInputSchema = gridInputSchemaRaw.transform((input) => ({
   ...input,
-  entityType: VIEW_TO_ENTITY[(input.entityType ?? input.view)!] ?? (input.entityType ?? input.view)!,
+  entityType: (input.entityType ?? input.view)!,
 }));
 
 export type GridInput = z.infer<typeof gridInputSchema>;
