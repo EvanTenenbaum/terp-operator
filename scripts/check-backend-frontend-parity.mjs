@@ -10,10 +10,12 @@ const pendingFrontendCommandNames = parseCommandNames(read('src/shared/commandCa
 // Remove each entry when the corresponding frontend usage lands.
 // CAP-030 frontend: PR #186 (draft) — pickQueue, pickListWithLines, releaseEligibility
 // commandJournal: internal diagnostic endpoint used by idempotency e2e tests via page.evaluate; not a UI-facing query
-const pendingFrontendQueryNames = ['pickQueue', 'pickListWithLines', 'releaseEligibility', 'commandJournal', 'mergeCandidateCount'];
+const pendingFrontendQueryNames = ['pickQueue', 'pickListWithLines', 'releaseEligibility', 'commandJournal', 'mergeCandidateCount', 'comboboxOptions'];
 // mergeCandidateCount: backend endpoint exists; merge UI is a TODO (GH #264 removed the dead button, full UI pending)
 const queryNames = parseRouterNames(read('src/server/routers/queries.ts'));
 const clientText = readClientSource();
+const entityActionsText = read("src/client/config/entity-actions.ts");
+
 const commandSurfaceAliases = {
   logPayment: ['postTransactionLedgerRow']
 };
@@ -40,11 +42,15 @@ function parseCommandNames(source, name = 'commandNames') {
 
 function hasCommandSurface(name) {
   if (new RegExp(`runCommand\\(\\s*['"\`]${name}['"\`]`).test(clientText)) return true;
+  // Commands surfaced through entity-actions config (id: 'commandName')
+  if (new RegExp(`id:\\s*['"\`]${name}['"\`]`).test(entityActionsText)) return true;
   return (commandSurfaceAliases[name] ?? []).some((alias) => new RegExp(`runCommand\\(\\s*['"\`]${alias}['"\`]`).test(clientText));
 }
 
 function hasQuerySurface(name) {
   if (clientText.includes(`queries.${name}`)) return true;
+  // Queries surfaced through domain routers (trpc.salesOrders.procedureName)
+  if (new RegExp(`trpc\\.[a-zA-Z]+\\.${name}`).test(clientText)) return true;
   return (querySurfaceAliases[name] ?? []).some((alias) => clientText.includes(alias));
 }
 

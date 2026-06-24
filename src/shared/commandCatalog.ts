@@ -133,6 +133,8 @@ export const commandNames = [
   'cancelAppointment',
   'completeAppointment',
   'updateVendor',
+    'removePurchaseOrderLine',
+  'createPickList',
   'updateProcessor',
   'createItem',
   'updateItem',
@@ -165,6 +167,8 @@ export const internalOnlyCommandNames = [
   'approveConnectorRequest',
   'rejectConnectorRequest',
   'createPaymentProcessor',
+    'removePurchaseOrderLine',
+  'createPickList',
   'updateProcessor',
   'markUserFeeCollected',
   'updateProcessorFeeStatus',
@@ -190,6 +194,8 @@ export const pendingFrontendCommandNames = [
   // linkContactToUser (ContactSettingsPanel Link System Account form),
   // updateVendor (VendorPayablesView Edit vendor button).
   // linkContactToExistingEntity already removed by UX-B03 wave.
+    'removePurchaseOrderLine',
+  'createPickList',
   'updateProcessor',
 ] as const;
 
