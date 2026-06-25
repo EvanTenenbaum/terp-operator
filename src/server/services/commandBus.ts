@@ -2710,6 +2710,110 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
       }).where(eq(customers.id, (prior as { id: string }).id));
       affected.push((prior as { id: string }).id);
     }
+  } else if (original.commandName === 'payWithProduct' || original.commandName === 'settleDebtWithProduct') {
+    // Barter settlement reversal (§7):
+    // - Restore batch availableQty (outbound: add back issued qty)
+    // - Restore customer balance (inbound/outbound-customer: undo AR reduction)
+    // - Restore vendor bill amounts (outbound-vendor / inbound AP netting)
+    // - Mark barter settlements, lines, and allocations as 'reversed'
+    // - Reverse gain/loss correction journal entry
+    // - Reverse inventory movements
+    //
+    // The pre-flight guard (above) already verified:
+    //   - Inbound: batch not partly resold, PO not amended
+    //   - Outbound: always safe
+    for (const settlement of snapshot.barterSettlements ?? []) {
+      if (!settlement?.id) continue;
+      
+      // Mark settlement header reversed
+      await tx.update(barterSettlements)
+        .set({ status: 'reversed', updatedAt: new Date() })
+        .where(eq(barterSettlements.id, settlement.id));
+      affected.push(settlement.id);
+      
+      // Reverse lines: restore batch availableQty for outbound
+      const lines = snapshot.barterSettlementLines ?? [];
+      for (const line of lines) {
+        if (line.batchId) {
+          const beforeBatch = ((snapshot.batches ?? []) as Array<Record<string, unknown>>)
+            .find((b: Record<string, unknown>) => b.id === line.batchId);
+          if (beforeBatch && beforeBatch.availableQty !== undefined) {
+            await tx.update(batches)
+              .set({ availableQty: qtyScale(beforeBatch.availableQty), updatedAt: new Date() })
+              .where(eq(batches.id, line.batchId));
+            affected.push(line.batchId);
+          }
+        }
+      }
+      
+      // Reverse allocations
+      await tx.update(barterSettlementAllocations)
+        .set({ amount: '0.00' })
+        .where(eq(barterSettlementAllocations.settlementId, settlement.id));
+      
+      // Reverse inventory movements for this settlement
+      await tx.update(inventoryMovements)
+        .set({ kind: sql`CASE WHEN kind = 'barter_issue' THEN 'barter_issue_reversal' ELSE kind END` })
+        .where(and(eq(inventoryMovements.commandId, original.id), eq(inventoryMovements.kind, 'barter_issue')));
+    }
+    
+    // Reverse client ledger entries: mark product_settlement entries as reversed
+    for (const entry of snapshot.clientLedgerEntries ?? []) {
+      await tx.update(clientLedgerEntries)
+        .set({ kind: 'product_settlement_reversal' })
+        .where(and(eq(clientLedgerEntries.id, (entry as Record<string, unknown>).id as string), eq(clientLedgerEntries.kind, 'product_settlement')));
+    }
+    
+    // Restore customer balances (from beforeSnapshot)
+    for (const cust of beforeSnapshot.customers ?? []) {
+      const c = cust as Record<string, unknown>;
+      await tx.update(customers)
+        .set({ balance: moneyScale(c.balance), updatedAt: new Date() })
+        .where(eq(customers.id, c.id as string));
+      affected.push(c.id as string);
+      customersToRecompute.add(c.id as string);
+    }
+    
+    // Restore vendor bills (from beforeSnapshot)
+    for (const bill of beforeSnapshot.vendorBills ?? []) {
+      const b = bill as Record<string, unknown>;
+      await tx.update(vendorBills)
+        .set({ amountPaid: moneyScale(b.amountPaid), status: String(b.status ?? 'approved'), updatedAt: new Date() })
+        .where(eq(vendorBills.id, b.id as string));
+      affected.push(b.id as string);
+    }
+    
+    // Reverse vendor payments (set to void)
+    for (const payment of snapshot.vendorPayments ?? []) {
+      await tx.update(vendorPayments)
+        .set({ status: 'void' })
+        .where(eq(vendorPayments.id, (payment as Record<string, unknown>).id as string));
+      affected.push((payment as Record<string, unknown>).id as string);
+    }
+    
+    // Reverse correction journal entries (gain/loss)
+    for (const entry of snapshot.correctionJournalEntries ?? []) {
+      await tx.update(correctionJournalEntries)
+        .set({ status: 'reversed' })
+        .where(eq(correctionJournalEntries.id, (entry as Record<string, unknown>).id as string));
+      affected.push((entry as Record<string, unknown>).id as string);
+    }
+    
+    // Reverse purchase orders (inbound)
+    for (const po of snapshot.purchaseOrders ?? []) {
+      await tx.update(purchaseOrders)
+        .set({ status: 'reversed', updatedAt: new Date() })
+        .where(eq(purchaseOrders.id, (po as Record<string, unknown>).id as string));
+      affected.push((po as Record<string, unknown>).id as string);
+    }
+    
+    // Reverse purchase receipts (inbound)
+    for (const receipt of snapshot.purchaseReceipts ?? []) {
+      await tx.update(purchaseReceipts)
+        .set({ status: 'reversed', updatedAt: new Date() })
+        .where(eq(purchaseReceipts.id, (receipt as Record<string, unknown>).id as string));
+      affected.push((receipt as Record<string, unknown>).id as string);
+    }
   } else {
     throw new Error(`${original.commandName} is ${policy?.disposition ?? 'not'} reversible: ${policy?.guidance ?? 'No reversal policy is registered.'}`);
   }
