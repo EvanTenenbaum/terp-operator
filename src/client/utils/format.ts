@@ -14,7 +14,7 @@
  *   the literal word "false" rendered in grids).
  */
 
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 
 /** Single pinned locale for every user-visible date/number. See header note. */
 export const APP_LOCALE = 'en-US';
@@ -144,7 +144,7 @@ export interface MoneyColOpts extends FormatMoneyOpts {
 }
 
 /**
- * AG Grid ColDef factory for a right-aligned money column.
+ * AG Grid GridColDef factory for a right-aligned money column.
  *
  * @param field      Row field containing a numeric dollar value.
  * @param opts.headerName  Column header (defaults to capitalised field name).
@@ -155,7 +155,7 @@ export interface MoneyColOpts extends FormatMoneyOpts {
  * moneyCol('total', { headerName: 'Total', width: 100 })
  * moneyCol('balance', { headerName: 'Balance', cents: false })
  */
-export function moneyCol(field: string, opts?: MoneyColOpts): ColDef {
+export function moneyCol(field: string, opts?: MoneyColOpts): GridColDef {
   const { headerName, width = 120, ...fmtOpts } = opts ?? {};
   return {
     field,
@@ -197,14 +197,14 @@ export interface BoolColOpts {
   headerName?: string;
   width?: number;
   /** Pass through AG Grid editability (checkbox-style toggles elsewhere own writes). */
-  editable?: ColDef['editable'];
+  editable?: GridColDef['editable'];
 }
 
 /**
- * AG Grid ColDef factory for a boolean column. Guarantees the cell never
+ * AG Grid GridColDef factory for a boolean column. Guarantees the cell never
  * renders the literal text "true"/"false" (external review finding #5).
  */
-export function boolCol(field: string, opts?: BoolColOpts): ColDef {
+export function boolCol(field: string, opts?: BoolColOpts): GridColDef {
   const { headerName, width = 100, editable } = opts ?? {};
   return {
     field,
@@ -241,11 +241,11 @@ export interface DateColOpts {
 }
 
 /**
- * AG Grid ColDef factory for a timestamp column. Replaces raw ISO strings /
+ * AG Grid GridColDef factory for a timestamp column. Replaces raw ISO strings /
  * device-locale renderings with pinned en-US output and keeps sorting correct
  * by comparing underlying values, not formatted text.
  */
-export function dateCol(field: string, opts?: DateColOpts): ColDef {
+export function dateCol(field: string, opts?: DateColOpts): GridColDef {
   const { headerName, width = 160, variant = 'date' } = opts ?? {};
   return {
     field,
