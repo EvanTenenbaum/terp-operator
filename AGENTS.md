@@ -121,7 +121,17 @@ for the pattern. Then create the `commandDefs/` directory and barrel.
 | Domain | Status |
 |--------|--------|
 | purchase-orders | ✅ Migrated (12 commands) |
-| All others | ⬜ Pending (switch fallback active) |
+| inventory | ✅ Migrated (3 commands) |
+| intake | ✅ Migrated (11 commands) |
+| media | ✅ Migrated (7 commands) |
+| sales-orders | ✅ Migrated (16 commands) |
+| payments | ✅ Migrated (8 commands) |
+| pick | ✅ Migrated (9 commands) |
+| vendor-management | ✅ Migrated (10 commands) |
+| contacts | ✅ Migrated (10 commands) |
+| credit | ✅ Migrated (12 commands) |
+| matchmaking | ✅ Migrated (6 commands) |
+| system | ✅ Migrated (35 commands) |
 
 See `docs/decisions/0002-command-registry.md` for the full ADR and rollout order.
 

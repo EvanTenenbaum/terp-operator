@@ -79,18 +79,6 @@ import { applyPricingRule, asCustomerPricingRule, evaluatePrice, resolvePricingP
 import {
   commandInputSchema,
   customerPricingRuleSchema,
-  setLineLandedCostPayloadSchema,
-  // Contacts system (CAP-033 / TER-1564)
-  createContactPayloadSchema,
-  updateContactPayloadSchema,
-  archiveContactPayloadSchema,
-  addContactRolePayloadSchema,
-  linkContactToExistingEntityPayloadSchema,
-  linkContactToUserPayloadSchema,
-  createAppointmentPayloadSchema,
-  updateAppointmentPayloadSchema,
-  cancelAppointmentPayloadSchema,
-  completeAppointmentPayloadSchema,
   updateVendorPayloadSchema,
   updateProcessorPayloadSchema,
   // D2 — merge candidate review (RBAC + audit trail)
@@ -164,6 +152,28 @@ import {
 } from '@/domains/purchase-orders';
 // Register PO commands in the registry (side-effect import).
 import '@/domains/purchase-orders/commandDefs';
+// Register Inventory commands in the registry (side-effect import).
+import '@/domains/inventory/commandDefs';
+// Register Intake commands in the registry (side-effect import).
+import '@/domains/intake/commandDefs';
+// Register Media commands in the registry (side-effect import).
+import '@/domains/media/commandDefs';
+// Register Sales Orders commands in the registry (side-effect import).
+import '@/domains/sales-orders/commandDefs';
+// Register Payments commands in the registry (side-effect import).
+import '@/domains/payments/commandDefs';
+// Register Pick commands in the registry (side-effect import).
+import '@/domains/pick/commandDefs';
+// Register Vendor Management commands in the registry (side-effect import).
+import '@/domains/vendor-management/commandDefs';
+// Register Contacts commands in the registry (side-effect import).
+import '@/domains/contacts/commandDefs';
+// Register Credit commands in the registry (side-effect import).
+import '@/domains/credit/commandDefs';
+// Register Matchmaking commands in the registry (side-effect import).
+import '@/domains/matchmaking/commandDefs';
+// Register System/Recovery/Closeout commands in the registry (side-effect import).
+import '@/domains/system/commandDefs';
 
 // Payments domain commands extracted to @/domains/payments (P1.PAY.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
@@ -296,24 +306,6 @@ import {
   returnPickedUnits,
 } from '@/domains/pick';
 
-// Intake domain commands extracted to @/domains/intake (P1.INT.EXTRACT).
-// commandBus retains the helpers + schemas these handlers rely on; switch
-// cases below still dispatch to them by name. setBatchPrice and setBatchLotInfo
-// are thin wrappers that delegate to updateBatch (now in @/domains/intake).
-import {
-  adjustBatchQuantity,
-  createBatch,
-  createCustomerSheetSnapshot,
-  deleteBatch,
-  flagBatch,
-  importBatchesCsv,
-  rejectBatch,
-  setBatchLotInfo,
-  setBatchPrice,
-  updateBatch,
-  verifyAllIntake,
-} from '@/domains/intake';
-
 // Matchmaking domain commands extracted to @/domains/matchmaking (P1.MM.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
 // cases below still dispatch to them by name. The rebuildMatchesForNeed /
@@ -345,21 +337,6 @@ import {
 } from '@/domains/vendor-management';
 import { setInventoryStatus, transferInventoryLocation, transferInventoryOwnership } from '@/domains/inventory';
 
-// Contacts domain commands extracted to @/domains/contacts (P1.CT.EXTRACT).
-// commandBus retains the helpers + schemas these handlers rely on; switch
-// cases below still dispatch to them by name.
-import {
-  addContactRole,
-  archiveContact,
-  cancelAppointment,
-  completeAppointment,
-  createAppointment,
-  createContact,
-  linkContactToExistingEntity,
-  linkContactToUser,
-  updateAppointment,
-  updateContact,
-} from '@/domains/contacts';
 
 export type CommandInput = z.infer<typeof commandInputSchema>;
 
@@ -412,37 +389,6 @@ export type Payload = Record<string, unknown>;
 // optional fields continue to work; the handlers' own requiredId /
 // requiredString / requiredNumber guards remain in place for semantic checks.
 
-const createBatchPayloadSchema = z.object({
-  name: z.string().optional(),
-  category: z.string().optional(),
-  vendorId: z.string().uuid().optional(),
-  shorthand: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  status: z.string().optional(),
-  brandId: z.string().uuid().optional(),
-  purchaseOrderId: z.string().uuid().optional(),
-  purchaseOrderLineId: z.string().uuid().optional(),
-  sourceCode: z.string().optional(),
-  subcategory: z.string().optional(),
-  intakeQty: z.coerce.number().optional(),
-  availableQty: z.coerce.number().optional(),
-  uom: z.string().optional(),
-  unitCost: z.coerce.number().optional(),
-  unitPrice: z.coerce.number().optional(),
-  location: z.string().optional(),
-  lotCode: z.string().optional(),
-  intakeDate: z.string().optional(),
-  ticketCost: z.coerce.number().optional(),
-  priceRange: z.string().optional(),
-  notes: z.string().optional(),
-  legacyMarker: z.string().optional(),
-  ownershipStatus: z.string().optional(),
-  expirationDate: z.string().optional(),
-  arrivalConfirmed: z.boolean().optional(),
-  arrivalStatus: z.string().optional(),
-  mediaStatus: z.string().optional(),
-}).passthrough();
-
 export const createPurchaseOrderPayloadSchema = z.object({
   vendorId: z.string().uuid(),
   expectedDate: z.string().optional(),
@@ -464,37 +410,6 @@ export const createVendorPayloadSchema = z.object({
 export const finalizePurchaseOrderPayloadSchema = z.object({
   purchaseOrderId: z.string().uuid().optional(),
   id: z.string().uuid().optional(),
-});
-
-const rejectBatchPayloadSchema = z.object({
-  batchId: z.string().uuid().optional(),
-  id: z.string().uuid().optional(),
-  reason: z.string().min(1),
-});
-
-export const createSalesOrderPayloadSchema = z.object({
-  customerId: z.string().uuid(),
-  notes: z.string().optional(),
-});
-
-export const updateSalesOrderLinePayloadSchema = z.object({
-  lineId: z.string().uuid().optional(),
-  id: z.string().uuid().optional(),
-  orderId: z.string().uuid().optional(),
-  batchId: z.string().uuid().nullable().optional(),
-  itemName: z.string().optional(),
-  qty: z.coerce.number().optional(),
-  unitPrice: z.coerce.number().optional(),
-  status: z.string().optional(),
-  sourceRowKey: z.string().optional(),
-  unresolvedSourceText: z.string().optional(),
-  legacyStatusMarker: z.string().optional(),
-  legacyStatusMarkers: z.string().optional(),
-  packed: z.boolean().optional(),
-  inventoryPosted: z.boolean().optional(),
-  paymentFollowup: z.boolean().optional(),
-  deliveryWindow: z.string().optional(),
-  notes: z.string().optional(),
 });
 
 export const cancelSalesOrderPayloadSchema = z.object({
@@ -737,19 +652,6 @@ export const postPurchaseReceiptPayloadSchema = z.object({
   batchIds: z.array(z.string().uuid()).optional(),
   selectedIds: z.array(z.string().uuid()).optional(),
   discrepancyNotes: z.record(z.unknown()).optional(),
-});
-
-const verifyAllIntakePayloadSchema = z.object({
-  purchaseOrderId: z.string().uuid().optional(),
-  id: z.string().uuid().optional(),
-});
-
-const adjustBatchQuantityPayloadSchema = z.object({
-  batchId: z.string().uuid().optional(),
-  id: z.string().uuid().optional(),
-  deltaQty: z.coerce.number().optional(),
-  qtyDelta: z.coerce.number().optional(),
-  reason: z.string().optional(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1258,293 +1160,12 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
     return registered.handler({ tx, user, commandId, reason }, parsedPayload);
   }
 
-  // Fallback switch (unmigrated commands).
-  switch (name) {
-    case 'createBatch':
-      return createBatch(tx, payload, commandId);
-    case 'updateBatch':
-      return updateBatch(tx, payload, commandId);
-    case 'deleteBatch':
-      return deleteBatch(tx, payload, commandId);
-    case 'postPurchaseReceipt':
-      return postPurchaseReceipt(tx, payload, commandId, reason);
-    case 'createPurchaseOrder':
-      return createPurchaseOrder(tx, payload, user.id, commandId);
-    case 'updatePurchaseOrder':
-      return updatePurchaseOrder(tx, payload, commandId);
-    case 'addPurchaseOrderLine':
-      return addPurchaseOrderLine(tx, payload, commandId);
-    case 'updatePurchaseOrderLine':
-      return updatePurchaseOrderLine(tx, payload, commandId);
-    case 'removePurchaseOrderLine':
-      return removePurchaseOrderLine(tx, payload, commandId);
-    case 'finalizePurchaseOrder':
-      return finalizePurchaseOrder(tx, payload, user.id, commandId);
-    case 'unfinalizePurchaseOrder':
-      return unfinalizePurchaseOrder(tx, payload, commandId);
-    case 'approvePurchaseOrder':
-      return approvePurchaseOrder(tx, payload, user.id, commandId);
-    case 'recordVendorPrepayment':
-      return recordVendorPrepayment(tx, payload, commandId);
-    case 'receivePurchaseOrder':
-      return receivePurchaseOrder(tx, payload, commandId);
-    case 'cancelPurchaseOrder':
-      return cancelPurchaseOrder(tx, payload, commandId);
-    case 'rejectBatch':
-      return rejectBatch(tx, payload, commandId);
-    case 'flagBatch':
-      return flagBatch(tx, payload, commandId);
-    case 'verifyAllIntake':
-      return verifyAllIntake(tx, payload, commandId, reason);
-    case 'adjustBatchQuantity':
-      return adjustBatchQuantity(tx, payload, commandId, reason);
-    case 'setInventoryStatus':
-      return setInventoryStatus(tx, payload, commandId, reason);
-    case 'transferInventoryLocation':
-      return transferInventoryLocation(tx, payload, commandId, reason);
-    case 'transferInventoryOwnership':
-      return transferInventoryOwnership(tx, payload, commandId, reason);
-    case 'setBatchPrice':
-      return updateBatch(tx, { ...payload, unitPrice: requiredNumber(payload.unitPrice, 'unitPrice') }, commandId, 'Batch price updated.');
-    case 'setBatchLotInfo':
-      return updateBatch(tx, payload, commandId, 'Lot information updated.');
-    case 'attachBatchPhoto':
-      return attachBatchPhoto(tx, payload, user.id, commandId);
-    case 'deleteBatchMedia':
-      return deleteBatchMedia(tx, payload, commandId);
-    case 'publishBatchMedia':
-      return publishBatchMedia(tx, payload, commandId);
-    case 'setBatchMediaRole':
-      return setBatchMediaRole(tx, payload, commandId);
-    case 'uploadBatchMedia':
-      return uploadBatchMedia(tx, payload, user.id, commandId);
-    case 'importBatchesCsv':
-      return importBatchesCsv(tx, payload, commandId);
-    case 'applyTags':
-      return applyTags(tx, payload, commandId);
-    case 'createSalesOrder':
-      return createSalesOrder(tx, payload, commandId);
-    case 'addSalesOrderLine':
-      return addSalesOrderLine(tx, payload, commandId);
-    case 'updateSalesOrderLine':
-      return updateSalesOrderLine(tx, payload, commandId);
-    case 'removeSalesOrderLine':
-      return removeSalesOrderLine(tx, payload, commandId);
-    case 'reserveInventoryForOrder':
-      return reserveInventoryForOrder(tx, payload, commandId);
-    case 'priceSalesOrder':
-      return priceSalesOrder(tx, payload, commandId);
-    case 'confirmSalesOrder':
-      return confirmSalesOrder(tx, payload, commandId);
-    case 'cancelSalesOrder':
-      return cancelSalesOrder(tx, payload, commandId);
-    case 'postSalesOrder':
-      return postSalesOrder(tx, payload, commandId);
-    case 'allocateOrderToFulfillment':
-    case 'createPickList':
-      return allocateOrderToFulfillment(tx, payload, user.id, commandId);
-    case 'releaseLineForPicking':
-      return releaseLineForPicking(tx, payload, user.id, commandId);
-    case 'releaseLinesForPicking':
-      return releaseLinesForPicking(tx, payload, user.id, commandId);
-    case 'recallLineFromPicking':
-      return recallLineFromPicking(tx, payload, commandId);
-    case 'acknowledgeWarehouseAlert':
-      return acknowledgeWarehouseAlert(tx, payload, commandId);
-    case 'returnPickedUnits':
-      return returnPickedUnits(tx, payload, commandId);
-    case 'cancelFulfillmentLine':
-      return cancelFulfillmentLine(tx, payload, commandId);
-    case 'applyClientCredit':
-      return applyClientCredit(tx, payload, commandId);
-    case 'setDeliveryWindow':
-      return setDeliveryWindow(tx, payload, commandId);
-    case 'logPayment':
-      return logPayment(tx, payload, commandId);
-    case 'allocatePayment':
-      return allocatePayment(tx, payload, commandId);
-    case 'unallocatePayment':
-      return unallocatePayment(tx, payload, commandId);
-    case 'refundPayment':
-      return refundPayment(tx, payload, commandId);
-    case 'markPaymentUnapplied':
-      return markPaymentUnapplied(tx, payload, commandId);
-    case 'applyDiscount':
-      return applyDiscount(tx, payload, commandId);
-    case 'createVendorBill':
-      return createVendorBill(tx, payload, commandId);
-    case 'approveVendorBill':
-      return updateVendorBillStatus(tx, payload, 'approved', commandId, 'Vendor bill approved.');
-    case 'scheduleVendorPayment':
-      return scheduleVendorPayment(tx, payload, commandId);
-    case 'recordVendorPayment':
-      return recordVendorPayment(tx, payload, commandId);
-    case 'voidVendorPayment':
-      return voidVendorPayment(tx, payload, commandId);
-    case 'recordWeighAndPack':
-      return recordWeighAndPack(tx, payload, commandId);
-    case 'markOrderFulfilled':
-      return markOrderFulfilled(tx, payload, commandId);
-    case 'printLabels':
-      return printLabels(tx, payload, commandId);
-    case 'adjustFulfillmentLine':
-      return recordWeighAndPack(tx, payload, commandId, 'Fulfillment line adjusted.');
-    case 'approveConnectorRequest':
-      return reviewConnectorRequest(tx, payload, 'approved', user, commandId);
-    case 'rejectConnectorRequest':
-      return reviewConnectorRequest(tx, payload, 'rejected', user, commandId);
-    case 'routeConnectorRequest':
-      return reviewConnectorRequest(tx, payload, 'routed', user, commandId);
-    case 'createCorrectionJournalEntry':
-      return createCorrectionJournalEntry(tx, payload, commandId);
-    case 'postTransactionLedgerRow':
-      return postTransactionLedgerRow(tx, payload, user, commandId);
-    case 'upsertTransactionType':
-      return upsertTransactionType(tx, payload, commandId);
-    case 'reverseCommandById':
-      return reverseCommandById(tx, payload, commandId);
-    case 'documentCommandFailure':
-      return documentCommandFailure(tx, payload, commandId);
-    case 'restoreFromBackupPoint':
-      return restoreFromBackupPoint(tx, payload, commandId);
-    case 'repriceOrder':
-      return priceSalesOrder(tx, payload, commandId, 'Order repriced.');
-    case 'postPeriodAdjustments':
-      return postPeriodAdjustments(tx, payload, commandId);
-    case 'lockPeriod':
-      return lockPeriod(tx, payload, user.id, commandId);
-    case 'archivePeriod':
-      return archivePeriod(tx, payload, commandId);
-    case 'createVendor':
-      return createVendor(tx, payload, commandId);
-    case 'createCustomerNeed':
-      return createCustomerNeed(tx, payload, user.id, commandId);
-    case 'updateCustomerNeed':
-      return updateCustomerNeed(tx, payload, commandId);
-    case 'createVendorSupply':
-      return createVendorSupply(tx, payload, commandId);
-    case 'updateVendorSupply':
-      return updateVendorSupply(tx, payload, commandId);
-    case 'acceptMatchmakingMatch':
-      return reviewMatchmakingMatch(tx, payload, 'accepted', user.id, commandId);
-    case 'dismissMatchmakingMatch':
-      return reviewMatchmakingMatch(tx, payload, 'dismissed', user.id, commandId);
-    case 'reopenMatchmakingMatch':
-      return reopenMatchmakingMatch(tx, payload, user.id, commandId);
-    case 'updateMatchmakingSettings':
-      return updateMatchmakingSettings(tx, payload, user.id, commandId);
-    case 'noteMatchmakingOutreach':
-      return noteMatchmakingOutreach(tx, payload, user.id, commandId);
-    case 'dismissMatchmakingWorkQueueItem':
-      return dismissMatchmakingWorkQueueItem(tx, payload, user.id, commandId);
-    case 'setItemAlias':
-      return setItemAlias(tx, payload, commandId);
-    case 'createReferee':
-      return createReferee(tx, payload, commandId);
-    case 'updateReferee':
-      return updateReferee(tx, payload, commandId);
-    case 'addRefereeRelationship':
-      return addRefereeRelationship(tx, payload, commandId);
-    case 'updateRefereeRelationship':
-      return updateRefereeRelationship(tx, payload, commandId);
-    case 'deactivateRefereeRelationship':
-      return deactivateRefereeRelationship(tx, payload, commandId);
-    case 'voidRefereeCredit':
-      return voidRefereeCreditCommand(tx, payload, commandId);
-    case 'createPaymentProcessor':
-      return createPaymentProcessor(tx, payload, commandId);
-    case 'markUserFeeCollected':
-      return markUserFeeCollected(tx, payload, commandId);
-    case 'updateProcessorFeeStatus':
-      return updateProcessorFeeStatus(tx, payload, commandId);
-    case 'setCustomerCreditLimit':
-      return setCustomerCreditLimit(tx, payload, user, commandId);
-    case 'revertCustomerCreditToEngine':
-      return revertCustomerCreditToEngine(tx, payload, commandId);
-    case 'snoozeCustomerCreditReminder':
-      return snoozeCustomerCreditReminder(tx, payload, commandId);
-    case 'setCustomerEngineMax':
-      return setCustomerEngineMax(tx, payload, commandId);
-    case 'setCustomerStance':
-      return setCustomerStance(tx, payload, commandId);
-    case 'disableCreditEngineForCustomer':
-      return disableCreditEngineForCustomer(tx, payload, user.id, commandId);
-    case 'enableCreditEngineForCustomer':
-      return enableCreditEngineForCustomer(tx, payload, commandId);
-    case 'createCreditEngineStance':
-      return createCreditEngineStance(tx, payload, user.id, commandId);
-    case 'updateCreditEngineStance':
-      return updateCreditEngineStance(tx, payload, user.id, commandId);
-    case 'deleteCreditEngineStance':
-      return deleteCreditEngineStance(tx, payload, user.id, commandId);
-    case 'setCreditEngineConfig':
-      return setCreditEngineConfig(tx, payload, user.id, commandId);
-    case 'bulkRevertCustomersToEngine':
-      return bulkRevertCustomersToEngine(tx, payload, user, commandId);
-    case 'setLineLandedCost':
-      return setLineLandedCost(tx, payload, user, commandId);
-    case 'createCustomerSheetSnapshot':
-      return createCustomerSheetSnapshot(tx, payload, user, commandId);
-    case 'setLineBelowFloorReason':
-      return setLineBelowFloorReason(tx, payload, commandId);
-    case 'resolveVendorApproval':
-      return resolveVendorApproval(tx, payload, commandId);
-    case 'setCustomerPricingRule':
-      return setCustomerPricingRule(tx, payload, commandId);
-    case 'setDefaultPricingRule':
-      return setDefaultPricingRule(tx, payload, commandId);
-    case 'updateSystemSetting':
-      return updateSystemSetting(tx, payload, commandId);
-    case 'mintPhotoUploadToken':
-      return mintPhotoUploadToken(tx, payload, user.id, commandId);
-    case 'revokePhotoUploadToken':
-      return revokePhotoUploadToken(tx, payload, commandId);
-    // ─── Contacts system (CAP-033 / TER-1564) ─────────────────────────────
-    case 'createContact':
-      return createContact(tx, payload, commandId);
-    case 'updateContact':
-      return updateContact(tx, payload, commandId);
-    case 'archiveContact':
-      return archiveContact(tx, payload, user, commandId);
-    case 'addContactRole':
-      return addContactRole(tx, payload, commandId);
-    case 'linkContactToExistingEntity':
-      return linkContactToExistingEntity(tx, payload, commandId);
-    case 'linkContactToUser':
-      return linkContactToUser(tx, payload, commandId);
-    case 'createAppointment':
-      return createAppointment(tx, payload, user.id, commandId);
-    case 'updateAppointment':
-      return updateAppointment(tx, payload, commandId);
-    case 'cancelAppointment':
-      return cancelAppointment(tx, payload, commandId);
-    case 'completeAppointment':
-      return completeAppointment(tx, payload, commandId);
-    case 'updateVendor':
-      return updateVendor(tx, payload, commandId);
-    case 'updateProcessor':
-      return updateProcessor(tx, payload, commandId);
-    case 'createItem':
-      return createItem(tx, payload, commandId);
-    case 'updateItem':
-      return updateItem(tx, payload, commandId);
-    case 'toggleItemStatus':
-      return toggleItemStatus(tx, payload, commandId);
-    case 'resolveInvoiceDispute':
-      return resolveInvoiceDispute(tx, payload, commandId);
-    case 'rejectInvoiceDispute':
-      return rejectInvoiceDispute(tx, payload, commandId);
-    // D2 — merge candidate review (RBAC + audit trail)
-    case 'approveMergeCandidate':
-      return approveMergeCandidate(tx, payload, commandId);
-    case 'dismissMergeCandidate':
-      return dismissMergeCandidate(tx, payload, commandId);
-    default:
-      throw new Error(`Command not yet implemented in commandBus: ${name}`);
-  }
+  // All commands are now registered via defineCommand(). If we reach this point,
+  // the command name is unknown.
+  throw new Error(`Command not yet implemented in commandBus: ${name}`);
 }
 
-async function applyTags(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function applyTags(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const entityType = requiredString(payload.entityType, 'entityType');
   const entityId = requiredId(payload.entityId ?? payload.id, 'entityId');
   const incoming = tagValue(payload.tags);
@@ -1575,7 +1196,7 @@ async function applyTags(tx: Tx, payload: Payload, commandId: string): Promise<C
   };
 }
 
-async function setItemAlias(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function setItemAlias(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const itemId = requiredId(payload.itemId ?? payload.id, 'itemId');
   const [item] = await tx.select().from(items).where(eq(items.id, itemId)).limit(1);
   if (!item) throw new Error('Item not found.');
@@ -1843,7 +1464,7 @@ export function validatePricingRulePayload(value: unknown): Record<string, unkno
 // recordWeighAndPack → @/domains/pick (P1.PICK.EXTRACT)
 
 // markOrderFulfilled → stays in commandBus
-async function markOrderFulfilled(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function markOrderFulfilled(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   markOrderFulfilledPayloadSchema.parse(payload);
   const orderId = requiredId(payload.orderId, 'orderId');
   const [order] = await tx.select().from(salesOrders).where(eq(salesOrders.id, orderId)).limit(1);
@@ -1879,7 +1500,7 @@ async function markOrderFulfilled(tx: Tx, payload: Payload, commandId: string): 
 // Splices the indexed alert out of the warehouse_alerts array. If no alerts remain,
 // clears status_extended (so a 'recall_pending' marker auto-clears once the warehouse
 // has reconciled every conflict the sales side raised).
-async function acknowledgeWarehouseAlert(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function acknowledgeWarehouseAlert(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const fulfillmentLineId = requiredId(payload.fulfillmentLineId ?? payload.id, 'fulfillmentLineId');
   const alertIndex = typeof payload.alertIndex === 'number'
     ? payload.alertIndex
@@ -1915,7 +1536,7 @@ async function acknowledgeWarehouseAlert(tx: Tx, payload: Payload, commandId: st
 // returns them (via returnPickedUnits). Then releases any remaining reservation on
 // the batch up to the sales order line qty. Marks status_extended='cancelled'.
 // Idempotent: already-cancelled lines short-circuit.
-async function cancelFulfillmentLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function cancelFulfillmentLine(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const fulfillmentLineId = requiredId(payload.fulfillmentLineId ?? payload.id, 'fulfillmentLineId');
   const [fl] = await tx.select().from(fulfillmentLines).where(eq(fulfillmentLines.id, fulfillmentLineId)).limit(1);
   if (!fl) throw new Error('Fulfillment line not found.');
@@ -1958,7 +1579,7 @@ async function cancelFulfillmentLine(tx: Tx, payload: Payload, commandId: string
 
 // printLabels → @/domains/pick (P1.PICK.EXTRACT)
 
-async function reviewConnectorRequest(tx: Tx, payload: Payload, status: string, user: SessionUser, commandId: string): Promise<CommandResult> {
+export async function reviewConnectorRequest(tx: Tx, payload: Payload, status: string, user: SessionUser, commandId: string): Promise<CommandResult> {
   const requestId = requiredId(payload.requestId ?? payload.id, 'requestId');
   const [request] = await tx.select().from(connectorRequests).where(eq(connectorRequests.id, requestId)).limit(1);
   if (!request) throw new Error('Connector request not found.');
@@ -1980,7 +1601,7 @@ async function reviewConnectorRequest(tx: Tx, payload: Payload, status: string, 
   return { ok: true, commandId, affectedIds: [requestId], toast: `Connector request ${status}.` };
 }
 
-async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
   await assertPeriodUnlocked(tx, period);
   const amount = requiredNumber(payload.amount, 'amount');
@@ -2012,7 +1633,7 @@ async function createCorrectionJournalEntry(tx: Tx, payload: Payload, commandId:
   return { ok: true, commandId, affectedIds: affected, toast: payload.invoiceId ? 'Correction journal and invoice dispute posted.' : 'Correction journal entry posted.' };
 }
 
-async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionUser, commandId: string): Promise<CommandResult> {
+export async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionUser, commandId: string): Promise<CommandResult> {
   postTransactionLedgerRowPayloadSchema.parse(payload);
   const direction = requiredString(payload.direction, 'direction');
   const entityType = requiredString(payload.entityType, 'entityType');
@@ -2166,7 +1787,7 @@ async function postTransactionLedgerRow(tx: Tx, payload: Payload, user: SessionU
 
 // postVendorLedgerPayment → @/domains/vendor-management (P1.VM.EXTRACT)
 
-async function upsertTransactionType(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function upsertTransactionType(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   upsertTransactionTypePayloadSchema.parse(payload);
   const label = requiredString(payload.label, 'label');
   const slug = stringValue(payload.slug) || slugFromLabel(label);
@@ -2702,7 +2323,7 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
   return { ok: true, commandId, affectedIds: affected, toast: `Reversed ${original.commandName}.` };
 }
 
-async function documentCommandFailure(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function documentCommandFailure(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const targetId = String(payload['commandId'] ?? '');
   const reason = String(payload['reason'] ?? '').trim();
   if (!targetId || !reason) {
@@ -2725,7 +2346,7 @@ async function documentCommandFailure(tx: Tx, payload: Payload, commandId: strin
   };
 }
 
-async function restoreFromBackupPoint(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function restoreFromBackupPoint(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const backupId = requiredId(payload.backupId, 'backupId');
   const [backup] = await tx.select().from(backupSnapshots).where(eq(backupSnapshots.id, backupId)).limit(1);
   if (!backup) throw new Error('Backup snapshot not found.');
@@ -2738,7 +2359,7 @@ async function restoreFromBackupPoint(tx: Tx, payload: Payload, commandId: strin
   };
 }
 
-async function postPeriodAdjustments(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function postPeriodAdjustments(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
   await assertPeriodUnlocked(tx, period);
   const adjustments = Array.isArray(payload.adjustments) ? payload.adjustments : [{ amount: payload.amount, memo: payload.memo }];
@@ -2757,7 +2378,7 @@ async function acquirePeriodCloseoutLock(tx: Tx, period: string): Promise<void> 
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${period})::bigint)`);
 }
 
-async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+export async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   const period = periodValue(payload.period);
   await acquirePeriodCloseoutLock(tx, period);
   const [existing] = await tx.select().from(periodLocks).where(eq(periodLocks.period, period)).limit(1);
@@ -2774,7 +2395,7 @@ async function lockPeriod(tx: Tx, payload: Payload, userId: string, commandId: s
   return { ok: true, commandId, affectedIds: [lock.id], toast: `${period} locked.` };
 }
 
-async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   archivePeriodPayloadSchema.parse(payload);
   const period = periodValue(payload.period);
   await acquirePeriodCloseoutLock(tx, period);
@@ -2840,7 +2461,7 @@ export function assertValidSupplyStatusTransition(currentStatus: string, newStat
   }
 }
 
-async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
+export async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, commandId: string): Promise<CommandResult> {
   createCustomerNeedPayloadSchema.parse(payload);
   const customerId = requiredId(payload.customerId, 'customerId');
   const [customer] = await tx.select().from(customers).where(eq(customers.id, customerId)).limit(1);
@@ -2875,7 +2496,7 @@ async function createCustomerNeed(tx: Tx, payload: Payload, userId: string, comm
   return { ok: true, commandId, affectedIds: [row.id, ...matchIds], toast: `Customer need added for ${customer.name}.`, delta: { matchCount: matchIds.length } };
 }
 
-async function updateCustomerNeed(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function updateCustomerNeed(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const needId = requiredId(payload.customerNeedId ?? payload.id, 'customerNeedId');
   const [current] = await tx.select().from(customerNeeds).where(eq(customerNeeds.id, needId)).limit(1);
   if (!current) throw new Error('Customer need not found.');
@@ -3475,7 +3096,7 @@ export function copyIfPresent(target: Record<string, unknown>, key: string, valu
 
 // ─── Items / SKU Catalog (TER-1651) ─────────────────────────────────────────
 
-async function createItem(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function createItem(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const name = requiredString(payload.name, 'name');
   if (name.trim().length < 2) throw new Error('Item name must be at least 2 characters.');
   const category = requiredString(payload.category, 'category');
@@ -3524,7 +3145,7 @@ async function createItem(tx: Tx, payload: Payload, commandId: string): Promise<
   throw lastErr;
 }
 
-async function updateItem(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function updateItem(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const itemId = requiredId(payload.itemId ?? payload.id, 'itemId');
   const [item] = await tx.select().from(items).where(eq(items.id, itemId)).limit(1);
   if (!item) throw new Error('Item not found.');
@@ -3575,7 +3196,7 @@ async function updateItem(tx: Tx, payload: Payload, commandId: string): Promise<
   return { ok: true, commandId, affectedIds: [itemId], toast: `${values.name || item.name} updated (${changedFields}).` };
 }
 
-async function toggleItemStatus(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function toggleItemStatus(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   const itemId = requiredId(payload.itemId ?? payload.id, 'itemId');
   const [item] = await tx.select().from(items).where(eq(items.id, itemId)).for('update').limit(1);
   if (!item) throw new Error('Item not found.');
@@ -3587,7 +3208,7 @@ async function toggleItemStatus(tx: Tx, payload: Payload, commandId: string): Pr
   return { ok: true, commandId, affectedIds: [itemId], toast: `${item.name} ${action}.`, delta: { previousStatus: currentStatus, status: nextStatus } };
 }
 
-async function resolveInvoiceDispute(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function resolveInvoiceDispute(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   resolveInvoiceDisputePayloadSchema.parse(payload);
   const disputeId = requiredId(payload.disputeId ?? payload.id, 'disputeId');
   const resolution = stringValue(payload.resolution) || 'Resolved by operator.';
@@ -3612,7 +3233,7 @@ async function resolveInvoiceDispute(tx: Tx, payload: Payload, commandId: string
   return { ok: true, commandId, affectedIds: [disputeId], toast: 'Invoice dispute resolved.' };
 }
 
-async function rejectInvoiceDispute(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function rejectInvoiceDispute(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   rejectInvoiceDisputePayloadSchema.parse(payload);
   const disputeId = requiredId(payload.disputeId ?? payload.id, 'disputeId');
   const reason = stringValue(payload.reason) || 'Rejected by operator.';
@@ -3644,7 +3265,7 @@ async function rejectInvoiceDispute(tx: Tx, payload: Payload, commandId: string)
  * Does NOT actually merge contacts — just records the operator's review.
  * Merge execution is a separate capability.
  */
-async function approveMergeCandidate(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function approveMergeCandidate(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   approveMergeCandidatePayloadSchema.parse(payload);
   const candidateId = requiredId(payload.candidateId ?? payload.id, 'candidateId');
   const [row] = await tx.select().from(contactMergeCandidates).where(eq(contactMergeCandidates.id, candidateId)).limit(1);
@@ -3660,7 +3281,7 @@ async function approveMergeCandidate(tx: Tx, payload: Payload, commandId: string
 /**
  * Dismiss (reject) a merge candidate (manager-gated, command-journaled).
  */
-async function dismissMergeCandidate(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
+export async function dismissMergeCandidate(tx: Tx, payload: Payload, commandId: string): Promise<CommandResult> {
   dismissMergeCandidatePayloadSchema.parse(payload);
   const candidateId = requiredId(payload.candidateId ?? payload.id, 'candidateId');
   const [row] = await tx.select().from(contactMergeCandidates).where(eq(contactMergeCandidates.id, candidateId)).limit(1);
