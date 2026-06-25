@@ -329,8 +329,8 @@ export function OperatorGrid({
     setGridColumnPrefs(resolvedTableKey, columnStateToPrefs(state));
   }, [resolvedTableKey, setGridColumnPrefs]);
 
-  // UX-C02: TSV clipboard paste — AG Grid Enterprise ClipboardModule is already
-  // registered globally (main.tsx). processDataFromClipboard receives the raw 2-D
+  // UX-C02: TSV clipboard paste — AG Grid Enterprise ClipboardModule is
+  // auto-registered (main.tsx). processDataFromClipboard receives the raw 2-D
   // array of pasted cells and returns it for AG Grid to apply to selected range.
   // Rows land as editable-cell updates only (no auto-post); a summary toast tells
   // the operator how many rows were pasted. Non-editable cells are skipped by AG Grid.

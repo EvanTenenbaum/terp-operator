@@ -1,6 +1,6 @@
 import { PackageCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { GridView } from '../templates/GridView';
@@ -17,7 +17,7 @@ import { columnsByView, EMPTY_ROWS } from './operations/shared';
 // printLabels stays deferred (TER-1660) — chips display state only.
 
 /** "Labels ✓" chip when printed; muted dash otherwise. */
-const labelsPrintedChipCol: ColDef<GridRow> = {
+const labelsPrintedChipCol: GridColDef<GridRow> = {
   field: 'labelsPrinted',
   headerName: 'Labels',
   width: 115,
@@ -43,7 +43,7 @@ const labelsPrintedChipCol: ColDef<GridRow> = {
 };
 
 /** "Manifest ✓" chip when manifestPath is set; muted dash otherwise. */
-const manifestChipCol: ColDef<GridRow> = {
+const manifestChipCol: GridColDef<GridRow> = {
   field: 'manifestPath',
   headerName: 'Manifest',
   width: 120,
@@ -79,7 +79,7 @@ const manifestChipCol: ColDef<GridRow> = {
  * (UX-L04) so closeout-readiness is visible at a glance without opening the
  * drawer.
  */
-export const fulfillmentPickColumns: ColDef<GridRow>[] = (columnsByView.fulfillment ?? []).map(
+export const fulfillmentPickColumns: GridColDef<GridRow>[] = (columnsByView.fulfillment ?? []).map(
   (col) => {
     if (col.field === 'labelsPrinted') return labelsPrintedChipCol;
     if (col.field === 'manifestPath') return manifestChipCol;
@@ -100,7 +100,7 @@ interface WarehouseAlert {
   createdAt: string;
 }
 
-const fulfillmentLineColumns: ColDef<GridRow>[] = [
+const fulfillmentLineColumns: GridColDef<GridRow>[] = [
   { field: 'itemName', pinned: 'left', minWidth: 180 },
   { field: 'batchCode', width: 140 },
   { field: 'expectedQty', type: 'numericColumn', width: 130 },

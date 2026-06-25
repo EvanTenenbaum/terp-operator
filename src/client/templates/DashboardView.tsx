@@ -25,7 +25,7 @@ import { useCommandRunner } from '../components/useCommandRunner';
 import { useUiStore } from '../store/uiStore';
 import { commandLabelFor } from '../../shared/commandCatalog';
 import { formatTs } from '../utils/format';
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import type { GridRow, ViewKey } from '../../shared/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -320,7 +320,7 @@ function MyOpenWorkSection() {
     });
   }, [workQueue.data, snoozedWorkQueueItems, now]);
 
-  const queueColumns: ColDef<GridRow>[] = [
+  const queueColumns: GridColDef<GridRow>[] = [
     { field: 'lane', pinned: 'left', width: 125 },
     { field: 'title', width: 180 },
     { field: 'status', width: 125 },
@@ -594,7 +594,7 @@ function DrilldownContent({ metricKey, onClose }: { metricKey: string; onClose: 
 
   const drilldownRows = (drilldown.data ?? []) as GridRow[];
 
-  const columns: ColDef<GridRow>[] = [
+  const columns: GridColDef<GridRow>[] = [
     { field: 'id', pinned: 'left', width: 120 },
     { field: 'status', width: 120 },
     { field: 'name' },
