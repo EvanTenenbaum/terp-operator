@@ -8,6 +8,9 @@ import {
 import { useUiStore, type GridColumnPref } from '../store/uiStore';
 import { formatMoney, formatTs, formatBool, formatNumber } from '../utils/format';
 import ComboboxCellEditor from '../components/editors/ComboboxCellEditor';
+import TagsChipCell from '../components/cellRenderers/TagsChipCell';
+import BooleanPillCell from '../components/cellRenderers/BooleanPillCell';
+import DateCell from '../components/cellRenderers/DateCell';
 
 // Module-level stable reference to avoid infinite re-render cycles
 // from getSnapshot-cache warnings in zustand v5 + useSyncExternalStore.
@@ -220,18 +223,17 @@ function fieldToColDef(
         const tb = b == null ? 0 : new Date(b as string | number).getTime();
         return (Number.isNaN(ta) ? 0 : ta) - (Number.isNaN(tb) ? 0 : tb);
       };
+      if (f.chip) {
+        base.cellRenderer = DateCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'boolean':
       base.valueFormatter = (params: ValueFormatterParams) =>
         formatBool(params.value);
       base.cellClass = 'text-center';
-      // Boolean chip rendering: when chip is set, downstream enhancer
-      // (cellRenderers/BooleanPillCell) reads __chipConfig and renders a
-      // Yes/No pill instead of plain text. The shared __chipConfig storage
-      // below the switch picks this up; we just mark intent here.
       if (f.chip) {
-        (base as Record<string, unknown>).__booleanPill = true;
+        base.cellRenderer = BooleanPillCell as unknown as ColDef['cellRenderer'];
       }
       break;
 
@@ -305,12 +307,8 @@ function fieldToColDef(
     }
 
     case 'tags':
-      // Tag chip cellRenderer applied downstream by OperatorGrid enhancements.
-      // When optionSource is 'tags' or chip is set, store the config so the
-      // downstream tag renderer (cellRenderers/TagChipsCell) can pick it up
-      // via __chipConfig and __optionSource (set below the switch).
-      if (f.optionSource?.kind === 'tags' || f.chip) {
-        (base as Record<string, unknown>).__tagChips = true;
+      if (f.chip) {
+        base.cellRenderer = TagsChipCell as unknown as ColDef['cellRenderer'];
       }
       break;
 
