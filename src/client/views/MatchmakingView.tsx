@@ -610,6 +610,7 @@ export function MatchmakingView() {
         activeStatusFilter={activeStatusFilter}
         onStatusFilterChange={setActiveStatusFilter}
         activePills={filterPills}
+        groupByFields={['status', 'category']}
       />
 
       {/* ── View tab bar (grid switcher) ── */}

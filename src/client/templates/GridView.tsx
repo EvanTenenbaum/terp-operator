@@ -26,13 +26,16 @@ import { GridSummaryStrip } from '../components/GridSummaryStrip';
 import { ViewTabBar } from '../components/ViewTabBar';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { BulkActionBar, type BulkAction, type BulkActionResult } from '../components/BulkActionBar';
+import type { ChipEditField, BulkChipEditResult } from '../components/BulkChipEdit';
 import { DetailSlideover, type SlideoverState } from '../components/DetailSlideover';
 import { useColumnDefs } from '../hooks/useColumnDefs';
 import { useEntityActions } from '../hooks/useEntityActions';
 import { viewRegistry, type ViewEntry } from '../config/view-registry';
+import { entitySchemas } from '../config/entity-schemas';
 import type { GridRow, ViewKey, Role } from '../../shared/types';
 import type { CommandName } from '../../shared/commandCatalog';
 import type { BulkCommandRow, StatusCountsEntityType } from '../../shared/schemas';
+import { GROUP_BY_ALLOWLIST } from '../../server/routers/gridWhere';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -92,6 +95,59 @@ const VIEW_TO_GRID_SUMMARY: Partial<Record<ViewKey, GridSummaryEntity>> = {
   purchaseReceipts: 'purchaseReceipt',
   connectors: 'connectorRequest',
 };
+
+// ── Bulk chip edit: entity → update command mapping ────────────────────────
+// Maps entity types to their partial-update command names and the ID field
+// the command expects. Entities not listed here won't show chip edit fields.
+// Reason stamp: "Bulk set {fieldName} to {value} on N {entityType} rows"
+
+const ENTITY_CHIP_EDIT_COMMAND: Partial<Record<string, { commandName: CommandName; idField: string }>> = {
+  purchaseOrder: { commandName: 'updatePurchaseOrder', idField: 'purchaseOrderId' },
+  intake: { commandName: 'updateBatch', idField: 'batchId' },
+  item: { commandName: 'updateItem', idField: 'itemId' },
+  vendor: { commandName: 'updateVendor', idField: 'vendorId' },
+};
+
+/** Derive chip edit fields from the entity schema. Returns fields that have
+ *  an `optionSource` (enum or status kind) and a `chip` config. */
+function computeChipEditFields(
+  entityType: string,
+  selectedRows: GridRow[],
+): ChipEditField[] {
+  const schema = entitySchemas[entityType];
+  if (!schema || selectedRows.length === 0) return [];
+
+  return schema.fields
+    .filter((f) => {
+      // Must have optionSource values and chip config
+      if (!f.optionSource || !f.chip) return false;
+      const os = f.optionSource;
+      if (os.kind !== 'enum' && os.kind !== 'status') return false;
+      if (os.kind === 'enum' && (!os.values || os.values.length === 0)) return false;
+      return true;
+    })
+    .map((f): ChipEditField => {
+      let options: { value: string; label: string }[];
+      if (f.optionSource!.kind === 'enum') {
+        options = (f.optionSource! as { kind: 'enum'; values: { value: string; label: string }[] }).values;
+      } else {
+        // status kind — options come from selected rows' values or empty
+        const unique = [...new Set(selectedRows.map((r) => String(r[f.field] ?? '')))].filter(Boolean);
+        options = unique.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, ' ') }));
+      }
+
+      // Current shared value (if all rows have the same value)
+      const currentValues = [...new Set(selectedRows.map((r) => r[f.field] as string | undefined))];
+      const currentValue = currentValues.length === 1 ? currentValues[0] ?? null : null;
+
+      return {
+        field: f.field,
+        headerName: f.headerName,
+        options,
+        currentValue,
+      };
+    });
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -177,6 +233,52 @@ export function GridView({ viewKey, entityType, entityLabel, summarySlot }: Grid
 
   // ── Bulk command mutation ──────────────────────────────────────────────────
   const runBulk = trpc.commands.runBulk.useMutation();
+
+  // ── Chip edit fields (from schema + selected rows) ────────────────────────
+  const chipEditFields = useMemo(
+    () => computeChipEditFields(entityType, selectedRows),
+    [entityType, selectedRows],
+  );
+
+  // ── Chip edit commit handler: dispatches bulk commands ─────────────────────
+  const handleChipEditCommit = useCallback(
+    async (field: string, value: string): Promise<BulkChipEditResult> => {
+      const cmdInfo = ENTITY_CHIP_EDIT_COMMAND[entityType];
+      if (!cmdInfo) {
+        return { succeeded: 0, failed: selectedRows.length, error: `No update command mapped for ${entityType}` };
+      }
+
+      const groupKey = crypto.randomUUID();
+      const schema = entitySchemas[entityType];
+      const fieldDef = schema?.fields.find((f) => f.field === field);
+      const fieldName = fieldDef?.headerName ?? field;
+
+      const commands: BulkCommandRow[] = selectedRows.map((row) => ({
+        entityType,
+        entityId: row.id,
+        commandName: cmdInfo.commandName,
+        payload: { [cmdInfo.idField]: row.id, [field]: value },
+        idempotencyKey: `${groupKey}:${row.id}`,
+      }));
+
+      try {
+        const result = await runBulk.mutateAsync({
+          groupKey,
+          reason: `Bulk set ${fieldName} to ${value} on ${selectedRows.length} ${entityType} rows`,
+          commands,
+        });
+
+        return {
+          succeeded: result.succeeded,
+          failed: result.failed + result.rolledBack + result.skipped,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Bulk chip edit failed';
+        return { succeeded: 0, failed: selectedRows.length, error: message };
+      }
+    },
+    [entityType, selectedRows, runBulk],
+  );
 
   // ── Wire bulk action definitions → executable BulkAction[] ─────────────────
   const bulkActions: BulkAction[] = useMemo(() => {
@@ -295,7 +397,7 @@ export function GridView({ viewKey, entityType, entityLabel, summarySlot }: Grid
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="grid-view flex flex-col h-full" data-testid={`grid-view-${viewKey}`}>
-      {/* FilterToolbar — status presets, quick filters, advanced, export */}
+      {/* FilterToolbar — status presets, quick filters, advanced, export, group-by */}
       <FilterToolbar
         view={viewKey}
         quickFilters={['date', 'keyword', 'amount']}
@@ -303,6 +405,7 @@ export function GridView({ viewKey, entityType, entityLabel, summarySlot }: Grid
         statusCounts={statusCounts}
         activeStatusFilter={activeStatusFilter}
         onStatusFilterChange={handleStatusFilterChange}
+        groupByFields={GROUP_BY_ALLOWLIST[viewKey as keyof typeof GROUP_BY_ALLOWLIST] ?? []}
       />
 
       {/* GridSummaryStrip — auto-fetches from queries.gridSummary. Hidden when BulkActionBar is mounted (ARCH-4).
@@ -340,6 +443,8 @@ export function GridView({ viewKey, entityType, entityLabel, summarySlot }: Grid
           entityLabel={entityLabel ?? entityType}
           actions={bulkActions}
           onClear={handleClearSelection}
+          chipEditFields={chipEditFields}
+          onChipEditCommit={handleChipEditCommit}
         />
       )}
 

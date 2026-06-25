@@ -46,7 +46,7 @@ export interface FilterToolbarProps {
   /** Saved data views dropdown content */
   dataViews?: DataView[];
   /** Group-by field options */
-  groupByFields?: string[];
+  groupByFields?: readonly string[] | string[];
   /** Sort field options */
   sortFields?: string[];
   /** Which export formats to offer */
@@ -114,6 +114,9 @@ export function FilterToolbar({
   const storedAdvancedFilter = useUiStore((s) => s.gridAdvancedFilters?.[view]);
   const setGridAdvancedFilter = useUiStore((s) => s.setGridAdvancedFilter);
   const clearGridAdvancedFilter = useUiStore((s) => s.clearGridAdvancedFilter);
+  // P6: group-by read/write via uiStore (replaces local groupBy state)
+  const groupBy = useUiStore((s) => s.gridGroupByField?.[view] ?? '');
+  const setGridGroupByField = useUiStore((s) => s.setGridGroupByField);
 
   // ── Popover state ──────────────────────────────────────────────────
   type PopoverId = 'dataViews' | 'date' | 'keyword' | 'amount' | 'group' | 'sort' | 'export' | 'status';
@@ -124,7 +127,6 @@ export function FilterToolbar({
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ start: '', end: '' });
   const [keywordFilter, setKeywordFilter] = useState<KeywordFilterState>({ text: '' });
   const [amountFilter, setAmountFilter] = useState<AmountFilterState>({ min: '', max: '' });
-  const [groupBy, setGroupBy] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -567,14 +569,14 @@ export function FilterToolbar({
               {groupActive && <span className={badgeClass}>1</span>}
               <ChevronDown className="h-3 w-3" aria-hidden="true" />
             </button>
-            {openPopover === 'group' && (
+              {openPopover === 'group' && (
               <FilterPopover id="group">
                 <div className="text-xs font-medium text-zinc-700 mb-2">Group by</div>
                 <div className="flex flex-col gap-0.5">
                   <button
                     type="button"
                     className={`w-full rounded px-2 py-1 text-left text-xs ${groupBy === '' ? 'bg-blue-50 text-blue-700' : 'hover:bg-zinc-100'}`}
-                    onClick={() => { setGroupBy(''); closePopover(); }}
+                    onClick={() => { setGridGroupByField(view, null); closePopover(); }}
                   >
                     None
                   </button>
@@ -583,7 +585,7 @@ export function FilterToolbar({
                       key={field}
                       type="button"
                       className={`w-full rounded px-2 py-1 text-left text-xs ${groupBy === field ? 'bg-blue-50 text-blue-700' : 'hover:bg-zinc-100'}`}
-                      onClick={() => { setGroupBy(field); closePopover(); }}
+                      onClick={() => { setGridGroupByField(view, field); closePopover(); }}
                     >
                       {field}
                     </button>

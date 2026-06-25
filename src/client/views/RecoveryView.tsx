@@ -212,6 +212,7 @@ export function RecoveryView() {
         statusCounts={statusCounts}
         activeStatusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        groupByFields={['status']}
       />
 
       {/* Command-family filter chips — compact row above the grid */}
