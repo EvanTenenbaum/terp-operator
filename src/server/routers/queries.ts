@@ -2959,7 +2959,7 @@ export const queriesRouter = router({
       // CTE: compute running_balance over ALL entries for this contact so the
       // running balance stays correct even when filtered by kind (TER-1654).
       const cte = `WITH all_entries AS (
-        SELECT id, kind, amount, method, reference, note, created_at,
+        SELECT id, contact_id, kind, amount, method, reference, note, created_at,
           SUM(amount) OVER (PARTITION BY contact_id ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance
         FROM contact_ledger_entries
         WHERE contact_id = $1
@@ -3498,13 +3498,13 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
         body: `select id, command_name as "commandName", actor_name as "actorName", status, error, affected_ids as "affectedIds",
                       input_payload as "inputPayload", reversed_by_command_id as "reversedByCommandId", created_at as "createdAt"
                from command_journal`,
-        defaultOrderBy: 'created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'closeout':
       return {
         body: `select id, period, status, control_totals as "controlTotals", csv_path as "csvPath", jsonl_path as "jsonlPath", pdf_path as "pdfPath", created_at as "createdAt"
                from archive_runs`,
-        defaultOrderBy: 'created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'referees':
       return {
@@ -3732,7 +3732,10 @@ function vendorSupplySql() {
 
 function matchmakingSql() {
   const parts = gridSqlParts('matchmaking');
-  return parts.body + '\norder by ' + parts.defaultOrderBy;
+  return `select * from (
+${parts.body}
+) sub
+order by ${parts.defaultOrderBy}`;
 }
 
 export function gridSql(view: z.infer<typeof viewSchema>) {
@@ -3741,7 +3744,10 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
     return parts.body + '\norder by ' + parts.defaultOrderBy + '\nlimit 100';
   }
   if (view === 'matchmaking') {
-    return parts.body + '\norder by ' + parts.defaultOrderBy;
+    return `select * from (
+${parts.body}
+) sub
+order by ${parts.defaultOrderBy}`;
   }
   return parts.body + '\norder by ' + parts.defaultOrderBy;
 }
