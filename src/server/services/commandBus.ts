@@ -1178,7 +1178,7 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     if (commandResult.ok && (input.name === 'payWithProduct' || input.name === 'settleDebtWithProduct')) {
       const settlementId = commandResult.affectedIds?.[0];
       if (settlementId) {
-        createBarterReceipts(settlementId).catch(() => {});
+        createBarterReceipts(pool, settlementId, commandId, user.id).catch(() => {});
       }
     }
 

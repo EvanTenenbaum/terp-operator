@@ -3,7 +3,8 @@ export type SnapshotKind =
   | 'sales_confirmation'
   | 'invoice'
   | 'payment_received'
-  | 'vendor_payout';
+  | 'vendor_payout'
+  | 'barter_settlement';
 
 export type Audience = 'external' | 'internal';
 
@@ -12,7 +13,8 @@ export type SourceEntityType =
   | 'sales_order'
   | 'invoice'
   | 'payment'
-  | 'vendor_payment';
+  | 'vendor_payment'
+  | 'barter_settlement';
 
 export interface ReceiptHeader {
   title: string;
