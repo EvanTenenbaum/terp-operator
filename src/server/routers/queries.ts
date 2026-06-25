@@ -3543,10 +3543,10 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                  b.batch_code as "batchCode",
                  b.name,
                  b.media_status as "mediaStatus",
-                 "mediaUpdatedAt" as "mediaUpdatedAt",
+                 bms.media_updated_at as "mediaUpdatedAt",
                  bms.published_media_count as "publishedMediaCount",
                  bms.draft_media_count as "draftMediaCount",
-                 "hasPrimaryPhoto" as "hasPrimaryPhoto",
+                 bms.has_primary_photo as "hasPrimaryPhoto",
                  bms.has_primary_video as "hasPrimaryVideo",
                  b.created_at as "createdAt"
                from batches b

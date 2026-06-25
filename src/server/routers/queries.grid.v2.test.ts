@@ -136,8 +136,8 @@ describe('grid v2 — backwards compat (§8.1)', () => {
   it('selects photography summary fields from the joined summary table before ordering by aliases', () => {
     const { sql } = buildGridV2Query('photography', undefined, undefined, undefined, null, 0);
 
-    expect(sql).toContain('"mediaUpdatedAt" as "mediaUpdatedAt"');
-    expect(sql).toContain('"hasPrimaryPhoto" as "hasPrimaryPhoto"');
+    expect(sql).toContain('bms.media_updated_at as "mediaUpdatedAt"');
+    expect(sql).toContain('bms.has_primary_photo as "hasPrimaryPhoto"');
     expect(sql).toContain('case when "hasPrimaryPhoto" then 1 else 0 end asc');
   });
 
