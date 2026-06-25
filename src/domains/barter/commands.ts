@@ -5,10 +5,12 @@
  * (docs/engineering-plans/product-as-monetary-instrument-plan.md).
  *
  * Phase 1: payWithProduct (outbound vendor barter).
+ * Phase 2: settleDebtWithProduct (inbound client barter).
+ * Phase 3: payWithProduct extended to outbound client barter (refund-in-kind).
  *
  * A barter settlement is a single command producing up to three atomic legs:
  *   1. INVENTORY  — issue product from one or more batches at COST
- *   2. SETTLEMENT — reduce a vendor bill (or create a fully-paid bill) at SETTLEMENT AMOUNT
+ *   2. SETTLEMENT — reduce a vendor bill OR a customer balance at SETTLEMENT AMOUNT
  *   3. GAIN/LOSS  — correction-journal entry for (settlementAmount − costBasis), zero by default
  *
  * Per the plan's D2/D3 reconciliation:
@@ -20,6 +22,34 @@
  *
  * Per D5: consigned batches (ownershipStatus='C') are rejected — transfer
  * ownership to 'OFC' first via transferInventoryOwnership.
+ *
+ * ## Partial barter + cash
+ *
+ * A mixed-tender settlement (product + cash remainder) is composed via
+ * `commands.runBulk`. Both `payWithProduct` (vendor and customer variants) and
+ * `settleDebtWithProduct` are members of `MONEY_MUTATING_COMMANDS` together
+ * with `logPayment` and `recordVendorPayment`, so they commit together
+ * atomically as a single financial cohort:
+ *
+ *   // Inbound mixed: customer hands over product worth $700 plus $300 cash
+ *   // to settle $1000 of AR.
+ *   commands.runBulk([
+ *     { name: 'settleDebtWithProduct',
+ *       payload: { customerId, lines, settlementAmount: 700 } },
+ *     { name: 'logPayment',
+ *       payload: { customerId, amount: 300, allocationIntent: 'fifo' } },
+ *   ])
+ *
+ *   // Outbound mixed: pay a vendor bill $500 with $200 of product and $300 cash.
+ *   commands.runBulk([
+ *     { name: 'payWithProduct',
+ *       payload: { counterpartyType: 'vendor', vendorId, vendorBillId,
+ *                  lines, settlementAmount: 200 } },
+ *     { name: 'recordVendorPayment',
+ *       payload: { vendorBillId, amount: 300, method: 'check' } },
+ *   ])
+ *
+ * No dedicated "mixed tender" command is needed for v1.
  *
  * NOTE: this module intentionally imports helpers, schemas, and the Payload
  * type from `@/server/services/commandBus`. commandBus.ts in turn re-imports
@@ -83,17 +113,38 @@ const payWithProductLineSchema = z.object({
   qty: z.coerce.number().positive({ message: 'Line qty must be greater than zero.' }),
 });
 
-const payWithProductPayloadSchema = z.object({
-  vendorId: z.string().uuid({ message: 'vendorId is required.' }),
-  vendorBillId: z.string().uuid().optional(),
-  lines: z
-    .array(payWithProductLineSchema)
-    .min(1, { message: 'At least one barter line is required.' }),
-  settlementAmount: z.coerce.number().nonnegative().optional(),
-  overrideReason: z.string().min(1).optional(),
-  reason: z.string().optional(),
-  note: z.string().optional(),
-});
+const payWithProductPayloadSchema = z
+  .object({
+    // Phase 3: counterparty discriminator. Default 'vendor' preserves the
+    // Phase 1 contract — existing callers that don't pass counterpartyType
+    // continue to settle a vendor payable.
+    counterpartyType: z.enum(['vendor', 'customer']).default('vendor'),
+    vendorId: z.string().uuid().optional(),
+    vendorBillId: z.string().uuid().optional(),
+    customerId: z.string().uuid().optional(),
+    lines: z
+      .array(payWithProductLineSchema)
+      .min(1, { message: 'At least one barter line is required.' }),
+    settlementAmount: z.coerce.number().nonnegative().optional(),
+    overrideReason: z.string().min(1).optional(),
+    reason: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .refine(
+    (data) =>
+      data.counterpartyType === 'vendor' ? !!data.vendorId : !!data.customerId,
+    {
+      message:
+        'vendorId is required when counterpartyType is "vendor"; customerId is required when counterpartyType is "customer".',
+    }
+  )
+  .refine(
+    (data) => !(data.counterpartyType === 'customer' && data.vendorBillId),
+    {
+      message:
+        'vendorBillId is not valid when counterpartyType is "customer" — no vendor bill is settled on the customer (refund-in-kind) path.',
+    }
+  );
 
 // Roles permitted to override the settlement value away from cost basis (D7).
 // Catalog already gates the whole command at minRole='manager', so this is
@@ -127,12 +178,47 @@ export async function payWithProduct(
   // 1. ─── Validate payload ──────────────────────────────────────────────────
   const parsed = payWithProductPayloadSchema.parse(payload);
 
-  const vendorId = parsed.vendorId;
+  const counterpartyType = parsed.counterpartyType;
   const note = parsed.note ?? null;
 
-  // 2. ─── Resolve & sanity-check vendor ─────────────────────────────────────
-  const [vendor] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
-  if (!vendor) throw new Error('Vendor not found.');
+  // 2. ─── Resolve & sanity-check counterparty ──────────────────────────────
+  // Vendor branch: just look up the vendor by id (no FOR UPDATE — vendor row
+  //   itself is not mutated; the vendorBill row is locked in step 8 when it
+  //   exists, and the vendor.termsDays we read is propagated to a new bill
+  //   under that lock).
+  // Customer branch: lock the customer row FOR UPDATE before any other state
+  //   read — we will mutate customers.balance in step 8 and need ledger
+  //   serialisation against concurrent logPayment / allocatePayment /
+  //   settleDebtWithProduct on the same customer (matches the lock pattern
+  //   used by settleDebtWithProduct).
+  let vendor: typeof vendors.$inferSelect | null = null;
+  let customerRow: Record<string, unknown> | null = null;
+  let counterpartyName: string;
+  let vendorId: string | null = null;
+  let customerId: string | null = null;
+
+  if (counterpartyType === 'vendor') {
+    vendorId = parsed.vendorId!;
+    const [v] = await tx.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+    if (!v) throw new Error('Vendor not found.');
+    vendor = v;
+    counterpartyName = v.name;
+  } else {
+    customerId = parsed.customerId!;
+    const result = await tx.execute(
+      sql`SELECT * FROM ${customers} WHERE ${customers.id} = ${customerId} FOR UPDATE`
+    );
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    if (!row) throw new Error('Customer not found.');
+    customerRow = row;
+    counterpartyName = String(row['name'] ?? 'customer');
+  }
+
+  // Generate settlementNo up-front so the customer-branch ledger note can
+  // cross-reference the barterSettlements row before it is inserted (the
+  // header row itself is created in step 9). Matches settleDebtWithProduct's
+  // pre-allocation pattern.
+  const settlementNo = code('BARTER');
 
   // 3. ─── Lock source batches in deterministic order ────────────────────────
   // Sort by batchId to ensure a stable lock acquisition order across concurrent
@@ -250,107 +336,170 @@ export async function payWithProduct(
       commandId,
       kind: 'barter_issue',
       qtyDelta: qtyScale(new Decimal(line.qty).negated().toFixed(3)),
-      reason: `Barter outbound settlement to ${vendor.name}`,
+      reason: `Barter outbound settlement to ${counterpartyName}`,
     });
   }
 
-  // 8. ─── Settlement leg — reduce vendor bill OR create fully-paid bill ────
-  let settledBillId: string;
-  let createdNewBill = false;
+  // 8. ─── Settlement leg — branch by counterparty ─────────────────────────
+  // Vendor branch  : reduce / create a vendor bill + contra vendorPayment
+  //                  (method='product'). No customer rows touched.
+  // Customer branch: reduce the customer.balance (positive AR consumed first,
+  //                  remainder becomes buyer credit per D6). One clientLedger
+  //                  entry per non-zero portion preserves
+  //                  Σ(ledger.amount) == customer.balance exactly. No vendor
+  //                  bill / vendor payment rows are created on this path —
+  //                  that is the whole point of refund-in-kind.
+  let settledBillId: string | null = null; // vendor branch only
+  let createdNewBill = false;               // vendor branch only
 
-  if (parsed.vendorBillId) {
-    // Reduce an existing bill.
-    const billId = parsed.vendorBillId;
-    const billRows = await tx.execute(
-      sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.id} = ${billId} FOR UPDATE`
-    );
-    const bill = billRows.rows[0] as Record<string, unknown> | undefined;
-    if (!bill) throw new Error('Vendor bill not found.');
-    if (bill['vendor_id'] !== vendorId) {
-      throw new Error('Vendor bill does not belong to the specified vendor.');
-    }
-    if (bill['status'] === 'paid' || bill['status'] === 'void') {
-      throw new Error(`Vendor bill is already ${bill['status']}; cannot settle with product.`);
-    }
-    const billAmount = new Decimal(String(bill['amount']));
-    const billPaid = new Decimal(String(bill['amount_paid'] ?? 0));
-    const settlementDec = new Decimal(settlementAmount);
-    // Open balance guard — mirrors recordVendorPayment.
-    if (billPaid.plus(settlementDec).greaterThan(billAmount)) {
-      throw new Error('Product settlement cannot exceed the open vendor bill balance.');
-    }
-    const nextPaid = addMoney(billPaid, settlementDec);
-    const isFullyPaid = new Decimal(nextPaid).gte(billAmount);
-    await tx
-      .update(vendorBills)
-      .set({
-        amountPaid: nextPaid,
-        status: isFullyPaid ? 'paid' : 'partial',
-        dueReason: isFullyPaid ? 'Paid in full (product settlement)' : 'Partially settled with product',
-        updatedAt: new Date(),
-      })
-      .where(eq(vendorBills.id, billId));
-    settledBillId = billId;
-    affectedIds.push(billId);
+  if (counterpartyType === 'vendor') {
+    if (parsed.vendorBillId) {
+      // Reduce an existing bill.
+      const billId = parsed.vendorBillId;
+      const billRows = await tx.execute(
+        sql`SELECT * FROM ${vendorBills} WHERE ${vendorBills.id} = ${billId} FOR UPDATE`
+      );
+      const bill = billRows.rows[0] as Record<string, unknown> | undefined;
+      if (!bill) throw new Error('Vendor bill not found.');
+      if (bill['vendor_id'] !== vendorId) {
+        throw new Error('Vendor bill does not belong to the specified vendor.');
+      }
+      if (bill['status'] === 'paid' || bill['status'] === 'void') {
+        throw new Error(`Vendor bill is already ${bill['status']}; cannot settle with product.`);
+      }
+      const billAmount = new Decimal(String(bill['amount']));
+      const billPaid = new Decimal(String(bill['amount_paid'] ?? 0));
+      const settlementDec = new Decimal(settlementAmount);
+      // Open balance guard — mirrors recordVendorPayment.
+      if (billPaid.plus(settlementDec).greaterThan(billAmount)) {
+        throw new Error('Product settlement cannot exceed the open vendor bill balance.');
+      }
+      const nextPaid = addMoney(billPaid, settlementDec);
+      const isFullyPaid = new Decimal(nextPaid).gte(billAmount);
+      await tx
+        .update(vendorBills)
+        .set({
+          amountPaid: nextPaid,
+          status: isFullyPaid ? 'paid' : 'partial',
+          dueReason: isFullyPaid ? 'Paid in full (product settlement)' : 'Partially settled with product',
+          updatedAt: new Date(),
+        })
+        .where(eq(vendorBills.id, billId));
+      settledBillId = billId;
+      affectedIds.push(billId);
 
-    // Contra vendorPayment entry (method='product') for traceability.
-    const [payment] = await tx
-      .insert(vendorPayments)
-      .values({
-        vendorBillId: billId,
-        amount: moneyScale(settlementAmount),
-        method: 'product',
-        reference: stringValue(payload.reference) || `Barter settlement`,
-        status: 'posted',
-      })
-      .returning();
-    affectedIds.push(payment.id);
+      // Contra vendorPayment entry (method='product') for traceability.
+      const [payment] = await tx
+        .insert(vendorPayments)
+        .values({
+          vendorBillId: billId,
+          amount: moneyScale(settlementAmount),
+          method: 'product',
+          reference: stringValue(payload.reference) || `Barter settlement`,
+          status: 'posted',
+        })
+        .returning();
+      affectedIds.push(payment.id);
+    } else {
+      // No existing bill — create a fully-paid bill + payment, mirroring the
+      // postVendorLedgerPayment pattern but inline (per spec, don't fan out).
+      const txDate = new Date();
+      const [newBill] = await tx
+        .insert(vendorBills)
+        .values({
+          vendorId: vendorId!,
+          billNo: code('VBILL'),
+          amount: moneyScale(settlementAmount),
+          amountPaid: moneyScale(settlementAmount),
+          dueDate: txDate,
+          scheduledFor: txDate,
+          termsDays: vendor!.termsDays,
+          status: 'paid',
+          dueReason: 'Paid in full (product settlement)',
+          createdAt: txDate,
+          updatedAt: txDate,
+        })
+        .returning();
+      settledBillId = newBill.id;
+      createdNewBill = true;
+      affectedIds.push(newBill.id);
+
+      const [payment] = await tx
+        .insert(vendorPayments)
+        .values({
+          vendorBillId: newBill.id,
+          amount: moneyScale(settlementAmount),
+          method: 'product',
+          reference: stringValue(payload.reference) || `Barter settlement`,
+          status: 'posted',
+          createdAt: txDate,
+        })
+        .returning();
+      affectedIds.push(payment.id);
+    }
   } else {
-    // No existing bill — create a fully-paid bill + payment, mirroring the
-    // postVendorLedgerPayment pattern but inline (per spec, don't fan out).
-    const txDate = new Date();
-    const [newBill] = await tx
-      .insert(vendorBills)
-      .values({
-        vendorId,
-        billNo: code('VBILL'),
-        amount: moneyScale(settlementAmount),
-        amountPaid: moneyScale(settlementAmount),
-        dueDate: txDate,
-        scheduledFor: txDate,
-        termsDays: vendor.termsDays,
-        status: 'paid',
-        dueReason: 'Paid in full (product settlement)',
-        createdAt: txDate,
-        updatedAt: txDate,
-      })
-      .returning();
-    settledBillId = newBill.id;
-    createdNewBill = true;
-    affectedIds.push(newBill.id);
+    // ── Customer branch (refund-in-kind / outbound to customer) ───────────
+    // Split semantics mirror settleDebtWithProduct exactly:
+    //   newBalance     = balance − settlementAmount         (always)
+    //   positiveBalance = max(balance, 0)
+    //   settledPortion  = min(positiveBalance, settlement)  → product_settlement entry
+    //   excessPortion   = settlement − settledPortion       → down_payment entry (buyer credit)
+    //
+    // This preserves the invariant Σ(ledger.amount) == customer.balance and
+    // routes the over-settlement remainder to the standard buyer-credit
+    // ledger kind so existing credit / allocation surfaces light up.
+    const currentBalance = new Decimal(String(customerRow!['balance'] ?? 0));
+    const settlementDec = new Decimal(settlementAmount);
+    const positiveBalance = Decimal.max(currentBalance, new Decimal(0));
+    const settledPortion = Decimal.min(positiveBalance, settlementDec);
+    const excessPortion = settlementDec.minus(settledPortion);
 
-    const [payment] = await tx
-      .insert(vendorPayments)
-      .values({
-        vendorBillId: newBill.id,
-        amount: moneyScale(settlementAmount),
-        method: 'product',
-        reference: stringValue(payload.reference) || `Barter settlement`,
-        status: 'posted',
-        createdAt: txDate,
-      })
-      .returning();
-    affectedIds.push(payment.id);
+    const balanceAfterSettled = currentBalance.minus(settledPortion);
+    const balanceAfterExcess = balanceAfterSettled.minus(excessPortion); // == newBalance
+    const newBalance = balanceAfterExcess.toDecimalPlaces(2).toFixed(2);
+
+    await tx
+      .update(customers)
+      .set({ balance: newBalance, updatedAt: new Date() })
+      .where(eq(customers.id, customerId!));
+
+    if (settledPortion.greaterThan(0)) {
+      const [entry] = await tx
+        .insert(clientLedgerEntries)
+        .values({
+          customerId: customerId!,
+          kind: 'product_settlement',
+          amount: moneyScale(settledPortion.negated()),
+          balanceAfter: balanceAfterSettled.toDecimalPlaces(2).toFixed(2),
+          note: `Barter settlement ${settlementNo} — refund-in-kind (product issued to customer)`,
+        })
+        .returning();
+      affectedIds.push(entry.id);
+    }
+    if (excessPortion.greaterThan(0)) {
+      const [entry] = await tx
+        .insert(clientLedgerEntries)
+        .values({
+          customerId: customerId!,
+          kind: 'down_payment',
+          amount: moneyScale(excessPortion.negated()),
+          balanceAfter: newBalance,
+          note: `Barter settlement ${settlementNo} — buyer credit from product value exceeding open AR`,
+        })
+        .returning();
+      affectedIds.push(entry.id);
+    }
   }
 
   // 9. ─── Insert barterSettlements header ──────────────────────────────────
   const [settlement] = await tx
     .insert(barterSettlements)
     .values({
-      settlementNo: code('BARTER'),
+      settlementNo,
       direction: 'outbound',
-      counterpartyType: 'vendor',
-      vendorId,
+      counterpartyType,
+      vendorId: counterpartyType === 'vendor' ? vendorId : null,
+      customerId: counterpartyType === 'customer' ? customerId : null,
       settlementAmount: moneyScale(settlementAmount),
       costBasis: moneyScale(costBasis),
       gainLoss: moneyScale(gainLoss),
@@ -413,8 +562,18 @@ export async function payWithProduct(
     affectedIds.push(journal.id);
   }
 
-  // 12. ─── Vendor id in affected set (for ledger / cache invalidation) ─────
-  affectedIds.push(vendorId);
+  // 12. ─── Counterparty id in affected set + credit-engine refresh ────────
+  // Vendor id (or customer id) is included for ledger / cache invalidation —
+  // any view keyed on the counterparty needs to know the row was touched.
+  // Customer branch also triggers the credit-engine recompute, matching the
+  // payments domain and settleDebtWithProduct so credit/utilization signals
+  // refresh after balance mutation.
+  if (counterpartyType === 'vendor') {
+    affectedIds.push(vendorId!);
+  } else {
+    affectedIds.push(customerId!);
+    await enqueueCustomerRecompute(tx, customerId!, 'event:payWithProduct', commandId);
+  }
 
   // De-dupe affectedIds preserving order.
   const seen = new Set<string>();
@@ -424,9 +583,14 @@ export async function payWithProduct(
     return true;
   });
 
-  const toastDetail = createdNewBill
-    ? `Created paid bill ${moneyScale(settlementAmount)} for ${vendor.name}.`
-    : `Applied ${moneyScale(settlementAmount)} to vendor bill for ${vendor.name}.`;
+  let toastDetail: string;
+  if (counterpartyType === 'vendor') {
+    toastDetail = createdNewBill
+      ? `Created paid bill ${moneyScale(settlementAmount)} for ${counterpartyName}.`
+      : `Applied ${moneyScale(settlementAmount)} to vendor bill for ${counterpartyName}.`;
+  } else {
+    toastDetail = `Issued ${moneyScale(settlementAmount)} of product to ${counterpartyName}.`;
+  }
   const overrideSuffix = valueOverridden
     ? ` (override: ${overrideReason ?? 'reason recorded'})`
     : '';
