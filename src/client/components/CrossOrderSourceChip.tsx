@@ -13,7 +13,7 @@
  *    draw on the same source row, whichever posts second may be refused.
  * The chip is informational only — it never blocks any action.
  */
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import type { GridRow } from '../../shared/types';
 
 /** Statuses where the early warning is actionable (matches the Orders
@@ -39,7 +39,7 @@ export function CrossOrderSourceChip({ status, conflictOrders }: { status: strin
  *  SX-H02: demoted to optional — exception flags are not permanent columns
  *  (Odoo principle). Available in the column chooser; otherwise the chip
  *  remains reachable as a row indicator on hover/expansion. */
-export const crossOrderSourceColumn: ColDef<GridRow> = {
+export const crossOrderSourceColumn: GridColDef<GridRow> = {
   field: 'crossOrderSourceOrders',
   headerName: 'Source conflict',
   width: 190,

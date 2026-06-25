@@ -107,7 +107,8 @@
  */
 import { Check, Search, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
+import type { CellValueChangedEvent } from 'ag-grid-community';
+import type { GridColDef } from '../../../shared/grid-types';
 import { useShallow } from 'zustand/react/shallow';
 import { trpc } from '../../api/trpc';
 import { OperatorGrid } from '../../components/OperatorGrid';
@@ -162,7 +163,7 @@ function isRowEditLocked(params: { data?: GridRow }): boolean {
 // (rather than imported from SalesView.tsx) to avoid a circular dependency
 // between the mode router and its modes. Column behaviour and field names are
 // byte-identical.
-const lineColumns: ColDef<GridRow>[] = [
+const lineColumns: GridColDef<GridRow>[] = [
   {
     field: 'legacyStatusMarker',
     headerName: 'Raw',

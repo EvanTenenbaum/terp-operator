@@ -2,7 +2,8 @@ import { boolCol } from '../../utils/format';
 import { whyShownCol, type RuleMap } from '../../components/columns';
 import { type ReactNode } from 'react';
 import type React from 'react';
-import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
+import type { CellValueChangedEvent } from 'ag-grid-community';
+import type { GridColDef } from '../../../shared/grid-types';
 import { trpc } from '../../api/trpc';
 import { OperatorGrid } from '../../components/OperatorGrid';
 import { type InspectorTab } from '../../components/templates';
@@ -21,7 +22,7 @@ const CLOSEOUT_STATUS_MAP: RuleMap = {
   draft:    'Period is in draft state — not yet locked.',
 };
 
-export const columnsByView: Partial<Record<ViewKey, ColDef<GridRow>[]>> = {
+export const columnsByView: Partial<Record<ViewKey, GridColDef<GridRow>[]>> = {
   // UX-I01: ≤8 visible-by-default columns per grid. Lower-value columns carry
   // hide:true so the experience is clean out-of-the-box; they remain reachable
   // via the Columns menu. gridColumnPrefs prefs take precedence at render time
@@ -285,7 +286,7 @@ export function GridJourney({
     childrenRenderer?: (row: GridRow) => ReactNode;
     isRowMaster?: (row: GridRow) => boolean;
   };
-  columns?: ColDef<GridRow>[];
+  columns?: GridColDef<GridRow>[];
   selectionActions?: (rows: GridRow[], runCommand: ReturnType<typeof useCommandRunner>['runCommand'], setNextSuccessActions?: ReturnType<typeof useCommandRunner>['setNextSuccessActions']) => React.ReactNode;
   inspectorTabs?: (row: GridRow) => InspectorTab[];
   emptyTitle?: string;

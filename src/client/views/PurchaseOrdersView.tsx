@@ -1,6 +1,7 @@
 import { ClipboardList, PackagePlus, Plus } from 'lucide-react';
 import { useState } from 'react';
-import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
+import type { CellValueChangedEvent } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import { trpc } from '../api/trpc';
 import { GridView } from '../templates/GridView';
 import { OperatorGrid } from '../components/OperatorGrid';
@@ -39,7 +40,7 @@ interface RefereeRow {
 // PO LINE COLUMNS (preserved export — used by authoring workspace + tests)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const purchaseOrderLineColumns: ColDef<GridRow>[] = [
+const purchaseOrderLineColumns: GridColDef<GridRow>[] = [
   { field: 'productName', headerName: 'Product / strain', pinned: 'left', editable: true, minWidth: 190 },
   { field: 'category', editable: true, width: 120 },
   { field: 'subcategory', editable: true, width: 140 },
@@ -104,9 +105,9 @@ export function buildReceiveLineQuantities(lines: GridRow[], overrides: Record<s
  * Line-grid columns for a selected PO: when the PO is receivable the editable
  * "Receive qty" column is inserted ahead of the read-only Received column.
  */
-export function purchaseOrderLineColumnsFor(poStatus: unknown): ColDef<GridRow>[] {
+export function purchaseOrderLineColumnsFor(poStatus: unknown): GridColDef<GridRow>[] {
   if (!isPoReceivableStatus(poStatus)) return purchaseOrderLineColumns;
-  const receiveQtyColumn: ColDef<GridRow> = {
+  const receiveQtyColumn: GridColDef<GridRow> = {
     field: 'receiveQty',
     headerName: 'Receive qty',
     editable: true,

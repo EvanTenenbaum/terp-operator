@@ -1,4 +1,8 @@
+import type { ColDef } from 'ag-grid-community';
 import { z } from 'zod';
+
+/** Re-export of ag-grid ColDef so consumers import from a single point. */
+export type GridColDef<TData = any> = ColDef<TData>;
 
 /**
  * Canonical view / entity type enum used by grid queries, gridWhere builders,

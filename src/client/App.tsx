@@ -16,7 +16,7 @@ import { ToastCenter } from './components/ToastCenter';
 import { useUiStore } from './store/uiStore';
 import { CONNECTOR_SURFACES_ENABLED } from './featureFlags';
 import { SocketProvider } from './context/SocketContext';
-import { DashboardView } from './views/DashboardView';
+import { DashboardView } from './templates/DashboardView';
 import { IntakeView } from './views/IntakeView';
 import { LoginView } from './views/LoginView';
 import { MatchmakingView } from './views/MatchmakingView';
