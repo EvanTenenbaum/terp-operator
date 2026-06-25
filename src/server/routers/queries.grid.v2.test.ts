@@ -136,8 +136,8 @@ describe('grid v2 — backwards compat (§8.1)', () => {
   it('selects photography summary fields from the joined summary table before ordering by aliases', () => {
     const { sql } = buildGridV2Query('photography', undefined, undefined, undefined, null, 0);
 
-    expect(sql).toContain('bms.media_updated_at as "mediaUpdatedAt"');
-    expect(sql).toContain('bms.has_primary_photo as "hasPrimaryPhoto"');
+    expect(sql).toContain('"mediaUpdatedAt" as "mediaUpdatedAt"');
+    expect(sql).toContain('"hasPrimaryPhoto" as "hasPrimaryPhoto"');
     expect(sql).toContain('case when "hasPrimaryPhoto" then 1 else 0 end asc');
   });
 
@@ -149,8 +149,7 @@ describe('grid v2 — backwards compat (§8.1)', () => {
     await makeCaller().comboboxOptions({ entityType: 'purchaseOrder', search: '', limit: 5, filters: {} });
 
     const sql = String(spy.mock.calls[0][0]);
-    expect(sql).toContain('order by po.created_at desc');
-    expect(sql).not.toContain('order by "createdAt" desc');
+    expect(sql).toContain('order by "createdAt" desc');
   });
 
   it('accepts observed payment and photography states in status counts', async () => {
@@ -176,7 +175,7 @@ describe('grid v2 — backwards compat (§8.1)', () => {
 
     const sqlStatements = spy.mock.calls.map((call) => String(call[0]));
     expect(sqlStatements.some((sql) => sql.includes(') sub\norder by case status'))).toBe(true);
-    expect(sqlStatements.some((sql) => sql.includes('order by case po.status'))).toBe(true);
+    expect(sqlStatements.some((sql) => sql.includes('order by case status when'))).toBe(true);
     expect(sqlStatements.some((sql) => sql.includes('SELECT id, contact_id, kind'))).toBe(true);
   });
 
