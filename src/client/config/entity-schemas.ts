@@ -64,6 +64,8 @@ export interface FieldDefinition {
   chip?: { palette?: string; multiple?: boolean; allowCreate?: boolean };
   /** Command to dispatch on cell edit commit via useCommandRunner. */
   command?: { name: string; payload?: (row: Record<string, unknown>, value: unknown) => Record<string, unknown>; reason?: string };
+  /** Entity smart-chip configuration: target entity type and ID field for hover-card + click-through. */
+  smartChip?: { target: string; idField: string; previewTab?: string };
   /**
    * Why this field is at its current attention tier.
    * Tier 0: always visible (identity, status, amount).
@@ -178,6 +180,7 @@ export const purchaseOrderSchema: EntityFieldSchema = {
     }),
     t0('vendorName', 'Vendor', 'text', {
       width: 180,
+      smartChip: { target: 'vendor', idField: 'vendorId' },
       rationale: 'The counterparty — without it the row has no context. Derived from vendor_id join.',
     }),
     t0('total', 'Total', 'currency', {
