@@ -1041,22 +1041,31 @@ function withChipRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
     const optionSource = (column as Record<string, unknown>).__optionSource as { kind: string } | undefined;
     void optionSource;
 
-    // Apply chip renderer to status fields AND any field with chip config
-    if (column.field === 'status' || chipConfig) {
+    // Status fields: always render with StatusPill, non-editable, chip-cell class.
+    if (column.field === 'status') {
       return {
         ...column,
-        // Keep editable for non-status chip fields (enum chips are editable via dropdown)
-        editable: column.field === 'status' ? false : column.editable,
+        editable: false,
+        cellClass: [column.cellClass, 'chip-cell'].filter(Boolean).join(' '),
         cellRenderer: (params: { value?: string }) => (
           <StatusPill status={params.value} />
         ),
       };
     }
 
+    // Non-status chip fields (date, boolean, tags, enum): preserve cellRenderer
+    // from useColumnDefs. Only apply StatusPill if no renderer is already set.
+    if (chipConfig) {
+      return {
+        ...column,
+        cellClass: [column.cellClass, column.editable ? 'chip-cell' : ''].filter(Boolean).join(' '),
+      };
+    }
+
     return canWrite
       ? {
           ...column,
-          cellClass: column.editable ? 'editable-cell chip-cell' : column.cellClass,
+          cellClass: column.editable ? 'editable-cell' : column.cellClass,
         }
       : { ...column, editable: false };
   });
