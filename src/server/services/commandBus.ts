@@ -1174,17 +1174,11 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
     }
 
     // Barter settlement receipts
+    // Barter settlement receipts
     if (commandResult.ok && (input.name === 'payWithProduct' || input.name === 'settleDebtWithProduct')) {
-      const settlementIds = (commandResult.affectedIds || []).filter((id: string) => {
-        // The settlement ID is the first affected ID for barter commands
-        return id && id.length === 36;
-      });
-      for (const settlementId of settlementIds) {
-        try {
-          await createBarterReceipts(pool, settlementId);
-        } catch (err) {
-          logger.warn({ err, settlementId }, 'Barter receipt generation failed (non-fatal)');
-        }
+      const settlementId = commandResult.affectedIds?.[0];
+      if (settlementId) {
+        createBarterReceipts(settlementId).catch(() => {});
       }
     }
 
