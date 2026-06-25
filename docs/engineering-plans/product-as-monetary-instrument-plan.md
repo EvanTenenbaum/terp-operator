@@ -46,6 +46,16 @@ D2 ("value at cost") and D3 ("recognize gain/loss = settlement value − cost ba
 
 This is also the most flexible and correct design, so we lose nothing by building it this way.
 
+### 2.2 Resolved open questions (product owner, 2nd pass)
+
+| # | Question | Decision | Consequence |
+|---|----------|----------|-------------|
+| D4 | How does **inbound** product enter inventory? | **Through a real (barter) PO + receipt** — *not* a PO-less direct batch. | Reuses the entire intake path; removes the "posted batch without a PO" special case and its sweep risk. Requires the counterparty to have a vendor/supplier identity (auto-provisioned via the contacts link). The receipt creates a `vendorBill` (AP) that is then **netted** against the client's AR. See §6.1. |
+| D5 | **Consigned** (`ownershipStatus='C'`) product used **outbound** | **Block in v1.** | You cannot give away product you don't own free-and-clear. The command rejects with guidance to run `transferInventoryOwnership` to `OFC` first (which settles the consignment bill), then barter. |
+| D6 | **Over-settlement** inbound (product worth more than the client owes) | **Allow; excess becomes a buyer credit.** | Reuse existing `buyer_credit` / unapplied semantics — the remainder sits as a credit on the customer rather than driving an invoice negative. |
+| D7 | **Who may override** the settlement value away from cost, and is a reason required? | **`manager`+ role; a reason code is required on any override.** | Overriding is the only thing that creates gain/loss, so it is gated and must be justified for audit. Default (no override) needs no reason. |
+| D8 | **Tax forms** (1099-B / barter-exchange statements) | **Not needed.** | v1 keeps fully auditable records (settlement docs, gain/loss journal, receipts) but generates no tax forms. |
+
 ---
 
 ## 3. Current-state recap (what we build on)
@@ -91,19 +101,19 @@ Every barter settlement, in either direction, is one atomic command producing up
                  └─────────────────────────────────────────────────────┘
 ```
 
-### 4.1 Inbound (client → operator)
+### 4.1 Inbound (client → operator) — via a barter PO (D4)
 
-The client gives product; the operator forgives part of the client's balance.
+The client gives product; the operator forgives part of the client's balance. Per **D4, the product comes in through a normal PO + receipt**, so inventory provenance, costing, and reporting all work with zero special cases.
 
-1. **Inventory leg:** create a new **owned (`OFC`) batch** from the received product, `unitCost = agreed per-unit cost`, `availableQty = qty`. Movement `kind='barter_intake'`. (No PO, no vendor bill — see §6.1.)
-2. **Settlement leg:** reduce `customers.balance` by `settlementAmount`; append `clientLedgerEntries kind='product_settlement'` (signed negative); optionally allocate to specific open invoices (reuse the `allocatePayment` allocation logic) so AR aging stays correct.
-3. **Gain/loss leg:** because the inbound product is **booked into inventory at its settlement value**, inbound has **no immediate P&L** (cost basis ≡ settlement amount by construction). Gain/loss is deferred to the eventual resale via the normal sales margin path. *(This is the standard treatment and is consistent with D2/D3.)*
+1. **Inventory leg (PO path):** create a **barter PO** against the counterparty's vendor/supplier identity (auto-provisioned via the contacts link if the customer has no vendor record), with line `unitCost = agreed per-unit cost`. Receive it through the existing `postPurchaseReceipt` path → owned (`OFC`) `batches` + a `vendorBill` (AP) for `costBasis = Σ(qty × unitCost)`. The intake movement is the normal receipt movement (no new movement kind needed inbound).
+2. **Settlement leg (net AP↔AR):** the new `vendorBill` (what we now "owe" the client for the product) is **netted against the client's AR**. Reduce `customers.balance` by `settlementAmount`, append `clientLedgerEntries kind='product_settlement'` (signed negative), and settle the `vendorBill` via a contra `vendorPayment` (`method='product'`) funded by that AR reduction — **cash movement is zero**. Optionally allocate to specific open invoices (reuse `allocatePayment` logic) so AR aging stays correct.
+3. **Gain/loss leg:** by default `settlementAmount = costBasis` (the PO cost), so inbound gain/loss is `0`. If a manager **overrides** the AR reduction to differ from the PO cost (D7), the difference books to the correction journal exactly as outbound does. **Over-settlement** (product worth more than owed, D6) leaves the excess as a buyer credit / unapplied amount.
 
 ### 4.2 Outbound (operator → vendor or client)
 
 The operator gives product; the counterparty's claim is reduced.
 
-1. **Inventory leg:** issue `qty` from one or more existing batches (`availableQty -= qty`, guard ≥ 0). Movement `kind='barter_issue'`. **Cost basis = `Σ(qty × batch.unitCost)`** of the issued batches.
+1. **Inventory leg:** issue `qty` from one or more existing batches (`availableQty -= qty`, guard ≥ 0). Movement `kind='barter_issue'`. **Cost basis = `Σ(qty × batch.unitCost)`** of the issued batches. **Per D5, batches with `ownershipStatus='C'` (consigned) are rejected** — transfer ownership to `OFC` first.
 2. **Settlement leg:**
    - Vendor: reduce a `vendorBill` (reuse `recordVendorPayment` with `method='product'`), or create a fully-paid bill for ad-hoc settlements (reuse the `postVendorLedgerPayment` path).
    - Client (operator owes a client, e.g. refund/credit): reduce balance / issue a buyer credit.
@@ -129,6 +139,12 @@ export const barterSettlements = pgTable('barter_settlements', {
   settlementAmount: numeric('settlement_amount', { precision: 12, scale: 2 }).notNull(),
   costBasis: numeric('cost_basis', { precision: 12, scale: 2 }).notNull(),
   gainLoss: numeric('gain_loss', { precision: 12, scale: 2 }).notNull().default('0'),
+  valueOverridden: boolean('value_overridden').notNull().default(false), // D7: true when settlementAmount != costBasis
+  overrideReason: text('override_reason'),                                // D7: required when valueOverridden
+  // Inbound provenance (D4): the barter PO/receipt/bill the product came in on
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id),
+  purchaseReceiptId: uuid('purchase_receipt_id').references(() => purchaseReceipts.id),
+  vendorBillId: uuid('vendor_bill_id').references(() => vendorBills.id),   // inbound: netted bill; outbound: settled bill
   status: varchar('status', { length: 24 }).notNull().default('posted'), // 'posted' | 'reversed'
   commandId: uuid('command_id'),
   note: text('note'),
@@ -163,7 +179,7 @@ export const barterSettlementAllocations = pgTable('barter_settlement_allocation
 
 - `paymentMethodSchema` (`src/shared/schemas.ts`) and `vendorPayments.method`: add **`'product'`** (in-kind). This lets the existing payment/vendor-payment rows and receipts represent the money leg without a parallel structure.
 - `clientLedgerEntries.kind`: add **`'product_settlement'`** (inbound AR reduction) and **`'product_settlement_reversal'`**.
-- `inventoryMovements.kind`: add **`'barter_intake'`**, **`'barter_issue'`**, and their `'*_reversal'` forms.
+- `inventoryMovements.kind`: add **`'barter_issue'`** and `'barter_issue_reversal'` (outbound). *(Inbound reuses the normal receipt movement per D4 — no new inbound kind.)*
 - `correctionJournalEntries`: add nullable **`source_type`** (`'barter_settlement'`) and **`source_id`** (settlement id) and **`command_id`** columns so gain/loss rows are traceable and reversible. *(Currently this table has no FK/command linkage; needed for clean reversal.)*
 - `customerBalanceReconciliation` / `moneyInvariants`: extend coverage (see §9).
 
@@ -191,14 +207,16 @@ Two new commands sharing one service (`src/domains/barter/commands.ts`), registe
 
 > Alternative considered: a single `recordBarterSettlement` with a `direction` field. Rejected for first build — two commands keep RBAC, reversal guidance, validation, and receipts cleaner and match the codebase's "specific command" idiom. They still call one shared service.
 
-### 6.1 Inbound intake without a PO
+### 6.1 Inbound intake via a barter PO (D4)
 
-`createBatch` currently **mandates a PO line** (TER-1658). Inbound barter has no PO. Options, in preference order:
+`createBatch` **mandates a PO line** (TER-1658). Per **D4 we honor that**: inbound barter product comes in on a real **barter purchase order**, so there is **no PO-less special case** and the "posted batch ⇒ has a PO" assumption across closeout/parity/projections stays intact.
 
-1. **Add a barter-aware intake path** in the barter service that inserts a `batches` row directly (status `posted`, `ownershipStatus='OFC'`, `purchaseOrderId=NULL`, `purchaseOrderLineId=NULL`) and writes the `barter_intake` movement — **bypassing the PO requirement deliberately**, with validation that `unitCost` and `qty` are present. *(Recommended — least surprising, no fake PO data.)*
-2. Synthesize a hidden "barter source" PO per settlement. Rejected — pollutes PO reporting and vendor analytics.
+Flow inside `settleDebtWithProduct`:
+1. **Resolve a supplier identity for the counterparty.** The PO requires a `vendorId`. The counterparty is a customer, so we resolve (or auto-provision) a linked vendor record through the **contacts system (CAP-033)**: if the customer's `contactId` already maps to a vendor, reuse it; otherwise create a minimal vendor and link it. This makes the same real-world counterparty representable as both customer (AR) and vendor (AP).
+2. **Create + receive the barter PO** using the existing `createPurchaseOrder` → `postPurchaseReceipt` path: lines carry `qty` and `unitCost` (the agreed cost basis). Receipt produces owned (`OFC`) `batches` + a `vendorBill` for `costBasis`. Tag the PO/bill (e.g., `dueReason`/note `'barter'`) so reporting can distinguish barter intake.
+3. **Net the new `vendorBill` against the client's AR** (the settlement leg, §8.1).
 
-We must audit every query/closeout assumption that "a posted batch has a PO" (e.g., `closeout.ts` blockers, parity audits, receipt projections) and make `purchaseOrderId` nullability explicit there.
+**Dependency to verify:** the customer↔vendor identity bridge. The contacts system already links both sides via `contactId`; confirm a helper exists (or add one) to resolve "vendor identity for this customer" so we don't create duplicate counterparties. This replaces the former PO-less risk with a smaller, well-bounded identity-resolution task.
 
 ### 6.2 Catalog wiring (`src/shared/commandCatalog.ts`)
 
@@ -224,7 +242,7 @@ All legs run inside the single `db.transaction` opened by `executeCommand`. Reus
 The command bus reverses by restoring `beforeSnapshot`. Barter is harder because the inventory may have moved on:
 
 - **Outbound reversal** (return issued product): restore `availableQty` on source batches, restore the vendor bill `amountPaid`/`status`, reverse the gain/loss journal row (new offsetting `correctionJournalEntries` row, respecting period lock), mark settlement `reversed`. Generally safe.
-- **Inbound reversal** is dangerous if the **received batch was already (partly) resold**. Guard: refuse reversal when `batch.availableQty < batch.intakeQty` (i.e., some has left) — require an explicit offsetting settlement instead. Encode this in `reversalPolicies` guidance: *"Offsettable. If the received product has been sold, reverse the downstream sale first or post an offsetting outbound settlement."*
+- **Inbound reversal** must unwind the AR netting, the contra `vendorPayment`/`vendorBill`, the receipt, and the PO, **and** the received inventory — so it is dangerous if the **received batch was already (partly) resold**. Guard: refuse reversal when `batch.availableQty < batch.intakeQty` (i.e., some has left), and refuse when the barter PO/receipt has been amended downstream. Encode in `reversalPolicies` guidance: *"Offsettable. If the received product has been sold, reverse the downstream sale first or post an offsetting outbound settlement; the barter PO/receipt is reversed as part of the settlement, not independently."* Prefer **offsetting entries over hard reversal** for inbound once any downstream activity exists.
 - Period locks: if the settlement's period is locked, reversal must be blocked (consistent with existing closeout rules).
 
 ---
@@ -233,25 +251,27 @@ The command bus reverses by restoring `beforeSnapshot`. Barter is harder because
 
 ### 8.1 Inbound — `settleDebtWithProduct`
 ```
-payload: { customerId, lines:[{productName, qty, unitCost, category?, brandId?, vendorId?}],
-           settlementAmount?, allocationIntent?: 'fifo'|'selected_invoice'|'unapplied', invoiceId?, reason }
+payload: { customerId, lines:[{productName, qty, unitCost, category?, brandId?}],
+           settlementAmount?, overrideReason?,
+           allocationIntent?: 'fifo'|'selected_invoice'|'unapplied', invoiceId?, reason }
 ```
-1. Validate (Zod), `requiredId(customerId)`, lines non-empty, qty>0, unitCost≥0.
+1. Validate (Zod), `requiredId(customerId)`, lines non-empty, qty>0, unitCost≥0. If `settlementAmount` is set and ≠ costBasis, require `overrideReason` and `manager`+ role (D7).
 2. `costBasis = Σ mulMoney(qty, unitCost)`; `settlementAmount = payload.settlementAmount ?? costBasis` (D2 default).
-3. For each line: insert owned `batches` row (§6.1) + `inventoryMovements kind='barter_intake'`.
-4. Lock customer; `balance = subMoney(balance, settlementAmount)`; insert `clientLedgerEntries kind='product_settlement'` (amount `-settlementAmount`, `balanceAfter`).
-5. If `allocationIntent` set, run allocation against open invoices (reuse `allocatePayment` core) → `barterSettlementAllocations` + `invoices.amountPaid`.
-6. Insert `barterSettlements` (gainLoss = 0 inbound) + lines.
-7. `affectedIds = [settlementId, customerId, ...batchIds, ...invoiceIds]`.
-8. Post-commit: `createBarterReceipts` (internal + external snapshots).
+3. **Intake via barter PO (D4, §6.1):** resolve/auto-provision the counterparty's vendor identity; create + receive the barter PO → owned `batches` + `vendorBill` for `costBasis`.
+4. **Net the bill against AR:** lock customer; `balance = subMoney(balance, settlementAmount)`; insert `clientLedgerEntries kind='product_settlement'` (amount `-settlementAmount`, `balanceAfter`); settle the `vendorBill` via a contra `vendorPayment` (`method='product'`).
+5. If `allocationIntent` set, allocate against open invoices (reuse `allocatePayment` core) → `barterSettlementAllocations` + `invoices.amountPaid`. **Over-settlement** beyond the balance leaves a buyer credit / unapplied amount (D6).
+6. `gainLoss = subMoney(settlementAmount, costBasis)`; if ≠ 0, `assertPeriodUnlocked` + insert `correctionJournalEntries` (`source_type='barter_settlement'`, `source_id`, `command_id`).
+7. Insert `barterSettlements` (with `purchaseOrderId/purchaseReceiptId/vendorBillId`, `valueOverridden`, `overrideReason`) + lines.
+8. `affectedIds = [settlementId, customerId, poId, receiptId, vendorBillId, ...batchIds, ...invoiceIds, journalId?]`.
+9. Post-commit: `createBarterReceipts` (internal + external snapshots).
 
 ### 8.2 Outbound — `payWithProduct`
 ```
 payload: { counterpartyType:'vendor'|'customer', vendorId?|customerId?,
            lines:[{batchId, qty}], settlementAmount?, vendorBillId?|allocationIntent?, reason }
 ```
-1. Validate; resolve counterparty.
-2. Lock each source batch; check `availableQty >= qty`; `costBasis = Σ mulMoney(qty, batch.unitCost)`.
+1. Validate; resolve counterparty. If `settlementAmount` ≠ costBasis, require `overrideReason` + `manager`+ (D7).
+2. Lock each source batch; **reject `ownershipStatus='C'` consigned batches (D5)**; check `availableQty >= qty`; `costBasis = Σ mulMoney(qty, batch.unitCost)`.
 3. `settlementAmount = payload.settlementAmount ?? costBasis` (D2 default); `gainLoss = subMoney(settlementAmount, costBasis)`.
 4. Decrement `batches.availableQty`; insert `inventoryMovements kind='barter_issue'` (qtyDelta negative).
 5. Settle: vendor → `recordVendorPayment`/`postVendorLedgerPayment` path with `method='product'`; customer → reduce balance / buyer credit.
@@ -292,11 +312,13 @@ Kept **composable**: the product leg is one barter command; any cash remainder i
 2. Outbound over-issue (qty > availableQty) → rejected under lock.
 3. Settlement amount overridden above/below cost → correct signed gain/loss, correct period, blocked if period locked.
 4. Inbound allocation to specific invoice vs FIFO vs unapplied; over-settlement beyond outstanding balance → produces a buyer credit / unapplied amount (reuse existing semantics) rather than negative invoice.
-5. Consigned (`ownershipStatus='C'`) product used outbound → must settle/ု trigger the consignment vendor bill correctly (do not give away product you don't own free-and-clear without flagging). Recommend **blocking outbound barter of `C` inventory** in v1, or requiring ownership transfer first.
-6. Idempotency: same `idempotencyKey` replays the stored result, no double inventory move.
-7. Reversal restores balances, bills, inventory, and offsets the gain/loss entry.
+5. Consigned (`ownershipStatus='C'`) product used outbound → **rejected (D5)** with guidance to transfer ownership to `OFC` first.
+6. Idempotency: same `idempotencyKey` replays the stored result, no double inventory move and no duplicate barter PO.
+7. Reversal restores balances, bills, inventory, the barter PO/receipt, and offsets the gain/loss entry.
 8. Multi-line / multi-batch settlements; rounding (`Decimal.js`) across many lines sums exactly.
-9. Reconciliation cron drift = 0 after settlements.
+9. Reconciliation cron drift = 0 after settlements (AR ledger + the contra AP both balance).
+10. **Inbound vendor-identity resolution (D4):** customer with no existing vendor link auto-provisions exactly one vendor identity; a customer who is already a vendor reuses it (no duplicate counterparty).
+11. **Override gating (D7):** non-manager override attempt rejected; manager override without a reason rejected.
 
 ---
 
@@ -306,21 +328,21 @@ Each phase is independently shippable and testable (TDD-first per repo policy; c
 
 - **Phase 0 — Schema & migration.** Tables, enum/column additions, CHECK constraints, `schema.ts` parity, snapshot/`collectIds` wiring. *(No behavior yet.)*
 - **Phase 1 — Outbound vendor barter.** `payWithProduct` for vendor bills (builds on existing `recordVendorPayment` / `postVendorLedgerPayment`), inventory issue, gain/loss journal, reversal, receipts, tests. *(Highest reuse, lowest novelty — good first slice.)*
-- **Phase 2 — Inbound client barter.** `settleDebtWithProduct`, PO-less intake path (§6.1), AR reduction + optional allocation, reversal guard, receipts, tests. *(Introduces the PO-less intake, the riskier piece — isolate it.)*
+- **Phase 2 — Inbound client barter.** `settleDebtWithProduct`: customer↔vendor identity resolution (§6.1), barter PO create+receive, AP↔AR netting + optional allocation, over-settlement → buyer credit, reversal guard, receipts, tests. *(Introduces the identity bridge — isolate it.)*
 - **Phase 3 — Outbound client / refund-in-kind + partial barter+cash via `runBulk`.**
 - **Phase 4 — Invariants, reconciliation tests, closeout/archive inclusion, credit-engine signal verification, UI polish, impact preview.**
 
-Estimated: each phase ~1 focused work unit; Phase 0/2 carry the most cross-cutting risk.
+Estimated: each phase ~1 focused work unit; Phase 2 (identity bridge + AP↔AR netting) carries the most cross-cutting risk.
 
 ---
 
 ## 13. Risks & far-reaching dependencies
 
-- **PO-less intake (TER-1658) regression risk** — the assumption "posted batch ⇒ has a PO" is embedded in closeout, parity audits, and projections. Must be swept (§6.1). *High.*
+- **Customer↔vendor identity bridge (D4)** — inbound barter needs the customer represented as a supplier for the barter PO. Must resolve via the contacts system without creating duplicate counterparties or double-counting in vendor analytics; barter POs/bills should be tagged so they don't distort normal purchasing reports. *(Replaces the former, higher PO-less-intake risk.)* *Medium.*
 - **Inventory valuation drift** — if outbound cost basis is taken from `unitCost` but a batch's cost was itself an override/exception, ensure we read the resolved landed cost, not a stale column. *Medium.*
-- **Reversal after downstream movement** — inbound product resold, outbound product was consigned. Guards required. *Medium.*
+- **Reversal after downstream movement** — inbound product resold; the barter PO/receipt amended downstream. Guards required (§7). *Medium.*
 - **Period locks vs gain/loss** — gain/loss must land in the correct open period; late reversals into locked periods must be blocked. *Medium.*
-- **Tax/regulatory** — barter is generally taxable at fair value and may carry 1099-B/barter-exchange reporting obligations. v1 ensures **auditable records** (settlement docs, gain/loss journal, receipts) but does **not** generate tax forms. Flag for finance. *Document, out of scope.*
+- **Tax/regulatory** — barter is generally taxable at fair value. Per **D8 no tax forms are generated**; v1 keeps fully **auditable records** (settlement docs, gain/loss journal, receipts) for finance to use downstream. *Out of scope by decision.*
 - **Credit engine feedback** — non-cash balance reductions influence credit limits; verify no unintended limit inflation from large barter settlements. *Low/Medium.*
 
 ---
@@ -334,12 +356,17 @@ Estimated: each phase ~1 focused work unit; Phase 0/2 carry the most cross-cutti
 
 ---
 
-## 15. Open questions for finance/product
+## 15. Resolved decisions (was: open questions)
 
-1. **Consigned product outbound (edge #5):** block entirely in v1, or allow with an automatic ownership-transfer + consignment-bill settlement? *(Plan assumes block.)*
-2. **Over-settlement inbound:** if product value exceeds what the client owes, create a buyer credit (assumed) or refuse?
-3. **Who can override the settlement value** away from cost — `manager` (assumed) or a higher role, and does an override require a reason code (recommended)?
-4. **Tax reporting:** confirm v1 "auditable records only" is acceptable and no form generation is required this cycle.
+All previously-open questions are now decided (see §2.2):
+
+1. **Inbound intake** → through a real **barter PO + receipt**, netted AP↔AR (D4).
+2. **Consigned product outbound** → **blocked** in v1; transfer to `OFC` first (D5).
+3. **Over-settlement inbound** → **allowed**, excess becomes a **buyer credit** (D6).
+4. **Override authority** → **`manager`+ with a required reason code** (D7).
+5. **Tax forms** → **not generated**; auditable records only (D8).
+
+No open product questions remain for v1. Remaining work is engineering verification (the customer↔vendor identity helper, the barter-PO reporting tag) rather than product decisions.
 
 ---
 
