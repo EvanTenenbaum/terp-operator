@@ -64,6 +64,8 @@ export interface FieldDefinition {
   chip?: { palette?: string; multiple?: boolean; allowCreate?: boolean };
   /** Command to dispatch on cell edit commit via useCommandRunner. */
   command?: { name: string; payload?: (row: Record<string, unknown>, value: unknown) => Record<string, unknown>; reason?: string };
+  /** Passive at-rest signal: 'none' | 'warning' | 'danger'. Amber/danger only. */
+  signal?: (row: Record<string, unknown>) => 'none' | 'warning' | 'danger';
   /**
    * Why this field is at its current attention tier.
    * Tier 0: always visible (identity, status, amount).
@@ -188,10 +190,21 @@ export const purchaseOrderSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('expectedDate', 'Expected', 'date', {
       width: 130,
+      chip: { palette: 'date' },
+      signal: (row) => {
+        const v = row.expectedDate;
+        if (v == null) return 'none';
+        const ts = new Date(v as string | number | Date).getTime();
+        if (Number.isNaN(ts)) return 'none';
+        const status = row.status;
+        if (status === 'received' || status === 'cancelled') return 'none';
+        return ts < Date.now() ? 'warning' : 'none';
+      },
       rationale: 'Operators filter by expected arrival constantly — but it is not identity.',
     }),
     t1('orderedAt', 'Ordered', 'date', {
       width: 130,
+      chip: { palette: 'date' },
       rationale: 'Useful for age-based scanning, but not a split-second decision driver.',
     }),
     t1('paymentTerms', 'Terms', 'enum', {

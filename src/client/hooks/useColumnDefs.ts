@@ -226,6 +226,13 @@ function fieldToColDef(
       base.valueFormatter = (params: ValueFormatterParams) =>
         formatBool(params.value);
       base.cellClass = 'text-center';
+      // Boolean chip rendering: when chip is set, downstream enhancer
+      // (cellRenderers/BooleanPillCell) reads __chipConfig and renders a
+      // Yes/No pill instead of plain text. The shared __chipConfig storage
+      // below the switch picks this up; we just mark intent here.
+      if (f.chip) {
+        (base as Record<string, unknown>).__booleanPill = true;
+      }
       break;
 
     case 'enum': {
@@ -299,6 +306,12 @@ function fieldToColDef(
 
     case 'tags':
       // Tag chip cellRenderer applied downstream by OperatorGrid enhancements.
+      // When optionSource is 'tags' or chip is set, store the config so the
+      // downstream tag renderer (cellRenderers/TagChipsCell) can pick it up
+      // via __chipConfig and __optionSource (set below the switch).
+      if (f.optionSource?.kind === 'tags' || f.chip) {
+        (base as Record<string, unknown>).__tagChips = true;
+      }
       break;
 
     case 'text':
@@ -312,6 +325,10 @@ function fieldToColDef(
   }
   if (f.optionSource) {
     (base as Record<string, unknown>).__optionSource = f.optionSource;
+  }
+  // Store signal function for downstream enhancers.
+  if (f.signal) {
+    (base as Record<string, unknown>).__signal = f.signal;
   }
 
   return base;
