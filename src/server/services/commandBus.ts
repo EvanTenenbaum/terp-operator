@@ -146,6 +146,7 @@ import { createSalesConfirmationReceipts } from './salesConfirmationReceipts';
 import { createInvoiceReceipts } from './invoiceReceipts';
 import { createPaymentReceivedReceipts } from './paymentReceivedReceipts';
 import { createVendorPayoutReceipts } from './vendorPayoutReceipts';
+import { createBarterReceipts } from './barterReceipts';
 
 // PO domain commands extracted to @/domains/purchase-orders (P1.PO.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
@@ -1169,6 +1170,21 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         await createVendorPayoutReceipts(pool, commandResult.affectedIds[1], commandId, user.id);
       } catch (e) {
         logger.warn('Vendor payout receipt hook failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+
+    // Barter settlement receipts
+    if (commandResult.ok && (input.name === 'payWithProduct' || input.name === 'settleDebtWithProduct')) {
+      const settlementIds = (commandResult.affectedIds || []).filter((id: string) => {
+        // The settlement ID is the first affected ID for barter commands
+        return id && id.length === 36;
+      });
+      for (const settlementId of settlementIds) {
+        try {
+          await createBarterReceipts(pool, settlementId);
+        } catch (err) {
+          logger.warn({ err, settlementId }, 'Barter receipt generation failed (non-fatal)');
+        }
       }
     }
 
