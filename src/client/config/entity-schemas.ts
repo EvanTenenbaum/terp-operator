@@ -409,12 +409,12 @@ export const itemSchema: EntityFieldSchema = {
       width: 200,
       rationale: 'Human-readable product name — the primary descriptor for all workflows.',
     }),
-    t0('category', 'Category', 'text', {
-      width: 140,
-      rationale: 'Product taxonomy; operators group and filter by category constantly.',
-    }),
 
     // ── Tier 1: visible by default ──
+    t1('category', 'Category', 'text', {
+      width: 140,
+      rationale: 'Product taxonomy — DR-1: category at Tier 1; operators filter by category in the filter toolbar instead of the default grid scan.',
+    }),
     t1('alias', 'Alias', 'text', {
       width: 150,
       rationale: 'Alternate names used by vendors or legacy systems; helpful but secondary.',
