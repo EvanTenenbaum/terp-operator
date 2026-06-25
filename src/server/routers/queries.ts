@@ -208,42 +208,16 @@ const STATUS_COUNTS_REGISTRY: Record<string, StatusCountsEntry> = {
 
 // ─── gridInputSchema — extended input for grid v2, with backwards-compat
 // `view` alias accepted alongside new `entityType`.
-
-// ─── View name → canonical entity type mapping ──────────────────────────
-// Some client views pass plural view names (e.g. "purchaseOrders") to the
-// grid query's `view` parameter. The transform at line ~228 sets entityType
-// from view when entityType is not provided. The grid procedure body uses
-// entityType for table routing, which expects canonical singular forms.
-// This map normalizes view names to canonical entity types at the boundary.
-const VIEW_TO_ENTITY: Record<string, string> = {
-  purchaseOrders: 'purchaseOrder',
-  sales: 'salesOrder',
-  orders: 'salesOrder',
-  payments: 'payment',
-  inventory: 'batch',
-  intake: 'batch',
-  items: 'item',
-  fulfillment: 'fulfillmentLine',
-  'fulfillment-picks': 'pickList',
-  'fulfillment-lines': 'fulfillmentLine',
-  connectors: 'connectorRequest',
-  photography: 'photographyQueue',
-  purchaseReceipts: 'purchaseReceipt',
-  disputes: 'invoiceDispute',
-  'credit-review': 'invoiceDispute',
-  pick: 'pickList',
-  matchmaking: 'matchmakingMatch',
-  referees: 'refereeCredit',
-  clients: 'customer',
-  vendors: 'vendor',
-  processors: 'processor',
-  closeout: 'commandJournal',
-  recovery: 'commandJournal',
-  dashboard: 'commandJournal',
-  reports: 'commandJournal',
-  contacts: 'customer',
-  settings: 'systemSettings',
-};
+//
+// NOTE: The grid procedure (gridSqlParts, EQ_ALLOWLIST, SORT_ALLOWLIST,
+// statusSchemaFor, etc.) expects VIEW NAMES (e.g. 'sales', 'inventory',
+// 'purchaseOrders'), NOT entity types. Do NOT insert a normalization
+// layer here — it will cause all grid queries to return 500 because
+// gridSqlParts has no case for the entity type form.
+//
+// Separate normalization (if needed for other procedures like
+// statusCounts or gridSummary) should happen at those procedure
+// boundaries, not in the shared gridInputSchema.
 
 export const gridInputSchemaRaw = z.object({
   entityType: viewSchema.optional(),
@@ -264,7 +238,7 @@ export const gridInputSchemaRaw = z.object({
 
 export const gridInputSchema = gridInputSchemaRaw.transform((input) => ({
   ...input,
-  entityType: VIEW_TO_ENTITY[(input.entityType ?? input.view)!] ?? (input.entityType ?? input.view)!,
+  entityType: (input.entityType ?? input.view)!,
 }));
 
 export type GridInput = z.infer<typeof gridInputSchema>;
@@ -2985,7 +2959,7 @@ export const queriesRouter = router({
       // CTE: compute running_balance over ALL entries for this contact so the
       // running balance stays correct even when filtered by kind (TER-1654).
       const cte = `WITH all_entries AS (
-        SELECT id, kind, amount, method, reference, note, created_at,
+        SELECT id, contact_id, kind, amount, method, reference, note, created_at,
           SUM(amount) OVER (PARTITION BY contact_id ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance
         FROM contact_ledger_entries
         WHERE contact_id = $1
@@ -3350,7 +3324,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                left join purchase_orders po on po.id = b.purchase_order_id
                left join items i on i.id = b.item_id
                where b.archived_at is null`,
-        defaultOrderBy: 'b.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'purchaseOrders':
       return {
@@ -3366,8 +3340,8 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                left join vendors v on v.id = po.vendor_id
                left join purchase_order_lines pol on pol.purchase_order_id = po.id
                group by po.id, v.name`,
-        defaultOrderBy: `case po.status when 'draft' then 0 when 'approved' then 1 when 'partially_received' then 2 when 'received' then 3 else 4 end,
-                         po.created_at desc`,
+        defaultOrderBy: `case status when 'draft' then 0 when 'approved' then 1 when 'partially_received' then 2 when 'received' then 3 else 4 end,
+                         "createdAt" desc`,
       };
     case 'sales':
       return {
@@ -3383,7 +3357,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                left join customers c on c.id = so.customer_id
                left join sales_order_lines sol on sol.order_id = so.id
                group by so.id, c.name`,
-        defaultOrderBy: 'so.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'matchmaking':
       return {
@@ -3401,14 +3375,14 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                join vendor_supply vs on vs.id = mm.vendor_supply_id
                left join customers c on c.id = cn.customer_id
                left join vendors v on v.id = vs.vendor_id`,
-        defaultOrderBy: `case mm.status when 'open' then 0 when 'accepted' then 1 when 'dismissed' then 2 else 3 end,
-                         mm.score desc, mm.updated_at desc`,
+        defaultOrderBy: `case status when 'open' then 0 when 'accepted' then 1 when 'dismissed' then 2 else 3 end,
+                         score desc, "updatedAt" desc`,
       };
     case 'orders':
       return {
         body: `select so.id, so.order_no as "orderNo", c.name as customer, so.status, so.total, so.delivery_window as "deliveryWindow", so.notes,
                       so.packed, so.inventory_posted as "inventoryPosted", so.payment_followup as "paymentFollowup",
-                      so.legacy_status_markers as "legacyStatusMarkers", so.validation_issues as "validationIssues",
+                      so.legacy_status_markers as "legacyStatusMarkers", so.validation_issues as "validationIssues", so.created_at as "createdAt",
                       i.id as "invoiceId", i.invoice_no as "invoiceNo", i.status as "invoiceStatus", so.posted_at as "postedAt", so.fulfilled_at as "fulfilledAt",
                       (select d.id from invoice_disputes d where d.invoice_id = i.id and d.status = 'open' limit 1) as "openDisputeId",
                       (select string_agg(distinct so2.order_no, ', ')
@@ -3423,7 +3397,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                from sales_orders so
                left join customers c on c.id = so.customer_id
                left join invoices i on i.order_id = so.id`,
-        defaultOrderBy: 'so.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'payments':
       return {
@@ -3431,7 +3405,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                       p.allocation_intent as "allocationIntent", p.impact_preview as "impactPreview",
                       p.reference, p.location_bucket as "locationBucket", p.notes, p.status, p.created_at as "createdAt"
                from payments p left join customers c on c.id = p.customer_id`,
-        defaultOrderBy: 'p.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'inventory':
       return {
@@ -3448,7 +3422,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                left join vendors v on v.id = b.vendor_id
                left join items i on i.id = b.item_id
                where b.archived_at is null`,
-        defaultOrderBy: 'b.category, b.name',
+        defaultOrderBy: 'category, name',
       };
     case 'clients':
       return {
@@ -3474,7 +3448,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                  select id from vendors where contact_id = c.contact_id limit 1
                ) vdr on c.contact_id is not null
                group by c.id, dp."avgDaysToPay", vdr.id`,
-        defaultOrderBy: 'c.balance desc, c.name',
+        defaultOrderBy: 'balance desc, name',
       };
     case 'vendors':
       return {
@@ -3497,40 +3471,40 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                left join lateral (
                  select id from customers where contact_id = v.contact_id limit 1
                ) cust on v.contact_id is not null`,
-        defaultOrderBy: 'vb.due_date, v.name',
+        defaultOrderBy: '"dueDate", vendor',
       };
     case 'fulfillment':
       return {
         body: `select pl.id, pl.order_id as "orderId", pl.pick_no as "pickNo", so.order_no as "orderNo", c.name as customer, pl.status,
                       pl.units_per_bag as "unitsPerBag", pl.label_format as "labelFormat", pl.labels_printed as "labelsPrinted",
                       pl.manifest_path as "manifestPath", pl.tracking, count(fl.id)::int as lines,
-                      coalesce(sum(jsonb_array_length(fl.warehouse_alerts)), 0)::int as "alertCount"
+                      coalesce(sum(jsonb_array_length(fl.warehouse_alerts)), 0)::int as "alertCount", pl.created_at as "createdAt"
                from pick_lists pl
                join sales_orders so on so.id = pl.order_id
                left join customers c on c.id = so.customer_id
                left join fulfillment_lines fl on fl.pick_list_id = pl.id
                group by pl.id, so.order_no, c.name`,
-        defaultOrderBy: 'pl.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'connectors':
       return {
         body: `select cr.id, cr.source, cr.request_type as "requestType", c.name as customer, cr.customer_id as "customerId", cr.status, cr.routed_to as "routedTo",
                       cr.operator_notes as "operatorNotes", cr.safety_note as "safetyNote", cr.payload, cr.review_history as "reviewHistory", cr.created_at as "createdAt"
                from connector_requests cr left join customers c on c.id = cr.customer_id`,
-        defaultOrderBy: 'cr.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'recovery':
       return {
         body: `select id, command_name as "commandName", actor_name as "actorName", status, error, affected_ids as "affectedIds",
                       input_payload as "inputPayload", reversed_by_command_id as "reversedByCommandId", created_at as "createdAt"
                from command_journal`,
-        defaultOrderBy: 'created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'closeout':
       return {
         body: `select id, period, status, control_totals as "controlTotals", csv_path as "csvPath", jsonl_path as "jsonlPath", pdf_path as "pdfPath", created_at as "createdAt"
                from archive_runs`,
-        defaultOrderBy: 'created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'referees':
       return {
@@ -3542,7 +3516,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                from referees r
                left join referee_relationships rr on rr.referee_id = r.id and rr.active = true
                group by r.id`,
-        defaultOrderBy: 'r.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'processors':
       return {
@@ -3559,7 +3533,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                from payment_processors p
                left join processor_fees pf on pf.processor_id = p.id
                group by p.id`,
-        defaultOrderBy: 'p.name',
+        defaultOrderBy: 'name',
       };
     case 'photography':
       return {
@@ -3578,9 +3552,9 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                from batches b
                left join batch_media_summary bms on bms.batch_id = b.id
                where b.archived_at is null`,
-        defaultOrderBy: `case when bms.has_primary_photo then 1 else 0 end asc,
-                         bms.media_updated_at asc nulls first,
-                         b.created_at asc`,
+        defaultOrderBy: `case when "hasPrimaryPhoto" then 1 else 0 end asc,
+                         "mediaUpdatedAt" asc nulls first,
+                         "createdAt" asc`,
       };
     case 'purchaseReceipts':
       return {
@@ -3593,7 +3567,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                left join purchase_orders po on po.id = pr.purchase_order_id
                left join purchase_receipt_lines prl on prl.receipt_id = pr.id
                group by pr.id, v.name, po.po_no`,
-        defaultOrderBy: 'pr.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
     case 'items':
       return {
@@ -3606,7 +3580,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                from items i
                left join batches b on b.item_id = i.id and b.archived_at is null
                group by i.id`,
-        defaultOrderBy: 'i.name',
+        defaultOrderBy: 'name',
       };
     case 'disputes':
       return {
@@ -3617,7 +3591,7 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                from invoice_disputes d
                join invoices i on i.id = d.invoice_id
                left join customers c on c.id = i.customer_id`,
-        defaultOrderBy: 'd.created_at desc',
+        defaultOrderBy: '"createdAt" desc',
       };
   }
 }
@@ -3758,7 +3732,10 @@ function vendorSupplySql() {
 
 function matchmakingSql() {
   const parts = gridSqlParts('matchmaking');
-  return parts.body + '\norder by ' + parts.defaultOrderBy;
+  return `select * from (
+${parts.body}
+) sub
+order by ${parts.defaultOrderBy}`;
 }
 
 export function gridSql(view: z.infer<typeof viewSchema>) {
@@ -3767,7 +3744,10 @@ export function gridSql(view: z.infer<typeof viewSchema>) {
     return parts.body + '\norder by ' + parts.defaultOrderBy + '\nlimit 100';
   }
   if (view === 'matchmaking') {
-    return parts.body + '\norder by ' + parts.defaultOrderBy;
+    return `select * from (
+${parts.body}
+) sub
+order by ${parts.defaultOrderBy}`;
   }
   return parts.body + '\norder by ' + parts.defaultOrderBy;
 }
