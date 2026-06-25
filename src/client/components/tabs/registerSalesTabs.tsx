@@ -28,6 +28,7 @@
 import { registerTabs, type SlideOverTab, type SlideOverTabProps } from './registry';
 import type { GridRow } from '../../../shared/types';
 import { registerCustomerTabs } from './registerCustomerTabs';
+import { saleLineDetailsTab } from './SaleLineDetailTab';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -245,6 +246,11 @@ export function registerSalesTabs(): void {
     salesOrderJournalTab,
     salesOrderSuggestionsTab,
   ]);
+  // P4 — per-line entity. The lean Sales lines grid (≤8 columns) routes
+  // heavy per-line fields (markup, landed-cost resolution, price floor,
+  // notes, inventory resolution) into this slide-over tab so the grid
+  // itself can stay spreadsheet-fast.
+  registerTabs('saleLine', [saleLineDetailsTab]);
   // Register customer tabs as well so the credit panel (openCreditPanel)
   // surfaces proper detail content when it opens with entityType='customer'.
   registerCustomerTabs();
