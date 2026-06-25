@@ -59,6 +59,15 @@ These repos are legacy/reference material unless Evan explicitly asks for work t
 
 If an old doc says `TERP Agro`, read it as historical context for TERP Operator unless the task is explicitly about archaeology, migration, or comparison with deprecated projects.
 
+## Mandatory Patterns
+
+### Command Registry (ADR 0002)
+
+**All new backend commands MUST use `defineCommand()`.** Never add a `case` to the switch in `commandBus.ts`.
+Pattern: `src/domains/<domain>/commandDefs/<name>.ts` — one file per command.
+Fitness test: `src/tests/commandRegistry.fitness.test.ts` — CI-enforced catalog↔registry parity.
+Full docs: `docs/decisions/0002-command-registry.md` and `AGENTS.md#mandatory-command-registry-—-no-new-switch-cases`.
+
 ## Three-System Task Model
 
 TERP Operator uses three distinct systems for work tracking:

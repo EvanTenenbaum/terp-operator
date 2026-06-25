@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import { trpc } from '../api/trpc';
 import { useCommandRunner } from '../components/useCommandRunner';
 import { ReportView } from '../templates/ReportView';
@@ -14,8 +14,8 @@ export function ClientLedgerView() {
   const matchCounts = trpc.matchmaking.matchmakingEntityCounts.useQuery(undefined, {
     enabled: matchSettings.data?.showClientsColumn ?? false,
   });
-  const clientColumns = useMemo((): ColDef<GridRow>[] => {
-    const base: ColDef<GridRow>[] = [
+  const clientColumns = useMemo((): GridColDef<GridRow>[] => {
+    const base: GridColDef<GridRow>[] = [
       {
         field: 'name',
         pinned: 'left',

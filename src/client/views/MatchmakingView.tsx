@@ -1,7 +1,8 @@
 import { Check, ExternalLink, Plus, RotateCcw, Settings, X } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
+import type { CellValueChangedEvent } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { useCommandRunner } from '../components/useCommandRunner';
@@ -32,7 +33,7 @@ const TO_SOURCE_SIGNAL_MAP: RuleMap = {
 // for field metadata, tier classification, and rationale. The query field names
 // (e.g. 'customer', 'vendor', 'needCode', 'productName') already match the
 // schema field names, so no field mapping is needed.
-// R-06: ARCH-8 / UX-8 — no per-view ColDef arrays.
+// R-06: ARCH-8 / UX-8 — no per-view GridColDef arrays.
 
 // ─── Tab keys ──────────────────────────────────────────────────────────────────
 const TAB_MATCHES = 'matches';
@@ -201,7 +202,7 @@ export function MatchmakingView() {
   const supplyOverrides = useMemo(() => [{ field: 'productName', minWidth: 180 }], []);
   const supplyCols = useColumnDefs('vendorSupply', supplyOverrides);
 
-  const matchColumns = useMemo<ColDef<GridRow>[]>(() => [
+  const matchColumns = useMemo<GridColDef<GridRow>[]>(() => [
     {
       field: 'score',
       pinned: 'left',
@@ -364,7 +365,7 @@ export function MatchmakingView() {
   );
 
   // ── Opportunity column definitions ───────────────────────────────────────
-  const toMoveColumns = useMemo<ColDef<GridRow>[]>(() => [
+  const toMoveColumns = useMemo<GridColDef<GridRow>[]>(() => [
     { field: 'product', minWidth: 180, pinned: 'left' },
     { field: 'category', width: 120 },
     { field: 'onHand', headerName: 'On hand', type: 'numericColumn', width: 110 },
@@ -417,7 +418,7 @@ export function MatchmakingView() {
     },
   ], [isRunning, canWrite, runCommand, opportunities]);
 
-  const toSourceColumns = useMemo<ColDef<GridRow>[]>(() => [
+  const toSourceColumns = useMemo<GridColDef<GridRow>[]>(() => [
     { field: 'category', minWidth: 150, pinned: 'left' },
     { field: 'onHand', headerName: 'On hand', type: 'numericColumn', width: 110 },
     {

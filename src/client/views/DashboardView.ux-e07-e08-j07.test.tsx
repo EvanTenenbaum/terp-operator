@@ -117,7 +117,7 @@ vi.mock('../api/trpc', () => {
 });
 
 import { useUiStore } from '../store/uiStore';
-import { DashboardView } from './DashboardView';
+import { DashboardView } from '../templates/DashboardView';
 
 function Wrap({ children }: { children: ReactNode }) {
   const client = new QueryClient({

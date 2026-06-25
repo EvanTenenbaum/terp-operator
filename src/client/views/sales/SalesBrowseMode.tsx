@@ -46,9 +46,9 @@ export interface SalesBrowseModeProps {
 // Keeping the column definition here (rather than importing from SalesView.tsx)
 // avoids a circular module dependency while preserving column shape.
 import { boolCol } from '../../utils/format';
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../../shared/grid-types';
 
-const orderColumns: ColDef<GridRow>[] = [
+const orderColumns: GridColDef<GridRow>[] = [
   { field: 'orderNo', pinned: 'left', width: 150 },
   { field: 'customer', width: 180 },
   { field: 'status', width: 125 },
