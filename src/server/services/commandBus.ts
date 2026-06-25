@@ -346,9 +346,10 @@ import {
 import { setInventoryStatus, transferInventoryLocation, transferInventoryOwnership } from '@/domains/inventory';
 
 // Barter settlement domain (product as monetary instrument).
-// Phase 1: outbound vendor barter (payWithProduct). See
+// Phase 1: outbound vendor barter (payWithProduct).
+// Phase 2: inbound client barter (settleDebtWithProduct). See
 // docs/engineering-plans/product-as-monetary-instrument-plan.md.
-import { payWithProduct } from '@/domains/barter';
+import { payWithProduct, settleDebtWithProduct } from '@/domains/barter';
 
 // Contacts domain commands extracted to @/domains/contacts (P1.CT.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
@@ -1380,6 +1381,8 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return voidVendorPayment(tx, payload, commandId);
     case 'payWithProduct':
       return payWithProduct(tx, payload, user, commandId);
+    case 'settleDebtWithProduct':
+      return settleDebtWithProduct(tx, payload, user, commandId);
     case 'recordWeighAndPack':
       return recordWeighAndPack(tx, payload, commandId);
     case 'markOrderFulfilled':
