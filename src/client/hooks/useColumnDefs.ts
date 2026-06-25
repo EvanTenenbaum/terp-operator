@@ -235,7 +235,7 @@ function fieldToColDef(
           base.cellEditorParams = (params: ICellEditorParams) => {
             let enumOptions: { value: string; label: string }[] = [];
             if (f.optionSource?.kind === 'enum') {
-              enumOptions = f.optionSource.values;
+              enumOptions = f.optionSource.values ?? [];
             } else if (f.optionSource?.kind === 'status') {
               // F2 interim: status dropdown shows all status values.
               // The server's existing transition rejection catches illegal transitions.
@@ -254,7 +254,7 @@ function fieldToColDef(
         } else {
           let enumOptions: { value: string; label: string }[] = [];
           if (f.optionSource?.kind === 'enum') {
-            enumOptions = f.optionSource.values;
+            enumOptions = f.optionSource.values ?? [];
           } else if (f.optionSource?.kind === 'status') {
             // F2 interim: status dropdown shows all status values.
             enumOptions = [];
