@@ -12,6 +12,7 @@ import { useUiStore } from '../../store/uiStore';
 import type { GridRow, ViewKey } from '../../../shared/types';
 import { commandLabelFor } from '../../../shared/commandCatalog';
 import { markerTooltip } from '../../utils/markerLegend';
+import { useColumnDefs } from '../../hooks/useColumnDefs';
 
 // Rule map for the Closeout "Why shown" audit column (status field).
 const CLOSEOUT_STATUS_MAP: RuleMap = {
@@ -258,6 +259,12 @@ export const EMPTY_ROWS: GridRow[] = [];
  *
  * **Do not add new features to this component.** New views use GridView/PrimaryGridView.
  */
+const VIEW_TO_ENTITY: Partial<Record<string, string>> = {
+  payments: 'payment',
+  clientLedger: 'customer',
+  closeout: 'closeout',
+};
+
 export function GridJourney({
   view,
   title,
@@ -299,6 +306,11 @@ export function GridJourney({
   const { runCommand, setNextSuccessActions } = useCommandRunner();
   const me = trpc.auth.me.useQuery();
   const canWrite = me.data?.role !== 'viewer';
+
+  // Schema-driven columns for smart-tables rollout (P3/F6).
+  const entityKey = VIEW_TO_ENTITY[view];
+  const schemaColumns = entityKey ? useColumnDefs(entityKey) : [];
+
   return (
     <div className="view-stack">
       {canWrite ? prelude?.(runCommand) : null}
@@ -306,7 +318,7 @@ export function GridJourney({
         view={view}
         title={title}
         rows={(grid.data ?? []) as GridRow[]}
-        columns={columns ?? columnsByView[view] ?? []}
+        columns={columns ?? schemaColumns ?? columnsByView[view] ?? []}
         loading={grid.isLoading}
         isError={grid.isError}
         onRetry={() => grid.refetch()}

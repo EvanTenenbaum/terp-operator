@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import type { ICellEditorParams, ValueFormatterParams } from 'ag-grid-community';
-import type { GridColDef } from '../../shared/grid-types';
+import type { ColDef, ICellEditorParams, ValueFormatterParams } from 'ag-grid-community';
 import {
   entitySchemas,
   type FieldDefinition,
@@ -38,24 +37,24 @@ const TYPE_GRID_TYPE: Partial<Record<FieldType, string>> = {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * Generates AG Grid GridColDef arrays from entity schemas defined in
+ * Generates AG Grid ColDef arrays from entity schemas defined in
  * `src/client/config/entity-schemas.ts`.
  *
- * Replaces per-view GridColDef arrays (ARCH-8: Table IS the view, UX-8: Every grid
+ * Replaces per-view ColDef arrays (ARCH-8: Table IS the view, UX-8: Every grid
  * column must originate in the schema registry). Persisted operator column
  * preferences (width, visibility, pin) are read from `useUiStore.gridColumnPrefs`
  * keyed by entityType.
  *
  * @param entityType Entity key matching an entry in {@link entitySchemas}
  *                   (e.g. 'purchaseOrder', 'sale', 'intake').
- * @param overrides  Partial GridColDefs to merge by `field` or `colId` key. The
+ * @param overrides  Partial ColDefs to merge by `field` or `colId` key. The
  *                   consumer is responsible for providing a stable reference
  *                   (e.g. via `useMemo`) to avoid unnecessary recomputation.
  * @param onCellCommit Optional callback invoked when a combobox/enum editor
  *                     commits a new value. Receives the field name, new value,
  *                     and the grid row data. Consumer should stabilize with
  *                     `useCallback`.
- * @returns AG Grid GridColDef array ordered per the schema's {@link FieldDefinition}
+ * @returns AG Grid ColDef array ordered per the schema's {@link FieldDefinition}
  *          array. Returns empty array when the entityType is not found.
  *
  * @example
@@ -65,9 +64,9 @@ const TYPE_GRID_TYPE: Partial<Record<FieldType, string>> = {
  */
 export function useColumnDefs(
   entityType: string,
-  overrides?: Partial<GridColDef>[],
+  overrides?: Partial<ColDef>[],
   onCellCommit?: (field: string, value: unknown, row: Record<string, unknown>) => Promise<void>,
-): GridColDef[] {
+): ColDef[] {
   const prefs = useUiStore(
     (state) => state.gridColumnPrefs[entityType] ?? EMPTY_PREFS,
   );
@@ -76,11 +75,11 @@ export function useColumnDefs(
     const schema = entitySchemas[entityType];
     if (!schema) return [];
 
-    let defs: GridColDef[] = schema.fields.map((f) => fieldToGridColDef(f, onCellCommit));
+    let defs: ColDef[] = schema.fields.map((f) => fieldToColDef(f, onCellCommit));
 
     // Apply view-level overrides by field or colId key.
     if (overrides?.length) {
-      const overrideByKey = new Map<string, Partial<GridColDef>>();
+      const overrideByKey = new Map<string, Partial<ColDef>>();
       for (const o of overrides) {
         const rawKey =
           (o as Record<string, unknown>).colId ??
@@ -116,10 +115,10 @@ export function useColumnDefs(
   }, [entityType, overrides, prefs, onCellCommit]);
 }
 
-// ── FieldDefinition → GridColDef mapper ──────────────────────────────────────────
+// ── FieldDefinition → ColDef mapper ──────────────────────────────────────────
 
 /**
- * Converts a single {@link FieldDefinition} into an AG Grid {@link GridColDef}.
+ * Converts a single {@link FieldDefinition} into an AG Grid {@link ColDef}.
  *
  * Mapping rules (type-driven):
  * - `text`       → `filter: 'agTextColumnFilter'`, no special grid type
@@ -138,11 +137,30 @@ export function useColumnDefs(
  * - Tier 1 → visible (`hide: false`)
  * - Tier 2 → hidden by default (`hide: true`), reachable via Columns menu
  */
-function fieldToGridColDef(
+// ── Combobox options adapter ──────────────────────────────────────────────────
+
+interface ComboboxOption {
+  id: string;
+  label: string;
+  sublabel?: string;
+  disabledReason?: string;
+  status?: string;
+}
+
+function comboboxOptionsToOptions(raw: ComboboxOption[]): { value: string; label: string; description?: string; disabled?: boolean }[] {
+  return raw.map((o) => ({
+    value: o.id,
+    label: o.label,
+    description: o.sublabel,
+    disabled: !!o.disabledReason,
+  }));
+}
+
+function fieldToColDef(
   f: FieldDefinition,
   onCellCommit?: (field: string, value: unknown, row: Record<string, unknown>) => Promise<void>,
-): GridColDef {
-  const base: GridColDef = {
+): ColDef {
+  const base: ColDef = {
     colId: f.field,
     field: f.field,
     headerName: f.headerName,
@@ -165,7 +183,7 @@ function fieldToGridColDef(
     base.pinned = f.pinned;
   }
 
-  // Minimum role — custom GridColDef extension consumed by the Columns menu.
+  // Minimum role — custom ColDef extension consumed by the Columns menu.
   if (f.minRole) {
     (base as Record<string, unknown>).minRole = f.minRole;
   }
@@ -211,25 +229,40 @@ function fieldToGridColDef(
       break;
 
     case 'enum': {
-      // Status columns are rendered via StatusPill by OperatorGrid's
-      // `withStatusRenderer` — do not conflict with that enhancement.
       if (f.editable) {
-        base.cellEditor = ComboboxCellEditor as unknown as GridColDef['cellEditor'];
+        base.cellEditor = ComboboxCellEditor as unknown as ColDef['cellEditor'];
         if (onCellCommit) {
-          base.cellEditorParams = (params: ICellEditorParams) => ({
-            options: [],
-            placeholder: `Select ${f.headerName.toLowerCase()}`,
-            onCommit: async (value: string | null) => {
-              if (value !== null) {
-                await onCellCommit(f.field, value, params.data as Record<string, unknown>);
-              }
-            },
-          } as GridColDef['cellEditorParams']);
+          base.cellEditorParams = (params: ICellEditorParams) => {
+            let enumOptions: { value: string; label: string }[] = [];
+            if (f.optionSource?.kind === 'enum') {
+              enumOptions = f.optionSource.values ?? [];
+            } else if (f.optionSource?.kind === 'status') {
+              // F2 interim: status dropdown shows all status values.
+              // The server's existing transition rejection catches illegal transitions.
+              enumOptions = [];
+            }
+            return {
+              options: enumOptions,
+              placeholder: `Select ${f.headerName.toLowerCase()}`,
+              onCommit: async (value: string | null) => {
+                if (value !== null) {
+                  await onCellCommit(f.field, value, params.data as Record<string, unknown>);
+                }
+              },
+            } as ColDef['cellEditorParams'];
+          };
         } else {
+          let enumOptions: { value: string; label: string }[] = [];
+          if (f.optionSource?.kind === 'enum') {
+            enumOptions = f.optionSource.values ?? [];
+          } else if (f.optionSource?.kind === 'status') {
+            // F2 interim: status dropdown shows all status values.
+            enumOptions = [];
+          }
           base.cellEditorParams = {
-            options: [],
+            options: enumOptions,
             placeholder: `Select ${f.headerName.toLowerCase()}`,
-          } as GridColDef['cellEditorParams'];
+          } as ColDef['cellEditorParams'];
         }
       }
       break;
@@ -237,24 +270,28 @@ function fieldToGridColDef(
 
     case 'combobox': {
       if (f.editable) {
-        base.cellEditor = ComboboxCellEditor as unknown as GridColDef['cellEditor'];
+        base.cellEditor = ComboboxCellEditor as unknown as ColDef['cellEditor'];
+        const entityType = f.optionSource?.kind === 'combobox' ? f.optionSource.entityType : undefined;
+        const filters = f.optionSource?.kind === 'combobox' ? f.optionSource.filters : undefined;
         if (onCellCommit) {
           base.cellEditorParams = (params: ICellEditorParams) => ({
             options: [],
             placeholder: `Select ${f.headerName.toLowerCase()}`,
-            // async options loaded via comboboxSource trpc procedure (future).
+            comboboxEntityType: entityType,
+            comboboxFilters: filters,
             onCommit: async (value: string | null) => {
               if (value !== null) {
                 await onCellCommit(f.field, value, params.data as Record<string, unknown>);
               }
             },
-          } as GridColDef['cellEditorParams']);
+          } as ColDef['cellEditorParams']);
         } else {
           base.cellEditorParams = {
             options: [],
             placeholder: `Select ${f.headerName.toLowerCase()}`,
-            // async options loaded via comboboxSource trpc procedure (future).
-          } as GridColDef['cellEditorParams'];
+            comboboxEntityType: entityType,
+            comboboxFilters: filters,
+          } as ColDef['cellEditorParams'];
         }
       }
       break;
@@ -267,6 +304,14 @@ function fieldToGridColDef(
     case 'text':
     default:
       break;
+  }
+
+  // Store chip config for downstream enhancers (withChipRenderer).
+  if (f.chip) {
+    (base as Record<string, unknown>).__chipConfig = f.chip;
+  }
+  if (f.optionSource) {
+    (base as Record<string, unknown>).__optionSource = f.optionSource;
   }
 
   return base;

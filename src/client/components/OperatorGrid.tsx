@@ -202,7 +202,7 @@ export function OperatorGrid({
 
   const columnDefs = useMemo<ColDef<GridRow>[]>(() => {
     const baseColumns = mergeColumnDefsWithPrefs(
-      withRowNumbers(withCreatedAtFormatter(withStatusRenderer(columns, canWrite))),
+      withRowNumbers(withCreatedAtFormatter(withChipRenderer(columns, canWrite))),
       storedColumnPrefs
     );
 
@@ -1035,21 +1035,40 @@ function formatGridValue(value: unknown) {
   return String(value);
 }
 
-function withStatusRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
-  return columns.map((column) =>
-    column.field === 'status'
+function withChipRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
+  return columns.map((column) => {
+    const chipConfig = (column as Record<string, unknown>).__chipConfig as { palette?: string } | undefined;
+    const optionSource = (column as Record<string, unknown>).__optionSource as { kind: string } | undefined;
+    void optionSource;
+
+    // Status fields: always render with StatusPill, non-editable, chip-cell class.
+    if (column.field === 'status') {
+      return {
+        ...column,
+        editable: false,
+        cellClass: [column.cellClass, 'chip-cell'].filter(Boolean).join(' '),
+        cellRenderer: (params: { value?: string }) => (
+          <StatusPill status={params.value} />
+        ),
+      };
+    }
+
+    // Non-status chip fields (date, boolean, tags, enum): preserve cellRenderer
+    // from useColumnDefs. Only apply StatusPill if no renderer is already set.
+    if (chipConfig) {
+      return {
+        ...column,
+        cellClass: [column.cellClass, column.editable ? 'chip-cell' : ''].filter(Boolean).join(' '),
+      };
+    }
+
+    return canWrite
       ? {
           ...column,
-          editable: false,
-          cellRenderer: (params: { value?: string }) => <StatusPill status={params.value} />
+          cellClass: column.editable ? 'editable-cell' : column.cellClass,
         }
-      : canWrite
-        ? {
-            ...column,
-            cellClass: column.editable ? 'editable-cell' : column.cellClass
-          }
-        : { ...column, editable: false }
-  );
+      : { ...column, editable: false };
+  });
 }
 
 function withCreatedAtFormatter(columns: ColDef<GridRow>[]) {
