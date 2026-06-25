@@ -2746,9 +2746,10 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
         }
       }
       
-      // Reverse allocations
-      await tx.update(barterSettlementAllocations)
-        .set({ amount: '0.00' })
+      // Reverse allocations — delete rows cleanly to avoid CHECK constraint
+      // violations that would arise when setting amount to '0.00' on a column
+      // gated by a positive-amount constraint.
+      await tx.delete(barterSettlementAllocations)
         .where(eq(barterSettlementAllocations.settlementId, settlement.id));
       
       // Reverse inventory movements for this settlement
@@ -2813,6 +2814,49 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
         .set({ status: 'reversed', updatedAt: new Date() })
         .where(eq(purchaseReceipts.id, (receipt as Record<string, unknown>).id as string));
       affected.push((receipt as Record<string, unknown>).id as string);
+    }
+    
+    // Reverse any NEW vendor bills created by the settlement (not in beforeSnapshot)
+    const beforeBillIds = new Set((beforeSnapshot.vendorBills ?? []).map((b: Record<string, unknown>) => b.id));
+    for (const bill of snapshot.vendorBills ?? []) {
+      if (!beforeBillIds.has((bill as Record<string, unknown>).id as string)) {
+        await tx.update(vendorBills)
+          .set({ status: 'reversed', amountPaid: '0.00', updatedAt: new Date() })
+          .where(eq(vendorBills.id, (bill as Record<string, unknown>).id as string));
+        affected.push((bill as Record<string, unknown>).id as string);
+      }
+    }
+    
+    // Reverse any NEW batches created by inbound settlement (not in beforeSnapshot)
+    const beforeBatchIds = new Set((beforeSnapshot.batches ?? []).map((b: Record<string, unknown>) => b.id));
+    for (const batch of snapshot.batches ?? []) {
+      if (!beforeBatchIds.has((batch as Record<string, unknown>).id as string)) {
+        await tx.update(batches)
+          .set({ status: 'reversed', availableQty: '0.000', intakeQty: '0.000', updatedAt: new Date() })
+          .where(eq(batches.id, (batch as Record<string, unknown>).id as string));
+        affected.push((batch as Record<string, unknown>).id as string);
+      }
+    }
+    
+    // Restore invoice amounts from beforeSnapshot (undo allocation side effects)
+    for (const inv of beforeSnapshot.invoices ?? []) {
+      const i = inv as Record<string, unknown>;
+      await tx.update(invoices)
+        .set({ amountPaid: moneyScale(i.amountPaid), status: String(i.status ?? 'open'), updatedAt: new Date() })
+        .where(eq(invoices.id, i.id as string));
+      affected.push(i.id as string);
+    }
+    
+    // Rename down_payment ledger entries to down_payment_reversal so they are
+    // excluded from credit-utilization signals (mirrors the product_settlement
+    // rename already applied above).
+    for (const entry of snapshot.clientLedgerEntries ?? []) {
+      await tx.update(clientLedgerEntries)
+        .set({ kind: sql`'down_payment_reversal'` })
+        .where(and(
+          eq(clientLedgerEntries.id, (entry as Record<string, unknown>).id as string),
+          eq(clientLedgerEntries.kind, 'down_payment')
+        ));
     }
   } else {
     throw new Error(`${original.commandName} is ${policy?.disposition ?? 'not'} reversible: ${policy?.guidance ?? 'No reversal policy is registered.'}`);
@@ -3391,7 +3435,14 @@ function collectIds(payload: Payload) {
     // receive state in beforeSnapshot so reversal can restore (not zero) it.
     ...(payload.lineQuantities && typeof payload.lineQuantities === 'object' && !Array.isArray(payload.lineQuantities)
       ? Object.keys(payload.lineQuantities as Record<string, unknown>)
-      : [])
+      : []),
+    // Barter settlement lines batchId traversal — captures per-line batch
+    // references sent in payWithProduct / settleDebtWithProduct payloads
+    // so the beforeSnapshot includes those batch rows.
+    ...(Array.isArray(payload.lines) ? payload.lines
+      .map((l: Record<string, unknown>) => l.batchId)
+      .filter((id: unknown): id is string => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id))
+      : []),
   ];
   return values.filter((value): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value));
 }

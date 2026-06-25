@@ -514,34 +514,40 @@ export async function payWithProduct(
   affectedIds.unshift(settlement.id);
 
   // 10. ─── Insert barterSettlementLines (one per input line) ───────────────
-  for (const line of parsed.lines) {
+  // Remainder-to-last-line allocation: distribute total settlementAmount across
+  // lines pro-rata by line cost basis with the final line absorbing any
+  // rounding remainder so Σ(lineSettlementAmount) == settlementAmount exactly.
+  const settlementAmountDec = new Decimal(settlementAmount);
+  let allocatedTotal = new Decimal(0);
+  const lineAmounts: Decimal[] = [];
+  for (let i = 0; i < parsed.lines.length; i++) {
+    const line = parsed.lines[i];
     const batch = batchById.get(line.batchId)!;
-    const unitCost = String(batch['unit_cost'] ?? 0);
-    // Per-line settlement allocation: distribute total settlementAmount across
-    // lines pro-rata by line cost basis. This preserves Σ(lineSettlementAmount)
-    // = settlementAmount exactly (Decimal-safe). For the default (no override)
-    // path this collapses to line cost basis dollar-for-dollar.
-    const lineCost = mulMoney(unitCost, line.qty);
-    let lineSettlement: string;
-    if (costBasisDec.isZero()) {
-      // Edge case: cost basis is zero. Distribute settlement evenly across lines
-      // so the sum is exact; truncation goes to the last line.
-      lineSettlement = '0.00';
+    const lineCost = new Decimal(mulMoney(String(batch['unit_cost'] ?? 0), line.qty));
+    const isLast = i === parsed.lines.length - 1;
+    let lineAmount: Decimal;
+    if (isLast && parsed.lines.length > 1) {
+      lineAmount = settlementAmountDec.minus(allocatedTotal);
+    } else if (costBasisDec.isZero()) {
+      lineAmount = new Decimal(0);
     } else {
-      lineSettlement = new Decimal(settlementAmount)
-        .times(new Decimal(lineCost))
-        .dividedBy(costBasisDec)
-        .toDecimalPlaces(2)
-        .toFixed(2);
+      lineAmount = settlementAmountDec.times(lineCost).dividedBy(costBasisDec).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+      allocatedTotal = allocatedTotal.plus(lineAmount);
     }
-    await tx.insert(barterSettlementLines).values({
+    lineAmounts.push(lineAmount);
+  }
+  for (let i = 0; i < parsed.lines.length; i++) {
+    const line = parsed.lines[i];
+    const batch = batchById.get(line.batchId)!;
+    const [inserted] = await tx.insert(barterSettlementLines).values({
       settlementId: settlement.id,
       batchId: line.batchId,
       productName: String(batch['name'] ?? ''),
       qty: qtyScale(line.qty),
-      unitCost: moneyScale(unitCost),
-      lineSettlementAmount: lineSettlement,
-    });
+      unitCost: moneyScale(String(batch['unit_cost'] ?? 0)),
+      lineSettlementAmount: lineAmounts[i].toFixed(2),
+    }).returning({ id: barterSettlementLines.id });
+    if (inserted) affectedIds.push(inserted.id);
   }
 
   // 11. ─── Gain/loss leg — correction journal entry (if non-zero) ──────────
@@ -1142,28 +1148,37 @@ export async function settleDebtWithProduct(
   const settlementId = settlement.id;
 
   // Settlement lines — distribute per-line settlement pro-rata by cost basis
-  // (the same Decimal-precise scheme used in payWithProduct). The default no-
-  // override path collapses to lineCost dollar-for-dollar.
-  for (const ctx of lineContexts) {
-    const lineCost = mulMoney(ctx.qty, ctx.unitCost);
-    let lineSettlement: string;
-    if (costBasisDec.isZero()) {
-      lineSettlement = '0.00';
+  // with remainder-to-last-line rounding so Σ(lineSettlementAmount) == settlementAmount.
+  const settlementAmountDec = new Decimal(settlementAmount);
+  let allocatedTotal = new Decimal(0);
+  const lineAmounts: Decimal[] = [];
+  for (let i = 0; i < lineContexts.length; i++) {
+    const ctx = lineContexts[i];
+    const lineCost = new Decimal(mulMoney(ctx.qty, ctx.unitCost));
+    const isLast = i === lineContexts.length - 1;
+    let lineAmount: Decimal;
+    if (isLast && lineContexts.length > 1) {
+      lineAmount = settlementAmountDec.minus(allocatedTotal);
+    } else if (costBasisDec.isZero()) {
+      lineAmount = new Decimal(0);
     } else {
-      lineSettlement = new Decimal(settlementAmount)
-        .times(new Decimal(lineCost))
-        .dividedBy(costBasisDec)
-        .toDecimalPlaces(2)
-        .toFixed(2);
+      lineAmount = settlementAmountDec.times(lineCost).dividedBy(costBasisDec).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+      allocatedTotal = allocatedTotal.plus(lineAmount);
     }
-    await tx.insert(barterSettlementLines).values({
+    lineAmounts.push(lineAmount);
+  }
+  const lineSettlementIds: string[] = [];
+  for (let i = 0; i < lineContexts.length; i++) {
+    const ctx = lineContexts[i];
+    const [inserted] = await tx.insert(barterSettlementLines).values({
       settlementId,
       batchId: ctx.batchId,
       productName: ctx.productName,
       qty: qtyScale(ctx.qty),
       unitCost: moneyScale(ctx.unitCost),
-      lineSettlementAmount: lineSettlement,
-    });
+      lineSettlementAmount: lineAmounts[i].toFixed(2),
+    }).returning({ id: barterSettlementLines.id });
+    if (inserted) lineSettlementIds.push(inserted.id);
   }
 
   // Re-insert planned allocations now that the header exists with a real id.
@@ -1203,6 +1218,7 @@ export async function settleDebtWithProduct(
     ...ledgerIds,
     ...invoiceIdsTouched,
     ...allocationIds,
+    ...lineSettlementIds,
   ];
   if (journalId) affectedIds.push(journalId);
 
@@ -1288,6 +1304,10 @@ export async function assertBarterSettlementReversible(
 
   for (const line of lines) {
     if (!line.batchId) continue;
+    // Lock the batch row before reading so we serialize against concurrent
+    // downstream sales, transfers, or adjustments that could race the
+    // availableQty < intakeQty check.
+    await tx.execute(sql`SELECT id FROM batches WHERE id = ${line.batchId} FOR UPDATE`);
     const [batch] = await tx
       .select()
       .from(batches)
@@ -1314,6 +1334,8 @@ export async function assertBarterSettlementReversible(
   //    or a status flip via correction). We deliberately allow `received`
   //    through; that is the as-posted state from settleDebtWithProduct.
   if (settlement.purchaseOrderId) {
+    // Lock the PO row before reading to serialize against downstream amendment.
+    await tx.execute(sql`SELECT id FROM purchase_orders WHERE id = ${settlement.purchaseOrderId} FOR UPDATE`);
     const [po] = await tx
       .select()
       .from(purchaseOrders)
