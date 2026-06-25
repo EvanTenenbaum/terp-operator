@@ -1225,3 +1225,113 @@ export async function settleDebtWithProduct(
 export const __settleDebtWithProductInternals = {
   payloadSchema: settleDebtWithProductPayloadSchema,
 };
+
+// ─── Reversal guard (Phase 4, §7 / §11.1) ────────────────────────────────────
+
+/**
+ * Pre-flight reversal guard for barter settlements.
+ *
+ * Phase 2 documented this guard; Phase 4 enforces it.
+ *
+ * Why this lives outside the standard `reverseCommandById` snapshot-restore
+ * path: inbound barter settlement intake creates a real batch via the standard
+ * intake path. If that batch was later (partly) resold downstream, the
+ * `availableQty < intakeQty` invariant signals that simply restoring the prior
+ * batch state would leave a phantom inventory delta (we cannot un-sell the
+ * product). The §7 policy directs operators to either:
+ *   (a) reverse the downstream sale first, or
+ *   (b) post an offsetting outbound `payWithProduct` settlement.
+ *
+ * The same applies if the barter PO was amended downstream — the snapshot
+ * referenced a PO row whose state has since drifted.
+ *
+ * For outbound settlements, the inventory came FROM us; restoring availableQty
+ * is always safe, so we short-circuit and return.
+ *
+ * Note: this guard reads from the current uncommitted state in `tx`. It is
+ * safe to call before the snapshot restore mutates any rows.
+ */
+export async function assertBarterSettlementReversible(
+  tx: Tx,
+  settlementId: string
+): Promise<void> {
+  // 1. Load the settlement header.
+  const [settlement] = await tx
+    .select()
+    .from(barterSettlements)
+    .where(eq(barterSettlements.id, settlementId))
+    .limit(1);
+  if (!settlement) throw new Error('Barter settlement not found.');
+
+  // Already-reversed settlements should be blocked by the caller's
+  // `original.reversedByCommandId` check, but enforce defensively here too.
+  if (settlement.status === 'reversed') {
+    throw new Error(
+      `Barter settlement ${settlement.settlementNo} is already reversed.`
+    );
+  }
+
+  // 2. Outbound reversal restores availableQty on batches we still own — the
+  //    inventory came FROM us, so undoing the deduction is unambiguous. No
+  //    downstream-resale concern. Short-circuit.
+  if (settlement.direction !== 'inbound') return;
+
+  // 3. Inbound: check each line's received batch hasn't been partially
+  //    consumed downstream. `availableQty < intakeQty` means *some* of the
+  //    intaken product has left the batch (sale, transfer, adjustment), so
+  //    restoring intakeQty back to zero would leave a phantom positive
+  //    inventory of (intakeQty - availableQty) on the books.
+  const lines = await tx
+    .select()
+    .from(barterSettlementLines)
+    .where(eq(barterSettlementLines.settlementId, settlementId));
+
+  for (const line of lines) {
+    if (!line.batchId) continue;
+    const [batch] = await tx
+      .select()
+      .from(batches)
+      .where(eq(batches.id, line.batchId))
+      .limit(1);
+    if (!batch) continue;
+
+    const available = new Decimal(String(batch.availableQty ?? 0));
+    const intake = new Decimal(String(batch.intakeQty ?? 0));
+    if (available.lt(intake)) {
+      throw new Error(
+        `Cannot reverse barter settlement ${settlement.settlementNo}: ` +
+          `batch ${batch.id} has been partly resold ` +
+          `(available ${available.toFixed(3)} < intake ${intake.toFixed(3)}). ` +
+          'Reverse the downstream sale first, or post an offsetting outbound ' +
+          'settlement (payWithProduct) instead.'
+      );
+    }
+  }
+
+  // 4. Check the barter PO/receipt has not been amended downstream. We
+  //    inspect the PO status — anything beyond `received` (the state we left
+  //    it in) signals downstream amendment (e.g. an additional receipt cycle
+  //    or a status flip via correction). We deliberately allow `received`
+  //    through; that is the as-posted state from settleDebtWithProduct.
+  if (settlement.purchaseOrderId) {
+    const [po] = await tx
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.id, settlement.purchaseOrderId))
+      .limit(1);
+    if (po) {
+      const status = String(po.status ?? '');
+      // Acceptable post-settlement states. Anything else means downstream
+      // work touched the PO and the snapshot can no longer be trusted.
+      const acceptable = new Set(['received', 'posted']);
+      if (!acceptable.has(status)) {
+        throw new Error(
+          `Cannot reverse barter settlement ${settlement.settlementNo}: ` +
+            `PO ${po.poNo} status is "${status}", indicating downstream ` +
+            'amendment. Reverse the downstream change first, or post an ' +
+            'offsetting outbound settlement (payWithProduct) instead.'
+        );
+      }
+    }
+  }
+}

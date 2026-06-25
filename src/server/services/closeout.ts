@@ -66,6 +66,43 @@ export async function getCloseoutSafety(db: Queryable, period: string): Promise<
     countQuery(db, sql`select count(*)::int as count from command_journal where ${periodMatch}`)
   ]);
 
+  // Phase 4 §9: include barter settlements in the period control totals so
+  // the closeout PDF/JSONL/CSV archive matches what an operator can reconcile.
+  // Counts + signed totals stay in NUMERIC(12,2) on the SQL side to preserve
+  // cents precision; we convert to JS Number once at the boundary. Tables
+  // shipped in Phase 0 may not exist in legacy environments where 0085 hasn't
+  // been applied — wrap the query so missing-relation errors degrade to zeros
+  // instead of crashing closeout.
+  let barterSettlementCount = 0;
+  let barterInboundCount = 0;
+  let barterOutboundCount = 0;
+  let barterSettlementAmountTotal = 0;
+  let barterGainLossTotal = 0;
+  try {
+    const barterRes = await db.execute(sql`
+      select
+        count(*)::int as count,
+        coalesce(sum(case when direction = 'inbound' then 1 else 0 end), 0)::int as inbound,
+        coalesce(sum(case when direction = 'outbound' then 1 else 0 end), 0)::int as outbound,
+        coalesce(sum(settlement_amount), 0)::text as settlement_total,
+        coalesce(sum(gain_loss), 0)::text as gain_loss_total
+      from barter_settlements
+      where to_char(created_at, 'YYYY-MM') = ${period}
+    `);
+    const row = barterRes.rows[0] as
+      | { count?: number; inbound?: number; outbound?: number; settlement_total?: string; gain_loss_total?: string }
+      | undefined;
+    if (row) {
+      barterSettlementCount = Number(row.count ?? 0);
+      barterInboundCount = Number(row.inbound ?? 0);
+      barterOutboundCount = Number(row.outbound ?? 0);
+      barterSettlementAmountTotal = Number(row.settlement_total ?? 0);
+      barterGainLossTotal = Number(row.gain_loss_total ?? 0);
+    }
+  } catch {
+    // Pre-Phase-0 environments — barter tables absent. Counts stay at zero.
+  }
+
   const blockers = [
     { id: 'unsafeBatches', label: 'Intake rows still in progress', count: unsafeBatches },
     { id: 'unsafePurchaseOrders', label: 'Purchase orders still open', count: unsafePurchaseOrders },
@@ -93,7 +130,15 @@ export async function getCloseoutSafety(db: Queryable, period: string): Promise<
       vendorBills,
       connectorRequests,
       fulfillment,
-      commands
+      commands,
+      // Phase 4 §9 — barter settlements participate in the period control
+      // totals. The amount/gain-loss aggregates are signed dollar values; the
+      // counts are integer settlement headers for inbound/outbound directions.
+      barterSettlements: barterSettlementCount,
+      barterSettlementsInbound: barterInboundCount,
+      barterSettlementsOutbound: barterOutboundCount,
+      barterSettlementAmountTotal,
+      barterGainLossTotal
     }
   };
 }

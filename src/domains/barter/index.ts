@@ -5,4 +5,8 @@
  * docs/engineering-plans/product-as-monetary-instrument-plan.md.
  */
 
-export { payWithProduct, settleDebtWithProduct } from './commands';
+export {
+  payWithProduct,
+  settleDebtWithProduct,
+  assertBarterSettlementReversible,
+} from './commands';

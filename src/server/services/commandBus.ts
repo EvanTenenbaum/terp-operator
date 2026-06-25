@@ -349,7 +349,11 @@ import { setInventoryStatus, transferInventoryLocation, transferInventoryOwnersh
 // Phase 1: outbound vendor barter (payWithProduct).
 // Phase 2: inbound client barter (settleDebtWithProduct). See
 // docs/engineering-plans/product-as-monetary-instrument-plan.md.
-import { payWithProduct, settleDebtWithProduct } from '@/domains/barter';
+import {
+  payWithProduct,
+  settleDebtWithProduct,
+  assertBarterSettlementReversible,
+} from '@/domains/barter';
 
 // Contacts domain commands extracted to @/domains/contacts (P1.CT.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
@@ -2269,6 +2273,22 @@ export async function reverseCommandById(tx: Tx, payload: Payload, commandId: st
   const beforeSnapshot = original.beforeSnapshot as Record<string, any>;
   const policy = reversalPolicies[original.commandName as CommandName];
 
+  // Phase 4 §7 / §11.1 pre-flight: barter settlement reversal must check
+  // that the received inventory has not been (partly) resold and that the
+  // barter PO/receipt has not been amended downstream. Outbound is always
+  // safe; inbound is the dangerous path. The guard throws with a directive
+  // error message naming the offsetting outbound settlement as the operator
+  // remediation. We run this BEFORE any snapshot-restore mutation so the
+  // reversal is atomic-rejected when unsafe.
+  if (original.commandName === 'payWithProduct' || original.commandName === 'settleDebtWithProduct') {
+    const settlementRows = (snapshot.barterSettlements ?? []) as Array<{ id?: string }>;
+    for (const row of settlementRows) {
+      if (row?.id) {
+        await assertBarterSettlementReversible(tx, row.id);
+      }
+    }
+  }
+
   if (original.commandName === 'postSalesOrder') {
     for (const line of snapshot.salesOrderLines ?? []) {
       if (!line.batchId) continue;
@@ -2798,18 +2818,51 @@ async function archivePeriod(tx: Tx, payload: Payload, commandId: string): Promi
   const archiveBase = path.join(env.ARCHIVE_DIR, period);
   const batchRows = await tx.select().from(batches).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
   const journalRows = await tx.select().from(commandJournal).where(sql`to_char(${commandJournal.createdAt}, 'YYYY-MM') = ${period}`).orderBy(commandJournal.createdAt);
+  // Phase 4 §9: barter settlements participate in the period archive. The
+  // export is best-effort — if the barter tables are absent (pre-Phase-0
+  // environments) we degrade to an empty file so the archive run still
+  // succeeds with consistent control totals.
+  let barterRows: Array<Record<string, unknown>> = [];
+  try {
+    barterRows = (await tx
+      .select()
+      .from(barterSettlements)
+      .where(sql`to_char(${barterSettlements.createdAt}, 'YYYY-MM') = ${period}`)) as unknown as Array<Record<string, unknown>>;
+  } catch {
+    barterRows = [];
+  }
   const controlTotals = safety.controlTotals;
 
   const csvPath = `${archiveBase}-batches.csv`;
   const jsonlPath = `${archiveBase}-commands.jsonl`;
   const pdfPath = `${archiveBase}-summary.pdf`;
+  const barterCsvPath = `${archiveBase}-barter-settlements.csv`;
   await fs.writeFile(csvPath, rowsToCsv(batchRows as unknown as Array<Record<string, unknown>>, ['id', 'batchCode', 'name', 'category', 'intakeQty', 'availableQty', 'status']), 'utf8');
   await fs.writeFile(jsonlPath, journalRows.map((row: typeof commandJournal.$inferSelect) => JSON.stringify(row)).join('\n'), 'utf8');
+  await fs.writeFile(
+    barterCsvPath,
+    rowsToCsv(barterRows, [
+      'id',
+      'settlementNo',
+      'direction',
+      'counterpartyType',
+      'customerId',
+      'vendorId',
+      'settlementAmount',
+      'costBasis',
+      'gainLoss',
+      'valueOverridden',
+      'overrideReason',
+      'status',
+      'createdAt'
+    ]),
+    'utf8'
+  );
   await writeArchivePdf(pdfPath, period, controlTotals);
   const [archive] = await tx.insert(archiveRuns).values({ period, controlTotals, csvPath, jsonlPath, pdfPath, status: 'archived' }).returning();
   await tx.update(batches).set({ archivedAt: new Date() }).where(sql`to_char(${batches.createdAt}, 'YYYY-MM') = ${period}`);
   await tx.update(salesOrders).set({ archivedAt: new Date() }).where(sql`to_char(${salesOrders.createdAt}, 'YYYY-MM') = ${period}`);
-  return { ok: true, commandId, affectedIds: [archive.id], toast: `${period} archived with matching control totals.`, delta: { controlTotals, csvPath, jsonlPath, pdfPath } };
+  return { ok: true, commandId, affectedIds: [archive.id], toast: `${period} archived with matching control totals.`, delta: { controlTotals, csvPath, jsonlPath, pdfPath, barterCsvPath } };
 }
 
 /** DYN-H4: Valid status transitions for customer needs. */
