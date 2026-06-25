@@ -1,4 +1,5 @@
 Feature/Subfeature,Description,View/Area,Type,Kill? (X to kill),Notes/Changes
+_Last updated: 2026-06-25 (formerly 2026-06-16) — Mercury UX Retrofit, domain extraction, command registry, 3 new ViewKeys, 10+ architectural changes_,,,,,_
 
 === NAVIGATION & SHELL ===,,,,,
 Side Navigation,Left sidebar nav organized into 5 groups: Decide Procure Sell Money Admin,Shell,Navigation,,,
@@ -14,18 +15,18 @@ Command Palette,Global Cmd+K searchable command palette to run any system comman
 Keyboard Shortcuts Overlay,Overlay showing all keyboard shortcuts,ShortcutsOverlay,Keyboard Shortcut,,,
 Keyboard Shortcuts Registry,Cmd+1–6 bound to main views (Dashboard/Reports),Hotkeys,Keyboard Shortcut,,,
 Mobile Auto-Redirect,"Viewports <768px auto-redirect to /mobile shell, with mapping for payments/inventory/pick/intake/catalog/contacts",App (LocationSync),Routing,,,
-Mobile Shell,"Mobile-optimized shell at /mobile/* with own bottom-tab-style navigation",MobileShell,Mobile,N/A (mobile),,
+Mobile Shell,"Mobile-optimized shell at /mobile/* with own bottom-tab-style navigation. Routes: /mobile/dashboard, /mobile/inventory, /mobile/catalog, /mobile/payments, /mobile/contacts, /mobile/contacts/:id, /mobile/pick, /mobile/intake",MobileShell,Mobile,N/A (mobile),2026-06-25: mobile routes now use React Router under /mobile/*
 Feedback Capture Widget,"Crikket-based in-app feedback capture (screenshot + annotation)",FeedbackCapture,Shared Component,,,
 Toast Center,Centralized toast notification display for command results,ToastCenter,Shared Component,,,
 Confirm Root,Confirmation dialog root for destructive actions,ConfirmRoot,Shared Component,,,
 Context Drawer,Right-side context drawer showing entity details (canvas grammar feature),ContextDrawer,Shared Component,,,
 Identity Ribbon,Top ribbon showing current user identity context (canvas grammar feature),IdentityRibbon,Shared Component,,,
-Error Boundary,React error boundary wrapping entire app,ErrorBoundary,Shared Component,,,
+Error Boundary,React error boundary wrapping entire app,ErrorBoundary,Shared Component,,2026-06-19: error boundaries added at multiple levels (router split)
 Agentation (Copy as Markdown),Copy page state as markdown for agent paste,Agentation,Shared Component,,,
 Server Unreachable Banner,Red banner when server is unreachable after login with Reconnect button,App,Notification,,,
 
 === DASHBOARD (Desktop) ===,,,,,
-Dashboard View,Owner daily decision view with KPI cards work queues and health checks,DashboardView,Page,,,
+Dashboard View,Owner daily decision view with KPI cards work queues and health checks,DashboardView,Page,,2026-06-24: router-wire complete (R-07) — URL grammar + GridColDef export unification
 Refresh Button,Manually refresh all dashboard data,DashboardView,Toolbar Action,,,
 KPI Cards,"4 KPI cards (Cash, Payables, Receivables, etc.) — clickable to drill down",DashboardView,Panel / Widget,,,
 KPI Drilldown Grid,Grid showing source data when a KPI card is clicked,DashboardView,Grid (Drilldown),,,
@@ -99,13 +100,14 @@ TSV Paste Support,Pasting tab-separated data into view shows summary toast,Intak
 Receipt Preview Drawer,Drawer showing preview of purchase receipt to be generated,IntakeView,Drawer,,,
 
 === INVENTORY ===,,,,,
-Inventory Batches Grid,Main AG Grid of all inventory batches,InventoryView,Grid,,,
+Inventory Batches Grid,Main AG Grid of all inventory batches,InventoryView,Grid,,2026-06-25: GridView template applied; subquery-scoped ORDER BY
 Inventory Grid — Default Columns,"Batch Code, Name, Available Qty, Unit Cost, Unit Price, Marker, Media, Status",InventoryView,Grid,,,
 Inventory Grid — Hidden Columns,"Subcategory, Market Name, Category, Tags, Vendor, Reserved Qty, UOM, Location, Ownership, Arrival, Photos?, Lot Code, Expiration Date",InventoryView,Grid,,,
 Inventory Grid — Inline Editing,"Editable: Available Qty, Unit Price, Lot Code, Expiration Date, Tags, Marker, statuses",InventoryView,Inline Action,,,
 Auto-Pricing Indicator,"Unit Price cell shows ""Auto"" label if derived from pricing rule",InventoryView,Grid (Visual),,,
 Filter Preset Strip,"Pre-configured filters: Available, Office Stock, No photos",InventoryView,Filter,,,
-Photography Queue Panel,Panel showing counts of batches needing media + link to Media view,InventoryView,Panel,,,
+Inventory Subcategory Summary (DR-1),Category-tier summary and ordering in InventoryView,InventoryView,Grid (Visual),,"NEW — 2026-06-17: DR-1 landed. Category-tier ordering (R-15)"
+Photography Queue Panel,Panel showing counts of batches needing media + link to Media view,InventoryView,Panel,X,"REMOVED 2026-06-17: DR-6 — removed from InventoryView to declutter left panel"
 Row Actions Panel,Panel when row is selected with tools to adjust quantity/status/location/ownership/tags,InventoryView,Panel,,,
 Row Action: Adjust Quantity,"Delta input (+/-) to adjust qty with required reason + before/after preview",InventoryView,Workflow,,,
 Row Action: Set Status,"Dropdown to change batch status (Held, Damaged, etc.) with required reason",InventoryView,Workflow,,,
@@ -114,7 +116,7 @@ Row Action: Move Ownership,"Dropdown to change ownership (Office, Consigned) wit
 Row Action: Apply Tags,Text input to replace tags on selected batch,InventoryView,Workflow,,,
 
 === SALES ===,,,,,
-Sales Orders Grid,"AG Grid of all sales orders: Order No, Customer, Status, Pricing, Total, Margin, Lines, Picked",SalesView,Grid,,,
+Sales Orders Grid,"AG Grid of all sales orders: Order No, Customer, Status, Pricing, Total, Margin, Lines, Picked",SalesView,Grid,,2026-06-18: SalesView modernization (T3) — behind feature flag
 Sales Orders — Inline Editing,Delivery Window cell editable inline,SalesView,Inline Action,,,
 Sales Orders — Filter Strip,"Pre-configured filters: All Open, Confirmed, Today, Needs marks",SalesView,Filter,,,
 Margin Visibility Toggle,"Toggle to show/hide internalMargin column in grids (drawer control)",SalesView,Setting,,,
@@ -139,8 +141,8 @@ Apply Credit (Manager+),Inputs to apply manual credit to order with required rea
 Select Referee,Dropdown to associate referee for credit accrual,SalesView,Workflow,,,
 
 === MATCHMAKING ===,,,,,
-Matchmaking Settings Panel,"Collapsible panel: score floors, thresholds, lookback days",MatchmakingView,Setting,,,
-Matchmaking Entry Panel,"Forms to manually enter Customer Needs and Vendor Supply",MatchmakingView,Panel,,,
+Matchmaking Settings Panel,"Collapsible panel: score floors, thresholds, lookback days",MatchmakingView,Setting,,2026-06-18: MatchmakingView modernization (T2) — settings/entry → slide-overs (UX-3)
+Matchmaking Entry Panel,"Forms to manually enter Customer Needs and Vendor Supply",MatchmakingView,Panel,,Now slide-over panels instead of inline
 Deterministic Matches Grid,Main grid showing computer-generated matches with scores + fit indicators,MatchmakingView,Grid,,,
 Match Expansion Row,"Expanding a match reveals reasoning + context-sensitive actions",MatchmakingView,Grid,,,
 Match Actions,"Inline actions: Accept, Dismiss, Reopen",MatchmakingView,Workflow,,,
@@ -167,6 +169,10 @@ Fulfillment Lines Grid,Secondary grid: line items for selected pick list,Fulfill
 Line Packing Strip,"Panel on line selection: Actual Qty, Weight, Bag Code inputs + Pack line button",FulfillmentView,Panel,,,
 Warehouse Alerts Drawer,"Drawer: manage warehouse alerts — Acknowledge, Return, Mark Cancelled",FulfillmentView,Drawer,,,
 
+=== FULFILLMENT — Picks/Lines Split Views (SX-K06) ===,,,,,
+Fulfillment Picks Split View,Separate filter slot for fulfillment picks grid,fulfillment-picks,Grid (Filter Slot),,"NEW — 2026-06: SX-K06 split picks filter slot from lines"
+Fulfillment Lines Split View,Separate filter slot for fulfillment lines grid,fulfillment-lines,Grid (Filter Slot),,"NEW — 2026-06: SX-K06 split lines filter slot from picks"
+
 === PICK QUEUE (Warehouse Operator) ===,,,,,
 Pick List Queue Grid,"All open pick lists grouped by status (Needs Picking, In Progress) with ID, # Lines, Age",PickView,Grid,,,
 Pick Line Screen Navigation,Click a pick list → navigate to Pick Line screen,PickView,Navigation,,,
@@ -179,7 +185,7 @@ Confirm Pack Action,Confirm weight and mark line as packed,PickLineScreen,Workfl
 Pick View (Mobile Route),PickView also mounted at /mobile/pick as warehouse operator tab,PickView,Page (Mobile),N/A (mobile),,
 
 === PAYMENTS ===,,,,,
-Quick Ledger Grid,"Top panel: quick entry for cash, check, wire, crypto receipts",PaymentsView,Panel,,,
+Quick Ledger Grid,"Top panel: quick entry for cash, check, wire, crypto receipts",PaymentsView,Panel,,2026-06-18: PaymentsView modernization — chrome swap to GridView template (T2)
 Payments Grid,Main AG Grid of all payment records,PaymentsView,Grid,,,
 Unapplied Count Badge,Live badge showing count of payments with unapplied balance,PaymentsView,Panel / Badge,,,
 Filter Preset Strip,"Pre-configured: Unpaid, Overdue, Unapplied",PaymentsView,Filter,,,
@@ -211,7 +217,7 @@ Draft Intake Grid,Grid of intake batches still in draft,CloseoutView,Grid,,,
 Period Lock/Archive Actions,"Owner-gated buttons: Post Period Adjustments, Lock Period, Archive Period",CloseoutView,Workflow,,,
 
 === RECOVERY ===,,,,,
-Command History Grid,"AG Grid of all commands run: Command, Actor, Target, Status, Created At",RecoveryView,Grid,,,
+Command History Grid,"AG Grid of all commands run: Command, Actor, Target, Status, Created At",RecoveryView,Grid,,2026-06-18: RecoveryView modernization (T2) — FilterToolbar added
 Command Family Filter Chips,"Filter buttons by area: Intake, PO, Sales, etc.",RecoveryView,Filter,,,
 User Filter,Dropdown to filter by user who executed command,RecoveryView,Filter,,,
 Command Reversal,Inline action on reversible commands — shows confirmation dialog with guidance,RecoveryView,Workflow,,,
@@ -220,7 +226,7 @@ Command Journal Drawer,Drawer showing raw JSON payload + snapshot for selected c
 Backup Restore Panel,"Owner-gated: select backup point, preview database state",RecoveryView,Panel,,,
 
 === SETTINGS ===,,,,,
-Settings Navigation Tabs,"Tabs: Strain Aliases, Pricing, System (manager+), Credit Engine (owner), Requests (+ redirect links to Recovery/Closeout)",SettingsView,Navigation,,,
+Settings Navigation Tabs,"Tabs: Strain Aliases, Pricing, System (manager+), Credit Engine (owner), Requests (+ redirect links to Recovery/Closeout)",SettingsView,Navigation,,2026-06-18: SettingsView modernization (T1)
 Settings Tab: System,"System-wide settings: transaction types grid + system configuration",SettingsView,Setting,,,
 System Tab — Transaction Types,Editable grid to create/manage custom ledger transaction types,SettingsView,Setting (Grid),,,
 Settings Tab: Strain Aliases,Editable grid mapping batch names to customer-facing aliases,SettingsView,Setting (Grid),,,
@@ -233,13 +239,13 @@ Credit Engine Tab — Stances,"Editable grid: create/manage credit stances (Aggr
 Settings Tab: Requests,Embedded ConnectorsView for connector request review (also canonical landing for /connectors + /processors when flagged off),SettingsView,Setting,,,
 
 === MEDIA / PHOTOGRAPHY ===,,,,,
-Photography Queue Grid,AG Grid of inventory batches in photography queue,MediaView,Grid,,,
+Photography Queue Grid,AG Grid of inventory batches in photography queue,MediaView,Grid,,2026-06-25: photography grid SQL fixed — use bms. prefixed columns
 Filter Preset Strip,"Pre-configured: Needs Primary Photo, Awaiting Publication",MediaView,Filter,,,
 Media Upload Panel,"Drag-and-drop area for uploading media (appears on batch selection)",MediaView,Panel,,,
 Existing Media Gallery,Gallery of already-uploaded media for selected batch,MediaView,Panel,,,
 Media Actions,"Per-item: Set as Primary, Publish, Delete",MediaView,Inline Action,,,
 Public Link Generation,Generate shareable token-gated URL for direct photo uploads to batch,MediaView,Workflow,,,
-Mobile Photo Upload Route,Dedicated mobile route /photography/mobile/:batchId for photo uploads,MediaUploadMobile,Page (Mobile),N/A (mobile),,
+Mobile Photo Upload Route,Dedicated mobile route /photography/mobile/:batchId for photo uploads,MediaUploadMobile,Page (Mobile),N/A (mobile),2026-06-25: now properly routed under React Router
 
 === CONTACTS ===,,,,,
 Contacts Grid,"AG Grid: Name, Company, Roles (Customer/Vendor/etc.), links to financial profiles",ContactsView,Grid,,,
@@ -253,6 +259,7 @@ Contact Header,"Name, company, Edit/Archive buttons",ContactProfileView,Panel,,,
 Contact Details Panel,Phone + email + address display,ContactProfileView,Panel,,,
 Roles Panel,Roles assigned to contact (e.g. Customer/Vendor),ContactProfileView,Panel,,,
 Customer Financials Panel,"If customer: balance, credit limit, stance",ContactProfileView,Panel,,,
+Customer Orders Sub-Grid (TER-1564),Order history sub-grid in ContactCustomerPanel showing all orders for the contact,contacts-customer-orders,Grid (Sub-Grid),,"NEW — 2026-06: TER-1564 — contact profile now has embedded order history"
 Vendor Financials Panel,If vendor: open payables display,ContactProfileView,Panel,,,
 Appointments Panel,"Upcoming/past appointments + Cancel/Complete actions",ContactProfileView,Panel,,,
 Command History Panel,Log of system commands related to contact,ContactProfileView,Panel,,,
@@ -294,38 +301,38 @@ Connector Requests Grid,AG Grid of inbound connector requests,ConnectorsView,Gri
 Request Actions,"Inline actions: Approve, Reject",ConnectorsView,Inline Action,N/A (see Settings),TER-1664
 
 === MOBILE VIEWS ===,,,,,
-Mobile Dashboard,"Greeting card, KPI grid, work queues, my drafts, recent activity, health strip",MobileDashboardView,Page (Mobile),N/A (mobile),,
-Mobile Inventory,"Search bar, filter chips, batch list with expandable details, adjust qty + flag actions",MobileInventoryView,Page (Mobile),N/A (mobile),,
-Mobile Catalog,"2-column photo grid, search/filter, detail bottom sheet, add photo, copy offer, view in inventory",MobileCatalogView,Page (Mobile),N/A (mobile),,
-Mobile Payments,"Receive/Pay tabs, open invoices/bills list, expandable payment form, confirmation sheet",MobilePaymentsView,Page (Mobile),N/A (mobile),,
-Mobile Contacts,"Search + role filter, contact cards list, profile navigation",MobileContactsView,Page (Mobile),N/A (mobile),,
-Mobile Contact Profile,"Header card, detail panels (contact info/financials/history), back navigation",MobileContactProfileView,Page (Mobile),N/A (mobile),,
-Mobile Intake,"Pending batches list, verify + flag actions with confirmation/reason panels",MobileIntakeView,Page (Mobile),N/A (mobile),,
+Mobile Dashboard,"Greeting card, KPI grid, work queues, my drafts, recent activity, health strip",MobileDashboardView,Page (Mobile),N/A (mobile),2026-06-25: now routed at /mobile/dashboard
+Mobile Inventory,"Search bar, filter chips, batch list with expandable details, adjust qty + flag actions",MobileInventoryView,Page (Mobile),N/A (mobile),2026-06-25: now routed at /mobile/inventory
+Mobile Catalog,"2-column photo grid, search/filter, detail bottom sheet, add photo, copy offer, view in inventory",MobileCatalogView,Page (Mobile),N/A (mobile),2026-06-25: now routed at /mobile/catalog
+Mobile Payments,"Receive/Pay tabs, open invoices/bills list, expandable payment form, confirmation sheet",MobilePaymentsView,Page (Mobile),N/A (mobile),2026-06-25: now routed at /mobile/payments
+Mobile Contacts,"Search + role filter, contact cards list, profile navigation",MobileContactsView,Page (Mobile),N/A (mobile),2026-06-25: now routed at /mobile/contacts
+Mobile Contact Profile,"Header card, detail panels (contact info/financials/history), back navigation",MobileContactProfileView,Page (Mobile),N/A (mobile),2026-06-25: now routed at /mobile/contacts/:id
+Mobile Intake,"Pending batches list, verify + flag actions with confirmation/reason panels",MobileIntakeView,Page (Mobile),N/A (mobile),2026-06-25: now routed at /mobile/intake
 
 === REPORTS (Navigation shell exists — no report views implemented) ===,,,,,
-Reports Route Shell,Navigation + layout shell for reports section,ReportsRouteShell,Navigation,,No report components found in reports/ directory
+Reports Route Shell,Navigation + layout shell for reports section,ReportsRouteShell,Navigation,,"No report components found in reports/ directory. CAP-021 spec ready (7 client-side aggregations — Phase 6)"
 
 === COMMAND CATALOG (Backend commands by domain) ===,,,,,
-Intake Commands,"createBatch, updateBatch, deleteBatch, postPurchaseReceipt, rejectBatch, flagBatch, verifyAllIntake, adjustBatchQuantity, setInventoryStatus, transferInventoryLocation, transferInventoryOwnership, setBatchPrice, setBatchLotInfo, attachBatchPhoto, uploadBatchMedia, setBatchMediaRole, publishBatchMedia, deleteBatchMedia, importBatchesCsv (internal), applyTags",Command Catalog,Backend Command,,,
-Purchase Order Commands,"createPurchaseOrder, updatePurchaseOrder, addPurchaseOrderLine, updatePurchaseOrderLine, removePurchaseOrderLine, finalizePurchaseOrder, unfinalizePurchaseOrder, approvePurchaseOrder, receivePurchaseOrder, cancelPurchaseOrder, recordVendorPrepayment, setLineLandedCost",Command Catalog,Backend Command,,,
-Sales Commands,"createSalesOrder, addSalesOrderLine, updateSalesOrderLine, removeSalesOrderLine, reserveInventoryForOrder, priceSalesOrder, confirmSalesOrder, cancelSalesOrder, postSalesOrder, repriceOrder, applyClientCredit, setDeliveryWindow",Command Catalog,Backend Command,,,
-Payment Commands,"logPayment, allocatePayment, unallocatePayment, refundPayment, applyDiscount, postTransactionLedgerRow, upsertTransactionType",Command Catalog,Backend Command,,,
-Vendor Commands,"createVendorBill, approveVendorBill, scheduleVendorPayment, recordVendorPayment, voidVendorPayment, createVendor, updateVendor",Command Catalog,Backend Command,,,
-Fulfillment Commands,"allocateOrderToFulfillment, createPickList, recordWeighAndPack, markOrderFulfilled, printLabels (internal), adjustFulfillmentLine, releaseLineForPicking, releaseLinesForPicking, recallLineFromPicking, acknowledgeWarehouseAlert, returnPickedUnits, cancelFulfillmentLine",Command Catalog,Backend Command,,,
-Matchmaking Commands,"createCustomerNeed, updateCustomerNeed, createVendorSupply, updateVendorSupply, acceptMatchmakingMatch, dismissMatchmakingMatch, reopenMatchmakingMatch, updateMatchmakingSettings, noteMatchmakingOutreach, dismissMatchmakingWorkQueueItem",Command Catalog,Backend Command,,,
-Credit Engine Commands,"setCustomerCreditLimit, revertCustomerCreditToEngine, snoozeCustomerCreditReminder, setCustomerEngineMax (internal), setCustomerStance, disableCreditEngineForCustomer, enableCreditEngineForCustomer, createCreditEngineStance, updateCreditEngineStance, deleteCreditEngineStance, setCreditEngineConfig, bulkRevertCustomersToEngine",Command Catalog,Backend Command,,,
+Intake Commands,"createBatch, updateBatch, deleteBatch, postPurchaseReceipt, rejectBatch, flagBatch, verifyAllIntake, adjustBatchQuantity, setInventoryStatus, transferInventoryLocation, transferInventoryOwnership, setBatchPrice, setBatchLotInfo, attachBatchPhoto, uploadBatchMedia, setBatchMediaRole, publishBatchMedia, deleteBatchMedia, importBatchesCsv (internal), applyTags",Command Catalog,Backend Command,,2026-06-19: intake handlers extracted to domains/intake/ (11 handlers, 440L)
+Purchase Order Commands,"createPurchaseOrder, updatePurchaseOrder, addPurchaseOrderLine, updatePurchaseOrderLine, removePurchaseOrderLine, finalizePurchaseOrder, unfinalizePurchaseOrder, approvePurchaseOrder, receivePurchaseOrder, cancelPurchaseOrder, recordVendorPrepayment, setLineLandedCost",Command Catalog,Backend Command,,2026-06-25: PO domain migrated to defineCommand() registry pattern
+Sales Commands,"createSalesOrder, addSalesOrderLine, updateSalesOrderLine, removeSalesOrderLine, reserveInventoryForOrder, priceSalesOrder, confirmSalesOrder, cancelSalesOrder, postSalesOrder, repriceOrder, applyClientCredit, setDeliveryWindow",Command Catalog,Backend Command,,2026-06-18: sales-orders handlers extracted to domains/sales-orders/ (15 handlers)
+Payment Commands,"logPayment, allocatePayment, unallocatePayment, refundPayment, markPaymentUnapplied, applyDiscount, postTransactionLedgerRow, upsertTransactionType",Command Catalog,Backend Command,,"NEW: markPaymentUnapplied (R-05, T3) — 2026-06-18. Payments handlers extracted to domains/payments/"
+Vendor Commands,"createVendorBill, approveVendorBill, scheduleVendorPayment, recordVendorPayment, voidVendorPayment, createVendor, updateVendor",Command Catalog,Backend Command,,2026-06-19: vendor handlers extracted to domains/vendor/
+Fulfillment Commands,"allocateOrderToFulfillment, createPickList, recordWeighAndPack, markOrderFulfilled, printLabels (internal), adjustFulfillmentLine, releaseLineForPicking, releaseLinesForPicking, recallLineFromPicking, acknowledgeWarehouseAlert, returnPickedUnits, cancelFulfillmentLine",Command Catalog,Backend Command,,2026-06-18: pick+fulfillment handlers extracted to domains/pick/ and domains/fulfillment/
+Matchmaking Commands,"createCustomerNeed, updateCustomerNeed, createVendorSupply, updateVendorSupply, acceptMatchmakingMatch, dismissMatchmakingMatch, reopenMatchmakingMatch, updateMatchmakingSettings, noteMatchmakingOutreach, dismissMatchmakingWorkQueueItem",Command Catalog,Backend Command,,2026-06-19: matchmaking handlers extracted to domains/matchmaking/
+Credit Engine Commands,"setCustomerCreditLimit, revertCustomerCreditToEngine, snoozeCustomerCreditReminder, setCustomerEngineMax (internal), setCustomerStance, disableCreditEngineForCustomer, enableCreditEngineForCustomer, createCreditEngineStance, updateCreditEngineStance, deleteCreditEngineStance, setCreditEngineConfig, bulkRevertCustomersToEngine",Command Catalog,Backend Command,,2026-06-18: credit handlers extracted to domains/credit/ (12 handlers)
 Pricing Commands,"setCustomerPricingRule, setDefaultPricingRule, setLineBelowFloorReason, resolveVendorApproval",Command Catalog,Backend Command,,,
 Item Commands,"createItem, updateItem, toggleItemStatus, setItemAlias",Command Catalog,Backend Command,,,
-Referee Commands,"createReferee, updateReferee, addRefereeRelationship, updateRefereeRelationship, deactivateRefereeRelationship, voidRefereeCredit",Command Catalog,Backend Command,,,
+Referee Commands,"createReferee, updateReferee, addRefereeRelationship, updateRefereeRelationship, deactivateRefereeRelationship, voidRefereeCredit",Command Catalog,Backend Command,,2026-06-19: referee handlers extracted to domains/referees/
 Processor/Connector Commands,"approveConnectorRequest (internal), rejectConnectorRequest (internal), routeConnectorRequest (internal), createPaymentProcessor (internal), markUserFeeCollected (internal), updateProcessorFeeStatus (internal), updateProcessor",Command Catalog,Backend Command,,,
-Contact Commands,"createContact, updateContact, archiveContact, addContactRole, linkContactToExistingEntity, linkContactToUser, createAppointment, updateAppointment, cancelAppointment, completeAppointment",Command Catalog,Backend Command,,,
+Contact Commands,"createContact, updateContact, archiveContact, addContactRole, linkContactToExistingEntity, linkContactToUser, createAppointment, updateAppointment, cancelAppointment, completeAppointment",Command Catalog,Backend Command,,2026-06-19: contact handlers extracted to domains/contacts/ (23 handlers)
 Dispute Commands,"resolveInvoiceDispute, rejectInvoiceDispute",Command Catalog,Backend Command,,,
 Merge Candidate Commands,"approveMergeCandidate, dismissMergeCandidate",Command Catalog,Backend Command,,,
-Recovery/System Commands,"createCorrectionJournalEntry, reverseCommandById, documentCommandFailure, restoreFromBackupPoint, postPeriodAdjustments, lockPeriod, archivePeriod, updateSystemSetting, mintPhotoUploadToken, revokePhotoUploadToken, createCustomerSheetSnapshot",Command Catalog,Backend Command,,,
+Recovery/System Commands,"createCorrectionJournalEntry, reverseCommandById, documentCommandFailure, restoreFromBackupPoint, postPeriodAdjustments, lockPeriod, archivePeriod, updateSystemSetting, mintPhotoUploadToken, revokePhotoUploadToken, createCustomerSheetSnapshot",Command Catalog,Backend Command,,"2026-06-18: dead mintPhotoUploadTokenCommand/revokePhotoUploadTokenCommand handlers removed"
 
 === CROSS-CUTTING / NON-VIEW FEATURES ===,,,,,
 Idempotency Keys,Every mutation stamps a client-generated UUID to prevent double-execution,useCommandRunner,System Pattern,,,
-Command Journaling,Every command writes to DB journal + JSONL + Socket.io stream,Server,System Pattern,,,
+Command Journaling,Every command writes to DB journal + JSONL + Socket.io stream,Server,System Pattern,,2026-06-19: shared journal + socket-emitter extracted to domains/shared/
 RBAC (Role-Based Access),All commands validated against user role before execution,Server,System Pattern,,,
 Socket.io Realtime Invalidation,Clients receive events to invalidate queries after commands execute,Server,System Pattern,,,
 Session Management,"express-session + connect-pg-simple (httpOnly cookies)",Server,System Pattern,,,
@@ -333,7 +340,7 @@ CSV Export (AG Grid),AG Grid Enterprise CSV export from every grid column menu,O
 Column Customization (AG Grid),Sidebar: show/hide columns + filter builder on every grid,OperatorGrid,Setting,,,
 Range Selection + Undo/Redo (AG Grid),AG Grid Enterprise cell range selection + undo/redo editing,OperatorGrid,Inline Action,,,
 Multi-Row Selection,Every grid supports multi-row selection with Ctrl/Cmd+click,OperatorGrid,Grid,,,
-Saved Filters Manager,Save/load named grid filter configurations,SavedFiltersManager,Setting,,,
+Saved Filters Manager,Save/load named grid filter configurations,SavedFiltersManager,Setting,,CAP-031 — TER-1561: merged
 Pricing Panel,Shared component for managing pricing rules across views,PricingPanel,Shared Component,,,
 Inventory Finder Panel,Shared component for searching inventory from sales/PO views,InventoryFinderPanel,Shared Component,,,
 Row Command History Drawer,Per-row drawer showing command history tied to an entity,RowCommandHistoryDrawer,Shared Component,,,
@@ -341,7 +348,14 @@ Contact Create Modal,Shared modal for creating contacts from any view,ContactCre
 Media Upload (Mobile),Mobile-optimized media upload component,MediaUploadMobile,Shared Component,,,
 Use Command Runner Hook,"Centralized mutation hook: idempotency key, invalidate all queries, push toast",useCommandRunner,System Pattern,,,
 UI Store (Zustand),"Persisted UI state: activeView, sideNav collapsed, drawer states, settings tabs, navGroupExpansion, focusMode, focusedPanelId",uiStore,System Pattern,,,
-Canvas Grammar (Feature Flag),"Modern shell: Keel chips, Identity Ribbon, Context Drawer, focus mode (VITE_CANVAS_GRAMMAR_ENABLED)",App,System Feature (Flagged),,,
+Canvas Grammar (Feature Flag),"Modern shell: Keel chips, Identity Ribbon, Context Drawer, focus mode (VITE_CANVAS_GRAMMAR_ENABLED)",App,System Feature (Flagged),,2026-06-18: flag flip gap closed — 83→98 evidence items resolved
+GridView Template System,"Standardized view template with slot contracts: filter strip, status bar, master grid, detail panel. All 20+ views refactored through GridView (Phase 1-3, 2026-06-17/18)",GridView,System Pattern (Architecture),,"NEW — 2026-06-17/18: Mercury UX Retrofit Phase 1-3. 13 views adopted GridView template. OperationsViews.tsx → per-view file split (UX-T01)"
+URL Grammar Routing,"URL-based routing for all views with canonical paths (/dashboard, /sales, /purchaseOrders, etc.). Browser back/forward, deep-linking work. ViewKey synced from pathname.",App (React Router),System Pattern (Architecture),,"NEW — 2026-06-18: R-10/11/17/18/19/20 — URL grammar + AG Grid + cell select"
+Domain Extraction (Backend),"All 90+ command handlers extracted from monolithic commandBus.ts (7,400L) into per-domain directories: purchase-orders, sales-orders, payments, credit, inventory, media, pick, intake, vendor, matchmaking, contacts, referees. Shared: journal + socket-emitter.",Server,System Pattern (Architecture),,"NEW — 2026-06-18/19: REF Foundational Uplift — domain extraction, router split, reliability (#501)"
+Command Registry (defineCommand),"Self-registering command pattern: defineCommand() wraps name, Zod schema, RBAC, reversal policy, and handler in one file. PO domain prototype live (12 commands). Switch-case fallback for unmigrated domains. Mandatory for all new commands.",Server,System Pattern (Architecture),,"NEW — 2026-06-25: feat: defineCommand + command registry (PO domain prototype). docs/decisions/0002-command-registry.md"
+Router Split Expansion,"Per-domain routers extracted from monolithic barrel. Error boundaries added at multiple levels. PR template + lefthook added. Structured logger replaces console.* calls.",Server,System Pattern (Architecture),,"NEW — 2026-06-19: router split, error boundaries, structured logger, lefthook"
+Grid v2 — Subquery-Scoped ORDER BY,"All 20 views use subquery-scoped ORDER BY to fix sort conflicts. AG Grid module dedup. DR-1 category tier ordering. GridColDef export unification.",OperatorGrid,System Pattern (Infrastructure),,"NEW — 2026-06-24/25: grid v2 fixes across all views"
+Flag Flips Closed (83→98),"Evidence gaps closed — 83 to 98 flag items resolved. MarkPaymentUnapplied backend command (R-05, T3). Playwright E2E for PurchaseOrders + Payments/Recovery. A11y audit + integration smoke test.",App,System Pattern (Infrastructure),,"NEW — 2026-06-18: evidence: flag flip gap closed"
 
 === LOGIN ===,,,,,
 Login Page,Email + password login form with session-based auth,LoginView,Page,,,

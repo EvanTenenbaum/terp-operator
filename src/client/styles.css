@@ -63,6 +63,8 @@ kbd {
 }
 
 .grid-shell > div {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 0%;
   min-height: 0;
   width: 100%;
@@ -1463,9 +1465,7 @@ kbd {
   box-shadow: inset 0 -2px 0 rgba(176, 105, 21, 0.55);
 }
 
-/* Force AG Grid to fill its parent container */
+/* Fix AG Grid to fill its parent via flex chain */
 .grid-shell .ag-root-wrapper {
-  height: 100% !important;
-  display: flex;
-  flex-direction: column;
+  flex: 1 1 auto;
 }
