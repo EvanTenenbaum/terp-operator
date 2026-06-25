@@ -345,6 +345,11 @@ import {
 } from '@/domains/vendor-management';
 import { setInventoryStatus, transferInventoryLocation, transferInventoryOwnership } from '@/domains/inventory';
 
+// Barter settlement domain (product as monetary instrument).
+// Phase 1: outbound vendor barter (payWithProduct). See
+// docs/engineering-plans/product-as-monetary-instrument-plan.md.
+import { payWithProduct } from '@/domains/barter';
+
 // Contacts domain commands extracted to @/domains/contacts (P1.CT.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
 // cases below still dispatch to them by name.
@@ -1373,6 +1378,8 @@ export async function runCommand(tx: Tx, name: CommandName, payload: Payload, us
       return recordVendorPayment(tx, payload, commandId);
     case 'voidVendorPayment':
       return voidVendorPayment(tx, payload, commandId);
+    case 'payWithProduct':
+      return payWithProduct(tx, payload, user, commandId);
     case 'recordWeighAndPack':
       return recordWeighAndPack(tx, payload, commandId);
     case 'markOrderFulfilled':
