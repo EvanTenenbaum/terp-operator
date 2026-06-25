@@ -662,6 +662,52 @@ export const correctionJournalEntries = pgTable('correction_journal_entries', {
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   memo: text('memo').notNull(),
   status: varchar('status', { length: 32 }).notNull().default('posted'),
+  createdAt: now(),
+  sourceType: varchar('source_type', { length: 32 }),
+  sourceId: uuid('source_id'),
+  commandId: uuid('command_id')
+});
+
+// Barter settlement tables (migration 0085)
+export const barterSettlements = pgTable('barter_settlements', {
+  id: id(),
+  settlementNo: varchar('settlement_no', { length: 80 }).notNull().unique(),
+  direction: varchar('direction', { length: 16 }).notNull(),
+  counterpartyType: varchar('counterparty_type', { length: 16 }).notNull(),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+  settlementAmount: numeric('settlement_amount', { precision: 12, scale: 2 }).notNull(),
+  costBasis: numeric('cost_basis', { precision: 12, scale: 2 }).notNull(),
+  gainLoss: numeric('gain_loss', { precision: 12, scale: 2 }).notNull().default('0'),
+  valueOverridden: boolean('value_overridden').notNull().default(false),
+  overrideReason: text('override_reason'),
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+  purchaseReceiptId: uuid('purchase_receipt_id').references(() => purchaseReceipts.id, { onDelete: 'set null' }),
+  vendorBillId: uuid('vendor_bill_id').references(() => vendorBills.id, { onDelete: 'set null' }),
+  status: varchar('status', { length: 24 }).notNull().default('posted'),
+  commandId: uuid('command_id'),
+  note: text('note'),
+  createdAt: now(),
+  updatedAt: updated()
+});
+
+export const barterSettlementLines = pgTable('barter_settlement_lines', {
+  id: id(),
+  settlementId: uuid('settlement_id').references(() => barterSettlements.id, { onDelete: 'cascade' }).notNull(),
+  batchId: uuid('batch_id').references(() => batches.id, { onDelete: 'set null' }),
+  productName: varchar('product_name', { length: 180 }).notNull(),
+  qty: numeric('qty', { precision: 12, scale: 3 }).notNull(),
+  unitCost: numeric('unit_cost', { precision: 12, scale: 2 }).notNull(),
+  lineSettlementAmount: numeric('line_settlement_amount', { precision: 12, scale: 2 }).notNull(),
+  createdAt: now()
+});
+
+export const barterSettlementAllocations = pgTable('barter_settlement_allocations', {
+  id: id(),
+  settlementId: uuid('settlement_id').references(() => barterSettlements.id, { onDelete: 'cascade' }).notNull(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'set null' }),
+  vendorBillId: uuid('vendor_bill_id').references(() => vendorBills.id, { onDelete: 'set null' }),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   createdAt: now()
 });
 

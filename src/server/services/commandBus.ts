@@ -23,6 +23,9 @@ import {
   archiveRuns,
   backupSnapshots,
   batches,
+  barterSettlements,
+  barterSettlementLines,
+  barterSettlementAllocations,
   brands,
   clientLedgerEntries,
   commandJournal,
@@ -3115,7 +3118,10 @@ export async function snapshotByAffectedIds(dbLike: typeof db | Tx, ids: string[
     ['paymentAllocations', paymentAllocations],
     ['clientLedgerEntries', clientLedgerEntries],
     ['correctionJournalEntries', correctionJournalEntries],
-    ['items', items]
+    ['items', items],
+    ['barterSettlements', barterSettlements],
+    ['barterSettlementLines', barterSettlementLines],
+    ['barterSettlementAllocations', barterSettlementAllocations],
   ] as const;
 
   // GH #310: run all table lookups concurrently instead of 22 sequential round-trips.
@@ -3208,6 +3214,9 @@ function collectIds(payload: Payload) {
     payload.commandId,
     payload.backupId,
     payload.itemId,
+    payload.settlementId,
+    payload.receiptId,
+    ...(Array.isArray(payload.settlementIds) ? payload.settlementIds : []),
     ...(Array.isArray(payload.batchIds) ? payload.batchIds : []),
     ...(Array.isArray(payload.lineIds) ? payload.lineIds : []),
     ...(Array.isArray(payload.selectedIds) ? payload.selectedIds : []),
