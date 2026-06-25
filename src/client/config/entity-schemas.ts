@@ -54,6 +54,16 @@ export interface FieldDefinition {
   pinned?: 'left' | 'right';
   /** For combobox fields: the procedure and params for option lookup. */
   comboboxSource?: string;
+  /** Smart-table option source for enum/combobox/tags fields. */
+  optionSource?:
+    | { kind: 'status' }
+    | { kind: 'enum'; values: { value: string; label: string }[] }
+    | { kind: 'combobox'; entityType: string; filters?: Record<string, unknown> }
+    | { kind: 'tags' };
+  /** Chip rendering configuration. */
+  chip?: { palette?: string; multiple?: boolean; allowCreate?: boolean };
+  /** Command to dispatch on cell edit commit via useCommandRunner. */
+  command?: { name: string; payload?: (row: Record<string, unknown>, value: unknown) => Record<string, unknown>; reason?: string };
   /**
    * Why this field is at its current attention tier.
    * Tier 0: always visible (identity, status, amount).
@@ -157,6 +167,8 @@ export const purchaseOrderSchema: EntityFieldSchema = {
       width: 130,
       pinned: 'left',
       sortable: true,
+      optionSource: { kind: 'status' },
+      chip: { palette: 'status' },
       rationale: 'The operator scanning the grid needs to see status immediately — it drives every action decision. ARCH-2: state machine uses this field.',
     }),
     t0('poNo', 'PO #', 'text', {
@@ -184,6 +196,15 @@ export const purchaseOrderSchema: EntityFieldSchema = {
     }),
     t1('paymentTerms', 'Terms', 'enum', {
       width: 120,
+      optionSource: { kind: 'enum', values: [
+        { value: 'net15', label: 'Net 15' },
+        { value: 'net30', label: 'Net 30' },
+        { value: 'net45', label: 'Net 45' },
+        { value: 'net60', label: 'Net 60' },
+        { value: 'cod', label: 'COD' },
+        { value: 'due_on_receipt', label: 'Due on Receipt' },
+      ]},
+      chip: {},
       rationale: 'Relevant to cash-flow scanning; secondary to status and total.',
     }),
     t1('prepaymentAmount', 'Prepaid', 'currency', {

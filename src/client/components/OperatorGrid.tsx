@@ -202,7 +202,7 @@ export function OperatorGrid({
 
   const columnDefs = useMemo<ColDef<GridRow>[]>(() => {
     const baseColumns = mergeColumnDefsWithPrefs(
-      withRowNumbers(withCreatedAtFormatter(withStatusRenderer(columns, canWrite))),
+      withRowNumbers(withCreatedAtFormatter(withChipRenderer(columns, canWrite))),
       storedColumnPrefs
     );
 
@@ -1035,21 +1035,31 @@ function formatGridValue(value: unknown) {
   return String(value);
 }
 
-function withStatusRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
-  return columns.map((column) =>
-    column.field === 'status'
+function withChipRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
+  return columns.map((column) => {
+    const chipConfig = (column as Record<string, unknown>).__chipConfig as { palette?: string } | undefined;
+    const optionSource = (column as Record<string, unknown>).__optionSource as { kind: string } | undefined;
+    void optionSource;
+
+    // Apply chip renderer to status fields AND any field with chip config
+    if (column.field === 'status' || chipConfig) {
+      return {
+        ...column,
+        // Keep editable for non-status chip fields (enum chips are editable via dropdown)
+        editable: column.field === 'status' ? false : column.editable,
+        cellRenderer: (params: { value?: string }) => (
+          <StatusPill status={params.value} />
+        ),
+      };
+    }
+
+    return canWrite
       ? {
           ...column,
-          editable: false,
-          cellRenderer: (params: { value?: string }) => <StatusPill status={params.value} />
+          cellClass: column.editable ? 'editable-cell chip-cell' : column.cellClass,
         }
-      : canWrite
-        ? {
-            ...column,
-            cellClass: column.editable ? 'editable-cell' : column.cellClass
-          }
-        : { ...column, editable: false }
-  );
+      : { ...column, editable: false };
+  });
 }
 
 function withCreatedAtFormatter(columns: ColDef<GridRow>[]) {
