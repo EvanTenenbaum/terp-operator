@@ -5,6 +5,8 @@
 **Date:** 2026-06-25
 **Scope:** A complete, system-grounded design for making every TERP grid feel like the latest Google Sheets *smart tables* (chips, dropdowns, inline pickers, smart-chip hover cards) — **without breaking the audited-command paradigm, the ≤8-column rule, the green-accent palette, or the in-flight Mercury UX retrofit.**
 
+> **⚠ AQA correction (2026-06-25):** This document was adversarially verified; some claims here were overstated or used planning-stage names. Canonical, corrected guidance lives in `docs/ux/smart-tables-master-plan.md`; full findings in `docs/ux/smart-tables-aqa.md`. Key fixes: **role projection of margin/cost is NOT implemented today** (a requirement, not a guarantee); **"only legal next states" is new work** (`statuses.ts` is a flat enum; transitions are server-side only); the live components are **`DetailSlideover`** and **`GridView`** (not `SlideOver`/standalone `PrimaryGridView`); the ≤8-col rule is a manually-audited convention, not lint-enforced. Read this doc for the design detail, the master plan for the corrected facts.
+
 ---
 
 ## 0. The central tension (and how we resolve it)

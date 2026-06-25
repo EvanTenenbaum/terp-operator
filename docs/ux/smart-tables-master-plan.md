@@ -3,6 +3,7 @@
 **Status:** Canonical unified plan. Supersedes nothing — *integrates* three inputs without dropping anything.
 **Date:** 2026-06-25
 **Owner:** Evan + eng + design
+**AQA:** Adversarially verified against the codebase — see `docs/ux/smart-tables-aqa.md`. This document has been **corrected** per that report (role projection, status-transition data, live component names, PO quick-add, retrofit completeness). Claims below reflect the corrected state.
 
 ## 0. Provenance — what this unifies (nothing dropped)
 
@@ -27,9 +28,12 @@ This master plan folds together three documents. All three remain in the repo as
 ## 2. The three tensions and how the plan resolves them
 
 ### 2.1 Sheets is free-form; TERP is audited (from B)
-Google Sheets writes directly to a cell. TERP routes **every** mutation through a reversible, reason-bearing command bus (`ARCH-12`; `command_journal: pending→ok→failed`, reversible via `reversedByCommandId`), caps grids at **≤8 visible columns**, fixes the palette, and *deliberately* keeps some views form-bearing (`InventoryView`). Naively "making cells freely editable" would destroy the audit trail, reversibility, and role projections (margin/cost hidden from operator) that are the product's reason to exist.
+Google Sheets writes directly to a cell. TERP routes **every** mutation through a reversible, reason-bearing command bus (`ARCH-12`; `command_journal: pending→ok→failed`, reversible via `reversedByCommandId`), treats **≤8 visible columns** as a convention (documented + manually audited; *not* lint-enforced — audit stale 2026-06-12), and fixes the palette. *(AQA note: the per-view `onCellCommit` path is still live today in PO/SO views; the schema-driven command path is the retrofit target, not yet complete. Role-based column projection of margin/cost is **not yet implemented** — see §2.1a — so it is a requirement of this work, not an existing guarantee.)* Naively "making cells freely editable" would destroy the audit trail and reversibility that are the product's reason to exist.
 
 > **Resolution:** chips and dropdowns are the **presentation layer of the command bus.** A chip is the rendered state of a field; clicking opens a type-aware picker; choosing a value dispatches a command via `useCommandRunner`; the cell shows the `saving→saved→error` states `ComboboxCellEditor` already implements; failures roll back optimistically. The operator *feels* a spreadsheet; the system *records* an audited command. Sheets' `⌘Z` becomes TERP's reversible command — strictly stronger.
+
+### 2.1a Role projection is a requirement, not an existing guarantee (AQA F1)
+The plan needs margin/cost columns and hover-card fields to be hidden from roles that may not see them. **Today they are not.** `internalMargin` (sales) and `unitCost` (intake/receipt) carry **no `minRole`**, and `OperatorGrid`/`useColumnDefs` do **not** hide columns by role (only the command palette filters *actions* by role). So: (a) this is a **latent data-exposure gap that exists independent of this plan** and should be raised on its own; and (b) the smart-chip hover cards (P5) must implement **server-side field gating themselves** — they cannot assume the column layer already projects by role. Treat role projection as a deliverable, gated before P5.
 
 ### 2.2 Richer cells vs. the inline-editing ceiling (B vs. C)
 Doc C's decisive, adversarially-verified finding: *"inline editing is the least-friction approach" was refuted 2/3 for over-generalizing.* Inline stays low-friction **only** for quick, single-field, low-stakes edits (correct a typo, toggle a status, pick from a dropdown). It degrades for rows with many fields, confirmation needs, or **side effects / dependent logic** — precisely TERP's 23-column Sales line (pricing floors, landed-cost resolution, credit, vendor-approval). Odoo itself **switches a line from inline grid to a per-line form** once it carries enough fields/side-effects.
@@ -58,16 +62,16 @@ Putting 2.1 and 2.2 together gives the operating model for *every* TERP grid:
 
 From `docs/design-system/` + the decisions log:
 
-1. **≤8 visible data columns** (Issue #31). Richness comes from smarter cells + expansion + SlideOver, never more columns.
+1. **≤8 visible data columns** (Issue #31). Richness comes from smarter cells + expansion + DetailSlideover, never more columns.
 2. **No new colors** (`INDEX.md`): `ink #18211f`, `panel #f7f8f5`, `field #ffffff`, `line #d8ded6`, `accent #216e4e`, `amber #b06915`, `danger #b42318` + existing `StatusPill` tone families.
 3. **No custom AG Grid theme** — `ag-theme-quartz` + Tailwind + existing `--ag-*` vars.
 4. **All writes via the command bus** (`ARCH-12`) — through `useCommandRunner`, not a per-view `onCellCommit` switch (being deleted).
 5. **Schema is the single source of truth** (`ARCH-8`): behavior declared in `entity-schemas.ts`; custom renderers are stable exports under `src/client/components/cellRenderers/`.
-6. **One-system rule** (`templates.md`): six jobs, one home each. Hover cards reuse the SlideOver tab registry; no new drawer system.
+6. **One-system rule** (`templates.md`): six jobs, one home each. Hover cards reuse the DetailSlideover tab registry; no new drawer system.
 7. **Preserve operator-critical grid behavior** — `undoRedoCellEditing`, `cellSelection` (range), fill handle, `/` quick filter, `⌘K` palette, `]` drawer, `1–5` tabs.
 8. **Role projection survives** — smart chips/hover cards never leak `internalMargin`/`unitCost` to roles that can't see them.
 9. **A11y parity** — keep `StatusPill` shape indicators (circle/diamond/square) and `ComboboxCellEditor` ARIA; honor `prefers-reduced-motion`; keep locale-pinned `formatTs`/`formatMoney`.
-10. **Ride the Mercury retrofit** — land in `entity-schemas.ts` / `entity-actions.ts` / `useColumnDefs.ts` / `OperatorGrid.tsx` / tab registry; don't fork a parallel track.
+10. **Ride the Mercury retrofit (partially executed)** — land in `entity-schemas.ts` / `entity-actions.ts` / `useColumnDefs.ts` / `OperatorGrid.tsx` / `tabs/registry.ts`; don't fork a parallel track. *Live component names (AQA F3/F6): the grid template is `GridView` (`templates/GridView.tsx`; `PrimaryGridView` is an exported alias), the drawer is `DetailSlideover` (`ContextDrawer` is present but `@deprecated`), and `SlideOver`/standalone `PrimaryGridView` files do **not** exist. The retrofit is partial — views are split between the new `GridView` and the deprecated `GridJourney`, and `entity-schemas`/`entity-actions` are populated for the PurchaseOrder pilot with others scaffolded. Do not add a third context surface.*
 
 ---
 
@@ -79,7 +83,7 @@ From `docs/design-system/` + the decisions log:
 - **`ComboboxCellEditor.tsx`** (678 lines) — strong dropdown: typeahead, keyboard nav, `allowCreate`, async `onSearch`, per-cell `saving/saved/error`, full ARIA. **Starved today:** `useColumnDefs.ts` wires `options: []` with a `// future` comment.
 - **`queries.comboboxOptions`** — tested server procedure for 11 entity types (`customer, vendor, staff, item, batch, tag, transactionType, purchaseOrder, salesOrder, invoice, vendorBill`) returning `{ id, label, sublabel?, status?, availableQty?, balance?, disabledReason? }`. **Never called from the client.**
 - **`tag_catalog`** (`slug, label, color, is_active`) + `parseTagInput`/`normalizeTagSlug`. Tag-chip backend ready.
-- **SlideOver + tab registry** (`src/client/components/tabs/registry.ts`); **command bus** + `useCommandRunner` (optimistic, toast, targeted invalidation).
+- **DetailSlideover + tab registry** (`src/client/components/tabs/registry.ts`); **command bus** + `useCommandRunner` (optimistic, toast, targeted invalidation).
 
 > The gap is integration and rest-state affordances — not infrastructure. ~70% of the smart-table parts already exist.
 
@@ -90,11 +94,11 @@ Both flows use **AG Grid Enterprise** in `OperatorGrid`, inline edits committed 
 |---|---|---|
 | File | `src/client/views/PurchaseOrdersView.tsx` | `src/client/views/SalesView.tsx` (+ `sales/SalesBuildMode.tsx`, flag-gated) |
 | Surface | Editable grid, ~10 pre-seeded draft rows | Editable grid, customer-scoped |
-| Columns | ~14 | **~23**, many custom renderers (markup, derived COGS, landed-cost exception, pick status…) |
-| Quick-add | Historical-product buttons (side panel) | **`SaleLineItemTypeahead` (UX-F03)** + inventory-finder slide-over |
-| Per-line detail | Right context panel | `DetailSlideover` w/ tabbed panels |
+| Columns | ~14 | **22** (AQA-verified; doc C said ~23), many custom renderers (markup, derived COGS, landed-cost exception, pick status…) |
+| Quick-add | **Manual historical-product buttons** (no typeahead) | **`SaleLineItemTypeahead` (UX-F03)** + inventory-finder slide-over |
+| Per-line detail | Right context panel | inline `SaleLineExceptionControls`; `DetailSlideover` is **order-level** today |
 
-**Key observations (C):** Sales is already ~60% toward the recommended hybrid (typeahead quick-add + detail slideover exist). **PO has no type-ahead quick-add — the biggest entry gap.** A 23-column inline grid is past the verified inline-comfort boundary.
+**Key observations (AQA-corrected):** Sales is already ~60% toward the recommended hybrid (typeahead quick-add + slide-over exist). **PO has a *manual* historical quick-add but no search-as-you-type — bringing PO to typeahead parity is the biggest entry gap** (AQA F4). A 22-column inline grid is past the verified inline-comfort boundary. Note (AQA F8): on Sales, per-line detail is currently **inline controls**, and `DetailSlideover` shows **order-level** detail — so "push per-line fields to the slide-over" changes its granularity, it isn't a relocation of an existing panel.
 
 ---
 
@@ -105,9 +109,9 @@ Both flows use **AG Grid Enterprise** in `OperatorGrid`, inline edits committed 
 ### 5.1 The smart-cell taxonomy
 Each archetype is declared by a field's `type` in `entity-schemas.ts`; each renders the same at rest whether or not it's editable (editable adds the picker). Full rest/hover/edit/commit/error/a11y/bulk behavior is in **`docs/ux/smart-tables-deep-design.md` §3**; summary:
 
-1. **Single-select chip — `enum` (incl. `status`).** Rest = chip (reuse `StatusPill` tones). Hover (editable+`canWrite`) = `ChevronDown` caret. Open via Enter/caret/typing → `ComboboxCellEditor` popup. **Status dropdown offers only legal next states** (from `statuses.ts`) — Sheets-grade validation, TERP-grade correctness. Commit → command. Bulk: "Apply to N selected" → one bulk command via `BulkActionBar`/`StatusActionBar`.
+1. **Single-select chip — `enum` (incl. `status`).** Rest = chip (reuse `StatusPill` tones). Hover (editable+`canWrite`) = `ChevronDown` caret. Open via Enter/caret/typing → `ComboboxCellEditor` popup. **Status dropdown should offer only legal next states** — Sheets-grade validation, TERP-grade correctness. *(AQA F2: `statuses.ts` is a **flat enum** with no transition data; the real transition rules live server-side in `commandBus.ts`, hardcoded per command and not exported client-side. So "legal next states" is **net-new P1 work** — export the server transition map or derive next-state from `entity-actions.ts`. Interim: the dropdown offers the full enum and relies on the **server's existing transition rejection**.)* Commit → command. Bulk: "Apply to N selected" → one bulk command via `BulkActionBar`/`StatusActionBar`.
 2. **Multi-select tag chips — `tags`.** Today a no-op. Rest = ≤3 catalog-colored chips + `+N`. Edit = multi-select `ComboboxCellEditor` fed by `comboboxOptions('tag')`; `allowCreate` mints a tag via `createTag` command (writes `tag_catalog`, no orphan free-text). Entities: `batch, item, customer, vendor, purchaseOrderLine`.
-3. **Entity smart-chip + hover card — FK columns.** Rest = quiet bordered chip on the joined name (`vendorName`, `customerName`, `itemName`, `batchCode`). Hover (~400ms) = lazy-loaded, **role-projected** preview (customer: balance vs limit + open orders; vendor: open bills + terms; batch: avail qty + status + location). Click = open in **SlideOver** on the entity's default tab (same registry components — one context system, two depths).
+3. **Entity smart-chip + hover card — FK columns.** Rest = quiet bordered chip on the joined name (`vendorName`, `customerName`, `itemName`, `batchCode`). Hover (~400ms) = lazy-loaded, **role-projected** preview (customer: balance vs limit + open orders; vendor: open bills + terms; batch: avail qty + status + location). Click = open in **DetailSlideover** on the entity's default tab (same registry components — one context system, two depths).
 4. **Inline date — `date`.** Hover = calendar caret; edit = calendar popover with relative hints ("5 days overdue"); overdue `dueDate` gets `text-amber` at rest (passive aging signal, token only).
 5. **Boolean toggle pill — `boolean`.** `Yes`=emerald-quiet, `No`=zinc; single click toggles (binary, no picker) → command. Entities: `packed, inventoryPosted, labelsPrinted, active, consignmentDefault, isActive`.
 6. **Numeric / currency.** Keep right-aligned `tabular-nums` + `formatMoney`; surface the existing range sum/avg/min/max more prominently; editable numerics keep the amber `editable-cell` cue + smart paste (§5.4).
@@ -142,7 +146,7 @@ On commit: (1) **optimistic** chip + `saving`; (2) **dispatch** `useCommandRunne
 - **Inline create-new** routes through a catalog-writing command (no orphans).
 - **Smart paste** — TSV → option values with validation; unmatched flag amber + "create?".
 - **Bulk chip edit** — select rows → chip → "Apply to N" → one reason-stamped bulk command (the one selection-verb home).
-- **Hover card ↔ SlideOver continuity** — preview = card; click = SlideOver, same registry components.
+- **Hover card ↔ DetailSlideover continuity** — preview = card; click = DetailSlideover, same registry components.
 
 ### 5.5 Visual spec, a11y, group-by/filter-views
 Chip 18–20px at 28px rows (`text-[11px]`, `px-2`, `rounded`), never forces row height; entity chip = quiet `border-line bg-white` + 8px kind-glyph; tag color quantized to nearest tone (no raw hex); caret `ChevronDown 14 text-zinc-500` fade; hover card = `context-drawer-card` + 180ms fade; overdue = `text-amber`/`text-danger`. A11y: shape indicators on every chip, full combobox ARIA on multi-select, keyboard-openable hover cards, reduced-motion gates, locale-pinned formatters. Filter-views = re-present existing `SavedFiltersDropdown`/`gridAdvancedFilters` as named views; group-by virtualized (I3).
@@ -171,7 +175,7 @@ Chip 18–20px at 28px rows (`text-[11px]`, `px-2`, `rounded`), never forces row
 - **Autocomplete/search-as-you-type** is the right primitive for catalog pick: suggestions on focus, categories+products w/ thumbnail/price/availability, full keyboard nav, debounce + virtualize.
 
 ### 6.4 Order-entry recommendations (preserved, priority order)
-1. **Add a search-as-you-type quick-add row to the PO screen** (it has none) — mirror Sales `SaleLineItemTypeahead`: focus → suggestions (recent vendors' products first) → Enter drops a line. *Biggest single win, low risk, reuses an existing pattern.*
+1. **Bring the PO screen to typeahead parity** — it has a *manual* historical-product quick-add (`PurchaseOrdersView.tsx:222-232,494-505`) but **no search-as-you-type**. Mirror Sales `SaleLineItemTypeahead`: focus → suggestions (recent vendors' products first) → Enter drops a line. *Biggest single entry win, low risk, reuses an existing pattern.*
 2. **Move heavy per-line fields out of the grid into `DetailSlideover`** — follow Odoo's escalation rule: lean grid = product, qty, price/cost, line total, status (the comparison columns); markup, landed-cost resolution, price-floor reasons, vendor-approval, notes → row-detail panel. *Directly attacks the 23-column problem.*
 3. **Barcode/SKU quick-add, uniform across PO & SO** (ERPNext-style: new SKU → new line, repeat → increment qty). *Value depends on physical-SKU workflow.*
 4. **Keyboard-driven entry** (Lightspeed model): documented shortcut to jump to quick-add, Enter-to-commit-and-advance, arrow nav. *Brokers live on the keyboard.*
@@ -210,7 +214,7 @@ Two workstreams that share surfaces; sequence interleaves so each phase ships vi
 | **P2 — PO quick-add parity** | WS-2 | Search-as-you-type quick-add on PO (C#1); extend keyboard entry (C#4) | `PurchaseOrdersView.tsx`, reuse `SaleLineItemTypeahead`, `registry.ts` | ~0.5–1 sprint |
 | **P3 — Full type system** | WS-1 | Tags multi-select (R4); inline date + overdue signal (R5); boolean pill; filter-by-values menu (R6); at-rest invalid flag (R9) | `useColumnDefs.ts`, new `cellRenderers/`, schema `chip`/`signal` | ~1–2 sprints |
 | **P4 — Lean the order grid** | WS-2 | Push heavy per-line fields to `DetailSlideover` (C#2); row expansion for GP/COGS (C#5); extend `SalePrePostStrip` validation surfacing (C#6) | `SalesView.tsx`, `PurchaseOrdersView.tsx`, tab registry, `SalePrePostStrip` | ~1–2 sprints |
-| **P5 — Smart chips** | WS-1 | Entity smart-chip + hover card reusing SlideOver registry (R7); role-projected previews; click-through | new `EntityChipCell`, hover-card popover, schema `smartChip` | ~2 sprints |
+| **P5 — Smart chips** | WS-1 | Entity smart-chip + hover card reusing DetailSlideover registry (R7); role-projected previews; click-through | new `EntityChipCell`, hover-card popover, schema `smartChip` | ~2 sprints |
 | **P6 — Spreadsheet + entry power** | WS-1+2 | Group-by + subtotals (R8); smart paste; bulk chip edit; barcode quick-add uniform PO/SO (C#3); filter-views framing | `FilterToolbar`, `OperatorGrid`, `BulkActionBar` | ~1–2 sprints |
 
 **Sequencing logic:** P1 closes the three reasons TERP doesn't *feel* like Sheets (empty dropdowns, inert-looking cells, text-only enums) for the cost of *wiring existing parts* — ship first, measure. P2 is the cheapest high-value entry win (PO has no quick-add). P5 (smart chips) is the expensive differentiator; if time-boxed, P1–P4 likely deliver most of the felt improvement.
@@ -219,7 +223,7 @@ Two workstreams that share surfaces; sequence interleaves so each phase ships vi
 
 ## 9. Non-goals & risks (combined)
 
-**Non-goals:** not free-form/bypass-the-command-bus editing; not >8 visible columns; not new colors or custom AG theme; not a new drawer/hover system parallel to SlideOver; not converting form-bearing views (`InventoryView`) to pure inline grids; not replacing the order grid with cards/list or a pure catalog-cart for the order document.
+**Non-goals:** not free-form/bypass-the-command-bus editing; not >8 visible columns; not new colors or custom AG theme; not a new drawer/hover system parallel to DetailSlideover; not converting form-bearing views (`InventoryView`) to pure inline grids; not replacing the order grid with cards/list or a pure catalog-cart for the order document.
 
 **Risks & mitigations:**
 - *Perf on virtualized rows* — pure/memoized renderers; hover-card fetch only on ≥400ms intent; no per-row state (cells recycle).
@@ -228,6 +232,9 @@ Two workstreams that share surfaces; sequence interleaves so each phase ships vi
 - *Role leakage via hover cards* — previews request only role-permitted fields server-side (registry filter + tRPC procedure; CPO audit F11).
 - *Inline validation on dependent lines* — known weak spot; surface via pinned strip, not per-cell only (C#6).
 - *Scope creep on P5* — smart chips are the costly piece; P1–P4 carry most felt value.
+- *(AQA F1) Latent role-exposure gap* — margin/cost columns currently render for **all** roles (no `minRole`, no column-level role filtering). Fix role-based column projection before P5's hover cards; consider raising it as its own issue now.
+- *(AQA F2) Transition-map dependency* — "legal next states" needs a client-reachable transition map (export from `commandBus` or derive from `entity-actions`); decide the source before P1. Interim relies on server-side rejection.
+- *(AQA F6) Migration split* — some views still use the deprecated `GridJourney`; land smart-cell work in the schema/`useColumnDefs` path so both `GridView` and `GridJourney` callers inherit it, and don't assume all views are schema-driven yet.
 
 ---
 
@@ -285,7 +292,7 @@ Two workstreams that share surfaces; sequence interleaves so each phase ships vi
 | R8 | A/B | Group-by + subtotals | P6 |
 | R9 | A/B | At-rest invalid-value flag | P3 |
 | C1 | C | PO search-as-you-type quick-add | P2 |
-| C2 | C | Push heavy per-line fields to SlideOver | P4 |
+| C2 | C | Push heavy per-line fields to DetailSlideover | P4 |
 | C3 | C | Barcode quick-add (PO+SO uniform) | P6 |
 | C4 | C | Keyboard-driven entry | P2 |
 | C5 | C | Row expansion for GP/COGS detail | P4 |
