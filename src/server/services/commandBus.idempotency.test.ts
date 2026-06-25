@@ -159,7 +159,7 @@ vi.mock('../db', () => {
   };
 });
 
-vi.mock('./journal', () => ({
+vi.mock('@/domains/shared/journal', () => ({
   appendJsonlJournal: vi.fn(async () => undefined),
   checkJournalWritable: vi.fn(async () => undefined)
 }));
@@ -168,10 +168,38 @@ vi.mock('./mediaStorage', () => ({
   deleteMedia: vi.fn(async () => undefined)
 }));
 
+vi.mock('./logger', () => ({
+  logger: {
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(() => ({
+      warn: vi.fn(),
+      info: vi.fn(),
+      debug: vi.fn(),
+      error: vi.fn(),
+    })),
+  },
+  default: {
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(() => ({
+      warn: vi.fn(),
+      info: vi.fn(),
+      debug: vi.fn(),
+      error: vi.fn(),
+    })),
+  },
+}));
+
 // Import AFTER mocks are installed.
 import { executeCommand } from './commandBus';
-import { appendJsonlJournal } from './journal';
+import { appendJsonlJournal } from '@/domains/shared/journal';
 import * as dbModule from '../db';
+import { logger } from './logger';
 
 const mockedAppendJsonlJournal = vi.mocked(appendJsonlJournal);
 
@@ -509,8 +537,6 @@ describe('atomic idempotency claim', () => {
 
     stubSuccessfulInnerCommand();
     mockedAppendJsonlJournal.mockRejectedValueOnce(new Error('disk full'));
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
     const result = await executeCommand(input, user, io);
     expect(result.ok).toBe(true);
 
@@ -520,7 +546,10 @@ describe('atomic idempotency claim', () => {
     const passedAfterSnapshot = mockedAppendJsonlJournal.mock.calls[0]![0].afterSnapshot;
     expect(passedAfterSnapshot).toBe(row.afterSnapshot);
 
-    expect(warnSpy).toHaveBeenCalledWith('[commandBus] appendJsonlJournal failed after commit:', 'disk full');
+    expect(logger.warn).toHaveBeenCalledWith(
+      'appendJsonlJournal failed after commit',
+      expect.objectContaining({ module: 'commandBus', error: 'disk full' })
+    );
 
     // Replay must return cached ok without rerunning transaction.
     const txCallCountBefore = db.transaction.mock.calls.length;
@@ -543,15 +572,16 @@ describe('atomic idempotency claim', () => {
     emitMock.mockImplementationOnce(() => {
       throw new Error('socket down');
     });
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
     const result = await executeCommand(input, user, io);
     expect(result.ok).toBe(true);
 
     const row = mocked.__journalByKey.get(key)!;
     expect(row.status).toBe('ok');
 
-    expect(warnSpy).toHaveBeenCalledWith('[commandBus] socket emit failed after commit:', 'socket down');
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Socket emit failed after commit',
+      expect.objectContaining({ module: 'commandBus', error: 'socket down' })
+    );
   });
 
   it('test 8: failure-path appendJsonlJournal rejection still returns failed with scrubbed toast', async () => {
@@ -579,8 +609,6 @@ describe('atomic idempotency claim', () => {
       throw sqlError;
     });
     mockedAppendJsonlJournal.mockRejectedValueOnce(new Error('disk full'));
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
     const result = await executeCommand(input, user, io);
     expect(result.ok).toBe(false);
     expect(result.toast).toMatch(/^Database error \(request id:/);
@@ -589,7 +617,10 @@ describe('atomic idempotency claim', () => {
     const row = mocked.__journalByKey.get(key)!;
     expect(row.status).toBe('failed');
 
-    expect(warnSpy).toHaveBeenCalledWith('[commandBus] appendJsonlJournal failed on failure path:', 'disk full');
+    expect(logger.warn).toHaveBeenCalledWith(
+      'appendJsonlJournal failed on failure path',
+      expect.objectContaining({ module: 'commandBus', error: 'disk full' })
+    );
   });
 
   it('test 9: failure-path io.emit rejection still returns failed with scrubbed toast', async () => {
@@ -619,8 +650,6 @@ describe('atomic idempotency claim', () => {
     emitMock.mockImplementationOnce(() => {
       throw new Error('socket down');
     });
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
     const result = await executeCommand(input, user, io);
     expect(result.ok).toBe(false);
     expect(result.toast).toMatch(/^Database error \(request id:/);
@@ -629,6 +658,9 @@ describe('atomic idempotency claim', () => {
     const row = mocked.__journalByKey.get(key)!;
     expect(row.status).toBe('failed');
 
-    expect(warnSpy).toHaveBeenCalledWith('[commandBus] socket emit failed on failure path:', 'socket down');
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Socket emit failed on failure path',
+      expect.objectContaining({ module: 'commandBus', error: 'socket down' })
+    );
   });
 });
