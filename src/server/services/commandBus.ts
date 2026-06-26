@@ -18,6 +18,7 @@ import type { Tx } from '../db';
 import { env } from '../env';
 import { scrubDatabaseError } from '../trpc';
 import { logger } from './logger';
+import { getCommand, isRegistered } from './commandRegistry';
 import {
   appointments,
   archiveRuns,
@@ -161,6 +162,8 @@ import {
   updatePurchaseOrder,
   updatePurchaseOrderLine,
 } from '@/domains/purchase-orders';
+// Register PO commands in the registry (side-effect import).
+import '@/domains/purchase-orders/commandDefs';
 
 // Payments domain commands extracted to @/domains/payments (P1.PAY.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
@@ -1248,6 +1251,14 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
 
 // Exported for focused commandBus tests / dispatcher-level QA.
 export async function runCommand(tx: Tx, name: CommandName, payload: Payload, user: SessionUser, commandId: string, reason?: string): Promise<CommandResult> {
+  // Registry dispatch (migrated commands).
+  const registered = getCommand(name as string);
+  if (registered) {
+    const parsedPayload = registered.input.parse(payload);
+    return registered.handler({ tx, user, commandId, reason }, parsedPayload);
+  }
+
+  // Fallback switch (unmigrated commands).
   switch (name) {
     case 'createBatch':
       return createBatch(tx, payload, commandId);

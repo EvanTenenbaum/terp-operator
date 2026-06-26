@@ -8,6 +8,9 @@ import {
 import { useUiStore, type GridColumnPref } from '../store/uiStore';
 import { formatMoney, formatTs, formatBool, formatNumber } from '../utils/format';
 import ComboboxCellEditor from '../components/editors/ComboboxCellEditor';
+import TagsChipCell from '../components/cellRenderers/TagsChipCell';
+import BooleanPillCell from '../components/cellRenderers/BooleanPillCell';
+import DateCell from '../components/cellRenderers/DateCell';
 
 // Module-level stable reference to avoid infinite re-render cycles
 // from getSnapshot-cache warnings in zustand v5 + useSyncExternalStore.
@@ -220,12 +223,18 @@ function fieldToColDef(
         const tb = b == null ? 0 : new Date(b as string | number).getTime();
         return (Number.isNaN(ta) ? 0 : ta) - (Number.isNaN(tb) ? 0 : tb);
       };
+      if (f.chip) {
+        base.cellRenderer = DateCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'boolean':
       base.valueFormatter = (params: ValueFormatterParams) =>
         formatBool(params.value);
       base.cellClass = 'text-center';
+      if (f.chip) {
+        base.cellRenderer = BooleanPillCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'enum': {
@@ -298,7 +307,9 @@ function fieldToColDef(
     }
 
     case 'tags':
-      // Tag chip cellRenderer applied downstream by OperatorGrid enhancements.
+      if (f.chip) {
+        base.cellRenderer = TagsChipCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'text':
@@ -312,6 +323,10 @@ function fieldToColDef(
   }
   if (f.optionSource) {
     (base as Record<string, unknown>).__optionSource = f.optionSource;
+  }
+  // Store signal function for downstream enhancers.
+  if (f.signal) {
+    (base as Record<string, unknown>).__signal = f.signal;
   }
 
   return base;

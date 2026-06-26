@@ -1,4 +1,4 @@
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { GridView } from '../templates/GridView';
@@ -6,7 +6,7 @@ import { useUiStore } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 import { EMPTY_ROWS, moneyish } from './operations/shared';
 
-const purchaseReceiptLineColumns: ColDef<GridRow>[] = [
+const purchaseReceiptLineColumns: GridColDef<GridRow>[] = [
   { field: 'itemName', headerName: 'Product', pinned: 'left', minWidth: 190 },
   { field: 'batchCode', width: 140 },
   { field: 'qty', headerName: 'Qty', type: 'numericColumn', width: 120 },

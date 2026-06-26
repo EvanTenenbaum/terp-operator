@@ -1,8 +1,8 @@
 /**
  * UX-C02: Reusable TSV clipboard paste utilities for operational grids.
  *
- * AG Grid Enterprise ships ClipboardModule (registered in main.tsx via
- * ModuleRegistry.registerModules([ClipboardModule])). For AG Grid grids we
+ * AG Grid Enterprise ships ClipboardModule (auto-registered via the
+ * ag-grid-enterprise side-effect import in main.tsx). For AG Grid grids we
  * leverage its built-in processDataFromClipboard. For bespoke HTML-table
  * grids (QuickLedgerGrid) we provide a hook-based document-paste handler.
  *
