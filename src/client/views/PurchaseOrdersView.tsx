@@ -1,5 +1,5 @@
 import { ClipboardList, PackagePlus, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { trpc } from '../api/trpc';
 import { GridView } from '../templates/GridView';
@@ -165,6 +165,11 @@ export function PurchaseOrdersView() {
   const [refereeRelationshipId, setRefereeRelationshipId] = useState('');
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
 
+  // ── Typeahead search state ────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
   // ── Modal state ───────────────────────────────────────────────────────────
   const [prepaymentDialogOpen, setPrepaymentDialogOpen] = useState(false);
   const [receiptOverlayOpen, setReceiptOverlayOpen] = useState(false);
@@ -181,6 +186,32 @@ export function PurchaseOrdersView() {
   const historicalProducts = (reference.data?.availableBatches ?? [])
     .filter((row) => !defaultVendorId || row.vendorId === defaultVendorId)
     .slice(0, 8);
+
+  // ── Typeahead search results ──────────────────────────────────────────────
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (query.length < 2) return [];
+    const terms = query.split(/\s+/).filter(Boolean);
+    const batches = (reference.data?.availableBatches ?? []) as GridRow[];
+    return batches
+      .filter((row) => {
+        const name = String(row.name ?? '').toLowerCase();
+        const cat = String(row.category ?? '').toLowerCase();
+        const tags = Array.isArray(row.tags)
+          ? (row.tags as string[]).map((t) => String(t).toLowerCase()).join(' ')
+          : String(row.tags ?? '').toLowerCase();
+        const text = `${name} ${cat} ${tags}`;
+        return terms.every((t) => text.includes(t));
+      })
+      .sort((a, b) => {
+        const aVendor = defaultVendorId ? a.vendorId === defaultVendorId : false;
+        const bVendor = defaultVendorId ? b.vendorId === defaultVendorId : false;
+        if (aVendor !== bVendor) return aVendor ? -1 : 1;
+        return String(a.name ?? '').localeCompare(String(b.name ?? ''));
+      })
+      .slice(0, 6);
+  }, [searchQuery, reference.data?.availableBatches, defaultVendorId]);
+
   const selectedPoStatus = String(selectedPo?.status ?? '');
 
   const filledDraftLines = draftLines.filter((line) => String(line.productName ?? '').trim());
@@ -229,6 +260,27 @@ export function PurchaseOrdersView() {
       qty: 1,
       uom: row.uom || unitTypeForCategory(String(row.category ?? ''))
     });
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => Math.min(prev + 1, searchResults.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => Math.max(prev - 1, -1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightedIndex >= 0 && searchResults[highlightedIndex]) {
+        quickAddHistorical(searchResults[highlightedIndex]);
+        setSearchQuery('');
+        setShowResults(false);
+        setHighlightedIndex(-1);
+      }
+    } else if (e.key === 'Escape') {
+      setShowResults(false);
+      setHighlightedIndex(-1);
+    }
   }
 
   async function saveNewVendor() {
@@ -488,6 +540,46 @@ export function PurchaseOrdersView() {
               <div className="drawer-fact-row"><span>Open bills</span><strong>{vendorRelationship.data?.bills?.length ?? 0}</strong></div>
               <div className="drawer-fact-row"><span>Payments</span><strong>{vendorRelationship.data?.vendorPayments?.length ?? 0}</strong></div>
               <div className="drawer-fact-row"><span>Prior POs</span><strong>{vendorRelationship.data?.purchaseOrders?.length ?? 0}</strong></div>
+            </div>
+            <div className="mt-3 relative">
+              <input
+                className="input w-full"
+                type="text"
+                placeholder="Search items to add…"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowResults(e.target.value.trim().length >= 2);
+                  setHighlightedIndex(-1);
+                }}
+                onFocus={() => {
+                  if (searchQuery.trim().length >= 2) setShowResults(true);
+                }}
+                onBlur={() => setTimeout(() => setShowResults(false), 150)}
+                onKeyDown={handleSearchKeyDown}
+              />
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-line rounded shadow-md max-h-48 overflow-y-auto">
+                  {searchResults.map((row, i) => (
+                    <div
+                      key={String(row.id)}
+                      className={`px-3 py-1.5 text-xs cursor-pointer flex items-center gap-2 ${i === highlightedIndex ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        quickAddHistorical(row);
+                        setSearchQuery('');
+                        setShowResults(false);
+                        setHighlightedIndex(-1);
+                      }}
+                      onMouseEnter={() => setHighlightedIndex(i)}
+                    >
+                      <span className="min-w-0 truncate font-medium text-ink">{String(row.name ?? 'Product')}</span>
+                      <span className="shrink-0 text-zinc-400">{String(row.category ?? '')}</span>
+                      <span className="shrink-0 font-semibold text-ink ml-auto">${moneyish(row.unitCost)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {defaultVendorId && (
               <>

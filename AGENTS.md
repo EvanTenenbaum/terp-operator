@@ -64,6 +64,67 @@ For the full GitHub-first workflow (fresh worktrees, read-only main, checkpoint 
 
 TERP Operator is an operator console for dense, spreadsheet-native wholesale workflows. Prefer working product changes, runtime proof, and issue writeback over broad narration. Preserve existing worktree changes unless Evan explicitly asks you to revert them.
 
+## Mandatory: Command Registry — NO new switch cases
+
+**When adding or changing a backend command, you MUST use `defineCommand()`.**
+**NEVER add a new `case` to the switch in `src/server/services/commandBus.ts`.**
+
+The switch is a fallback for unmigrated domains only. Every new command and every
+command you touch during refactoring must self-register via the command registry.
+
+### The contract
+
+Each command is one file in `src/domains/<domain>/commandDefs/<name>.ts`:
+
+```ts
+import { defineCommand } from '@/server/services/commandRegistry';
+import { myCommandPayloadSchema } from '../schemas';
+import { myCommand } from '../commands';
+
+defineCommand({
+  name: 'myCommand',
+  input: myCommandPayloadSchema,        // the ONE Zod schema
+  rbac: { minimumRole: 'operator' },   // co-located access control
+  reversal: {                          // co-located reversal policy
+    disposition: 'terminal',
+    guidance: '...'
+  },
+  handler: (ctx, payload) => myCommand(ctx.tx, payload, ctx.commandId),
+});
+```
+
+The handler receives ONE ctx: `{ tx, user, commandId, reason }`.
+
+All previous signature variants ((tx, payload, commandId), (tx, payload, userId, commandId),
+(tx, payload, commandId, reason?)) are adapted via thin wrappers to this shape.
+
+Schema validation runs at dispatch time via `command.input.parse(payload)`. Handlers
+receive already-validated payloads.
+
+### After adding/modifying a command definition
+
+```bash
+pnpm typecheck
+pnpm exec vitest run src/tests/commandRegistry.fitness.test.ts
+```
+
+The fitness test enforces catalog↔registry parity and fails CI when broken.
+
+### If the domain does not have extracted schemas yet
+
+Extract the schemas from `commandBus.ts` to `src/domains/<domain>/schemas.ts` first
+(pure Zod, no commandBus dependency). See `src/domains/purchase-orders/schemas.ts`
+for the pattern. Then create the `commandDefs/` directory and barrel.
+
+### Already migrated domains
+
+| Domain | Status |
+|--------|--------|
+| purchase-orders | ✅ Migrated (12 commands) |
+| All others | ⬜ Pending (switch fallback active) |
+
+See `docs/decisions/0002-command-registry.md` for the full ADR and rollout order.
+
 ## Where work lives
 
 TERP Operator uses three systems. Pick the right one before starting work:

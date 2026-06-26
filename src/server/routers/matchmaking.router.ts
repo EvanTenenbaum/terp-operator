@@ -3,9 +3,9 @@ import { protectedProcedure, router } from '../trpc';
 import { pool } from '../db';
 
 function customerNeedsSql() {
-  return `select cn.id, cn.customer_id as "customerId", c.name as customer, 
+  return `select cn.id, cn.customer_id as "customerId", c.name as customer,
     cn.product_name as "productName", cn.category, cn.tags,
-    cn.description, cn.qty_min as "qtyMin", cn.qty_max as "qtyMax",
+    cn.notes as description, cn.qty_min as "qtyMin", cn.qty_max as "qtyMax",
     cn.target_price as "targetPrice", cn.needed_by as "neededBy",
     cn.urgency, cn.status, cn.created_at as "createdAt"
   from customer_needs cn
@@ -17,7 +17,7 @@ function customerNeedsSql() {
 function vendorSupplySql() {
   return `select vs.id, vs.vendor_id as "vendorId", v.name as vendor,
     vs.product_name as "productName", vs.category, vs.tags,
-    vs.description, vs.available_qty as "availableQty",
+    vs.notes as description, vs.available_qty as "availableQty",
     vs.available_date as "availableDate", vs.status,
     vs.created_at as "createdAt"
   from vendor_supply vs
