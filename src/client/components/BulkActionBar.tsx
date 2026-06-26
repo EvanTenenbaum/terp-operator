@@ -6,6 +6,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Loader2, X } from 'lucide-react';
+import { BulkChipEdit, type ChipEditField, type BulkChipEditResult } from './BulkChipEdit';
 
 // ============================================================================
 // TYPES
@@ -51,6 +52,10 @@ export interface BulkActionBarProps {
   actions: BulkAction[];
   /** Clears selection, hides bar */
   onClear: () => void;
+  /** Chip-type fields available for bulk editing (enum/status with optionSource). */
+  chipEditFields?: ChipEditField[];
+  /** Commit a bulk chip edit. Receives field key and new value. */
+  onChipEditCommit?: (field: string, value: string) => Promise<BulkChipEditResult>;
 }
 
 // ============================================================================
@@ -100,6 +105,8 @@ export function BulkActionBar({
   entityLabel = 'row',
   actions,
   onClear,
+  chipEditFields,
+  onChipEditCommit,
 }: BulkActionBarProps) {
   // ── Mount / animation state ───────────────────────────────────────────────
   // We always render a container; visibility is controlled via CSS transform
@@ -342,6 +349,16 @@ export function BulkActionBar({
           })}
         </div>
       </div>
+
+      {/* ── Bulk chip edit row ────────────────────────────────────────────────── */}
+      {isIdle && chipEditFields && chipEditFields.length > 0 && onChipEditCommit && (
+        <BulkChipEdit
+          selectedCount={selectedCount}
+          fields={chipEditFields}
+          entityLabel={entityLabel}
+          onCommit={onChipEditCommit}
+        />
+      )}
 
       {/* ── Bespoke input row ──────────────────────────────────────────────── */}
       {isIdle &&

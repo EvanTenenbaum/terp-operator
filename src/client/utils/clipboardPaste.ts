@@ -1,8 +1,8 @@
 /**
  * UX-C02: Reusable TSV clipboard paste utilities for operational grids.
  *
- * AG Grid Enterprise ships ClipboardModule (registered in main.tsx via
- * ModuleRegistry.registerModules([ClipboardModule])). For AG Grid grids we
+ * AG Grid Enterprise ships ClipboardModule (auto-registered via the
+ * ag-grid-enterprise side-effect import in main.tsx). For AG Grid grids we
  * leverage its built-in processDataFromClipboard. For bespoke HTML-table
  * grids (QuickLedgerGrid) we provide a hook-based document-paste handler.
  *
@@ -18,11 +18,16 @@ export interface PastedField {
   key: string;
   value: string;
   invalid: boolean;
+  /** True when the field has optionSource values and the pasted value doesn't match any option.
+   *  The value is kept — it's just flagged with an amber indicator for operator review. */
+  unmatched?: boolean;
 }
 
 export interface PastedRow {
   fields: PastedField[];
   hasErrors: boolean;
+  /** True when any field is unmatched (amber indicator) but not invalid. */
+  hasUnmatched?: boolean;
 }
 
 /**
@@ -41,12 +46,18 @@ export function parseTsv(raw: string): string[][] {
  * `fieldNames` is an ordered list of the editable columns (header row expected
  * if the first row looks like column names, otherwise auto-assigned left-to-right).
  *
- * Returns structured rows with per-cell validity flags.
+ * `optionSources` maps field keys to their option source definitions.
+ * Smart paste: matched values use enum/status options from schema.
+ * If a pasted value doesn't match any option, the cell is flagged unmatched
+ * (amber indicator) but the value is kept — it's not rejected.
+ *
+ * Returns structured rows with per-cell validity and unmatched flags.
  */
 export function mapTsvToFields(
   rawRows: string[][],
   fieldNames: string[],
-  validators?: Record<string, (v: string) => boolean>
+  validators?: Record<string, (v: string) => boolean>,
+  optionSources?: Record<string, { kind: string; values?: { value: string; label: string }[] }>
 ): PastedRow[] {
   const hasHeader =
     rawRows.length > 0 &&
@@ -63,18 +74,48 @@ export function mapTsvToFields(
       const value = cells[i]?.trim() ?? '';
       const validator = validators?.[key];
       const invalid = validator ? !validator(value) : false;
-      return { key, value, invalid };
+
+      // Smart paste: matched values use enum/status options from schema.
+      // If the field has an optionSource with enum/status values and the
+      // pasted value doesn't match any option, flag it as unmatched (amber)
+      // but keep the text — don't reject the paste.
+      let unmatched: boolean | undefined;
+      if (value && !invalid) {
+        const os = optionSources?.[key];
+        if (os && (os.kind === 'enum' || os.kind === 'status') && os.values && os.values.length > 0) {
+          const matched = os.values.some(
+            (opt) => opt.value.toLowerCase() === value.toLowerCase() || opt.label.toLowerCase() === value.toLowerCase(),
+          );
+          if (!matched) {
+            unmatched = true;
+          }
+        }
+      }
+
+      return { key, value, invalid, unmatched };
     });
-    return { fields, hasErrors: fields.some((f) => f.invalid) };
+    return {
+      fields,
+      hasErrors: fields.some((f) => f.invalid),
+      hasUnmatched: fields.some((f) => f.unmatched),
+    };
   });
 }
 
 /**
- * Summarise paste result: how many rows were pasted and how many have errors.
+ * Summarise paste result: how many rows were pasted, how many have errors,
+ * and how many have unmatched values (amber flag — smart paste review).
  */
 export function pasteSummary(rows: PastedRow[]): string {
   const total = rows.length;
   const bad = rows.filter((r) => r.hasErrors).length;
-  if (bad === 0) return `${total} row${total !== 1 ? 's' : ''} pasted`;
-  return `${total} row${total !== 1 ? 's' : ''} pasted, ${bad} need${bad === 1 ? 's' : ''} fixes`;
+  const unmatched = rows.filter((r) => r.hasUnmatched && !r.hasErrors).length;
+  let summary = `${total} row${total !== 1 ? 's' : ''} pasted`;
+  if (bad > 0) {
+    summary += `, ${bad} need${bad === 1 ? 's' : ''} fixes`;
+  }
+  if (unmatched > 0) {
+    summary += `, ${unmatched} flagged for review`;
+  }
+  return summary;
 }

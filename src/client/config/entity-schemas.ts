@@ -54,6 +54,18 @@ export interface FieldDefinition {
   pinned?: 'left' | 'right';
   /** For combobox fields: the procedure and params for option lookup. */
   comboboxSource?: string;
+  /** Smart-table option source for enum/combobox/tags fields. */
+  optionSource?:
+    | { kind: 'status' }
+    | { kind: 'enum'; values: { value: string; label: string }[] }
+    | { kind: 'combobox'; entityType: string; filters?: Record<string, unknown> }
+    | { kind: 'tags' };
+  /** Chip rendering configuration. */
+  chip?: { palette?: string; multiple?: boolean; allowCreate?: boolean };
+  /** Command to dispatch on cell edit commit via useCommandRunner. */
+  command?: { name: string; payload?: (row: Record<string, unknown>, value: unknown) => Record<string, unknown>; reason?: string };
+  /** Passive at-rest signal: 'none' | 'warning' | 'danger'. Amber/danger only. */
+  signal?: (row: Record<string, unknown>) => 'none' | 'warning' | 'danger';
   /**
    * Why this field is at its current attention tier.
    * Tier 0: always visible (identity, status, amount).
@@ -157,6 +169,8 @@ export const purchaseOrderSchema: EntityFieldSchema = {
       width: 130,
       pinned: 'left',
       sortable: true,
+      optionSource: { kind: 'status' },
+      chip: { palette: 'status' },
       rationale: 'The operator scanning the grid needs to see status immediately — it drives every action decision. ARCH-2: state machine uses this field.',
     }),
     t0('poNo', 'PO #', 'text', {
@@ -176,14 +190,34 @@ export const purchaseOrderSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('expectedDate', 'Expected', 'date', {
       width: 130,
+      chip: { palette: 'date' },
+      signal: (row) => {
+        const v = row.expectedDate;
+        if (v == null) return 'none';
+        const ts = new Date(v as string | number | Date).getTime();
+        if (Number.isNaN(ts)) return 'none';
+        const status = row.status;
+        if (status === 'received' || status === 'cancelled') return 'none';
+        return ts < Date.now() ? 'warning' : 'none';
+      },
       rationale: 'Operators filter by expected arrival constantly — but it is not identity.',
     }),
     t1('orderedAt', 'Ordered', 'date', {
       width: 130,
+      chip: { palette: 'date' },
       rationale: 'Useful for age-based scanning, but not a split-second decision driver.',
     }),
     t1('paymentTerms', 'Terms', 'enum', {
       width: 120,
+      optionSource: { kind: 'enum', values: [
+        { value: 'net15', label: 'Net 15' },
+        { value: 'net30', label: 'Net 30' },
+        { value: 'net45', label: 'Net 45' },
+        { value: 'net60', label: 'Net 60' },
+        { value: 'cod', label: 'COD' },
+        { value: 'due_on_receipt', label: 'Due on Receipt' },
+      ]},
+      chip: {},
       rationale: 'Relevant to cash-flow scanning; secondary to status and total.',
     }),
     t1('prepaymentAmount', 'Prepaid', 'currency', {
@@ -1514,11 +1548,20 @@ export const purchaseOrderLineSchema: EntityFieldSchema = {
 
 // ─── SalesOrderLine ──────────────────────────────────────────────────────────
 
+// P4 — Sales lines lean schema.
+//
+// The Sales lines grid in SalesBuildMode renders ≤8 visible columns so the
+// operator's primary surface stays spreadsheet-fast. Per-line heavy detail
+// (markup math, landed-cost resolution, price-floor reasoning, validation
+// issues, fulfillment booleans, notes) is rendered in the per-line
+// DetailSlideover (entityType='saleLine'; see SaleLineDetailTab). To keep
+// this schema honest, those heavy fields live in attentionTier 2 (hidden by
+// default) here so any future auto-derived line grid stays lean by default.
 export const salesOrderLineSchema: EntityFieldSchema = {
   entity: 'salesOrderLine',
   label: 'SO Line',
   fields: [
-    // ── Tier 0: always visible ──
+    // ── Tier 0: always visible (≤8 cols total when combined with tier 1) ──
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
@@ -1543,16 +1586,110 @@ export const salesOrderLineSchema: EntityFieldSchema = {
       width: 180,
       rationale: 'Customer-facing product label; secondary to internal item name.',
     }),
-    t1('packed', 'Packed', 'boolean', {
-      width: 100,
-      rationale: 'Whether this line has been packed; warehouse readiness signal.',
-    }),
-    t1('inventoryPosted', 'Posted', 'boolean', {
-      width: 100,
-      rationale: 'Accounting completeness signal; operators check during closeout.',
+    t1('validationIssues', 'Fix', 'text', {
+      width: 220,
+      rationale: 'What is broken on this line — actionable issues the operator must resolve before posting.',
     }),
 
-    // ── Tier 2: hidden by default ──
+    // ── Tier 2: hidden by default — routed into SaleLineDetailTab ──
+    // P4: pricing & margin (cost-sensitive, also margin-gated in the
+    // operator grid via MARGIN_COLUMN_FIELDS).
+    t2('unitCost', 'Unit Cost', 'currency', {
+      width: 105,
+      rationale: 'Per-unit cost basis; heavy margin detail surfaced in the per-line slide-over.',
+    }),
+    t2('markup', 'Markup $', 'currency', {
+      width: 100,
+      rationale: 'Per-unit markup dollars; heavy pricing detail surfaced in the per-line slide-over.',
+    }),
+    t2('markupPct', 'Markup %', 'numeric', {
+      width: 85,
+      rationale: 'Per-unit markup percentage; derived signal, hidden from the lean grid.',
+    }),
+    t2('derivedCogs', 'COGS', 'currency', {
+      width: 130,
+      rationale: 'Derived cost of goods sold; reasoning detail, not scanning detail.',
+    }),
+
+    // P4: landed-cost / cost resolution.
+    t2('unitCostResolved', 'Cost Resolved', 'boolean', {
+      width: 110,
+      rationale: 'Whether the unit cost is fully resolved against intake landed cost.',
+    }),
+    t2('landedCostBasis', 'Landed Basis', 'text', {
+      width: 160,
+      rationale: 'Source of the landed cost calculation — slide-over detail, not scanning.',
+    }),
+    t2('landedCostReason', 'Landed Reason', 'text', {
+      width: 180,
+      rationale: 'Why this landed cost was used — slide-over detail, not scanning.',
+    }),
+    t2('landedCostExceptionReason', 'COGS Exception', 'text', {
+      width: 200,
+      rationale: 'Projected exception reason (keep_margin, vendor_approval_pending, …); cost-sensitive, slide-over detail.',
+    }),
+    t2('vendorApprovalState', 'Vendor Approval', 'text', {
+      width: 140,
+      rationale: 'Vendor approval state for landed-cost exceptions; slide-over detail.',
+    }),
+
+    // P4: price floor reasoning.
+    t2('priceFloor', 'Price Floor', 'currency', {
+      width: 110,
+      rationale: 'Minimum allowed unit price; slide-over reasoning detail.',
+    }),
+    t2('belowFloorReason', 'Below Floor', 'text', {
+      width: 180,
+      rationale: 'Why the line was priced below the floor; slide-over reasoning detail.',
+    }),
+    t2('belowFloorNote', 'Below Floor Note', 'text', {
+      width: 200,
+      rationale: 'Free-text note explaining the below-floor decision; slide-over reasoning detail.',
+    }),
+
+    // P4: inventory / fulfillment status (slide-over only).
+    t2('packed', 'Packed', 'boolean', {
+      width: 100,
+      rationale: 'Warehouse-readiness flag; pushed out of the lean grid into the slide-over.',
+    }),
+    t2('inventoryPosted', 'Posted', 'boolean', {
+      width: 100,
+      rationale: 'Accounting completeness flag; pushed out of the lean grid into the slide-over.',
+    }),
+    t2('paymentFollowup', 'Pay/F-up', 'boolean', {
+      width: 110,
+      rationale: 'Payment follow-up flag; pushed out of the lean grid into the slide-over.',
+    }),
+    t2('availableQty', 'Avail', 'numeric', {
+      width: 105,
+      rationale: 'Available quantity on the allocated batch; slide-over context, not scanning.',
+    }),
+    t2('pickStatus', 'Pick Status', 'text', {
+      width: 140,
+      rationale: 'Detailed pick lifecycle status; slide-over detail (line status already covers scanning).',
+    }),
+
+    // P4: inventory resolution / source detail (slide-over only).
+    t2('batchCode', 'Source', 'text', {
+      width: 180,
+      rationale: 'Allocated batch source code; slide-over reference, not primary scanning detail.',
+    }),
+    t2('subcategory', 'Subcategory', 'text', {
+      width: 120,
+      rationale: 'Refined product classification; slide-over context, secondary to product identity.',
+    }),
+    t2('unresolvedSourceText', 'Unresolved Source', 'text', {
+      width: 170,
+      rationale: 'Free-text shorthand awaiting batch resolution; slide-over editor, not scanning.',
+    }),
+
+    // P4: line notes.
+    t2('notes', 'Notes', 'text', {
+      width: 200,
+      rationale: 'Chronicle-level line notes; rarely read in bulk grid view, surfaced in slide-over.',
+    }),
+
+    // System / debug fields.
     t2('id', 'ID', 'text', {
       width: 300,
       rationale: 'Raw UUID — only needed in debugging or URL inspection.',

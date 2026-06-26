@@ -8,6 +8,9 @@ import {
 import { useUiStore, type GridColumnPref } from '../store/uiStore';
 import { formatMoney, formatTs, formatBool, formatNumber } from '../utils/format';
 import ComboboxCellEditor from '../components/editors/ComboboxCellEditor';
+import TagsChipCell from '../components/cellRenderers/TagsChipCell';
+import BooleanPillCell from '../components/cellRenderers/BooleanPillCell';
+import DateCell from '../components/cellRenderers/DateCell';
 
 // Module-level stable reference to avoid infinite re-render cycles
 // from getSnapshot-cache warnings in zustand v5 + useSyncExternalStore.
@@ -137,6 +140,25 @@ export function useColumnDefs(
  * - Tier 1 → visible (`hide: false`)
  * - Tier 2 → hidden by default (`hide: true`), reachable via Columns menu
  */
+// ── Combobox options adapter ──────────────────────────────────────────────────
+
+interface ComboboxOption {
+  id: string;
+  label: string;
+  sublabel?: string;
+  disabledReason?: string;
+  status?: string;
+}
+
+function comboboxOptionsToOptions(raw: ComboboxOption[]): { value: string; label: string; description?: string; disabled?: boolean }[] {
+  return raw.map((o) => ({
+    value: o.id,
+    label: o.label,
+    description: o.sublabel,
+    disabled: !!o.disabledReason,
+  }));
+}
+
 function fieldToColDef(
   f: FieldDefinition,
   onCellCommit?: (field: string, value: unknown, row: Record<string, unknown>) => Promise<void>,
@@ -201,32 +223,53 @@ function fieldToColDef(
         const tb = b == null ? 0 : new Date(b as string | number).getTime();
         return (Number.isNaN(ta) ? 0 : ta) - (Number.isNaN(tb) ? 0 : tb);
       };
+      if (f.chip) {
+        base.cellRenderer = DateCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'boolean':
       base.valueFormatter = (params: ValueFormatterParams) =>
         formatBool(params.value);
       base.cellClass = 'text-center';
+      if (f.chip) {
+        base.cellRenderer = BooleanPillCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'enum': {
-      // Status columns are rendered via StatusPill by OperatorGrid's
-      // `withStatusRenderer` — do not conflict with that enhancement.
       if (f.editable) {
         base.cellEditor = ComboboxCellEditor as unknown as ColDef['cellEditor'];
         if (onCellCommit) {
-          base.cellEditorParams = (params: ICellEditorParams) => ({
-            options: [],
-            placeholder: `Select ${f.headerName.toLowerCase()}`,
-            onCommit: async (value: string | null) => {
-              if (value !== null) {
-                await onCellCommit(f.field, value, params.data as Record<string, unknown>);
-              }
-            },
-          } as ColDef['cellEditorParams']);
+          base.cellEditorParams = (params: ICellEditorParams) => {
+            let enumOptions: { value: string; label: string }[] = [];
+            if (f.optionSource?.kind === 'enum') {
+              enumOptions = f.optionSource.values;
+            } else if (f.optionSource?.kind === 'status') {
+              // F2 interim: status dropdown shows all status values.
+              // The server's existing transition rejection catches illegal transitions.
+              enumOptions = [];
+            }
+            return {
+              options: enumOptions,
+              placeholder: `Select ${f.headerName.toLowerCase()}`,
+              onCommit: async (value: string | null) => {
+                if (value !== null) {
+                  await onCellCommit(f.field, value, params.data as Record<string, unknown>);
+                }
+              },
+            } as ColDef['cellEditorParams'];
+          };
         } else {
+          let enumOptions: { value: string; label: string }[] = [];
+          if (f.optionSource?.kind === 'enum') {
+            enumOptions = f.optionSource.values;
+          } else if (f.optionSource?.kind === 'status') {
+            // F2 interim: status dropdown shows all status values.
+            enumOptions = [];
+          }
           base.cellEditorParams = {
-            options: [],
+            options: enumOptions,
             placeholder: `Select ${f.headerName.toLowerCase()}`,
           } as ColDef['cellEditorParams'];
         }
@@ -237,11 +280,14 @@ function fieldToColDef(
     case 'combobox': {
       if (f.editable) {
         base.cellEditor = ComboboxCellEditor as unknown as ColDef['cellEditor'];
+        const entityType = f.optionSource?.kind === 'combobox' ? f.optionSource.entityType : undefined;
+        const filters = f.optionSource?.kind === 'combobox' ? f.optionSource.filters : undefined;
         if (onCellCommit) {
           base.cellEditorParams = (params: ICellEditorParams) => ({
             options: [],
             placeholder: `Select ${f.headerName.toLowerCase()}`,
-            // async options loaded via comboboxSource trpc procedure (future).
+            comboboxEntityType: entityType,
+            comboboxFilters: filters,
             onCommit: async (value: string | null) => {
               if (value !== null) {
                 await onCellCommit(f.field, value, params.data as Record<string, unknown>);
@@ -252,7 +298,8 @@ function fieldToColDef(
           base.cellEditorParams = {
             options: [],
             placeholder: `Select ${f.headerName.toLowerCase()}`,
-            // async options loaded via comboboxSource trpc procedure (future).
+            comboboxEntityType: entityType,
+            comboboxFilters: filters,
           } as ColDef['cellEditorParams'];
         }
       }
@@ -260,12 +307,26 @@ function fieldToColDef(
     }
 
     case 'tags':
-      // Tag chip cellRenderer applied downstream by OperatorGrid enhancements.
+      if (f.chip) {
+        base.cellRenderer = TagsChipCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'text':
     default:
       break;
+  }
+
+  // Store chip config for downstream enhancers (withChipRenderer).
+  if (f.chip) {
+    (base as Record<string, unknown>).__chipConfig = f.chip;
+  }
+  if (f.optionSource) {
+    (base as Record<string, unknown>).__optionSource = f.optionSource;
+  }
+  // Store signal function for downstream enhancers.
+  if (f.signal) {
+    (base as Record<string, unknown>).__signal = f.signal;
   }
 
   return base;

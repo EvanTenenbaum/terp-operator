@@ -8,6 +8,8 @@
  * 4. mapTsvToFields marks cells as invalid when validator returns false.
  * 5. pasteSummary returns "N rows pasted" with singular/plural forms.
  * 6. pasteSummary includes "M need fixes" when rows have errors.
+ * 7. mapTsvToFields matches pasted values against optionSources and flags unmatched.
+ * 8. pasteSummary includes "flagged for review" for rows with unmatched values.
  */
 import { describe, it, expect } from 'vitest';
 import { parseTsv, mapTsvToFields, pasteSummary, type PastedRow } from './clipboardPaste';
@@ -88,6 +90,84 @@ describe('mapTsvToFields', () => {
     const result = mapTsvToFields(rows, ['date', 'amount', 'method']);
     expect(result[0].fields).toHaveLength(2); // only headers mapped to data
   });
+
+  // ── Smart paste: optionSource matching ────────────────────────────────
+  it('matches pasted values against optionSources and marks unmatched', () => {
+    const rows = parseTsv('net30\tcod\tbadval');
+    const optionSources = {
+      terms: {
+        kind: 'enum',
+        values: [
+          { value: 'net30', label: 'Net 30' },
+          { value: 'net15', label: 'Net 15' },
+          { value: 'cod', label: 'COD' },
+        ],
+      },
+    };
+    const result = mapTsvToFields(
+      rows,
+      ['terms', 'terms', 'terms'],
+      undefined,
+      optionSources,
+    );
+    expect(result[0].fields[0]).toEqual({ key: 'terms', value: 'net30', invalid: false, unmatched: undefined });
+    expect(result[0].fields[1]).toEqual({ key: 'terms', value: 'cod', invalid: false, unmatched: undefined });
+    expect(result[0].fields[2].unmatched).toBe(true);
+    expect(result[0].fields[2].value).toBe('badval'); // value kept, not rejected
+    expect(result[0].hasErrors).toBe(false); // unmatched is not an error
+    expect(result[0].hasUnmatched).toBe(true);
+  });
+
+  it('matches by label as well as value', () => {
+    const rows = parseTsv('Net 30');
+    const optionSources = {
+      terms: {
+        kind: 'enum',
+        values: [{ value: 'net30', label: 'Net 30' }],
+      },
+    };
+    const result = mapTsvToFields(
+      rows,
+      ['terms'],
+      undefined,
+      optionSources,
+    );
+    expect(result[0].fields[0].unmatched).toBeUndefined(); // matched by label
+    expect(result[0].fields[0].value).toBe('Net 30');
+  });
+
+  it('does not flag unmatched when optionSources.kind is not enum/status', () => {
+    const rows = parseTsv('anything');
+    const optionSources = {
+      field: { kind: 'combobox', entityType: 'thing' },
+    };
+    const result = mapTsvToFields(
+      rows,
+      ['field'],
+      undefined,
+      optionSources as any,
+    );
+    expect(result[0].fields[0].unmatched).toBeUndefined();
+  });
+
+  it('does not flag empty values', () => {
+    // Tab character between values: first field has text, second is empty
+    const rows = parseTsv('net30\t');
+    const optionSources = {
+      terms: {
+        kind: 'enum',
+        values: [{ value: 'net30', label: 'Net 30' }],
+      },
+    };
+    const result = mapTsvToFields(
+      rows,
+      ['terms', 'other'],
+      undefined,
+      optionSources,
+    );
+    expect(result[0].fields[0].unmatched).toBeUndefined(); // matched
+    expect(result[0].fields[1].unmatched).toBeUndefined(); // empty value, not flagged
+  });
 });
 
 describe('pasteSummary', () => {
@@ -120,5 +200,22 @@ describe('pasteSummary', () => {
       { fields: [], hasErrors: true },
     ];
     expect(pasteSummary(rows)).toBe('2 rows pasted, 1 needs fixes');
+  });
+
+  it('includes "flagged for review" for unmatched (not error) rows', () => {
+    const rows: PastedRow[] = [
+      { fields: [], hasErrors: false, hasUnmatched: false },
+      { fields: [], hasErrors: false, hasUnmatched: true },
+      { fields: [], hasErrors: false, hasUnmatched: true },
+    ];
+    expect(pasteSummary(rows)).toBe('3 rows pasted, 2 flagged for review');
+  });
+
+  it('error rows with unmatched are not double-counted in review count', () => {
+    const rows: PastedRow[] = [
+      { fields: [], hasErrors: true, hasUnmatched: true },
+    ];
+    // hasErrors takes priority — unmatched counted only when !hasErrors
+    expect(pasteSummary(rows)).toBe('1 row pasted, 1 needs fixes');
   });
 });

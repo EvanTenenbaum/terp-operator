@@ -230,8 +230,23 @@ Development patterns and standards are documented in `guides/`:
 
 ## Key Decisions
 
-<!-- Document important architectural decisions here so agents have context.
-     These get loaded during knowledge priming (/prime). -->
+### Command Registry (ADR 0002)
+
+**All new backend commands MUST use `defineCommand()` — NEVER add a `case` to the switch in `commandBus.ts`.**
+
+Each command is one file at `src/domains/<domain>/commandDefs/<name>.ts`:
+```ts
+defineCommand({
+  name, input (Zod schema), rbac: { minimumRole }, reversal?, handler
+});
+```
+Handler: `(ctx, payload) => handler(ctx.tx, payload, ctx.commandId)` where `ctx = { tx, user, commandId, reason }`.
+
+After adding a command: `pnpm typecheck && pnpm exec vitest run src/tests/commandRegistry.fitness.test.ts`.
+
+Schema extraction pattern: `src/domains/purchase-orders/schemas.ts`. Full ADR: `docs/decisions/0002-command-registry.md`.
+
+### Domain Module Architecture (ADR 0001)
 
 ## Notes
 

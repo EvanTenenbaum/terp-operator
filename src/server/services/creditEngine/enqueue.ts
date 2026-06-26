@@ -29,7 +29,7 @@ function unwrapPgClient(
     typeof client.session === 'object' &&
     'client' in client.session
   ) {
-    return client.session as unknown as { query(queryText: string, values?: unknown[]): Promise<QueryResult> };
+    return (client.session as Record<string, unknown>).client as unknown as { query(queryText: string, values?: unknown[]): Promise<QueryResult> };
   }
   return client as { query(queryText: string, values?: unknown[]): Promise<QueryResult> };
 }

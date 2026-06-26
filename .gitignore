@@ -24,3 +24,6 @@ storage/media/*
 storage/media/.thumbnails/*
 !storage/media/.thumbnails/.gitkeep
 .worktrees/
+
+# OpenCode Playwright session artifacts
+.playwright-mcp/
