@@ -1042,6 +1042,18 @@ kbd {
   background: #f7f8f5;
 }
 
+/* ── Semantic cell classes (G-14) — replace inline hex cellStyle ───────── */
+
+.ag-theme-quartz .lines-picked-complete {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.ag-theme-quartz .lines-picked-partial {
+  color: #b06915;
+  font-weight: 600;
+}
+
 /* EXT-REVIEW 2026-06 finding #8 — responsive desktop shell.
    Below 1024px (tablet / split-screen): tighter chrome, wrapping toolbars,
    stacked definition lists. The dedicated /mobile shell remains the phone

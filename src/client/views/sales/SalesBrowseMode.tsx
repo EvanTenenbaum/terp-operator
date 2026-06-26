@@ -17,7 +17,7 @@
  */
 import { PackagePlus, Search, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import type { CellClickedEvent, CellValueChangedEvent } from 'ag-grid-community';
+import type { CellClickedEvent, CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { useShallow } from 'zustand/react/shallow';
 import { trpc } from '../../api/trpc';
 import { OperatorGrid } from '../../components/OperatorGrid';
@@ -42,48 +42,39 @@ export interface SalesBrowseModeProps {
   onCustomerSelect?: (customerId: string) => void;
 }
 
-// Re-derive the order column set used by the legacy view so Mode A matches.
-// Keeping the column definition here (rather than importing from SalesView.tsx)
-// avoids a circular module dependency while preserving column shape.
-import { boolCol } from '../../utils/format';
-import type { GridColDef } from '../../../shared/grid-types';
+// Order column definitions — driven by the entity-schemas registry (ARCH-8 / UX-8).
+// The schema (`salesOrderSchema` → `saleSchema`) defines every column; the overrides
+// below adjust visibility, widths, formatters, and the linesPicked semantic cell styling
+// for the browse-mode surface. Custom renderers that aren't needed here (DisplayNameCell
+// etc.) live in the SalesBuildMode override set instead.
+import { useColumnDefs } from '../../hooks/useColumnDefs';
 
-const orderColumns: GridColDef<GridRow>[] = [
-  { field: 'orderNo', pinned: 'left', width: 150 },
-  { field: 'customer', width: 180 },
-  { field: 'status', width: 125 },
-  { field: 'pricingStrategy', width: 145 },
-  { field: 'total', type: 'numericColumn', width: 120 },
-  { field: 'internalMargin', headerName: 'Internal margin', type: 'numericColumn', width: 145 },
-  { field: 'lines', width: 95 },
-  {
-    field: 'linesPicked',
-    headerName: 'Lines picked',
-    width: 135,
-    sortable: true,
-    valueFormatter: (params: { value: unknown; data?: GridRow }) => {
-      const data = params.data as GridRow | undefined;
-      if (!data) return '';
-      const total = Number(data.linesTotal ?? 0);
-      const picked = Number(data.linesPicked ?? 0);
-      if (!total) return '';
-      return `${picked}/${total} picked`;
-    },
-    cellStyle: (params: { value: unknown; data?: GridRow }) => {
-      const data = params.data as GridRow | undefined;
-      if (!data) return null;
-      const total = Number(data.linesTotal ?? 0);
-      const picked = Number(data.linesPicked ?? 0);
-      if (!total) return null;
-      if (picked === total) return { color: '#15803d' };
-      if (picked > 0) return { color: '#b06915' };
-      return null;
-    },
+// ── Semantic cell-class rules for linesPicked (G-14) ───────────────────────
+const LINES_PICKED_CLASS_RULES = {
+  'lines-picked-complete': (params: { data?: GridRow }) => {
+    const data = params.data;
+    if (!data) return false;
+    const total = Number(data.linesTotal ?? 0);
+    const picked = Number(data.linesPicked ?? 0);
+    return total > 0 && picked === total;
   },
-  { field: 'deliveryWindow', editable: true, minWidth: 180 },
-];
-// Avoid unused import (boolCol may be used by extended columns later)
-void boolCol;
+  'lines-picked-partial': (params: { data?: GridRow }) => {
+    const data = params.data;
+    if (!data) return false;
+    const total = Number(data.linesTotal ?? 0);
+    const picked = Number(data.linesPicked ?? 0);
+    return total > 0 && picked > 0 && picked !== total;
+  },
+};
+
+const LINES_PICKED_FORMATTER = (params: { value: unknown; data?: GridRow }) => {
+  const data = params.data;
+  if (!data) return '';
+  const total = Number(data.linesTotal ?? 0);
+  const picked = Number(data.linesPicked ?? 0);
+  if (!total) return '';
+  return `${picked}/${total} picked`;
+};
 
 export function SalesBrowseMode(props: SalesBrowseModeProps) {
   const me = trpc.auth.me.useQuery();
@@ -115,9 +106,44 @@ export function SalesBrowseMode(props: SalesBrowseModeProps) {
   // Inventory Finder slide-over toggle.
   const [finderOpen, setFinderOpen] = useState(false);
 
+  // Order columns — schema-driven via useColumnDefs (G-13 / ARCH-8).
+  // Overrides hide unneeded schema fields and supply browse-mode-specific
+  // formatters + semantic cell classes (G-14).
+  const orderOverrides = useMemo<Partial<ColDef<GridRow>>[]>(() => [
+    // Hide schema fields not surfaced in browse mode.
+    { field: 'orderedAt', hide: true },
+    { field: 'packed', hide: true },
+    { field: 'inventoryPosted', hide: true },
+    { field: 'fulfilledAt', hide: true },
+    { field: 'id', hide: true },
+    { field: 'notes', hide: true },
+    { field: 'createdAt', hide: true },
+    { field: 'updatedAt', hide: true },
+    { field: 'linesTotal', hide: true },
+    // Adjust widths to match the legacy browse-mode surface.
+    { field: 'orderNo', width: 150 },
+    { field: 'customer', width: 180 },
+    { field: 'status', width: 125 },
+    { field: 'total', width: 120 },
+    { field: 'internalMargin', headerName: 'Internal margin', width: 145 },
+    { field: 'lines', width: 95 },
+    { field: 'deliveryWindow', minWidth: 180, editable: true },
+    // linesPicked: custom formatter + semantic cell-class rules (G-14).
+    {
+      field: 'linesPicked',
+      headerName: 'Lines picked',
+      width: 135,
+      sortable: true,
+      valueFormatter: LINES_PICKED_FORMATTER,
+      cellClassRules: LINES_PICKED_CLASS_RULES,
+    },
+  ], []);
+
+  const orderColumns = useColumnDefs('salesOrder', orderOverrides);
+
   const visibleOrderColumns = useMemo(
     () => selectVisibleSalesColumns(showMargin, orderColumns),
-    [showMargin],
+    [showMargin, orderColumns],
   );
 
   const salesOrderRows = (orders.data ?? []) as GridRow[];
