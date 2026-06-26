@@ -1,4 +1,4 @@
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import type { GridRow } from '../../shared/types';
 
 // Issue #63 — Operator margin visibility toggle.
@@ -43,8 +43,8 @@ const MARGIN_FIELD_SET = new Set<string>(MARGIN_COLUMN_FIELDS);
  */
 export function selectVisibleSalesColumns(
   showMargin: boolean,
-  columns: readonly ColDef<GridRow>[]
-): ColDef<GridRow>[] {
+  columns: readonly GridColDef<GridRow>[]
+): GridColDef<GridRow>[] {
   if (showMargin) return columns.slice();
   return columns.filter((column) => !column.field || !MARGIN_FIELD_SET.has(column.field));
 }

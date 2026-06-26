@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Server as SocketServer } from 'socket.io';
 import type { Request, Response } from 'express';
-import { queriesRouter } from './queries';
+import { buildGridV2Query, queriesRouter } from './queries';
 import { pool } from '../db';
 import type { SessionUser, Role } from '../../shared/types';
 
@@ -31,6 +31,29 @@ function makeCaller(role: Role = 'operator') {
     user: makeUser(role)
   });
 }
+
+const ALL_GRID_VIEWS = [
+  'reports',
+  'intake',
+  'purchaseOrders',
+  'sales',
+  'matchmaking',
+  'orders',
+  'payments',
+  'inventory',
+  'clients',
+  'vendors',
+  'fulfillment',
+  'connectors',
+  'recovery',
+  'closeout',
+  'referees',
+  'processors',
+  'photography',
+  'purchaseReceipts',
+  'items',
+  'disputes',
+] as const;
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -69,6 +92,91 @@ describe('grid v2 — backwards compat (§8.1)', () => {
     const result = await makeCaller().grid({ entityType: 'purchaseOrders' });
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBe(1);
+  });
+
+  it.each([
+    ['payments', 'from payments'],
+    ['inventory', 'from batches'],
+    ['clients', 'from customers'],
+    ['vendors', 'from vendor_bills'],
+    ['orders', 'from sales_orders'],
+    ['closeout', 'from archive_runs'],
+    ['recovery', 'from command_journal'],
+  ] as const)('keeps view alias `%s` on the grid query path', async (view, expectedSql) => {
+    const spy = vi.spyOn(pool, 'query').mockResolvedValue({
+      rows: [{ id: `${view}-row`, __totalRows: 1 }],
+    } as any);
+
+    const result = await makeCaller().grid({ view });
+
+    expect(result.entityType).toBe(view);
+    expect(result.length).toBe(1);
+    expect(String(spy.mock.calls[0][0]).toLowerCase()).toContain(expectedSql);
+  });
+
+  it.each(ALL_GRID_VIEWS)('builds grid SQL for registered view `%s`', async (view) => {
+    vi.spyOn(pool, 'query').mockResolvedValue({
+      rows: [{ id: `${view}-row`, __totalRows: 1 }],
+    } as any);
+
+    const result = await makeCaller().grid({ view });
+
+    expect(result.entityType).toBe(view);
+    expect(result.length).toBe(1);
+  });
+
+  it.each(ALL_GRID_VIEWS)('uses subquery-visible default ordering for `%s`', (view) => {
+    const { sql } = buildGridV2Query(view, undefined, undefined, undefined, null, 0);
+    const outerOrderBy = sql.match(/\) sub\s*(?:where [\s\S]*?)?\s*order by ([\s\S]*?)(?:\nlimit|\noffset|$)/i)?.[1] ?? '';
+
+    expect(outerOrderBy).not.toMatch(/\b[a-z][a-z0-9_]*\./i);
+    expect(outerOrderBy).not.toMatch(/\b(?:created_at|updated_at|media_updated_at|has_primary_photo)\b/i);
+  });
+
+  it('selects photography summary fields from the joined summary table before ordering by aliases', () => {
+    const { sql } = buildGridV2Query('photography', undefined, undefined, undefined, null, 0);
+
+    expect(sql).toContain('bms.media_updated_at as "mediaUpdatedAt"');
+    expect(sql).toContain('bms.has_primary_photo as "hasPrimaryPhoto"');
+    expect(sql).toContain('case when "hasPrimaryPhoto" then 1 else 0 end asc');
+  });
+
+  it('keeps direct purchase-order autocomplete ordering on the source table column', async () => {
+    const spy = vi.spyOn(pool, 'query').mockResolvedValue({
+      rows: [{ id: 'po-1', label: 'PO-1' }],
+    } as any);
+
+    await makeCaller().comboboxOptions({ entityType: 'purchaseOrder', search: '', limit: 5, filters: {} });
+
+    const sql = String(spy.mock.calls[0][0]);
+    expect(sql).toContain('order by "createdAt" desc');
+  });
+
+  it('accepts observed payment and photography states in status counts', async () => {
+    const spy = vi.spyOn(pool, 'query')
+      .mockResolvedValueOnce({ rows: [{ status: 'draft', cnt: 3 }, { status: 'ready', cnt: 3 }, { status: 'posted', cnt: 502 }] } as any)
+      .mockResolvedValueOnce({ rows: [{ status: 'open', cnt: 1 }, { status: 'in_progress', cnt: 2 }, { status: 'done', cnt: 3 }] } as any);
+
+    const paymentCounts = await makeCaller().statusCounts({ entityType: 'payment' });
+    const photographyCounts = await makeCaller().statusCounts({ entityType: 'photographyQueue' });
+
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(paymentCounts.statuses.map((row) => row.status)).toEqual(['draft', 'ready', 'posted', 'refunded', 'reversed']);
+    expect(paymentCounts.statuses.find((row) => row.status === 'ready')?.count).toBe(3);
+    expect(photographyCounts.statuses.map((row) => row.status)).toEqual(['open', 'in_progress', 'done']);
+  });
+
+  it('builds legacy row helper queries without ambiguous or missing source columns', async () => {
+    const spy = vi.spyOn(pool, 'query').mockResolvedValue({ rows: [] } as any);
+
+    await makeCaller().matchmakingBoard();
+    await makeCaller().intakeQueue();
+    await makeCaller().contactLedger({ contactId: '00000000-0000-0000-0000-000000000002', limit: 10 });
+
+    const sqlStatements = spy.mock.calls.map((call) => String(call[0]));
+    expect(sqlStatements.some((sql) => sql.includes(') sub\norder by case status'))).toBe(true);
+    expect(sqlStatements.some((sql) => sql.includes('order by case status when'))).toBe(true);
+    expect(sqlStatements.some((sql) => sql.includes('SELECT id, contact_id, kind'))).toBe(true);
   });
 
   it('rejects when neither entityType nor view is provided', async () => {

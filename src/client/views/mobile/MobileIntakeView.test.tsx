@@ -25,10 +25,10 @@ const mockInvalidate = vi.fn();
 vi.mock('../../api/trpc', () => ({
   trpc: {
     auth: { me: { useQuery: vi.fn() } },
-    queries: {
+    intake: {
       intakeQueue: { useQuery: (_: unknown, _opts: unknown) => mockIntakeQueue() },
     },
-    useUtils: () => ({ queries: { intakeQueue: { invalidate: mockInvalidate } } }),
+    useUtils: () => ({ intake: { intakeQueue: { invalidate: mockInvalidate } } }),
   },
 }));
 

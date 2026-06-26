@@ -329,8 +329,8 @@ export function OperatorGrid({
     setGridColumnPrefs(resolvedTableKey, columnStateToPrefs(state));
   }, [resolvedTableKey, setGridColumnPrefs]);
 
-  // UX-C02: TSV clipboard paste — AG Grid Enterprise ClipboardModule is already
-  // registered globally (main.tsx). processDataFromClipboard receives the raw 2-D
+  // UX-C02: TSV clipboard paste — AG Grid Enterprise ClipboardModule is
+  // auto-registered (main.tsx). processDataFromClipboard receives the raw 2-D
   // array of pasted cells and returns it for AG Grid to apply to selected range.
   // Rows land as editable-cell updates only (no auto-post); a summary toast tells
   // the operator how many rows were pasted. Non-editable cells are skipped by AG Grid.
@@ -1041,22 +1041,31 @@ function withChipRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
     const optionSource = (column as Record<string, unknown>).__optionSource as { kind: string } | undefined;
     void optionSource;
 
-    // Apply chip renderer to status fields AND any field with chip config
-    if (column.field === 'status' || chipConfig) {
+    // Status fields: always render with StatusPill, non-editable, chip-cell class.
+    if (column.field === 'status') {
       return {
         ...column,
-        // Keep editable for non-status chip fields (enum chips are editable via dropdown)
-        editable: column.field === 'status' ? false : column.editable,
+        editable: false,
+        cellClass: [column.cellClass, 'chip-cell'].filter(Boolean).join(' '),
         cellRenderer: (params: { value?: string }) => (
           <StatusPill status={params.value} />
         ),
       };
     }
 
+    // Non-status chip fields (date, boolean, tags, enum): preserve cellRenderer
+    // from useColumnDefs. Only apply StatusPill if no renderer is already set.
+    if (chipConfig) {
+      return {
+        ...column,
+        cellClass: [column.cellClass, column.editable ? 'chip-cell' : ''].filter(Boolean).join(' '),
+      };
+    }
+
     return canWrite
       ? {
           ...column,
-          cellClass: column.editable ? 'editable-cell chip-cell' : column.cellClass,
+          cellClass: column.editable ? 'editable-cell' : column.cellClass,
         }
       : { ...column, editable: false };
   });

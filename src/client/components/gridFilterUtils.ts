@@ -1,4 +1,4 @@
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import type { GridColumnPref } from '../store/uiStore';
 import type { GridRow } from '../../shared/types';
 
@@ -74,7 +74,7 @@ export function filterChips(filter: ParsedGridFilter): FilterChip[] {
  * Extract identifiers of columns: prefer field, fall back to colId.
  * Skips the row-number / chevron internal columns.
  */
-export function columnIdentities(columns: ColDef<GridRow>[]): Array<{ id: string; label: string }> {
+export function columnIdentities(columns: GridColDef<GridRow>[]): Array<{ id: string; label: string }> {
   return columns
     .map((column) => {
       const id = column.colId ?? column.field;
@@ -87,9 +87,9 @@ export function columnIdentities(columns: ColDef<GridRow>[]): Array<{ id: string
 }
 
 export function mergeColumnDefsWithPrefs(
-  columns: ColDef<GridRow>[],
+  columns: GridColDef<GridRow>[],
   prefs: GridColumnPref[] | undefined
-): ColDef<GridRow>[] {
+): GridColDef<GridRow>[] {
   if (!prefs?.length) return columns;
   const byId = new Map(prefs.map((pref) => [pref.colId, pref]));
   const next = columns.map((column) => {

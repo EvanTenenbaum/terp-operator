@@ -8,6 +8,7 @@ import {
 import { useUiStore, type GridColumnPref } from '../store/uiStore';
 import { formatMoney, formatTs, formatBool, formatNumber } from '../utils/format';
 import ComboboxCellEditor from '../components/editors/ComboboxCellEditor';
+import EntityChipCell from '../components/cellRenderers/EntityChipCell';
 
 // Module-level stable reference to avoid infinite re-render cycles
 // from getSnapshot-cache warnings in zustand v5 + useSyncExternalStore.
@@ -235,7 +236,7 @@ function fieldToColDef(
           base.cellEditorParams = (params: ICellEditorParams) => {
             let enumOptions: { value: string; label: string }[] = [];
             if (f.optionSource?.kind === 'enum') {
-              enumOptions = f.optionSource.values;
+              enumOptions = f.optionSource.values ?? [];
             } else if (f.optionSource?.kind === 'status') {
               // F2 interim: status dropdown shows all status values.
               // The server's existing transition rejection catches illegal transitions.
@@ -254,7 +255,7 @@ function fieldToColDef(
         } else {
           let enumOptions: { value: string; label: string }[] = [];
           if (f.optionSource?.kind === 'enum') {
-            enumOptions = f.optionSource.values;
+            enumOptions = f.optionSource.values ?? [];
           } else if (f.optionSource?.kind === 'status') {
             // F2 interim: status dropdown shows all status values.
             enumOptions = [];
@@ -312,6 +313,17 @@ function fieldToColDef(
   }
   if (f.optionSource) {
     (base as Record<string, unknown>).__optionSource = f.optionSource;
+  }
+
+  // Entity smart-chip wiring (P5/TER-1682). When a field declares smartChip,
+  // stamp the config on the ColDef and install EntityChipCell as the cell
+  // renderer. EntityChipCell reads __smartChip from params.colDef at render
+  // time. This must not collide with status/chip fields handled by
+  // withChipRenderer in OperatorGrid — vendorName has neither a chip config
+  // nor field === 'status', so its else-branch preserves our renderer.
+  if (f.smartChip) {
+    (base as Record<string, unknown>).__smartChip = f.smartChip;
+    base.cellRenderer = EntityChipCell as unknown as ColDef['cellRenderer'];
   }
 
   return base;
