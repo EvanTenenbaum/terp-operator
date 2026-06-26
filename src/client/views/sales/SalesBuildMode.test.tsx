@@ -77,6 +77,7 @@ vi.mock('../../api/trpc', () => {
       queries: procProxy,
       credit: procProxy,
       commands: procProxy,
+      salesOrders: procProxy,
       useContext: () => ({ auth: { me: { invalidate: () => {} } } }),
     },
   };
