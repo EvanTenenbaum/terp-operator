@@ -33,7 +33,7 @@ describe('sales-orders domain barrel', () => {
 
 describe('sales-orders schema validation', () => {
   it('createSalesOrderPayloadSchema requires customerId', async () => {
-    const { createSalesOrderPayloadSchema } = await import('@/server/services/commandBus');
+    const { createSalesOrderPayloadSchema } = await import('../schemas');
     const result = createSalesOrderPayloadSchema.safeParse({});
     expect(result.success).toBe(false);
   });

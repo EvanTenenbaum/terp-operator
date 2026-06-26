@@ -59,15 +59,18 @@ import {
 // (src/tests/pricingSchemas.test.ts).
 import { setLineLandedCostPayloadSchema } from '../../shared/schemas';
 
+import {
+  createSalesOrderPayloadSchema,
+  updateSalesOrderLinePayloadSchema,
+} from './schemas';
+
 // Helpers, schemas, the Payload type, and sales-utility helpers are kept in
 // commandBus.ts for this phase (see header comment).
 import {
   // Schemas
   cancelSalesOrderPayloadSchema,
-  createSalesOrderPayloadSchema,
   postSalesOrderPayloadSchema,
   setDeliveryWindowPayloadSchema,
-  updateSalesOrderLinePayloadSchema,
   // Money / id helpers
   addMoney,
   code,
