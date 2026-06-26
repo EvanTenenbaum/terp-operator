@@ -237,6 +237,11 @@ interface UiState {
   // is empty). Persisted as a benign UX preference (savedFilterIds are opaque UUIDs).
   gridDefaultSavedFilter: Partial<Record<ViewKey, string>>;
   setGridDefaultSavedFilter: (view: ViewKey, savedFilterId: string | null) => void;
+
+  // P6 group-by: per-view group-by field for AG Grid row grouping.
+  // Persisted as a benign UX preference (column name, no PII).
+  gridGroupByField: Partial<Record<ViewKey, string>>;
+  setGridGroupByField: (view: ViewKey, field: string | null) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -526,6 +531,7 @@ export const useUiStore = create<UiState>()(
         state.drawerByView = {};
         state.gridFilters = {};
         state.gridAdvancedFilters = {};
+        state.gridGroupByField = {};
         state.drilldownMetric = null;
         state.routeHistory = [];
         state.toasts = [];
@@ -596,6 +602,17 @@ export const useUiStore = create<UiState>()(
         }
       }),
 
+    // P6: per-view group-by field. null/undefined = no grouping.
+    gridGroupByField: {} as Partial<Record<ViewKey, string>>,
+    setGridGroupByField: (view: ViewKey, field: string | null) =>
+      set((state) => {
+        if (field == null) {
+          delete (state.gridGroupByField as Partial<Record<ViewKey, string>>)[view];
+        } else {
+          (state.gridGroupByField as Partial<Record<ViewKey, string>>)[view] = field;
+        }
+      }),
+
     // UX-E07: per-lane work-queue snooze (client-side, no backend).
     snoozedWorkQueueItems: {},
     snoozeWorkQueueItem: (itemId, untilIso) =>
@@ -640,7 +657,9 @@ export const useUiStore = create<UiState>()(
       snoozedWorkQueueItems: state.snoozedWorkQueueItems,
       // UX-I06: per-user per-grid default saved-filter mapping (view → savedFilterId).
       // Benign UX preference (no PII), applied on grid mount when no session filter is active.
-      gridDefaultSavedFilter: state.gridDefaultSavedFilter
+      gridDefaultSavedFilter: state.gridDefaultSavedFilter,
+      // P6: per-view group-by field — benign UX preference (column name, no PII).
+      gridGroupByField: state.gridGroupByField
     })
   }
   )

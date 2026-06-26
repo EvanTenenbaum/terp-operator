@@ -154,6 +154,8 @@ export function OperatorGrid({
   const storedColumnPrefs = useUiStore((state) => state.gridColumnPrefs[resolvedTableKey]);
   const setGridColumnPrefs = useUiStore((state) => state.setGridColumnPrefs);
   const resetGridColumnPrefs = useUiStore((state) => state.resetGridColumnPrefs);
+  // P6: per-view group-by field for AG Grid row grouping
+  const groupByField = useUiStore((state) => state.gridGroupByField?.[view] ?? null);
   const [quickFilter, setQuickFilter] = useState(storedGridFilter);
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
   // SX-I13: row count driven from AG Grid's post-filter displayed row count
@@ -206,6 +208,21 @@ export function OperatorGrid({
       storedColumnPrefs
     );
 
+    // P6: add rowGroup to the grouped column and aggFunc to numeric columns
+    const groupReadyColumns = groupByField
+      ? baseColumns.map((col) => {
+          const isGroupCol = col.field === groupByField || col.colId === groupByField;
+          const isNumeric = col.type === 'numericColumn';
+          if (isGroupCol) {
+            return { ...col, rowGroup: true, hide: true };
+          }
+          if (isNumeric) {
+            return { ...col, aggFunc: 'sum' as const };
+          }
+          return col;
+        })
+      : baseColumns;
+
     if (expansionConfig?.enabled) {
       const chevronColumn: ColDef<GridRow> = {
         colId: 'expansion-chevron',
@@ -229,11 +246,11 @@ export function OperatorGrid({
         }
       };
 
-      return [baseColumns[0], chevronColumn, ...baseColumns.slice(1)];
+      return [groupReadyColumns[0], chevronColumn, ...groupReadyColumns.slice(1)];
     }
 
-    return baseColumns;
-  }, [canWrite, columns, expansionConfig?.enabled, storedColumnPrefs]);
+    return groupReadyColumns;
+  }, [canWrite, columns, expansionConfig?.enabled, storedColumnPrefs, groupByField]);
 
   const columnIdents = useMemo(() => columnIdentities(columns), [columns]);
   const chips = useMemo(() => filterChips(parsedFilter), [parsedFilter]);
@@ -313,6 +330,16 @@ export function OperatorGrid({
     setQuickFilter(storedGridFilter);
     apiRef.current?.setGridOption('quickFilterText', parseGridFilter(storedGridFilter).freeText);
   }, [storedGridFilter]);
+
+  // P6: sync groupByField with AG Grid's row grouping
+  useEffect(() => {
+    if (!apiRef.current) return;
+    if (groupByField) {
+      apiRef.current.setRowGroupColumns([groupByField]);
+    } else {
+      apiRef.current.setRowGroupColumns([]);
+    }
+  }, [groupByField]);
 
   const writeQuickFilter = useCallback(
     (next: string) => {
@@ -732,6 +759,18 @@ export function OperatorGrid({
             rowClassRules={rowClassRules}
             rowHeight={rowHeight}
             headerHeight={headerHeight}
+            groupDisplayType={groupByField ? 'groupRows' : undefined}
+            groupDefaultExpanded={groupByField ? -1 : undefined}
+            groupTotalRow={groupByField ? 'bottom' : undefined}
+            grandTotalRow={groupByField ? 'bottom' : undefined}
+            autoGroupColumnDef={groupByField ? {
+              headerName: 'Group',
+              minWidth: 200,
+              cellRendererParams: {
+                suppressCount: false,
+                innerRenderer: (params: { value?: string }) => params.value ?? ''
+              }
+            } : undefined}
             processDataFromClipboard={processDataFromClipboard}
             enableFillHandle={true}
             fillHandleDirection="y"
@@ -762,6 +801,10 @@ export function OperatorGrid({
             onGridReady={(event: GridReadyEvent<GridRow>) => {
               apiRef.current = event.api;
               event.api.setGridOption('quickFilterText', parsedFilter.freeText);
+              // P6: apply row grouping when groupByField is set
+              if (groupByField) {
+                event.api.setRowGroupColumns([groupByField]);
+              }
               if (storedColumnPrefs?.length) {
                 event.api.applyColumnState({ state: storedColumnPrefs as Parameters<typeof event.api.applyColumnState>[0]['state'], applyOrder: true });
               } else {
