@@ -24,5 +24,5 @@ defineCommand({
   input,
   rbac: { minimumRole: 'manager' },
   reversal: { disposition: 'reversible', guidance: 'Restores customer balance, vendor bill, and PO.' },
-  handler: (ctx, payload) => settleDebtWithProduct(ctx.tx, payload, ctx.user, ctx.commandId),
+  handler: (ctx, payload) => settleDebtWithProduct(ctx.tx, payload as Parameters<typeof settleDebtWithProduct>[1], ctx.user, ctx.commandId),
 });

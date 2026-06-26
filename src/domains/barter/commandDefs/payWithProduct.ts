@@ -23,5 +23,5 @@ defineCommand({
   input,
   rbac: { minimumRole: 'manager' },
   reversal: { disposition: 'reversible', guidance: 'Restores batch qty, vendor bill, and offsets gain/loss.' },
-  handler: (ctx, payload) => payWithProduct(ctx.tx, payload, ctx.user, ctx.commandId),
+  handler: (ctx, payload) => payWithProduct(ctx.tx, payload as Parameters<typeof payWithProduct>[1], ctx.user, ctx.commandId),
 });
