@@ -92,7 +92,7 @@ export type ViewKey =
   | 'purchaseReceipts' // TER-1656 — operator view for purchase receipts and line items
   | 'items' // TER-1651 — items/SKU catalog management
   | 'disputes' // TER-1649 — invoice disputes management
-  | 'barter';
+
 
 export interface SessionUser {
   id: string;

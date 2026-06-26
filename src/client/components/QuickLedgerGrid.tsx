@@ -72,7 +72,7 @@ interface TypeDraft {
 // values ('card', 'crypto', 'wire') are no longer offered to operators —
 // historical rows were migrated to 'other' by migrations/0074. 'journal'
 // remains for non-payment ledger entries.
-const methods = ['cash', 'check', 'other', 'journal'];
+const methods = ['cash', 'check', 'other', 'journal', 'product'];
 const buckets = ['cash-file-a', 'cash-file-b', 'office', 'accounting', 'crypto-wallet', 'wire-clearing'];
 const entityTypes: LedgerEntityType[] = ['customer', 'vendor', 'referee', 'staff', 'processor', 'other'];
 const processorTransactionTypes = ['crypto_payment_in', 'crypto_cashout', 'check_payment_in'];
@@ -217,6 +217,62 @@ export function QuickLedgerGrid() {
     const issue = validate(row, reference.data);
     if (issue) {
       mark(row.id, { status: 'needs_fix', issue });
+      return;
+    }
+
+    // ── Product barter path ──────────────────────────────────────────
+    if (row.method === 'product') {
+      const amount = Number(row.amount);
+      if (row.direction === 'paying' && row.entityType === 'vendor') {
+        const batchLines = parseBatchLines(row.notes);
+        if (batchLines.length === 0) {
+          mark(row.id, { status: 'needs_fix', issue: 'Product payment requires batch info in notes. Format: batchId:qty per line.' });
+          return;
+        }
+        const payload: Record<string, unknown> = {
+          counterpartyType: 'vendor',
+          vendorId: row.entityId,
+          lines: batchLines,
+          ...(amount > 0 ? { settlementAmount: amount } : {}),
+        };
+        const result = await runCommand('payWithProduct', payload, 'Product payment via Quick Ledger');
+        if (result.ok) {
+          const replacement = makeRow(row.direction);
+          removeLedgerDraft(row.id);
+          upsertLedgerDraft(replacement);
+          setActiveRowId(replacement.id);
+          setCollapsed((current) => ({ ...current, [row.direction]: false }));
+          return;
+        }
+        mark(row.id, { status: 'needs_fix', issue: result.toast });
+        return;
+      }
+      if (row.direction === 'receiving' && row.entityType === 'customer') {
+        const productLines = parseProductLines(row.notes);
+        if (productLines.length === 0) {
+          mark(row.id, { status: 'needs_fix', issue: 'Product settlement requires product lines in notes. Format: name:qty:unitCost per line.' });
+          return;
+        }
+        const payload: Record<string, unknown> = {
+          customerId: row.entityId,
+          lines: productLines,
+          allocationIntent: row.allocationTargetType === 'unapplied' ? 'unapplied' : row.allocationTargetType === 'selected_invoice' ? 'selected_invoice' : 'fifo',
+          ...(row.allocationTargetId ? { invoiceId: row.allocationTargetId } : {}),
+          ...(amount > 0 ? { settlementAmount: amount } : {}),
+        };
+        const result = await runCommand('settleDebtWithProduct', payload, 'Product settlement via Quick Ledger');
+        if (result.ok) {
+          const replacement = makeRow(row.direction);
+          removeLedgerDraft(row.id);
+          upsertLedgerDraft(replacement);
+          setActiveRowId(replacement.id);
+          setCollapsed((current) => ({ ...current, [row.direction]: false }));
+          return;
+        }
+        mark(row.id, { status: 'needs_fix', issue: result.toast });
+        return;
+      }
+      mark(row.id, { status: 'needs_fix', issue: `Product method is only available for vendor payments and customer receipts.` });
       return;
     }
 
@@ -905,7 +961,54 @@ function allocationTargets(row: LedgerDraft, reference: any, openBills: GridRow[
   return [{ type: 'unapplied', id: '', label: 'No order / unattributed' }];
 }
 
+/** Parse "batchId:qty" or "batchId1:qty1,batchId2:qty2" from notes. */
+function parseBatchLines(notes: string): Array<{ batchId: string; qty: number }> {
+  if (!notes || !notes.trim()) return [];
+  try {
+    // Try JSON first: {"lines":[{"batchId":"...","qty":5}]}
+    const parsed = JSON.parse(notes);
+    if (parsed.lines && Array.isArray(parsed.lines)) {
+      return parsed.lines
+        .filter((l: any) => l.batchId && Number(l.qty) > 0)
+        .map((l: any) => ({ batchId: String(l.batchId), qty: Number(l.qty) }));
+    }
+  } catch {}
+  // Fallback: comma-separated "batchId:qty" pairs
+  return notes.split(',').map(s => s.trim()).filter(Boolean).map(part => {
+    const [batchId, qtyStr] = part.split(':');
+    return { batchId: batchId?.trim() || '', qty: Number(qtyStr) || 1 };
+  }).filter(l => l.batchId);
+}
+
+/** Parse "name:qty:unitCost,name2:qty2:cost2" from notes. */
+function parseProductLines(notes: string): Array<{ productName: string; qty: number; unitCost: number }> {
+  if (!notes || !notes.trim()) return [];
+  try {
+    const parsed = JSON.parse(notes);
+    if (parsed.lines && Array.isArray(parsed.lines)) {
+      return parsed.lines
+        .filter((l: any) => l.productName && Number(l.qty) > 0)
+        .map((l: any) => ({ productName: String(l.productName), qty: Number(l.qty), unitCost: Number(l.unitCost) || 0 }));
+    }
+  } catch {}
+  return notes.split(',').map(s => s.trim()).filter(Boolean).map(part => {
+    const [productName, qtyStr, costStr] = part.split(':');
+    return { productName: productName?.trim() || '', qty: Number(qtyStr) || 1, unitCost: Number(costStr) || 0 };
+  }).filter(l => l.productName);
+}
+
 function validate(row: LedgerDraft, reference: any) {
+  // Product method: amount is optional (computed from cost basis).
+  // But entity and direction must still be valid.
+  if (row.method === 'product') {
+    if (!row.date) return 'Choose a transaction date.';
+    if (row.entityType === 'other' && !row.entityName.trim()) return 'Name the other entity before posting.';
+    if (row.entityType !== 'other' && !row.entityId) return `Choose the ${row.entityType} before posting.`;
+    if (row.direction === 'paying' && row.entityType !== 'vendor') return 'Product payment is only available for vendor payouts.';
+    if (row.direction === 'receiving' && row.entityType !== 'customer') return 'Product settlement is only available for customer receipts.';
+    if (!row.notes || !row.notes.trim()) return 'Add batch/product info in the Notes field (format: batchId:qty or name:qty:cost).';
+    return null;
+  }
   const amount = Number(row.amount);
   if (!row.date) return 'Choose a transaction date.';
   if (!Number.isFinite(amount) || amount <= 0) return 'Amount must be greater than zero.';
@@ -1007,6 +1110,10 @@ function customerReceivingImpact(row: LedgerDraft, amount: number, reference: an
 
 // Exported for tests (UX-J02/UX-J04 colocated coverage).
 export function ledgerImpact(row: LedgerDraft, reference: any, openBills: GridRow[]) {
+  if (row.method === 'product') {
+    if (row.direction === 'paying') return 'Pays vendor with product from inventory — cost basis auto-computed';
+    return 'Accepts product from customer to settle outstanding balance';
+  }
   const amount = Number(row.amount || 0);
   if (!Number.isFinite(amount) || amount === 0) return 'Enter amount to preview';
   if (row.direction === 'receiving' && row.entityType === 'customer') {

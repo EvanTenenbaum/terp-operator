@@ -3792,7 +3792,6 @@ export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     purchaseReceipts: ['id', 'receiptNo', 'vendor', 'poNo', 'purchaseOrderId', 'total', 'status', 'lines', 'createdAt'],
     items: ['id', 'sku', 'name', 'alias', 'category', 'tags', 'pricingRule', 'status', 'description', 'batchCount', 'totalAvailableQty', 'createdAt', 'updatedAt'],
     disputes: ['id', 'invoiceId', 'invoiceNo', 'customer', 'customerId', 'invoiceAmount', 'invoiceStatus', 'status', 'reason', 'resolution', 'createdAt', 'updatedAt'],
-    barter: [],
   };
   return map[view];
 }

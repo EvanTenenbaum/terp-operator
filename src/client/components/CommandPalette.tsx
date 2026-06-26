@@ -56,8 +56,6 @@ const launchActions: Array<{
   { label: 'Money out', detail: 'Open Vendor Payouts with a payout row ready.', aliases: 'pay vendor payout payable bill pay money out iv invoice', view: 'vendors', launch: 'moneyOut' },
   { label: 'Add customer need', detail: 'Open Matchmaking and focus the customer need row entry.', aliases: 'matchmaking customer need demand wanted looking for files', view: 'matchmaking', launch: 'customerNeed' },
   { label: 'Add vendor stock', detail: 'Open Matchmaking and focus vendor stock row entry.', aliases: 'matchmaking vendor stock supply available offered inventory files ofc rich', view: 'matchmaking', launch: 'vendorSupply' },
-  { label: 'Pay with product', detail: 'Issue product from inventory as payment to a vendor or customer.', aliases: 'barter pay product vendor customer settle trade', view: 'barter', launch: 'sale' },
-  { label: 'Settle debt with product', detail: 'Accept product from a customer to settle their outstanding balance.', aliases: 'barter settle debt product customer trade', view: 'barter', launch: 'sale' }
 ];
 
 // ─── Static utility actions (always shown regardless of view/role visibility)

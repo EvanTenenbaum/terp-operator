@@ -25,7 +25,6 @@ import {
   ClientLedgerView,
   CloseoutView,
   ConnectorsView,
-  BarterView,
   FulfillmentView,
   InventoryView,
   InvoiceDisputesView,
@@ -285,7 +284,6 @@ export function App() {
             <Route path="items" element={<ItemsView />} />
             <Route path="disputes" element={<InvoiceDisputesView />} />
             <Route path="credit-review" element={<CreditReviewView />} />
-            <Route path="barter" element={<BarterView />} />
             <Route path="photography" element={<MediaView />} />
             <Route path="photography/mobile/:batchId" element={<MediaUploadMobileRoute />} />
             <Route path="pick" element={<PickView />} />

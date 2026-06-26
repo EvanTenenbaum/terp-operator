@@ -13,5 +13,4 @@ export { RecoveryView } from './RecoveryView';
 export { PurchaseReceiptsView } from './PurchaseReceiptsView';
 export { CloseoutView } from './CloseoutView';
 export { SettingsView } from './SettingsView';
-export { BarterView } from './BarterView';
 export { InvoiceDisputesView } from './InvoiceDisputesView';
