@@ -21,6 +21,7 @@ const labelsPrintedChipCol: GridColDef<GridRow> = {
   field: 'labelsPrinted',
   headerName: 'Labels',
   width: 115,
+  hide: true,
   filter: 'agSetColumnFilter',
   cellClass: 'text-center',
   filterParams: {
@@ -47,6 +48,7 @@ const manifestChipCol: GridColDef<GridRow> = {
   field: 'manifestPath',
   headerName: 'Manifest',
   width: 120,
+  hide: true,
   filter: 'agSetColumnFilter',
   cellClass: 'text-center',
   filterParams: {
