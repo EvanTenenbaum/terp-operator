@@ -422,6 +422,16 @@ const disputesView: ViewEntry = {
   allowedSlideOvers: ['invoiceDispute', 'invoice', 'customer'],
 };
 
+const barterView: ViewEntry = {
+  viewKey: 'barter',
+  entity: 'barter',
+  template: 'primaryGrid',
+  primaryProcedure: 'queries.grid',
+  urlPath: '/barter',
+  title: 'Barter',
+  allowedSlideOvers: [],
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // VIEW REGISTRY MAP
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -459,6 +469,7 @@ export const viewRegistry: Record<ViewKey, ViewEntry> = {
   purchaseReceipts: purchaseReceiptsView,
   items: itemsView,
   disputes: disputesView,
+  barter: barterView,
 };
 
 /**

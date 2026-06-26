@@ -108,9 +108,9 @@ const INTERNAL_ALLOWLISTS: Record<SnapshotKind, InternalAllowlistShape> = {
   payment_received: payInternal,
   vendor_payout: payoutInternal,
   barter_settlement: {
-    topLevel: ['kind', 'type', 'settlementNo', 'direction', 'amount', 'counterpartyType', 'note', 'costBasis', 'gainLoss', 'lineCount', 'lines'],
+    topLevel: ['kind', 'settlementNo', 'direction', 'counterpartyType', 'settlementAmount', 'costBasis', 'gainLoss', 'valueOverridden', 'lineCount', 'createdAt'],
     header: [],
-    line: [],
+    line: ['batchId', 'productName', 'qty', 'unitCost', 'lineSettlementAmount'],
     totals: [],
     footer: [],
     cogs: [],

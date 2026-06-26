@@ -144,10 +144,15 @@ describe('Barter settlement — §11 integration tests', () => {
     expect(journal.memo).toMatch(/gain/i);
   });
 
-  // §11.3b — settleDebtWithProduct is too complex for the in-memory mock
-  // (creates PO, batches via createBatch helper, receipt, vendor bill, vendor
-  // payment, settlement, lines, ledger entries — many tables with cascading
-  // side-effects). A real database with migration 0085 is needed.
+  // §11.3b — settleDebtWithProduct override below cost requires the full
+  // intake path (creates PO, PO lines, batches via createBatch, receipt,
+  // receipt lines, vendor bill, vendor payment, settlement, settlement lines,
+  // inventory movements, client ledger entries, correction journal entries).
+  // The in-memory mock's createBatch stub returns { affectedIds: ['mock-batch'] }
+  // but does not materialise the batch row in state.batches — the handler's
+  // subsequent UPDATE batches SET ... WHERE id = 'mock-batch' finds no row.
+  // Making this work requires either a real DB with migration 0085 applied or
+  // enhancing the stub to materialise rows in the in-memory state.
   it.skip('§11.3b — settleDebtWithProduct override below cost produces negative gain/loss (needs real DB — complex intake path)', () => {});
 
   // ── §11.6 — Idempotent replay ─────────────────────────────────────────────
@@ -228,6 +233,21 @@ describe('Barter settlement — §11 integration tests', () => {
         counterpartyType: 'vendor',
         vendorId: VENDOR_ID,
         lines: [{ batchId: BATCH_ID, qty: 5 }],
+        settlementAmount: 75,
+        // overrideReason intentionally omitted
+      }, MANAGER, COMMAND_ID)
+    ).rejects.toThrow(/overrideReason/i);
+  });
+
+  it('§11.11b — settleDebtWithProduct rejects manager override without reason', async () => {
+    // settleDebtWithProduct override gate fires at step 3 (cost-basis comparison),
+    // before step 4 (customer lookup). Schema validation needs a valid UUID for
+    // customerId but the DB is never queried — no seed data needed.
+    // Cost basis = 5 × $10 = $50, settlementAmount = $75 → override attempted.
+    await expect(
+      settleDebtWithProduct(tx as never, {
+        customerId: CUSTOMER_ID,
+        lines: [{ productName: 'Test Product', qty: 5, unitCost: 10 }],
         settlementAmount: 75,
         // overrideReason intentionally omitted
       }, MANAGER, COMMAND_ID)

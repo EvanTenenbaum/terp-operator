@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Archive,
   ArrowDown,
+  ArrowRightLeft,
   ArrowUp,
   BadgeDollarSign,
   BarChart3,
@@ -95,6 +96,7 @@ const navGroups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { view: 'payments', label: 'Payments', icon: BadgeDollarSign },
       { view: 'vendors', label: 'Vendor Payouts', icon: Landmark },
+      { view: 'barter', label: 'Barter', icon: ArrowRightLeft },
       { view: 'disputes', label: 'Disputes', icon: AlertTriangle },
       { view: 'referees', label: 'Referees', icon: Users },
       { view: 'contacts', label: 'Contacts', icon: Users },

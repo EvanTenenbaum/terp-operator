@@ -27,4 +27,5 @@ export const viewSchema = z.enum([
   'purchaseReceipts',
   'items',
   'disputes',
+  'barter',
 ]);

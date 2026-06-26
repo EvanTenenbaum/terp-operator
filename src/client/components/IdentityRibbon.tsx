@@ -29,6 +29,7 @@ const viewLabels: Record<ViewKey, string> = {
   photography: 'Photography',
   items: 'Items',
   disputes: 'Invoice Disputes',
+  barter: 'Barter Settlement',
   contacts: 'Contacts', // CAP-033 / TER-1564
   settings: 'Settings',
   pick: 'Pick Queue', // CAP-030 / TER-1513

@@ -3593,6 +3593,11 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                left join customers c on c.id = i.customer_id`,
         defaultOrderBy: '"createdAt" desc',
       };
+    default:
+      return {
+        body: `select null::text as id, null::text as label where false`,
+        defaultOrderBy: 'id',
+      };
   }
 }
 
@@ -3787,6 +3792,7 @@ export function deterministicHeaders(view: z.infer<typeof viewSchema>) {
     purchaseReceipts: ['id', 'receiptNo', 'vendor', 'poNo', 'purchaseOrderId', 'total', 'status', 'lines', 'createdAt'],
     items: ['id', 'sku', 'name', 'alias', 'category', 'tags', 'pricingRule', 'status', 'description', 'batchCount', 'totalAvailableQty', 'createdAt', 'updatedAt'],
     disputes: ['id', 'invoiceId', 'invoiceNo', 'customer', 'customerId', 'invoiceAmount', 'invoiceStatus', 'status', 'reason', 'resolution', 'createdAt', 'updatedAt'],
+    barter: [],
   };
   return map[view];
 }
