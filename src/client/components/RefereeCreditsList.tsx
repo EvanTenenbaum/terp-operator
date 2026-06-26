@@ -81,25 +81,7 @@ export function RefereeCreditsList({ refereeId }: RefereeCreditsListProps) {
           <span className="text-zinc-500">void</span>
         </span>
       </div>
-      {/* UX-Q06(c) — bulk pay selection strip: shows when accrued credits are selected */}
-      {selectedIds.size > 0 ? (
-        <div className="flex items-center gap-3 border-b border-zinc-100 bg-zinc-50 px-3 py-2 text-xs" data-testid="credits-bulk-pay-strip">
-          <span className="text-zinc-700">
-            {selectedIds.size} selected · {formatMoney(selectedAccruedTotal)} accrued
-          </span>
-          <button
-            type="button"
-            className="secondary-button compact-action"
-            disabled
-            title="Payout command not yet available — tracked CAP-039"
-            data-testid="bulk-pay-credits-button"
-          >
-            Pay accrued credits
-          </button>
-          <span className="text-zinc-400 italic">Payout command not yet available — tracked CAP-039</span>
-        </div>
-      ) : null}
-      <table className="w-full text-sm">
+<table className="w-full text-sm">
         <thead className="bg-zinc-50 text-left text-xs font-medium uppercase text-zinc-500">
           <tr>
             {/* UX-Q06(c): checkbox column for bulk pay selection */}

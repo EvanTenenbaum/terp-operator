@@ -84,7 +84,7 @@ export function SalesCommandHistoryTab({ orderId, customerId }: SalesCommandHist
         </div>
       ) : (
         <div className="drawer-empty mt-3">
-          Command history coming soon — no commands found for this order.
+          No commands found for this order.
         </div>
       )}
     </div>

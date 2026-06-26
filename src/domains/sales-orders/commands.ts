@@ -725,7 +725,13 @@ export async function confirmSalesOrder(tx: Tx, payload: Payload, commandId: str
       );
     }
   }
-  await tx.update(salesOrders).set({ status: 'confirmed', updatedAt: new Date() }).where(eq(salesOrders.id, orderId));
+  // G-10: Persist referee relationship on the order at confirm time so
+  // postSalesOrder can accrue the credit without the payload thread.
+  await tx.update(salesOrders).set({
+    status: 'confirmed',
+    updatedAt: new Date(),
+    ...(payload.refereeRelationshipId ? { refereeRelationshipId: String(payload.refereeRelationshipId) } : {})
+  }).where(eq(salesOrders.id, orderId));
   // TER-1675: enqueueCustomerRecompute is best-effort. A missing/broken
   // credit_recompute_queue table (e.g. unrun migration) must not block
   // order confirmation or roll back the transaction.
@@ -1008,10 +1014,17 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
     }
   }
 
-  // Accrue referee credit if relationship specified
-  if (payload.refereeRelationshipId && payload.logRefereeCredit !== false) {
+  // Accrue referee credit if relationship specified.
+  // G-10: accept payload.refereeRelationshipId (explicit thread) or fall
+  // back to the relationship stored on the order at confirm time. When
+  // logRefereeCredit is explicitly false the operator has opted out.
+  const effectiveRefereeRelationshipId =
+    (payload.refereeRelationshipId as string | undefined) ||
+    (freshOrder.refereeRelationshipId as string | undefined) ||
+    undefined;
+  if (effectiveRefereeRelationshipId && payload.logRefereeCredit !== false) {
     const { creditAmount } = await accrueRefereeCredit(tx, {
-      refereeRelationshipId: String(payload.refereeRelationshipId),
+      refereeRelationshipId: effectiveRefereeRelationshipId,
       transactionType: 'sales_order',
       transactionId: freshOrder.id,
       transactionNo: freshOrder.orderNo,
@@ -1020,7 +1033,7 @@ export async function postSalesOrder(tx: Tx, payload: Payload, commandId: string
     });
 
     await tx.update(salesOrders).set({
-      refereeRelationshipId: String(payload.refereeRelationshipId),
+      refereeRelationshipId: effectiveRefereeRelationshipId,
       refereeCreditAmount: creditAmount.toFixed(2)
     }).where(eq(salesOrders.id, orderId));
   }

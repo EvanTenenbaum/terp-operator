@@ -58,17 +58,9 @@ const queryClient = new QueryClient({
   }
 });
 
-// FE-L3 (#36): keep persisted uiStore slice in sync across tabs. Registered
-// once at startup; idempotent so re-imports during HMR do not double-fire.
-registerUiStoreStorageSync();
-
-void loadClientConfig().then((config) => {
-  const licenseKey = config.agGridLicenseKey ?? import.meta.env.VITE_AG_GRID_LICENSE_KEY ?? '';
-  if (licenseKey) {
-    LicenseManager.setLicenseKey(licenseKey);
-  }
-
-  // Polyfill: crypto.randomUUID for non-secure contexts (e.g. Tailscale HTTP)
+// Polyfill: crypto.randomUUID for non-secure contexts (e.g. Tailscale HTTP).
+// Must run BEFORE any async operations because imported modules may call
+// crypto.randomUUID() at module-evaluation time, before loadClientConfig resolves.
 if (typeof crypto !== 'undefined' && !(crypto as { randomUUID?: () => string }).randomUUID) {
   (crypto as { randomUUID: () => string }).randomUUID = function randomUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -78,6 +70,16 @@ if (typeof crypto !== 'undefined' && !(crypto as { randomUUID?: () => string }).
     });
   };
 }
+
+// FE-L3 (#36): keep persisted uiStore slice in sync across tabs. Registered
+// once at startup; idempotent so re-imports during HMR do not double-fire.
+registerUiStoreStorageSync();
+
+void loadClientConfig().then((config) => {
+  const licenseKey = config.agGridLicenseKey ?? import.meta.env.VITE_AG_GRID_LICENSE_KEY ?? '';
+  if (licenseKey) {
+    LicenseManager.setLicenseKey(licenseKey);
+  }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

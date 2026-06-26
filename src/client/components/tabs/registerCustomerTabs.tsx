@@ -13,8 +13,10 @@
  *   - Credit    (credit limit, balance, credit status, history)
  *
  * Tab components are intentionally light placeholders that read entity data
- * from the supplied `row`. Real tab bodies migrate from inline panels in
- * later phases; the registry shape is stable and additive.
+ * from the supplied `row`. The Credit tab is backed by the real
+ * CustomerCreditPanel component (credit limit, balance, engine status, history).
+ * Other real tab bodies migrate from inline panels in later phases; the
+ * registry shape is stable and additive.
  *
  * SAFETY: This module is import-time pure; calling `registerCustomerTabs()` is
  * idempotent (the underlying `registerTabs` REPLACES on second call). It
@@ -23,6 +25,7 @@
  */
 import { registerTabs, type SlideOverTab, type SlideOverTabProps } from './registry';
 import type { GridRow } from '../../../shared/types';
+import { CustomerCreditPanel } from '../credit/CustomerCreditPanel';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -103,13 +106,7 @@ function CustomerPaymentsTab(props: SlideOverTabProps): JSX.Element {
 }
 
 function CustomerCreditTab(props: SlideOverTabProps): JSX.Element {
-  return (
-    <PlaceholderTab
-      label="Credit"
-      description="Credit limit, current balance, and credit status. Adjust credit limits in the Client Ledger view."
-      row={props.row}
-    />
-  );
+  return <CustomerCreditPanel customerId={props.entityId} />;
 }
 
 // ── Tab definitions ────────────────────────────────────────────────────────

@@ -287,16 +287,36 @@ export const saleSchema: EntityFieldSchema = {
       pinned: 'left',
       rationale: 'Primary identifier — operators search, sort, and reference by order number.',
     }),
-    t0('customerName', 'Customer', 'text', {
+    t0('customer', 'Customer', 'text', {
       width: 180,
-      rationale: 'The counterparty; without it the row has no business context. Derived from customer_id join.',
+      rationale: 'The counterparty; without it the row has no business context. Denormalized customer name.',
     }),
     t0('total', 'Total', 'currency', {
       width: 130,
       rationale: 'The revenue commitment — operators scan this column to prioritize high-value orders.',
     }),
+    t0('lines', 'Lines', 'numeric', {
+      width: 95,
+      rationale: 'Line item count — primary signal for order size and complexity.',
+    }),
 
     // ── Tier 1: visible by default ──
+    t1('internalMargin', 'Margin', 'currency', {
+      width: 110,
+      rationale: 'Profitability signal for management scanning; secondary to revenue total.',
+    }),
+    t1('pricingStrategy', 'Pricing', 'text', {
+      width: 145,
+      rationale: 'Pricing strategy label — surfaced in browse mode for triage.',
+    }),
+    t1('linesTotal', 'Lines total', 'numeric', {
+      width: 95,
+      rationale: 'Total line count (including non-pickable lines); used for lines-picked computation.',
+    }),
+    t1('linesPicked', 'Lines picked', 'numeric', {
+      width: 135,
+      rationale: 'Picked line count against total; operator scans for fulfillment progress.',
+    }),
     t1('orderedAt', 'Ordered', 'date', {
       width: 130,
       rationale: 'Operators filter by order age constantly, but it is not identity.',
@@ -304,10 +324,6 @@ export const saleSchema: EntityFieldSchema = {
     t1('deliveryWindow', 'Delivery', 'text', {
       width: 140,
       rationale: 'Logistics scheduling signal; secondary to status and total.',
-    }),
-    t1('internalMargin', 'Margin', 'currency', {
-      width: 110,
-      rationale: 'Profitability signal for management scanning; secondary to revenue total.',
     }),
     t1('packed', 'Packed', 'boolean', {
       width: 100,
@@ -327,10 +343,6 @@ export const saleSchema: EntityFieldSchema = {
       width: 300,
       rationale: 'Raw UUID — only needed in debugging or URL inspection.',
     }),
-    t2('pricingStrategy', 'Pricing', 'text', {
-      width: 130,
-      rationale: 'Configuration detail; rarely relevant for day-to-day grid scanning.',
-    }),
     t2('notes', 'Notes', 'text', {
       width: 200,
       rationale: 'Chronicle-level detail; rarely read in bulk grid view.',
@@ -345,6 +357,9 @@ export const saleSchema: EntityFieldSchema = {
     }),
   ],
 };
+
+// Alias: SalesOrder is the canonical entity name used by GridView and the view registry.
+export const salesOrderSchema: EntityFieldSchema = saleSchema;
 
 // ─── Intake (Batch) ─────────────────────────────────────────────────────────
 
@@ -1582,6 +1597,11 @@ export const salesOrderLineSchema: EntityFieldSchema = {
     }),
 
     // ── Tier 1: visible by default ──
+    t1('legacyStatusMarker', 'Raw', 'text', {
+      width: 90,
+      pinned: 'left',
+      rationale: 'Legacy status marker chip — operator shorthand from intake/legacy systems.',
+    }),
     t1('displayName', 'Display Name', 'text', {
       width: 180,
       rationale: 'Customer-facing product label; secondary to internal item name.',
@@ -1931,6 +1951,7 @@ export const entitySchemas: Record<string, EntityFieldSchema> = {
   refereeCredit: refereeCreditSchema,
   batchMedia: batchMediaSchema,
   purchaseOrderLine: purchaseOrderLineSchema,
+  salesOrder: salesOrderSchema,
   salesOrderLine: salesOrderLineSchema,
   paymentAllocation: paymentAllocationSchema,
   tag: tagSchema,

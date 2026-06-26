@@ -40,7 +40,7 @@ const REPORT_DEFS: readonly ReportDef[] = [
   {
     key: 'revenue-summary',
     label: 'Revenue Summary',
-    description: 'Posted orders by status — all time, live. Gross posted order total. Formal adjustments not yet tracked.',
+    description: 'Posted orders by status — all time, live. Gross posted order total.',
     columns: ['Status', 'Orders', 'Total Value', 'Note'] as const,
   },
   {
@@ -252,7 +252,7 @@ export function ReportsRouteShell() {
 
       {/* ── Report picker chips ─────────────────────────────────────────────── */}
       <div className="report-chip-row" aria-label="Report picker">
-        {visibleReports.map((report) => (
+        {visibleReports.filter(r => !r.gated).map((report) => (
           <button
             key={report.key}
             type="button"
@@ -524,7 +524,7 @@ function buildRevenueRows(salesData: GridRow[]): ReportRow[] {
       Status: 'Posted total',
       Orders: '',
       'Total Value': formatMoney(postedTotal),
-      Note: 'Gross posted order total. Formal adjustments not yet tracked.',
+      Note: 'Gross posted order total.',
     });
   }
   return rows;

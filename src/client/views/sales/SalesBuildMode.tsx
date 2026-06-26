@@ -151,7 +151,7 @@ function isRowEditLocked(params: { data?: GridRow }): boolean {
   return RELEASED_PICK_STATUSES.has(String(params.data?.pickStatus ?? ''));
 }
 
-// Line columns — P4 LEAN GRID (≤8 visible cols).
+// Line columns — schema-driven via useColumnDefs (G-13 / ARCH-8).
 //
 // The Sales lines grid used to surface ~22 columns (subcategory, batchCode,
 // unresolvedSourceText, markup, markupPct, unitCost, derivedCogs,
@@ -163,7 +163,7 @@ function isRowEditLocked(params: { data?: GridRow }): boolean {
 // fulfillment booleans) into the DetailSlideover under entityType='saleLine'
 // (see registerSalesTabs.tsx → saleLineDetailsTab).
 //
-// Visible columns:
+// Visible columns (from salesOrderLineSchema + lineTotal computed):
 //   1. legacyStatusMarker  (Raw)         pinned-left  — line status chip
 //   2. displayName         (Product)     pinned-left  — primary identity
 //   3. itemName            (Canonical)                — editable canonical
@@ -177,68 +177,32 @@ function isRowEditLocked(params: { data?: GridRow }): boolean {
 // markup, unitCost, markupPct, derivedCogs, landed-cost exception reason,
 // price floor, pick status, packed / posted / pay-followup flags, available
 // qty, unresolved source text, notes, and cost-resolution metadata.
-const lineColumns: ColDef<GridRow>[] = [
-  {
-    field: 'legacyStatusMarker',
-    headerName: 'Raw',
-    editable: (params) => !isRowEditLocked(params),
-    width: 90,
-    pinned: 'left',
+import { useColumnDefs } from '../../hooks/useColumnDefs';
+
+// lineTotal is a computed column (qty × unitPrice) — not a schema field,
+// appended after useColumnDefs returns.
+const lineTotalColumn: ColDef<GridRow> = {
+  colId: 'lineTotal',
+  headerName: 'Total',
+  type: 'numericColumn',
+  width: 110,
+  editable: false,
+  valueGetter: (params) => {
+    const row = params.data as GridRow | undefined;
+    if (!row) return null;
+    const qty = Number(row.qty ?? 0);
+    const unitPrice = Number(row.unitPrice ?? 0);
+    if (!Number.isFinite(qty) || !Number.isFinite(unitPrice)) return null;
+    return qty * unitPrice;
   },
-  {
-    field: 'displayName',
-    headerName: 'Product name',
-    editable: false,
-    minWidth: 190,
-    pinned: 'left',
-    cellRenderer: DisplayNameCell,
-  },
-  {
-    field: 'itemName',
-    headerName: 'Canonical',
-    editable: (params) => !isRowEditLocked(params),
-    minWidth: 170,
-  },
-  {
-    field: 'qty',
-    editable: (params) => !isRowEditLocked(params),
-    type: 'numericColumn',
-    width: 95,
-  },
-  {
-    field: 'unitPrice',
-    editable: (params) => !isRowEditLocked(params),
-    type: 'numericColumn',
-    width: 115,
-  },
-  {
-    // P4: derived line total (qty × unitPrice) — replaces the per-line
-    // pricing math columns (markup, markupPct, derivedCogs) in the lean
-    // grid. The full pricing breakdown lives in the saleLine slide-over.
-    colId: 'lineTotal',
-    headerName: 'Total',
-    type: 'numericColumn',
-    width: 110,
-    editable: false,
-    valueGetter: (params) => {
-      const row = params.data as GridRow | undefined;
-      if (!row) return null;
-      const qty = Number(row.qty ?? 0);
-      const unitPrice = Number(row.unitPrice ?? 0);
-      if (!Number.isFinite(qty) || !Number.isFinite(unitPrice)) return null;
-      return qty * unitPrice;
-    },
-    valueFormatter: (params) =>
-      params.value != null
-        ? Number(params.value).toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-          })
-        : '—',
-  },
-  { field: 'status', width: 115 },
-  { field: 'validationIssues', headerName: 'Fix', minWidth: 220 },
-];
+  valueFormatter: (params) =>
+    params.value != null
+      ? Number(params.value).toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        })
+      : '—',
+};
 
 export interface SalesBuildModeProps {
   customerId: string;
@@ -413,9 +377,27 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
     return undefined;
   }, [activeDrawerEntity, selectedOrder, lineRowsWithRule]);
 
+  // Line column overrides — schema-driven via useColumnDefs (G-13).
+  // The salesOrderLineSchema defines every column; overrides adjust headers,
+  // widths, editability, and the DisplayNameCell renderer for build mode.
+  const lineOverrides = useMemo<Partial<ColDef<GridRow>>[]>(() => [
+    { field: 'legacyStatusMarker', editable: (params) => !isRowEditLocked(params), width: 90, pinned: 'left' },
+    { field: 'displayName', headerName: 'Product name', editable: false, minWidth: 190, pinned: 'left', cellRenderer: DisplayNameCell },
+    { field: 'itemName', headerName: 'Canonical', editable: (params) => !isRowEditLocked(params), minWidth: 170 },
+    { field: 'qty', editable: (params) => !isRowEditLocked(params), width: 95 },
+    { field: 'unitPrice', editable: (params) => !isRowEditLocked(params), width: 115 },
+    { field: 'status', width: 115 },
+    { field: 'validationIssues', headerName: 'Fix', minWidth: 220 },
+  ], []);
+
+  const schemaLineColumns = useColumnDefs('salesOrderLine', lineOverrides);
+  const lineColumns = useMemo(
+    () => [...schemaLineColumns, lineTotalColumn] as ColDef[],
+    [schemaLineColumns],
+  );
   const visibleLineColumns = useMemo(
     () => selectVisibleSalesColumns(showMargin, lineColumns),
-    [showMargin],
+    [showMargin, lineColumns],
   );
 
   // ── Add-line paths (mirror legacy SalesView add helpers) ─────────────
