@@ -56,4 +56,4 @@ function queryFlag(param: string, defaultValue: boolean): boolean {
  * @see docs/engineering-plans/specifications/views/sales-view-refactor-plan.md
  * @see docs/engineering-plans/MASTER-EXECUTION-DOCUMENT.md §Phase 3B
  */
-export const SALES_VIEW_MERCURY = queryFlag('ff_salesViewMercury', false);
+export const SALES_VIEW_MERCURY = queryFlag('ff_salesViewMercury', true);
