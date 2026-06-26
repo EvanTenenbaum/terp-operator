@@ -253,7 +253,7 @@ describe('SalesBrowseMode — grid with data', () => {
 
 describe('SalesBrowseMode — loading state', () => {
   it('passes loading=true to OperatorGrid when orders query is loading', () => {
-    mockQueries.grid = { data: undefined, isLoading: true, isError: false, refetch: vi.fn() };
+    mockQueries.grid = { data: undefined as unknown as unknown[], isLoading: true, isError: false, refetch: vi.fn() };
     renderBrowse();
     const grid = screen.getByTestId('operator-grid-stub');
     expect(grid.getAttribute('data-loading')).toBe('true');
@@ -270,7 +270,7 @@ describe('SalesBrowseMode — loading state', () => {
 describe('SalesBrowseMode — error state', () => {
   it('passes isError=true to OperatorGrid when orders query errors', () => {
     mockQueries.grid = {
-      data: undefined,
+      data: undefined as unknown as unknown[],
       isLoading: false,
       isError: true,
       refetch: vi.fn(),
@@ -283,7 +283,7 @@ describe('SalesBrowseMode — error state', () => {
   it('calls orders.refetch when retry is triggered', () => {
     const refetchMock = vi.fn();
     mockQueries.grid = {
-      data: undefined,
+      data: undefined as unknown as unknown[],
       isLoading: false,
       isError: true,
       refetch: refetchMock,
@@ -343,7 +343,7 @@ describe('SalesBrowseMode — Inventory Finder slide-over', () => {
 describe('SalesBrowseMode — viewer role restrictions', () => {
   it('hides the Inventory Finder button when role is viewer', () => {
     mockQueries.me = {
-      data: { id: 'u-2', name: 'viewer', email: 'view@example.test', role: 'viewer' },
+      data: { id: 'u-2', name: 'viewer', email: 'view@example.test', role: 'viewer' as 'operator' },
       isLoading: false,
       isError: false,
       refetch: vi.fn(),
@@ -354,7 +354,7 @@ describe('SalesBrowseMode — viewer role restrictions', () => {
 
   it('still renders the grid and presets for viewer role', () => {
     mockQueries.me = {
-      data: { id: 'u-2', name: 'viewer', email: 'view@example.test', role: 'viewer' },
+      data: { id: 'u-2', name: 'viewer', email: 'view@example.test', role: 'viewer' as 'operator' },
       isLoading: false,
       isError: false,
       refetch: vi.fn(),

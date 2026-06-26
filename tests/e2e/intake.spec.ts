@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 
 async function setupPage(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
-    if (typeof crypto !== 'undefined' && !(crypto as Record<string, unknown>).randomUUID) {
-      (crypto as Record<string, unknown>).randomUUID = function randomUUID() {
+    if (typeof crypto !== 'undefined' && !(crypto as any).randomUUID) {
+      (crypto as any).randomUUID = function randomUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
           const r = (Math.random() * 16) | 0;
           const v = c === 'x' ? r : (r & 0x3) | 0x8;

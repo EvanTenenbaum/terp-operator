@@ -341,7 +341,7 @@ describe('SalesBuildMode — pricing columns (UX-F03)', () => {
 describe('SalesBuildMode — loading states (UX-F03)', () => {
   it('passes loading=true to grid when orderLines query is loading', () => {
     mockQueries.salesOrderLines = {
-      data: undefined,
+      data: undefined as unknown as Record<string, unknown>[],
       isLoading: true,
       isError: false,
       refetch: vi.fn(),
@@ -367,7 +367,7 @@ describe('SalesBuildMode — loading states (UX-F03)', () => {
 describe('SalesBuildMode — error states (UX-F03)', () => {
   it('passes isError=true to grid when orderLines query errors', () => {
     mockQueries.salesOrderLines = {
-      data: undefined,
+      data: undefined as unknown as Record<string, unknown>[],
       isLoading: false,
       isError: true,
       refetch: vi.fn(),
@@ -380,7 +380,7 @@ describe('SalesBuildMode — error states (UX-F03)', () => {
   it('calls orderLines.refetch when retry is triggered', () => {
     const refetchMock = vi.fn();
     mockQueries.salesOrderLines = {
-      data: undefined,
+      data: undefined as unknown as Record<string, unknown>[],
       isLoading: false,
       isError: true,
       refetch: refetchMock,
