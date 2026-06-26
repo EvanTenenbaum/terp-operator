@@ -329,8 +329,8 @@ export function OperatorGrid({
     setGridColumnPrefs(resolvedTableKey, columnStateToPrefs(state));
   }, [resolvedTableKey, setGridColumnPrefs]);
 
-  // UX-C02: TSV clipboard paste — AG Grid Enterprise ClipboardModule is
-  // auto-registered (main.tsx). processDataFromClipboard receives the raw 2-D
+  // UX-C02: TSV clipboard paste — AG Grid Enterprise ClipboardModule is already
+  // registered globally (main.tsx). processDataFromClipboard receives the raw 2-D
   // array of pasted cells and returns it for AG Grid to apply to selected range.
   // Rows land as editable-cell updates only (no auto-post); a summary toast tells
   // the operator how many rows were pasted. Non-editable cells are skipped by AG Grid.
@@ -1041,12 +1041,11 @@ function withChipRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
     const optionSource = (column as Record<string, unknown>).__optionSource as { kind: string } | undefined;
     void optionSource;
 
-    // Status fields: always render with StatusPill, non-editable, chip-cell class.
+    // Status fields: always render with StatusPill, non-editable.
     if (column.field === 'status') {
       return {
         ...column,
         editable: false,
-        cellClass: [column.cellClass, 'chip-cell'].filter(Boolean).join(' '),
         cellRenderer: (params: { value?: string }) => (
           <StatusPill status={params.value} />
         ),
@@ -1058,7 +1057,7 @@ function withChipRenderer(columns: ColDef<GridRow>[], canWrite: boolean) {
     if (chipConfig) {
       return {
         ...column,
-        cellClass: [column.cellClass, column.editable ? 'chip-cell' : ''].filter(Boolean).join(' '),
+        cellClass: column.editable ? 'editable-cell chip-cell' : column.cellClass,
       };
     }
 

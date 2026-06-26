@@ -8,7 +8,9 @@ import {
 import { useUiStore, type GridColumnPref } from '../store/uiStore';
 import { formatMoney, formatTs, formatBool, formatNumber } from '../utils/format';
 import ComboboxCellEditor from '../components/editors/ComboboxCellEditor';
-import EntityChipCell from '../components/cellRenderers/EntityChipCell';
+import TagsChipCell from '../components/cellRenderers/TagsChipCell';
+import BooleanPillCell from '../components/cellRenderers/BooleanPillCell';
+import DateCell from '../components/cellRenderers/DateCell';
 
 // Module-level stable reference to avoid infinite re-render cycles
 // from getSnapshot-cache warnings in zustand v5 + useSyncExternalStore.
@@ -221,12 +223,18 @@ function fieldToColDef(
         const tb = b == null ? 0 : new Date(b as string | number).getTime();
         return (Number.isNaN(ta) ? 0 : ta) - (Number.isNaN(tb) ? 0 : tb);
       };
+      if (f.chip) {
+        base.cellRenderer = DateCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'boolean':
       base.valueFormatter = (params: ValueFormatterParams) =>
         formatBool(params.value);
       base.cellClass = 'text-center';
+      if (f.chip) {
+        base.cellRenderer = BooleanPillCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'enum': {
@@ -236,7 +244,7 @@ function fieldToColDef(
           base.cellEditorParams = (params: ICellEditorParams) => {
             let enumOptions: { value: string; label: string }[] = [];
             if (f.optionSource?.kind === 'enum') {
-              enumOptions = f.optionSource.values ?? [];
+              enumOptions = f.optionSource.values;
             } else if (f.optionSource?.kind === 'status') {
               // F2 interim: status dropdown shows all status values.
               // The server's existing transition rejection catches illegal transitions.
@@ -255,7 +263,7 @@ function fieldToColDef(
         } else {
           let enumOptions: { value: string; label: string }[] = [];
           if (f.optionSource?.kind === 'enum') {
-            enumOptions = f.optionSource.values ?? [];
+            enumOptions = f.optionSource.values;
           } else if (f.optionSource?.kind === 'status') {
             // F2 interim: status dropdown shows all status values.
             enumOptions = [];
@@ -299,7 +307,9 @@ function fieldToColDef(
     }
 
     case 'tags':
-      // Tag chip cellRenderer applied downstream by OperatorGrid enhancements.
+      if (f.chip) {
+        base.cellRenderer = TagsChipCell as unknown as ColDef['cellRenderer'];
+      }
       break;
 
     case 'text':
@@ -314,16 +324,9 @@ function fieldToColDef(
   if (f.optionSource) {
     (base as Record<string, unknown>).__optionSource = f.optionSource;
   }
-
-  // Entity smart-chip wiring (P5/TER-1682). When a field declares smartChip,
-  // stamp the config on the ColDef and install EntityChipCell as the cell
-  // renderer. EntityChipCell reads __smartChip from params.colDef at render
-  // time. This must not collide with status/chip fields handled by
-  // withChipRenderer in OperatorGrid — vendorName has neither a chip config
-  // nor field === 'status', so its else-branch preserves our renderer.
-  if (f.smartChip) {
-    (base as Record<string, unknown>).__smartChip = f.smartChip;
-    base.cellRenderer = EntityChipCell as unknown as ColDef['cellRenderer'];
+  // Store signal function for downstream enhancers.
+  if (f.signal) {
+    (base as Record<string, unknown>).__signal = f.signal;
   }
 
   return base;

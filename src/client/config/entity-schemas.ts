@@ -57,17 +57,15 @@ export interface FieldDefinition {
   /** Smart-table option source for enum/combobox/tags fields. */
   optionSource?:
     | { kind: 'status' }
-    | { kind: 'enum'; values?: { value: string; label: string }[] }
+    | { kind: 'enum'; values: { value: string; label: string }[] }
     | { kind: 'combobox'; entityType: string; filters?: Record<string, unknown> }
     | { kind: 'tags' };
   /** Chip rendering configuration. */
   chip?: { palette?: string; multiple?: boolean; allowCreate?: boolean };
-  /** Smart-chip: renders chip that links to a detail view of the target entity. */
-  smartChip?: { target: string; idField: string };
   /** Command to dispatch on cell edit commit via useCommandRunner. */
   command?: { name: string; payload?: (row: Record<string, unknown>, value: unknown) => Record<string, unknown>; reason?: string };
-  /** Entity smart-chip configuration: target entity type and ID field for hover-card + click-through. */
-  smartChip?: { target: string; idField: string; previewTab?: string };
+  /** Passive at-rest signal: 'none' | 'warning' | 'danger'. Amber/danger only. */
+  signal?: (row: Record<string, unknown>) => 'none' | 'warning' | 'danger';
   /**
    * Why this field is at its current attention tier.
    * Tier 0: always visible (identity, status, amount).
@@ -182,7 +180,6 @@ export const purchaseOrderSchema: EntityFieldSchema = {
     }),
     t0('vendorName', 'Vendor', 'text', {
       width: 180,
-      smartChip: { target: 'vendor', idField: 'vendorId' },
       rationale: 'The counterparty — without it the row has no context. Derived from vendor_id join.',
     }),
     t0('total', 'Total', 'currency', {
@@ -193,10 +190,21 @@ export const purchaseOrderSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('expectedDate', 'Expected', 'date', {
       width: 130,
+      chip: { palette: 'date' },
+      signal: (row) => {
+        const v = row.expectedDate;
+        if (v == null) return 'none';
+        const ts = new Date(v as string | number | Date).getTime();
+        if (Number.isNaN(ts)) return 'none';
+        const status = row.status;
+        if (status === 'received' || status === 'cancelled') return 'none';
+        return ts < Date.now() ? 'warning' : 'none';
+      },
       rationale: 'Operators filter by expected arrival constantly — but it is not identity.',
     }),
     t1('orderedAt', 'Ordered', 'date', {
       width: 130,
+      chip: { palette: 'date' },
       rationale: 'Useful for age-based scanning, but not a split-second decision driver.',
     }),
     t1('paymentTerms', 'Terms', 'enum', {
@@ -272,8 +280,6 @@ export const saleSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Status drives every downstream action — picks, posting, payment followup.',
     }),
     t0('orderNo', 'Order #', 'text', {
@@ -283,7 +289,6 @@ export const saleSchema: EntityFieldSchema = {
     }),
     t0('customerName', 'Customer', 'text', {
       width: 180,
-      smartChip: { target: 'customer', idField: 'customerId' },
       rationale: 'The counterparty; without it the row has no business context. Derived from customer_id join.',
     }),
     t0('total', 'Total', 'currency', {
@@ -294,7 +299,6 @@ export const saleSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('orderedAt', 'Ordered', 'date', {
       width: 130,
-      chip: { palette: 'date' },
       rationale: 'Operators filter by order age constantly, but it is not identity.',
     }),
     t1('deliveryWindow', 'Delivery', 'text', {
@@ -303,22 +307,18 @@ export const saleSchema: EntityFieldSchema = {
     }),
     t1('internalMargin', 'Margin', 'currency', {
       width: 110,
-      chip: {},
       rationale: 'Profitability signal for management scanning; secondary to revenue total.',
     }),
     t1('packed', 'Packed', 'boolean', {
       width: 100,
-      chip: {},
       rationale: 'Quick warehouse status check; secondary to order status.',
     }),
     t1('inventoryPosted', 'Posted', 'boolean', {
       width: 100,
-      chip: {},
       rationale: 'Accounting completeness signal; operators check during closeout.',
     }),
     t1('fulfilledAt', 'Fulfilled', 'date', {
       width: 130,
-      chip: { palette: 'date' },
       rationale: 'Matters for aging fulfilled-but-unposted orders; secondary to status.',
     }),
 
@@ -356,8 +356,6 @@ export const intakeSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Status tells the operator whether this batch is available, reserved, or posted.',
     }),
     t0('batchCode', 'Batch #', 'text', {
@@ -367,7 +365,6 @@ export const intakeSchema: EntityFieldSchema = {
     }),
     t0('itemName', 'Item', 'text', {
       width: 180,
-      smartChip: { target: 'item', idField: 'itemId' },
       rationale: 'What product this batch represents — the core inventory entity. Derived from item join.',
     }),
     t0('availableQty', 'Avail Qty', 'numeric', {
@@ -382,17 +379,14 @@ export const intakeSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('vendorName', 'Vendor', 'text', {
       width: 180,
-      smartChip: { target: 'vendor', idField: 'vendorId' },
       rationale: 'Source context; secondary to the batch identity and item name.',
     }),
     t1('uom', 'Unit', 'text', {
       width: 80,
-      optionSource: { kind: 'enum', values: [{value:'lb',label:'lb'},{value:'oz',label:'oz'},{value:'g',label:'g'},{value:'kg',label:'kg'},{value:'ea',label:'ea'},{value:'case',label:'case'},{value:'flat',label:'flat'}] },
       rationale: 'Unit of measure qualifies the quantity; secondary but needed for interpretation.',
     }),
     t1('intakeDate', 'Received', 'date', {
       width: 130,
-      chip: { palette: 'date' },
       rationale: 'Age-based scanning for inventory turns; secondary to status.',
     }),
     t1('location', 'Location', 'text', {
@@ -405,8 +399,6 @@ export const intakeSchema: EntityFieldSchema = {
     }),
     t1('tags', 'Tags', 'text', {
       width: 150,
-      optionSource: { kind: 'tags' },
-      chip: {},
       rationale: 'Categorical organization; visible by default for filtering.',
     }),
 
@@ -440,8 +432,6 @@ export const itemSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Active/inactive/discontinued — determines whether the item appears in catalogs.',
     }),
     t0('sku', 'SKU', 'text', {
@@ -455,7 +445,6 @@ export const itemSchema: EntityFieldSchema = {
     }),
     t0('category', 'Category', 'text', {
       width: 140,
-      optionSource: { kind: 'enum' },
       rationale: 'Product taxonomy; operators group and filter by category constantly.',
     }),
 
@@ -466,13 +455,10 @@ export const itemSchema: EntityFieldSchema = {
     }),
     t1('pricingRule', 'Pricing', 'text', {
       width: 120,
-      optionSource: { kind: 'enum', values: [{value:'fixed',label:'Fixed'},{value:'market',label:'Market'},{value:'negotiated',label:'Negotiated'}] },
       rationale: 'Pricing strategy label; secondary to product identity.',
     }),
     t1('tags', 'Tags', 'text', {
       width: 150,
-      optionSource: { kind: 'tags' },
-      chip: {},
       rationale: 'Categorical organization; visible by default for filtering.',
     }),
 
@@ -520,13 +506,10 @@ export const customerSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('tags', 'Tags', 'text', {
       width: 150,
-      optionSource: { kind: 'tags' },
-      chip: {},
       rationale: 'Categorization and filtering by customer segment.',
     }),
     t1('pricingRule', 'Pricing Rule', 'text', {
       width: 130,
-      optionSource: { kind: 'enum', values: [{value:'standard',label:'Standard'},{value:'preferred',label:'Preferred'},{value:'wholesale',label:'Wholesale'}] },
       rationale: 'Default pricing strategy for this customer; secondary to credit profile.',
     }),
     t1('notes', 'Notes', 'text', {
@@ -582,7 +565,6 @@ export const vendorSchema: EntityFieldSchema = {
     }),
     t1('consignmentDefault', 'Consignment', 'boolean', {
       width: 120,
-      chip: {},
       rationale: 'Whether this vendor operates on consignment terms; payment-timing signal.',
     }),
     t1('notes', 'Notes', 'text', {
@@ -628,19 +610,16 @@ export const userSchema: EntityFieldSchema = {
     }),
     t0('role', 'Role', 'enum', {
       width: 130,
-      optionSource: { kind: 'enum', values: [{value:'owner',label:'Owner'},{value:'manager',label:'Manager'},{value:'operator',label:'Operator'},{value:'viewer',label:'Viewer'}] },
       rationale: 'Permission tier — determines what the user can see and do.',
     }),
     t0('active', 'Active', 'boolean', {
       width: 100,
-      chip: {},
       rationale: 'Whether this account can log in; critical access-control signal.',
     }),
 
     // ── Tier 1: visible by default ──
     t1('workLoop', 'Work Loop', 'text', {
       width: 130,
-      optionSource: { kind: 'enum', values: [{value:'Sell',label:'Sell'},{value:'Buy',label:'Buy'},{value:'Decide',label:'Decide'},{value:'Move',label:'Move'},{value:'Track',label:'Track'}] },
       rationale: 'Assigned operational lane (sales, intake, warehouse); secondary to role.',
     }),
 
@@ -674,8 +653,6 @@ export const paymentSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Whether the payment is applied, unapplied, or void — drives allocation workflow.',
     }),
     t0('amount', 'Amount', 'currency', {
@@ -684,12 +661,10 @@ export const paymentSchema: EntityFieldSchema = {
     }),
     t0('customerName', 'Customer', 'text', {
       width: 180,
-      smartChip: { target: 'customer', idField: 'customerId' },
       rationale: 'Who paid — the counterparty context. Derived from customer_id join.',
     }),
     t0('method', 'Method', 'enum', {
       width: 120,
-      optionSource: { kind: 'enum', values: [{value:'check',label:'Check'},{value:'wire',label:'Wire'},{value:'ach',label:'ACH'},{value:'cash',label:'Cash'},{value:'credit_card',label:'Credit Card'},{value:'offset',label:'Offset'}] },
       rationale: 'Payment method (cash, check, wire) — drives reconciliation and deposit workflow.',
     }),
 
@@ -700,7 +675,6 @@ export const paymentSchema: EntityFieldSchema = {
     }),
     t1('direction', 'Direction', 'enum', {
       width: 110,
-      optionSource: { kind: 'enum', values: [{value:'in',label:'Inbound'},{value:'out',label:'Outbound'}] },
       rationale: 'Receiving or paying; determines which ledger side this affects.',
     }),
     t1('category', 'Category', 'text', {
@@ -742,8 +716,6 @@ export const invoiceSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Open, partial, paid, overdue — drives collections workflow.',
     }),
     t0('invoiceNo', 'Invoice #', 'text', {
@@ -753,7 +725,6 @@ export const invoiceSchema: EntityFieldSchema = {
     }),
     t0('customerName', 'Customer', 'text', {
       width: 180,
-      smartChip: { target: 'customer', idField: 'customerId' },
       rationale: 'Who owes the money — the counterparty context. Derived from customer_id join.',
     }),
     t0('total', 'Total', 'currency', {
@@ -764,7 +735,6 @@ export const invoiceSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('dueDate', 'Due Date', 'date', {
       width: 130,
-      chip: { palette: 'date' },
       rationale: 'Aging signal — operators filter by due date to manage collections queue.',
     }),
     t1('amountPaid', 'Paid', 'currency', {
@@ -854,8 +824,6 @@ export const vendorBillSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Open, partial, paid — drives AP payment scheduling.',
     }),
     t0('billNo', 'Bill #', 'text', {
@@ -865,7 +833,6 @@ export const vendorBillSchema: EntityFieldSchema = {
     }),
     t0('vendorName', 'Vendor', 'text', {
       width: 180,
-      smartChip: { target: 'vendor', idField: 'vendorId' },
       rationale: 'Who sent the bill — the counterparty context. Derived from vendor_id join.',
     }),
     t0('amount', 'Amount', 'currency', {
@@ -876,7 +843,6 @@ export const vendorBillSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('dueDate', 'Due Date', 'date', {
       width: 130,
-      chip: { palette: 'date' },
       rationale: 'Aging signal — operators filter by due date to manage AP queue.',
     }),
     t1('amountPaid', 'Paid', 'currency', {
@@ -885,7 +851,6 @@ export const vendorBillSchema: EntityFieldSchema = {
     }),
     t1('scheduledFor', 'Scheduled', 'date', {
       width: 130,
-      chip: { palette: 'date' },
       rationale: 'When payment is scheduled; operational planning signal.',
     }),
 
@@ -962,8 +927,6 @@ export const fulfillmentLineSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Picked, packed, shipped — drives warehouse workflow.',
     }),
     t0('expectedQty', 'Expected', 'numeric', {
@@ -1015,8 +978,6 @@ export const pickListSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Draft, released, completed — drives pick workflow.',
     }),
     t0('pickNo', 'Pick #', 'text', {
@@ -1026,7 +987,6 @@ export const pickListSchema: EntityFieldSchema = {
     }),
     t0('assignedTo', 'Assigned To', 'text', {
       width: 150,
-      smartChip: { target: 'user', idField: 'assignedTo' },
       rationale: 'Which staff member is responsible; accountability and workload signal.',
     }),
 
@@ -1130,8 +1090,6 @@ export const matchmakingMatchSchema: EntityFieldSchema = {
     t0('status', 'Status', 'enum', {
       width: 130,
       pinned: 'left',
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Suggested, accepted, rejected, converted — drives match review workflow.',
     }),
     t0('score', 'Score', 'numeric', {
@@ -1147,7 +1105,6 @@ export const matchmakingMatchSchema: EntityFieldSchema = {
     // ── Tier 1: visible by default ──
     t1('reviewedBy', 'Reviewed By', 'text', {
       width: 150,
-      smartChip: { target: 'user', idField: 'reviewedBy' },
       rationale: 'Who reviewed this match; accountability signal for accepted/rejected decisions.',
     }),
 
@@ -1745,7 +1702,6 @@ export const customerNeedSchema: EntityFieldSchema = {
     }),
     t0('customer', 'Customer', 'text', {
       width: 170,
-      smartChip: { target: 'customer', idField: 'customerId' },
       rationale: 'Who needs the product — the counterparty context. Derived from customer_id join.',
     }),
     t0('productName', 'Request', 'text', {
@@ -1756,13 +1712,11 @@ export const customerNeedSchema: EntityFieldSchema = {
     t0('subcategory', 'Subcategory', 'text', {
       width: 120,
       editable: true,
-      optionSource: { kind: 'enum' },
       rationale: 'Refined product classification — DR-1: subcategory prioritized over category for scanning and matching.',
     }),
     t1('category', 'Category', 'text', {
       width: 120,
       editable: true,
-      optionSource: { kind: 'enum' },
       rationale: 'Product taxonomy group — DR-1: secondary to subcategory in attention priority.',
     }),
     t1('qtyMin', 'Qty', 'numeric', {
@@ -1778,13 +1732,10 @@ export const customerNeedSchema: EntityFieldSchema = {
     t1('neededBy', 'By', 'date', {
       width: 130,
       editable: true,
-      chip: { palette: 'date' },
       rationale: 'When the customer needs it — urgency signal for sourcing priority.',
     }),
     t0('status', 'Status', 'enum', {
       width: 115,
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Whether the need is open, filled, or cancelled — drives matchmaking.',
     }),
   ],
@@ -1805,7 +1756,6 @@ export const vendorSupplySchema: EntityFieldSchema = {
     }),
     t0('vendor', 'Vendor', 'text', {
       width: 170,
-      smartChip: { target: 'vendor', idField: 'vendorId' },
       rationale: 'Who is offering the stock — the counterparty context. Derived from vendor_id join.',
     }),
     t0('productName', 'Product', 'text', {
@@ -1816,13 +1766,11 @@ export const vendorSupplySchema: EntityFieldSchema = {
     t0('subcategory', 'Subcategory', 'text', {
       width: 120,
       editable: true,
-      optionSource: { kind: 'enum' },
       rationale: 'Refined product classification — DR-1: subcategory prioritized over category for scanning and matching.',
     }),
     t1('category', 'Category', 'text', {
       width: 120,
       editable: true,
-      optionSource: { kind: 'enum' },
       rationale: 'Product taxonomy group — DR-1: secondary to subcategory in attention priority.',
     }),
     t1('availableQty', 'Qty', 'numeric', {
@@ -1838,13 +1786,10 @@ export const vendorSupplySchema: EntityFieldSchema = {
     t1('availableDate', 'Available', 'date', {
       width: 130,
       editable: true,
-      chip: { palette: 'date' },
       rationale: 'When the stock is available — timeline fit signal for match scoring.',
     }),
     t0('status', 'Status', 'enum', {
       width: 115,
-      optionSource: { kind: 'status' },
-      chip: { palette: 'status' },
       rationale: 'Whether the supply is open, committed, or cancelled — drives matchmaking.',
     }),
   ],
