@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import { trpc } from '../api/trpc';
 import { OperatorGrid } from '../components/OperatorGrid';
 import { DefaultPricingPanel } from '../components/DefaultPricingPanel';
@@ -99,7 +99,7 @@ export function SettingsView() {
   );
 }
 
-const strainAliasesColumns: ColDef<GridRow>[] = [
+const strainAliasesColumns: GridColDef<GridRow>[] = [
   { field: 'name', headerName: 'Canonical name', pinned: 'left', minWidth: 220 },
   { field: 'category', width: 140 },
   { field: 'alias', headerName: 'Customer-facing alias', editable: true, minWidth: 240 },

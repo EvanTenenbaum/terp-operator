@@ -115,7 +115,7 @@ vi.mock('../api/trpc', () => {
 
 // Import store AFTER the vi.mock calls so spies are attached post-hoist.
 import { useUiStore } from '../store/uiStore';
-import { DashboardView } from './DashboardView';
+import { DashboardView } from '../templates/DashboardView';
 
 function Wrap({ children }: { children: ReactNode }) {
   const client = new QueryClient({

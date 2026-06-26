@@ -170,11 +170,13 @@ export type InvoiceStatus = z.infer<typeof InvoiceStatus>;
 // ─────────────────────────────────────────────────────────────────────────────
 // Payment (payments) — client-side payments.
 // Default: 'posted' (schema.ts:435)
+//   draft    — imported/working payment row, not financially posted yet.
+//   ready    — staged payment row ready to post/allocate.
 //   posted   — recorded; allocations may exist against open invoices.
 //   refunded — fully refunded.
 //   reversed — command-bus reversal.
 // ─────────────────────────────────────────────────────────────────────────────
-export const PaymentStatus = z.enum(['posted', 'refunded', 'reversed']);
+export const PaymentStatus = z.enum(['draft', 'ready', 'posted', 'refunded', 'reversed']);
 export type PaymentStatus = z.infer<typeof PaymentStatus>;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -318,9 +320,10 @@ export type ArchiveRunStatus = z.infer<typeof ArchiveRunStatus>;
 // PhotographyQueue (photography_queue)
 // Default: 'open' (schema.ts:690)
 //   open — batch queued for photography.
+//   in_progress — photography/media work has started but is not complete.
 //   done — photography completed (auto-set on attach/upload).
 // ─────────────────────────────────────────────────────────────────────────────
-export const PhotographyQueueStatus = z.enum(['open', 'done']);
+export const PhotographyQueueStatus = z.enum(['open', 'in_progress', 'done']);
 export type PhotographyQueueStatus = z.infer<typeof PhotographyQueueStatus>;
 
 // ─────────────────────────────────────────────────────────────────────────────

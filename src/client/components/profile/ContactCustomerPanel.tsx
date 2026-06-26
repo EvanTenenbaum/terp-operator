@@ -3,7 +3,7 @@ import { OperatorGrid } from '../OperatorGrid';
 import { CustomerCreditPanel } from '../credit/CustomerCreditPanel';
 import { CustomerPurchaseHistoryPanel } from '../CustomerPurchaseHistoryPanel';
 import { CustomerLedgerPanel } from './CustomerLedgerPanel';
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../../shared/grid-types';
 import type { GridRow } from '../../../shared/types';
 import type { ContactProfileData } from './types';
 import { moneyCol } from '../../utils/format';
@@ -19,7 +19,7 @@ export function ContactCustomerPanel({ data }: Props) {
     { enabled: Boolean(customerId) }
   );
 
-  const orderColumns: ColDef<GridRow>[] = [
+  const orderColumns: GridColDef<GridRow>[] = [
     { field: 'orderNo',    headerName: 'Order #', width: 110 },
     { field: 'createdAt',  headerName: 'Date',    width: 120,
       valueFormatter: (p) => p.value ? new Date(String(p.value)).toLocaleDateString('en-US') : '—' },

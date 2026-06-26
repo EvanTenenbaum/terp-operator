@@ -64,7 +64,7 @@ vi.mock('agentation', () => ({ Agentation: () => null }));
 
 // Views stubs
 const StubView = () => null;
-vi.mock('./views/DashboardView', () => ({ DashboardView: StubView }));
+vi.mock('./templates/DashboardView', () => ({ DashboardView: StubView }));
 vi.mock('./views/IntakeView', () => ({ IntakeView: StubView }));
 vi.mock('./views/LoginView', () => ({ LoginView: StubView }));
 vi.mock('./views/MatchmakingView', () => ({ MatchmakingView: StubView }));

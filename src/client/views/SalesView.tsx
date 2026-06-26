@@ -2,7 +2,8 @@ import { logger } from '@/client/services/logger';
 import { Check, ChevronDown, ChevronRight, Clipboard, Eye, EyeOff, FileText, PackageCheck, PackagePlus, RotateCcw, Search, Send, X } from 'lucide-react';
 import { boolCol } from '../utils/format';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
+import type { CellValueChangedEvent } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import { trpc } from '../api/trpc';
 import { type InventoryFinderBatch } from '../components/InventoryFinderPanel';
 import { OperatorGrid } from '../components/OperatorGrid';
@@ -68,7 +69,7 @@ export interface PickStatusQueryResult {
   linesTotal: number;
 }
 
-const orderColumns: ColDef<GridRow>[] = [
+const orderColumns: GridColDef<GridRow>[] = [
   { field: 'orderNo', pinned: 'left', width: 150 },
   { field: 'customer', width: 180 },
   { field: 'status', width: 125 },
@@ -103,7 +104,7 @@ const orderColumns: ColDef<GridRow>[] = [
   { field: 'deliveryWindow', editable: true, minWidth: 180 }
 ];
 
-const suggestionColumns: ColDef<GridRow>[] = [
+const suggestionColumns: GridColDef<GridRow>[] = [
   { field: 'batchCode', pinned: 'left', width: 150 },
   { field: 'name', minWidth: 180 },
   { field: 'category', width: 110 },
@@ -131,7 +132,7 @@ const suggestionColumns: ColDef<GridRow>[] = [
 // Issue #64: surface cost-range / COGS / below-floor / vendor-approval state.
 // The badge cell stays read-only — operators act on these via the line
 // expansion buttons (Pick COGS / Set reason / Resolve approval).
-const exceptionBadgeColumn: ColDef<GridRow> = {
+const exceptionBadgeColumn: GridColDef<GridRow> = {
   field: 'rangeBadge',
   headerName: 'Range / Exceptions',
   width: 220,
@@ -156,7 +157,7 @@ function isRowEditLocked(params: { data?: GridRow }): boolean {
   return RELEASED_PICK_STATUSES.has(String(params.data?.pickStatus ?? ''));
 }
 
-const lineColumns: ColDef<GridRow>[] = [
+const lineColumns: GridColDef<GridRow>[] = [
   { field: 'legacyStatusMarker', headerName: 'Raw', editable: (params) => !isRowEditLocked(params), width: 90, pinned: 'left' },
   {
     field: 'displayName',
@@ -266,7 +267,7 @@ type SnapshotPayload = {
 // Phase 3A — stable fulfillmentActions column definition (TER-1671 pattern).
 // cellRendererParams is threaded at mount time so the cell component stays
 // module-scope and AG Grid receives stable column identity.
-const fulfillmentActionsColumnDef: ColDef<GridRow> = {
+const fulfillmentActionsColumnDef: GridColDef<GridRow> = {
   headerName: 'Pick',
   colId: 'fulfillmentActions',
   width: 190,

@@ -1,4 +1,4 @@
-import type { ColDef } from 'ag-grid-community';
+import type { GridColDef } from '../../shared/grid-types';
 import type { GridRow } from '../../shared/types';
 
 /**
@@ -16,7 +16,7 @@ export interface RuleMap {
  * full human-readable description from `ruleMap` as a tooltip on hover.
  *
  * Guardrails:
- * - Pure ColDef factory — no React components, no hooks.
+ * - Pure GridColDef factory — no React components, no hooks.
  * - Pass `hide: true` on the returned object to keep visible column count ≤ 8.
  *   Example: `{ ...whyShownCol('signal', map), hide: true }`
  *
@@ -25,13 +25,13 @@ export interface RuleMap {
  *
  * @example
  * ```ts
- * const toMoveColumns: ColDef<GridRow>[] = [
+ * const toMoveColumns: GridColDef<GridRow>[] = [
  *   ...existingCols,
  *   whyShownCol('signal', TO_MOVE_SIGNAL_MAP),
  * ];
  * ```
  */
-export function whyShownCol(field: string, ruleMap: RuleMap): ColDef<GridRow> {
+export function whyShownCol(field: string, ruleMap: RuleMap): GridColDef<GridRow> {
   return {
     field,
     headerName: 'Why shown',
@@ -54,7 +54,7 @@ export function whyShownCol(field: string, ruleMap: RuleMap): ColDef<GridRow> {
 // InventoryFinder rule map
 //
 // InventoryFinderPanel uses a custom HTML <table> (not AG Grid), so
-// whyShownCol() cannot be applied directly as a ColDef.  This map documents
+// whyShownCol() cannot be applied directly as a GridColDef.  This map documents
 // the match-reason label prefixes returned by matchReasons() and their plain-
 // language descriptions.  It is consumed in the InventoryFinder <td> as a
 // native `title` attribute tooltip — the functional equivalent of AG Grid's
