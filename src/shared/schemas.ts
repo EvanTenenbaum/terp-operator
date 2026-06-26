@@ -7,7 +7,7 @@ export const roleSchema = z.enum(['owner', 'manager', 'operator', 'viewer']);
 export const ownershipSchema = z.enum(['C', 'OFC', 'UNKNOWN']);
 export const arrivalStatusSchema = z.enum(['pending', 'arrived', 'cancelled']);
 export const inventoryStatusSchema = z.enum(['posted', 'held', 'damaged', 'returned', 'in_transit']);
-export const paymentMethodSchema = z.enum(['cash', 'check', 'card', 'crypto', 'wire']);
+export const paymentMethodSchema = z.enum(['cash', 'check', 'card', 'crypto', 'wire', 'product']);
 export const commandNameSchema = z.enum(commandNames);
 
 export const loginSchema = z.object({

@@ -132,6 +132,7 @@ import { createSalesConfirmationReceipts } from './salesConfirmationReceipts';
 import { createInvoiceReceipts } from './invoiceReceipts';
 import { createPaymentReceivedReceipts } from './paymentReceivedReceipts';
 import { createVendorPayoutReceipts } from './vendorPayoutReceipts';
+import { createBarterReceipts } from './barterReceipts';
 
 // PO domain commands extracted to @/domains/purchase-orders (P1.PO.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
@@ -174,6 +175,8 @@ import '@/domains/credit/commandDefs';
 import '@/domains/matchmaking/commandDefs';
 // Register System/Recovery/Closeout commands in the registry (side-effect import).
 import '@/domains/system/commandDefs';
+// Register Barter commands in the registry (side-effect import).
+import '@/domains/barter/commandDefs';
 
 // Payments domain commands extracted to @/domains/payments (P1.PAY.EXTRACT).
 // commandBus retains the helpers + schemas these handlers rely on; switch
@@ -1061,6 +1064,15 @@ export async function executeCommand(input: CommandInput, user: SessionUser, io:
         await createVendorPayoutReceipts(pool, commandResult.affectedIds[1], commandId, user.id);
       } catch (e) {
         logger.warn('Vendor payout receipt hook failed after commit', { module: 'commandBus', error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+
+    // Barter settlement receipts (payWithProduct / settleDebtWithProduct)
+    if ((input.name === "payWithProduct" || input.name === "settleDebtWithProduct") && commandResult.ok && commandResult.affectedIds?.[0]) {
+      try {
+        await createBarterReceipts(pool, commandResult.affectedIds[0], commandId, user.id);
+      } catch (e) {
+        logger.warn("Barter receipt hook failed after commit", { module: "commandBus", error: e instanceof Error ? e.message : String(e) });
       }
     }
 

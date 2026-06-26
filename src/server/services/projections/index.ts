@@ -92,6 +92,13 @@ const EXTERNAL_ALLOWLISTS: Record<SnapshotKind, ExternalAllowlistShape> = {
   invoice: invExternal,
   payment_received: payExternal,
   vendor_payout: payoutExternal,
+  barter_settlement: {
+    topLevel: ['kind', 'type', 'settlementNo', 'direction', 'amount', 'counterpartyType', 'note'],
+    header: [],
+    line: [],
+    totals: [],
+    footer: [],
+  } as ExternalAllowlistShape,
 };
 
 const INTERNAL_ALLOWLISTS: Record<SnapshotKind, InternalAllowlistShape> = {
@@ -100,6 +107,18 @@ const INTERNAL_ALLOWLISTS: Record<SnapshotKind, InternalAllowlistShape> = {
   invoice: invInternal,
   payment_received: payInternal,
   vendor_payout: payoutInternal,
+  barter_settlement: {
+    topLevel: ['kind', 'settlementNo', 'direction', 'counterpartyType', 'settlementAmount', 'costBasis', 'gainLoss', 'valueOverridden', 'lineCount', 'createdAt'],
+    header: [],
+    line: ['batchId', 'productName', 'qty', 'unitCost', 'lineSettlementAmount'],
+    totals: [],
+    footer: [],
+    cogs: [],
+    cogsLine: [],
+    margin: [],
+    marginLine: [],
+    diagnostics: [],
+  } as InternalAllowlistShape,
 };
 
 const BANNED_WITNESS_KEYS = ['__EXTERNAL_PROJECTED__', '__INTERNAL_ONLY__'] as const;

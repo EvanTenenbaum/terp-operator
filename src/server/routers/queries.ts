@@ -3593,6 +3593,11 @@ function gridSqlParts(view: z.infer<typeof viewSchema>): GridSqlParts {
                left join customers c on c.id = i.customer_id`,
         defaultOrderBy: '"createdAt" desc',
       };
+    default:
+      return {
+        body: `select null::text as id, null::text as label where false`,
+        defaultOrderBy: 'id',
+      };
   }
 }
 

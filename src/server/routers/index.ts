@@ -1,5 +1,6 @@
 import { router } from '../trpc';
 import { authRouter } from './auth';
+import { barterRouter } from './barter';
 import { closeoutRouter } from './closeout.router';
 import { commandsRouter } from './commands';
 import { contextRouter } from './context.router';
@@ -19,6 +20,7 @@ import { vendorBrandsRouter } from './vendorBrands';
 
 export const appRouter = router({
   auth: authRouter,
+  barter: barterRouter,
   closeout: closeoutRouter,
   commands: commandsRouter,
   context: contextRouter,

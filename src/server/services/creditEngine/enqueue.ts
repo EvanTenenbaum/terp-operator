@@ -7,6 +7,8 @@ export type TriggerSource =
   | 'event:reverseSalesOrder' | 'event:disputeInvoice'
   | 'event:resolveDispute' | 'event:rejectDispute' | 'event:setEngineMax'
   | 'event:setStance' | 'event:stanceEdited'
+  | 'event:settleDebtWithProduct'
+  | 'event:payWithProduct'
   | 'nightly' | 'manualTrigger' | 'shadowMode' | 'bulkRevert' | 'reconciliation';
 
 /**

@@ -49,6 +49,7 @@ export const commandNames = [
   'unallocatePayment',
   'refundPayment',
   'markPaymentUnapplied',
+  'payWithProduct',
   'applyDiscount',
   'postTransactionLedgerRow',
   'upsertTransactionType',
@@ -67,6 +68,7 @@ export const commandNames = [
   'routeConnectorRequest',
   'createCorrectionJournalEntry',
   'reverseCommandById',
+  'settleDebtWithProduct',
   'documentCommandFailure',
   'restoreFromBackupPoint',
   'repriceOrder',
@@ -258,6 +260,7 @@ export const commandLabels: Record<CommandName, string> = {
   unallocatePayment: 'Unallocate payment',
   refundPayment: 'Refund payment',
   markPaymentUnapplied: 'Mark payment unapplied',
+  payWithProduct: 'Pay with product',
   applyDiscount: 'Apply discount',
   postTransactionLedgerRow: 'Post transaction ledger row',
   upsertTransactionType: 'Save transaction type',
@@ -276,6 +279,7 @@ export const commandLabels: Record<CommandName, string> = {
   routeConnectorRequest: 'Reassign inbound request',
   createCorrectionJournalEntry: 'Create correction journal entry',
   reverseCommandById: 'Reverse command',
+  settleDebtWithProduct: 'Settle client debt with product',
   documentCommandFailure: 'Document command failure',
   restoreFromBackupPoint: 'Preview backup restore',
   repriceOrder: 'Reprice order',
@@ -402,6 +406,7 @@ export const commandMinRole: Record<CommandName, Role> = {
   unallocatePayment: 'manager',
   refundPayment: 'manager',
   markPaymentUnapplied: 'operator',
+  payWithProduct: 'manager',
   applyDiscount: 'manager',
   postTransactionLedgerRow: 'manager',
   upsertTransactionType: 'manager',
@@ -420,6 +425,7 @@ export const commandMinRole: Record<CommandName, Role> = {
   routeConnectorRequest: 'operator',
   createCorrectionJournalEntry: 'manager',
   reverseCommandById: 'manager',
+  settleDebtWithProduct: 'manager',
   documentCommandFailure: 'manager',
   restoreFromBackupPoint: 'owner',
   repriceOrder: 'manager',
@@ -551,6 +557,7 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   unallocatePayment: { disposition: 'terminal', guidance: 'Re-allocate the payment if this was accidental.' },
   refundPayment: { disposition: 'terminal', guidance: 'Refunds are terminal money movement records; use a correction entry for mistakes.' },
   markPaymentUnapplied: { disposition: 'offsettable', guidance: 'Run logPayment with an explicit allocationIntent or use the Quick Ledger to set the intended allocation mode.' },
+  payWithProduct: { disposition: 'reversible', guidance: 'Restores AR/AP balances, returns inventory, and voids generated settlement rows.' },
   applyDiscount: { disposition: 'offsettable', guidance: 'Use a correction journal or invoice adjustment to offset the discount.' },
   postTransactionLedgerRow: { disposition: 'offsettable', guidance: 'Use source-specific reversal, void, or correction depending on the row trace.' },
   upsertTransactionType: { disposition: 'terminal', guidance: 'Edit the transaction type again or deactivate it.' },
@@ -568,6 +575,7 @@ export const reversalPolicies: Record<CommandName, ReversalPolicy> = {
   rejectConnectorRequest: { disposition: 'terminal', guidance: 'Rejected connector requests stay terminal; create or approve a new request.' },
   routeConnectorRequest: { disposition: 'reversible', guidance: 'Internal reassignment only; operators approve or reject inbound requests.' },
   createCorrectionJournalEntry: { disposition: 'reversible', guidance: 'Marks correction journal rows reversed.' },
+  settleDebtWithProduct: { disposition: 'reversible', guidance: 'Restores AR/AP balances, returns inventory, and voids generated settlement rows.' },
   reverseCommandById: { disposition: 'terminal', guidance: 'Reversal commands are terminal audit records.' },
   documentCommandFailure: { disposition: 'terminal', guidance: 'Annotates a failed command journal row with a terminal reason. Cannot be reversed.' },
   restoreFromBackupPoint: { disposition: 'terminal', guidance: 'Restore preview is read-only and has no mutation to reverse.' },
@@ -691,6 +699,9 @@ export const MONEY_MUTATING_COMMANDS: ReadonlySet<CommandName> = new Set([
   'archivePeriod',
   // Referee credit money movement
   'voidRefereeCredit',
+  // Barter settlement (product as payment instrument)
+  'payWithProduct',
+  'settleDebtWithProduct',
   // Processor fees
   'markUserFeeCollected'
 ]);
@@ -750,6 +761,9 @@ export const commandFamilies: Record<string, CommandName[]> = {
   Recovery: [
     'createCorrectionJournalEntry', 'reverseCommandById', 'documentCommandFailure',
     'restoreFromBackupPoint', 'postPeriodAdjustments', 'lockPeriod', 'archivePeriod',
+  ],
+  Barter: [
+    'payWithProduct', 'settleDebtWithProduct',
   ],
 };
 

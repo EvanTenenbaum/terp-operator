@@ -91,7 +91,8 @@ export type ViewKey =
   | 'fulfillment-lines' // SX-K06 — split lines filter slot from picks
   | 'purchaseReceipts' // TER-1656 — operator view for purchase receipts and line items
   | 'items' // TER-1651 — items/SKU catalog management
-  | 'disputes'; // TER-1649 — invoice disputes management
+  | 'disputes' // TER-1649 — invoice disputes management
+
 
 export interface SessionUser {
   id: string;

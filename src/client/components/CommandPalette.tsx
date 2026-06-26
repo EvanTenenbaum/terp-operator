@@ -55,7 +55,7 @@ const launchActions: Array<{
   { label: 'Money in', detail: 'Open Payments with Quick Ledger in Money In mode.', aliases: 'receive money payment cash crypto check wire paid iv invoice pay f-up pay/f-up', view: 'payments', launch: 'moneyIn' },
   { label: 'Money out', detail: 'Open Vendor Payouts with a payout row ready.', aliases: 'pay vendor payout payable bill pay money out iv invoice', view: 'vendors', launch: 'moneyOut' },
   { label: 'Add customer need', detail: 'Open Matchmaking and focus the customer need row entry.', aliases: 'matchmaking customer need demand wanted looking for files', view: 'matchmaking', launch: 'customerNeed' },
-  { label: 'Add vendor stock', detail: 'Open Matchmaking and focus vendor stock row entry.', aliases: 'matchmaking vendor stock supply available offered inventory files ofc rich', view: 'matchmaking', launch: 'vendorSupply' }
+  { label: 'Add vendor stock', detail: 'Open Matchmaking and focus vendor stock row entry.', aliases: 'matchmaking vendor stock supply available offered inventory files ofc rich', view: 'matchmaking', launch: 'vendorSupply' },
 ];
 
 // ─── Static utility actions (always shown regardless of view/role visibility)
