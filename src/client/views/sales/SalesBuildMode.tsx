@@ -107,8 +107,7 @@
  */
 import { Check, Search, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { CellValueChangedEvent } from 'ag-grid-community';
-import type { GridColDef } from '../../../shared/grid-types';
+import type { CellValueChangedEvent, ColDef } from 'ag-grid-community';
 import { useShallow } from 'zustand/react/shallow';
 import { trpc } from '../../api/trpc';
 import { OperatorGrid } from '../../components/OperatorGrid';
@@ -121,8 +120,6 @@ import { SalePrePostStrip, type SalePrePostCheck, type SalePrePostLine } from '.
 import { useCommandRunner } from '../../components/useCommandRunner';
 import { useOrderSocket } from '../../context/SocketContext';
 import { useUiStore } from '../../store/uiStore';
-import { boolCol } from '../../utils/format';
-import { parsePriceRange } from '../../../shared/priceRange';
 import { useSalesLineRows } from './useSalesLineRows';
 import { useSalePrePostChecks } from './useSalePrePostChecks';
 import { SalesCustomerContextHeader } from './SalesCustomerContextHeader';
@@ -130,11 +127,6 @@ import { registerSalesTabs } from '../../components/tabs/registerSalesTabs';
 import { SaleLineItemTypeahead, buildBindLinePayload, resolveUniqueBatch } from '../SalesView.ux-f03';
 import { buildConfirmPayload, deriveCustomerRefereeRelationships } from '../SalesView.ux-f06';
 import { DisplayNameCell } from '../../components/cells/sales/DisplayNameCell';
-import { BatchCodeCell } from '../../components/cells/sales/BatchCodeCell';
-import { MarkupCell, markupValueSetter } from '../../components/cells/sales/MarkupCell';
-import { DerivedCogsCell } from '../../components/cells/sales/DerivedCogsCell';
-import { PickStatusCell } from '../../components/cells/sales/PickStatusCell';
-import { LandedCostExceptionCell } from '../../components/cells/sales/LandedCostExceptionCell';
 import { selectVisibleSalesColumns } from '../SalesView.columns';
 import type { GridRow, Role, ViewKey } from '../../../shared/types';
 
@@ -159,11 +151,33 @@ function isRowEditLocked(params: { data?: GridRow }): boolean {
   return RELEASED_PICK_STATUSES.has(String(params.data?.pickStatus ?? ''));
 }
 
-// Line columns — same shape as LegacySalesView lineColumns. Re-declared here
-// (rather than imported from SalesView.tsx) to avoid a circular dependency
-// between the mode router and its modes. Column behaviour and field names are
-// byte-identical.
-const lineColumns: GridColDef<GridRow>[] = [
+// Line columns — P4 LEAN GRID (≤8 visible cols).
+//
+// The Sales lines grid used to surface ~22 columns (subcategory, batchCode,
+// unresolvedSourceText, markup, markupPct, unitCost, derivedCogs,
+// landedCostExceptionReason, availableQty, packed, inventoryPosted,
+// paymentFollowup, pickStatus, …). Per the P4 plan we keep ≤8 columns
+// visible — only the fields an operator actually scans/edits during the
+// build flow — and push the heavy per-line detail (markup, unit cost,
+// landed-cost resolution, price floor, notes, exception reasons,
+// fulfillment booleans) into the DetailSlideover under entityType='saleLine'
+// (see registerSalesTabs.tsx → saleLineDetailsTab).
+//
+// Visible columns:
+//   1. legacyStatusMarker  (Raw)         pinned-left  — line status chip
+//   2. displayName         (Product)     pinned-left  — primary identity
+//   3. itemName            (Canonical)                — editable canonical
+//   4. qty                                             — editable
+//   5. unitPrice                                       — editable
+//   6. lineTotal           (Total)                     — derived qty × unitPrice
+//   7. status                                          — line lifecycle
+//   8. validationIssues    (Fix)                       — what's broken
+//
+// Click a row to open the per-line slide-over (entityType='saleLine') for
+// markup, unitCost, markupPct, derivedCogs, landed-cost exception reason,
+// price floor, pick status, packed / posted / pay-followup flags, available
+// qty, unresolved source text, notes, and cost-resolution metadata.
+const lineColumns: ColDef<GridRow>[] = [
   {
     field: 'legacyStatusMarker',
     headerName: 'Raw',
@@ -185,19 +199,6 @@ const lineColumns: GridColDef<GridRow>[] = [
     editable: (params) => !isRowEditLocked(params),
     minWidth: 170,
   },
-  { field: 'subcategory', headerName: 'Subcategory', width: 120 },
-  {
-    field: 'batchCode',
-    headerName: 'Source',
-    width: 180,
-    cellRenderer: BatchCodeCell,
-  },
-  {
-    field: 'unresolvedSourceText',
-    headerName: 'Unresolved source',
-    editable: (params) => !isRowEditLocked(params),
-    minWidth: 170,
-  },
   {
     field: 'qty',
     editable: (params) => !isRowEditLocked(params),
@@ -210,76 +211,33 @@ const lineColumns: GridColDef<GridRow>[] = [
     type: 'numericColumn',
     width: 115,
   },
-  { field: 'unitCost', headerName: 'Cost', type: 'numericColumn', width: 105 },
   {
-    field: 'markup',
-    headerName: 'Markup $',
-    headerClass: 'pricing-col-header',
-    width: 100,
-    editable: (params) => !isRowEditLocked(params),
-    cellRenderer: MarkupCell,
-    valueSetter: markupValueSetter,
-  },
-  {
-    field: 'markupPct',
-    headerName: 'Markup %',
-    headerClass: 'pricing-col-header',
-    width: 85,
+    // P4: derived line total (qty × unitPrice) — replaces the per-line
+    // pricing math columns (markup, markupPct, derivedCogs) in the lean
+    // grid. The full pricing breakdown lives in the saleLine slide-over.
+    colId: 'lineTotal',
+    headerName: 'Total',
+    type: 'numericColumn',
+    width: 110,
     editable: false,
     valueGetter: (params) => {
       const row = params.data as GridRow | undefined;
       if (!row) return null;
-      const markup = Number((row as Record<string, unknown>).markup ?? 0);
-      const cogs = parsePriceRange(row.priceRange as string | null)
-        ? Number(row.unitPrice ?? 0) - markup
-        : Number(row.unitCost ?? 0);
-      if (!cogs || cogs <= 0) return null;
-      return markup / cogs;
+      const qty = Number(row.qty ?? 0);
+      const unitPrice = Number(row.unitPrice ?? 0);
+      if (!Number.isFinite(qty) || !Number.isFinite(unitPrice)) return null;
+      return qty * unitPrice;
     },
     valueFormatter: (params) =>
-      params.value != null ? `${(Number(params.value) * 100).toFixed(1)}%` : '—',
-  },
-  {
-    field: 'derivedCogs',
-    headerName: 'COGS',
-    headerClass: 'pricing-col-header',
-    width: 130,
-    editable: false,
-    cellRenderer: DerivedCogsCell,
-  },
-  {
-    field: 'landedCostExceptionReason',
-    headerName: 'COGS exception',
-    width: 200,
-    sortable: true,
-    cellRenderer: LandedCostExceptionCell,
-  },
-  { field: 'availableQty', headerName: 'Avail', type: 'numericColumn', width: 105 },
-  boolCol('packed', {
-    headerName: 'Packed',
-    editable: (params) => !isRowEditLocked(params),
-    width: 105,
-  }),
-  boolCol('inventoryPosted', {
-    headerName: 'Inv Posted',
-    editable: (params) => !isRowEditLocked(params),
-    width: 125,
-  }),
-  boolCol('paymentFollowup', {
-    headerName: 'Pay/F-up',
-    editable: (params) => !isRowEditLocked(params),
-    width: 125,
-  }),
-  { field: 'validationIssues', headerName: 'Fix', minWidth: 220 },
-  {
-    field: 'pickStatus',
-    headerName: 'Pick status',
-    width: 140,
-    sortable: true,
-    filter: true,
-    cellRenderer: PickStatusCell,
+      params.value != null
+        ? Number(params.value).toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+          })
+        : '—',
   },
   { field: 'status', width: 115 },
+  { field: 'validationIssues', headerName: 'Fix', minWidth: 220 },
 ];
 
 export interface SalesBuildModeProps {
@@ -434,13 +392,26 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
   );
 
   // ── Slideover row (passed to tab components) ─────────────────────────
+  // P4: resolves the GridRow that backs the slide-over for either of the two
+  // entity types this view can open:
+  //   * 'salesOrder' → the selected workspace order
+  //   * 'saleLine'   → the matching enriched line row from useSalesLineRows
+  //                    (so the SaleLineDetailTab sees the same row the grid
+  //                    showed, including __rule / markup enrichment)
   const slideoverRow: GridRow | undefined = useMemo(() => {
     if (!activeDrawerEntity?.entityId) return undefined;
-    if (selectedOrder && String(selectedOrder.id) === activeDrawerEntity.entityId) {
+    const drawerEntityType = activeDrawerEntity.entityType;
+    const drawerEntityId = activeDrawerEntity.entityId;
+    if (drawerEntityType === 'saleLine') {
+      return lineRowsWithRule.find(
+        (line) => String(line.id ?? '') === drawerEntityId,
+      ) as GridRow | undefined;
+    }
+    if (selectedOrder && String(selectedOrder.id) === drawerEntityId) {
       return selectedOrder as GridRow;
     }
     return undefined;
-  }, [activeDrawerEntity, selectedOrder]);
+  }, [activeDrawerEntity, selectedOrder, lineRowsWithRule]);
 
   const visibleLineColumns = useMemo(
     () => selectVisibleSalesColumns(showMargin, lineColumns),
@@ -565,12 +536,25 @@ export function SalesBuildMode({ customerId, onClear }: SalesBuildModeProps) {
     setDrawerState(VIEW_KEY, 'closed');
   }, [setDrawerState]);
 
-  // ── Selection tracking on the lines grid (no bulk actions in this wedge) ──
+  // ── Selection tracking on the lines grid ─────────────────────────────
+  // P4 lean grid: a single-row selection opens the per-line DetailSlideover
+  // (entityType='saleLine') so the operator can see the heavy fields
+  // (markup, landed-cost resolution, price floor, notes, inventory
+  // resolution) that were pushed out of the lean ≤8-column grid. Multi-row
+  // selection still updates the global selectedRows store for bulk actions
+  // (used by BulkActionBar) without forcing a slideover state.
   const handleLineSelection = useCallback(
     (selection: GridRow[]) => {
       setSelectedRows('sales', selection);
+      if (selection.length === 1) {
+        const lineId = String(selection[0].id ?? '');
+        if (lineId) {
+          setDrawerEntity(VIEW_KEY, 'saleLine', lineId);
+          setDrawerState(VIEW_KEY, 'standard');
+        }
+      }
     },
-    [setSelectedRows],
+    [setSelectedRows, setDrawerEntity, setDrawerState],
   );
 
   // ── Deep-link the failing pre-post strip ────────────────────────────
