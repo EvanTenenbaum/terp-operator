@@ -1,155 +1,164 @@
-# One-Time Historical Seed via Real-Command Replay
+# Historical Seed via Real-Command Replay
 
-_Status: DRAFT v2 — revised after design-review gate (1 BLOCK + 4 CONCERNS), pending plan-review gate_
+_Status: DRAFT v3 — cleared design-review gate; plan-review gate returned 3× CONCERNS (no FAIL), all must-fixes folded in below_
 _Branch: `claude/database-alpha-beta-setup-u01whk`_
 _Owner: Evan_
 
 ## Goal
 
-Fill the entire system with ~12 months of historical data **derived by the
-production code path** (real commands, not hand-inserted rows), so the data is
-internally consistent, honors every invariant, and looks like a real year of
-operations. The artifact is restored into the persistent **alpha**/**beta**
-databases as their starting dataset.
+Fill the system with historical data **derived by the production code path**
+(real commands, not hand-inserted rows), so it is internally consistent, honors
+every invariant, and looks like a real stretch of operations. The artifact is
+restored into the persistent **alpha**/**beta** databases as their starting data.
 
 ## Why the existing seed is not enough
 
 `src/server/realisticSeed.ts` direct-inserts rows and **fabricates**
-`command_journal` entries. The journal, ledgers, invoices, and credit scores
-are asserted, not derived — any invariant the real path enforces can be
-silently violated.
+`command_journal` entries. Ledgers, invoices, and credit scores are asserted,
+not derived — any invariant the real path enforces can be silently violated.
 
-## Decisions (revised after design review)
+## Scope (v1 vs later) — per Scope-reviewer cut/defer guidance
 
-| Decision | Choice | Why changed |
-|---|---|---|
-| Clock control | **A — `libfaketime` around an ephemeral Postgres + the replay driver** | Design-review BLOCK: DB-side `defaultNow()` is ~43 columns and owns `created_at` on financial tables (credit engine reads it). A JS-only `clock` module (old Option B) cannot backdate these. faketime fakes JS **and** Postgres time uniformly — no code sweep, no auth/session/token hazards. |
-| History span | **12 months**, with seasonality/ramp + onboarding + churn | flat 12mo reads as fake (PM) |
-| Artifact | **`pg_dump` → `seed-historical.sql`**, secrets excluded | regenerable, not truly one-time (CTO) |
-| Framing | **Regenerable artifact**, not "one-time" | schema churn (85+ migrations) rots the dump (CTO) |
+**v1 (ship a playable dataset):** Phase 0 prod guard · Phase 1 faketime harness ·
+**Phase 1.5 bootstrap** · Phase 2 timeline (happy-path across families + a small
+fixed edge-state set + open-work tail) · Phase 3 replay · single end-of-history
+drain · Phase 5 artifact (secrets excluded) · Phase 6 restore tooling · Phase 7
+basic validation.
 
-Rejected: the global `clock` singleton sweep (Option B) — factually broken for
-DB-stamped `created_at`; also a global-mutable-state / parallel-safety hazard.
-`ctx.now` envelope injection was considered (CTO) but has the same broken-for-DB
-problem and a far larger surface than estimated, since most inserts omit
-`createdAt` and rely on the DB default. faketime avoids the entire class.
+**Deferred to v2:** exhaustive 141-command coverage matrix · monthly drain
+checkpoints (credit trend) · re-anchor-to-now step · regenerate-on-migration
+tooling. Byte-for-byte determinism is a **non-goal** (surrogate keys vary).
 
-## Architecture findings that constrain the plan (grounded in code)
+## Decisions (after both gates)
 
-- Real entry: `executeCommand(input, user, io)` → `runCommand(tx, …)` →
-  registered `defineCommand` handler (154 commands) → post-commit side effects.
-- **`io` stub is trivial**: only `io.to('authenticated').emit(…)` is called
-  (`socket-emitter.ts:25`); `{ to: () => ({ emit() {} }) }` suffices.
-- **Time is DB-dominated, not JS-dominated** (corrected): `schema.ts:24`
-  `now()` helper → `.defaultNow()` on ~41 columns + `updated()` on 2. Invoice
-  and ledger inserts pass **no** `createdAt` (`sales-orders/commands.ts:905,910`)
-  → Postgres stamps wall-clock. **This is why faketime (faking PG) is required.**
-- **Credit engine reads `created_at`** over 6/12-month windows
-  (`worker.ts:456-465,505`, `debtAging.ts:77`). If `created_at` were wall-clock,
-  all history looks brand-new and the engine math is wrong. faketime fixes this.
-- **Credit scoring + balance reconciliation are queued/cron**, drained via
-  `recomputeAllCustomers(pool, {source:'nightly'})` (`orchestrator.ts:24`) and
-  `reconcileCustomerBalances(pool, now)` (`balanceReconciliation.ts:64`) — both
-  plain pool functions, callable from the driver. **Drain at MONTHLY checkpoints**
-  (not once) so `customerCreditAssessments` renders a real trend (Designer).
-- **Period locks are only enforced on 3 paths** (`assertPeriodUnlocked`:
-  correction journal `:1618`, period adjustments `:2376`, below-floor sales
-  exception `:962`). Normal sale/payment/PO into a locked period is **not**
-  rejected — so the timeline must order closeouts correctly by construction;
-  we do **not** rely on lock-rejection as validation (corrects v1's claim).
-- **Surrogate keys are nondeterministic** (`gen_random_uuid()`, `randomUUID()`
-  for commandId, `Math.random()` in `code()` `commandBus.ts:717`). Repeatability
-  goal is therefore **"deterministic business content, nondeterministic
-  surrogate keys,"** not byte-for-byte (Architect #8).
+| Decision | Choice |
+|---|---|
+| Clock control | **`libfaketime`** faking **both** the driver and a **glibc** Postgres to the **same instant per op** |
+| Span | a configurable stretch (target ~12 months) with seasonality/ramp + onboarding + churn |
+| Artifact | **`pg_dump` → `seed-historical.sql`**, secret data excluded |
+
+## Architecture findings (grounded in code; corrected by the gates)
+
+- Real entry: `executeCommand(input, user, io)` (`commandBus.ts:792`) →
+  `runCommand` → registered handler. **141** `defineCommand` registrations
+  across 13 `commandDefs` domains (corrected from "154").
+- **`io` stub is trivial**: only `io.to('authenticated').emit(…)`
+  (`socket-emitter.ts:25`) → `{ to: () => ({ emit() {} }) }`.
+- Driving `executeCommand`/drains from a tsx script is a **proven pattern** —
+  `scripts/customer-balance-reconciliation-cron.ts:19-24` already imports `pool`
+  and calls `reconcileCustomerBalances(pool, now)`. Drains:
+  `recomputeAllCustomers(pool, {source})` (`orchestrator.ts:24`, enqueues+drains)
+  and `reconcileCustomerBalances(pool, now)` (`balanceReconciliation.ts:64`).
+- **Time is DB-stamped on the write side**: `schema.ts:24` `now()` → `.defaultNow()`
+  on **~55** `created_at` columns; sales-post invoice + `clientLedgerEntries`
+  pass no `createdAt` (`sales-orders/commands.ts:903-911`). So PG must be faked.
+  - **Correction (Feasibility #4):** the credit engine's window math reads
+    `created_at` against a **JS-passed `now` arg** to the drains, not DB `now()`.
+    So faking PG is required for **write-side `created_at` coherence**, *not* for
+    credit-window reads. Narrower justification than v2 stated.
+- **Clock-coherence hazard (Feasibility #5):** one insert path mixes
+  `created_at` (PG default) with `dueDate: oneWeek()`, `postedAt`/`updatedAt:
+  new Date()`, and `code()`/`Date.now()` (JS). **Both clocks must be faked to the
+  same instant per op** or rows show past `created_at` but wall-clock
+  `postedAt`/`updatedAt` — a consistency bug Phase 7 must assert against.
+- **Period locks** enforced on only ~3 paths (`assertPeriodUnlocked`
+  `commandBus.ts:1618,2376,3092`); normal sale/payment/PO into a locked period is
+  **not** rejected. Timeline must order closeouts correctly by construction; we
+  do not rely on lock-rejection as validation.
+- **Surrogate keys nondeterministic** (`gen_random_uuid()`, `randomUUID()`,
+  `Math.random()` in `code()` `:717`) → "deterministic business content,
+  nondeterministic keys."
 
 ## Work breakdown
 
-### Phase 0 — Safety & determinism rails
-- **Default-deny prod guard** (Security): parse the host from the live pool
-  connection, require a match against an explicit `SEED_DB_HOST_ALLOWLIST`, and
-  **throw on parse failure or empty allowlist even when `ALLOW_DEMO_SEED=true`**.
-  Add a test proving a prod-looking host is refused regardless of env. (Recall
-  `seed.ts` `truncate … cascade`s every table, so a misfire is catastrophic.)
-- Seed app-level RNG from `DEMO_RANDOM_SEED`; anchor the timeline to a **fixed
-  end-date parameter**. Document that surrogate keys still vary run-to-run.
+### Phase 0 — Default-deny prod-safety guard (land first; non-negotiable)
+Parse the host from the live pool connection; require a match against an explicit
+`SEED_DB_HOST_ALLOWLIST`; **throw on parse failure or empty allowlist even when
+`ALLOW_DEMO_SEED=true`**. Test that a prod-looking host is refused regardless of
+env. (`seed.ts` `truncate … cascade`s every table — a misfire is catastrophic.)
 
-### Phase 1 — faketime replay harness
-- `scripts/seed-historical/` runs an **ephemeral Postgres** (docker
-  `postgres:16-alpine`, as `qa-env-setup.sh` already does) and the Node driver
-  **both under `libfaketime`**, driven by a `FAKETIME` timestamp file the driver
-  rewrites before each step. No application code changes; no `new Date()` sweep.
-- Migrate the ephemeral DB (`pnpm db:migrate`) before replay.
+### Phase 1 — faketime harness (spike-first)
+- **Glibc Postgres image** (debian `postgres:16`, **not** alpine/musl —
+  Feasibility #1/#2) with libfaketime preloaded; driver also under `LD_PRELOAD`.
+- Shared `FAKETIME_TIMESTAMP_FILE` (mount) with `FAKETIME_NO_CACHE`; atomic
+  per-op rewrite. **Coherence contract:** advance JS + PG to the same instant
+  before each op.
+- **Probe gate:** before building anything else, prove a libfaketime-preloaded
+  Postgres stamps a backdated `created_at` on a probe row. If the probe fails,
+  fall back to a `created_at`-override hook / session GUC. **Do not proceed on
+  faith** (this is greenfield — no existing faketime usage in the repo).
+
+### Phase 1.5 — Dependency-order bootstrap (NEW — Completeness #2-5, required)
+Deterministic pre-replay step for entities with **no command path** (seed-only):
+- **Users/actors** — no `createUser` command exists; replay needs actors for
+  `ctx.user`/RBAC. Seed role-correct users.
+- **`tag_catalog`** — no command; `applyTags` only consumes it.
+- **`credit_engine_stances` + `credit_engine_config`** — referenced by id before
+  any credit command can run.
+- Confirm ordering for **payment processors** (`createPaymentProcessor`),
+  **system settings**, **transaction types** as needed.
+Without this, Phase 3 cannot start.
 
 ### Phase 2 — Timeline generator (`scripts/seed-historical/timeline.ts`)
-Pure function: config → ordered ops with intended instants. **Must include a
-command-family coverage matrix** (all 154 commands marked in-scope /
-out-of-scope-with-reason / follow-up). Required coverage (PM):
-- Happy path across **every** family: intake, PO (draft→approve→receive),
-  sales (draft→price→confirm→post→fulfill→invoice), payments (log→allocate),
-  vendor bills/payments, contacts/appointments, media (upload→publish),
-  inventory transfers, barter, matchmaking, closeout.
-- **Edge states** (or it reads as fake): cancelSalesOrder, cancelPurchaseOrder,
-  refund/unallocate payment, voidVendorPayment, reverseCommandById,
-  dispute→resolve/reject, below-floor exceptions.
-- **Credit-decision history**: setCustomerStance, createCreditEngineStance,
-  setCustomerCreditLimit, overrides, snoozes — at intervals across the span.
-- **Shape model**: seasonality/ramp, customer/vendor onboarding over time, some
-  churned/inactive accounts, defined rates of cancelled/disputed/refunded flows.
-- **Role-correct actors per op** (Security): never blanket-owner; manager/owner
-  actions rare. Phase 6 asserts no journal row used a role above the command min.
-- **End-of-window open-work tail**: leave realistic draft POs, confirmed-unposted
-  orders, open picks, scheduled future vendor payments, pending overrides, open
-  disputes/matches — so the system looks live, not fully settled.
+Pure function: config → ordered, role-correct ops with intended instants.
+- **v1 coverage:** happy path across **named families** — intake, PO, sales,
+  payments, vendor bills/payments, contacts/appointments, media, inventory
+  transfers, barter, matchmaking, **connector requests, referee/referral,
+  customer needs, item/SKU creation, warehouse alerts, period
+  lock/archive/adjustments** (families Completeness #6 flagged as missing) —
+  plus a fixed edge-state set (cancel, refund/unallocate, voidVendorPayment,
+  dispute→resolve/reject, `reverseCommandById`, below-floor exception) and an
+  **end-of-window open-work tail** (draft POs, confirmed-unposted orders, open
+  picks, scheduled future payments, pending overrides, open disputes/matches).
+- **Shape model:** seasonality/ramp, onboarding over time, some churned accounts,
+  defined cancel/dispute/refund rates. Manager/owner actions rare.
+- **v2:** the full 141-command in/out-with-reason matrix.
 
 ### Phase 3 — Replay driver (`scripts/seed-historical/run.ts`)
-For each op: advance the FAKETIME file to `op.instant`, then call the **real**
-`executeCommand(op.input, op.actor, ioStub)`. Idempotency keys make it re-runnable.
+Per op: advance the faketime file to `op.instant`, call the **real**
+`executeCommand(op.input, op.actor, ioStub)`. Idempotency keys → re-runnable.
 
-### Phase 4 — Async derivations at checkpoints
-At the end of **each simulated month**, advance the fake clock to month-end and
-run `recomputeAllCustomers` + `reconcileCustomerBalances`, so assessments and
-balances accumulate as a trend rather than a single end-of-history point.
+### Phase 4 — Derivations
+v1: single end-of-history `recomputeAllCustomers` + `reconcileCustomerBalances`.
+v2: drain at each simulated month-end so credit assessments form a real trend.
 
-### Phase 5 — Artifact capture (secrets excluded)
-`pg_dump` → `seed-historical.sql`, **excluding secret-bearing data** (Security):
-`--exclude-table-data=session`, `--exclude-table-data=photo_upload_tokens`, and
-either exclude or deterministically re-hash `users.password_hash` to a known demo
-password. **Bundle `storage/media`** (and decide on receipt PDFs/JSONL) alongside
-the SQL, or have the replay write placeholder media files, so photo tabs and
-lot-media timeline events render (Designer).
+### Phase 5 — Artifact capture (secrets excluded — Security)
+`pg_dump` excluding secret data: `--exclude-table-data=session`,
+`--exclude-table-data=photo_upload_tokens`; **deterministically re-hash
+`users.password_hash` to a documented demo password for every seeded user**
+(Completeness #7). **Resolve side-effects explicitly** (Completeness #8): JSONL
+journal (`appendJsonlJournal` writes ~365 dated files — append-only, not read on
+restore → safe to drop), receipt PDFs, and `storage/media` (bundle or write
+placeholders so photo tabs / lot-media timeline events render).
 
 ### Phase 6 — Restore tooling + docs
-- `pnpm seed:historical` (generate) and `pnpm seed:historical:restore`
-  (drop/recreate + `psql < seed-historical.sql` + unpack media) with concrete
-  commands and required env vars documented for alpha/beta operators (Designer).
-- **End-date vs restore-time**: either keep the dump end-date near restore time,
-  or add a post-restore "re-anchor recent activity to now()" step, so 30-day
-  widgets (aging inventory, matchmaking, finder reasons) aren't empty (Designer).
-- **Regenerate-on-migration** trigger/checklist so the dump doesn't silently rot
-  against schema changes (CTO).
+`pnpm seed:historical` (generate) and `pnpm seed:historical:restore`
+(drop/recreate + `psql < seed-historical.sql` + unpack media), with concrete
+commands, env vars (`ALLOW_DEMO_SEED`, `SEED_DB_HOST_ALLOWLIST`,
+`DEMO_RANDOM_SEED`, end-date), and the **demo login credentials** surfaced for
+alpha/beta operators. New scripts live under `scripts/seed-historical/` and are
+tooling, not `src/` domain code, so they stay outside `.coverage-thresholds.json`
+(Scope must-fix). No switch edits / new commands → ADR-0002 respected.
 
-### Phase 7 — Adversarial validation (`audit:realistic-demo` extension)
-Assert: timestamps spread across the full span (not clustered at now); balances
-reconcile; ledger sums tie to invoices/payments; inventory never negative; credit
-assessments exist **with multi-point history** per active customer; edge-state
-flows present at target rates; no journal row over-privileged. These pass **by
-construction** if the data is real — that passing is the proof.
+### Phase 7 — Validation (`audit:realistic-demo` extension)
+Consistency: timestamps spread across the span (not clustered at now);
+`created_at`/`postedAt`/`updatedAt` coherent per op; balances reconcile; ledgers
+tie to invoices/payments; inventory never negative; credit assessments exist; no
+journal row over-privileged. **Believability (new, Completeness note):** assert
+distributional targets — volume curve, customer concentration, and
+cancel/dispute/refund/role-mix rates matching the Phase 2 shape model — not just
+the single edge-rate check.
 
-## Risks
-- **faketime correctness** — must fake BOTH the Postgres process and the driver;
-  verify a probe row's `created_at` lands in the past before full replay.
-- **Surrogate-key nondeterminism** — artifact content is deterministic, keys are
-  not; do not promise byte-for-byte.
-- **Media/secret handling in the dump** — Phase 5 must be verified, not assumed.
-- **Prod safety** — default-deny host guard (Phase 0) is the single most
-  important control; `truncate cascade` makes a misfire catastrophic.
-- **Schema drift** — regenerable, not one-time (Phase 6 trigger).
+## Dependency (Scope + CTO must-fix)
+The alpha/beta persistent-environment plan does **not yet exist as a doc** (only
+the branch). **Decouple v1**: the seed produces `seed-historical.sql`
+independently of where it's restored. Do not start Phase 1 blocked on a phantom
+doc; link a real alpha/beta plan with a definition-of-ready before wiring restore.
 
-## Dependency
-Blocks on the alpha/beta persistent-environment work. **TODO: link the concrete
-plan doc** (currently only the branch `claude/database-alpha-beta-setup-u01whk`
-exists) with a definition-of-ready before Phase 1 starts (CTO).
-
-## Gate status
-Design-review gate (v1): **1 BLOCK (Architect) + 4 CONCERNS** → addressed in
-this v2. Next: plan-review gate (Feasibility, Completeness, Scope & Alignment).
+## Gate record
+- **Design gate (v1):** 1 BLOCK (Architect — DB `created_at` premise) + 4
+  CONCERNS (PM, Security, Designer, CTO) → addressed in v2.
+- **Plan gate (v2):** CONCERNS ×3 — Feasibility (alpine/musl faketime, clock
+  coherence, narrowed justification), Completeness (141 not 154, missing
+  bootstrap, login, side-effects), Scope (trim wrapper, decouple dependency) →
+  folded into this v3.
