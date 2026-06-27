@@ -11,6 +11,13 @@ import userEvent from '@testing-library/user-event';
 // Mocks
 // ---------------------------------------------------------------------------
 
+vi.mock('react-router-dom', () => ({
+  useLocation: () => ({ pathname: '/media' }),
+  useNavigate: () => vi.fn(),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  BrowserRouter: ({ children }: any) => children,
+}));
+
 const useQueryMock = vi.fn();
 const refetchMock = vi.fn().mockResolvedValue(undefined);
 
@@ -22,7 +29,9 @@ vi.mock('../api/trpc', () => ({
     queries: {
       grid: {
         useQuery: (...args: unknown[]) => useQueryMock(...args)
-      },
+      }
+    },
+    intake: {
       photographyQueue: {
         useQuery: () => ({ data: [] })
       }
@@ -119,7 +128,31 @@ vi.mock('../store/uiStore', () => ({
   useUiStore: (selector: (state: any) => any) =>
     selector({
       pushToast: pushToastMock,
-      isCellEditing: false
+      isCellEditing: false,
+      selectedRows: {},
+      setSelectedRows: vi.fn(),
+      gridFilters: {},
+      setGridFilter: vi.fn(),
+      gridColumnPrefs: {},
+      setGridColumnPrefs: vi.fn(),
+      resetGridColumnPrefs: vi.fn(),
+      activeDrawerEntityByView: {},
+      drawerByView: {},
+      setDrawerState: vi.fn(),
+      setDrawerEntity: vi.fn(),
+      gridAdvancedFilters: {},
+      setGridAdvancedFilter: vi.fn(),
+      clearGridAdvancedFilter: vi.fn(),
+      collapsedPanels: {},
+      focusedPanelId: null,
+      togglePanelCollapsed: vi.fn(),
+      setFocusedPanel: vi.fn(),
+      setActiveView: vi.fn(),
+      setActiveSettingsTab: vi.fn(),
+      pickQueueFilters: new Set<string>(),
+      setPickQueueFilter: vi.fn(),
+      clearPickQueueFilters: vi.fn(),
+      activeQuickLaunch: null,
     })
 }));
 

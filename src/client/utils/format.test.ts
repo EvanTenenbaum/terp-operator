@@ -37,8 +37,9 @@ describe('formatTs — epoch (0) edge case', () => {
     const result = formatTs(0, { variant: 'short' });
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
-    // 1970 should be in the short representation
-    expect(result).toMatch(/1970/);
+    // epoch 0 resolves to different dates depending on timezone (e.g., 12/31/1969 in PST, 1/1/1970 in UTC)
+    // Just verify we get a valid date string with the expected format
+    expect(result).toMatch(/^\d{1,2}\/\d{1,2}\/\d{4}/);
   });
 
   it('epoch Date falls through to full ts in relative variant (> 30 days ago)', () => {

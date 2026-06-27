@@ -24,6 +24,7 @@ const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/vendors' }),
   useNavigate: () => mockNavigate,
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
   BrowserRouter: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -36,26 +37,32 @@ vi.mock('../hooks/useFocusTrap', () => ({
 const vendorPaymentsData: unknown[] = [];
 const queryData: Record<string, unknown> = {};
 vi.mock('../api/trpc', () => {
-  const makeQueries = () =>
-    new Proxy(
-      {},
-      {
-        get: (_target, name: string) => ({
-          useQuery: () => ({
-            data: name === 'vendorPayments' ? vendorPaymentsData : queryData[name],
-            isLoading: false,
-            isError: false,
-            refetch: vi.fn(),
+  const makeDomainProxy = (): any => new Proxy({}, {
+    get: (_target, prop: string) => {
+      if (prop === 'useQuery') return () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() });
+      if (prop === 'useMutation') return () => ({ mutate: vi.fn(), isLoading: false });
+      return makeDomainProxy();
+    }
+  });
+
+  const trpcAny: any = new Proxy({}, {
+    get: (_target, prop: string) => {
+      if (prop === 'auth') return { me: { useQuery: () => ({ data: { role: 'owner' } }) } };
+      if (prop === 'queries') {
+        return new Proxy({}, {
+          get: (_t, name: string) => ({
+            useQuery: () => ({
+              data: name === 'vendorPayments' ? vendorPaymentsData : queryData[name],
+              isLoading: false, isError: false, refetch: vi.fn(),
+            }),
           }),
-        }),
+        });
       }
-    );
-  return {
-    trpc: {
-      queries: makeQueries(),
-      auth: { me: { useQuery: () => ({ data: { role: 'owner' } }) } },
-    },
-  };
+      return makeDomainProxy();
+    }
+  });
+
+  return { trpc: trpcAny };
 });
 
 // --- uiStore stub ---
@@ -69,6 +76,11 @@ vi.mock('../store/uiStore', () => ({
       pushToast: vi.fn(),
       gridFilters: {},
       setGridFilter: vi.fn(),
+      gridColumnPrefs: {},
+      setGridColumnPrefs: vi.fn(),
+      resetGridColumnPrefs: vi.fn(),
+      activeDrawerEntityByView: {},
+      drawerByView: {},
       collapsedPanels: {},
       focusedPanelId: null,
       togglePanelCollapsed: vi.fn(),

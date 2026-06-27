@@ -22,22 +22,26 @@ const meQueryMock = vi.fn();
 
 vi.mock('../api/trpc', () => ({
   trpc: {
-    queries: {
+    purchaseOrders: {
       purchaseOrderExternalReceipt: { useQuery: (input: unknown, options?: unknown) => externalQueryMock(input, options) },
       purchaseOrderInternalReceipt: { useQuery: (input: unknown, options?: unknown) => internalQueryMock(input, options) },
       purchaseOrderSignalText: { useQuery: (input: unknown, options?: unknown) => signalTextQueryMock(input, options) },
+      purchaseOrderPrintHtml: { useQuery: (input: unknown, options?: unknown) => poPrintHtmlQueryMock(input, options) },
+    },
+    salesOrders: {
       salesOrderExternalReceipt: { useQuery: (input: unknown, options?: unknown) => salesExternalQueryMock(input, options) },
       salesOrderInternalReceipt: { useQuery: (input: unknown, options?: unknown) => salesInternalQueryMock(input, options) },
       salesOrderSignalText: { useQuery: (input: unknown, options?: unknown) => salesSignalTextQueryMock(input, options) },
+      salesOrderPrintHtml: { useQuery: (input: unknown, options?: unknown) => soPrintHtmlQueryMock(input, options) },
+    },
+    payments: {
       paymentExternalReceipt: { useQuery: (input: unknown, options?: unknown) => paymentExternalQueryMock(input, options) },
       paymentInternalReceipt: { useQuery: (input: unknown, options?: unknown) => paymentInternalQueryMock(input, options) },
       paymentSignalText: { useQuery: (input: unknown, options?: unknown) => paymentSignalTextQueryMock(input, options) },
+      paymentPrintHtml: { useQuery: (input: unknown, options?: unknown) => payPrintHtmlQueryMock(input, options) },
       vendorPaymentExternalReceipt: { useQuery: (input: unknown, options?: unknown) => vendorPaymentExternalQueryMock(input, options) },
       vendorPaymentInternalReceipt: { useQuery: (input: unknown, options?: unknown) => vendorPaymentInternalQueryMock(input, options) },
       vendorPaymentSignalText: { useQuery: (input: unknown, options?: unknown) => vendorPaymentSignalTextQueryMock(input, options) },
-      purchaseOrderPrintHtml: { useQuery: (input: unknown, options?: unknown) => poPrintHtmlQueryMock(input, options) },
-      salesOrderPrintHtml: { useQuery: (input: unknown, options?: unknown) => soPrintHtmlQueryMock(input, options) },
-      paymentPrintHtml: { useQuery: (input: unknown, options?: unknown) => payPrintHtmlQueryMock(input, options) },
       vendorPaymentPrintHtml: { useQuery: (input: unknown, options?: unknown) => vpPrintHtmlQueryMock(input, options) }
     },
     auth: { me: { useQuery: () => meQueryMock() } }

@@ -31,10 +31,12 @@ vi.mock('../api/trpc', () => ({
   trpc: {
     queries: {
       reference: { useQuery: () => ({ data: { customers: [], vendors: [], categories: [] } }) },
+      statusCounts: { useQuery: () => ({ data: null, isLoading: false }) },
+    },
+    matchmaking: {
       matchmakingBoard: { useQuery: () => ({ data: { needs: [], supplies: [], matches: [] }, isLoading: false }) },
       matchmakingSettings: { useQuery: () => ({ data: null }) },
       matchmakingOpportunities: { useQuery: () => ({ data: { toMove: [], toSource: [] }, isLoading: false }) },
-      statusCounts: { useQuery: () => ({ data: null, isLoading: false }) },
     },
     auth: { me: { useQuery: () => ({ data: { role: 'owner' } }) } }
   }

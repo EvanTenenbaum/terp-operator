@@ -18,6 +18,7 @@ const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/x' }),
   useNavigate: () => mockNavigate,
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
   BrowserRouter: ({ children }: { children: React.ReactNode }) => children
 }));
 
@@ -38,12 +39,29 @@ vi.mock('../api/trpc', () => {
         })
       }
     );
-  return {
-    trpc: {
-      queries: makeQueries(),
-      auth: { me: { useQuery: () => ({ data: { role: 'owner' } }) } }
+
+  // Recursive domain proxy for nested namespaces (payments, salesOrders, connectors, etc.)
+  const domainProxy: any = new Proxy({}, {
+    get: (_target, prop: string) => {
+      if (prop === 'useQuery') return () => ({ data: queryData[prop], isLoading: false, isError: false, refetch: vi.fn() });
+      if (prop === 'useMutation') return () => ({ mutate: vi.fn(), isLoading: false });
+      if (prop === 'useInfiniteQuery') return () => ({ data: undefined, isLoading: false });
+      // Return another proxy for deeper nesting
+      return domainProxy;
     }
-  };
+  });
+
+  // Top-level trpc proxy
+  const trpcProxy: any = new Proxy({}, {
+    get: (_target, prop: string) => {
+      if (prop === 'auth') return { me: { useQuery: () => ({ data: { role: 'owner' } }) } };
+      if (prop === 'queries') return makeQueries();
+      // Any other domain (payments, salesOrders, connectors, etc.)
+      return domainProxy;
+    }
+  });
+
+  return { trpc: trpcProxy };
 });
 
 // --- uiStore mock ---
@@ -75,6 +93,8 @@ vi.mock('../store/uiStore', () => ({
       resetGridColumnPrefs: vi.fn(),
       gridDensity: 'normal',
       setGridDensity: vi.fn(),
+      activeDrawerEntityByView: {},
+      drawerByView: {},
       collapsedPanels: {},
       focusedPanelId: null,
       togglePanelCollapsed: vi.fn(),

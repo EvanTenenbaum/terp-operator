@@ -27,19 +27,18 @@ vi.mock('../hooks/useQuickLedgerDraftSync', () => ({
 vi.mock('../api/trpc', () => {
   const empty = () => ({ data: undefined, isLoading: false });
   const emptyMutation = () => ({ mutate: vi.fn(), isLoading: false });
-  const procProxy: unknown = new Proxy(
-    {},
-    {
-      get(_t, _p: string) {
-        return { useQuery: empty, useMutation: emptyMutation };
-      }
+  const deepProxy: any = new Proxy({}, {
+    get(_t, _p: string) {
+      return { useQuery: empty, useMutation: emptyMutation };
     }
-  );
+  });
   return {
-    trpc: {
-      auth: { me: { useQuery: () => ({ data: { id: 'u-1', role: 'owner' } }) } },
-      queries: procProxy
-    }
+    trpc: new Proxy({}, {
+      get(_t, prop: string) {
+        if (prop === 'auth') return { me: { useQuery: () => ({ data: { id: 'u-1', role: 'owner' } }) } };
+        return deepProxy;
+      }
+    })
   };
 });
 

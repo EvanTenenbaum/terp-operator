@@ -7,7 +7,7 @@ const useQueryMock = vi.fn();
 const authMeMock = vi.fn();
 vi.mock('../api/trpc', () => ({
   trpc: {
-    queries: {
+    intake: {
       batchMediaList: { useQuery: (...args: unknown[]) => useQueryMock(...args) }
     },
     auth: { me: { useQuery: (...args: unknown[]) => authMeMock(...args) } }

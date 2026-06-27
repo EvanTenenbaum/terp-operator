@@ -24,23 +24,45 @@ import type { ColDef } from 'ag-grid-community';
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
+  useLocation: () => ({ pathname: '/orders' }),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
   BrowserRouter: ({ children }: { children: React.ReactNode }) => children
 }));
 
 // ── trpc mock ────────────────────────────────────────────────────────────────
-vi.mock('../api/trpc', () => ({
-  trpc: {
-    queries: {
-      grid: { useQuery: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }) },
-      reference: { useQuery: () => ({ data: { refereeRelationships: [], customers: [], vendors: [] } }) }
-    },
-    auth: { me: { useQuery: () => ({ data: { role: 'owner' } }) } },
-    filters: {
-      updateFilter: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
-      deleteFilter: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) }
+vi.mock('../api/trpc', () => {
+  const domainProxy: any = new Proxy({}, {
+    get: (_target, prop: string) => {
+      if (prop === 'useQuery') return () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() });
+      if (prop === 'useMutation') return () => ({ mutate: vi.fn(), isLoading: false });
+      if (prop === 'useInfiniteQuery') return () => ({ data: undefined, isLoading: false });
+      return domainProxy;
     }
-  }
-}));
+  });
+
+  const trpcProxy: any = new Proxy({}, {
+    get: (_target, prop: string) => {
+      if (prop === 'auth') return { me: { useQuery: () => ({ data: { role: 'owner' } }) } };
+      if (prop === 'queries') return new Proxy({}, {
+        get: (_t, name: string) => {
+          if (name === 'grid') return { useQuery: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }) };
+          if (name === 'reference') return { useQuery: () => ({ data: { refereeRelationships: [], customers: [], vendors: [] } }) };
+          return { useQuery: () => ({ data: undefined, isLoading: false, isError: false, refetch: vi.fn() }) };
+        }
+      });
+      if (prop === 'filters') return new Proxy({}, {
+        get: (_t, name: string) => {
+          if (name === 'updateFilter') return { useMutation: () => ({ mutate: vi.fn(), isPending: false }) };
+          if (name === 'deleteFilter') return { useMutation: () => ({ mutate: vi.fn(), isPending: false }) };
+          return { useQuery: () => ({ data: undefined, isLoading: false }) };
+        }
+      });
+      return domainProxy;
+    }
+  });
+
+  return { trpc: trpcProxy };
+});
 
 // ── uiStore mock ──────────────────────────────────────────────────────────────
 const mockSetGridFilter = vi.fn();
@@ -55,7 +77,21 @@ vi.mock('../store/uiStore', () => ({
       setDrawerEntity: vi.fn(),
       setDrawerState: vi.fn(),
       setActiveView: mockSetActiveView,
-      setNextSuccessActions: vi.fn()
+      setNextSuccessActions: vi.fn(),
+      gridFilters: {},
+      gridColumnPrefs: {},
+      activeDrawerEntityByView: {},
+      drawerByView: {},
+      gridAdvancedFilters: {},
+      setGridAdvancedFilter: vi.fn(),
+      clearGridAdvancedFilter: vi.fn(),
+      collapsedPanels: {},
+      focusedPanelId: null,
+      togglePanelCollapsed: vi.fn(),
+      setFocusedPanel: vi.fn(),
+      pickQueueFilters: new Set<string>(),
+      setPickQueueFilter: vi.fn(),
+      clearPickQueueFilters: vi.fn(),
     })
 }));
 

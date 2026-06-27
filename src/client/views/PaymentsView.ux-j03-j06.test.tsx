@@ -18,6 +18,7 @@ const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/payments' }),
   useNavigate: () => mockNavigate,
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
   BrowserRouter: ({ children }: { children: React.ReactNode }) => children
 }));
 
@@ -39,12 +40,26 @@ vi.mock('../api/trpc', () => {
         })
       }
     );
-  return {
-    trpc: {
-      queries: makeQueries(),
-      auth: { me: { useQuery: () => ({ data: { role: 'owner' } }) } }
+
+  // Recursive domain proxy for nested namespaces (payments, etc.)
+  const domainProxy: any = new Proxy({}, {
+    get: (_target, prop: string) => {
+      if (prop === 'useQuery') return () => ({ data: queryData[prop], isLoading: false, isError: false, refetch: vi.fn() });
+      if (prop === 'useMutation') return () => ({ mutate: vi.fn(), isLoading: false });
+      if (prop === 'useInfiniteQuery') return () => ({ data: undefined, isLoading: false });
+      return domainProxy;
     }
-  };
+  });
+
+  const trpcProxy: any = new Proxy({}, {
+    get: (_target, prop: string) => {
+      if (prop === 'auth') return { me: { useQuery: () => ({ data: { role: 'owner' } }) } };
+      if (prop === 'queries') return makeQueries();
+      return domainProxy;
+    }
+  });
+
+  return { trpc: trpcProxy };
 });
 
 // ── uiStore mock ─────────────────────────────────────────────────────────────
@@ -69,6 +84,11 @@ vi.mock('../store/uiStore', () => ({
       gridAdvancedFilters: {},
       setGridAdvancedFilter: vi.fn(),
       clearGridAdvancedFilter: vi.fn(),
+      gridColumnPrefs: {},
+      setGridColumnPrefs: vi.fn(),
+      resetGridColumnPrefs: vi.fn(),
+      activeDrawerEntityByView: {},
+      drawerByView: {},
       collapsedPanels: {},
       focusedPanelId: null,
       togglePanelCollapsed: vi.fn(),

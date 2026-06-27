@@ -7,6 +7,13 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { GridRow } from '../../shared/types';
 
+vi.mock('react-router-dom', () => ({
+  useLocation: () => ({ pathname: '/items' }),
+  useNavigate: () => vi.fn(),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  BrowserRouter: ({ children }: any) => children,
+}));
+
 vi.mock('../hooks/useFocusTrap', () => ({
   useFocusTrap: () => ({ current: null })
 }));
@@ -22,7 +29,7 @@ let stubRows: GridRow[] = [];
 vi.mock('../components/OperatorGrid', () => ({
   OperatorGrid: (props: {
     title?: string;
-    selectionActions?: (rows: GridRow[]) => React.ReactNode;
+    selectionActions?: (rows: GridRow[]) => any;
   }) => (
     <div data-testid={`grid-${props.title ?? 'untitled'}`}>
       {props.selectionActions ? props.selectionActions(stubRows) : null}
@@ -72,7 +79,7 @@ vi.mock('../api/trpc', () => {
       specificQueries[name] ? specificQueries[name]() : { data: undefined, isLoading: false, isError: false, refetch: () => {} };
   }
 
-  const procProxy: unknown = new Proxy(
+  const domainProxy: unknown = new Proxy(
     {},
     {
       get(_target, prop: string) {
@@ -86,16 +93,49 @@ vi.mock('../api/trpc', () => {
   );
 
   return {
-    trpc: {
-      auth: {
-        me: { useQuery: makeUseQuery('me') },
-        logout: { useMutation: () => noopMutation },
-      },
-      queries: procProxy,
-      commands: procProxy,
-    },
+    trpc: new Proxy({}, {
+      get(_target, prop: string) {
+        if (prop === 'auth') return {
+          me: { useQuery: makeUseQuery('me') },
+          logout: { useMutation: () => noopMutation },
+        };
+        // queries, commands, items, etc.
+        return domainProxy;
+      }
+    })
   };
 });
+
+vi.mock('../store/uiStore', () => ({
+  useUiStore: (selector: (s: Record<string, unknown>) => unknown) =>
+    selector({
+      selectedRows: {},
+      setSelectedRows: vi.fn(),
+      setDrawerState: vi.fn(),
+      setDrawerEntity: vi.fn(),
+      pushToast: vi.fn(),
+      gridFilters: {},
+      setGridFilter: vi.fn(),
+      gridAdvancedFilters: {},
+      setGridAdvancedFilter: vi.fn(),
+      clearGridAdvancedFilter: vi.fn(),
+      gridColumnPrefs: {},
+      setGridColumnPrefs: vi.fn(),
+      resetGridColumnPrefs: vi.fn(),
+      activeDrawerEntityByView: {},
+      drawerByView: {},
+      collapsedPanels: {},
+      focusedPanelId: null,
+      togglePanelCollapsed: vi.fn(),
+      setFocusedPanel: vi.fn(),
+      setActiveView: vi.fn(),
+      setActiveSettingsTab: vi.fn(),
+      pickQueueFilters: new Set<string>(),
+      setPickQueueFilter: vi.fn(),
+      clearPickQueueFilters: vi.fn(),
+      activeQuickLaunch: null,
+    })
+}));
 
 import { ItemsView } from './ItemsView';
 

@@ -9,6 +9,7 @@ vi.mock('./documentSnapshots', () => ({
 import { createDraftSnapshot, finalizeSnapshot } from './documentSnapshots';
 import { createInvoiceReceipts } from './invoiceReceipts';
 import { invoice } from './projections/invoice';
+import { logger } from './logger';
 
 const SO_ID = '11111111-1111-1111-1111-111111111111';
 const INV_ID = '44444444-4444-4444-4444-444444444444';
@@ -146,7 +147,7 @@ describe('createInvoiceReceipts', () => {
 
   it('best-effort: missing SO row → warn + return, no snapshot', async () => {
     const pool = makePool([]);
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
     await expect(createInvoiceReceipts(pool as unknown as Pool, SO_ID, CMD_ID, USER_ID)).resolves.toBeUndefined();
     expect(warnSpy).toHaveBeenCalled();
     expect(vi.mocked(createDraftSnapshot)).not.toHaveBeenCalled();
@@ -155,7 +156,7 @@ describe('createInvoiceReceipts', () => {
 
   it('best-effort: missing invoice row → warn + return, no snapshot', async () => {
     const pool = makePool([{ rows: [baseSoRow()] }, { rows: baseLineRows() }, { rows: [] }]);
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
     await expect(createInvoiceReceipts(pool as unknown as Pool, SO_ID, CMD_ID, USER_ID)).resolves.toBeUndefined();
     expect(warnSpy).toHaveBeenCalled();
     expect(vi.mocked(createDraftSnapshot)).not.toHaveBeenCalled();
@@ -167,7 +168,7 @@ describe('createInvoiceReceipts', () => {
       { rows: [baseSoRow()] }, { rows: baseLineRows() }, { rows: [baseInvoiceRow()] }, { rows: [] }, { rows: [] }
     ]);
     vi.mocked(createDraftSnapshot).mockRejectedValueOnce(new Error('boom'));
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
     await expect(createInvoiceReceipts(pool as unknown as Pool, SO_ID, CMD_ID, USER_ID)).resolves.toBeUndefined();
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();

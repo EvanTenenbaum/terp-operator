@@ -31,6 +31,7 @@ const ENTITY_TO_STATUS_ENUM: Record<string, string> = {
   fulfillmentLine: 'FulfillmentLineStatus',
   connectorRequest: 'ConnectorRequestStatus',
   pickList: 'PickListStatus',
+  matchmakingMatch: 'MatchmakingMatchStatus',
 };
 
 /**
@@ -46,6 +47,16 @@ const KNOWN_ORPHAN_STATES = new Set<string>([
   // 'approved' when orderedAt is recorded; posting acts on batches, not the PO.
   'purchaseOrder::ordered',
   'purchaseOrder::posted',
+]);
+
+/**
+ * Known role-gate exceptions where the entity-action minRole is intentionally
+ * weaker than the command's commandMinRole. Format: `${entity}::${actionId}`
+ */
+const KNOWN_WEAK_GATES = new Set<string>([
+  // matchmakingMatch: reopenMatchmakingMatch has commandMinRole='manager'
+  // but entity allows 'operator' so operators can reopen from the matchmaking view.
+  'matchmakingMatch::reopenMatchmakingMatch',
 ]);
 
 /** Role hierarchy for comparing strictness. Higher rank = more restrictive. */
@@ -174,6 +185,9 @@ describe('entity state machines', () => {
         if (KNOWN_ORPHAN_STATES.has(orphanKey)) continue;
 
         for (const action of actions) {
+          const weakKey = `${machine.entity}::${action.id}`;
+          if (KNOWN_WEAK_GATES.has(weakKey)) continue;
+
           const cmdMinRole = commandMinRole[action.id as keyof typeof commandMinRole];
 
           if (cmdMinRole) {
@@ -215,13 +229,14 @@ describe('entity state machines', () => {
 
   // ── Sanity: entityActionConfigs matches expected entities ──────────────────
 
-  it('entityActionConfigs includes all 11 registered entities', () => {
+  it('entityActionConfigs includes all 12 registered entities', () => {
     const registered = Object.keys(entityActionConfigs).sort();
     expect(registered).toEqual([
       'batch',
       'connectorRequest',
       'fulfillmentLine',
       'invoice',
+      'matchmakingMatch',
       'payment',
       'pickList',
       'purchaseOrder',

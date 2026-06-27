@@ -16,6 +16,7 @@ const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
   useLocation: () => ({ pathname: '/intake' }),
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
 }));
 
 // --- uiStore mock ---
@@ -31,6 +32,18 @@ vi.mock('../store/uiStore', () => ({
       setSelectedRows: mockSetSelectedRows,
       setDrawerEntity: mockSetDrawerEntity,
       setGridFilter: mockSetGridFilter,
+      selectedRows: {},
+      gridFilters: {},
+      gridColumnPrefs: {},
+      activeDrawerEntityByView: {},
+      drawerByView: {},
+      gridAdvancedFilters: {},
+      setGridAdvancedFilter: vi.fn(),
+      clearGridAdvancedFilter: vi.fn(),
+      setDrawerState: vi.fn(),
+      pickQueueFilters: new Set<string>(),
+      setPickQueueFilter: vi.fn(),
+      clearPickQueueFilters: vi.fn(),
     };
     return selector(store);
   },
@@ -85,7 +98,7 @@ const mockOrderRow = {
 vi.mock('../api/trpc', () => ({
   trpc: {
     auth: { me: { useQuery: () => ({ data: { role: 'operator', name: 'Test' } }) } },
-    queries: {
+    intake: {
       intakeQueue: { useQuery: () => ({
         data: [mockOrderRow],
         isLoading: false,
